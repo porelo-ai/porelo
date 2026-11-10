@@ -19,8 +19,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Runs a transport's lifecycle - including {@code setup}, {@code enroll}, {@code retire}, {@code
- * join} and {@code part} - for a transport that keeps a conversation of its own, and keeps what it
- * hands back.
+ * join}, {@code part} and {@code members} - for a transport that keeps a conversation of its own,
+ * and keeps what it hands back.
  *
  * <p><strong>Porelo knows no transport here.</strong> What a room is, how an account is made, which
  * homeserver runs where: all the transport's, behind its lifecycle verbs. Porelo hands each verb
@@ -1115,6 +1115,151 @@ final class TransportLifecycle {
                 person);
     }
 
+    /** The room snapshot is bounded before JSON is parsed, including fields we do not return. */
+    private static final int MEMBERS_ANSWER_BYTES = 1024 * 1024;
+
+    private static final int MOST_MEMBERS = 1024;
+
+    private static final int ROOM_ID_LENGTH = 1024;
+
+    private static final int SHOWN_LENGTH = 256;
+
+    /**
+     * Reads current membership without making a room or keeping any of the transport's answer.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param settings What the project says to this transport.
+     * @param loopbackOnly Whether the project is offline.
+     * @return The judged room and its members, with an empty room before setup.
+     * @throws Refused If the verb is unsupported, the transport refuses or its answer is invalid.
+     */
+    RoomMembers members(
+            String scheme, String project, Map<String, Object> settings, boolean loopbackOnly)
+            throws Refused {
+        final Path adapter = transports.find(scheme);
+        if (adapter == null) {
+            throw new Refused("no transport for '" + scheme + "' is installed", 0);
+        }
+        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        if (!described.offers("members") || !described.takes(TransportInput.INPUT)) {
+            throw new Refused(
+                    "the " + scheme + " transport must offer members with secrets on stdin", 78);
+        }
+        final Map<?, ?> said =
+                run(
+                        scheme,
+                        described,
+                        settings,
+                        given(scheme, project),
+                        loopbackOnly,
+                        "members",
+                        "--project",
+                        project);
+        return judgedMembers(said, project, described.takes(LOGIN));
+    }
+
+    private RoomMembers judgedMembers(Map<?, ?> said, String project, boolean takesLogin)
+            throws Refused {
+        if (!(said.get("members") instanceof List<?> listed) || listed.size() > MOST_MEMBERS) {
+            throw badMembers("members must be a list of at most " + MOST_MEMBERS);
+        }
+        final String room =
+                said.containsKey("room") ? memberText(said, "room", ROOM_ID_LENGTH, true) : "";
+        if (room.isEmpty() && !listed.isEmpty()) {
+            throw badMembers("room is absent for a nonempty members list");
+        }
+        final List<RoomMembers.Member> members = new java.util.ArrayList<>();
+        final java.util.Set<String> ids = new java.util.HashSet<>();
+        final java.util.Set<String> tasks = new java.util.HashSet<>();
+        final String ownLogin = takesLogin ? login() : "";
+        java.util.@Nullable Set<String> containers = null;
+        for (final Object each : listed) {
+            if (!(each instanceof Map<?, ?> row)) {
+                throw badMembers("member must be an object");
+            }
+            final String id = memberText(row, "id", ROOM_ID_LENGTH, false);
+            final String shown = memberText(row, "shown", SHOWN_LENGTH, true);
+            final String state = memberText(row, "state", 6, false);
+            final String kind = memberText(row, "kind", 6, false);
+            if (!java.util.Set.of("join", "invite").contains(state)) {
+                throw badMembers("state must be join or invite");
+            }
+            if (!java.util.Set.of("task", "person", "helper", "other").contains(kind)) {
+                throw badMembers("kind must be task, person, helper or other");
+            }
+            if (!ids.add(id)) {
+                throw badMembers("duplicate member id");
+            }
+            if (!"task".equals(kind)) {
+                if (row.containsKey("task")) {
+                    throw badMembers("task is allowed only on kind task");
+                }
+                members.add(new RoomMembers.Member(id, shown, state, kind, null));
+                continue;
+            }
+            final String task = memberText(row, "task", ContainerName.MAX_LENGTH, false);
+            if (takesLogin) {
+                final String owner = memberText(row, LOGIN, 32, false);
+                if (!LOGIN_NAME.matcher(owner).matches()) {
+                    throw badMembers("login is not a login name");
+                }
+                if (!ownLogin.equals(owner)) {
+                    continue;
+                }
+            }
+            if (containers == null) {
+                // One host snapshot, only when a task of this account needs verification.
+                containers =
+                        new TaskInventory(context)
+                                .tasks().stream()
+                                        .filter(eachTask -> project.equals(eachTask.project()))
+                                        .map(TaskInventory.Task::name)
+                                        .collect(java.util.stream.Collectors.toSet());
+            }
+            if (!containers.contains(task)) {
+                throw badMembers("task is not a recorded container of project " + project);
+            }
+            if (!tasks.add(task)) {
+                throw badMembers("duplicate task container");
+            }
+            members.add(new RoomMembers.Member(id, shown, state, kind, task));
+        }
+        return new RoomMembers(room, members);
+    }
+
+    private static String memberText(Map<?, ?> row, String field, int longest, boolean empty)
+            throws Refused {
+        if (!(row.get(field) instanceof String text)
+                || text.length() > longest
+                || !empty && text.isBlank()
+                || text.codePoints().anyMatch(Character::isISOControl)) {
+            throw badMembers(
+                    field + " must be a control-free string of at most " + longest + " characters");
+        }
+        return text;
+    }
+
+    private static Refused badMembers(String detail) {
+        return new Refused("the transport answered members with an invalid " + detail, 76);
+    }
+
+    /** Even a successful display field must not carry a credential supplied on this invocation. */
+    private static boolean echoesCredential(@Nullable Object value, Map<String, String> secrets) {
+        return switch (value) {
+            case String text -> !withheld(text, secrets).equals(text);
+            case Map<?, ?> map ->
+                    map.entrySet().stream()
+                            .anyMatch(
+                                    entry ->
+                                            echoesCredential(entry.getKey(), secrets)
+                                                    || echoesCredential(entry.getValue(), secrets));
+            case List<?> list -> list.stream().anyMatch(each -> echoesCredential(each, secrets));
+            case null -> false;
+            default -> false;
+        };
+    }
+
     /**
      * Returns what {@code setup} said last of a project's conversation.
      *
@@ -1442,6 +1587,28 @@ final class TransportLifecycle {
         if (adapter == null) {
             throw new Refused("no transport for '" + scheme + "' is installed", 0);
         }
+        return run(
+                scheme,
+                TransportDescription.of(context.runner(), adapter),
+                settings,
+                kept,
+                loopbackOnly,
+                verb);
+    }
+
+    /** Keeps invocation and judgment on one capability snapshot. */
+    private Map<?, ?> run(
+            String scheme,
+            TransportDescription described,
+            Map<String, Object> settings,
+            Map<String, String> kept,
+            boolean loopbackOnly,
+            String... verb)
+            throws Refused {
+        final Path adapter = transports.find(scheme);
+        if (adapter == null) {
+            throw new Refused("no transport for '" + scheme + "' is installed", 0);
+        }
         final List<String> arguments = new java.util.ArrayList<>();
         arguments.add(adapter.toString());
         arguments.addAll(List.of(verb));
@@ -1453,7 +1620,11 @@ final class TransportLifecycle {
         // Never what setup answered, and never a machine's name: a person reaches the host from any
         // machine, and their Porelo runs once, in their own account there.
         // admit and dismiss name the other machine themselves, so no login is added.
-        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        if ("members".equals(verb[0])
+                && (!described.offers("members") || !described.takes(TransportInput.INPUT))) {
+            throw new Refused(
+                    "the " + scheme + " transport must offer members with secrets on stdin", 78);
+        }
         final Map<String, String> borrowed = borrowed(scheme, described, verb[0], settings);
         final Map<String, String> secrets = new LinkedHashMap<>(kept);
         secrets.putAll(borrowed);
@@ -1500,8 +1671,17 @@ final class TransportLifecycle {
                     result.exitCode(),
                     StartStep.cleanCause(said));
         }
+        if ("members".equals(verb[0])
+                && (result.standardOutput().length() > MEMBERS_ANSWER_BYTES
+                        || result.standardOutput().getBytes(StandardCharsets.UTF_8).length
+                                > MEMBERS_ANSWER_BYTES)) {
+            throw badMembers("answer larger than " + MEMBERS_ANSWER_BYTES + " bytes");
+        }
         try {
             if (Json.parse(result.standardOutput()) instanceof Map<?, ?> said) {
+                if ("members".equals(verb[0]) && echoesCredential(said, secrets)) {
+                    throw badMembers("answer containing a supplied credential");
+                }
                 return own(said, borrowed);
             }
         } catch (RuntimeException ex) {

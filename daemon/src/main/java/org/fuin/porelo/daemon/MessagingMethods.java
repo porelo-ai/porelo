@@ -20,6 +20,49 @@ final class MessagingMethods {
 
     private MessagingMethods() {}
 
+    /** Reads the project's live room membership. */
+    static Map<String, Object> roomMembers(PoreloContext context, Map<String, Object> parameters) {
+        final String name = text(parameters, "project");
+        final org.fuin.porelo.core.project.Project project;
+        try {
+            project = org.fuin.porelo.app.GateSupport.byName(context, name);
+        } catch (RuntimeException ex) {
+            throw new VarlinkException(INTERFACE + ".NoSuchProject", Map.of("project", name));
+        }
+        try {
+            return org.fuin.porelo.app.RoomMembers.read(context, project).asMap();
+        } catch (org.fuin.porelo.app.RoomMembers.Refused ex) {
+            throw switch (ex.failure()) {
+                case NO_TRANSPORT ->
+                        new VarlinkException(
+                                INTERFACE + ".NoTransport",
+                                Map.of("project", name, "transport", ex.transport()));
+                case NO_ROOM ->
+                        new VarlinkException(INTERFACE + ".NoRoom", Map.of("project", name));
+                case UNREACHABLE ->
+                        new VarlinkException(
+                                INTERFACE + ".HomeserverUnreachable",
+                                Map.of(
+                                        "project",
+                                        name,
+                                        "transport",
+                                        ex.transport(),
+                                        "message",
+                                        String.valueOf(ex.getMessage()),
+                                        "code",
+                                        ex.code()));
+                case REFUSED ->
+                        new VarlinkException(
+                                INTERFACE + ".ConversationRefused",
+                                Map.of(
+                                        "message",
+                                        String.valueOf(ex.getMessage()),
+                                        "code",
+                                        ex.code()));
+            };
+        }
+    }
+
     /**
      * Registers this area's methods.
      *
@@ -35,6 +78,10 @@ final class MessagingMethods {
             TaskInventory inventory,
             TaskControl control) {
         server.method("MessageKey", (parameters, replies) -> replies.last(messageKey(context)));
+
+        server.method(
+                "RoomMembers",
+                (parameters, replies) -> replies.last(roomMembers(context, parameters)));
 
         // The five message verbs. They are the same objects 'porelo talk' shows, through the same
         // classes, so an interface and a terminal cannot disagree about what a mailbox holds.

@@ -290,6 +290,34 @@ method DismissMachine(
 # Who has joined a project's conversation, by the name join was given.
 method MessageMembers(project: string) -> (members: []MessageMember)
 
+# Reads the current room through its transport without setting it up or changing membership.
+# An existing empty room returns members: []; no configured or set-up room is NoRoom.
+# NoTransport means no installed transport offers members. HomeserverUnreachable is exit 75;
+# missing settings or secrets (78) and malformed answers (76) are ConversationRefused.
+# This operator-facing query is never offered through a task's MCP socket.
+method RoomMembers(project: string) -> (room: string, members: []RoomMember)
+
+# Transport claims for display, never authority to deliver a message or act on a task.
+type RoomMember (
+  # The account's id in the room.
+  id: string,
+  # The name the room shows for it.
+  shown: string,
+  # join or invite.
+  state: string,
+  # task, person, helper or other. An other member is never taken as a task.
+  kind: string,
+  # Present only for a task recorded on this machine as belonging to the requested project.
+  # On a shared server only this account's own task members are included.
+  task: ?string
+)
+
+error NoTransport(project: string, transport: string)
+
+error NoRoom(project: string)
+
+error HomeserverUnreachable(project: string, transport: string, message: string, code: int)
+
 # Removes a joined person; user is empty when nothing remained, why explains a kept account.
 method RemoveMessageMember(project: string, person: string) -> (user: string, kept: bool, why: string)
 

@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  * @param confirms How far it can confirm a message: {@code handover}, {@code receipt} or {@code
  *     read}.
  * @param lifecycle The lifecycle verbs it offers - {@code setup}, {@code enroll}, {@code retire},
- *     {@code join} - empty for a transport that keeps no conversation of its own.
+ *     {@code join}, {@code part}, {@code members} - empty for a transport that keeps no
+ *     conversation of its own.
  * @param waitsOn What its setup waits on, or empty.
  * @param takes The options it takes beyond the ones every transport does - {@code login} for the
  *     person's login on its lifecycle verbs. An option it does not list is never passed: an unknown
@@ -238,7 +239,7 @@ public record TransportDescription(
     /**
      * Says whether this transport offers a lifecycle verb.
      *
-     * @param verb {@code setup}, {@code enroll}, {@code retire} or {@code join}.
+     * @param verb A lifecycle verb, including {@code members} for a live room read.
      * @return {@code true} when it listed it.
      */
     public boolean offers(String verb) {

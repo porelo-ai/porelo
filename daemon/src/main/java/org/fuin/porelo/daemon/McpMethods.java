@@ -105,6 +105,8 @@ final class McpMethods {
             Set.of(
                     "PullRequests",
                     "WatchPullRequests",
+                    // A host-credentialed query returns unfiltered server names for the operator.
+                    "RoomMembers",
                     "StartStoryWork",
                     "StopStoryWork",
                     "Panic",

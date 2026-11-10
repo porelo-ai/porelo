@@ -111,6 +111,7 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
 | `retire --project P --task T` | when the task is removed | account, project and task secrets | `{}` |
 | `join --project P --person N [--reset] [--token] [--display NAME]` | on `porelo talk join` | account and project secrets | `login` (for an interface, answered once), `shown` (for the command line); with `--token`, `secrets` holding the person's access token as its one entry and no password anywhere, which `talk join --into-vault` keeps, and `login.room`, the room's id, which it prints; `--display` is the name the room shows, checked by the transport |
 | `part --project P --person N` | on `porelo talk remove`; `N`, as `join`'s, is always a login, `[a-z][a-z0-9-]{0,31}` | account and project secrets | `{"removed":"<account>"}`, `{"kept":"<account>","why":"<words>"}`, or `{}` when nothing remains |
+| `members --project P` | on the daemon's `RoomMembers` | account and project secrets on stdin; requires `"secrets": "input"` | `{"room":"<room>","members":[{"id":"<account>","shown":"<name>","state":"join\|invite","kind":"task\|person\|helper\|other","task":"<container>"}]}`; `task` only for a task; `members: []` with no room before setup |
 | `clear [--project P]` | when a project is cleared from the machine, with `--project`; when the account's vault is cleared, without | the account's secrets, and the project's with `--project` | `removed` |
 | `settings` | when a project file is checked | nothing: no secrets, no network | `refused`, `warnings` |
 | `admit --project P --machine M` | on `porelo talk admit`, on the machine whose server holds the conversation | account and project secrets | `admission` (what machine `M` needs to reach the conversation) and `secrets` (what it keeps as secrets), answered once, never kept here |
@@ -122,9 +123,9 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
 - **`setup` is run again and again** and keeps what exists. A server whose first account exists while Porelo holds
   no account secrets is refused (78), not guessed around.
 - **`reaches`** is every host the project's messages reach; Porelo lets the transport reach those and nothing else.
-  For an offline project Porelo adds `--loopback-only` to `setup`, `enroll`, `join` and `part`, and the transport refuses
+  For an offline project Porelo adds `--loopback-only` to `setup`, `enroll`, `join`, `part` and `members`, and the transport refuses
   (78) before it contacts anything but loopback.
-- **`--login LOGIN`** is added to `setup`, `enroll`, `retire`, `join` and `clear` for a transport that `takes`
+- **`--login LOGIN`** is added to `setup`, `enroll`, `retire`, `join`, `members` and `clear` for a transport that `takes`
   it; `admit` and `dismiss` carry the other machine's name instead, and no login is added. `LOGIN` is this account's
   login on the host, which is the person's, always, never the `login` a `setup` answered; Porelo refuses (78) before
   running the transport when it is not a lowercase letter followed by at most 31 lowercase letters, digits or `-`
@@ -136,9 +137,16 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
   naming the transport, without running a lifecycle verb.
 - **`"admitted": false`** from `setup`, exiting 0 with its `account` secrets, means a person still has to let this
   machine in; Porelo starts no task of the project until it is true, and absent means true.
-- **`--persons`** is what `members` is given, always, with every admitted person's login from the project's
-  members, comma separated and sorted, of either role; it is also their login on the homeserver. With no admitted person
-  left it is given empty, `--persons ""`, and the room keeps no person but its maker. `poll` is given `--persons` for
+- **`members` is a live read**, never setup, enrollment or an invitation. Exit 75 means the homeserver is
+  unreachable; 78 means settings or secrets are missing. Its answer is at most 1 MiB of UTF-8 and 1,024
+  members; room and member ids are at most 1,024 characters, shown names 256, container names 64 and logins
+  32. Required fields, known states and kinds, and control-free strings are checked; unknown fields are
+  not returned. Duplicate member ids or task containers are refused. A task must be recorded on this machine
+  as belonging to this project. A transport that takes `login` must include it on every task member;
+  task members with another login are omitted. A supplied credential echoed in an answer is refused.
+- **`--persons`** gives `poll` every admitted person's login from the project's members, comma separated
+  and sorted, of either role; it is also their login on the homeserver. With no admitted person left it is
+  given empty, `--persons ""`, and the room keeps no person but its maker. `poll` is given `--persons` for
   a transport whose `takes` list names `persons` or that announces `"persons": true`. Porelo has no verb of its own to
   invite or remove a person.
 - A verb a transport does not list is never run.

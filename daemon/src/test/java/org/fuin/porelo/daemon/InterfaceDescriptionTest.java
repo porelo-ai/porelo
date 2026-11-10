@@ -84,6 +84,29 @@ class InterfaceDescriptionTest {
     private static final Set<String> BUILT_IN = Set.of("string", "int", "float", "bool", "object");
 
     @Test
+    void roomMembersDeclaresTheProjectedFieldsAndDistinctFailures() {
+        // A client needs current room members and typed failures to offer the correct next action.
+        final String description = PoreloDaemon.description();
+        assertThat(description)
+                .as("the live membership signature and its failures")
+                .contains(
+                        "method RoomMembers(project: string) -> (room: string, members: []RoomMember)",
+                        "error NoTransport(project: string, transport: string)",
+                        "error NoRoom(project: string)",
+                        "error HomeserverUnreachable(project: string, transport: string, message: string, code: int)");
+        final Matcher member =
+                Pattern.compile("(?ms)^type RoomMember \\(\\n(.*?)^\\)").matcher(description);
+        assertThat(member.find()).as("the member type is declared").isTrue();
+        assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), member.group(1)))
+                .as("the fields sent for a task member")
+                .isEqualTo(
+                        new org.fuin.porelo.app.RoomMembers.Member(
+                                        "@task", "Task", "join", "task", "porelo-p-api")
+                                .asMap()
+                                .keySet());
+    }
+
+    @Test
     void memberRemovalDeclaresItsInputsOutcomesAndMissingMemberError() {
         // Clients need every outcome and a named missing-member refusal to implement revocation.
         final String description = PoreloDaemon.description();

@@ -74,6 +74,19 @@ mail:
 
 A transport is a package on the host; [writing a transport](transports.md) says what one answers.
 
+The daemon's `RoomMembers(project)` reads the room's current membership through the transport. It returns the
+room and each member's `id`, `shown` name, `state` (`join` or `invite`) and `kind` (`task`, `person`, `helper` or
+`other`). Only a task carries `task`, the container name checked against this project's tasks on this machine;
+on a shared server only this account's own task members are included. These are transport claims for display,
+not permission to deliver a message. `MessageMembers` and `porelo talk members` read the host's admitted people.
+
+An existing empty room answers with an empty members list. `NoTransport` means the transport is absent or
+does not offer `members`; `NoRoom` means no room is configured or set up; `HomeserverUnreachable` means the
+transport could not reach its server (exit 75). Missing settings or secrets (78) and malformed answers (76)
+are `ConversationRefused`, with a diagnostic naming the problem. Reading members never sets up a room or
+joins anyone. It requires a transport that takes secrets on stdin, and is unavailable as a task's MCP tool:
+the server's display names are read for the operator's room dialog.
+
 ## What the host guarantees
 
 - **Every message is signed on the host by its task's own key**, never in the task: a detached OpenSSH
