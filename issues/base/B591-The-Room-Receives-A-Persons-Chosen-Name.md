@@ -1,6 +1,6 @@
 # [B591](README.md#b591) — The Room Receives A Person's Chosen Name
 
-**Status:** Analyzed. Filed 2026-11-10 under ST290, from the fourth move.
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-10 under ST290, from the fourth move.
 **Size:** M - include names in the organization fetch result and carry admitted persons' names through the host follow to the transport input.
 **Blocked by:** [B550](README.md#b550).
 

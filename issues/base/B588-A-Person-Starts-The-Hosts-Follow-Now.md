@@ -1,6 +1,6 @@
 # [B588](README.md#b588) — A Person Starts The Host's Follow Now
 
-**Status:** Analyzed. Filed 2026-11-10 under ST290, from the fourth move.
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-10 under ST290, from the fourth move.
 **Size:** M - one authorized host verb and its person-side command, shared-pass waiting, documentation and machine acceptance.
 **Blocked by:** [B550](README.md#b550).
 
