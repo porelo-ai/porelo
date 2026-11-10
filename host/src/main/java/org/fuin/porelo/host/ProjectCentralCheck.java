@@ -365,6 +365,10 @@ final class ProjectCentralCheck {
             env.put("GIT_SSL_CAINFO", ca.toString());
         }
         final var argv = new ArrayList<>(List.of(runtime.checked("/usr/bin/git").toString()));
+        // The scratch repository is removed when the check ends; a maintenance run Git detaches
+        // after a fetch
+        // would still be writing into it while it is removed.
+        argv.addAll(List.of("-c", "maintenance.auto=false", "-c", "gc.auto=0"));
         argv.addAll(arguments);
         final HostPrograms.Result result;
         try {
