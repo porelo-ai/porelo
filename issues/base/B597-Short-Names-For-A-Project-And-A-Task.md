@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B597",
   "title": "Short Names For A Project And A Task",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 2,
@@ -16,7 +16,7 @@
 
 **Why this size.** the project file's `project.short`, a start's `--short`, the wire field and the codec's use of them.
 
-Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+Implementing since 2026-11-10 (`porelo-project` ST307). Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
 
 High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
