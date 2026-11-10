@@ -119,7 +119,16 @@ public final class PoreloHost implements Callable<Integer> {
             Uid uid,
             PrintWriter out,
             PrintWriter err) {
-        return run(args, environment, uid, out, err, new HostFiles(), HostPerson::from);
+        return run(
+                args,
+                environment,
+                uid,
+                out,
+                err,
+                new HostFiles(),
+                args.length >= 2 && args[0].equals("org") && args[1].equals("follow-now")
+                        ? env -> HostPerson.from(env, java.time.Duration.ofSeconds(10))
+                        : HostPerson::from);
     }
 
     static int run(
@@ -279,6 +288,7 @@ public final class PoreloHost implements Callable<Integer> {
                 new CommandLine(new Group())
                         .addSubcommand("status", new OrgStatus(host))
                         .addSubcommand("follow", new OrgFollow(host))
+                        .addSubcommand("follow-now", new OrgFollowNow(host))
                         .addSubcommand("refresh", new OrgRefresh(host))
                         .addSubcommand("renew-pin", new OrgRenewPin(host)));
         command.addSubcommand(
@@ -380,10 +390,14 @@ public final class PoreloHost implements Callable<Integer> {
         }
     }
 
-    private HostPerson sudoPerson(String verb) {
+    private void requireSudo(String verb) {
         if (environment.getOrDefault("SUDO_USER", "").isEmpty()) {
             throw new HostRefusal(64, verb + " runs through sudo, for the person who calls it");
         }
+    }
+
+    private HostPerson sudoPerson(String verb) {
+        requireSudo(verb);
         try {
             return person.apply(environment);
         } catch (HostRefusal ex) {
@@ -545,11 +559,48 @@ public final class PoreloHost implements Callable<Integer> {
         @Override
         public Integer call() throws IOException {
             HostFollow.root(spec.name(), host.environment);
-            final var answer =
-                    new HostFollow(host.files, spec.commandLine().getErr())
-                            .run(spec.name(), host.environment, System.in);
-            spec.commandLine().getOut().println(HostJson.write(answer));
-            return 0;
+            final HostFollowNow service = new HostFollowNow(host.files, host.runtime);
+            final var invocation =
+                    spec.name().equals("follow") ? service.begin(host.environment) : null;
+            int exit = 73;
+            try {
+                final var answer =
+                        new HostFollow(host.files, spec.commandLine().getErr())
+                                .run(spec.name(), host.environment, System.in);
+                spec.commandLine().getOut().println(HostJson.write(answer));
+                exit = 0;
+                return exit;
+            } catch (HostRefusal ex) {
+                exit = ex.exitCode();
+                throw ex;
+            } finally {
+                if (invocation != null) service.finish(invocation, exit);
+            }
+        }
+    }
+
+    @Command(
+            name = "follow-now",
+            exitCodeOnInvalidInput = 64,
+            description =
+                    "Ask the fixed root service for one follow pass and wait for its completion.")
+    static final class OrgFollowNow implements Callable<Integer> {
+        private final PoreloHost host;
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        OrgFollowNow(PoreloHost host) {
+            this.host = host;
+        }
+
+        @Override
+        public Integer call() throws IOException {
+            final HostFollowNow service = new HostFollowNow(host.files, host.runtime);
+            host.requireSudo("org follow-now");
+            final var entry = service.capture();
+            final HostPerson person = host.sudoPerson("org follow-now");
+            final var completion = service.follow(person, entry);
+            spec.commandLine().getOut().println(HostJson.write(completion.answer()));
+            return completion.exitCode();
         }
     }
 

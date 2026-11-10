@@ -136,6 +136,31 @@ These four verbs take an exclusive flock on forge.conf for authorization,
 record publication and forge changes. They take the person from SUDO_USER only.
 A temporary administrator token is deleted before answering, even on failure.
 No certificate or token is put on a command line or in a diagnostic.
+.TP
+.B org follow\-now
+Through sudo only: ask the fixed porelo-host-follow.service to read the organization
+now, or join its current start job, and wait for that pass. Takes no arguments or
+input. SUDO_USER and SUDO_UID must identify a currently admitted, unlocked,
+non-pending, unrevoked person in root's records. A task account cannot call it.
+The exact sudo rule is:
+.nf
+%porelo-people ALL=(root) NOPASSWD: /usr/sbin/porelo-host org follow-now
+.fi
+The configuration lock is released before requesting or waiting for the service.
+The service still runs org follow as root; no caller environment, token, login or
+service name enters it. Only completion metadata is returned, never organization
+status or journal contents:
+.nf
+{"invocation":"<32 lowercase hex digits>","completed":true,"exitCode":0}
+.fi
+The command returns the pass's exit status, including a failed pass. Failure to
+obtain a completion prints a diagnostic on stderr with no completed answer.
+The new command's account lookup is limited to ten seconds within its 660-second
+wait budget; service calls take at most ten seconds each. A timeout or interrupted
+wait never stops the shared pass. A private coordinator and immutable job and
+invocation receipts under /run/porelo-host/follow-now retain the selected pass
+through later invocations, until reboot. systemctl and busctl are checked system
+programs; only the fixed unit's StartUnit job is requested, with mode fail.
 .SH OPTIONS
 .TP
 .BR \-h ", " \-\-help
@@ -249,6 +274,13 @@ Boundary codes 77 and 78 still apply before the verb runs.
 .B org refresh
 0 refreshed; 64 bad arguments; 65 sudo, invalid or unexpected token, pin, records or signed state;
 69 host file, dependency, deadline or reconciliation failure; 73 unsafe path, input, lock, publication or unhandled file/data failure.
+.TP
+.B org follow\-now
+0 completed pass; a completed failure returns that pass's nonzero exit status and
+the same completed JSON answer. Without a completion: 64 bad arguments or no
+SUDO_USER; 65 invalid sudo identity or person not admitted; 69 unavailable service,
+account lookup, receipt, timeout or interrupted wait; 73 unsafe coordination path,
+configuration lock or receipt publication failure. Shared boundary codes still apply.
 .TP
 .B org renew\-pin
 0 pins replaced and status shown; 64 bad arguments; 65 sudo, invalid pins, no organization or invalid records;

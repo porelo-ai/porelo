@@ -12,11 +12,15 @@ record HostPerson(String login, long uid) {
     }
 
     static HostPerson from(Map<String, String> environment) {
+        return from(environment, java.time.Duration.ZERO);
+    }
+
+    static HostPerson from(Map<String, String> environment, java.time.Duration timeout) {
         return from(
                 environment,
                 login -> {
                     final HostPrograms.Result result =
-                            new HostPrograms(java.time.Duration.ZERO, 65536)
+                            new HostPrograms(timeout, 65536)
                                     .run(List.of("getent", "passwd", login));
                     if (result.exitCode() == 2) {
                         return "";

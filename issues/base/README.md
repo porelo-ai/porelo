@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b588"></a>[B588](B588-A-Person-Starts-The-Hosts-Follow-Now.md) | M | [B550](README.md#b550) | An admitted person's `porelo host follow` starts or joins one host follow pass through one sudo verb and answers its completion status. | 0 |
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> \| restore-runtime`. |
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
 | <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. |
@@ -144,7 +145,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b590"></a>[B590](B590-The-Gathered-Push-Takes-Repository-Names-And-Names-A-401.md) | M | [B544](README.md#b544), [B580](README.md#b580) | The gathered push takes a project-file key or forge name and reports a central 401 before any push, through the shared typed refusal. | 0 |
-| <a id="b588"></a>[B588](B588-A-Person-Starts-The-Hosts-Follow-Now.md) | M | [B550](README.md#b550) | An admitted person's `porelo host follow` starts or joins one host follow pass through one sudo verb and answers its completion status. | 0 |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. | 0 |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |

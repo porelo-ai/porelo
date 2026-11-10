@@ -44,9 +44,14 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
 
     static CommandResult system(
             org.fuin.porelo.core.process.CommandRunner runner, Command command) {
+        return system(runner, command, Duration.ofMinutes(10));
+    }
+
+    static CommandResult system(
+            org.fuin.porelo.core.process.CommandRunner runner, Command command, Duration limit) {
         if (!(runner instanceof org.fuin.porelo.core.process.ProcessCommandRunner))
             return runner.run(command);
-        try (HostGatherRunner bounded = new HostGatherRunner(Duration.ofMinutes(10))) {
+        try (HostGatherRunner bounded = new HostGatherRunner(limit)) {
             return bounded.run(command);
         }
     }

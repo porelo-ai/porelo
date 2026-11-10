@@ -10,6 +10,7 @@ import picocli.CommandLine.Command;
         subcommands = {
             HostUnlockCommand.class,
             HostForgeTokenCommand.class,
+            HostFollowCommand.class,
             HostCentralStateCommand.class,
             HostStopSecretsCommand.class,
             HostGatherPushCommand.class,

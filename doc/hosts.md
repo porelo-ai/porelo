@@ -194,6 +194,38 @@ the vault and the current operation, never a terminal. If saving a newly issued 
 operation warns and continues using it in memory. There is no privileged push or pull verb. For removal, the host
 keeps `porelo-host project check-central`, the read-only preservation check; `down` is separate.
 
+## Ask the host to follow now
+
+Run `porelo host follow` in the person's account on the host. The window runs this command through the host's
+login shell; porelod never invokes the privileged verb. It waits for one follow pass, joining a pass already
+running or requested by another person or the timer. Both waiters receive the same completion, including failure.
+
+The command runs checked system programs from `/`, without a shell or caller environment:
+`sudo -n /usr/sbin/porelo-host org follow-now`. The person comes from sudo's `SUDO_USER` and `SUDO_UID`, checked
+against the account database and current root-owned admission and revocation records. Task accounts and unknown,
+locked, pending or revoked people cannot start a pass. The exact additional sudo rule is:
+
+```sudoers
+%porelo-people ALL=(root) NOPASSWD: /usr/sbin/porelo-host org follow-now
+```
+
+There is no login, service or token argument. The fixed `porelo-host-follow.service` continues to run
+`/usr/sbin/porelo-host org follow` as root with no caller credential. The package and this sudo rule must both be
+installed; an older host program answers unavailable and the client names the update it needs.
+
+A completed pass answers `{"invocation":"<32 lowercase hex digits>","completed":true,"exitCode":0}` and exits
+with that pass's status. A failed pass carries its nonzero status in the answer and the process exit code. A
+refusal or inability to obtain a result has no completed answer and a diagnostic on stderr. Status 64 means usage
+or a missing sudo identity, 65 means refusal, 69 means unavailable, and 73 means an unsafe or inaccessible host
+file or lock; a completed pass may itself return those nonzero statuses. The client preserves the host's output
+and status; it maps an older host's unknown-verb status 64 to unavailable status 69.
+
+The host waits at most 660 seconds, including a ten-second account lookup bound. The person's process allows
+twelve minutes for that answer. Configuration locks are released before requesting or waiting for the pass.
+Canceling a waiter leaves the shared service running. Private receipts under `/run/porelo-host/follow-now`
+associate systemd start jobs with invocation identities and retain completions until reboot, so a newer pass
+cannot replace the result selected by an earlier caller. Organization details and service logs remain root's.
+
 ## A task certificate judged for the host
 
 A machine is a host whose persons start tasks when `/etc/porelo-host` or the installed `/usr/sbin/porelo-host` is
