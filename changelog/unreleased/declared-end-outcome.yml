@@ -1,0 +1,2 @@
+title: "Tasks declare DONE or BLOCKED with a bounded reason through their own socket; List and Watch carry the declaration as ended, or derive FAILED from an unfinished agent run"
+type: added

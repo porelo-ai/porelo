@@ -194,7 +194,16 @@ class McpTaskSocketsTest {
         }
         call(socket, "Done", Map.of("task", LEAD));
         final Path record = context.paths().tasks().taskRecord(LEAD).resolve("done");
-        assertThat(record).hasContent("done\n");
+        assertThat(new org.fuin.porelo.app.TaskDone(context.paths()).read(LEAD))
+                .as("the default declaration still completes the task")
+                .isNotNull()
+                .satisfies(
+                        ended -> {
+                            assertThat(ended.outcome())
+                                    .as("default outcome")
+                                    .isEqualTo(org.fuin.porelo.app.TaskDone.Outcome.DONE);
+                            assertThat(ended.why()).as("default reason").isEmpty();
+                        });
         assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(record)))
                 .isEqualTo("rw-------");
         assertThat(record.startsWith(context.paths().messaging().mailbox(LEAD))).isFalse();
@@ -972,7 +981,15 @@ class McpTaskSocketsTest {
                                         "lastMessage",
                                         "the child's answer",
                                         "agentEnded",
-                                        Map.of("error", "what it printed"))),
+                                        Map.of("error", "what it printed"),
+                                        "ended",
+                                        Map.of(
+                                                "outcome",
+                                                "BLOCKED",
+                                                "why",
+                                                "the child's reason",
+                                                "at",
+                                                "now"))),
                         "unrecognized",
                         List.of()));
 

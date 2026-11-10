@@ -29,6 +29,24 @@ import org.jspecify.annotations.Nullable;
  */
 public final class TaskInventory {
 
+    /** How the work ended, whether declared or derived. */
+    public enum EndOutcome {
+        /** The task declared its work complete. */
+        DONE,
+        /** The task declared that its work cannot continue. */
+        BLOCKED,
+        /** An undeclared run ended unfinished. */
+        FAILED
+    }
+
+    /** How the work ended, declared by its task or derived from an unfinished run. */
+    public record Ended(EndOutcome outcome, String why, String at) {
+        /** Returns the outcome as the interface reads it. */
+        public Map<String, Object> asMap() {
+            return Map.of("outcome", outcome.name(), "why", why, "at", at);
+        }
+    }
+
     /**
      * One task, as much as this machine can say about it.
      *
@@ -78,6 +96,7 @@ public final class TaskInventory {
      * @param named The name its start was given, or {@code null} when it took its repository's.
      * @param logicalTask Logical task for display, empty when unknown or contradictory, or {@code
      *     null} for a legacy snapshot.
+     * @param ended How the work ended, or {@code null} when nothing declared or derived it.
      */
     public record Task(
             String name,
@@ -118,7 +137,92 @@ public final class TaskInventory {
             String modelLabel,
             String modelFrom,
             @Nullable String named,
-            @Nullable String logicalTask) {
+            @Nullable String logicalTask,
+            @Nullable Ended ended) {
+
+        /** A snapshot made before declared outcomes were carried. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters,
+                String phase,
+                String lastWrote,
+                int inboxWaiting,
+                @Nullable String forgeBranch,
+                boolean certified,
+                String certifiedUntil,
+                String model,
+                String modelLabel,
+                String modelFrom,
+                @Nullable String named,
+                @Nullable String logicalTask) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    phase,
+                    lastWrote,
+                    inboxWaiting,
+                    forgeBranch,
+                    certified,
+                    certifiedUntil,
+                    model,
+                    modelLabel,
+                    modelFrom,
+                    named,
+                    logicalTask,
+                    null);
+        }
 
         /** A snapshot made before a verified logical task was carried explicitly. */
         public Task(
@@ -1002,6 +1106,9 @@ public final class TaskInventory {
             if (agentEnded != null) {
                 map.put("agentEnded", agentEnded.asMap());
             }
+            if (ended != null) {
+                map.put("ended", ended.asMap());
+            }
             map.put("waitingFor", waitingFor == null ? "" : waitingFor);
             map.put("clearance", clearance == null ? "" : clearance);
             // Beside the name, never instead of it: the name is what every other call takes and
@@ -1435,9 +1542,11 @@ public final class TaskInventory {
                 ended != null && summary.running()
                         ? Activity.ENDED
                         : activityOf(summary, lastWrote, waitingFor);
+        final TaskDone.Declared declared = new TaskDone(context.paths()).read(summary.name());
         final Activity activity =
                 (observed == Activity.DEAD || observed == Activity.IDLE)
-                                && new TaskDone(context.paths()).recorded(summary.name())
+                                && declared != null
+                                && declared.outcome() == TaskDone.Outcome.DONE
                         ? Activity.DONE
                         : observed;
         return new Task(
@@ -1539,7 +1648,19 @@ public final class TaskInventory {
                 profile == null || profile.modelLabel() == null ? "" : profile.modelLabel(),
                 profile == null ? "" : profile.modelFrom(),
                 profile == null ? null : profile.named(),
-                logicalTask(summary));
+                logicalTask(summary),
+                ended(declared, ended));
+    }
+
+    private static @Nullable Ended ended(
+            TaskDone.@Nullable Declared declared, AgentEnding.@Nullable Ended run) {
+        if (declared != null) {
+            return new Ended(
+                    EndOutcome.valueOf(declared.outcome().name()), declared.why(), declared.at());
+        }
+        return run != null && !run.finished()
+                ? new Ended(EndOutcome.FAILED, run.error(), run.at())
+                : null;
     }
 
     /** A legacy project's label scopes its display name even when no id authorizes an action. */

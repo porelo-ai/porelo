@@ -51,6 +51,17 @@ type AgentEnded (
   answerCut: bool
 )
 
+# How the work ended. FAILED is derived, never declared by a task.
+type EndOutcome (DONE, BLOCKED, FAILED)
+
+type TaskEnded (
+  outcome: EndOutcome,
+  # The task's reason, or agentEnded.error for a derived FAILED.
+  why: string,
+  # When the task declared it, or agentEnded.at for a derived FAILED, ISO-8601.
+  at: string
+)
+
 # How a person is meant to be involved in a task.
 type Mode (
   # A terminal in the container, driven by hand.
@@ -193,6 +204,10 @@ type Task (
   # stopped with its run (activity DEAD). Absent while it runs, and for an agent that does not read
   # its own end.
   agentEnded: ?AgentEnded,
+  # The task's declaration, else FAILED when agentEnded.finished is false, else absent.
+  # A declaration from before outcomes reads as DONE with why "" and the mark's modification time.
+  # This does not change activity: only a declared DONE can give stopped or IDLE work activity DONE.
+  ended: ?TaskEnded,
   # What it is waiting to be told: a clearance question, or review while its work is on the
   # gate's waiting list. A passed online push supplies no review reason. "" for a stopped task.
   waitingFor: string,
@@ -452,14 +467,18 @@ type Log (
 # shows them as what they are, never as tasks: removing one removes what is in it.
 method List() -> (tasks: []Task, unrecognized: []string)
 
-# The task's own declaration that its work is done, carried only by a task socket whose project's
+# The task's own declaration of how its work ended, carried only by a task socket whose project's
 # mcp.methods includes Done. task must be that socket's task, never even a child or another project.
-# A call over the person's socket, or naming anybody else, is NotItsOwn. No free text is accepted.
-# The daemon stores the fixed value in its private durable task record, outside the mailbox mount.
-# Stopped or IDLE work then has activity DONE and state "done". Work that resumes output is WORKING
+# A call over the person's socket, or naming anybody else, is NotItsOwn. outcome defaults to DONE.
+# why is the one free text accepted: at most 1024 UTF-8 bytes, one line, no control characters,
+# refused rather than trimmed or cut. BLOCKED requires a non-blank why; DONE without why stores "".
+# It reaches only the task's reader, never another agent's prompt. Task sockets without Logs or Tail
+# receive no ended in List or Watch. The daemon stores outcome, why and its time in its private
+# durable task record, outside the mailbox mount. A declared DONE gives stopped or IDLE work
+# activity DONE and state "done"; BLOCKED leaves activity as observed. Work that resumes output is WORKING
 # again without losing the declaration; ENDED is unchanged. A later start clears the declaration.
 # This replaces no completion message to the room, and neither stops nor removes the container.
-method Done(task: string) -> ()
+method Done(task: string, outcome: ?(DONE, BLOCKED), why: ?string) -> ()
 
 # The same answer, again whenever it changes.
 #

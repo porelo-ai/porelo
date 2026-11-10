@@ -428,11 +428,16 @@ public final class Reach {
                         Kind.CONTROL),
                 new Row(
                         Part.PRODUCE,
-                        "A declaration of completion over MCP",
-                        "Only the task bound to that socket may be marked done, never a child or"
-                                + " another project's task. The endpoint must allow `Done`; the"
-                                + " daemon writes only a fixed value to its private durable record,"
-                                + " outside every task mount, and a later start clears it",
+                        "A declaration of how work ended over MCP",
+                        "Only the task bound to that socket may declare DONE or BLOCKED, never a child or"
+                                + " another project's task. The endpoint must allow `Done`; the daemon keeps its"
+                                + " outcome, time and a reason of at most "
+                                + TaskDone.MOST_WHY
+                                + " UTF-8 bytes, one line with no control characters, in its private durable"
+                                + " record outside every task mount. BLOCKED requires a non-blank reason. The"
+                                + " reason reaches the task's reader, never another agent's prompt; task"
+                                + " endpoints without Logs or Tail receive no `ended` in List or Watch. A later"
+                                + " start clears the declaration",
                         Kind.CONTROL),
                 new Row(
                         Part.PRODUCE,

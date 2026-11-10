@@ -84,7 +84,7 @@ This is observation, with no ceiling on what a task can spend. See [credentials]
 | Work, in `offline` | No Git forwarding: stays in the host's Git mirror until a person exports a bundle or fetches it; model calls still reach the model provider through the broker, and declared `egress.host_services` reach the host on TCP 443 | control |
 | What the agent installed | Counted with `podman diff` before removal, and dies with the container | control |
 | What it reached for | Journaled per task, and kept after the task | control |
-| A declaration of completion over MCP | Only the task bound to that socket may be marked done, never a child or another project's task. The endpoint must allow `Done`; the daemon writes only a fixed value to its private durable record, outside every task mount, and a later start clears it | control |
+| A declaration of how work ended over MCP | Only the task bound to that socket may declare DONE or BLOCKED, never a child or another project's task. The endpoint must allow `Done`; the daemon keeps its outcome, time and a reason of at most 1024 UTF-8 bytes, one line with no control characters, in its private durable record outside every task mount. BLOCKED requires a non-blank reason. The reason reaches the task's reader, never another agent's prompt; task endpoints without Logs or Tail receive no `ended` in List or Watch. A later start clears the declaration | control |
 | `gate protect`'s hook | Fires on a first, an ordinary and a force push. Four things go round it: `--no-verify`, a `core.hooksPath` pointing elsewhere, a fresh clone, and a client built on a git library | **accident-catcher** |
 | `gate check`'s author test | The author can be spoofed | **accident-catcher** |
 

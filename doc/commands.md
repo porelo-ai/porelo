@@ -371,13 +371,25 @@ for declared completion while stopped or idle, and otherwise the container runti
 | `dead` | the container is not up |
 | `unknown` | nothing on this side can see what it does, such as a task with a terminal attached |
 
-Where the project's MCP endpoint allows `Done`, a task calls `Done(task: CONTAINER)` for itself only.
-The daemon keeps the fixed completion value in the host's private durable task record, outside the
-mailbox mount. A stop or reboot keeps it; a later start clears it. If the task produces output again,
+Where the project's MCP endpoint allows `Done`, a task calls
+`Done(task: CONTAINER, outcome: DONE|BLOCKED, why: REASON)` for itself only. Omitting `outcome`
+declares DONE as before; omitting `why` for DONE stores `""`. BLOCKED requires a non-blank reason.
+The reason is at most 1024 UTF-8 bytes, one line with no control characters; an invalid reason is
+refused, never trimmed or cut. A call over the person's socket, or naming another task, is `NotItsOwn`.
+The daemon keeps the outcome, reason and time in the host's private durable task record, outside the
+mailbox mount. A stop or reboot keeps it; a later start clears it. Only a declared DONE gives stopped
+or idle work activity `done`; BLOCKED leaves activity as observed. If the task produces output again,
 its activity is `working` until it is idle again, with the declaration kept. `ended` keeps its existing
 meaning. Completion adds no waiting reason and does not stop the container: `running` still answers
 whether the container is up. `task list`, `task status` (including `--json`) and the daemon's `List`
 and `Watch` carry the same state.
+
+Each row of the daemon's `List` and `Watch` answers the work's outcome as `ended`, with `outcome`,
+`why` and `at`: the task's declaration first, else FAILED with `agentEnded.error` and `agentEnded.at`
+when its run ended unfinished, else absent. A finished run alone declares no completion. An old
+`done` mark reads as DONE with `why` `""` and the mark's modification time. The reason reaches only
+the task's reader, never another agent's prompt; task endpoints without Logs or Tail receive no
+`ended` in `List` or `Watch`. This data field is separate from the CLI's `ended` line about the agent's run.
 
 `task status --json` adds, after `name`, `state`, `running`, `project`, `repository` and `parameters` in that
 order, `task` for the short name, `container` for the full container name, and `model`, `modelLabel` and

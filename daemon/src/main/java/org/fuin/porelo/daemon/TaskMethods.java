@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.TaskControl;
+import org.fuin.porelo.app.TaskDone;
 import org.fuin.porelo.app.TaskInventory;
 import org.fuin.porelo.app.TaskLaunch;
 import org.fuin.porelo.app.TaskPanic;
@@ -56,12 +57,34 @@ final class TaskMethods {
                     INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
         }
         for (final String parameter : parameters.keySet()) {
-            if (!"task".equals(parameter)) {
+            if (!java.util.Set.of("task", "outcome", "why").contains(parameter)) {
                 throw new VarlinkException(
                         "org.varlink.service.InvalidParameter", Map.of("parameter", parameter));
             }
         }
-        new org.fuin.porelo.app.TaskDone(context.paths()).record(task);
+        final Object outcomeValue = parameters.get("outcome");
+        final TaskDone.Outcome outcome;
+        if (outcomeValue == null) {
+            outcome = TaskDone.Outcome.DONE;
+        } else if (outcomeValue instanceof String text
+                && (text.equals("DONE") || text.equals("BLOCKED"))) {
+            outcome = TaskDone.Outcome.valueOf(text);
+        } else {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "outcome"));
+        }
+        final Object whyValue = parameters.get("why");
+        if (whyValue != null && !(whyValue instanceof String)) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "why"));
+        }
+        try {
+            new TaskDone(context.paths())
+                    .record(task, outcome, whyValue == null ? "" : (String) whyValue);
+        } catch (IllegalArgumentException ex) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "why"));
+        }
     }
 
     static org.fuin.porelo.app.FirstStart firstStart(final PoreloContext context) {
