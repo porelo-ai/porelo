@@ -15,7 +15,7 @@ class HostProjectMeasurementsTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-11-03T00:00:00Z"), ZoneOffset.UTC);
     final List<String> readers = new ArrayList<>();
     String applied =
-            "{\"projects\":[{\"project\":\"alpha\",\"members\":[{\"login\":\"alice\",\"locked\":false},{\"login\":\"bob\",\"locked\":false}]}]}";
+            "{\"revoked\":[],\"persons\":[{\"login\":\"alice\",\"revoked\":false,\"expires\":null},{\"login\":\"bob\",\"revoked\":false,\"expires\":null}],\"projects\":[{\"project\":\"alpha\",\"members\":[{\"login\":\"alice\",\"locked\":false},{\"login\":\"bob\",\"locked\":false}]}]}";
 
     @BeforeEach
     void start() throws Exception {
@@ -59,6 +59,52 @@ class HostProjectMeasurementsTest {
 
     Path answer() {
         return host.files.etc.resolve("organization/central/alpha.json");
+    }
+
+    // Failed reader replacement cannot preserve a departed member's readable central answer.
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"prepare-getent", "prepare-acl", "measure-getent", "measure-acl"})
+    void failedReaderReplacementRemovesTheOldAnswer(String failure) throws Exception {
+        measure();
+        final var before = host.program;
+        host.program =
+                argv -> {
+                    if (argv.getFirst()
+                            .equals(
+                                    failure.endsWith("getent")
+                                            ? "/usr/bin/getent"
+                                            : "/usr/bin/setfacl"))
+                        return new HostPrograms.Result(1, "");
+                    return before.apply(argv);
+                };
+        final var measurements = new ProjectMeasurements(host.files, host.runtime, clock);
+        assertThatThrownBy(
+                        () -> {
+                            if (failure.startsWith("prepare"))
+                                measurements.prepare(List.of("alpha"));
+                            else measure();
+                        })
+                .isInstanceOf(HostRefusal.class);
+        assertThat(answer()).as("failure revokes the old answer").doesNotExist();
+    }
+
+    // A failed new measurement must not leave an old successful central answer visible.
+    @Test
+    void aFailedFinalAclRemovesTheEarlierCentralAnswer() throws Exception {
+        measure();
+        final var before = host.program;
+        final var asked = new java.util.concurrent.atomic.AtomicBoolean();
+        host.program =
+                argv -> {
+                    if (argv.contains("ls-remote")) asked.set(true);
+                    if (argv.getFirst().equals("/usr/bin/setfacl") && asked.get())
+                        return new HostPrograms.Result(1, "");
+                    return before.apply(argv);
+                };
+        assertThatThrownBy(this::measure).isInstanceOf(HostRefusal.class);
+        assertThat(asked).as("failure follows the new central measurement").isTrue();
+        assertThat(answer()).as("a failed measurement leaves no stale success").doesNotExist();
     }
 
     // py: test_how_main_stands_is_published_to_the_projects_unlocked_members_alone
@@ -243,7 +289,7 @@ class HostProjectMeasurementsTest {
     void aBatchSharesItsDeadlineAcrossProjects() throws Exception {
         host.write(
                 "/etc/porelo-host/organization/applied.json",
-                "{\"projects\":[{\"project\":\"alpha\",\"members\":[]},{\"project\":\"beta\",\"members\":[]}]}");
+                "{\"revoked\":[],\"persons\":[{\"login\":\"alice\",\"revoked\":false,\"expires\":null},{\"login\":\"bob\",\"revoked\":false,\"expires\":null}],\"projects\":[{\"project\":\"alpha\",\"members\":[]},{\"project\":\"beta\",\"members\":[]}]}");
         final var now = new java.util.concurrent.atomic.AtomicReference<>(clock.instant());
         final Clock moving =
                 new Clock() {

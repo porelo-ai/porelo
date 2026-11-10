@@ -42,6 +42,13 @@ final class GateMethods {
             TaskInventory inventory,
             TaskControl control) {
         server.method(
+                "Arrivals",
+                (parameters, replies) ->
+                        replies.last(
+                                org.fuin.porelo.app.HostArrivalLedger.read(
+                                        text(parameters, "project"),
+                                        text(parameters, "repository"))));
+        server.method(
                 "CredentialTryPush",
                 (parameters, replies) -> {
                     final String source = text(parameters, "source");

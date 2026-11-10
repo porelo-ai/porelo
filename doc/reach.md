@@ -52,6 +52,10 @@ See [the firewall](security.md) and [DNS](security.md) for how this is enforced.
 | The workspace's `.git/hooks` and `.git/config` | Stay inside the container, where no host-side `git` runs them | control |
 | Additional TLS trust | Only the host authority explicitly placed in the account's owner-only `task-ca-certificates.pem` is copied into a task, read-only; the host clients' `ca-certificates.pem` stays on the host. The system store and Node gain that trust; egress rules still bound the destinations | control |
 
+Through a declared MCP `Arrivals` method, a task can read its own project's published arrival ledger.
+The daemon checks and bounds the snapshot as described under [host arrivals](hosts.md#reading-a-repositorys-arrivals).
+The restriction to the task's own project is a control.
+
 ## Spend: what a task can use up
 
 **Not bounded: a credential that cannot be read can still be spent.** The phantom token can do

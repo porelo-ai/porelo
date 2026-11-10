@@ -407,6 +407,7 @@ class UpstreamWatchTest {
     @ValueSource(strings = {"missing", "not-roots", "group-writable", "parent-writable", "symlink"})
     void aHostThatCannotBeAskedKeepsTheEarlierNumberAndCannotSay(String how, @TempDir Path dir)
             throws Exception {
+        // A refused host file cannot erase evidence of pending work.
         final UpstreamWatch watch = watch(dir, true);
         if (!"missing".equals(how)) {
             answering(withBackend("{\"repository\":\"backend\",\"state\":\"up-to-date\"}"));
@@ -436,7 +437,7 @@ class UpstreamWatchTest {
                     watch.centralAttributes =
                             path ->
                                     path.equals(centralFile)
-                                            ? java.util.Map.of("uid", 0, "mode", 0120777)
+                                            ? java.util.Map.of("uid", 0, "mode", 0120755)
                                             : regular.read(path);
             default -> throw new IllegalArgumentException(how);
         }

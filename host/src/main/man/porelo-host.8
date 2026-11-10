@@ -32,7 +32,7 @@ the parent waits at most 280 seconds and the whole request must be read within o
 10,000 commits; stderr is limited to 1 MiB.
 Accept only complete worker provenance for refs the request updates, with no duplicate
 commits and at most 10,000 commits. Append accepted arrival verdicts privately before
-answering 200; refuse an append that would exceed the ledger's 16 MiB read bound.
+answering 200. Ledger growth does not impose a total-size limit on pushes or follow.
 Signature or request
 refusals answer 403 with their reasons; host failures answer 500. Only-deletion pushes
 need no quarantine and record no arrival. Every HTTP answer closes the connection.
@@ -302,6 +302,34 @@ remaining domain/volume, file or dependency failure; 65 sudo invocation.
 0 withdrawn, absent or forge gone; 64 bad arguments; 65 data, wrong lock or forge refusal;
 69 not root or dependency/read/lock failure; 73 output write failure.
 .SH FILES
+.TP
+.I /var/lib/porelo-host/arrivals/<project>/<repository>.jsonl
+Root's private append/fsync ledger of pre-receive judgements, mode 0600.
+.TP
+.I /etc/porelo-host/organization/arrivals/<project>/<repository>.jsonl
+Complete UTF-8 JSON Lines snapshot, atomically replaced after a judged push.
+Root owns the file; named-user read ACLs grant only the applied project's unlocked
+members with an unlocked, non-pending person record and an existing local account.
+Both the applied organization and person file must carry an unrevoked, unexpired card.
+The file starts at 0600, with a read-only ACL mask; others cannot read it.
+Publication directories are 0711. Follow revokes old readers before slow work,
+republishes existing ledgers, and prunes departed projects and repositories.
+Repository and project removal revoke publications before deleting private history.
+Rows carry verdict and arrived; accepted rows add commit, ref and signer,
+migrated rows name pre-judge commits, and armed marks hook installation.
+This records the judgement, not proof of a later forge ref update.
+Porelod reads this snapshot directly through Tasks1 Arrivals, checking root ownership,
+regular-file type, all parents, no symlinks and no group/other write permissions.
+Missing or refused data answers cannot-say; no sudo reading verb exists.
+Publication failure refuses the push and removes the stale public answer.
+Publication streams the complete ledger; the daemon's 16 MiB read bound never
+prevents further judgements or follow. Follow scans the locked private ledger with
+a 128 KiB bound per line. Arming records migration history privately, and follow
+publishes it after admitting members. Empty files are unavailable; an empty armed
+repository has an armed row. The daemon accepts snapshots up to 16 MiB and folds
+repository display casing to lowercase. Task MCP reads stay in the task's project.
+A failed revocation keeps publication closed until
+root repairs its cause and successfully runs porelo-host org follow.
 .TP
 .B /etc/porelo-host/
 Root's forge.conf, people records and organization state, pin and project progress.

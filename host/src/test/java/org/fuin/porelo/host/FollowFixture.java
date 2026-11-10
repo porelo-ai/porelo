@@ -50,6 +50,23 @@ final class FollowFixture {
 
     FollowFixture(Path root) throws Exception {
         project = new ProjectFixture(root);
+        final Map<Path, Integer> owners = new HashMap<>();
+        project.files =
+                new ProjectFiles(
+                        root,
+                        project.files.owner,
+                        Files::deleteIfExists,
+                        path -> {
+                            final var attrs =
+                                    new HashMap<>(
+                                            Files.readAttributes(
+                                                    path,
+                                                    "unix:uid,mode",
+                                                    LinkOption.NOFOLLOW_LINKS));
+                            if (owners.containsKey(path)) attrs.put("uid", owners.get(path));
+                            return attrs;
+                        },
+                        (path, uid, gid) -> owners.put(path, uid));
         host =
                 new HostFiles(
                         root,
@@ -72,7 +89,7 @@ final class FollowFixture {
                             if (path.getParent() != null
                                     && path.getParent()
                                             .equals(root.resolve("run/porelo-host/people"))) {
-                                attrs.put("uid", Files.getAttribute(root, "unix:uid"));
+                                attrs.put("uid", owners.getOrDefault(path, project.files.owner));
                             }
                             if (!descriptor && !path.startsWith(root)) {
                                 attrs.put("mode", 040755);
@@ -95,7 +112,7 @@ final class FollowFixture {
                 };
         final long uid = ((Number) Files.getAttribute(root, "unix:uid")).longValue();
         for (String login : List.of("alice", "bob", "charlie", "forge")) {
-            accounts.put(login, uid);
+            accounts.put(login, login.equals("forge") ? uid : uid + accounts.size() + 1);
         }
         write("/etc/login.defs", "UID_MIN 1000\n");
         write("/etc/subuid", "");
@@ -456,8 +473,14 @@ final class FollowFixture {
                 .until(now.plusSeconds(300));
     }
 
+    // A file system reuses a deleted file's inode: a new file must not inherit its ACL.
+    private static List<Object> identity(Path file) throws IOException {
+        return List.of(
+                Files.getAttribute(file, "unix:ino"), Files.getAttribute(file, "creationTime"));
+    }
+
     List<String> readers(String name) throws IOException {
-        return acls.getOrDefault(Files.getAttribute(path(name), "unix:ino"), List.of());
+        return acls.getOrDefault(identity(path(name)), List.of());
     }
 
     private HostPrograms.Result command(
@@ -549,8 +572,9 @@ final class FollowFixture {
             }
         }
         if (name.equals("setfacl")) {
-            final Object inode = Files.getAttribute(Path.of(argv.getLast()), "unix:ino");
-            acls.put(inode, List.of(argv.get(argv.indexOf("--modify") + 1).split(",")));
+            acls.put(
+                    identity(Path.of(argv.getLast())),
+                    List.of(argv.get(argv.indexOf("--modify") + 1).split(",")));
             return new HostPrograms.Result(0, "");
         }
         if (name.equals("ssh-keygen")) {
@@ -589,7 +613,9 @@ final class FollowFixture {
             return new HostPrograms.Result(0, "");
         }
         if (name.equals("useradd")) {
-            accounts.put(argv.getLast(), (long) project.files.owner);
+            accounts.put(
+                    argv.getLast(),
+                    accounts.values().stream().mapToLong(Long::longValue).max().orElse(1000) + 1);
             return new HostPrograms.Result(0, "");
         }
         if (name.equals("userdel")) {

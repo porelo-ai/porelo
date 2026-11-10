@@ -281,3 +281,23 @@ error PushRefused(
   command: []string,
   message: string
 )
+# Reads the host's complete published arrival ledger directly, without sudo or a network request.
+# project and repository name the host forge's copies; repository casing is folded to lowercase.
+# A task's MCP endpoint holds project to the task's own project. Reads
+# /etc/porelo-host/organization/arrivals/<project>/<repository>.jsonl, at most 16 MiB,
+# only as a regular root-owned file with root-owned directory ancestors, no symlinks,
+# and no group/other write permission on any component, as for published central state.
+# Missing, unreadable, unsafe, oversized or malformed data is cannot-say, never an empty history.
+# Historical judgements are returned unchanged; signatures are not verified again.
+# These are pre-receive judgements, not proof that the forge updated its refs.
+method Arrivals(project: string, repository: string) -> (
+  # read or cannot-say. An armed repository without commits still has an armed row.
+  state: string,
+  # host-file-unavailable for a missing/unreadable/unsafe file, host-answer-refused for malformed data or names.
+  why: ?string,
+  # Ledger order. Each row has verdict (accepted, migrated or armed) and arrived (UTC).
+  # accepted adds commit, ref and signer (kind, fingerprint, principal, certificate, signed_by);
+  # migrated adds commit; armed marks installation of the hook.
+  # Empty on cannot-say. An empty file is unavailable, never a successful empty history.
+  entries: []object
+)

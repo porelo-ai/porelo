@@ -37,6 +37,16 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class InterfaceDescriptionTest {
 
+    @Test
+    void arrivalsDistinguishAnUnavailablePublicationFromAnEmptyHistory() {
+        // A client must not hide judged work when the host cannot supply its publication.
+        assertThat(PoreloDaemon.description())
+                .as("arrivals expose a named unavailable state and the recorded rows")
+                .contains("method Arrivals(project: string, repository: string)")
+                .contains("entries: []object")
+                .contains("cannot-say");
+    }
+
     private static PoreloContext context(Path dir) {
         final XdgPaths xdg =
                 XdgPaths.of(

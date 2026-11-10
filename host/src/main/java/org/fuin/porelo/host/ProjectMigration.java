@@ -407,6 +407,7 @@ final class ProjectMigration {
                         "the forge still holds " + project + "/" + name + "; keeping its read key");
             }
         }
+        new ProjectArrivals(files, runtime).remove(project, ProjectReadKeys.lower(name));
         if (files.exists(arrivals)) {
             files.delete(arrivals);
         }

@@ -132,9 +132,9 @@ A verifier answer can record only refs in the hook's updates and at most 10,000 
 The signer has exactly `kind`, `fingerprint`, `principal`, `certificate` and `signed_by`: strings
 bounded as the verifier writes them, with null allowed only for the last three. Kinds, certificate
 forms and fingerprints retain the verifier's shapes. The whole answer is validated before recording.
-Under the ledger's exclusive append lock, the current bytes plus the entire UTF-8 append must fit
-`HostFiles`' 16 MiB read bound, used by `FollowPushes.arm`; an oversized append answers 500 with a
-standard-error diagnostic and leaves the existing ledger unchanged.
+The ledger's exclusive append lock covers append, fsync and complete snapshot publication. Follow
+streams ledger lines with a 128 KiB bound per line, so history has no total size cap that stops a push
+or follow. A refused publication restores the previous ledger and removes a newly empty file.
 
 One monotonic 30-second deadline bounds reading the entire HTTP request, including header and body;
 progress cannot renew it. The socket reader uses the same kind of whole-request deadline, while an

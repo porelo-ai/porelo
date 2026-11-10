@@ -140,6 +140,7 @@ class HostCentralStateCommandTest {
             })
     void aMissingOrUntrustedCentralFileAnswersCannotSayWithHostCommandFailedNeverUpToDate(
             final String flaw) throws Exception {
+        // Unsafe host files cannot invent a clean central state.
         final Path centralDir = Files.createDirectories(dir.resolve("central"));
         final Path file = centralDir.resolve("porelo.json");
         if (!"missing".equals(flaw)) {
@@ -166,7 +167,7 @@ class HostCentralStateCommandTest {
                                             : base.read(path);
                             case "file-symlink" ->
                                     path.equals(file)
-                                            ? Map.of("uid", 0, "mode", 0120777)
+                                            ? Map.of("uid", 0, "mode", 0120755)
                                             : base.read(path);
                             case "parent-not-root" ->
                                     path.equals(centralDir)
@@ -178,7 +179,7 @@ class HostCentralStateCommandTest {
                                             : base.read(path);
                             case "parent-symlink" ->
                                     path.equals(centralDir)
-                                            ? Map.of("uid", 0, "mode", 0120777)
+                                            ? Map.of("uid", 0, "mode", 0120755)
                                             : base.read(path);
                             default -> base.read(path);
                         };

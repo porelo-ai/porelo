@@ -36,6 +36,7 @@ final class McpMethods {
      */
     static final Set<String> READING =
             Set.of(
+                    "Arrivals",
                     "GetPlanningWorkflow",
                     "ListStories",
                     "GetStory",

@@ -30,6 +30,11 @@ final class HostFiles {
         this(root, attributes, attributes);
     }
 
+    ProjectFiles projects() {
+        check(root, 69, true, true, -1);
+        return new ProjectFiles(root, 0, path -> Files.deleteIfExists(path), attributes::read);
+    }
+
     private HostFiles(
             Path root,
             RootOwnedFile.Attributes attributes,

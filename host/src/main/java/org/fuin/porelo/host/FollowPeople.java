@@ -615,13 +615,9 @@ final class FollowPeople {
             if (passwd.exitCode() != 0 || fields.length != 7 || !fields[3].matches("[0-9]{1,10}")) {
                 throw new HostRefusal(69, "the person's primary group could not be read");
             }
-            Files.setAttribute(
-                    directory, "unix:gid", Integer.parseInt(fields[3]), LinkOption.NOFOLLOW_LINKS);
-            Files.setAttribute(
-                    directory, "unix:uid", (int) account.uid(), LinkOption.NOFOLLOW_LINKS);
+            c.files.owner(directory, (int) account.uid(), Integer.parseInt(fields[3]));
         } else {
-            final var attributes =
-                    Files.readAttributes(directory, "unix:uid,mode", LinkOption.NOFOLLOW_LINKS);
+            final var attributes = c.files.attributes(directory);
             if (!Long.valueOf(account.uid())
                             .equals(
                                     ((Number)

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -13,40 +12,48 @@ final class ProjectMeasurements {
     private final ProjectFiles files;
     private final ProjectRuntime runtime;
     private final Clock clock;
+    private final ProjectPublication publication;
 
     ProjectMeasurements(ProjectFiles files, ProjectRuntime runtime, Clock clock) {
         this.files = files;
         this.runtime = runtime;
         this.clock = clock;
+        publication = new ProjectPublication(files, runtime, clock);
     }
 
-    /** Prune stale projects and revoke every former reader before any central question starts. */
+    /** Close access before any fallible trust publication or reader replacement. */
+    void revoke() throws IOException {
+        final Path directory = files.etc.resolve("organization/central");
+        if (files.exists(directory)) {
+            files.directory(directory, false, false);
+            java.nio.file.Files.setAttribute(
+                    directory, "unix:mode", 0700, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        }
+    }
+
+    /** Revoke all former readers before resolving any replacement reader. */
     void prepare(List<String> projects) throws IOException {
         final Path directory = files.etc.resolve("organization/central");
-        if (projects.isEmpty() && !files.exists(directory)) {
-            return;
-        }
+        if (projects.isEmpty() && !files.exists(directory)) return;
         files.mkdir(directory, 0711);
-        java.nio.file.Files.setAttribute(
-                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        revoke();
         for (Path path : files.list(directory)) {
             files.trusted(path, false);
             final String name = path.getFileName().toString();
-            if (name.startsWith(".porelo-host-person.")
-                    || name.endsWith(".json.new")
-                    || name.endsWith(".json")
-                            && !projects.contains(name.substring(0, name.length() - 5))) {
+            if (name.endsWith(".json") && projects.contains(name.substring(0, name.length() - 5))) {
+                final String content = files.text(path, false);
                 files.delete(path);
-            } else if (!name.endsWith(".json")) {
+                publish(path, content, publication.readers(name.substring(0, name.length() - 5)));
+                continue;
+            } else if (!(name.startsWith(".porelo-host-person.")
+                    || name.endsWith(".json.new")
+                    || name.endsWith(".json"))) {
                 throw new HostRefusal(65, "the central states directory holds an unknown file");
             }
+            files.delete(path);
         }
-        for (String project : projects) {
-            final Path path = directory.resolve(project + ".json");
-            if (files.exists(path)) {
-                publish(path, files.text(path, false), readers(project));
-            }
-        }
+        java.nio.file.Files.setAttribute(
+                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
     }
 
     void measure(String account, String project) throws IOException {
@@ -54,9 +61,10 @@ final class ProjectMeasurements {
     }
 
     void measure(String account, List<String> projects) throws IOException {
+        prepare(projects);
         final var readers = new java.util.LinkedHashMap<String, List<String>>();
         for (String project : projects) {
-            readers.put(project, readers(project));
+            readers.put(project, publication.readers(project));
         }
         final Path directory = files.etc.resolve("organization/central");
         files.mkdir(directory, 0711);
@@ -118,88 +126,11 @@ final class ProjectMeasurements {
         }
     }
 
-    private List<String> readers(String project) throws IOException {
-        final var records = new ProjectRecords(files);
-        final Path appliedPath = files.etc.resolve("organization/applied.json");
-        final Object parsed =
-                ProjectRecords.json(
-                        files.text(appliedPath, true),
-                        appliedPath + " holds no valid applied organization",
-                        65);
-        if (!(parsed instanceof Map<?, ?> applied)
-                || !(applied.get("projects") instanceof List<?> projects)) {
-            throw new HostRefusal(65, appliedPath + " holds no valid applied organization");
+    private void publish(Path destination, String text, List<String> readers) throws IOException {
+        if (files.exists(destination)) {
+            files.trusted(destination, false);
+            files.delete(destination);
         }
-        final List<String> readers = new ArrayList<>();
-        for (Object value : projects) {
-            if (!(value instanceof Map<?, ?> entry) || !project.equals(entry.get("project"))) {
-                continue;
-            }
-            if (!(entry.get("members") instanceof List<?> members)) {
-                throw new HostRefusal(65, appliedPath + " holds no valid applied organization");
-            }
-            for (Object item : members) {
-                if (!(item instanceof Map<?, ?> member)
-                        || !Boolean.FALSE.equals(member.get("locked"))
-                        || !(member.get("login") instanceof String login)
-                        || !login.matches(ProjectRecords.PERSON)) {
-                    continue;
-                }
-                if (!files.exists(records.person(login))) {
-                    continue;
-                }
-                final var person = records.personRecord(login, records.person(login));
-                if (person.locked() || person.pending()) {
-                    continue;
-                }
-                final var passwd =
-                        runtime.run(
-                                List.of(
-                                        runtime.checked("/usr/bin/getent").toString(),
-                                        "passwd",
-                                        login),
-                                new byte[0],
-                                ProjectRuntime.SAFE_ENV,
-                                java.time.Duration.ofSeconds(60));
-                if (passwd.exitCode() == 2) {
-                    continue;
-                }
-                final String[] fields = passwd.output().strip().split(":", -1);
-                if (passwd.exitCode() != 0
-                        || fields.length != 7
-                        || !fields[0].equals(login)
-                        || !fields[2].matches("[1-9][0-9]*")) {
-                    throw new HostRefusal(69, "the project member's account could not be read");
-                }
-                readers.add("user:" + fields[2] + ":r--");
-            }
-            return readers;
-        }
-        throw new HostRefusal(65, "the host's organization names no project " + project);
-    }
-
-    private void publish(Path destination, String content, List<String> readers)
-            throws IOException {
-        final Path staged = files.stage(destination, ".porelo-host-person.", content);
-        try {
-            if (!readers.isEmpty()) {
-                final var set =
-                        runtime.run(
-                                List.of(
-                                        runtime.checked("/usr/bin/setfacl").toString(),
-                                        "--modify",
-                                        String.join(",", readers),
-                                        staged.toString()),
-                                new byte[0],
-                                ProjectRuntime.SAFE_ENV,
-                                java.time.Duration.ofSeconds(60));
-                if (set.exitCode() != 0) {
-                    throw new HostRefusal(73, "the central answer's readers could not be set");
-                }
-            }
-            files.replace(staged, destination);
-        } finally {
-            files.delete(staged);
-        }
+        publication.publish(destination, text, readers);
     }
 }

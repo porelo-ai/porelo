@@ -127,6 +127,40 @@ class HostForgeTokenCommandTest {
         return line;
     }
 
+    // Optional setup must not mint a token on a host without a configured forge.
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void ifForgeSkipsAnAbsentOrUnconfiguredForge(boolean absent) throws Exception {
+        if (absent) Files.delete(forgeConf);
+        else Files.writeString(forgeConf, "name=forge.example.org\naccount=\n");
+        assertThat(cli(false).execute("host", "forge-token", "--if-forge")).isZero();
+        assertThat(runner.invocations()).isEmpty();
+        assertThat(prompts.get()).isZero();
+    }
+
+    // Optional setup must not suppress a configured forge's token or trust failures.
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void ifForgeStillChecksAndUsesAConfiguredForge(boolean unsafe) {
+        context.vault().write(Map.of(), PASSPHRASE.clone());
+        openVault();
+        runner.answering("sudo -n /usr/sbin/porelo-host forge issue-token", ISSUED_TOKEN + "\n");
+        final var line = cli(false);
+        final HostForgeTokenCommand command =
+                (HostForgeTokenCommand)
+                        line.getSubcommands()
+                                .get("host")
+                                .getSubcommands()
+                                .get("forge-token")
+                                .getCommand();
+        if (unsafe) command.attributes = path -> Map.of("uid", 1000, "mode", 0100640);
+        assertThat(line.execute("host", "forge-token", "--if-forge")).isEqualTo(unsafe ? 69 : 0);
+        if (unsafe) assertThat(runner.invocations()).isEmpty();
+        else
+            assertThat(context.vault().read(VaultFile.Opener.passphrase(PASSPHRASE)))
+                    .containsKey("forge.example.org.person");
+    }
+
     @Test
     void sudoRunsFromItsCheckedSystemPath() {
         // A sudo found through PATH can substitute an attacker's forge credential in the vault.

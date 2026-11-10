@@ -283,6 +283,9 @@ final class HostFollow {
         people.revokedBefore(applied, previous, records);
         writePin(c, applied);
         c.write(FollowContext.ORG + "applied.json", pretty(applied, 0) + "\n", 0600);
+        final var arrivals = new ProjectArrivals(c.files, c.runtime, c.clock);
+        new ProjectMeasurements(c.files, c.runtime, c.clock).revoke();
+        arrivals.revoke();
         c.host.remove(FollowContext.ORG + "refused.json");
         publish(c, applied, publications, signers, people);
         final List<String> errors = new ArrayList<>();
@@ -295,6 +298,13 @@ final class HostFollow {
             attempt(errors, () -> projects.members(applied, previous, people));
         }
         publish(c, applied, publications(c, applied, projects), signers, people);
+        attempt(
+                errors,
+                () ->
+                        arrivals.prepare(
+                                array(applied.get("projects")).stream()
+                                        .map(value -> string(object(value).get("project")))
+                                        .toList()));
         attempt(errors, () -> projects.measure(applied));
         if (!errors.isEmpty()) {
             throw new HostRefusal(

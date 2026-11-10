@@ -369,36 +369,76 @@ final class HostPush {
 
     void record(String project, String repository, List<Map<String, @Nullable Object>> entries)
             throws IOException {
+        record(project, repository, entries, true);
+    }
+
+    void recordArming(
+            String project, String repository, List<Map<String, @Nullable Object>> entries)
+            throws IOException {
+        record(project, repository, entries, false);
+    }
+
+    private void record(
+            String project,
+            String repository,
+            List<Map<String, @Nullable Object>> entries,
+            boolean publish)
+            throws IOException {
         if (entries.isEmpty()) return;
         final Path directory = files.path("/var/lib/porelo-host/arrivals/" + project);
         files.directories(directory);
         final Path path = directory.resolve(repository + ".jsonl");
-        files.check(path, 73, false, false, 0600);
-        try {
-            Files.createFile(
-                    path,
-                    PosixFilePermissions.asFileAttribute(
-                            PosixFilePermissions.fromString("rw-------")));
-        } catch (java.nio.file.FileAlreadyExistsException ex) {
-            // Another accepted push can publish this same private ledger.
-        }
-        try (var lock = HostConfigurationLock.acquire(path, false);
-                var sink =
-                        FileChannel.open(
-                                lock.descriptorPath(),
-                                StandardOpenOption.WRITE,
-                                StandardOpenOption.APPEND)) {
-            files.checkOpened(lock.descriptorPath(), 0600);
-            final ByteBuffer bytes =
-                    StandardCharsets.UTF_8.encode(
-                            entries.stream()
-                                    .map(row -> ProjectRecords.pythonJson(row, true) + "\n")
-                                    .collect(java.util.stream.Collectors.joining()));
-            if (sink.size() > HostFiles.MAXIMUM_BYTES - (long) bytes.remaining())
-                throw new HostRefusal(
-                        73, "the arrival record would exceed the host's 16 MiB read limit");
-            while (bytes.hasRemaining()) sink.write(bytes);
-            sink.force(true);
+        while (true) {
+            files.check(path, 73, false, false, 0600);
+            try {
+                Files.createFile(
+                        path,
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rw-------")));
+            } catch (java.nio.file.FileAlreadyExistsException ex) {
+                // Another accepted push can publish this same private ledger.
+            }
+            final HostConfigurationLock lock;
+            try {
+                lock = HostConfigurationLock.acquire(path, false);
+            } catch (IOException ex) {
+                if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) continue;
+                throw ex;
+            }
+            try (lock;
+                    var sink =
+                            FileChannel.open(
+                                    lock.descriptorPath(),
+                                    StandardOpenOption.WRITE,
+                                    StandardOpenOption.APPEND)) {
+                files.checkOpened(lock.descriptorPath(), 0600);
+                try {
+                    // A refused first append can unlink an inode another writer was waiting on.
+                    if (!Files.isSameFile(path, lock.descriptorPath())) continue;
+                } catch (java.nio.file.NoSuchFileException ex) {
+                    continue;
+                }
+                final long previous = sink.size();
+                final var publication = new ProjectArrivals(files.projects(), runtime, clock);
+                final ByteBuffer bytes =
+                        StandardCharsets.UTF_8.encode(
+                                entries.stream()
+                                        .map(row -> ProjectRecords.pythonJson(row, true) + "\n")
+                                        .collect(java.util.stream.Collectors.joining()));
+                try {
+                    if (publish) publication.remove(project, repository);
+                    while (bytes.hasRemaining()) sink.write(bytes);
+                    sink.force(true);
+                    if (publish) publication.publish(project, repository, path);
+                } catch (IOException | RuntimeException | Error ex) {
+                    // A refused publication must not leave an accepted row for the refused push.
+                    sink.truncate(previous);
+                    sink.force(true);
+                    if (previous == 0) Files.deleteIfExists(path);
+                    throw ex;
+                }
+                return;
+            }
         }
     }
 

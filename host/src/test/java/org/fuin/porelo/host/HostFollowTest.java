@@ -22,6 +22,116 @@ class HostFollowTest {
         f = new FollowFixture(directory);
     }
 
+    @Test
+    void newlyAdmittedMembersReadExistingArrivalsInTheSameFollow() throws Exception {
+        // Waiting for another push or follow hides judged work from a newly admitted reviewer.
+        for (String login : List.of("bob", "charlie")) {
+            final String path = "/etc/porelo-host/people/" + login + ".conf";
+            f.write(path, f.read(path).replace("locked=false", "locked=true"));
+        }
+        ((List<Object>) f.answer.get("persons")).add(FollowFixture.card("dave", 4));
+        ((List<Object>) f.project().get("members"))
+                .add(fields("login", "dave", "role", "developer", "locked", false));
+        assertThat(f.accounts).doesNotContainKey("dave");
+        assertThat(f.path("/etc/porelo-host/people/dave.conf")).doesNotExist();
+        f.write(
+                "/var/lib/porelo-host/arrivals/alpha/code.jsonl",
+                "{\"verdict\":\"armed\",\"arrived\":\"2026-11-09T10:00:00Z\"}\n");
+        f.run();
+        assertThat(f.readers(FollowFixture.ORG + "arrivals/alpha/code.jsonl"))
+                .as("the current members receive read ACLs after their person records are admitted")
+                .containsExactlyInAnyOrder(
+                        "user:" + f.accounts.get("bob") + ":r--",
+                        "user:" + f.accounts.get("charlie") + ":r--",
+                        "user:" + f.accounts.get("dave") + ":r--")
+                .doesNotContain("user:" + f.accounts.get("alice") + ":r--");
+        assertThat(f.commands)
+                .anyMatch(
+                        argv ->
+                                Path.of(argv.getFirst()).getFileName().toString().equals("useradd")
+                                        && argv.getLast().equals("dave"));
+    }
+
+    // A public ACL failure must not erase pre-hook commits after the forge installs its hook.
+    @Test
+    void armingKeepsMigrationHistoryWithoutPublishingBeforeFollowIsReady() throws Exception {
+        f.forge();
+        f.write(FollowFixture.ORG + "applied.json", write(f.answer));
+        f.override =
+                argv -> {
+                    if (argv.contains("sh")
+                            && argv.stream().anyMatch(arg -> arg.contains("pre-receive.d/porelo")))
+                        return new HostPrograms.Result(
+                                0, "repository code\n" + "a".repeat(40) + "\n");
+                    if (Path.of(argv.getFirst()).getFileName().toString().equals("setfacl"))
+                        return new HostPrograms.Result(1, "");
+                    return null;
+                };
+        final var context =
+                new FollowContext(
+                        f.host, f.project.files, f.runtime, f.clock, new PrintWriter(f.journal));
+        assertThatCode(() -> new FollowPushes(context).arm("alpha", "forge"))
+                .as("arming records privately without requiring public ACLs")
+                .doesNotThrowAnyException();
+        assertThat(f.read("/var/lib/porelo-host/arrivals/alpha/code.jsonl"))
+                .contains("migrated", "armed", "a".repeat(40));
+        assertThat(f.path(FollowFixture.ORG + "arrivals/alpha/code.jsonl")).doesNotExist();
+    }
+
+    // An oversized or partial ledger row must fail without allocating the whole history.
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void armingRefusesAnOversizedOrUnterminatedLedgerLine(boolean oversized) throws Exception {
+        f.write(
+                "/var/lib/porelo-host/arrivals/alpha/code.jsonl",
+                oversized
+                        ? " ".repeat(128 * 1024 + 1) + "{\"verdict\":\"armed\"}\n"
+                        : "{\"verdict\":\"armed\"}");
+        assertThatThrownBy(
+                        () ->
+                                new FollowPushes(
+                                                new FollowContext(
+                                                        f.host,
+                                                        f.project.files,
+                                                        f.runtime,
+                                                        f.clock,
+                                                        new PrintWriter(f.journal)))
+                                        .arm("alpha", "forge"))
+                .as("unbounded or partial records are refused")
+                .isInstanceOf(HostRefusal.class)
+                .hasMessageContaining("line");
+    }
+
+    // A failure before reconciliation must revoke the former central readers immediately.
+    @Test
+    void takingAnOrganizationClosesCentralBeforePublishingOtherTrustFiles() throws Exception {
+        f.write(FollowFixture.ORG + "central/alpha.json", "old\n");
+        Files.setAttribute(f.path(FollowFixture.ORG + "central"), "unix:mode", 0711);
+        final var seen = new java.util.concurrent.atomic.AtomicBoolean();
+        f.before =
+                argv -> {
+                    if (Path.of(argv.getFirst()).getFileName().toString().equals("setfacl")) {
+                        seen.set(true);
+                        try {
+                            assertThat(
+                                            (int)
+                                                            Files.getAttribute(
+                                                                    f.path(
+                                                                            FollowFixture.ORG
+                                                                                    + "central"),
+                                                                    "unix:mode")
+                                                    & 0001)
+                                    .as("central is closed before fallible trust publication")
+                                    .isZero();
+                        } catch (IOException ex) {
+                            throw new UncheckedIOException(ex);
+                        }
+                    }
+                };
+        f.run();
+        assertThat(seen).isTrue();
+    }
+
     private static void refused(
             org.assertj.core.api.ThrowableAssert.ThrowingCallable action, int code, String words) {
         assertThatThrownBy(action)

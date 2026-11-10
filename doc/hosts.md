@@ -138,6 +138,41 @@ porelo commit verify --repository <git-dir> --signers signers --certifiers certi
   answer on standard output is every verdict with its signer, for the host to record; its fields are in
   [Commands](commands.md#commit).
 
+## Reading a repository's arrivals
+
+Root's push judge appends accepted commit judgements to its private ledger at
+`/var/lib/porelo-host/arrivals/<project>/<repository>.jsonl` and publishes a complete snapshot at
+`/etc/porelo-host/organization/arrivals/<project>/<repository>.jsonl`. Each UTF-8 JSON line carries the
+recorded `verdict` and UTC `arrived` time. An `accepted` row also carries `commit`, `ref`, and the
+verifier's `signer` object; `migrated` rows identify commits predating the judge, and an `armed` row
+marks installation of the hook. Reading preserves those historical judgements without verifying
+signatures again. The snapshot records the pre-receive judgement, not proof that the forge subsequently
+updated a ref.
+
+The snapshot is root-owned, created with mode 0600 and granted named-user read ACLs through the host's
+existing publication helper. Readers are the applied project's unlocked members whose host person
+records are unlocked and not pending, whose cards are present, unrevoked and unexpired in both the
+applied organization and person files, and whose local accounts exist. The ACL mask permits read only;
+others have no access. Publication directories permit traversal without listing (0711). Follow
+revokes former readers before slow reconciliation and rebuilds snapshots from private ledgers, so an
+upgrade or a membership change needs no new push. Taking off a repository or removing a project
+revokes its publication before deleting private history. A failed publication leaves the answer unavailable.
+If revoking old snapshots fails, their directory stays closed and further publication is refused
+until root repairs the failure and runs `porelo-host org follow` successfully. Complete ledgers are
+streamed when published. Follow scans the private ledger through its locked descriptor with a 128 KiB
+bound per line, so ledger growth never prevents another judged push or follow. Arming records pre-hook
+commits and the hook marker privately; the same follow publishes them after admission is complete.
+
+Porelod's Tasks1 `Arrivals(project, repository)` reads that file directly, without sudo or a host
+script. It accepts only a regular root-owned file under root-owned directories, with no symlinks and
+no group or other write permission anywhere in the path, using the same checks as central state.
+`state: read` carries `entries` in ledger order. Missing, unreadable, unsafe, oversized or malformed
+data yields `state: cannot-say`, a named `why`, and no entries; it never means that nothing arrived.
+The reader accepts at most 16 MiB, independently of the host's complete publication. An empty file
+is unavailable: an armed repository without commits has an `armed` row. Repository names use the
+forge's lowercase on-disk spelling; callers may use the repository's display casing. A task's MCP
+endpoint can read arrivals only for its own project.
+
 ## The answers a second run reads
 
 A playbook changes only what differs, so a second `up` on a host that is up changes nothing. It asks:

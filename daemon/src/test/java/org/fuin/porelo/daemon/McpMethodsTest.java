@@ -86,6 +86,18 @@ class McpMethodsTest {
                 .isEqualTo(List.of("SaveMoves"));
     }
 
+    // A task must be able to request arrivals without gaining another project's history.
+    @Test
+    void arrivalsAreReadingScopedToTheTasksOwnProject() throws Exception {
+        assertThat(
+                        McpMethods.answer(Path.of("target/no-mcp-writing"), McpMethods.described())
+                                .get("reading"))
+                .as("arrivals are available as reading")
+                .asList()
+                .contains("Arrivals");
+        assertThat(McpTaskSockets.takingAProject()).contains("Arrivals");
+    }
+
     @Test
     void everyMethodIsSortedIntoExactlyOneSet() {
         final List<Set<String>> sets =

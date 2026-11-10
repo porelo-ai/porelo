@@ -179,7 +179,14 @@ class HostFollowReviewTest {
         f.migrated();
         f.write(
                 FollowFixture.ORG + "applied.json",
-                HostJson.write(Map.of("projects", List.of(f.project()))));
+                HostJson.write(
+                        Map.of(
+                                "projects",
+                                List.of(f.project()),
+                                "persons",
+                                f.answer.get("persons"),
+                                "revoked",
+                                List.of())));
         final List<Map<String, Object>> entries = new ArrayList<>();
         for (int n = 0; n < 5; n++) {
             final String name = "repo" + n;
@@ -226,7 +233,14 @@ class HostFollowReviewTest {
         f.migrated();
         f.write(
                 FollowFixture.ORG + "applied.json",
-                HostJson.write(Map.of("projects", List.of(f.project()))));
+                HostJson.write(
+                        Map.of(
+                                "projects",
+                                List.of(f.project()),
+                                "persons",
+                                f.answer.get("persons"),
+                                "revoked",
+                                List.of())));
         final var timingOut =
                 new ProjectRuntime(
                         f.project.files,

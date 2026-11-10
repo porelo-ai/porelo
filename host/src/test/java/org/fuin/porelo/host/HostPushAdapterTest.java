@@ -30,11 +30,18 @@ class HostPushAdapterTest {
     final class Fixture {
         final HostReadFixture tree;
         final List<List<String>> calls = new ArrayList<>();
+        final List<List<String>> acls = new ArrayList<>();
+        final java.util.Map<String, Long> members =
+                new java.util.LinkedHashMap<>(java.util.Map.of("alice", 1001L));
         final long uid = ((Number) Files.getAttribute(directory, "unix:uid")).longValue();
         long accountUid = uid;
         final String home = "/home/forge";
         final Path quarantine;
         final HostPush push;
+        final ProjectArrivals publications;
+        final ProjectRuntime runtime;
+        boolean aclFails;
+        boolean aclError;
         HostPrograms.Result answer = accepted();
         String absent = "";
         final java.io.StringWriter errors = new java.io.StringWriter();
@@ -52,20 +59,39 @@ class HostPushAdapterTest {
             tree.put("/etc/ssh/porelo-revoked.krl", "fixture KRL");
             tree.put("/etc/porelo-host/signers/alpha.allowed", "allowed\n");
             tree.put("/etc/porelo-host/signers/alpha.certifiers", "certifiers\n");
+            tree.put(
+                    "/etc/porelo-host/organization/applied.json",
+                    "{\"revoked\":[],\"persons\":[{\"login\":\"alice\",\"revoked\":false,\"expires\":null},{\"login\":\"bob\",\"revoked\":false,\"expires\":null}],\"projects\":[{\"project\":\"alpha\",\"members\":[{\"login\":\"alice\",\"locked\":false}]}]}");
+            tree.person("alice", "member=alpha developer\n", "");
             quarantine =
                     tree.path(
                             home
                                     + "/.local/share/containers/storage/volumes/forgejo-data/_data/"
                                     + QUARANTINE.substring("/var/lib/gitea/".length()));
             Files.createDirectories(quarantine);
-            final var runtime =
+            runtime =
                     new ProjectRuntime(
                             tree.files(),
                             (argv, input, env, timeout) -> {
                                 assertThat(env)
                                         .as("caller environment never reaches host programs")
-                                        .isEqualTo(HostPrograms.ENVIRONMENT);
+                                        .isEqualTo(
+                                                argv.getFirst().equals("/usr/bin/setfacl")
+                                                                || argv.getFirst()
+                                                                                .equals(
+                                                                                        "/usr/bin/getent")
+                                                                        && !argv.getLast()
+                                                                                .equals("forge")
+                                                        ? ProjectRuntime.SAFE_ENV
+                                                        : HostPrograms.ENVIRONMENT);
                                 if (argv.getFirst().equals("/usr/bin/getent")) {
+                                    if (members.containsKey(argv.getLast()))
+                                        return new HostPrograms.Result(
+                                                0,
+                                                argv.getLast()
+                                                        + ":x:"
+                                                        + members.get(argv.getLast())
+                                                        + ":1001::/home/member:/bin/sh\n");
                                     assertThat(argv)
                                             .as("the service account comes from forge.conf")
                                             .containsExactly("/usr/bin/getent", "passwd", "forge");
@@ -78,6 +104,17 @@ class HostPushAdapterTest {
                                                     + "::"
                                                     + home
                                                     + ":/bin/sh\n");
+                                }
+                                if (argv.getFirst().equals("/usr/bin/setfacl")) {
+                                    if (aclError) throw new AssertionError("injected ACL error");
+                                    if (aclFails) return new HostPrograms.Result(1, "");
+                                    final Path staged = Path.of(argv.getLast());
+                                    assertThat((int) Files.getAttribute(staged, "unix:mode") & 0777)
+                                            .as("an unpublished arrival starts private")
+                                            .isEqualTo(0600);
+                                    acls.add(List.copyOf(argv));
+                                    Files.setAttribute(staged, "unix:mode", 0640);
+                                    return new HostPrograms.Result(0, "");
                                 }
                                 calls.add(List.copyOf(argv));
                                 assertThat(timeout)
@@ -93,12 +130,15 @@ class HostPushAdapterTest {
                                 if (name.equals(absent))
                                     throw new HostRefusal(
                                             69, name + " is missing from the fixed PATH");
-                                return Path.of("/usr/bin", name);
+                                return Path.of(name).isAbsolute()
+                                        ? Path.of(name)
+                                        : Path.of("/usr/bin", name);
                             },
                             org.fuin.porelo.organization.gittree.HttpForgeAdmin::new);
             push =
                     new HostPush(
                             tree.files(), runtime, CLOCK, new java.io.PrintWriter(errors, true));
+            publications = new ProjectArrivals(tree.files().projects(), runtime, CLOCK);
         }
 
         String serve(byte[] request, long peer) throws Exception {
@@ -110,6 +150,301 @@ class HostPushAdapterTest {
         Path ledger() {
             return tree.path("/var/lib/porelo-host/arrivals/alpha/app.jsonl");
         }
+    }
+
+    @Test
+    void aJudgedPushPublishesItsCompleteLedgerForOnlyTheProjectsUnlockedMembers() throws Exception {
+        // Private-only arrivals hide judged work; broad or writable publications leak or forge it.
+        final var f = new Fixture();
+        final var applied =
+                HostJson.object(
+                        HostJson.parse(
+                                f.tree.files()
+                                        .read(
+                                                f.tree.path(
+                                                        "/etc/porelo-host/organization/applied.json"))));
+        final var people = new ArrayList<Object>();
+        final var members = new ArrayList<Object>();
+        for (String login :
+                List.of(
+                        "alice",
+                        "locked",
+                        "pending",
+                        "expired",
+                        "revoked",
+                        "departed",
+                        "cardrevoked",
+                        "cardexpired",
+                        "personlocked",
+                        "foreign")) {
+            f.members.put(login, 1001L + people.size());
+            f.tree.person(
+                    login,
+                    "member=alpha developer\n",
+                    login.equals("pending") ? "lock=pending\n" : "");
+            final var person =
+                    HostJson.fields(
+                            "login",
+                            login,
+                            "revoked",
+                            login.equals("cardrevoked"),
+                            "expires",
+                            login.equals("cardexpired") ? "2026-10-30" : null);
+            people.add(person);
+            if (!login.equals("foreign"))
+                members.add(HostJson.fields("login", login, "locked", login.equals("locked")));
+            if (login.equals("expired") || login.equals("personlocked")) {
+                final Path path = f.tree.path("/etc/porelo-host/people/" + login + ".conf");
+                Files.writeString(
+                        path,
+                        Files.readString(path)
+                                .replace(
+                                        "expires=",
+                                        login.equals("expired") ? "expires=2026-10-30" : "expires=")
+                                .replace("locked=false", "locked=" + login.equals("personlocked")));
+            }
+        }
+        people.removeIf(value -> "departed".equals(HostJson.object(value).get("login")));
+        applied.put("persons", people);
+        applied.put("revoked", List.of("revoked"));
+        applied.put(
+                "projects",
+                List.of(
+                        HostJson.fields("project", "alpha", "members", members),
+                        HostJson.fields(
+                                "project",
+                                "beta",
+                                "members",
+                                List.of(HostJson.fields("login", "foreign", "locked", false)))));
+        f.tree.put("/etc/porelo-host/organization/applied.json", HostJson.write(applied));
+        for (int i = 0; i < 2; i++) {
+            assertThat(f.serve(request(BODY), f.uid))
+                    .as("publication precedes success")
+                    .startsWith("HTTP/1.1 200 OK");
+            final Path published =
+                    f.tree.path("/etc/porelo-host/organization/arrivals/alpha/app.jsonl");
+            assertThat(published).as("a judged push must publish a member-readable file").exists();
+            assertThat(Files.readString(published))
+                    .as("the publication preserves every recorded judgement")
+                    .isEqualTo(Files.readString(f.ledger()));
+            assertThat(Files.readAllLines(published))
+                    .as("later pushes preserve earlier arrivals")
+                    .hasSize(i + 1);
+            assertThat(Files.getAttribute(published, "unix:uid"))
+                    .as("the creating root owns the published inode")
+                    .isEqualTo(Files.getAttribute(f.ledger(), "unix:uid"));
+            assertThat((int) Files.getAttribute(published, "unix:mode") & 0777)
+                    .as("ACL readers cannot write and other accounts cannot read")
+                    .isEqualTo(0640);
+            assertThat(f.acls.getLast().subList(0, 3))
+                    .as("the existing named-user ACL grants only the eligible uid")
+                    .containsExactly("/usr/bin/setfacl", "--modify", "user:1001:r--");
+            for (Path parent = published.getParent();
+                    parent.startsWith(f.tree.path("/etc/porelo-host"));
+                    parent = parent.getParent())
+                assertThat((int) Files.getAttribute(parent, "unix:mode") & 0777)
+                        .as("members must traverse the complete published path")
+                        .isEqualTo(0711);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void failedAclPublicationRefusesThePushAndRemovesTheStaleAnswer(boolean existing)
+            throws Exception {
+        // A failed publication must not vouch for an old snapshot after recording a newer push.
+        final var f = new Fixture();
+        final Path published =
+                f.tree.put("/etc/porelo-host/organization/arrivals/alpha/app.jsonl", "old\n");
+        final String before = "{\"verdict\":\"armed\",\"arrived\":\"2026-10-30T12:00:00Z\"}\n";
+        if (existing) f.tree.put("/var/lib/porelo-host/arrivals/alpha/app.jsonl", before);
+        f.aclFails = true;
+        assertThat(f.serve(request(BODY), f.uid))
+                .as("ACL failure cannot report an accepted publication")
+                .startsWith("HTTP/1.1 500 Internal Server Error");
+        assertThat(published).as("failure leaves no stale successful answer").doesNotExist();
+        if (existing)
+            assertThat(Files.readString(f.ledger()))
+                    .as("the refused append preserves exactly the previous history")
+                    .isEqualTo(before);
+        else
+            assertThat(f.ledger())
+                    .as("a refused first append leaves no empty or accepted ledger")
+                    .doesNotExist();
+    }
+
+    // An abrupt publisher failure cannot leave accepted provenance for a refused push.
+    @Test
+    void aPublisherErrorRollsBackThePrivateAppend() throws Exception {
+        final var f = new Fixture();
+        final String before = "{\"verdict\":\"armed\",\"arrived\":\"2026-10-30T12:00:00Z\"}\n";
+        f.tree.put("/var/lib/porelo-host/arrivals/alpha/app.jsonl", before);
+        f.aclError = true;
+        assertThatThrownBy(() -> f.serve(request(BODY), f.uid))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("injected ACL error");
+        assertThat(Files.readString(f.ledger()))
+                .as("an error rolls back to the original history")
+                .isEqualTo(before);
+    }
+
+    // A writer waiting on a rolled-back inode must append to the recreated ledger.
+    @Test
+    void anUnlinkedLedgerDescriptorCannotHideANewAcceptedPush() throws Exception {
+        final var f = new Fixture();
+        final var replaced = new java.util.concurrent.atomic.AtomicBoolean();
+        f.tree.afterAttributes =
+                path -> {
+                    try {
+                        if (path.toString().startsWith("/proc/self/fd/")
+                                && Files.exists(f.ledger())
+                                && Files.isSameFile(path, f.ledger())
+                                && replaced.compareAndSet(false, true)) {
+                            Files.move(f.ledger(), f.ledger().resolveSibling("unlinked"));
+                            Files.writeString(
+                                    f.ledger(),
+                                    "{\"verdict\":\"armed\",\"arrived\":\"2026-10-30T12:00:00Z\"}\n");
+                            Files.setAttribute(f.ledger(), "unix:mode", 0600);
+                        }
+                    } catch (IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                };
+        assertThat(f.serve(request(BODY), f.uid)).startsWith("HTTP/1.1 200");
+        assertThat(replaced).isTrue();
+        assertThat(Files.readAllLines(f.ledger()))
+                .as("the current ledger holds the accepted push after its armed row")
+                .hasSize(2);
+        assertThat(Files.readString(f.ledger())).contains("accepted");
+    }
+
+    @Test
+    void followRebuildsExistingLedgersWithCurrentReadersAndPrunesDepartedProjects()
+            throws Exception {
+        // Revoked members must lose old snapshots even when no subsequent push arrives.
+        final var f = new Fixture();
+        final Path ledger =
+                f.tree.put(
+                        "/var/lib/porelo-host/arrivals/alpha/app.jsonl",
+                        "{\"verdict\":\"armed\",\"arrived\":\"2026-11-09T10:00:00Z\"}\n");
+        final Path old =
+                f.tree.put("/etc/porelo-host/organization/arrivals/departed/app.jsonl", "old\n");
+        f.publications.prepare(List.of("alpha"));
+        final Path published =
+                f.tree.path("/etc/porelo-host/organization/arrivals/alpha/app.jsonl");
+        assertThat(published)
+                .as("follow upgrades existing ledgers without waiting for a push")
+                .exists();
+        assertThat(Files.readString(published))
+                .as("arming history survives publication")
+                .isEqualTo(Files.readString(ledger));
+        assertThat(old).as("departed projects cannot retain readable history").doesNotExist();
+        f.tree.put(
+                "/etc/porelo-host/organization/applied.json",
+                "{\"revoked\":[],\"persons\":[{\"login\":\"alice\",\"revoked\":false,\"expires\":null},{\"login\":\"bob\",\"revoked\":false,\"expires\":null}],\"projects\":[{\"project\":\"alpha\",\"members\":[]}]}");
+        f.publications.prepare(List.of("alpha"));
+        assertThat((int) Files.getAttribute(published, "unix:mode") & 0777)
+                .as("replacing the inode revokes all former named-user readers")
+                .isEqualTo(0600);
+    }
+
+    @Test
+    void failedReaderResolutionRevokesEveryOldPublicationBeforeItCanFail() throws Exception {
+        // Failure to resolve a current account must not preserve access for removed members.
+        final var f = new Fixture();
+        final Path old =
+                f.tree.put("/etc/porelo-host/organization/arrivals/alpha/app.jsonl", "old\n");
+        f.tree.put("/var/lib/porelo-host/arrivals/alpha/app.jsonl", "old\n");
+        f.tree.put("/etc/porelo-host/organization/applied.json", "{}");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> f.publications.prepare(List.of("alpha")))
+                .as("unreadable membership is refused")
+                .isInstanceOf(HostRefusal.class);
+        assertThat(old)
+                .as("old access is revoked before resolving replacement readers")
+                .doesNotExist();
+    }
+
+    @Test
+    void anUnrelatedPushCannotReopenReadersLeftByFailedRevocation() throws Exception {
+        // Reopening a failed cleanup would give removed members their old read ACLs back.
+        final var f = new Fixture();
+        final Path broken =
+                f.tree.put("/etc/porelo-host/organization/arrivals/a-broken/app.jsonl", "old\n");
+        f.tree.put("/etc/porelo-host/organization/arrivals/beta/app.jsonl", "old\n");
+        final Path shared = f.tree.path("/etc/porelo-host/organization/arrivals");
+        final var files =
+                new ProjectFiles(
+                        f.tree.root,
+                        (int) Files.getAttribute(f.tree.root, "unix:uid"),
+                        path -> {
+                            if (path.equals(broken))
+                                throw new IOException("injected deletion failure");
+                            Files.deleteIfExists(path);
+                        });
+        assertThatThrownBy(() -> new ProjectArrivals(files, f.runtime).prepare(List.of("alpha")))
+                .as("the cleanup failure is reported")
+                .isInstanceOf(HostRefusal.class)
+                .hasMessageContaining("IOException");
+        final String previous = "{\"verdict\":\"armed\",\"arrived\":\"2026-10-30T12:00:00Z\"}\n";
+        f.tree.put("/var/lib/porelo-host/arrivals/alpha/app.jsonl", previous);
+        assertThat(f.serve(request(BODY), f.uid))
+                .as("closed publication refuses the push")
+                .startsWith("HTTP/1.1 500");
+        assertThat(f.errors.toString()).contains("arrivals publication remains closed");
+        assertThat(Files.readString(f.ledger()))
+                .as("a refused push leaves exactly the previous history")
+                .isEqualTo(previous);
+        assertThat((int) Files.getAttribute(shared, "unix:mode") & 0001)
+                .as("a later push must not reopen a failed revocation")
+                .isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aBoundOnReadingNeverPreventsPublishingFurtherJudgements(boolean follow) throws Exception {
+        // A growing valid ledger must not permanently deny every future push or follow.
+        final var f = new Fixture();
+        final String row =
+                ProjectRecords.pythonJson(verified(accepted()).entries().getFirst(), true) + "\n";
+        final String history = row.repeat(16 * 1024 * 1024 / row.length() + 1);
+        f.tree.put("/var/lib/porelo-host/arrivals/alpha/app.jsonl", history);
+        if (follow) {
+            final Throwable failure =
+                    catchThrowable(
+                            () -> {
+                                final Path root =
+                                        Files.createDirectories(directory.resolve("follow"));
+                                Files.setAttribute(root, "unix:mode", 0700);
+                                final var following = new FollowFixture(root);
+                                following.forge();
+                                following.write(
+                                        "/var/lib/porelo-host/arrivals/alpha/app.jsonl", history);
+                                new FollowPushes(
+                                                new FollowContext(
+                                                        following.host,
+                                                        following.project.files,
+                                                        following.runtime,
+                                                        following.clock,
+                                                        new java.io.PrintWriter(following.journal)))
+                                        .arm("alpha", "forge");
+                                f.publications.prepare(List.of("alpha"));
+                            });
+            assertThat(failure)
+                    .as("large recorded history must not prevent follow publication")
+                    .isNull();
+        } else {
+            assertThat(f.serve(request(BODY), f.uid))
+                    .as("large recorded history must not deny a new judged push")
+                    .startsWith("HTTP/1.1 200 OK");
+        }
+        assertThat(
+                        Files.mismatch(
+                                f.ledger(),
+                                f.tree.path(
+                                        "/etc/porelo-host/organization/arrivals/alpha/app.jsonl")))
+                .as("a large publication preserves the complete ledger")
+                .isEqualTo(-1);
     }
 
     @Test
@@ -442,29 +777,14 @@ class HostPushAdapterTest {
                 .startsWith("HTTP/1.1 200 OK");
     }
 
-    // Prevent an accepted append from making the ledger unreadable on the next follow pass.
+    // A crashed first append cannot turn unknown pre-hook history into an empty answer.
     @Test
-    void anAppendThatWouldCrossTheLedgerReadBoundRefusesWithoutWriting() throws Exception {
+    void followDoesNotPublishAnEmptyPrivateLedger() throws Exception {
         final var f = new Fixture();
-        final String row =
-                ProjectRecords.pythonJson(verified(accepted()).entries().getFirst(), true) + "\n";
-        final int maximum = 16 * 1024 * 1024;
-        f.tree.put(
-                "/var/lib/porelo-host/arrivals/alpha/app.jsonl",
-                " ".repeat(maximum - row.getBytes(StandardCharsets.UTF_8).length));
-        assertThat(f.serve(request(BODY), f.uid))
-                .as("an append ending exactly at the read limit is allowed")
-                .startsWith("HTTP/1.1 200 OK");
-        final byte[] before = f.tree.files().readBytes(f.ledger());
-        assertThat(f.serve(request(BODY), f.uid))
-                .as("a push must not make its own ledger unreadable")
-                .startsWith("HTTP/1.1 500 Internal Server Error");
-        assertThat(Files.readAllBytes(f.ledger()))
-                .as("refusal leaves the complete old ledger untouched")
-                .isEqualTo(before);
-        assertThat(f.errors.toString())
-                .as("the journal explains the ledger refusal")
-                .contains("arrival", "limit");
+        f.tree.put("/var/lib/porelo-host/arrivals/alpha/app.jsonl", "");
+        f.publications.prepare(List.of("alpha"));
+        assertThat(f.tree.path("/etc/porelo-host/organization/arrivals/alpha/app.jsonl"))
+                .doesNotExist();
     }
 
     // Prevent lock and disk failures from being blamed on the hook's HTTP input.

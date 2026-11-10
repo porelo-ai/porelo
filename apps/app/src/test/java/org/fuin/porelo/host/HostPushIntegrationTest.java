@@ -56,6 +56,19 @@ class HostPushIntegrationTest {
                     new ProjectRuntime(
                             files,
                             (argv, input, environment, timeout) -> {
+                                if (argv.equals(List.of("/usr/bin/getent", "passwd", "alice")))
+                                    return new HostPrograms.Result(
+                                            0, "alice:x:1001:1001::/home/alice:/bin/sh\n");
+                                if (argv.getFirst().equals("/usr/bin/setfacl")) {
+                                    assertThat(argv.subList(0, 3))
+                                            .as("only the applied member gets a read ACL")
+                                            .containsExactly(
+                                                    "/usr/bin/setfacl",
+                                                    "--modify",
+                                                    "user:1001:r--");
+                                    Files.setAttribute(Path.of(argv.getLast()), "unix:mode", 0640);
+                                    return new HostPrograms.Result(0, "");
+                                }
                                 if (argv.equals(List.of("/usr/bin/getent", "passwd", "forge")))
                                     return new HostPrograms.Result(
                                             0,
@@ -111,7 +124,10 @@ class HostPushIntegrationTest {
                                 return new HostPrograms(timeout, 1024 * 1024, Path::of)
                                         .run(command, input, env);
                             },
-                            name -> Path.of("/usr/bin", name),
+                            name ->
+                                    Path.of(name).isAbsolute()
+                                            ? Path.of(name)
+                                            : Path.of("/usr/bin", name),
                             org.fuin.porelo.organization.gittree.HttpForgeAdmin::new);
             final int code =
                     PoreloHost.run(
@@ -136,6 +152,7 @@ class HostPushIntegrationTest {
     @Test
     void theVerbAllowsASignedPushAndRefusesAnUnsignedPushWithTheHooksExactAnswers()
             throws Exception {
+        // The host's actual signature judgement must reach the reader without invented provenance.
         assertThat(directory.toAbsolutePath())
                 .as("the fixture must use the JVM's configured scratch directory")
                 .startsWith(Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath());
@@ -178,6 +195,14 @@ class HostPushIntegrationTest {
                 "alice namespaces=\"git\" " + publicKey + "\n");
         put(root, "/etc/porelo-host/signers/alpha.certifiers", "");
         put(root, "/etc/ssh/porelo-revoked.krl", "");
+        put(
+                root,
+                "/etc/porelo-host/organization/applied.json",
+                "{\"revoked\":[],\"persons\":[{\"login\":\"alice\",\"revoked\":false,\"expires\":null},{\"login\":\"bob\",\"revoked\":false,\"expires\":null}],\"projects\":[{\"project\":\"alpha\",\"members\":[{\"login\":\"alice\",\"locked\":false}]}]}");
+        put(
+                root,
+                "/etc/porelo-host/people/alice.conf",
+                "member=alpha developer\nlocked=false\nssh=" + publicKey + "\nexpires=\n");
         Files.delete(root.resolve("etc/ssh/porelo-revoked.krl"));
         process(
                 List.of(
@@ -255,6 +280,29 @@ class HostPushIntegrationTest {
         assertThat(HostJson.object(HostJson.parse(ledger.getFirst())))
                 .as("the accepted push records the actual commit")
                 .containsEntry("commit", signed);
+        final org.fuin.porelo.wire.RootOwnedFile.Attributes attributes =
+                path -> {
+                    final var values =
+                            new HashMap<>(
+                                    Files.readAttributes(
+                                            path, "unix:uid,mode", LinkOption.NOFOLLOW_LINKS));
+                    values.put("uid", 0);
+                    if (!path.startsWith(root)) values.put("mode", 0040755);
+                    return values;
+                };
+        assertThat(
+                        org.fuin.porelo.app.HostArrivalLedger.read(
+                                root.resolve("etc/porelo-host/organization/arrivals"),
+                                attributes,
+                                "alpha",
+                                "app"))
+                .as("the checked reader returns exactly what the real verifier judged")
+                .isEqualTo(
+                        Map.of(
+                                "state",
+                                "read",
+                                "entries",
+                                List.of(HostJson.parse(ledger.getFirst()))));
         assertThat(root.resolve("no-home"))
                 .as("the real verifier needs no person's home")
                 .doesNotExist();

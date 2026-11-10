@@ -25,6 +25,20 @@ final class ProjectFiles {
     final int owner;
     private final Deleting deleting;
     private final Attributes attributes;
+    private final Ownership ownership;
+
+    @FunctionalInterface
+    interface Ownership {
+        void set(Path path, int uid, int gid) throws IOException;
+    }
+
+    Map<String, Object> attributes(Path path) throws IOException {
+        return attributes.read(path);
+    }
+
+    void owner(Path path, int uid, int gid) throws IOException {
+        ownership.set(path, uid, gid);
+    }
 
     @FunctionalInterface
     interface Attributes {
@@ -53,6 +67,20 @@ final class ProjectFiles {
     }
 
     ProjectFiles(Path root, int owner, Deleting deleting, Attributes attributes) {
+        this(
+                root,
+                owner,
+                deleting,
+                attributes,
+                (path, uid, gid) -> {
+                    Files.setAttribute(path, "unix:gid", gid, LinkOption.NOFOLLOW_LINKS);
+                    Files.setAttribute(path, "unix:uid", uid, LinkOption.NOFOLLOW_LINKS);
+                });
+    }
+
+    ProjectFiles(
+            Path root, int owner, Deleting deleting, Attributes attributes, Ownership ownership) {
+        this.ownership = ownership;
         this.attributes = attributes;
         this.root = root.toAbsolutePath().normalize();
         this.etc = at("/etc/porelo-host");

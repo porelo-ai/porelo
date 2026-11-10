@@ -3,16 +3,9 @@ package org.fuin.porelo.host;
 import static org.fuin.porelo.host.HostJson.*;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,18 +33,12 @@ final class FollowPushes {
                 if (!name.matches("[a-z0-9._-]{1,100}\\.jsonl")) {
                     throw new HostRefusal(73, directory + " holds an unknown entry");
                 }
-                for (String line : read(path).lines().toList()) {
-                    if ("armed"
-                            .equals(
-                                    object(
-                                                    ProjectRecords.json(
-                                                            line,
-                                                            path + " holds a malformed verdict",
-                                                            73))
-                                            .get("verdict"))) {
-                        recorded.add(name.substring(0, name.length() - 6));
-                    }
-                }
+                read(
+                        path,
+                        row -> {
+                            if ("armed".equals(row.get("verdict")))
+                                recorded.add(name.substring(0, name.length() - 6));
+                        });
             }
         }
         final List<String> arguments = new ArrayList<>(List.of("sh", "-c", SCRIPT, "sh", project));
@@ -94,70 +81,85 @@ final class FollowPushes {
             c.directories(directory, 0700);
             c.host.check(directory, 73, true, true, 0700);
             final Path path = directory.resolve(entry.getKey() + ".jsonl");
-            final Set<String> known = new HashSet<>();
+            final Set<String> pending = new java.util.LinkedHashSet<>(entry.getValue());
             if (c.files.exists(path)) {
-                for (String line : read(path).lines().toList()) {
-                    final var row =
-                            object(
-                                    ProjectRecords.json(
-                                            line, path + " holds a malformed verdict", 73));
-                    if (row.get("commit") instanceof String commit) {
-                        known.add(commit);
-                    }
-                }
+                read(
+                        path,
+                        row -> {
+                            if (row.get("commit") instanceof String commit) pending.remove(commit);
+                        });
             }
             final StringBuilder text = new StringBuilder();
-            for (String commit : entry.getValue()) {
-                if (known.add(commit)) {
-                    text.append(
-                                    ProjectRecords.pythonJson(
-                                            fields(
-                                                    "commit",
-                                                    commit,
-                                                    "verdict",
-                                                    "migrated",
-                                                    "arrived",
-                                                    stamp),
-                                            true))
-                            .append('\n');
-                }
+            for (String commit : pending) {
+                text.append(
+                                ProjectRecords.pythonJson(
+                                        fields(
+                                                "commit",
+                                                commit,
+                                                "verdict",
+                                                "migrated",
+                                                "arrived",
+                                                stamp),
+                                        true))
+                        .append('\n');
             }
             text.append(
                             ProjectRecords.pythonJson(
                                     fields("verdict", "armed", "arrived", stamp), true))
                     .append('\n');
-            if (!c.files.exists(path)) {
-                try {
-                    Files.createFile(
-                            path,
-                            java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
-                                    java.nio.file.attribute.PosixFilePermissions.fromString(
-                                            "rw-------")));
-                } catch (java.nio.file.FileAlreadyExistsException ex) {
-                    /* A concurrent push made the same private record. */
-                }
-            }
-            c.host.check(path, 73, true, false, 0600);
-            try (var lock = HostConfigurationLock.acquire(path, false);
-                    var channel =
-                            FileChannel.open(
-                                    path,
-                                    StandardOpenOption.WRITE,
-                                    StandardOpenOption.APPEND,
-                                    LinkOption.NOFOLLOW_LINKS)) {
-                final ByteBuffer bytes = StandardCharsets.UTF_8.encode(text.toString());
-                while (bytes.hasRemaining()) {
-                    channel.write(bytes);
-                }
-                channel.force(true);
-            }
+            new HostPush(c.host, c.runtime, c.clock)
+                    .recordArming(
+                            project,
+                            entry.getKey(),
+                            text.toString()
+                                    .lines()
+                                    .map(
+                                            line ->
+                                                    object(
+                                                            ProjectRecords.json(
+                                                                    line,
+                                                                    "invalid arming record",
+                                                                    73)))
+                                    .toList());
         }
     }
 
-    private String read(Path path) throws IOException {
+    private void read(
+            Path path,
+            java.util.function.Consumer<Map<String, @org.jspecify.annotations.Nullable Object>>
+                    consume)
+            throws IOException {
         c.host.check(path, 73, true, false, 0600);
-        try (var lock = HostConfigurationLock.acquire(path, true)) {
-            return c.host.read(path);
+        try (var lock = HostConfigurationLock.acquire(path, true);
+                var source =
+                        new java.io.BufferedInputStream(
+                                java.nio.file.Files.newInputStream(lock.descriptorPath()))) {
+            c.host.checkOpened(lock.descriptorPath(), 0600);
+            final var line = new java.io.ByteArrayOutputStream();
+            int value;
+            while ((value = source.read()) != -1) {
+                if (value == '\n') {
+                    final String content =
+                            java.nio.charset.StandardCharsets.UTF_8
+                                    .newDecoder()
+                                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                                    .decode(java.nio.ByteBuffer.wrap(line.toByteArray()))
+                                    .toString();
+                    consume.accept(
+                            object(
+                                    ProjectRecords.json(
+                                            content,
+                                            path + " holds a malformed verdict line",
+                                            73)));
+                    line.reset();
+                } else {
+                    if (line.size() >= 128 * 1024)
+                        throw new HostRefusal(73, path + " holds an oversized verdict line");
+                    line.write(value);
+                }
+            }
+            if (line.size() != 0)
+                throw new HostRefusal(73, path + " holds an incomplete verdict line");
         }
     }
 }

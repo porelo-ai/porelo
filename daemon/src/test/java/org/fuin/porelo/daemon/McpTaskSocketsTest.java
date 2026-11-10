@@ -771,14 +771,14 @@ class McpTaskSocketsTest {
 
     @Test
     void aMethodTakingAProjectReadsOnlyTheCallersOwnProject() throws IOException {
-        // A task granted a board read must not read the board of another of the person's projects.
+        // A task cannot read another project's board or arrivals.
         final Path socket =
                 opened(
                         HEAD
                                 + SECTION.replace(
                                         "\"Stop\"]",
                                         "\"Stop\", \"ListStories\", \"WatchStories\","
-                                                + " \"GetIssue\"]"));
+                                                + " \"GetIssue\", \"Arrivals\"]"));
         assertThat(McpTaskSockets.takingAProject())
                 .as("every board read is held to the caller's project")
                 .contains(
@@ -793,6 +793,12 @@ class McpTaskSocketsTest {
                 .as("Start holds its project itself, and these read any of the person's projects")
                 .doesNotContain("Start", "Backups", "Egress", "Pending", "Review", "Peers");
 
+        refused(
+                socket,
+                "Arrivals",
+                Map.of("project", "other", "repository", "app"),
+                "ProjectNotItsOwn",
+                Map.of("project", "other", "own", "uc"));
         for (final String method : List.of("ListStories", "WatchStories")) {
             refused(
                     socket,

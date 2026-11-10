@@ -1369,13 +1369,45 @@ class HostProjectTest {
         host.noMutation();
     }
 
+    // A failed private cleanup must not retain readable provenance for a removed repository.
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void publicArrivalsAreRevokedBeforePrivateCleanup(boolean wholeProject) throws Exception {
+        registeredKeys();
+        final Path ledger = host.files.at("/var/lib/porelo-host/arrivals/alpha/code.jsonl");
+        host.directories("/var/lib/porelo-host/arrivals/alpha");
+        host.write("/var/lib/porelo-host/arrivals/alpha/code.jsonl", "old\n");
+        host.directories("/etc/porelo-host/organization/arrivals/alpha");
+        host.write("/etc/porelo-host/organization/arrivals/alpha/code.jsonl", "old\n");
+        final Path published = host.files.etc.resolve("organization/arrivals/alpha/code.jsonl");
+        host.files =
+                new ProjectFiles(
+                        host.root,
+                        host.files.owner,
+                        path -> {
+                            if (path.equals(ledger)) {
+                                assertThat(published)
+                                        .as(
+                                                "public history is gone before private cleanup can fail")
+                                        .doesNotExist();
+                                throw new java.io.IOException("injected private cleanup failure");
+                            }
+                            Files.deleteIfExists(path);
+                        });
+        assertThat(wholeProject ? remove().code() : host.off(null).code()).isNotZero();
+    }
+
     // py: test_a_repository_taken_off_takes_its_arrivals_along
     @Test
     void takingOffRemovesOnlyThatRepositorysArrivals() throws Exception {
+        // A removed repository must not leave published provenance for a later replacement.
         registeredKeys();
         host.directories("/var/lib/porelo-host/arrivals/alpha");
         host.write("/var/lib/porelo-host/arrivals/alpha/code.jsonl", "own verdict\n");
         host.write("/var/lib/porelo-host/arrivals/alpha/other.jsonl", "other verdict\n");
+        host.directories("/etc/porelo-host/organization/arrivals/alpha");
+        host.write("/etc/porelo-host/organization/arrivals/alpha/code.jsonl", "own verdict\n");
+        host.write("/etc/porelo-host/organization/arrivals/alpha/other.jsonl", "other verdict\n");
         assertThat(host.off(null).code()).as("taking off succeeds").isZero();
         assertThat(Files.exists(host.files.at("/var/lib/porelo-host/arrivals/alpha/code.jsonl")))
                 .as("own arrivals go")
@@ -1383,6 +1415,31 @@ class HostProjectTest {
         assertThat(Files.exists(host.files.at("/var/lib/porelo-host/arrivals/alpha/other.jsonl")))
                 .as("other arrivals remain")
                 .isTrue();
+        assertThat(host.files.etc.resolve("organization/arrivals/alpha/code.jsonl"))
+                .as("a removed repository has no public arrivals")
+                .doesNotExist();
+        assertThat(host.files.etc.resolve("organization/arrivals/alpha/other.jsonl"))
+                .as("other repositories keep their public arrivals")
+                .exists();
+    }
+
+    @Test
+    void removingAProjectDeletesOnlyItsPublishedArrivals() throws Exception {
+        // A departed project's readable history must not survive its removal or erase a peer's.
+        host.add();
+        for (String project : List.of("alpha", "beta")) {
+            host.directories("/etc/porelo-host/organization/arrivals/" + project);
+            host.write(
+                    "/etc/porelo-host/organization/arrivals/" + project + "/code.jsonl",
+                    "verdict\n");
+        }
+        assertThat(remove().code()).as("project removal succeeds").isZero();
+        assertThat(host.files.etc.resolve("organization/arrivals/alpha"))
+                .as("a removed project has no public arrivals")
+                .doesNotExist();
+        assertThat(host.files.etc.resolve("organization/arrivals/beta/code.jsonl"))
+                .as("other projects keep their public arrivals")
+                .exists();
     }
 
     private boolean filesExist(String relative) {

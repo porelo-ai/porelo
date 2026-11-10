@@ -470,6 +470,7 @@ final class ProjectRegistration {
             for (Path path : publications) {
                 files.delete(path);
             }
+            ProjectArrivals.removeProject(files, project);
             for (Path path : recorded) {
                 files.delete(path);
             }
