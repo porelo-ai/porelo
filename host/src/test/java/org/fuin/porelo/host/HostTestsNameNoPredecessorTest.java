@@ -19,10 +19,8 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <p>A test, a comment or an assertion message that cites a test of the scripts the host tool
  * replaced, names one of those scripts or speaks of the language they were written in points at
- * code nobody can run or read beside it. {@code porelo-host} itself still prints some of the
- * scripts' names as its diagnostics' prefix and writes them into file and unit names, so an
- * expected output in a string literal may hold one; a comment, a name or an assertion's message may
- * not.
+ * code nobody can run or read beside it. Fixed paths and upgrade fixtures can still hold those
+ * names in string literals; a comment, a name or an assertion's message may not.
  *
  * <p>The patterns are built from pieces, so this file's own source does not match them; the class's
  * own name is the one spelling the lookbehind lets through.

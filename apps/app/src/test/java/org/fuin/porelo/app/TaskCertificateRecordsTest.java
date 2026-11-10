@@ -66,7 +66,7 @@ class TaskCertificateRecordsTest {
         final PoreloContext context = context(runner);
         final TaskCertificateRecords records = new TaskCertificateRecords(context);
         records.keep("kept", "alice", keys.certificate(kept));
-        final Path program = dir.resolve("porelo-host-person");
+        final Path program = dir.resolve("porelo-host");
         Files.writeString(program, "#!/bin/sh\n");
         program.toFile().setExecutable(true);
         final String fingerprint = keys.certificate(hosts).fingerprint();
@@ -109,7 +109,7 @@ class TaskCertificateRecordsTest {
         final org.fuin.porelo.vault.SigningKey other = keys.task("demo", "other");
         final FakeCommandRunner runner = new FakeCommandRunner();
         final PoreloContext context = context(runner);
-        final Path program = dir.resolve("porelo-host-person");
+        final Path program = dir.resolve("porelo-host");
         Files.writeString(program, "#!/bin/sh\n");
         program.toFile().setExecutable(true);
         final String fingerprint = keys.certificate(asked).fingerprint();

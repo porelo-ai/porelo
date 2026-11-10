@@ -476,7 +476,7 @@ class HostFollowProjectsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"porelo-host-project: SECRET", "porelo-host-project: x\u001bSECRET"})
+    @ValueSource(strings = {"porelo-host: SECRET", "porelo-host: x\u001bSECRET"})
     void aHelperCannotSmuggleTheCentralTokenInItsDiagnostic(String stderr) {
         assertThat(
                         FollowProjects.helperWords(
@@ -487,17 +487,13 @@ class HostFollowProjectsTest {
 
     @Test
     void foreignDiagnosticLastLinesAreDiscarded() {
-        assertThat(
-                        FollowProjects.helperWords(
-                                "porelo-host-project: safe\nforeign diagnostic", null))
+        assertThat(FollowProjects.helperWords("porelo-host: safe\nforeign diagnostic", null))
                 .isNull();
     }
 
     @Test
     void helperWordsArePrintableAndBounded() {
-        assertThat(
-                        FollowProjects.helperWords(
-                                "porelo-host-project: \u001b" + "x".repeat(400), null))
+        assertThat(FollowProjects.helperWords("porelo-host: \u001b" + "x".repeat(400), null))
                 .hasSize(299)
                 .doesNotContain("\u001b");
     }

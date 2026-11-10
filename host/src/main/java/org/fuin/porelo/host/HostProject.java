@@ -98,7 +98,7 @@ final class HostProject implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        spec.commandLine().getErr().println("porelo-host-project: " + USAGE);
+        spec.commandLine().getErr().println("porelo-host: " + USAGE);
         spec.commandLine().getErr().flush();
         return 64;
     }
@@ -404,27 +404,24 @@ final class HostProject implements Callable<Integer> {
                     return 73;
                 }
             }
-            return diagnostic(err, action, ex.getMessage(), 65);
+            return diagnostic(err, ex.getMessage(), 65);
         } catch (HostRefusal ex) {
             if (inherited && action.equals("remove") && ex.exitCode() == 65) {
                 if (!failureOutput(out, project, Map.of())) {
                     return 73;
                 }
             }
-            return diagnostic(err, action, ex.getMessage(), ex.exitCode());
+            return diagnostic(err, ex.getMessage(), ex.exitCode());
         } catch (HttpForgeAdmin.Refusal ex) {
             if (inherited && action.equals("remove") && ex.exitCode() == 65) {
                 if (!failureOutput(out, project, Map.of())) {
                     return 73;
                 }
             }
-            return diagnostic(err, action, ex.getMessage(), ex.exitCode());
+            return diagnostic(err, ex.getMessage(), ex.exitCode());
         } catch (Exception ex) {
             return diagnostic(
-                    err,
-                    action,
-                    "dependency or file read failed: " + ex.getClass().getSimpleName(),
-                    69);
+                    err, "dependency or file read failed: " + ex.getClass().getSimpleName(), 69);
         }
     }
 
@@ -438,11 +435,8 @@ final class HostProject implements Callable<Integer> {
         }
     }
 
-    private static int diagnostic(
-            PrintWriter err, String action, @Nullable String message, int code) {
-        err.println(
-                (action.equals("check-central") ? "porelo-host-push: " : "porelo-host-project: ")
-                        + message);
+    private static int diagnostic(PrintWriter err, @Nullable String message, int code) {
+        err.println("porelo-host: " + message);
         err.flush();
         return err.checkError() ? 73 : code;
     }

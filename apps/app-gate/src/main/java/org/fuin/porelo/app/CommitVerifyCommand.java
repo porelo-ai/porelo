@@ -54,7 +54,7 @@ public class CommitVerifyCommand implements Callable<Integer>, PoreloFactory.Con
             paramLabel = "FILE",
             description =
                     "The host's recorded task certificates, one line each, as"
-                            + " porelo-host-person task --show answers them.")
+                            + " porelo-host task show answers them.")
     private @Nullable Path certificates;
 
     @Option(names = "--json", description = "Answers every verdict as JSON on standard output.")

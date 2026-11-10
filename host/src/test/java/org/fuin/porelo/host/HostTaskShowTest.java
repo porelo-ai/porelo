@@ -60,7 +60,7 @@ class HostTaskShowTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: no task certificate is recorded for "
+                                "porelo-host: no task certificate is recorded for "
                                         + FINGERPRINT
                                         + "\n"));
         fixture.put(
@@ -82,7 +82,7 @@ class HostTaskShowTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: no task certificate is recorded for "
+                                "porelo-host: no task certificate is recorded for "
                                         + FINGERPRINT
                                         + "\n"));
     }
@@ -104,7 +104,7 @@ class HostTaskShowTest {
                         new Answer(
                                 64,
                                 "",
-                                "porelo-host-person: a task must match [a-z0-9][a-z0-9._-]{0,63}, a task key's fingerprint SHA256:<43 base64>\n"));
+                                "porelo-host: a task must match [a-z0-9][a-z0-9._-]{0,63}, a task key's fingerprint SHA256:<43 base64>\n"));
     }
 
     @Test
@@ -127,7 +127,7 @@ class HostTaskShowTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: no task certificate is recorded for "
+                                "porelo-host: no task certificate is recorded for "
                                         + FINGERPRINT
                                         + "\n"));
     }
@@ -150,9 +150,7 @@ class HostTaskShowTest {
                         "locked, pending, and membership-less people are refused by the same admission rule")
                 .isEqualTo(
                         new Answer(
-                                65,
-                                "",
-                                "porelo-host-person: alice is no unlocked person of this host\n"));
+                                65, "", "porelo-host: alice is no unlocked person of this host\n"));
     }
 
     @Test
@@ -168,9 +166,7 @@ class HostTaskShowTest {
                         new Answer(
                                 73,
                                 "",
-                                "porelo-host-person: "
-                                        + file
-                                        + " is not a plain file of root's alone\n"));
+                                "porelo-host: " + file + " is not a plain file of root's alone\n"));
     }
 
     @Test
@@ -186,9 +182,7 @@ class HostTaskShowTest {
                         new Answer(
                                 73,
                                 "",
-                                "porelo-host-person: "
-                                        + file
-                                        + " is not a plain file of root's alone\n"));
+                                "porelo-host: " + file + " is not a plain file of root's alone\n"));
     }
 
     @ParameterizedTest
@@ -208,9 +202,7 @@ class HostTaskShowTest {
                 .as("stored names, login, and certificate end must agree before disclosure")
                 .isEqualTo(
                         new Answer(
-                                65,
-                                "",
-                                "porelo-host-person: " + file + " holds no valid task record\n"));
+                                65, "", "porelo-host: " + file + " holds no valid task record\n"));
     }
 
     @Test
@@ -221,9 +213,7 @@ class HostTaskShowTest {
                 .as("every record is validated before any is searched for a match")
                 .isEqualTo(
                         new Answer(
-                                65,
-                                "",
-                                "porelo-host-person: " + bad + " holds no valid task record\n"));
+                                65, "", "porelo-host: " + bad + " holds no valid task record\n"));
     }
 
     @Test
@@ -267,9 +257,7 @@ class HostTaskShowTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: "
-                                        + path.getParent()
-                                        + " holds an unknown entry\n"));
+                                "porelo-host: " + path.getParent() + " holds an unknown entry\n"));
     }
 
     @Test
@@ -283,9 +271,7 @@ class HostTaskShowTest {
                         new Answer(
                                 73,
                                 "",
-                                "porelo-host-person: "
-                                        + path
-                                        + " is not a directory of root's alone\n"));
+                                "porelo-host: " + path + " is not a directory of root's alone\n"));
     }
 
     @Test
@@ -296,9 +282,7 @@ class HostTaskShowTest {
                 .as("a valid account in NSS alone does not establish host admission")
                 .isEqualTo(
                         new Answer(
-                                65,
-                                "",
-                                "porelo-host-person: alice is no unlocked person of this host\n"));
+                                65, "", "porelo-host: alice is no unlocked person of this host\n"));
     }
 
     @Test
@@ -315,7 +299,7 @@ class HostTaskShowTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: the host's organization names alice revoked\n"));
+                                "porelo-host: the host's organization names alice revoked\n"));
     }
 
     @Test

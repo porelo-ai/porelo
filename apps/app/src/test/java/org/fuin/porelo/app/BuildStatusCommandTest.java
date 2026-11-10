@@ -90,7 +90,7 @@ class BuildStatusCommandTest {
     /** This machine as a host: its helper is there. */
     private HostPerson onAHost() throws IOException {
         return new HostPerson(
-                context, Files.writeString(directory.resolve("porelo-host-person"), "#!/bin/sh\n"));
+                context, Files.writeString(directory.resolve("porelo-host"), "#!/bin/sh\n"));
     }
 
     @AfterEach

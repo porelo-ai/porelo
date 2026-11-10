@@ -590,5 +590,6 @@ Web admission is resolved once per accepted connection; host, route and
 credential checks still run for every request. The measure reserves work
 before connecting, so its connection count includes no idle activations.
 Pool and measure execution failures exit 1; give-back refusals exit 2.
-Gate activation refusals exit 1. Pool diagnostics keep their script's
-wording; measurement diagnostics begin with "porelo-host forge measure:".
+Gate activation refusals exit 1. Diagnostics name porelo-host and its grouped
+verbs; measurement diagnostics begin with "porelo-host forge measure:".
+Installed paths and service names keep the collection's names.

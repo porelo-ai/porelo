@@ -38,11 +38,11 @@ class HostPoolCliTest {
     }
 
     @Test
-    void theGiveBackRefusalHasTheScriptsPrefixAndExitCode() {
+    void theGiveBackRefusalNamesTheCommandAndKeepsItsExitCode() {
         final var answer = execute(Map.of(), "pool", "give-back");
         assertThat(answer.exit()).isEqualTo(2);
         assertThat(answer.error())
-                .isEqualTo("porelo-pool-give-back runs through sudo, as the run account\n");
+                .isEqualTo("porelo-host pool give-back runs through sudo, as the run account\n");
     }
 
     @Test
@@ -64,7 +64,7 @@ class HostPoolCliTest {
     void aRelativeListDoesNotGetThePersonToolsFileErrorOrExitCode() {
         final var answer = execute(Map.of(), "pool", "revert", "relative-list");
         assertThat(answer.exit()).isOne();
-        assertThat(answer.error()).doesNotContain("porelo-host-person:");
+        assertThat(answer.error()).doesNotContain("porelo-host:");
     }
 
     @Test
@@ -99,13 +99,13 @@ class HostPoolCliTest {
         assertThat(answer.exit()).isOne();
         assertThat(answer.error())
                 .startsWith("porelo-host forge measure:")
-                .doesNotContain("porelo-host-person:");
+                .doesNotContain("porelo-host:");
     }
 
     @Test
     void missingSocketActivationExitsOne() {
         final var answer = execute(Map.of(), "forge", "gate", "--web", "--upstream", "/unused");
         assertThat(answer.exit()).isOne();
-        assertThat(answer.error()).startsWith("porelo-forge-gate:");
+        assertThat(answer.error()).startsWith("porelo-host:");
     }
 }

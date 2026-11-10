@@ -71,7 +71,7 @@ final class FollowContext {
         if (files.exists(path)) {
             files.trusted(path, false);
         }
-        final Path staged = files.stage(path, ".porelo-host-person.", text);
+        final Path staged = files.stage(path, ProjectFiles.STAGED_PREFIX, text);
         try {
             Files.setAttribute(staged, "unix:mode", mode, LinkOption.NOFOLLOW_LINKS);
             files.replace(staged, path);
@@ -304,7 +304,7 @@ final class FollowContext {
     }
 
     void publish(Path destination, String text, List<String> readers) throws IOException {
-        final Path staged = files.stage(destination, ".porelo-host-person.", text);
+        final Path staged = files.stage(destination, ProjectFiles.STAGED_PREFIX, text);
         try {
             if (!readers.isEmpty()) {
                 command(

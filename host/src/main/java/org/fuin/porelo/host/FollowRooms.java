@@ -79,7 +79,7 @@ final class FollowRooms {
         }
         if (!removed.isEmpty()) {
             c.err.println(
-                    "porelo-host-person: "
+                    "porelo-host: "
                             + project
                             + ": out of its room: "
                             + String.join(",", removed.stream().map(HostJson::string).toList()));

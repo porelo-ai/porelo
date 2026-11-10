@@ -55,7 +55,8 @@ final class HostPoolCommands {
             if (one != null && list == null) return pool.one(one);
             if (one == null && list != null) return pool.service(list);
             throw new HostRefusal(
-                    2, "usage: porelo-pool-revert <file with one VM name per line> | --one <name>");
+                    2,
+                    "usage: porelo-host pool revert <file with one VM name per line> | --one <name>");
         }
     }
 

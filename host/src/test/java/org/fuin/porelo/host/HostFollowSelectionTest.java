@@ -54,7 +54,10 @@ class HostFollowSelectionTest {
         f.refresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(
                         f.inputs.stream()
-                                .filter(text -> text.startsWith("# Written by porelo-host-person"))
+                                .filter(
+                                        text ->
+                                                text.startsWith(
+                                                        "# Written by porelo-host org follow"))
                                 .toList()
                                 .getLast())
                 .as("the follow carries both identities from the verified file")
@@ -84,7 +87,7 @@ class HostFollowSelectionTest {
                 .as("no member receives a misleading alias")
                 .noneMatch(
                         text ->
-                                text.startsWith("# Written by porelo-host-person")
+                                text.startsWith("# Written by porelo-host org follow")
                                         && text.contains("repository code component "));
     }
 
@@ -134,7 +137,8 @@ class HostFollowSelectionTest {
     void invalidCentralUrlsNeverBecomeMemberPushConfigurations(String address) throws Exception {
         f.project.repositories.get("alpha/code").put("original_url", address);
         assertThatThrownBy(f::run).hasMessageContaining("no valid central address");
-        assertThat(f.inputs).noneMatch(text -> text.startsWith("# Written by porelo-host-person"));
+        assertThat(f.inputs)
+                .noneMatch(text -> text.startsWith("# Written by porelo-host org follow"));
     }
 
     @Test
@@ -162,7 +166,7 @@ class HostFollowSelectionTest {
         f.refresh(ProjectFixture.CENTRAL_TOKEN);
         final var configurations =
                 f.inputs.stream()
-                        .filter(text -> text.startsWith("# Written by porelo-host-person"))
+                        .filter(text -> text.startsWith("# Written by porelo-host org follow"))
                         .toList();
         assertThat(configurations.getLast()).contains("repository one ", "repository two ");
     }
@@ -184,7 +188,10 @@ class HostFollowSelectionTest {
                 .doesNotContain("https://forge.example.org/acme/two.git");
         assertThat(
                         f.inputs.stream()
-                                .filter(text -> text.startsWith("# Written by porelo-host-person"))
+                                .filter(
+                                        text ->
+                                                text.startsWith(
+                                                        "# Written by porelo-host org follow"))
                                 .toList()
                                 .getLast())
                 .doesNotContain("repository two ");

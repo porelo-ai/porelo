@@ -110,15 +110,11 @@ final class FollowProjects {
                                     "logs",
                                     "failure");
                 } catch (HostRefusal ex) {
-                    c.err.println(
-                            "porelo-host-person: "
-                                    + name
-                                    + ": no builds named: "
-                                    + ex.getMessage());
+                    c.err.println("porelo-host: " + name + ": no builds named: " + ex.getMessage());
                 }
             } else {
                 project.put("why", "the host card names no forge git port");
-                c.err.println("porelo-host-person: " + name + ": " + project.get("why"));
+                c.err.println("porelo-host: " + name + ": " + project.get("why"));
                 HostFollow.replaceProject(applied, name, project);
             }
         }
@@ -239,8 +235,7 @@ final class FollowProjects {
         if (words == null) {
             throw new HostRefusal(69, "the project helper " + verb + " exited " + code);
         }
-        c.err.println(
-                "porelo-host-person: " + args.getFirst() + ": " + words + " (exit " + code + ")");
+        c.err.println("porelo-host: " + args.getFirst() + ": " + words + " (exit " + code + ")");
         throw new ProjectRefusal(words, code);
     }
 
@@ -263,7 +258,7 @@ final class FollowProjects {
             String stderr, @Nullable Map<String, @Nullable Object> supplied) {
         final List<String> lines =
                 stderr.lines().map(String::strip).filter(line -> !line.isEmpty()).toList();
-        if (lines.isEmpty() || !lines.getLast().startsWith("porelo-host-project: ")) {
+        if (lines.isEmpty() || !lines.getLast().startsWith("porelo-host: ")) {
             return null;
         }
         final String raw = FollowContext.printable(lines.getLast());
@@ -273,7 +268,7 @@ final class FollowProjects {
                 && FollowContext.visible(lines.getLast()).contains(token)) {
             return null;
         }
-        final String words = raw.substring("porelo-host-project: ".length());
+        final String words = raw.substring("porelo-host: ".length());
         final String bounded = words.substring(0, Math.min(words.length(), 300)).strip();
         return bounded.isEmpty() ? null : bounded;
     }
@@ -284,7 +279,7 @@ final class FollowProjects {
             for (Object value : array(answer.getOrDefault("left_at_central", List.of()))) {
                 final var row = object(value);
                 c.err.println(
-                        "porelo-host-person: "
+                        "porelo-host: "
                                 + project
                                 + ": taken off the host; its read-only deploy key \""
                                 + FollowContext.printable(string(row.get("title")))
@@ -294,7 +289,7 @@ final class FollowProjects {
             }
         } catch (HostRefusal | IllegalArgumentException ex) {
             c.err.println(
-                    "porelo-host-person: "
+                    "porelo-host: "
                             + project
                             + ": taken off the host; what it left at the central forge does not read");
         }
@@ -767,7 +762,7 @@ final class FollowProjects {
             item.put("advanced", commit);
             if (state.equals("moved-unseen")) {
                 c.err.println(
-                        "porelo-host-person: "
+                        "porelo-host: "
                                 + name
                                 + ": main moved, and the forge's pages may show it late");
             }
@@ -1196,7 +1191,7 @@ final class FollowProjects {
                 throw new HostRefusal(69, "the forge's git port or central CA is not valid");
             }
             text =
-                    "# Written by porelo-host-person org follow; read by porelo-host-push.\nlocal http://127.0.0.1:"
+                    "# Written by porelo-host org follow; read by porelo host push.\nlocal http://127.0.0.1:"
                             + port
                             + "\nowner "
                             + project
@@ -1384,7 +1379,7 @@ final class FollowProjects {
                     }
                     if (changed) {
                         c.err.println(
-                                "porelo-host-person: "
+                                "porelo-host: "
                                         + name
                                         + "/"
                                         + repo

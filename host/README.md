@@ -1,6 +1,7 @@
 # host
 
 `porelo-host` is the host's own program, called by sudo rules and root's systemd units.
+Diagnostics name `porelo-host` and its grouped verbs; installed paths and service names keep the collection's names.
 `task start <task>` reads the sudo person's certificate on stdin and answers its gate token alone; `task end <task>` deletes that token and retains the record.
 `forge issue-token` rotates the person's token, while `forge lend-token` preserves concurrent lends; both answer only the token on stdout.
 `org follow` reconciles the signed organization from root's timer; `org refresh` follows immediately with a waiting migration's central token on stdin; `org renew-pin` takes renewed admin pins on stdin. All three run as root without `SUDO_USER`.

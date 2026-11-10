@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
 
 /** The project's root-owned records and atomic publications, with a test-only trust anchor. */
 final class ProjectFiles {
+    static final String STAGED_PREFIX = ".porelo-host.";
+
     final Path root;
     final Path etc;
     final int owner;
@@ -196,6 +198,11 @@ final class ProjectFiles {
                         Files.setAttribute(path, "unix:mode", mode);
                     });
         }
+    }
+
+    static boolean isStaged(String name) {
+        // An upgrade can leave a private file staged by an earlier host program.
+        return name.startsWith(STAGED_PREFIX) || name.startsWith(".porelo-host-person.");
     }
 
     Path stage(Path destination, String prefix, String content) throws IOException {

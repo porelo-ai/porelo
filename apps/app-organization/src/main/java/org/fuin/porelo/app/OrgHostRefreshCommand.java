@@ -185,7 +185,7 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                     machine.runner()
                             .run(
                                     ssh.command(
-                                            List.of("porelo-host-person", "org", "refresh"),
+                                            List.of("porelo-host", "org", "refresh"),
                                             input,
                                             machine.environment()),
                                     line -> {
@@ -216,7 +216,7 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                     || containsToken(answer, token)) {
                 return report(
                         70,
-                        "the host returned an invalid or unsafe refresh answer; check porelo-host-person on the host",
+                        "the host returned an invalid or unsafe refresh answer; check porelo-host on the host",
                         null);
             }
             return report(0, "", answer);

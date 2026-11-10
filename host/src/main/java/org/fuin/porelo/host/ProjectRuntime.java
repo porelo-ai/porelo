@@ -135,7 +135,7 @@ final class ProjectRuntime {
         // count too. Root holds the whole answer in memory, so it is also kept to 64 MiB: an
         // accepted verdict carries no reasons, and a push whose answer would not fit is not judged
         // (a 500, nothing recorded) rather than read into a gigabyte.
-        return argv.stream().anyMatch(value -> value.startsWith("--unit=porelo-host-push-"))
+        return argv.stream().anyMatch(value -> value.startsWith("--unit=porelo-host-verify-"))
                 ? (int)
                         Math.min(
                                 Math.addExact(Math.multiplyExact((long) commits, 100628L), 79L),
@@ -597,7 +597,7 @@ final class ProjectRuntime {
                         account,
                         tokenArguments(
                                         username,
-                                        "porelo-host-project-"
+                                        "porelo-host-forge-project-"
                                                 + UUID.randomUUID().toString().replace("-", ""),
                                         scopes)
                                 .toArray(String[]::new));
@@ -730,7 +730,8 @@ final class ProjectRuntime {
                         configuration(user), "A forge session follows an enabled configuration");
         final String account = config.account();
         final Path socket = personEndpoint(config);
-        final String name = "porelo-host-person-" + UUID.randomUUID().toString().replace("-", "");
+        final String name =
+                "porelo-host-forge-admin-" + UUID.randomUUID().toString().replace("-", "");
         final String token =
                 forgeCommand(
                                 account,

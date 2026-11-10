@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.organization.gittree.HttpForgeAdmin;
 
-/** The root-only, full-ref check formerly provided by porelo-host-push --check. */
+/** Root's full-ref comparison with central before a project can be removed. */
 final class ProjectCentralCheck {
     private final ProjectFiles files;
     private final ProjectRuntime runtime;

@@ -1,0 +1,2 @@
+title: "`porelo org host refresh` runs `porelo-host org refresh` on the host, which the porelo-host package installs, where it ran the retired `porelo-host-person` and failed"
+type: fixed

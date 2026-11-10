@@ -565,14 +565,14 @@ answers at once, because root keeps it current.
 `/etc/porelo-host/organization/projects`, gives the project's keys, its address and where to fetch from, and a start
 reads it instead of asking. A person root has locked cannot read it, and is answered as on any other machine. Where
 that file's `fetch_from` is the host's own gate, `http://127.0.0.1:<port>/`, the fetch uses a forge token made for this
-person by the host's helper, `porelo-host-person forge-token --lend`, for that fetch alone, kept in memory and given to Git in
+person by the host's helper, `porelo-host forge lend-token`, for that fetch alone, kept in memory and given to Git in
 its environment; no other address asks for it. A locked or revoked person is 65 `refused-state`, and anything else
 from the helper is 69 `cannot-say`. The lent token stands beside the person's own, which stays valid, and the helper
 deletes lends a day old; a fetch that still fails is tried once more with a new token. The homeserver and the room in that file count only when
 `project.yml` names none.
 
 **A change at the central forge waits on a host with a forge of its own.** There, a start fetches from the host's
-forge, so a commit at the central address reaches it only after `porelo-host-push --pull` and a merged task. A deploy
+forge, so a commit at the central address reaches it only after `porelo host pull` and a merged task. A deploy
 key can stay listed at the central forge after a project goes: porelo-host's documentation has the detail.
 
 **A name both the organization and this machine use is the organization's.** `porelo project list` shows that one row,

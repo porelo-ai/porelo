@@ -57,7 +57,7 @@ final class ProjectMeasurements {
                 continue;
             } else if (name.endsWith(".json") && !pruneDeparted) {
                 continue;
-            } else if (!(name.startsWith(".porelo-host-person.")
+            } else if (!(ProjectFiles.isStaged(name)
                     || name.endsWith(".json.new")
                     || name.endsWith(".json"))) {
                 throw new HostRefusal(65, "the central states directory holds an unknown file");
@@ -105,7 +105,7 @@ final class ProjectMeasurements {
         for (Path path : files.list(directory)) {
             files.trusted(path, false);
             final String name = path.getFileName().toString();
-            if (name.startsWith(".porelo-host-person.") || name.endsWith(".json.new")) {
+            if (ProjectFiles.isStaged(name) || name.endsWith(".json.new")) {
                 files.delete(path);
             } else if (!name.endsWith(".json")) {
                 throw new HostRefusal(65, "the central states directory holds an unknown file");
@@ -123,7 +123,7 @@ final class ProjectMeasurements {
                                 "Every measured project has resolved readers"));
             }
         }
-        // porelo-host-person follow_central shares CENTRAL_ASK_SECONDS across the entire pass.
+        // Central questions share one time budget so a follow stays bounded across projects.
         final var deadline = clock.instant().plusSeconds(120);
         final var keys = new ProjectReadKeys(files, runtime.until(clock, deadline));
         for (String project : projects) {

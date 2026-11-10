@@ -331,7 +331,8 @@ final class HostPool {
     int giveBack(Map<String, String> environment) throws IOException {
         final String account = environment.getOrDefault("SUDO_USER", "");
         if (account.isEmpty())
-            throw new HostRefusal(2, "porelo-pool-give-back runs through sudo, as the run account");
+            throw new HostRefusal(
+                    2, "porelo-host pool give-back runs through sudo, as the run account");
         if (!account.matches("[a-z][a-z0-9_-]{0,31}"))
             throw new HostRefusal(2, "invalid pool run account");
         final Path state = files.at("/var/lib/porelo-pool/" + account);

@@ -34,7 +34,7 @@ class HostProjectTest {
                 .isEqualTo(code);
         assertThat(answer.err())
                 .as("the follow recognizes a project refusal by this prefix")
-                .startsWith("porelo-host-project: ")
+                .startsWith("porelo-host: ")
                 .contains(message);
         assertThat(answer.out()).as("a refusal prints no success record").isEmpty();
     }

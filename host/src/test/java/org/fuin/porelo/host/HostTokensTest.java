@@ -181,7 +181,7 @@ class HostTokensTest {
         host.failIdentity = "alice";
         final var answer = issue();
         assertThat(answer.code()).isEqualTo(69);
-        assertThat(answer.err()).startsWith("porelo-host-person:");
+        assertThat(answer.err()).startsWith("porelo-host:");
         assertThat(answer.out()).isEmpty();
         host.noSecrets(answer);
     }

@@ -958,8 +958,8 @@ final class HostArrivals {
     }
 
     /**
-     * Reads one recorded certificate: the line {@code porelo-host-person task --show} answers, a
-     * JSON record whose {@code certificate} is the certificate line, or that line alone.
+     * Reads one recorded certificate: the line {@code porelo-host task show} answers, a JSON record
+     * whose {@code certificate} is the certificate line, or that line alone.
      */
     private static SshCertificate recordOf(String line, Path file, int number) throws IOException {
         final String certificate;

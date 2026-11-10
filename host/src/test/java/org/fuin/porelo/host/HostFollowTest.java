@@ -22,6 +22,17 @@ class HostFollowTest {
         f = new FollowFixture(directory);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {".porelo-host.", ".porelo-host-person."})
+    void aFollowRemovesInterruptedPublications(String prefix) throws Exception {
+        final String left = FollowFixture.ORG + "persons/" + prefix + "abc123";
+        f.write(left, "half\n");
+        f.run();
+        assertThat(f.path(left))
+                .as("a staged file cannot prevent the next follow from reconciling membership")
+                .doesNotExist();
+    }
+
     @Test
     void newlyAdmittedMembersReadExistingArrivalsInTheSameFollow() throws Exception {
         // Waiting for another push or follow hides judged work from a newly admitted reviewer.

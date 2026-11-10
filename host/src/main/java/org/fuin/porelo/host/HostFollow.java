@@ -533,7 +533,7 @@ final class HostFollow {
         for (Path path : c.files.list(directory)) {
             c.files.trusted(path, false);
             final String name = path.getFileName().toString();
-            if (name.startsWith(".porelo-host-person.") || name.endsWith(".json.new")) {
+            if (ProjectFiles.isStaged(name) || name.endsWith(".json.new")) {
                 c.files.delete(path);
                 continue;
             }

@@ -281,7 +281,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: the sweep deleted bob/ended; it failed for alice: Forgejo answered no valid access-token name\n"));
+                                "porelo-host: the sweep deleted bob/ended; it failed for alice: Forgejo answered no valid access-token name\n"));
         assertThat(tokens.get("porelo-bob")).as("the next person's due token goes").isEmpty();
         assertThat(tokens.get("porelo-alice").values())
                 .as("no ambiguous-name deletion is attempted")
@@ -301,7 +301,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: Forgejo answered no valid access-token name\n"));
+                                "porelo-host: Forgejo answered no valid access-token name\n"));
         assertThat(closed)
                 .as("even refused cleanup releases its client")
                 .isEqualTo(opened)
@@ -352,7 +352,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: unfinished host revocation: bob: a required account is root or has no usable absolute home\n"));
+                                "porelo-host: unfinished host revocation: bob: a required account is root or has no usable absolute home\n"));
         assertThat(delivery).as("root's delivery tree survives").exists();
         assertThat(machine.calls)
                 .as("no mutation follows the root lookup")
@@ -372,7 +372,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: the sweep deleted bob/ended; it failed for alice: Forgejo admin API answered HTTP 503 to GET porelo-alice/tokens?limit=50&page=1\n"));
+                                "porelo-host: the sweep deleted bob/ended; it failed for alice: Forgejo admin API answered HTTP 503 to GET porelo-alice/tokens?limit=50&page=1\n"));
         assertThat(tokens.get("porelo-bob")).as("bob's token has actually gone").isEmpty();
         assertThat(tokens.get("porelo-admin"))
                 .as("failure does not retain the administrator token")
@@ -465,7 +465,7 @@ class HostSweepTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: the sweep is root's alone, from its timer\n"));
+                                "porelo-host: the sweep is root's alone, from its timer\n"));
         assertThat(machine.calls)
                 .as("a refused caller never reaches a program or the forge")
                 .isEmpty();
@@ -482,7 +482,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: unfinished host revocation: bob: gpasswd failed (exit 7)\n"));
+                                "porelo-host: unfinished host revocation: bob: gpasswd failed (exit 7)\n"));
     }
 
     @Test
@@ -528,7 +528,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: the sweep deleted nothing; it failed for alice: Forgejo admin API answered HTTP 503 to DELETE porelo-alice/tokens/2\n"));
+                                "porelo-host: the sweep deleted nothing; it failed for alice: Forgejo admin API answered HTTP 503 to DELETE porelo-alice/tokens/2\n"));
         assertThat(tokens.get("porelo-alice").values())
                 .as("the earlier successful deletion is not rolled back")
                 .containsExactly("porelo-task-two");
@@ -545,7 +545,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: Forgejo admin API answered HTTP 503 to GET porelo-admin/tokens?limit=50&page=1\n"));
+                                "porelo-host: Forgejo admin API answered HTTP 503 to GET porelo-admin/tokens?limit=50&page=1\n"));
         assertThat(tokens.get("porelo-alice"))
                 .as("cleanup failure does not restore the task token")
                 .isEmpty();
@@ -562,9 +562,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: "
-                                        + program
-                                        + " is missing from the fixed PATH\n"));
+                                "porelo-host: " + program + " is missing from the fixed PATH\n"));
         assertThat(requests).as("no HTTP call follows a failed preflight").isEmpty();
     }
 
@@ -574,11 +572,7 @@ class HostSweepTest {
         machine.generated = "private-invalid-value";
         assertThat(sweep())
                 .as("unusable credential output never reaches an HTTP header or diagnostic")
-                .isEqualTo(
-                        new Answer(
-                                69,
-                                "",
-                                "porelo-host-person: Forgejo made no valid access token\n"));
+                .isEqualTo(new Answer(69, "", "porelo-host: Forgejo made no valid access token\n"));
         assertThat(requests)
                 .as("an invalid admin token never reaches the private socket")
                 .isEmpty();
@@ -597,7 +591,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: the user manager of forge has no session bus at /run/user/900/bus\n"));
+                                "porelo-host: the user manager of forge has no session bus at /run/user/900/bus\n"));
     }
 
     @ParameterizedTest
@@ -620,7 +614,7 @@ class HostSweepTest {
                                 : "forge.conf names no valid agent list";
         assertThat(sweep())
                 .as("configuration text is validated before account switching")
-                .isEqualTo(new Answer(69, "", "porelo-host-person: " + message + "\n"));
+                .isEqualTo(new Answer(69, "", "porelo-host: " + message + "\n"));
     }
 
     @Test
@@ -640,7 +634,7 @@ class HostSweepTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: the people directory holds an unknown record\n"));
+                                "porelo-host: the people directory holds an unknown record\n"));
         Files.delete(fixture.path("/etc/porelo-host/forge.conf"));
         final Answer answer = run(SUDO, "task", "sweep");
         assertThat(answer.code())
@@ -699,7 +693,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: a required service or person account is missing\n"));
+                                "porelo-host: a required service or person account is missing\n"));
         assertThat(requests).as("the forge was never reached").isEmpty();
     }
 
@@ -710,9 +704,7 @@ class HostSweepTest {
         assertThat(sweep())
                 .as(
                         "an account name the configuration accepts must still be a valid forge endpoint name")
-                .isEqualTo(
-                        new Answer(
-                                69, "", "porelo-host-person: forge.conf names no valid account\n"));
+                .isEqualTo(new Answer(69, "", "porelo-host: forge.conf names no valid account\n"));
     }
 
     @ParameterizedTest
@@ -731,7 +723,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: unfinished host revocation: bob: Forgejo answered no valid user list\n"));
+                                "porelo-host: unfinished host revocation: bob: Forgejo answered no valid user list\n"));
         assertThat(Files.readString(fixture.path("/etc/porelo-host/people/bob.conf")))
                 .as("the failure is retryable")
                 .contains("lock=pending\n");
@@ -770,7 +762,7 @@ class HostSweepTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: unfinished host revocation: bob: runuser failed (exit 7)\n"));
+                                "porelo-host: unfinished host revocation: bob: runuser failed (exit 7)\n"));
         assertThat(machine.calls)
                 .as("temporary PAM expiry relief is always undone")
                 .containsSubsequence(
@@ -822,7 +814,7 @@ class HostSweepTest {
         assertThat(answer.err())
                 .as("the unsafe directory is refused at both owed removal steps")
                 .isEqualTo(
-                        "porelo-host-person: unfinished host revocation: bob: the forge token delivery directory is not a private directory of the person's; the forge token delivery directory is not a private directory of the person's\n");
+                        "porelo-host: unfinished host revocation: bob: the forge token delivery directory is not a private directory of the person's; the forge token delivery directory is not a private directory of the person's\n");
         assertThat(Files.readString(sentinel))
                 .as("an unrelated tree is never removed")
                 .isEqualTo("must remain");

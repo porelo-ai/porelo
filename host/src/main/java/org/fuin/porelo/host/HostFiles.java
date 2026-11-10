@@ -240,7 +240,8 @@ final class HostFiles {
                                 .map(line -> line.startsWith("locked=") ? "locked=" + locked : line)
                                 .collect(java.util.stream.Collectors.joining("\n", "", "\n"))
                         + (pending ? "lock=pending\n" : "");
-        final Path temporary = ProjectFiles.stagePrivate(path, ".porelo-host-person.", text, null);
+        final Path temporary =
+                ProjectFiles.stagePrivate(path, ProjectFiles.STAGED_PREFIX, text, null);
         try {
             Files.move(
                     temporary,

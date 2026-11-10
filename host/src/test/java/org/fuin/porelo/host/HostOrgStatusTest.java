@@ -68,7 +68,7 @@ class HostOrgStatusTest {
                         new Answer(
                                 65,
                                 "",
-                                "porelo-host-person: org status is root's alone and never runs through sudo\n"));
+                                "porelo-host: org status is root's alone and never runs through sudo\n"));
     }
 
     @Test
@@ -231,9 +231,7 @@ class HostOrgStatusTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: "
-                                        + file
-                                        + " is not a plain file of root's alone\n"));
+                                "porelo-host: " + file + " is not a plain file of root's alone\n"));
     }
 
     @Test
@@ -246,9 +244,7 @@ class HostOrgStatusTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: "
-                                        + file
-                                        + " is not a plain file of root's alone\n"));
+                                "porelo-host: " + file + " is not a plain file of root's alone\n"));
     }
 
     @Test
@@ -262,7 +258,7 @@ class HostOrgStatusTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: "
+                                "porelo-host: "
                                         + people
                                         + " is not a directory of root's alone\n"));
     }
@@ -279,8 +275,6 @@ class HostOrgStatusTest {
                         new Answer(
                                 69,
                                 "",
-                                "porelo-host-person: "
-                                        + conf
-                                        + " is not a plain file of root's alone\n"));
+                                "porelo-host: " + conf + " is not a plain file of root's alone\n"));
     }
 }

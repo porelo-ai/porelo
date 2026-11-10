@@ -30,7 +30,7 @@ class HostServiceCommandsTest {
                 .isOne();
         assertThat(errors.toString())
                 .as("activation failure retains the gate's safe diagnostic")
-                .startsWith("porelo-forge-gate:");
+                .startsWith("porelo-host:");
         assertThat(
                         run(
                                 1000,
@@ -59,7 +59,7 @@ class HostServiceCommandsTest {
         for (String verb : List.of("issue-token", "lend-token")) {
             errors.getBuffer().setLength(0);
             assertThat(run(1000, Map.of(), "forge", verb)).isEqualTo(69);
-            assertThat(errors.toString()).isEqualTo("porelo-host-person: runs only as root\n");
+            assertThat(errors.toString()).isEqualTo("porelo-host: runs only as root\n");
         }
     }
 

@@ -19,7 +19,7 @@ class HostPersonTest {
 
     @Test
     void aHostIsOneWithItsPersonsHelper() throws Exception {
-        final Path helper = dir.resolve("porelo-host-person");
+        final Path helper = dir.resolve("porelo-host");
         assertThat(new HostPerson(context(), helper, dir.resolve("absent-host")).present())
                 .isFalse();
         Files.writeString(helper, "#!/bin/sh\n");
@@ -30,7 +30,7 @@ class HostPersonTest {
 
     @Test
     void aHelperOnlyRootMayRunStillMakesAHost() throws Exception {
-        final Path helper = dir.resolve("porelo-host-person");
+        final Path helper = dir.resolve("porelo-host");
         Files.writeString(helper, "#!/bin/sh\n");
         helper.toFile().setExecutable(false);
         assertThat(new HostPerson(context(), helper, dir.resolve("absent-host")).present())

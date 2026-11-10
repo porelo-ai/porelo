@@ -112,7 +112,7 @@ final class ProjectPublication {
     void publish(Path destination, String content, List<String> readers) throws IOException {
         files.directory(ProjectFiles.parent(destination), false, false);
         final Path staged =
-                ProjectFiles.stagePrivate(destination, ".porelo-host-person.", content, null);
+                ProjectFiles.stagePrivate(destination, ProjectFiles.STAGED_PREFIX, content, null);
         try {
             complete(staged, destination, readers);
         } finally {
@@ -125,7 +125,7 @@ final class ProjectPublication {
         files.directory(ProjectFiles.parent(destination), false, false);
         files.trusted(ledger, true);
         final Path staged =
-                ProjectFiles.stagePrivate(destination, ".porelo-host-person.", "", null);
+                ProjectFiles.stagePrivate(destination, ProjectFiles.STAGED_PREFIX, "", null);
         try {
             try (var source =
                             java.nio.file.Files.newInputStream(

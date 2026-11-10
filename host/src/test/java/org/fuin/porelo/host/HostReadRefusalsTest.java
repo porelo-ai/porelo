@@ -28,7 +28,7 @@ class HostReadRefusalsTest {
     private void refuses(int code, String words) {
         assertThat(fixture.run(Map.of(), "org", "status", "--json"))
                 .as("bad host state refuses org status with the code and the words that name it")
-                .isEqualTo(new Answer(code, "", "porelo-host-person: " + words + "\n"));
+                .isEqualTo(new Answer(code, "", "porelo-host: " + words + "\n"));
     }
 
     @Test

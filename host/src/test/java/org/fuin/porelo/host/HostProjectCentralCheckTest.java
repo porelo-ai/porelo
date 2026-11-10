@@ -390,7 +390,7 @@ class HostProjectCentralCheckTest {
     void checkCentralKeepsThePushDiagnosticPrefix() {
         final var answer = host.run("check-central", "alpha");
         assertThat(answer.code()).isEqualTo(64);
-        assertThat(answer.err()).startsWith("porelo-host-push: ");
+        assertThat(answer.err()).startsWith("porelo-host: ");
     }
 
     @Test

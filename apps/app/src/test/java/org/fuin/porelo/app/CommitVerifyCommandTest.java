@@ -1071,7 +1071,7 @@ class CommitVerifyCommandTest {
         return Path.of(copy + "-cert.pub");
     }
 
-    /** The host's records, one line as {@code porelo-host-person task --show} answers it. */
+    /** The host's records, one line as {@code porelo-host task show} answers it. */
     private Path records(Path certificate, String name) throws Exception {
         final String[] fields = Files.readString(certificate).strip().split(" ");
         final Map<String, Object> record = new LinkedHashMap<>();

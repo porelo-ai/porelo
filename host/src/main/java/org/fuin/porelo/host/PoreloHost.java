@@ -226,14 +226,14 @@ public final class PoreloHost implements Callable<Integer> {
                 if (args.length > 0
                         && args[0].equals("project")
                         && !(args.length > 1 && args[1].equals("check-central"))) {
-                    throw new HostRefusal(69, "porelo-host-project: runs only as root");
+                    throw new HostRefusal(69, "porelo-host: runs only as root");
                 }
                 if (args.length > 0
                         && (args[0].equals("task")
                                 || args[0].equals("person")
                                 || args[0].equals("forge")
                                 || args[0].equals("judge-push"))) {
-                    throw new HostRefusal(69, "porelo-host-person: runs only as root");
+                    throw new HostRefusal(69, "porelo-host: runs only as root");
                 }
                 throw new HostRefusal(
                         77,
@@ -339,7 +339,7 @@ public final class PoreloHost implements Callable<Integer> {
                         line.getErr()
                                 .println(
                                         group.equals("pool")
-                                                ? "porelo-pool-"
+                                                ? "porelo-host pool "
                                                         + action
                                                         + ": cannot read or change the pool's files or run its programs"
                                                 : "porelo-host forge "
@@ -348,7 +348,6 @@ public final class PoreloHost implements Callable<Integer> {
                         return 1;
                     }
                     if (exception instanceof HostRefusal refusal) {
-                        // Keep the predecessor's diagnostic contract for the ported verbs.
                         final String message =
                                 java.util.Objects.requireNonNull(
                                         refusal.getMessage(),
@@ -356,15 +355,11 @@ public final class PoreloHost implements Callable<Integer> {
                         line.getErr()
                                 .println(
                                         message.startsWith("porelo-host:")
-                                                        || message.startsWith("porelo-forge-gate:")
-                                                        || message.startsWith(
-                                                                "porelo-pool-give-back")
                                                 ? message
-                                                : "porelo-host-person: " + message);
+                                                : "porelo-host: " + message);
                         return refusal.exitCode();
                     }
-                    line.getErr()
-                            .println("porelo-host-person: cannot read or change the host's files");
+                    line.getErr().println("porelo-host: cannot read or change the host's files");
                     return 73;
                 });
         command.setColorScheme(CommandLine.Help.defaultColorScheme(Ansi.OFF));

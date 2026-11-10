@@ -110,7 +110,7 @@ class HostTaskReviewTest {
                         new PrintWriter(new StringWriter()),
                         new PrintWriter(errors, true));
         assertThat(code).isEqualTo(69);
-        assertThat(errors.toString()).isEqualTo("porelo-host-person: runs only as root\n");
+        assertThat(errors.toString()).isEqualTo("porelo-host: runs only as root\n");
     }
 
     @Test
@@ -147,7 +147,7 @@ class HostTaskReviewTest {
         try {
             final var answer = host.run(host.certificate(), "task", "start", "t1");
             assertThat(answer.code()).isEqualTo(73);
-            assertThat(answer.err()).isEqualTo("porelo-host-person: cannot record task t1\n");
+            assertThat(answer.err()).isEqualTo("porelo-host: cannot record task t1\n");
             assertThat(answer.out()).isEmpty();
             assertThat(host.calls).noneMatch(call -> call.contains("generate-access-token"));
         } finally {

@@ -60,7 +60,7 @@ final class HostSocketActivation {
                 || !Long.toString(pid).equals(environment.get("LISTEN_PID")))
             throw new HostRefusal(
                     1,
-                    "porelo-forge-gate: one accepted socket from this process's socket activation is required");
+                    "porelo-host: one accepted socket from this process's socket activation is required");
     }
 
     static SocketChannel accepted(Map<String, String> environment, String mode) throws IOException {
@@ -81,7 +81,7 @@ final class HostSocketActivation {
         final var channel = System.inheritedChannel();
         if (!(channel instanceof SocketChannel socket) || !socket.isConnected()) {
             throw new HostRefusal(
-                    1, "porelo-forge-gate: socket activation supplied no accepted connection");
+                    1, "porelo-host: socket activation supplied no accepted connection");
         }
         checkFamily(socket, mode);
         return socket;
@@ -90,8 +90,7 @@ final class HostSocketActivation {
     static void checkFamily(SocketChannel socket, String mode) throws IOException {
         if (!(socket.getRemoteAddress() instanceof UnixDomainSocketAddress)
                 && !mode.equals("git")) {
-            throw new HostRefusal(
-                    1, "porelo-forge-gate: " + mode + " mode serves a Unix socket alone");
+            throw new HostRefusal(1, "porelo-host: " + mode + " mode serves a Unix socket alone");
         }
     }
 }

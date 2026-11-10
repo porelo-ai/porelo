@@ -111,6 +111,6 @@ class SweepKeepsProjectDiagnosticsTest {
         assertThat(code).as("a project verb keeps EX_UNAVAILABLE").isEqualTo(69);
         assertThat(err.toString())
                 .as("the sweep's shared runner keeps the project verbs' dependency classification")
-                .isEqualTo("porelo-host-project: dependency or file read failed: IOException\n");
+                .isEqualTo("porelo-host: dependency or file read failed: IOException\n");
     }
 }

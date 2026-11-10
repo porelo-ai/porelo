@@ -168,7 +168,7 @@ final class FollowState {
                 if (address != null && !FollowProjects.address(address)) {
                     address = null;
                     why = "the organization names an unusable address for this project";
-                    context.err.println("porelo-host-person: " + name + ": " + why);
+                    context.err.println("porelo-host: " + name + ": " + why);
                 }
                 project.put("name", name);
                 project.put("address", address);
@@ -187,7 +187,7 @@ final class FollowState {
                 accepted.add(project);
             } catch (HostRefusal ex) {
                 refusals.put(name, ex.getMessage());
-                context.err.println("porelo-host-person: " + name + ": " + ex.getMessage());
+                context.err.println("porelo-host: " + name + ": " + ex.getMessage());
             }
         }
         final Set<String> revoked = new TreeSet<>();

@@ -143,7 +143,7 @@ class OrgHostRefreshCommandTest {
                         .get("refresh");
         assertThat(refresh).as("org host registers refresh beside carry and uncarry").isNotNull();
         ((OrgHostRefreshCommand) refresh.getCommand()).reader = machine -> hosts;
-        runner.answering("porelo-host-person org refresh", STATUS);
+        runner.answering("porelo-host org refresh", STATUS);
     }
 
     private static String publicKey(SigningKey key) {
@@ -171,9 +171,7 @@ class OrgHostRefreshCommandTest {
         }
         final String echo = cleanedEcho ? TOKEN + "\u001btail" : token;
         runner.answering(
-                "porelo-host-person org refresh",
-                STATUS,
-                "following\u001brepository alpha\n" + echo);
+                "porelo-host org refresh", STATUS, "following\u001brepository alpha\n" + echo);
 
         final int exit = run(json ? new String[] {"--json"} : new String[0]);
 
@@ -213,7 +211,7 @@ class OrgHostRefreshCommandTest {
         assertThat(sent.get())
                 .as("exact token bytes on stdin")
                 .isEqualTo(TOKEN.getBytes(StandardCharsets.US_ASCII));
-        final Command ssh = runner.only("porelo-host-person");
+        final Command ssh = runner.only("porelo-host");
         assertThat(ssh.arguments())
                 .as("isolated SSH, the card's address and port, direct root")
                 .contains(
@@ -229,7 +227,7 @@ class OrgHostRefreshCommandTest {
                         "VerifyHostKeyDNS=no",
                         "-p",
                         "2222")
-                .endsWith("root@host.example.org", "porelo-host-person", "org", "refresh");
+                .endsWith("root@host.example.org", "porelo-host", "org", "refresh");
         assertThat(known.get())
                 .as("only the card's key is trusted")
                 .isEqualTo("[host.example.org]:2222 " + key + "\n");
@@ -353,8 +351,7 @@ class OrgHostRefreshCommandTest {
     @ParameterizedTest
     @CsvSource({"64,64", "65,65", "69,69", "73,73", "255,69", "23,70"})
     void mapsTheRemoteExitWithoutClaimingHandover(int remote, int expected) {
-        runner.failing(
-                "porelo-host-person org refresh", remote, "porelo-host-person: setting is missing");
+        runner.failing("porelo-host org refresh", remote, "porelo-host: setting is missing");
         assertThat(run("--json")).as("remote exit %s", remote).isEqualTo(expected);
         assertThat(((Map<?, ?>) Json.parse(out.toString())).get("handedOver"))
                 .as("no success claim")
@@ -367,7 +364,7 @@ class OrgHostRefreshCommandTest {
     @Test
     void neitherHostOutputNorExceptionsCanEchoTheToken() {
         runner.answering(
-                "porelo-host-person org refresh",
+                "porelo-host org refresh",
                 STATUS.replace(
                         "\"refused\":null",
                         "\"refused\":\"" + "\\u0069" + TOKEN.substring(1) + "\""),
@@ -387,7 +384,7 @@ class OrgHostRefreshCommandTest {
         Files.delete(context.vault().path());
         context.vault().write(Map.of("central", new VaultEntry(exposed, "token")), share);
         runner.answering(
-                "porelo-host-person org refresh",
+                "porelo-host org refresh",
                 STATUS.replace("\"commit\":null", "\"commit\":" + exposed));
         assertThat(run("--json")).as("a token echoed as a JSON scalar is unsafe").isEqualTo(70);
         assertThat(((Map<?, ?>) Json.parse(out.toString())).get("answer"))
@@ -397,14 +394,14 @@ class OrgHostRefreshCommandTest {
 
     @Test
     void aHostDiagnosticCannotEchoTheToken() {
-        runner.answering("porelo-host-person org refresh", STATUS, TOKEN);
+        runner.answering("porelo-host org refresh", STATUS, TOKEN);
         assertThat(run("--json")).as("a safe status still answers").isZero();
         assertThat(out + err.toString()).as("stderr echo is withheld too").doesNotContain(TOKEN);
     }
 
     @Test
     void malformedSuccessNeverClaimsHandover() {
-        runner.answering("porelo-host-person org refresh", "not JSON");
+        runner.answering("porelo-host org refresh", "not JSON");
         assertThat(run("--json")).as("invalid protocol answer").isEqualTo(70);
         assertThat(((Map<?, ?>) Json.parse(out.toString())).get("handedOver"))
                 .as("no false success")

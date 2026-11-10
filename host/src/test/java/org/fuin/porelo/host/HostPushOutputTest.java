@@ -57,7 +57,7 @@ class HostPushOutputTest {
         final var runner =
                 new HostPrograms(
                         Duration.ofSeconds(5),
-                        ProjectRuntime.outputLimit(List.of("--unit=porelo-host-push-fixture"), 1),
+                        ProjectRuntime.outputLimit(List.of("--unit=porelo-host-verify-fixture"), 1),
                         TestPrograms::find);
         assertThat(
                         runner.run(List.of("head", "-c", Integer.toString(bytes), "/dev/zero"))
@@ -85,7 +85,7 @@ class HostPushOutputTest {
                 new HostPrograms(
                         Duration.ofSeconds(2),
                         ProjectRuntime.outputLimit(
-                                List.of("--unit=porelo-host-push-fixture"), 10000),
+                                List.of("--unit=porelo-host-verify-fixture"), 10000),
                         TestPrograms::find);
         assertThatThrownBy(
                         () ->

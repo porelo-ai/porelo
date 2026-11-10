@@ -8,6 +8,8 @@ import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class HostProjectMeasurementsTest {
     @TempDir Path root;
@@ -159,10 +161,11 @@ class HostProjectMeasurementsTest {
                         "{\"project\": \"alpha\", \"read_at\": \"2026-11-03T00:00:00Z\", \"repositories\": []}\n");
     }
 
-    @Test
-    void anInterruptedPublicationIsRemovedBeforePublishingAgain() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {".porelo-host.", ".porelo-host-person."})
+    void anInterruptedPublicationIsRemovedBeforePublishingAgain(String prefix) throws Exception {
         measure();
-        final Path left = answer().getParent().resolve(".porelo-host-person.abc123");
+        final Path left = answer().getParent().resolve(prefix + "abc123");
         Files.writeString(left, "half\n");
         ProjectFixture.mode(left, 0600);
         measure();

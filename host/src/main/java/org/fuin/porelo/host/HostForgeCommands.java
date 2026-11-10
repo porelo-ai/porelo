@@ -55,10 +55,10 @@ final class HostForgeCommands {
         public Integer call() throws Exception {
             if (environment.containsKey("SUDO_USER"))
                 throw new HostRefusal(
-                        65, "porelo-forge-gate: the socket service never runs through sudo");
+                        65, "porelo-host: the socket service never runs through sudo");
             if (!upstream.isAbsolute())
                 throw new HostRefusal(
-                        64, "porelo-forge-gate: upstream must be an absolute Unix socket path");
+                        64, "porelo-host: upstream must be an absolute Unix socket path");
             final String mode = modes.web ? "web" : modes.runner ? "runner" : "git";
             try {
                 final var channel = HostSocketActivation.accepted(environment, mode);
@@ -69,7 +69,7 @@ final class HostForgeCommands {
                     gate.serve(connection.input, connection.output);
                 }
             } catch (java.io.IOException ex) {
-                throw new HostRefusal(1, "porelo-forge-gate: connection failed");
+                throw new HostRefusal(1, "porelo-host: connection failed");
             }
             return 0;
         }

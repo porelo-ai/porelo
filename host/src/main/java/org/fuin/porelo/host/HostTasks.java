@@ -129,7 +129,7 @@ final class HostTasks {
             final Path target = directory.resolve(task + ".json");
             final Path temporary =
                     ProjectFiles.stagePrivate(
-                            target, ".porelo-host-person.", write(entry) + "\n", null);
+                            target, ProjectFiles.STAGED_PREFIX, write(entry) + "\n", null);
             try {
                 try {
                     Files.createLink(target, temporary);

@@ -110,8 +110,7 @@ class HostPushActivationTest {
                 .isEmpty();
         assertThat(err.toString())
                 .as("the refusal names the socket unit as the only caller")
-                .isEqualTo(
-                        "porelo-host-person: verify-push is the forge hook's socket unit's alone\n");
+                .isEqualTo("porelo-host: verify-push is the forge hook's socket unit's alone\n");
     }
 
     @Test
@@ -129,7 +128,7 @@ class HostPushActivationTest {
         assertThat(out.toString()).as("no hook answer can precede the root boundary").isEmpty();
         assertThat(err.toString())
                 .as("the refusal says the verb runs only as root")
-                .isEqualTo("porelo-host-person: runs only as root\n");
+                .isEqualTo("porelo-host: runs only as root\n");
     }
 
     @Test
@@ -141,6 +140,6 @@ class HostPushActivationTest {
         assertThat(answer.out()).as("a plain pipe cannot impersonate a socket unit").isEmpty();
         assertThat(answer.err())
                 .as("a failed activation remains a journal diagnostic")
-                .isEqualTo("porelo-host-person: cannot read or change the host's files\n");
+                .isEqualTo("porelo-host: cannot read or change the host's files\n");
     }
 }

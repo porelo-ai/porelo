@@ -310,7 +310,7 @@ porelo commit verify --repository <git-dir> --signers signers --certifiers certi
   principal list in quotes may hold spaces, a blank is a space or a tab only, and a `valid-after` day past its month's
   end or second 60 or 61 rolls over;
   **`--krl`** the revocation list in force; **`--certificates`** the host's recorded task certificates, one
-  `porelo-host-person task --show` answer per line.
+  `porelo-host task show` answer per line.
 - **Each new commit, merges included, must carry an SSH signature that holds now**, over what git verifies - the commit
   without any header whose name starts with `gpgsig` - however the commit is dated: a person's by a key in force,
   verified as git verifies it by each principal `ssh-keygen -Y find-principals` names for the key's lines, a

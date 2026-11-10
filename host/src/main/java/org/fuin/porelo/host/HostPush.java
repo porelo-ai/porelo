@@ -268,7 +268,7 @@ final class HostPush {
                 throw new HostRefusal(73, "cannot stage the push's KRL in /run/porelo-host/push");
             }
             final String unit =
-                    "porelo-host-push-"
+                    "porelo-host-verify-"
                             + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
             final String credentials = "/run/credentials/" + unit + ".service/";
             final List<String> argv =

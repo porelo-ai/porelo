@@ -336,7 +336,7 @@ class HostProjectPoolKeyTest {
         assertThat(answer.code()).as("pool-key refuses: %s", answer.err()).isEqualTo(code);
         assertThat(answer.out()).as("failure never reports partial success").isEmpty();
         assertThat(answer.err())
-                .startsWith("porelo-host-project: ")
+                .startsWith("porelo-host: ")
                 .doesNotContain("private run key", "another run key");
     }
 }

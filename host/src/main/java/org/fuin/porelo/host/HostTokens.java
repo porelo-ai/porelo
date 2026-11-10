@@ -46,7 +46,7 @@ final class HostTokens {
             final String name =
                     (lend
                                     ? LEND + TIME.format(now.atOffset(ZoneOffset.UTC)) + "-"
-                                    : "porelo-host-person-")
+                                    : "porelo-host-forge-person-")
                             + UUID.randomUUID().toString().replace("-", "");
             return session.token(login, SCOPES, name);
         }

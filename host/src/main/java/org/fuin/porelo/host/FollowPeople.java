@@ -710,7 +710,7 @@ final class FollowPeople {
             }
         } catch (HostRefusal ex) {
             c.err.println(
-                    "porelo-host-person: porelod of "
+                    "porelo-host: porelod of "
                             + login
                             + " is not running ("
                             + ex.getMessage()
@@ -1070,7 +1070,7 @@ final class FollowPeople {
                             Duration.ofSeconds(60));
             if (conmon.exitCode() == 0) {
                 c.err.println(
-                        "porelo-host-person: porelod of "
+                        "porelo-host: porelod of "
                                 + login
                                 + " lacks porelo-people until their tasks end; the follow after that restarts it");
                 return;
@@ -1082,7 +1082,7 @@ final class FollowPeople {
             daemon(login);
         } catch (HostRefusal ex) {
             c.err.println(
-                    "porelo-host-person: porelod of "
+                    "porelo-host: porelod of "
                             + login
                             + " lacks porelo-people and was not restarted ("
                             + ex.getMessage()
