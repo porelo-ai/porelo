@@ -229,6 +229,10 @@ final class ProjectRuntime {
         return commands.run(argv, input, environment, timeout);
     }
 
+    ProjectFiles files() {
+        return files;
+    }
+
     HostPrograms.Result collect(
             List<String> argv, Map<String, String> environment, Duration timeout)
             throws IOException {

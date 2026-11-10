@@ -46,6 +46,36 @@ access:
 
 On a host a person's login is the name of a Linux account, so a card's login is a lower-case letter, then up to 31 lower-case letters, digits or dashes. A host also refuses `root`, `porelo` and any `porelo-...`. GitHub allows more: a login with a capital is the same login in lower case, and one past 32 characters cannot have a card.
 
+## Root's person maintenance
+
+The host package provides `/usr/sbin/porelo-host person purge <login>` and `person restore-runtime`.
+Both require the real root uid and hold the same exclusive `forge.conf` lock as the follow. They use
+root's checked people records, fixed program paths and account database; neither grants a new sudo rule.
+The purge target is explicit. Commands that act for their calling person still take that person only
+from `SUDO_USER`, with `SUDO_UID` checked against the account database.
+
+Losing admission removes SSH, group, session and forge access and stops the person's tasks. Matrix
+accounts remain available for readmission. Only absence from every applied project listing and the
+host admins starts the seven-day purge clock; a listed locked member has no purge deadline. The follow
+purges on its first successful pass at or after that deadline. An explicit `person purge` enforces the
+same locked, absent and due conditions. A pending lock is finished before deletion; an incomplete
+organization membership inventory refuses purge. Root, system and unrecorded accounts are refused.
+
+Purge expels the person's Matrix identities and deletes their forge identities and tokens, then stops
+tasks before clearing the vault as that person. Only a transport account kept elsewhere may remain
+after vault cleanup. It stops the user manager before removing the OS account and home, releases the
+person's subordinate IDs, and reserves the login in root's private purged list. A failed step returns
+nonzero and retains retry state; cleanup that temporarily lifts account expiry attempts to expire it
+again and stop its manager even on failure. An already absent account can finish the remaining cleanup.
+
+For `up`, run `person restore-runtime` as root. It repairs only records with memberships, unlocked and
+without a pending lock: the person-owned 0700 return-socket directory, its missing daemon link and the
+root-owned 0644 tmpfiles rule. A person's existing entry at the daemon link stays, including a dangling
+link. Unsafe directories or boot rules are refused. Each selected person's `user@<uid>.service` is
+restarted; locked, pending and membership-free records are untouched. The JSON answer `{"changed":N}`
+counts people whose runtime files changed, excluding manager restarts, so a repeated file repair answers
+zero even though admitted managers restart again.
+
 ## Where a host reaches a project's repositories
 
 On a host, whatever `upstream` a row of a project's file says, a row with a `central` is reached at
@@ -286,7 +316,8 @@ endpoint can read arrivals only for its own project.
 
 ## The answers a second run reads
 
-A playbook changes only what differs, so a second `up` on a host that is up changes nothing. It asks:
+A playbook writes only what differs; `up` also restores admitted people's runtimes and restarts their user managers.
+It asks:
 
 | Command | Answer |
 |---|---|
@@ -297,10 +328,9 @@ A playbook changes only what differs, so a second `up` on a host that is up chan
 | `porelo vault put NAME --json` | `{"name", "stored"}` alone on standard output, every other line on standard error; `stored` is false when the entry already held exactly this value, kind and settings, and then nothing is written. The same for `--from-file` and standard input. No part of the value is printed. The play reports a put as changed only where `stored` is true. |
 | `porelo vault status` | Exit 0 open, 3 shut, 4 no vault, 70 for a file that is not a vault. `--json` gives `{"exists", "open", "path"}`. "Open" is proved by reading the vault with what the account keeps. |
 
-**A person locked out.** A person dropped from the signed list is locked out at once, as their own account, with
-no terminal and standard input closed: `porelo task stop --all`, then, only on its exit 0, `porelo vault clear
---yes --force`. Exit 0 from both means no task of the account runs and its vault is gone; anything else leaves the
-account to be purged by hand.
+**A person locked out.** [Root's person maintenance](#roots-person-maintenance) removes admission and keeps
+the record for retry on failure. Vault cleanup runs as the person, without a terminal or input, only after
+all their tasks have stopped.
 
 **A host nobody sits at.** The second play stops when `porelo vault status` answers 3 or 4, and the vault is
 opened from outside: on their own machine a person runs `porelo host unlock HOST --host-key SHA256:... --login ACCOUNT`,

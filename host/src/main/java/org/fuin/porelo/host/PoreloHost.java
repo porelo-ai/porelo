@@ -221,6 +221,7 @@ public final class PoreloHost implements Callable<Integer> {
                 }
                 if (args.length > 0
                         && (args[0].equals("task")
+                                || args[0].equals("person")
                                 || args[0].equals("forge")
                                 || args[0].equals("judge-push"))) {
                     throw new HostRefusal(69, "porelo-host-person: runs only as root");
@@ -293,6 +294,11 @@ public final class PoreloHost implements Callable<Integer> {
                         .addSubcommand("issue-token", new ForgeToken(host, false))
                         .addSubcommand("lend-token", new ForgeToken(host, true)));
         command.addSubcommand("project", HostProject.commandLine(host.environment));
+        command.addSubcommand(
+                "person",
+                new CommandLine(new Group())
+                        .addSubcommand("purge", new PersonPurge(host))
+                        .addSubcommand("restore-runtime", new PersonRestoreRuntime(host)));
         command.addSubcommand("pool", HostPoolCommands.commandLine(host.environment));
         command.addSubcommand("judge-push", new JudgePush(host));
         command.setExpandAtFiles(false);
@@ -388,6 +394,57 @@ public final class PoreloHost implements Callable<Integer> {
                                 ex.getMessage(), "Identity refusals have safe diagnostics"));
             }
             throw ex;
+        }
+    }
+
+    private HostPeople people(PrintWriter err) {
+        return new HostPeople(new FollowContext(files, runtime.files(), runtime, clock, err));
+    }
+
+    @Command(
+            name = "purge",
+            exitCodeOnInvalidInput = 64,
+            description = "Purge a locked person whose seven-day grace period has ended.")
+    static final class PersonPurge implements Callable<Integer> {
+        private final PoreloHost host;
+
+        @CommandLine.Parameters(index = "0", paramLabel = "<login>")
+        private String login;
+
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        PersonPurge(PoreloHost host) {
+            this.host = host;
+        }
+
+        /** Answers only after the explicit target's purge completes. */
+        @Override
+        public Integer call() throws IOException {
+            final var answer = host.people(spec.commandLine().getErr()).purge(login);
+            spec.commandLine().getOut().println(HostJson.write(answer));
+            return 0;
+        }
+    }
+
+    @Command(
+            name = "restore-runtime",
+            exitCodeOnInvalidInput = 64,
+            description =
+                    "Restore admitted people's runtime files and restart their user managers.")
+    static final class PersonRestoreRuntime implements Callable<Integer> {
+        private final PoreloHost host;
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        PersonRestoreRuntime(PoreloHost host) {
+            this.host = host;
+        }
+
+        /** Restores admitted people's runtime files and managers under the shared lock. */
+        @Override
+        public Integer call() throws IOException {
+            final var answer = host.people(spec.commandLine().getErr()).restoreRuntime();
+            spec.commandLine().getOut().println(HostJson.write(answer));
+            return 0;
         }
     }
 

@@ -457,10 +457,10 @@ final class FollowPeople {
         }
     }
 
-    private @Nullable String range(String login, String kind) {
+    private record SubordinateRange(String login, long first, long count) {}
 
-        long start = 100000;
-        boolean held = false;
+    private List<SubordinateRange> ranges(String kind) {
+        final List<SubordinateRange> result = new ArrayList<>();
         for (String line : c.host.read("/etc/" + kind).lines().toList()) {
             final String[] row = line.split(":", -1);
             if (row.length != 3
@@ -473,8 +473,17 @@ final class FollowPeople {
             if (count < 1 || first + count > 4294967295L) {
                 throw new HostRefusal(69, kind + " holds a malformed subordinate ID range");
             }
-            start = Math.max(start, first + count);
-            held |= row[0].equals(login);
+            result.add(new SubordinateRange(row[0], first, count));
+        }
+        return result;
+    }
+
+    private @Nullable String range(String login, String kind) {
+        long start = 100000;
+        boolean held = false;
+        for (var range : ranges(kind)) {
+            start = Math.max(start, range.first() + range.count());
+            held |= range.login().equals(login);
         }
         if (held) {
             return null;
@@ -600,8 +609,11 @@ final class FollowPeople {
         }
     }
 
-    private void runtime(String login) throws IOException {
+    boolean runtime(String login) throws IOException {
         final var account = c.runtime.required(login);
+        final String rule = "/etc/tmpfiles.d/porelo-person-" + login + ".conf";
+        c.host.check(c.path(rule), 73, false, false, -1);
+        boolean changed = false;
         final Path directory = c.path("/run/porelo-host/people/" + login);
         c.directories(ProjectFiles.parent(directory), 0755);
         if (!c.files.exists(directory)) {
@@ -609,6 +621,8 @@ final class FollowPeople {
                     directory,
                     java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
                             java.nio.file.attribute.PosixFilePermissions.fromString("rwx------")));
+            // The checked parent protects this new, still root-owned directory before chown.
+            Files.setAttribute(directory, "unix:mode", 0700);
             final var passwd =
                     c.run(List.of("getent", "passwd", login), new byte[0], Duration.ofSeconds(10));
             final String[] fields = passwd.output().strip().split(":", -1);
@@ -616,6 +630,7 @@ final class FollowPeople {
                 throw new HostRefusal(69, "the person's primary group could not be read");
             }
             c.files.owner(directory, (int) account.uid(), Integer.parseInt(fields[3]));
+            changed = true;
         } else {
             final var attributes = c.files.attributes(directory);
             if (!Long.valueOf(account.uid())
@@ -641,6 +656,7 @@ final class FollowPeople {
         if (!Files.exists(link, LinkOption.NOFOLLOW_LINKS)) {
             try {
                 Files.createSymbolicLink(link, Path.of(daemon));
+                changed = true;
             } catch (java.nio.file.FileAlreadyExistsException ex) {
                 /* The person keeps their entry. */
             }
@@ -657,10 +673,20 @@ final class FollowPeople {
                         + "/porelod.sock - - - - "
                         + daemon
                         + "\n";
-        final String rule = "/etc/tmpfiles.d/porelo-person-" + login + ".conf";
-        if (!c.host.exists(rule) || !c.host.read(rule).equals(content)) {
+        if (!c.host.exists(rule)
+                || !c.host.read(rule).equals(content)
+                || (((Number)
+                                                Files.getAttribute(
+                                                        c.path(rule),
+                                                        "unix:mode",
+                                                        LinkOption.NOFOLLOW_LINKS))
+                                        .intValue()
+                                & 07777)
+                        != 0644) {
             c.write(rule, content, 0644);
+            changed = true;
         }
+        return changed;
     }
 
     private void daemon(String login) throws IOException {
@@ -796,7 +822,8 @@ final class FollowPeople {
         }
     }
 
-    private void purge(String login) throws IOException {
+    void purge(String login) throws IOException {
+        purgePreflight(login);
         final var record =
                 java.util.Objects.requireNonNull(
                         records().get(login), "Only a recorded person can be purged");
@@ -885,6 +912,43 @@ final class FollowPeople {
         purged.add(login);
         c.write("/etc/porelo-host/people/purged", String.join("\n", purged) + "\n", 0600);
         c.files.delete(records.person(login));
+    }
+
+    private void purgePreflight(String login) throws IOException {
+        final var states = new HostRecords(c.host).read();
+        final Long uid = accounts().get(login);
+        if (login.equals("root")
+                || uid != null && (uid < minimumUid() || !states.containsKey(login))) {
+            throw new HostRefusal(
+                    65,
+                    "the name belongs to root, a system account or an account outside the people records");
+        }
+        final var state = states.get(login);
+        if (state == null) {
+            throw new HostRefusal(65, "the person is unknown to the people records");
+        }
+        if (!state.members().isEmpty()) {
+            throw new HostRefusal(65, "the person is still listed in the host's people records");
+        }
+        if (!state.locked() && !state.pending()) {
+            throw new HostRefusal(65, "the person must be locked before purge");
+        }
+        final var day = state.lockedOn();
+        if (day == null || LocalDate.now(c.clock).isBefore(day.plusDays(7))) {
+            throw new HostRefusal(65, "the person's seven-day purge is not due");
+        }
+        HostPeople.unlisted(c, login);
+        for (String kind : List.of("subuid", "subgid")) {
+            ranges(kind);
+            c.host.check(c.path("/etc/" + kind), 73, true, false, -1);
+        }
+        c.runtime.require("gpasswd");
+        if (uid != null) {
+            c.runtime.require("loginctl", "usermod", "systemctl", "userdel");
+            if (c.runtime.available("porelo")) {
+                c.runtime.require("runuser", "env");
+            }
+        }
     }
 
     private void finishCleanup(String login, long uid) throws IOException {

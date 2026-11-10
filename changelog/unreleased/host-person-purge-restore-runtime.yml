@@ -1,0 +1,2 @@
+title: "'porelo-host person purge' removes only locked, due people absent from every project, and 'person restore-runtime' repairs admitted runtimes and restarts their user managers"
+type: added

@@ -1,4 +1,4 @@
-.TH PORELO-HOST 8 "2026-11-09" "Porelo" "System Administration"
+.TH PORELO-HOST 8 "2026-11-10" "Porelo" "System Administration"
 .SH NAME
 porelo-host \- the host's own program
 .SH SYNOPSIS
@@ -10,8 +10,39 @@ porelo-host \- the host's own program
 .B porelo-host
 is run by sudo rules granting NOPASSWD access for the calling person alone,
 or by root's systemd service and socket units.
-It is never typed directly by a person in a shell.
+Person-facing commands invoke it through the installed sudo rules;
+root's maintenance commands use the grouped verbs directly.
 .SH COMMANDS
+.TP
+.B person purge <login>
+Root's explicit purge of a recorded person whose seven-day grace period has ended.
+The target is explicit, as opposed to a caller-scoped task or token operation.
+Refuse root, system and unrecorded accounts, an unlocked person without an unfinished
+lock, a missing or future purge deadline, any remaining membership in the person's
+record, and any project-listed person or host admin in the applied organization.
+Missing, malformed or incomplete organization membership refuses purge.
+Take the exclusive forge.conf flock and validate the people records, subordinate-ID
+files and required programs before revoking access. Finish pending locks first.
+Reuse the follow's purge: revoke SSH, group, session and forge access, expel Matrix
+identities, drop forge tokens and identities, stop tasks then clear the vault as the
+person, disable linger, terminate sessions, stop the manager and userdel --remove.
+Missing optional porelo skips only its operations. A nonzero vault clear is accepted
+only for exit 1 with a valid, unrefused answer keeping transport accounts elsewhere alone.
+Temporarily lifted expiry is restored and the manager stopped even on cleanup failure.
+Release only this person's subordinate IDs, preserving file modes, reserve the login
+in the private purged list, then remove the person record. A failure retains retry state;
+an already absent account can finish cleanup. Print {"person":"<login>","purged":true}.
+.TP
+.B person restore\-runtime
+For root at up: hold the exclusive forge.conf flock and select only recorded people
+with memberships, unlocked and without a pending lock. Repair each person's private
+0700 return-socket directory, missing daemon link and root-owned 0644 tmpfiles boot rule.
+Preserve the person's existing daemon entry, including a dangling link. Refuse an
+untrusted boot rule or a delivery directory with the wrong owner, type or mode.
+Restart each admitted person's user@<uid>.service through checked systemctl.
+No locked, pending or membership-free person's runtime or manager is touched.
+Print {"changed":N}, counting people whose files changed, excluding manager restarts;
+another call can answer zero while still restarting admitted managers.
 .TP
 .B judge\-push
 The forge hook's socket service alone, with no SUDO_USER: read one POST /verify
@@ -142,7 +173,8 @@ Accepted variables do not configure behavior; SUDO_USER and SUDO_UID identify
 the person; LISTEN_FDS and LISTEN_PID authenticate the accepted socket handoff.
 HOME, PATH and directory variables are never used to locate configuration.
 .PP
-A person is taken only from SUDO_USER, never from an argument.
+The person for a caller-scoped task or token verb is taken only from SUDO_USER,
+never from an argument. Root's person purge instead names its maintenance target.
 The login must be a non-root account and SUDO_UID must match the system account database.
 Missing, empty, invalid, unknown or mismatching identities are refused.
 Root's unit invocations need no person until a verb acts for one.
@@ -173,7 +205,7 @@ no visible task, a refused task/token caller, or a refused forge operation.
 .TP
 .B 69 (EX_UNAVAILABLE)
 A required dependency or account database could not answer.
-Task and forge token verbs also return this status when not root, as do project
+Person maintenance, task and forge token verbs also return this status when not root, as do project
 verbs other than check-central. Forge gate and measure can run without root.
 .TP
 .B 73 (EX_CANTCREAT)
@@ -187,6 +219,17 @@ The invocation environment contains an unapproved variable.
 .SS Codes by verb
 Shared boundary codes: 77 no valid root or sudo person; 78 unapproved environment variable.
 Pool verbs require root (77); forge gate and measure still check the host namespace (77).
+.TP
+.B person purge
+0 person purged; 64 bad arguments or login; 65 unknown/system account, unlocked or not-due
+person, retained membership, or invalid/incomplete organization or people records;
+69 not root, unsafe/unreadable host files, dependency, account, Matrix, forge or cleanup failure;
+73 unsafe delivery/key/boot-rule path, lock, publication or unhandled file failure.
+.TP
+.B person restore\-runtime
+0 runtime files repaired and admitted managers restarted; 64 bad arguments;
+65 malformed people records; 69 not root, unsafe/unreadable host files, missing or unusable
+account, dependency or manager failure; 73 unsafe runtime/boot-rule path, lock or file failure.
 .TP
 .B judge\-push
 0 one hook request answered, including HTTP refusals and host failures;
