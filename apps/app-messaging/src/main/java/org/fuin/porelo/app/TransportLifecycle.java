@@ -391,7 +391,13 @@ final class TransportLifecycle {
             throws Refused, IOException {
         final Map<String, String> held = new LinkedHashMap<>(names(shownFile));
         final String shown =
-                shows ? display(project, task, agent, heldWithEarlier(project, held, file)) : null;
+                shows
+                        ? display(
+                                enrollmentTask(project, task),
+                                task,
+                                agent,
+                                heldWithEarlier(project, held, file))
+                        : null;
         final List<String> verb =
                 new java.util.ArrayList<>(List.of("enroll", "--project", project, "--task", task));
         if (shown != null) {
@@ -423,15 +429,23 @@ final class TransportLifecycle {
         }
     }
 
+    private @Nullable String enrollmentTask(String project, String container) throws IOException {
+        final String logical = TaskRecipients.task(context, container, project);
+        if (logical != null) return logical;
+        if (!container.matches("porelo-[a-z0-9_-]+")) return null;
+        final var pending = new TaskReservations(context).unmade(container);
+        return pending != null && project.equals(pending.project()) ? pending.task() : null;
+    }
+
     /**
      * Returns the names held, with each task enrolled before names were recorded holding the one
      * its enroll was given then, "Agent" and its short name: the room still shows it so.
      */
-    private static Map<String, String> heldWithEarlier(
+    private Map<String, String> heldWithEarlier(
             String project, Map<String, String> held, Path addresses) {
         final Map<String, String> all = new LinkedHashMap<>(held);
         for (final String enrolled : names(addresses).keySet()) {
-            final String then = agentName(project, enrolled);
+            final String then = agentName(TaskRecipients.task(context, enrolled, project));
             if (then != null) {
                 all.putIfAbsent(enrolled, then);
             }
@@ -456,24 +470,24 @@ final class TransportLifecycle {
      * the first. A task that holds a name keeps it, unless it is the agent-name form it was given
      * before the room showed tasks by their own names.
      *
-     * @param project The project.
-     * @param container The task's container.
+     * @param task The verified logical task.
+     * @param container The actual container.
      * @param agent The task's agent, or {@code null} when it is not known.
      * @param held The names the project's enrolled tasks hold, by container.
      * @return It, or {@code null} when no name fits that no other task holds.
      */
     static @Nullable String display(
-            final String project,
+            final @Nullable String task,
             final String container,
             final @Nullable String agent,
             final Map<String, String> held) {
         final String agentForm =
                 agent != null && AGENT.matcher(agent).matches() ? capitalized(agent) : null;
-        final String named = agentName(project, container);
+        final String named = agentName(task);
         final java.util.Set<String> others = new java.util.HashSet<>();
         held.forEach(
-                (task, name) -> {
-                    if (!task.equals(container)) {
+                (other, name) -> {
+                    if (!other.equals(container)) {
                         others.add(name.toLowerCase(java.util.Locale.ROOT));
                     }
                 });
@@ -482,7 +496,7 @@ final class TransportLifecycle {
         // the room gave before it showed tasks by their own names.
         if (own != null
                 && !others.contains(own.toLowerCase(java.util.Locale.ROOT))
-                && !earlierForm(project, container, agent, own)) {
+                && !earlierForm(task, agent, own)) {
             return own;
         }
         // A container of another form has no name of its own to show: then its agent's, as before.
@@ -493,11 +507,10 @@ final class TransportLifecycle {
         if (!others.contains(first.toLowerCase(java.util.Locale.ROOT))) {
             return first;
         }
-        final String task = ContainerName.taskIn(project, container);
         final String within =
                 named != null && agentForm != null
                         ? agentForm.substring("Agent ".length())
-                        : task.isEmpty() ? container : task;
+                        : task == null || task.isEmpty() ? container : task;
         // Numbered where two short names cut to one: a task shown by no name of its own is shown
         // by its account, which no head names.
         for (int number = 1; number <= held.size() + 1; number++) {
@@ -523,20 +536,16 @@ final class TransportLifecycle {
      * by their own names: "Agent Scout" for a task not called scout, or "Agent Scout (fix)" with
      * its short name in lower case. A name the room gives now, or one a person chose, is not.
      *
-     * @param project The project.
-     * @param container The task's container.
+     * @param task The verified logical task.
      * @param agent The task's agent, or {@code null} when it is not known.
      * @param own The name it holds.
      * @return {@code true} when the task is to be given its own name instead.
      */
     static boolean earlierForm(
-            final String project,
-            final String container,
-            final @Nullable String agent,
-            final String own) {
+            final @Nullable String task, final @Nullable String agent, final String own) {
         final String agentForm =
                 agent != null && AGENT.matcher(agent).matches() ? capitalized(agent) : null;
-        final String named = agentName(project, container);
+        final String named = agentName(task);
         if (agentForm == null || named == null) {
             return false;
         }
@@ -549,22 +558,9 @@ final class TransportLifecycle {
                 && !Character.isUpperCase(own.charAt(start.length()));
     }
 
-    /**
-     * Returns the name a task is shown by in its project's room when nothing records its agent:
-     * "Agent" and its task's name, each word capitalized - "Agent Pi" for {@code porelo-porelo-pi}.
-     *
-     * @param project The project.
-     * @param container The task's container, {@code porelo-<project>-<task>}.
-     * @return It, or {@code null} for a container of another form, a task name no task may have or
-     *     a name of more than 64.
-     */
-    static @Nullable String agentName(final String project, final String container) {
-        final String prefix = "porelo-" + project + "-";
-        if (!container.startsWith(prefix)) {
-            return null;
-        }
-        final String task = container.substring(prefix.length());
-        if (ContainerName.refusal(project, task).isPresent()) {
+    /** Returns the room name for a verified logical task, without decoding a container. */
+    static @Nullable String agentName(final @Nullable String task) {
+        if (task == null || !task.matches(org.fuin.porelo.core.project.Project.TASK_NAME_PATTERN)) {
             return null;
         }
         final String shown = capitalized(task);
@@ -604,7 +600,8 @@ final class TransportLifecycle {
     List<String> displayNames(final String project, final String container) throws IOException {
         final Path directory = context.paths().xdg().state().resolve("transport");
         if (!Files.isDirectory(directory)) {
-            return TaskRecipients.displays(project, container, Map.of());
+            return TaskRecipients.displays(
+                    TaskRecipients.task(context, container, project), container, Map.of());
         }
         try (var schemes = Files.list(directory)) {
             final List<Map<String, String>> rooms =
@@ -620,11 +617,16 @@ final class TransportLifecycle {
                             .map(scheme -> displays(scheme, project))
                             .toList();
             return rooms.isEmpty()
-                    ? TaskRecipients.displays(project, container, Map.of())
+                    ? TaskRecipients.displays(
+                            TaskRecipients.task(context, container, project), container, Map.of())
                     : rooms.stream()
                             .flatMap(
                                     room ->
-                                            TaskRecipients.displays(project, container, room)
+                                            TaskRecipients.displays(
+                                                    TaskRecipients.task(
+                                                            context, container, project),
+                                                    container,
+                                                    room)
                                                     .stream())
                             .distinct()
                             .toList();
@@ -930,14 +932,34 @@ final class TransportLifecycle {
             forget(scheme, "account");
             return removed;
         }
-        final String tasks =
-                TaskSecrets.TRANSPORT_PREFIX + scheme + "/task/porelo-" + project + "-";
-        update(
-                scheme,
-                all -> {
-                    all.remove(entry(scheme, "project/" + project));
-                    all.keySet().removeIf(name -> name.startsWith(tasks));
-                });
+        try {
+            new TaskReservations(context)
+                    .locked(
+                            () -> {
+                                final String tasks =
+                                        TaskSecrets.TRANSPORT_PREFIX + scheme + "/task/";
+                                context.vault()
+                                        .update(
+                                                context.opener().orElseThrow(),
+                                                all -> {
+                                                    all.remove(entry(scheme, "project/" + project));
+                                                    all.keySet()
+                                                            .removeIf(
+                                                                    name ->
+                                                                            name.startsWith(tasks)
+                                                                                    && owns(
+                                                                                            project,
+                                                                                            name
+                                                                                                    .substring(
+                                                                                                            tasks
+                                                                                                                    .length())));
+                                                    return all;
+                                                });
+                                return Boolean.TRUE;
+                            });
+        } catch (IOException | org.fuin.porelo.vault.VaultException ex) {
+            throw new Refused("Task credentials could not be cleared: " + ex.getMessage(), 0);
+        }
         try {
             Files.deleteIfExists(state(scheme, project));
             Files.deleteIfExists(addressesFile(scheme, project));
@@ -1281,6 +1303,20 @@ final class TransportLifecycle {
             // Unreadable: set up again.
         }
         return null;
+    }
+
+    private boolean owns(String project, String container) {
+        if (!container.matches("porelo-[a-z0-9_-]+")) return false;
+        final var identity = new TaskIdentities(context).lookup(container, null);
+        if (identity instanceof TaskIdentities.Found found) {
+            return project.equals(found.identity().project());
+        }
+        if (identity instanceof TaskIdentities.Refused refused
+                && refused.reason() == TaskIdentities.Reason.MISSING) {
+            final var owner = new TaskReservations(context).owner(container);
+            return owner != null && project.equals(owner.project());
+        }
+        return false;
     }
 
     /**

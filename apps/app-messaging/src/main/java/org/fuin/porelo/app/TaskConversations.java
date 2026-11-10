@@ -186,20 +186,39 @@ final class TaskConversations {
     /**
      * Takes a removed task out of its project's conversations.
      *
-     * <p><strong>By the project the task's own records name</strong>, when they still do. Found by
-     * the name alone, the first project whose name the container began with was taken, so project
-     * {@code a} caught the tasks of {@code a-b}; without a record, the longest such name is the
-     * likeliest.
+     * <p>Only the verified project can select the conversations to retire.
      *
      * @param context Where the projects are.
      * @param container The task.
      * @param project The task's project as its records name it, or {@code null} when they are gone.
      */
     void retire(PoreloContext context, String container, @Nullable String project) {
-        final Project found = projectOf(context, container, project);
-        if (found != null) {
-            retire(found, container, new PrintWriter(System.err, true));
+        final var selected = new TaskIdentities(context).lookup(container, project);
+        String owner =
+                selected instanceof TaskIdentities.Found found ? found.identity().project() : null;
+        if (selected instanceof TaskIdentities.Refused refused) {
+            try {
+                final TaskReservations reservations = new TaskReservations(context);
+                final TaskReservations.Owner retained =
+                        switch (refused.reason()) {
+                            case MISSING -> reservations.owner(container);
+                            case MISSING_RECORD -> reservations.unmade(container);
+                            default -> null;
+                        };
+                if (retained != null && (project == null || project.equals(retained.project()))) {
+                    owner = retained.project();
+                }
+            } catch (java.io.IOException | RuntimeException ex) {
+                System.err.println(
+                        "porelo: cannot retire "
+                                + container
+                                + " from its conversations: "
+                                + ex.getMessage());
+                return;
+            }
         }
+        final Project found = owner == null ? null : projectNamed(context, owner);
+        if (found != null) retire(found, container, new PrintWriter(System.err, true));
     }
 
     /**
@@ -229,7 +248,10 @@ final class TaskConversations {
                                             lifecycle.displays(scheme, found.name()).get(container);
                                     return shown != null
                                             && !TransportLifecycle.earlierForm(
-                                                    found.name(), container, agent, shown);
+                                                    TaskRecipients.task(
+                                                            context, container, found.name()),
+                                                    agent,
+                                                    shown);
                                 })) {
             return;
         }
@@ -246,26 +268,23 @@ final class TaskConversations {
         }
     }
 
-    /**
-     * Returns a task's project: the one its records name, when they still do. Found by the name
-     * alone, the first project whose name the container began with was taken, so project {@code a}
-     * caught the tasks of {@code a-b}; without a record, the longest such name is the likeliest.
-     */
+    /** Finds a conversation's project only after verifying its task's ownership. */
     private static @Nullable Project projectOf(
             PoreloContext context, String container, @Nullable String project) {
+        final TaskIdentity identity = TaskRecipients.identity(context, container, project);
+        if (identity == null) {
+            return null;
+        }
+        return projectNamed(context, identity.project());
+    }
+
+    private static @Nullable Project projectNamed(PoreloContext context, String project) {
         final java.util.Optional<ProjectInventory.Summary> summary =
                 new ProjectInventory(context)
                         .projects().stream()
                                 .filter(each -> each.file() != null)
-                                .filter(
-                                        each ->
-                                                project != null
-                                                        ? each.name().equals(project)
-                                                        : container.startsWith(
-                                                                "porelo-" + each.name() + "-"))
-                                .max(
-                                        java.util.Comparator.comparingInt(
-                                                each -> each.name().length()));
+                                .filter(each -> each.name().equals(project))
+                                .findFirst();
         if (summary.isEmpty()) {
             return null;
         }

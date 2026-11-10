@@ -45,7 +45,7 @@ class TaskNamesBothWaysTest {
                     continue;
                 }
                 found++;
-                if (!text.contains("TaskTarget.")) {
+                if (!text.contains("TaskTarget.") && !text.contains("TaskIdentities")) {
                     missing.add(source.getFileName().toString());
                 }
             }

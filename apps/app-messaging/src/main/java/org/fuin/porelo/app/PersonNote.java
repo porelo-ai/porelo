@@ -93,11 +93,16 @@ public final class PersonNote {
             final String work,
             final @Nullable String reason)
             throws IOException {
+        final var selected = new TaskIdentities(context).lookup(work, project.name());
+        if (selected instanceof TaskIdentities.Refused refused
+                && refused.reason() == TaskIdentities.Reason.MISSING) {
+            return false;
+        }
+        if (!(selected instanceof TaskIdentities.Found found)) {
+            throw new IOException("The task for rejected work has no verified identity: " + work);
+        }
         final Mailbox mailbox =
-                new Mailbox(
-                        context.paths()
-                                .messaging()
-                                .mailbox(context.tasks().containerName(project, work)));
+                new Mailbox(context.paths().messaging().mailbox(found.identity().container()));
         if (!mailbox.exists()) {
             return false;
         }

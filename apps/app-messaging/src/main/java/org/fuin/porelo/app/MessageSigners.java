@@ -206,13 +206,13 @@ public final class MessageSigners implements MessageDelivery.Signers {
                     }
                     // A task without a project believes the person who certified its own key -
                     // for this task, never one of another project its container's name fits.
+                    final TaskIdentity identity =
+                            TaskRecipients.identity(context, container, NO_PROJECT);
+                    if (identity == null) {
+                        return List.of();
+                    }
                     final List<String> principal =
-                            List.of(
-                                    "task:"
-                                            + NO_PROJECT
-                                            + ":"
-                                            + org.fuin.porelo.runtime.ContainerName.taskIn(
-                                                    NO_PROJECT, container));
+                            List.of("task:" + NO_PROJECT + ":" + identity.task());
                     return new TaskSecrets(context)
                             .signing(container)
                             .map(signing -> SshCertificate.read(signing.certificate()))

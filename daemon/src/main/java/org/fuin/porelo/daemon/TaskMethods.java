@@ -52,7 +52,8 @@ final class TaskMethods {
         final String task = text(parameters, "task");
         // A child is somebody else's work too: only the socket's own task can say it is done.
         if (!task.equals(McpTaskSockets.caller())
-                || !task.matches("porelo-[a-z0-9][a-z0-9-]{0,200}")) {
+                || !(new org.fuin.porelo.app.TaskIdentities(context).lookup(task, null)
+                        instanceof org.fuin.porelo.app.TaskIdentities.Found)) {
             throw new VarlinkException(
                     INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
         }

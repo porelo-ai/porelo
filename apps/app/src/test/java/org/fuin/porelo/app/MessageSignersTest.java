@@ -404,6 +404,7 @@ class MessageSignersTest {
             Files.createDirectories(context.vault().path().getParent());
             context.vault().write(Map.<String, VaultEntry>of(), passphrase);
             keyring.store(passphrase);
+            LegacyTaskFixture.record(context, "porelo-default-review", "default", "a".repeat(64));
             new TaskSecrets(context)
                     .keepSigning(
                             "porelo-default-review",

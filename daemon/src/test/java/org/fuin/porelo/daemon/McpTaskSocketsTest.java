@@ -112,6 +112,8 @@ class McpTaskSocketsTest {
         final PoreloContext context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
         sockets = new McpTaskSockets(context);
+        identity(context, LEAD, "uc", null);
+        identity(context, "porelo-uc-child", "uc", null);
         return context;
     }
 
@@ -120,14 +122,55 @@ class McpTaskSocketsTest {
         return sockets.open(LEAD, "uc").orElseThrow();
     }
 
+    /** A running task's ps row as podman lists it, with the id its identity records. */
+    private static String row(final String task, final String project) {
+        return row(task, project, "Up 4 minutes");
+    }
+
+    /** A stopped task's ps row, a task a start brings back. */
+    private static String stopped(final String task, final String project) {
+        return row(task, project, "Exited (0) 4 minutes ago");
+    }
+
+    private static String row(final String task, final String project, final String status) {
+        return task
+                + "\t"
+                + status
+                + "\t1700000000\t0\t"
+                + project
+                + "\tguarded\t"
+                + project
+                + "\t\t"
+                + "a".repeat(64)
+                + "\n";
+    }
+
     private void child(final PoreloContext context, final String task, final String parent)
             throws IOException {
         made(context.paths().tasks().containerState(task), "alpha", null, parent);
+        identity(context, task, task.startsWith("porelo-other-") ? "other" : "uc", null);
+    }
+
+    private static void identity(PoreloContext context, String task, String project, String logical)
+            throws IOException {
+        final Path state = context.paths().tasks().containerState(task);
+        org.fuin.porelo.wire.Sidecar.recordId(state, "a".repeat(64));
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        project,
+                        "guarded",
+                        "/rules",
+                        "/dns",
+                        "/porelo",
+                        state.toString(),
+                        logical,
+                        null,
+                        null)
+                .writeTo(state.resolve("sidecar.json"));
     }
 
     /** Writes a task's record where it is kept, as a start that made it with an agent wrote it. */
-    private static void made(
-            final Path where, final String agent, final String model, final String parent)
+    private void made(final Path where, final String agent, final String model, final String parent)
             throws IOException {
         new TaskProfile(
                         TaskProfile.VERSION,
@@ -144,6 +187,8 @@ class McpTaskSocketsTest {
                         0,
                         parent)
                 .writeTo(Files.createDirectories(where));
+        final String task = where.getFileName().toString();
+        identity(sockets.context(), task, "uc", null);
     }
 
     private static Map<String, Object> call(
@@ -176,6 +221,132 @@ class McpTaskSocketsTest {
                                                     .as(key)
                                                     .isEqualTo(String.valueOf(value)));
                         });
+    }
+
+    @Test
+    void aCallerCannotReadOrStopACrossProjectChildEvenWhenItsProfileNamesTheCaller()
+            throws Exception {
+        // A forged parent field cannot lend a different project's container or logs.
+        final var context = context(HEAD + SECTION);
+        child(context, "porelo-other-work", LEAD);
+        for (boolean reading : List.of(false, true)) {
+            assertThatThrownBy(
+                            () -> sockets.own(LEAD, Map.of("task", "porelo-other-work"), reading))
+                    .isInstanceOf(VarlinkException.class)
+                    .hasMessageContaining("NotItsOwn");
+        }
+        final Path state = context.paths().tasks().containerState(LEAD);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord(LEAD), "b".repeat(64));
+        assertThatThrownBy(() -> sockets.own(LEAD, Map.of("task", LEAD), true))
+                .isInstanceOf(VarlinkException.class)
+                .hasMessageContaining("NotItsOwn");
+    }
+
+    @Test
+    void anOldParentResumesAnEncodedChildByItsLogicalIdentity() throws Exception {
+        // Reconstructing the old spelling bypasses the real child's parent check.
+        final var context = context(HEAD + SECTION);
+        final String actual = "porelo-uc_work";
+        child(context, actual, "porelo-uc-other");
+        final Path state = context.paths().tasks().containerState(actual);
+        org.fuin.porelo.wire.Sidecar.recordId(state, "a".repeat(64));
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        "/rules",
+                        "/dns",
+                        "/porelo",
+                        state.toString(),
+                        "work",
+                        null,
+                        null)
+                .writeTo(state.resolve("sidecar.json"));
+        runner.answering(
+                "podman ps",
+                actual
+                        + "\tExited (0) 1 minute ago\t\t\tuc\tguarded\tr\t\t"
+                        + "a".repeat(64)
+                        + "\twork\n");
+        final var endpoint =
+                new org.fuin.porelo.core.project.McpEndpoint(
+                        List.of("Start"), Map.of("alpha", List.of()), 2, 60);
+        assertThatThrownBy(
+                        () ->
+                                sockets.start(
+                                        LEAD,
+                                        "uc",
+                                        endpoint,
+                                        named("work", start("alpha", null, 30)),
+                                        null,
+                                        (parameters, replies) -> {
+                                            throw new AssertionError("a sibling was started");
+                                        }))
+                .isInstanceOf(VarlinkException.class)
+                .hasMessageContaining("NotItsOwn");
+    }
+
+    @Test
+    void anOldParentCanResumeItsOwnEncodedChildAtTheRecordedName() throws Exception {
+        // The real child's ownership and spelling must reach the shared launch unchanged.
+        final var context = context(HEAD + SECTION);
+        final String actual = "porelo-uc_work";
+        child(context, actual, LEAD);
+        identity(context, actual, "uc", "work");
+        runner.answering(
+                "podman ps",
+                actual
+                        + "\tExited (0) 1 minute ago\t\t\tuc\tguarded\tr\t\t"
+                        + "a".repeat(64)
+                        + "\twork\n");
+        final var endpoint =
+                new org.fuin.porelo.core.project.McpEndpoint(
+                        List.of("Start"), Map.of("alpha", List.of()), 2, 60);
+        final var selected = new java.util.ArrayList<String>();
+        sockets.start(
+                LEAD,
+                "uc",
+                endpoint,
+                named("work", start("alpha", null, 30)),
+                null,
+                (parameters, replies) -> selected.add((String) parameters.get("task")));
+        assertThat(selected).containsExactly(actual);
+        sockets.own(LEAD, Map.of("task", actual), false);
+        sockets.own(LEAD, Map.of("task", actual), true);
+    }
+
+    @Test
+    void anEncodedEndpointSurvivesDaemonRecreationWithoutReplacingALiveSocket() throws Exception {
+        // A mounted inode must keep serving its owner when open is requested again.
+        final var context = context(HEAD + SECTION);
+        final String actual = "porelo-uc_work";
+        final Path state = context.paths().tasks().containerState(actual);
+        org.fuin.porelo.wire.Sidecar.recordId(state, "a".repeat(64));
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        "/rules",
+                        "/dns",
+                        "/porelo",
+                        state.toString(),
+                        "work",
+                        null,
+                        null)
+                .writeTo(state.resolve("sidecar.json"));
+        final Path socket = sockets.open(actual, "uc").orElseThrow();
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(socket)))
+                .isEqualTo("rwx------");
+        final Object inode = Files.getAttribute(socket, "unix:ino");
+        assertThat(call(socket, "ProjectFileSchema", Map.of())).isNotEmpty();
+        sockets.open(actual, "uc");
+        assertThat(Files.getAttribute(socket, "unix:ino")).isEqualTo(inode);
+        sockets.close();
+        sockets = new McpTaskSockets(context);
+        final Path reopened = sockets.open(actual, "uc").orElseThrow();
+        assertThat(reopened).isEqualTo(socket);
+        assertThat(call(reopened, "ProjectFileSchema", Map.of())).isNotEmpty();
     }
 
     @Test
@@ -488,10 +659,7 @@ class McpTaskSocketsTest {
         final Path socket = opened(HEAD + SECTION);
         child(sockets.context(), "porelo-uc-first", LEAD);
         child(sockets.context(), "porelo-uc-theirs", "porelo-uc-other");
-        runner.answering(
-                "ps",
-                "porelo-uc-first\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n"
-                        + "porelo-uc-theirs\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+        runner.answering("ps", row("porelo-uc-first", "uc") + row("porelo-uc-theirs", "uc"));
 
         refused(
                 socket,
@@ -550,6 +718,12 @@ class McpTaskSocketsTest {
         made(context.paths().tasks().taskRecord("porelo-uc-small"), "beta", "small", LEAD);
         made(context.paths().tasks().containerState("porelo-uc-plain"), "beta", null, LEAD);
         made(context.paths().tasks().containerState("porelo-uc-gone"), "gamma", null, LEAD);
+        runner.answering(
+                "ps",
+                stopped("porelo-uc-small", "uc")
+                        + stopped("porelo-uc-plain", "uc")
+                        + stopped("porelo-uc-gone", "uc")
+                        + stopped("porelo-uc-own", "uc"));
 
         refused(
                 socket,
@@ -869,10 +1043,9 @@ class McpTaskSocketsTest {
     @Test
     void aListShowsOnlyTheTasksOfTheCallersOwnProject() throws IOException {
         final Path socket = opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"List\"]"));
-        runner.answering(
-                "podman ps",
-                "porelo-uc-lead\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n"
-                        + "porelo-other-x\tUp 4 minutes\t1700000000\t0\tother\tguarded\n");
+        identity(sockets.context(), LEAD, "uc", null);
+        identity(sockets.context(), "porelo-other-x", "other", null);
+        runner.answering("podman ps", row(LEAD, "uc") + row("porelo-other-x", "other"));
 
         final Map<String, Object> answer = call(socket, "List", Map.of());
 
@@ -887,6 +1060,7 @@ class McpTaskSocketsTest {
         final List<Map<String, Object>> sent = new java.util.ArrayList<>();
         final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
                 McpTaskSockets.ownProject(
+                        context(HEAD + SECTION),
                         "uc",
                         new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
                             @Override
@@ -912,7 +1086,7 @@ class McpTaskSocketsTest {
         final Map<String, Object> both =
                 Map.of(
                         "tasks",
-                        List.of(Map.of("project", "uc"), Map.of("project", "other")),
+                        List.of(Map.of("project", "uc", "name", LEAD), Map.of("project", "other")),
                         "unrecognized",
                         List.of("porelo-uc-a", "porelo-other-b", "porelo-uc2-c"));
 
@@ -925,8 +1099,8 @@ class McpTaskSocketsTest {
                 .allSatisfy(
                         reply -> {
                             assertThat(reply.get("tasks"))
-                                    .isEqualTo(List.of(Map.of("project", "uc")));
-                            assertThat(reply.get("unrecognized")).isEqualTo(List.of("porelo-uc-a"));
+                                    .isEqualTo(List.of(Map.of("project", "uc", "name", LEAD)));
+                            assertThat(reply.get("unrecognized")).isEqualTo(List.of());
                         });
     }
 
@@ -982,6 +1156,7 @@ class McpTaskSocketsTest {
         final List<Map<String, Object>> sent = new java.util.ArrayList<>();
         final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
                 McpTaskSockets.ownProject(
+                        context(HEAD + SECTION),
                         "uc",
                         false,
                         new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {

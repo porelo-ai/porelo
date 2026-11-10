@@ -69,15 +69,26 @@ final class TransportConversations {
      * @param project Its project.
      * @param scheme The transport whose conversation it is in.
      * @param display The display to match, {@code null} to derive it, or empty when none may match.
+     * @param task The verified logical task, or {@code null} before verification.
      */
     record Member(
             String container,
             Mailbox mailbox,
             String project,
             String scheme,
-            @Nullable String display) {
+            @Nullable String display,
+            @Nullable String task) {
+        Member(
+                String container,
+                Mailbox mailbox,
+                String project,
+                String scheme,
+                @Nullable String display) {
+            this(container, mailbox, project, scheme, display, null);
+        }
+
         Member(String container, Mailbox mailbox, String project, String scheme) {
-            this(container, mailbox, project, scheme, null);
+            this(container, mailbox, project, scheme, null, null);
         }
     }
 
@@ -133,12 +144,14 @@ final class TransportConversations {
      */
     TransportSend.@Nullable Acting acting(String scheme, String project, String container)
             throws java.io.IOException {
-        final Map<String, String> secrets = lifecycle.secrets(scheme, "task/" + container);
         final TransportLifecycle.Conversation conversation =
                 lifecycle.conversation(scheme, project);
-        if (conversation == null) {
-            return null;
+        if (conversation == null) return null;
+        if (TaskRecipients.identity(context, container, project) == null) {
+            throw new IOException(
+                    "The sending task has no verified identity in project " + project);
         }
+        final Map<String, String> secrets = lifecycle.secrets(scheme, "task/" + container);
         if (secrets.isEmpty()) {
             // Its project's conversation is there and its account is not: run without it, the
             // transport refused, and the message came back held with the transport's words about a
@@ -157,14 +170,22 @@ final class TransportConversations {
                 .addresses(scheme, project)
                 .forEach(
                         (task, account) -> {
-                            accounts.put(task, account);
-                            final String shortName =
-                                    org.fuin.porelo.runtime.ContainerName.taskIn(project, task);
-                            if (shortName != null) {
-                                accounts.putIfAbsent(shortName, account);
-                            }
+                            final TaskIdentity identity =
+                                    TaskRecipients.identity(context, task, project);
+                            if (identity != null) accounts.put(task, account);
                         });
-        return new TransportSend.Acting(secrets, conversation.conversation(), accounts);
+        final Map<String, String> aliases = new LinkedHashMap<>(accounts);
+        accounts.forEach(
+                (task, account) -> {
+                    final String logical = TaskRecipients.task(context, task, project);
+                    if (logical != null
+                            && new TaskIdentities(context).lookup(logical, project)
+                                    instanceof TaskIdentities.Found found
+                            && task.equals(found.identity().container())) {
+                        aliases.putIfAbsent(logical, account);
+                    }
+                });
+        return new TransportSend.Acting(secrets, conversation.conversation(), aliases);
     }
 
     /**
@@ -587,22 +608,24 @@ final class TransportConversations {
         }
         final Member first = members.getFirst();
         final Map<String, String> displays = lifecycle.displays(first.scheme(), first.project());
-        return members.stream()
-                .map(
-                        member ->
-                                new Member(
-                                        member.container(),
-                                        member.mailbox(),
-                                        member.project(),
-                                        member.scheme(),
-                                        TaskRecipients.displays(
-                                                        member.project(),
-                                                        member.container(),
-                                                        displays)
-                                                .stream()
-                                                .findFirst()
-                                                .orElse("")))
-                .toList();
+        final List<Member> verified = new ArrayList<>();
+        for (Member member : members) {
+            final TaskIdentity identity =
+                    TaskRecipients.identity(context, member.container(), member.project());
+            if (identity == null) continue;
+            verified.add(
+                    new Member(
+                            member.container(),
+                            member.mailbox(),
+                            member.project(),
+                            member.scheme(),
+                            TaskRecipients.displays(identity.task(), member.container(), displays)
+                                    .stream()
+                                    .findFirst()
+                                    .orElse(""),
+                            identity.task()));
+        }
+        return List.copyOf(verified);
     }
 
     /** This machine's own account in the conversation, which is never a person's. */
@@ -875,7 +898,7 @@ final class TransportConversations {
             final String reference = text(receipt, null, "reference");
             final String to = recipient(message);
             final String address =
-                    to == null ? null : addressOf(to, member.project(), tasks, people);
+                    to == null ? null : addressOf(context, to, member.project(), tasks, people);
             if (reference == null || address == null || to == null) {
                 continue;
             }
@@ -942,10 +965,17 @@ final class TransportConversations {
      * @return The address, or {@code null} when the transport named none for it.
      */
     static @Nullable String addressOf(
-            String to, String project, Map<String, String> tasks, Map<String, String> people) {
-        final String task =
-                tasks.containsKey(to) ? tasks.get(to) : tasks.get("porelo-" + project + "-" + to);
-        return task != null ? task : people.get(to);
+            PoreloContext context,
+            String to,
+            String project,
+            Map<String, String> tasks,
+            Map<String, String> people) {
+        final var selected = new TaskIdentities(context).lookup(to, project);
+        if (selected instanceof TaskIdentities.Found found) {
+            final String address = tasks.get(found.identity().container());
+            if (address != null) return address;
+        }
+        return people.get(to);
     }
 
     private static @Nullable String text(Path file, @Nullable String section, String key) {
@@ -1037,12 +1067,9 @@ final class TransportConversations {
     private static boolean names(
             final Member member, final List<String> addressed, final Map<String, String> displays) {
         final List<String> shown =
-                TaskRecipients.displays(member.project(), member.container(), displays);
+                TaskRecipients.displays(member.task(), member.container(), displays);
         return addressed.stream()
-                .anyMatch(
-                        to ->
-                                TaskRecipients.names(
-                                        member.container(), member.project(), shown, to));
+                .anyMatch(to -> TaskRecipients.names(member.container(), member.task(), shown, to));
     }
 
     private static @Nullable String recipient(Path message) {

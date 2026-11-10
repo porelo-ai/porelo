@@ -151,6 +151,14 @@ public final class RunningClearance {
             return new Result(
                     Outcome.NOT_RECORDED, was, "", "no sidecar recorded for " + container);
         }
+        final var selected = new TaskIdentities(context).lookup(container, sidecar.project());
+        if (!(selected instanceof TaskIdentities.Found found)) {
+            return new Result(
+                    Outcome.NOT_RECORDED,
+                    was,
+                    "",
+                    "no verified identity recorded for " + container);
+        }
         final java.util.Optional<Long> pid = context.tasks().containerPid(container);
         if (!"off".equals(mode) && pid.isEmpty()) {
             // Turning it off never needs the container: it is stopping a process. Turning it on
@@ -182,7 +190,7 @@ public final class RunningClearance {
                         ClearanceWiring.watcherCommand(
                                 context,
                                 sidecar.project(),
-                                taskOf(container, sidecar.project()),
+                                found.identity().task(),
                                 pid.get(),
                                 container,
                                 mode);
@@ -219,27 +227,6 @@ public final class RunningClearance {
         } catch (java.io.IOException | RuntimeException ex) {
             return null;
         }
-    }
-
-    /**
-     * Returns the task's own name, given the project the container belongs to.
-     *
-     * <p>A container is {@code porelo-<project>-<task>-<run>} and a project name may contain
-     * hyphens, so this is only answerable once the project is known - which is why it takes it
-     * rather than splitting on hyphens and hoping.
-     *
-     * @param container The container.
-     * @param project The project it belongs to.
-     * @return The task name, or the container name when it does not have that shape.
-     */
-    static String taskOf(String container, String project) {
-        final String prefix = org.fuin.porelo.runtime.ContainerName.PREFIX + project + "-";
-        if (!container.startsWith(prefix)) {
-            return container;
-        }
-        final String rest = container.substring(prefix.length());
-        final int lastDash = rest.lastIndexOf('-');
-        return lastDash <= 0 ? rest : rest.substring(0, lastDash);
     }
 
     /**

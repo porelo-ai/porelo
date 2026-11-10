@@ -17,7 +17,7 @@ class TransportLifecycleDisplayTest {
 
         final String shown =
                 TransportLifecycle.display(
-                        "p", "porelo-p-" + task, "scout", Map.of("porelo-p-other", held));
+                        task, "porelo-p-" + task, "scout", Map.of("porelo-p-other", held));
 
         assertThat(shown)
                 .as("the longest task in project p gets a distinct name the room can hold")
@@ -33,7 +33,7 @@ class TransportLifecycleDisplayTest {
         final String held = "Agent A" + "a".repeat(57);
 
         final String shown =
-                TransportLifecycle.display("p", "custom-box", agent, Map.of("other-box", held));
+                TransportLifecycle.display(null, "custom-box", agent, Map.of("other-box", held));
 
         assertThat(shown)
                 .as("a container named by its agent still gets a unique name at the room limit")
@@ -45,7 +45,7 @@ class TransportLifecycleDisplayTest {
     @Test
     void aTaskWithTwoHyphensKeepsBothInItsRoomName() {
         // Dropping the empty word leaves addressed messages to this legal task with no recipient.
-        assertThat(TransportLifecycle.display("p", "porelo-p-foo--bar", "scout", Map.of()))
+        assertThat(TransportLifecycle.display("foo--bar", "porelo-p-foo--bar", "scout", Map.of()))
                 .as("the room preserves the task's two hyphens")
                 .isEqualTo("Agent Foo--Bar");
     }
@@ -60,14 +60,14 @@ class TransportLifecycleDisplayTest {
         held.put("porelo-p-other", "Agent A" + "a".repeat(53) + "b");
         held.put("porelo-p-another", "Agent A" + "a".repeat(53) + "c");
 
-        final String firstShown = TransportLifecycle.display("p", first, "scout", held);
+        final String firstShown = TransportLifecycle.display(prefix + "b", first, "scout", held);
         assertThat(firstShown)
                 .as("the first clashing task gets a bounded name no room member holds")
                 .isNotNull()
                 .isNotIn(held.values())
                 .hasSizeLessThanOrEqualTo(64);
         held.put(first, firstShown);
-        final String secondShown = TransportLifecycle.display("p", second, "scout", held);
+        final String secondShown = TransportLifecycle.display(prefix + "c", second, "scout", held);
 
         assertThat(secondShown)
                 .as("the second task remains distinct even when shortening removes its last letter")

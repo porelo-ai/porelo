@@ -161,9 +161,7 @@ record PersonsWords(
                 for (final TransportConversations.Member member : members) {
                     if (String.valueOf(account).equals(accounts.get(member.container()))) {
                         named.add(member);
-                        final String task =
-                                org.fuin.porelo.runtime.ContainerName.taskIn(
-                                        member.project(), member.container());
+                        final String task = member.task();
                         to.add(task != null ? task : member.container());
                     }
                 }

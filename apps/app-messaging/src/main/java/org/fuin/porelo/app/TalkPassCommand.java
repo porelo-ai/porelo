@@ -46,71 +46,41 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
     public Integer call() throws Exception {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
-        // By the container's name or the task's own, as every task command takes it; with the
-        // project given, that project's task, never another one's of the same task name.
-        if (projectName == null) {
-            container = TaskTarget.spelled(context, container);
-            if (!isTaskContainer(container)) {
-                // It names the mailbox's directory, so a path would open whatever it reaches.
-                err.println("porelo: " + container + " is no task's container name");
-                err.flush();
-                return 64;
-            }
-        } else {
-            if (!projectName.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)) {
-                // It names the mailbox's directory, so nothing else may stand where it does.
-                err.println("porelo: the project given is no project name");
-                err.flush();
-                return 64;
-            }
-            final String taskName =
-                    org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, container);
-            final java.util.Optional<String> refusal =
-                    org.fuin.porelo.runtime.ContainerName.refusal(projectName, taskName);
-            if (refusal.isPresent()) {
-                err.println("porelo: " + refusal.get());
-                err.flush();
-                return 64;
-            }
-            container = org.fuin.porelo.runtime.ContainerName.PREFIX + projectName + "-" + taskName;
-            final String named = container;
-            final String owner = ProjectNames.labels(context).getOrDefault(named, projectName);
-            if (!projectName.equals(owner)) {
-                err.println(
-                        "porelo: "
-                                + container
-                                + " is no task of project "
-                                + projectName
-                                + " but of "
-                                + owner);
-                err.flush();
-                return 66;
-            }
+        if (projectName != null
+                && !projectName.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)) {
+            err.println("porelo: the project given is no project name");
+            return 64;
         }
+        if (!container.matches(
+                container.startsWith("porelo-")
+                        ? "porelo-[a-z0-9_-]+"
+                        : org.fuin.porelo.core.project.Project.TASK_NAME_PATTERN)) {
+            err.println("porelo: " + container + " is no task's container name");
+            err.flush();
+            return 64;
+        }
+        final TaskIdentities.Result selected =
+                new TaskIdentities(context).lookup(container, projectName);
+        if (!(selected instanceof TaskIdentities.Found found)) {
+            final var refusal = (TaskIdentities.Refused) selected;
+            err.println(
+                    "porelo: "
+                            + container
+                            + ": "
+                            + refusal.reason().said()
+                            + "; name a task with verified ownership");
+            err.flush();
+            return 66;
+        }
+        container = found.identity().container();
+        projectName = found.identity().project();
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
         if (!mailbox.exists()) {
             err.println("porelo: " + container + " has no mailbox");
             err.flush();
             return 1;
         }
-        // The task knows its own project, recorded on the container; asking for it again would be
-        // asking somebody to repeat what the machine already knows.
-        final String known =
-                projectName != null ? projectName : new TaskInventory(context).projectOf(container);
-        final String project =
-                known != null
-                        ? known
-                        : ProjectSource.chosen(
-                                context,
-                                Offer.atTerminal()
-                                        ? new Offer(Offer.Asker.terminal(), false, false, err)
-                                        : Offer.NOBODY,
-                                "porelo talk pass --project <name>");
-        if (project == null) {
-            err.println("porelo: " + container + " names no project; say which, with --project");
-            err.flush();
-            return 2;
-        }
+        final String project = found.identity().project();
         final var pass =
                 new MessagePass(
                         context.runner(),
@@ -216,13 +186,5 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         out.flush();
         err.flush();
         return 0;
-    }
-
-    /** A task's container name: the prefix, then a project's and a task's alphabet alone. */
-    private static boolean isTaskContainer(final String name) {
-        return org.fuin.porelo.runtime.ContainerName.isTask(name)
-                && name.length() <= org.fuin.porelo.runtime.ContainerName.MAX_LENGTH
-                && name.substring(org.fuin.porelo.runtime.ContainerName.PREFIX.length())
-                        .matches(org.fuin.porelo.core.project.Project.TASK_NAME_PATTERN);
     }
 }

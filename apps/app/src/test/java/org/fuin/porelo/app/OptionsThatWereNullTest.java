@@ -48,15 +48,16 @@ class OptionsThatWereNullTest {
     }
 
     @Test
-    void talkPassAsksWhichProjectWhenTheTaskNamesNone(@TempDir Path dir) throws IOException {
+    void talkPassRefusesANameNoTaskHoldsRatherThanReadAProjectFromIt(@TempDir Path dir)
+            throws IOException {
+        // A mailbox alone proves no owner: the project is never parsed out of the name.
         final PoreloContext context = context(dir);
         new Mailbox(context.paths().messaging().mailbox("porelo-p-shell-1")).create();
 
         final int code = execute(context, "talk", "pass", "porelo-p-shell-1");
 
-        assertThat(code).as(err.toString()).isEqualTo(2);
-        assertThat(err.toString())
-                .contains("porelo-p-shell-1 names no project; say which, with --project");
+        assertThat(code).as(err.toString()).isEqualTo(66);
+        assertThat(err.toString()).contains("porelo-p-shell-1: no task has that name");
     }
 
     @Test
@@ -64,7 +65,9 @@ class OptionsThatWereNullTest {
             throws IOException {
         final PoreloContext context = context(dir);
         new Mailbox(context.paths().messaging().mailbox("porelo-uc-shell-1")).create();
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1788500000\t0\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell-1\tUp 4 minutes\t1788500000\t0\tuc\tguarded\tuc\t\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tshell-1\n");
         final Path state = Files.createDirectories(dir.resolve("run/porelo/porelo-uc-shell-1"));
         new org.fuin.porelo.wire.Sidecar(
                         org.fuin.porelo.wire.Sidecar.VERSION,
@@ -75,6 +78,9 @@ class OptionsThatWereNullTest {
                         "/usr/bin/porelo",
                         state.toString())
                 .writeTo(state.resolve("sidecar.json"));
+        // As a real start leaves it: the container's id recorded beside the sidecar.
+        org.fuin.porelo.wire.Sidecar.recordId(
+                state, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         execute(context, "talk", "pass", "porelo-uc-shell-1");
 

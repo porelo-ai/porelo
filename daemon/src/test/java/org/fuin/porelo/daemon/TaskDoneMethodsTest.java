@@ -40,7 +40,62 @@ class TaskDoneMethodsTest {
                                 "ps",
                                 TASK
                                         + "\tExited (0) 1 minute ago\t1788500000\t1788509999\tuc\tguarded\n");
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
+        final var context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
+        try {
+            final Path state = context.paths().tasks().taskRecord(TASK);
+            org.fuin.porelo.wire.Sidecar.recordId(state, "a".repeat(64));
+            new org.fuin.porelo.wire.Sidecar(
+                            org.fuin.porelo.wire.Sidecar.VERSION,
+                            "uc",
+                            "guarded",
+                            "/rules",
+                            "/dns",
+                            "/porelo",
+                            context.paths().tasks().containerState(TASK).toString())
+                    .writeTo(state.resolve("sidecar.json"));
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+        runner.answering(
+                "ps",
+                TASK
+                        + "\tExited (0) 1 minute ago\t1788500000\t1788509999\tuc\tguarded\tr\t\t"
+                        + "a".repeat(64)
+                        + "\n");
+        return context;
+    }
+
+    @Test
+    void anEncodedCallerCanFinishOnlyItsVerifiedContainer() throws Exception {
+        // A sibling's id must never authorize a completion at this endpoint.
+        final var context = context();
+        final String actual = "porelo-uc_work";
+        final Path state = context.paths().tasks().taskRecord(actual);
+        org.fuin.porelo.wire.Sidecar.recordId(state, "a".repeat(64));
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        "/rules",
+                        "/dns",
+                        "/porelo",
+                        context.paths().tasks().containerState(actual).toString(),
+                        "work",
+                        null,
+                        null)
+                .writeTo(state.resolve("sidecar.json"));
+        McpTaskSockets.as(
+                actual,
+                () -> {
+                    try {
+                        TaskMethods.done(context, Map.of("task", actual));
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                });
+        assertThat(new org.fuin.porelo.app.TaskDone(context.paths()).read(actual)).isNotNull();
+        assertThat(context.paths().tasks().taskRecord(TASK).resolve("done")).doesNotExist();
     }
 
     @Test

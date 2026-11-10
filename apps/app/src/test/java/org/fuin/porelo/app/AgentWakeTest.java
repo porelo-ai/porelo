@@ -30,7 +30,14 @@ class AgentWakeTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final var context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        try {
+            LegacyTaskFixture.record(context, "porelo-p-review", "p", "a".repeat(64));
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+        return context;
     }
 
     private static final AgentDefinition CLAUDE =
@@ -176,12 +183,12 @@ class AgentWakeTest {
         final Path single =
                 Files.writeString(dir.resolve("d.json"), "{\"metadata\":{\"to\":\"writer\"}}");
 
-        assertThat(AgentWake.namesIt(named, "porelo-p-writer", "p", answers())).isTrue();
-        assertThat(AgentWake.namesIt(other, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(named, "porelo-p-writer", "writer", answers())).isTrue();
+        assertThat(AgentWake.namesIt(other, "porelo-p-writer", "writer", answers()))
                 .as("the room's talk")
                 .isFalse();
-        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "p", answers())).isTrue();
-        assertThat(AgentWake.namesIt(single, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "writer", answers())).isTrue();
+        assertThat(AgentWake.namesIt(single, "porelo-p-writer", "writer", answers()))
                 .as("a task's message to it")
                 .isTrue();
     }
@@ -201,13 +208,13 @@ class AgentWakeTest {
                 Files.writeString(
                         dir.resolve("g.json"), "{\"metadata\":{\"from\":\"review\",\"to\":[]}}");
 
-        assertThat(AgentWake.namesIt(everyone, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(everyone, "porelo-p-writer", "writer", answers()))
                 .as("'Wer ist da?' in the room")
                 .isTrue();
-        assertThat(AgentWake.namesIt(another, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(another, "porelo-p-writer", "writer", answers()))
                 .as("a person's word to another")
                 .isFalse();
-        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "writer", answers()))
                 .as("a task's word to nobody")
                 .isFalse();
     }
@@ -227,8 +234,8 @@ class AgentWakeTest {
                         "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\"review\",\"to\":[\"review\"],"
                                 + "\"via\":\"room\",\"all\":true}}");
 
-        assertThat(AgentWake.namesIt(all, "porelo-p-writer", "p", answers())).isTrue();
-        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p", answers())).isFalse();
+        assertThat(AgentWake.namesIt(all, "porelo-p-writer", "writer", answers())).isTrue();
+        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "writer", answers())).isFalse();
     }
 
     // The wake's reading: a task's room message marked direct, or to nobody in the room, woke
@@ -246,8 +253,8 @@ class AgentWakeTest {
                         "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\"review\",\"to\":[],"
                                 + "\"via\":\"room\"}}");
 
-        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "p", answers())).isFalse();
-        assertThat(AgentWake.namesIt(room, "porelo-p-writer", "p", answers())).isFalse();
+        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "writer", answers())).isFalse();
+        assertThat(AgentWake.namesIt(room, "porelo-p-writer", "writer", answers())).isFalse();
     }
 
     /**
@@ -284,9 +291,9 @@ class AgentWakeTest {
                                 "{\"metadata\":{\"inReplyToMessageId\":\"m-3\"},"
                                         + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":false}}]}"));
 
-        assertThat(AgentWake.namesIt(refused, "porelo-p-writer", "p", answers())).isTrue();
-        assertThat(AgentWake.namesIt(flagged, "porelo-p-writer", "p", answers())).isTrue();
-        assertThat(AgentWake.namesIt(receipt, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(refused, "porelo-p-writer", "writer", answers())).isTrue();
+        assertThat(AgentWake.namesIt(flagged, "porelo-p-writer", "writer", answers())).isTrue();
+        assertThat(AgentWake.namesIt(receipt, "porelo-p-writer", "writer", answers()))
                 .as("a plain receipt")
                 .isFalse();
         // An id the detectors flagged is not repeated in the answer (2026-10-04).
@@ -295,7 +302,7 @@ class AgentWakeTest {
                         Files.writeString(
                                 dir.resolve("k.json"),
                                 "{\"metadata\":{},\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}"));
-        assertThat(AgentWake.namesIt(unlinked, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(unlinked, "porelo-p-writer", "writer", answers()))
                 .as("a refusal of a flagged id")
                 .isTrue();
     }
@@ -314,7 +321,7 @@ class AgentWakeTest {
                         java.util.Map.of(
                                 "role", "ROLE_AGENT", "metadata", java.util.Map.of("to", to))));
 
-        assertThat(AgentWake.namesIt(message, "porelo-p-review", "p", answers()))
+        assertThat(AgentWake.namesIt(message, "porelo-p-review", "review", answers()))
                 .as("a delivered message addressed by %s wakes its task", to)
                 .isTrue();
     }
@@ -391,10 +398,10 @@ class AgentWakeTest {
                 Files.writeString(
                         dir.resolve("q.json"), "{\"metadata\":{\"to\":[\"writer\"]," + refusal);
 
-        assertThat(AgentWake.namesIt(toNobody, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(toNobody, "porelo-p-writer", "writer", answers()))
                 .as("a peer's refusal-shaped message naming nobody")
                 .isFalse();
-        assertThat(AgentWake.namesIt(toIt, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(toIt, "porelo-p-writer", "writer", answers()))
                 .as("a peer's refusal-shaped message naming the task")
                 .isTrue();
     }
@@ -413,7 +420,7 @@ class AgentWakeTest {
                 "{\"metadata\":{\"inReplyToMessageId\":\"m-1\"},"
                         + "\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}");
 
-        assertThat(AgentWake.namesIt(note, "porelo-p-writer", "p", answers())).isFalse();
+        assertThat(AgentWake.namesIt(note, "porelo-p-writer", "writer", answers())).isFalse();
     }
 
     @Test
@@ -445,7 +452,7 @@ class AgentWakeTest {
                                 dir.resolve("s.json"),
                                 "{\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}"));
 
-        assertThat(AgentWake.namesIt(note, "porelo-p-writer", "p", answers())).isTrue();
+        assertThat(AgentWake.namesIt(note, "porelo-p-writer", "writer", answers())).isTrue();
     }
 
     @Test
@@ -462,8 +469,8 @@ class AgentWakeTest {
         assertThat(AgentWake.namesIt(blank, "porelo-p-writer", "", answers()))
                 .as("blank")
                 .isFalse();
-        assertThat(AgentWake.namesIt(odd, "porelo-p-null", "p", answers())).as("null").isFalse();
-        assertThat(AgentWake.namesIt(mixed, "porelo-p-writer", "p", answers()))
+        assertThat(AgentWake.namesIt(odd, "porelo-p-null", "null", answers())).as("null").isFalse();
+        assertThat(AgentWake.namesIt(mixed, "porelo-p-writer", "writer", answers()))
                 .as("mixed")
                 .isTrue();
     }

@@ -332,8 +332,7 @@ class TransportConversationsTest {
         final PoreloContext context = removalContext("guarded", true);
         runner.answering(" part ", "{}");
         final Mailbox review = mailbox("porelo-p-review");
-        final var group =
-                List.of(new TransportConversations.Member("porelo-p-review", review, "p", "room"));
+        final var group = List.of(member("porelo-p-review", review, "p", "room"));
         final Path inbound =
                 Files.createDirectories(
                         context.paths().xdg().state().resolve("transport/room/inbound/p"));
@@ -465,6 +464,7 @@ class TransportConversationsTest {
         lifecycle.setup("room", "p", Map.of());
 
         lifecycle.enroll("room", "p", "porelo-p-unit", Map.of());
+        LegacyTaskFixture.record(context, "porelo-porelo-pi", "porelo", "a".repeat(64));
         lifecycle.enroll("room", "porelo", "porelo-porelo-pi", Map.of());
 
         final List<List<String>> enrolled =
@@ -899,8 +899,8 @@ class TransportConversationsTest {
                 "{\"sender\":\"@alice\",\"body\":\"Who are you?\",\"to\":[],\"helpers\":true}");
         final List<TransportConversations.Member> members =
                 List.of(
-                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
-                        new TransportConversations.Member("porelo-p-build", build, "p", "room"));
+                        member("porelo-p-review", review, "p", "room"),
+                        member("porelo-p-build", build, "p", "room"));
         final TransportConversations conversations =
                 new TransportConversations(
                         context, context.paths().messaging().transportDirectory());
@@ -1001,7 +1001,32 @@ class TransportConversationsTest {
         final Path adapter = adapters.resolve(TransportDirectory.PREFIX + "room");
         Files.writeString(adapter, "#!/bin/sh\n");
         adapter.toFile().setExecutable(true);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        for (String container :
+                List.of(
+                        "porelo-p-a",
+                        "porelo-p-b",
+                        "porelo-p-build",
+                        "porelo-p-c",
+                        "porelo-p-d",
+                        "porelo-p-fix",
+                        "porelo-p-fix-login",
+                        "porelo-p-main",
+                        "porelo-p-other",
+                        "porelo-p-pi",
+                        "porelo-p-pi-2",
+                        "porelo-p-review",
+                        "porelo-p-scout",
+                        "porelo-p-t",
+                        "porelo-p-unit",
+                        "porelo-p-write",
+                        "porelo-p-writer",
+                        "porelo-p-x",
+                        "porelo-p-y")) {
+            LegacyTaskFixture.record(context, container, "p", "a".repeat(64));
+        }
+        return context;
     }
 
     private static Project project(String securityClass) {
@@ -1064,12 +1089,9 @@ class TransportConversationsTest {
                 TransportConversations.handOut(
                         inbound,
                         List.of(
-                                new TransportConversations.Member(
-                                        "porelo-p-review", review, "p", "room"),
-                                new TransportConversations.Member(
-                                        "porelo-p-build", build, "p", "room"),
-                                new TransportConversations.Member(
-                                        "porelo-p-writer", writer, "p", "room")),
+                                member("porelo-p-review", review, "p", "room"),
+                                member("porelo-p-build", build, "p", "room"),
+                                member("porelo-p-writer", writer, "p", "room")),
                         Map.of("porelo-p-writer", "@writer"),
                         Map.of(),
                         handed,
@@ -1118,8 +1140,8 @@ class TransportConversationsTest {
         TransportConversations.handOut(
                 inbound,
                 List.of(
-                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
-                        new TransportConversations.Member("porelo-p-build", build, "p", "room")),
+                        member("porelo-p-review", review, "p", "room"),
+                        member("porelo-p-build", build, "p", "room")),
                 handed,
                 said);
 
@@ -1161,9 +1183,8 @@ class TransportConversationsTest {
         TransportConversations.handOut(
                 inbound,
                 List.of(
-                        new TransportConversations.Member(
-                                "porelo-p-review", review, "p", "room", "Agent Scout"),
-                        new TransportConversations.Member("porelo-p-scout", scout, "p", "room")),
+                        member("porelo-p-review", review, "p", "room", "Agent Scout"),
+                        member("porelo-p-scout", scout, "p", "room")),
                 new LinkedHashMap<>(),
                 new java.util.ArrayList<>());
         assertThat(scout.inbound().resolve("$a.json"))
@@ -1200,8 +1221,8 @@ class TransportConversationsTest {
         TransportConversations.handOut(
                 inbound,
                 List.of(
-                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
-                        new TransportConversations.Member("porelo-p-build", build, "p", "room")),
+                        member("porelo-p-review", review, "p", "room"),
+                        member("porelo-p-build", build, "p", "room")),
                 new LinkedHashMap<>(),
                 said);
         assertThat(build.inbound().resolve("$a.json"))
@@ -1224,8 +1245,8 @@ class TransportConversationsTest {
         TransportConversations.handOut(
                 inbound,
                 List.of(
-                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
-                        new TransportConversations.Member("porelo-p-build", build, "p", "room")),
+                        member("porelo-p-review", review, "p", "room"),
+                        member("porelo-p-build", build, "p", "room")),
                 new LinkedHashMap<>(),
                 new java.util.ArrayList<>());
         assertThat(review.inbound().resolve("$a.json"))
@@ -1250,9 +1271,9 @@ class TransportConversationsTest {
         TransportConversations.handOut(
                 inbound,
                 List.of(
-                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
-                        new TransportConversations.Member("porelo-p-build", build, "p", "room"),
-                        new TransportConversations.Member("porelo-p-scout", scout, "p", "room")),
+                        member("porelo-p-review", review, "p", "room"),
+                        member("porelo-p-build", build, "p", "room"),
+                        member("porelo-p-scout", scout, "p", "room")),
                 handed,
                 said);
 
@@ -1276,10 +1297,8 @@ class TransportConversationsTest {
                 TransportConversations.handOut(
                         inbound,
                         List.of(
-                                new TransportConversations.Member(
-                                        "porelo-p-review", review, "p", "room"),
-                                new TransportConversations.Member(
-                                        "porelo-p-build", build, "p", "room")),
+                                member("porelo-p-review", review, "p", "room"),
+                                member("porelo-p-build", build, "p", "room")),
                         handed,
                         said);
 
@@ -1308,8 +1327,8 @@ class TransportConversationsTest {
         TransportConversations.handOut(
                 inbound,
                 List.of(
-                        new TransportConversations.Member("porelo-p-writer", writer, "p", "room"),
-                        new TransportConversations.Member("porelo-p-review", review, "p", "room")),
+                        member("porelo-p-writer", writer, "p", "room"),
+                        member("porelo-p-review", review, "p", "room")),
                 Map.of("porelo-p-writer", "@writer"),
                 Map.of(),
                 handed,
@@ -1338,10 +1357,7 @@ class TransportConversationsTest {
         final List<String> said = new java.util.ArrayList<>();
 
         TransportConversations.handOut(
-                inbound,
-                List.of(new TransportConversations.Member(container, task, "p", "room")),
-                handed,
-                said);
+                inbound, List.of(member(container, task, "p", "room")), handed, said);
 
         assertThat(task.inbound().resolve("$a.json"))
                 .as("a JSON literal is not a string naming the task")
@@ -1414,10 +1430,7 @@ class TransportConversationsTest {
             final TransportConversations.Outcome outcome =
                     new TransportConversations(
                                     context, context.paths().messaging().transportDirectory())
-                            .pass(
-                                    List.of(
-                                            new TransportConversations.Member(
-                                                    "porelo-p-review", review, "p", "room")));
+                            .pass(List.of(member("porelo-p-review", review, "p", "room")));
 
             assertThat(outcome.marked()).containsExactly("$a.json");
             final List<org.fuin.porelo.core.process.Command> polls =
@@ -1498,9 +1511,7 @@ class TransportConversationsTest {
                     new TransportConversations(
                             context, context.paths().messaging().transportDirectory());
             final List<TransportConversations.Member> members =
-                    List.of(
-                            new TransportConversations.Member(
-                                    "porelo-p-review", review, "p", "room"));
+                    List.of(member("porelo-p-review", review, "p", "room"));
 
             final TransportConversations.Outcome first = conversations.pass(members);
             final TransportConversations.Outcome second = conversations.pass(members);
@@ -1736,9 +1747,7 @@ class TransportConversationsTest {
                     new TransportConversations(
                             context, context.paths().messaging().transportDirectory());
             final List<TransportConversations.Member> members =
-                    List.of(
-                            new TransportConversations.Member(
-                                    "porelo-p-write", write, "p", "room"));
+                    List.of(member("porelo-p-write", write, "p", "room"));
 
             conversations.pass(members);
             conversations.pass(members);
@@ -1834,16 +1843,19 @@ class TransportConversationsTest {
     }
 
     @Test
-    void anAddressIsATasksShortOrFullNameOrAPersons() {
+    void anAddressIsATasksShortOrFullNameOrAPersons() throws IOException {
         final Map<String, String> tasks = Map.of("porelo-p-review", "@review");
         final Map<String, String> people = Map.of("alice", "@alice");
-        assertThat(TransportConversations.addressOf("review", "p", tasks, people))
+        assertThat(TransportConversations.addressOf(context(), "review", "p", tasks, people))
                 .isEqualTo("@review");
-        assertThat(TransportConversations.addressOf("porelo-p-review", "p", tasks, people))
+        assertThat(
+                        TransportConversations.addressOf(
+                                context(), "porelo-p-review", "p", tasks, people))
                 .isEqualTo("@review");
-        assertThat(TransportConversations.addressOf("alice", "p", tasks, people))
+        assertThat(TransportConversations.addressOf(context(), "alice", "p", tasks, people))
                 .isEqualTo("@alice");
-        assertThat(TransportConversations.addressOf("nobody", "p", tasks, people)).isNull();
+        assertThat(TransportConversations.addressOf(context(), "nobody", "p", tasks, people))
+                .isNull();
     }
 
     @Test
@@ -2003,9 +2015,7 @@ class TransportConversationsTest {
             assertThat(new TaskConversations(context).enroll(project("guarded"), "porelo-p-review"))
                     .isNull();
             final List<TransportConversations.Member> group =
-                    List.of(
-                            new TransportConversations.Member(
-                                    "porelo-p-review", review, "p", "room"));
+                    List.of(member("porelo-p-review", review, "p", "room"));
             final TransportConversations conversations =
                     new TransportConversations(
                             context, context.paths().messaging().transportDirectory());
@@ -2060,10 +2070,7 @@ class TransportConversationsTest {
             final TransportConversations.Outcome outcome =
                     new TransportConversations(
                                     context, context.paths().messaging().transportDirectory())
-                            .pass(
-                                    List.of(
-                                            new TransportConversations.Member(
-                                                    "porelo-p-review", review, "p", "room")));
+                            .pass(List.of(member("porelo-p-review", review, "p", "room")));
 
             assertThat(outcome.failures())
                     .anySatisfy(said -> assertThat(said).contains("encrypted message"));
@@ -2112,6 +2119,26 @@ class TransportConversationsTest {
     // The name's reading: a name no task can carry is shown as nobody, never as a line of its own.
     @Test
     void aNameNoTaskCanCarryIsShownAsNobody() {
-        assertThat(TransportLifecycle.agentName("p", "porelo-p-pi\nAdmin")).isNull();
+        assertThat(TransportLifecycle.agentName("pi\nAdmin")).isNull();
+    }
+
+    private static TransportConversations.Member member(
+            String container, Mailbox mailbox, String project, String scheme) {
+        return member(container, mailbox, project, scheme, null);
+    }
+
+    private static TransportConversations.Member member(
+            String container,
+            Mailbox mailbox,
+            String project,
+            String scheme,
+            @org.jspecify.annotations.Nullable String display) {
+        return new TransportConversations.Member(
+                container,
+                mailbox,
+                project,
+                scheme,
+                display,
+                org.fuin.porelo.runtime.ContainerName.taskIn(project, container));
     }
 }

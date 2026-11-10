@@ -83,6 +83,11 @@ class MachineTransportsTest {
                         dir);
         final PoreloContext context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        try {
+            LegacyTaskFixture.record(context, "porelo-p-review", "p", "a".repeat(64));
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
         used = context;
         return context;
     }
@@ -673,10 +678,7 @@ class MachineTransportsTest {
 
         final TransportConversations.Outcome outcome =
                 conversations(context)
-                        .pass(
-                                List.of(
-                                        new TransportConversations.Member(
-                                                "porelo-p-review", review, "p", "matrix")));
+                        .pass(List.of(member("porelo-p-review", review, "p", "matrix")));
 
         assertThat(fromIn(review)).as("bob is admitted, eve is not").containsExactly("bob");
         assertThat(outcome.failures())
@@ -694,11 +696,7 @@ class MachineTransportsTest {
         final Mailbox review = hostsRoom(context, "https://elsewhere.example");
         saidIn(context, "matrix", "t1--matrix-person-one.json", "@bob:hs", "bob");
 
-        conversations(context)
-                .pass(
-                        List.of(
-                                new TransportConversations.Member(
-                                        "porelo-p-review", review, "p", "matrix")));
+        conversations(context).pass(List.of(member("porelo-p-review", review, "p", "matrix")));
 
         assertThat(fromIn(review)).isEmpty();
     }
@@ -714,10 +712,7 @@ class MachineTransportsTest {
 
         final TransportConversations.Outcome outcome =
                 conversations(context)
-                        .pass(
-                                List.of(
-                                        new TransportConversations.Member(
-                                                "porelo-p-review", review, "p", "matrix")));
+                        .pass(List.of(member("porelo-p-review", review, "p", "matrix")));
 
         assertThat(fromIn(review)).as("only the host's file admits by account").isEmpty();
         assertThat(outcome.failures())
@@ -737,11 +732,7 @@ class MachineTransportsTest {
         final Mailbox review = hostsRoom(context, null, "room", true);
         saidIn(context, "room", "t1--room-person-one.json", "@bob:hs", "bob");
 
-        conversations(context)
-                .pass(
-                        List.of(
-                                new TransportConversations.Member(
-                                        "porelo-p-review", review, "p", "room")));
+        conversations(context).pass(List.of(member("porelo-p-review", review, "p", "room")));
 
         assertThat(fromIn(review)).isEmpty();
     }
@@ -886,7 +877,7 @@ class MachineTransportsTest {
     }
 
     private static List<TransportConversations.Member> group(final Mailbox review) {
-        return List.of(new TransportConversations.Member("porelo-p-review", review, "p", "room"));
+        return List.of(member("porelo-p-review", review, "p", "room"));
     }
 
     /** The conversations as a pass sees them, with the host's files of these tests. */
@@ -1176,5 +1167,25 @@ class MachineTransportsTest {
             assertThat(left.map(each -> each.getFileName().toString()))
                     .noneMatch(name -> name.startsWith(".admission"));
         }
+    }
+
+    private static TransportConversations.Member member(
+            String container, Mailbox mailbox, String project, String scheme) {
+        return member(container, mailbox, project, scheme, null);
+    }
+
+    private static TransportConversations.Member member(
+            String container,
+            Mailbox mailbox,
+            String project,
+            String scheme,
+            @org.jspecify.annotations.Nullable String display) {
+        return new TransportConversations.Member(
+                container,
+                mailbox,
+                project,
+                scheme,
+                display,
+                org.fuin.porelo.runtime.ContainerName.taskIn(project, container));
     }
 }

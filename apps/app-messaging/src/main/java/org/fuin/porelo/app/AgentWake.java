@@ -119,24 +119,27 @@ public final class AgentWake {
      *
      * @param message The message, in the inbox.
      * @param container The task.
-     * @param project Its project's name.
+     * @param task Its verified logical name.
      * @param answers Where the host keeps its own copy of each filter answer it delivered.
      * @return {@code true} when it names it.
      */
     static boolean namesIt(
-            final Path message, final String container, final String project, final Path answers) {
+            final Path message,
+            final String container,
+            final @org.jspecify.annotations.Nullable String task,
+            final Path answers) {
         return namesIt(
                 message,
                 container,
-                project,
+                task,
                 answers,
-                TaskRecipients.displays(project, container, Map.of()));
+                TaskRecipients.displays(task, container, Map.of()));
     }
 
     private static boolean namesIt(
             final Path message,
             final String container,
-            final String project,
+            final @org.jspecify.annotations.Nullable String task,
             final Path answers,
             final List<String> displays) {
         try {
@@ -187,7 +190,7 @@ public final class AgentWake {
             return named.stream()
                     .filter(String.class::isInstance)
                     .map(String.class::cast)
-                    .anyMatch(name -> TaskRecipients.names(container, project, displays, name));
+                    .anyMatch(name -> TaskRecipients.names(container, task, displays, name));
         } catch (final IOException | RuntimeException ex) {
             return false;
         }
@@ -320,7 +323,8 @@ public final class AgentWake {
                                             namesIt(
                                                     path,
                                                     container,
-                                                    knownProject,
+                                                    TaskRecipients.task(
+                                                            context, container, knownProject),
                                                     MessageLookup.answers(mailbox),
                                                     displays))
                             .forEach(path -> waiting.add(path.getFileName().toString()));

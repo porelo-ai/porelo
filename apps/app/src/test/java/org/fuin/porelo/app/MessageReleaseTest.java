@@ -131,6 +131,7 @@ class MessageReleaseTest {
                                 .messaging()
                                 .mailbox(context.tasks().containerName(project, "t")));
         mailbox.create();
+        LegacyTaskFixture.record(context, "porelo-p-t", "p", "a".repeat(64));
 
         assertThat(PersonNote.rejectedWork(context, project, "t", "not this way")).isTrue();
         assertThat(Files.readString(Files.list(mailbox.inboxNew()).toList().get(0)))

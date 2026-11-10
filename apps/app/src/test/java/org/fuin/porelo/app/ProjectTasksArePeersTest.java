@@ -71,18 +71,28 @@ class ProjectTasksArePeersTest {
             """;
 
     /** What podman answers when the project has these three tasks. */
-    private void tasks(final String... containers) {
+    private void tasks(final Path dir, final String... containers) throws java.io.IOException {
         final StringBuilder answer = new StringBuilder();
         for (final String container : containers) {
-            answer.append(container).append("\tUp 2 minutes\t\t\t\t\n");
+            final String project = container.startsWith("porelo-other-") ? "other" : "acme";
+            final String id =
+                    Integer.toUnsignedString(container.hashCode(), 16).repeat(16).substring(0, 64);
+            LegacyTaskFixture.record(context(dir), container, project, id);
+            answer.append(container)
+                    .append("\tUp 2 minutes\t\t\t")
+                    .append(project)
+                    .append("\tguarded\t\t\t")
+                    .append(id)
+                    .append("\n");
         }
         runner.answering("ps", answer.toString());
     }
 
     @Test
-    void theOtherTasksOfTheProjectArePeersWithoutAnybodyWritingThemDown(@TempDir Path dir) {
+    void theOtherTasksOfTheProjectArePeersWithoutAnybodyWritingThemDown(@TempDir Path dir)
+            throws Exception {
 
-        tasks("porelo-acme-planning", "porelo-acme-api", "porelo-acme-web");
+        tasks(dir, "porelo-acme-planning", "porelo-acme-api", "porelo-acme-web");
 
         final Mail mail =
                 new MessageWatch(context(dir), Duration.ZERO)
@@ -95,9 +105,9 @@ class ProjectTasksArePeersTest {
     }
 
     @Test
-    void aTaskIsNotItsOwnPeer(@TempDir Path dir) {
+    void aTaskIsNotItsOwnPeer(@TempDir Path dir) throws Exception {
 
-        tasks("porelo-acme-planning", "porelo-acme-api");
+        tasks(dir, "porelo-acme-planning", "porelo-acme-api");
 
         final Mail mail =
                 new MessageWatch(context(dir), Duration.ZERO)
@@ -107,11 +117,11 @@ class ProjectTasksArePeersTest {
     }
 
     @Test
-    void aTaskOfAnotherProjectIsNotAPeer(@TempDir Path dir) {
+    void aTaskOfAnotherProjectIsNotAPeer(@TempDir Path dir) throws Exception {
 
         // The bracket is the project. Two projects on one machine are two units of work, and a task
         // that could address the other project's tasks by name would make the bracket mean nothing.
-        tasks("porelo-acme-api", "porelo-other-api");
+        tasks(dir, "porelo-acme-api", "porelo-other-api");
 
         final Mail mail =
                 new MessageWatch(context(dir), Duration.ZERO)
@@ -123,11 +133,11 @@ class ProjectTasksArePeersTest {
     }
 
     @Test
-    void aStandaloneProjectsTasksAreNobodysPeers(@TempDir Path dir) {
+    void aStandaloneProjectsTasksAreNobodysPeers(@TempDir Path dir) throws Exception {
 
         // No transport that keeps a conversation, so no messaging: the local transport is retired,
         // and a project without a conversation works alone (decided on 2026-09-30).
-        tasks("porelo-acme-api", "porelo-acme-web");
+        tasks(dir, "porelo-acme-api", "porelo-acme-web");
 
         assertThat(
                         new MessageWatch(context(dir), Duration.ZERO)
@@ -137,9 +147,10 @@ class ProjectTasksArePeersTest {
     }
 
     @Test
-    void aSiblingIsReachedThroughTheProjectsConversationAndIsVouchedFor(@TempDir Path dir) {
+    void aSiblingIsReachedThroughTheProjectsConversationAndIsVouchedFor(@TempDir Path dir)
+            throws Exception {
 
-        tasks("porelo-acme-api");
+        tasks(dir, "porelo-acme-api");
 
         final Mail.Peer peer =
                 new MessageWatch(context(dir), Duration.ZERO)
@@ -154,9 +165,9 @@ class ProjectTasksArePeersTest {
     }
 
     @Test
-    void aWrittenPeerOfTheSameNameWins(@TempDir Path dir) {
+    void aWrittenPeerOfTheSameNameWins(@TempDir Path dir) throws Exception {
 
-        tasks("porelo-acme-api");
+        tasks(dir, "porelo-acme-api");
 
         // This is how the exception stays possible and stays explicit: naming a task in
         // 'mail.peers' sends to what the file says rather than to the task next door.

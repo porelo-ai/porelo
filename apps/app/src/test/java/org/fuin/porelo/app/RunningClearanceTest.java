@@ -22,6 +22,7 @@ import org.junit.jupiter.api.io.TempDir;
  * left behind when enforcement is turned off, and a resume that would bring back the mode somebody
  * just changed away from.
  */
+@org.junit.jupiter.api.extension.ExtendWith(OwnPorelo.class)
 class RunningClearanceTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
@@ -49,6 +50,7 @@ class RunningClearanceTest {
         final PoreloContext context = context(dir);
         final Path state = context.paths().tasks().containerState(CONTAINER);
         Files.createDirectories(state);
+        Sidecar.recordId(state, "a".repeat(64));
         new TaskProfile(
                         1,
                         "claude",
@@ -108,31 +110,36 @@ class RunningClearanceTest {
         // A real process, recorded as a helper records itself: a bare id is no longer enough to be
         // signalled, because an id on its own names whatever holds it now.
         final Process watcher = new ProcessBuilder("sleep", "120").start();
-        org.fuin.porelo.wire.HelperPid.record(state.resolve("watcher.pid"), watcher.toHandle());
-        new TaskHelpers(
-                        java.util.List.of(
-                                new TaskHelpers.Helper(
-                                        "watcher",
-                                        java.util.List.of("porelo", "shield", "watch"),
-                                        java.util.Map.of(),
-                                        TaskHelpers.AFTER)))
-                .writeTo(state);
+        try {
+            org.fuin.porelo.wire.HelperPid.record(state.resolve("watcher.pid"), watcher.toHandle());
+            new TaskHelpers(
+                            java.util.List.of(
+                                    new TaskHelpers.Helper(
+                                            "watcher",
+                                            java.util.List.of("porelo", "shield", "watch"),
+                                            java.util.Map.of(),
+                                            TaskHelpers.AFTER)))
+                    .writeTo(state);
 
-        final RunningClearance.Result result = set(dir, "off", false);
+            final RunningClearance.Result result = set(dir, "off", false);
 
-        assertThat(result.outcome()).isEqualTo(RunningClearance.Outcome.CHANGED);
-        assertThat(result.was()).isEqualTo("prompt");
-        assertThat(java.nio.file.Files.readString(context(dir).paths().eventLog()))
-                .as("a change of what the task may reach is in the account's event log")
-                .contains("\"kind\":\"clearance\"")
-                .contains("mode prompt to off");
-        assertThat(runner.invocations())
-                .anySatisfy(
-                        command ->
-                                assertThat(command.arguments())
-                                        .containsExactly("kill", String.valueOf(watcher.pid())));
-        assertThat(TaskHelpers.readFrom(state).helpers()).isEmpty();
-        assertThat(TaskProfile.readFrom(state).clearance()).isEqualTo("off");
+            assertThat(result.outcome()).isEqualTo(RunningClearance.Outcome.CHANGED);
+            assertThat(result.was()).isEqualTo("prompt");
+            assertThat(java.nio.file.Files.readString(context(dir).paths().eventLog()))
+                    .as("a change of what the task may reach is in the account's event log")
+                    .contains("\"kind\":\"clearance\"")
+                    .contains("mode prompt to off");
+            assertThat(runner.invocations())
+                    .anySatisfy(
+                            command ->
+                                    assertThat(command.arguments())
+                                            .containsExactly(
+                                                    "kill", String.valueOf(watcher.pid())));
+            assertThat(TaskHelpers.readFrom(state).helpers()).isEmpty();
+            assertThat(TaskProfile.readFrom(state).clearance()).isEqualTo("off");
+        } finally {
+            watcher.destroyForcibly().waitFor();
+        }
     }
 
     @Test
@@ -142,15 +149,19 @@ class RunningClearanceTest {
         // A real process, recorded as a helper records itself: a bare id is no longer enough to be
         // signalled, because an id on its own names whatever holds it now.
         final Process watcher = new ProcessBuilder("sleep", "120").start();
-        org.fuin.porelo.wire.HelperPid.record(state.resolve("watcher.pid"), watcher.toHandle());
+        try {
+            org.fuin.porelo.wire.HelperPid.record(state.resolve("watcher.pid"), watcher.toHandle());
 
-        final RunningClearance.Result result = set(dir, "off", true);
+            final RunningClearance.Result result = set(dir, "off", true);
 
-        assertThat(result.outcome()).isEqualTo(RunningClearance.Outcome.PREVIEWED);
-        assertThat(state.resolve("watcher.pid")).exists();
-        assertThat(TaskProfile.readFrom(state).clearance()).isEqualTo("prompt");
-        assertThat(runner.invocations())
-                .noneSatisfy(command -> assertThat(command.arguments()).contains("kill"));
+            assertThat(result.outcome()).isEqualTo(RunningClearance.Outcome.PREVIEWED);
+            assertThat(state.resolve("watcher.pid")).exists();
+            assertThat(TaskProfile.readFrom(state).clearance()).isEqualTo("prompt");
+            assertThat(runner.invocations())
+                    .noneSatisfy(command -> assertThat(command.arguments()).contains("kill"));
+        } finally {
+            watcher.destroyForcibly().waitFor();
+        }
     }
 
     @Test
@@ -186,17 +197,51 @@ class RunningClearanceTest {
     }
 
     @Test
-    void theTaskNameIsReadWithTheProjectRatherThanBySplittingOnHyphens() {
-
-        // A project name may contain hyphens, so this is only answerable once the project is known.
-        // Splitting on the first hyphen would name the wrong task for every project whose name has
-        // one, and the prompt would then be about something that does not exist.
-        assertThat(RunningClearance.taskOf("porelo-my-app-review-1", "my-app")).isEqualTo("review");
-        // A task name with a hyphen of its own: only the last one separates the run id, and
-        // splitting on the first would name "code" for a task called "code-review".
-        assertThat(RunningClearance.taskOf("porelo-demo-code-review-1", "demo"))
-                .isEqualTo("code-review");
-        assertThat(RunningClearance.taskOf("porelo-demo-shell-1", "demo")).isEqualTo("shell");
-        assertThat(RunningClearance.taskOf("something-else", "demo")).isEqualTo("something-else");
+    void aWatcherKeepsTheWholeVerifiedTaskName(@TempDir Path dir) throws Exception {
+        // Numeric suffixes belong to the task; dropping one directs its prompts elsewhere.
+        final var context = context(dir);
+        runner.answering("{{.State.Pid}}", "123");
+        for (String actual :
+                java.util.List.of("porelo-my-app-review-1", "porelo-my-app_review-1")) {
+            final Path state = context.paths().tasks().containerState(actual);
+            Sidecar.recordId(state, "a".repeat(64));
+            new TaskProfile(
+                            1,
+                            "example",
+                            TaskMode.SHELL,
+                            null,
+                            null,
+                            "2026-11-10T00:00:00Z",
+                            "allow")
+                    .writeTo(state);
+            new Sidecar(
+                            Sidecar.VERSION,
+                            "my-app",
+                            "guarded",
+                            "/rules",
+                            "/dns",
+                            "/porelo",
+                            state.toString(),
+                            actual.contains("_") ? "review-1" : null,
+                            null,
+                            null)
+                    .writeTo(state.resolve("sidecar.json"));
+            assertThat(
+                            RunningClearance.set(
+                                            context,
+                                            actual,
+                                            "deny",
+                                            false,
+                                            new PrintWriter(out, true))
+                                    .outcome())
+                    .as(out.toString())
+                    .isEqualTo(RunningClearance.Outcome.CHANGED);
+            assertThat(TaskHelpers.readFrom(state).helpers())
+                    .singleElement()
+                    .satisfies(
+                            helper ->
+                                    assertThat(helper.command())
+                                            .containsSequence("--task", "review-1"));
+        }
     }
 }

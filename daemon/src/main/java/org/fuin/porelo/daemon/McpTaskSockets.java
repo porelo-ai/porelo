@@ -16,8 +16,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.fuin.porelo.app.McpDaemonSockets;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.TaskControl;
+import org.fuin.porelo.app.TaskIdentities;
 import org.fuin.porelo.app.TaskInventory;
 import org.fuin.porelo.app.TaskLaunch;
+import org.fuin.porelo.app.TaskReservations;
 import org.fuin.porelo.core.project.McpEndpoint;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
@@ -57,7 +59,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
     /** What a task is called: a container name, which becomes a file name here. */
     private static final java.util.regex.Pattern TASK =
-            java.util.regex.Pattern.compile("[a-z0-9][a-z0-9-]{0,200}");
+            java.util.regex.Pattern.compile("porelo-[a-z0-9][a-z0-9_-]{0,200}");
 
     private final PoreloContext context;
     private final TaskInventory inventory;
@@ -199,6 +201,19 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         if (!TASK.matcher(task).matches()) {
             throw new IOException("'" + task + "' is no task's name");
         }
+        final var identity = new TaskIdentities(context).lookup(task, project);
+        final var reserved =
+                identity instanceof TaskIdentities.Found
+                        ? null
+                        : new TaskReservations(context).unmade(task);
+        if (!(identity instanceof TaskIdentities.Found)
+                && !(reserved != null && project.equals(reserved.project()))) {
+            throw new IOException(
+                    "The identity of " + task + " does not belong to project " + project);
+        }
+        if (open.containsKey(task)) {
+            return Optional.of(socketOf(task));
+        }
         final McpEndpoint endpoint;
         try {
             final Optional<McpEndpoint> allowed =
@@ -217,8 +232,6 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             throw new IOException(
                     "project '" + project + "' cannot give a task an endpoint: " + refused);
         }
-        // Again on a resume: the file may allow other methods now, and the socket is the task's.
-        close(task);
         final Path socket = socketOf(task);
         final TaskSocket server;
         try {
@@ -352,6 +365,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             final VarlinkServer.Replies replies,
             final VarlinkServer.Method start)
             throws IOException {
+        if (!(new TaskIdentities(context).lookup(caller, project)
+                instanceof TaskIdentities.Found)) {
+            throw notItsOwn(caller, null);
+        }
         for (final String parameter : new java.util.TreeSet<>(parameters.keySet())) {
             if (!START_PARAMETERS.contains(parameter)) {
                 throw new VarlinkException(
@@ -395,33 +412,61 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         }
         final TaskLaunch.Request request = PoreloDaemon.request(parameters, context);
         final boolean unnamed = PoreloDaemon.text(parameters, "task").isEmpty();
+        final TaskIdentities identities = new TaskIdentities(context);
         final String prefix = ContainerName.PREFIX + project + "-";
         Map<String, Object> held = new LinkedHashMap<>(parameters);
         final Object token = new Object();
         synchronized (starting) {
             // As the launch names it: a task given by its container name is the same task.
-            final String picked = ContainerName.taskFrom(project, request.task());
+            final var selected = identities.lookup(request.task(), project);
+            if (selected instanceof TaskIdentities.Refused refused
+                    && refused.reason() != TaskIdentities.Reason.MISSING) {
+                throw notItsOwn(request.task(), null);
+            }
+            if (selected instanceof TaskIdentities.Refused
+                    && request.task().startsWith(ContainerName.PREFIX)) {
+                throw notItsOwn(request.task(), null);
+            }
+            final String picked =
+                    selected instanceof TaskIdentities.Found found
+                            ? found.identity().task()
+                            : request.task();
             String name = picked;
             // Unnamed, past the name another start picked and has not made yet.
             for (int at = 2;
-                    unnamed && (beingStarted(prefix + name) || recorded(prefix + name) != null);
+                    unnamed
+                            && (beingStarted(prefix + name)
+                                    || !(identities.lookup(name, project)
+                                                    instanceof TaskIdentities.Refused refusal
+                                            && refusal.reason() == TaskIdentities.Reason.MISSING)
+                                    || new TaskReservations(context).tasks(project).contains(name));
                     at++) {
                 name = picked + "-" + at;
             }
-            final String container = prefix + name;
+            final String container =
+                    !unnamed && selected instanceof TaskIdentities.Found found
+                            ? found.identity().container()
+                            : prefix + name;
             if (beingStarted(container)) {
                 throw new VarlinkException(
                         INTERFACE + ".AlreadyStarting", Map.of("task", container));
             }
             // The name settled once: the start would otherwise pick an unnamed task's again, and
             // another than the one counted here once a task of that name exists.
-            held = settled(held, name, unnamed);
+            held =
+                    settled(
+                            held,
+                            !unnamed && selected instanceof TaskIdentities.Found ? container : name,
+                            unnamed);
             final String agent = PoreloDaemon.text(parameters, "agent");
             final String model = PoreloDaemon.text(parameters, "model");
             String runs = agent;
             @Nullable String asks = model.isEmpty() ? null : model;
             final TaskProfile existing = recorded(container);
             if (existing != null) {
+                if (!(selected instanceof TaskIdentities.Found)) {
+                    throw notItsOwn(container, existing.parent());
+                }
                 if (!caller.equals(existing.parent())) {
                     // Bringing back a task it did not start would run its prompt in another's work.
                     throw notItsOwn(container, existing.parent());
@@ -650,8 +695,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * @return The replies to answer through.
      */
     static VarlinkServer.Replies ownProject(
-            final String project, final VarlinkServer.Replies replies) {
-        return ownProject(project, true, replies);
+            final PoreloContext context,
+            final String project,
+            final VarlinkServer.Replies replies) {
+        return ownProject(context, project, true, replies);
     }
 
     /**
@@ -674,7 +721,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * @return The replies to answer through.
      */
     static VarlinkServer.Replies ownProject(
-            final String project, final boolean readsTheRun, final VarlinkServer.Replies replies) {
+            final PoreloContext context,
+            final String project,
+            final boolean readsTheRun,
+            final VarlinkServer.Replies replies) {
         return new VarlinkServer.Replies() {
             @Override
             public void more(final Map<String, Object> parameters) throws IOException {
@@ -705,18 +755,18 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                                     .filter(
                                             task ->
                                                     task instanceof Map<?, ?> each
-                                                            && project.equals(each.get("project")))
+                                                            && project.equals(each.get("project"))
+                                                            && each.get("name")
+                                                                    instanceof String name
+                                                            && new TaskIdentities(context)
+                                                                            .lookup(name, project)
+                                                                    instanceof TaskIdentities.Found)
                                     .map(task -> readsTheRun ? task : withoutWhatItSaid(task))
                                     .toList());
                 }
                 if (parameters.get("unrecognized") instanceof List<?> names) {
-                    // A container no task could be read from still names its project.
-                    final String prefix = "porelo-" + project + "-";
-                    answer.put(
-                            "unrecognized",
-                            names.stream()
-                                    .filter(each -> String.valueOf(each).startsWith(prefix))
-                                    .toList());
+                    // Unrecognized ownership cannot authorize visibility on a task socket.
+                    answer.put("unrecognized", List.of());
                 }
                 return answer;
             }
@@ -795,7 +845,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             }
             final TaskProfile profile =
                     TaskProfile.readFrom(context.paths().tasks().containerState(task.name()));
-            if (profile != null && caller.equals(profile.parent())) {
+            if (profile != null
+                    && caller.equals(profile.parent())
+                    && new TaskIdentities(context).lookup(task.name(), null)
+                            instanceof TaskIdentities.Found) {
                 children.add(task.name());
             }
         }
@@ -810,14 +863,22 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * @param parameters The call's parameters; a {@code task} left out names none.
      * @param itself Whether the caller may name itself.
      */
-    private void own(
-            final String caller, final Map<String, Object> parameters, final boolean itself) {
+    void own(final String caller, final Map<String, Object> parameters, final boolean itself) {
         final String task = PoreloDaemon.text(parameters, "task");
+        final TaskIdentities identities = new TaskIdentities(context);
+        final var source = identities.lookup(caller, null);
+        if (!(source instanceof TaskIdentities.Found own)) {
+            throw notItsOwn(task, null);
+        }
+        final var target = identities.lookup(task, own.identity().project());
+        if (!(target instanceof TaskIdentities.Found found)
+                || !task.equals(found.identity().container())) {
+            throw notItsOwn(task, null);
+        }
         if (itself && task.equals(caller)) {
             return;
         }
-        final TaskProfile profile =
-                task.isEmpty() || !TASK.matcher(task).matches() ? null : recorded(task);
+        final TaskProfile profile = recorded(task);
         final String parent = profile == null ? null : profile.parent();
         if (!caller.equals(parent)) {
             throw notItsOwn(task, parent);
@@ -892,7 +953,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                         (parameters, replies) ->
                                 method.call(
                                         parameters,
-                                        ownProject(project, readsTheRun(endpoint), replies));
+                                        ownProject(
+                                                context, project, readsTheRun(endpoint), replies));
             } else {
                 held = method;
             }

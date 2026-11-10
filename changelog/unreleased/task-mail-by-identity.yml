@@ -1,0 +1,2 @@
+title: "Task mail, transport credentials and daemon endpoints stay with their verified task identity across container naming formats"
+type: fixed

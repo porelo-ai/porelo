@@ -29,8 +29,8 @@ class EveryoneReadsTheRoomTest {
     private List<TransportConversations.Member> members(
             final Mailbox writer, final Mailbox review) {
         return List.of(
-                new TransportConversations.Member("porelo-p-writer", writer, "p", "matrix"),
-                new TransportConversations.Member("porelo-p-review", review, "p", "matrix"));
+                member("porelo-p-writer", writer, "p", "matrix"),
+                member("porelo-p-review", review, "p", "matrix"));
     }
 
     private static final Map<String, String> ACCOUNTS =
@@ -202,12 +202,9 @@ class EveryoneReadsTheRoomTest {
                 TransportConversations.handOut(
                         inbound,
                         List.of(
-                                new TransportConversations.Member(
-                                        "porelo-p-writer", writer, "p", "matrix"),
-                                new TransportConversations.Member(
-                                        "porelo-p-review", review, "p", "matrix"),
-                                new TransportConversations.Member(
-                                        "porelo-p-build", build, "p", "matrix")),
+                                member("porelo-p-writer", writer, "p", "matrix"),
+                                member("porelo-p-review", review, "p", "matrix"),
+                                member("porelo-p-build", build, "p", "matrix")),
                         ACCOUNTS,
                         PEOPLE,
                         new LinkedHashMap<>(),
@@ -286,5 +283,25 @@ class EveryoneReadsTheRoomTest {
                 .extracting(MessageDelivery.Held::reason)
                 .asString()
                 .contains("without a signature");
+    }
+
+    private static TransportConversations.Member member(
+            String container, Mailbox mailbox, String project, String scheme) {
+        return member(container, mailbox, project, scheme, null);
+    }
+
+    private static TransportConversations.Member member(
+            String container,
+            Mailbox mailbox,
+            String project,
+            String scheme,
+            @org.jspecify.annotations.Nullable String display) {
+        return new TransportConversations.Member(
+                container,
+                mailbox,
+                project,
+                scheme,
+                display,
+                org.fuin.porelo.runtime.ContainerName.taskIn(project, container));
     }
 }

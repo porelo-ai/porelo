@@ -20,6 +20,30 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class TaskTargetTest {
 
+    @Test
+    void anIncompleteRetainedClaimCannotSelectAnotherProjectsTask() throws Exception {
+        // A missing id in an old record must block an unscoped command from choosing a sibling.
+        listed =
+                "porelo-other_work\tUp 1 minute\t\t\tother\tguarded\tr\t\t" + OTHER_ID + "\twork\n";
+        record("porelo-other_work", OTHER_ID);
+        final String actual = "porelo-website_work";
+        final Path state = Files.createDirectories(context.paths().tasks().taskRecord(actual));
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "website",
+                        "guarded",
+                        "/rules",
+                        "/dns",
+                        "/porelo",
+                        context.paths().tasks().containerState(actual).toString(),
+                        "work",
+                        null,
+                        null)
+                .writeTo(state.resolve("sidecar.json"));
+        assertThat(new TaskIdentities(context).lookup("work", null))
+                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.AMBIGUOUS, "work"));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void anIncompleteShortenedOwnerCannotSelectAnotherProjectsTask(boolean mismatched)

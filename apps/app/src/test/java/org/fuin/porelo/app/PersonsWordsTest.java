@@ -195,10 +195,8 @@ class PersonsWordsTest {
 
     private static List<TransportConversations.Member> members(Path dir) {
         return List.of(
-                new TransportConversations.Member(
-                        "porelo-p-review", new Mailbox(dir.resolve("review")), "p", "room"),
-                new TransportConversations.Member(
-                        "porelo-p-build", new Mailbox(dir.resolve("build")), "p", "room"));
+                member("porelo-p-review", new Mailbox(dir.resolve("review")), "p", "room"),
+                member("porelo-p-build", new Mailbox(dir.resolve("build")), "p", "room"));
     }
 
     @ParameterizedTest
@@ -285,5 +283,25 @@ class PersonsWordsTest {
                 .as("SHA-256 includes the original dollar")
                 .isEqualTo(
                         "person-h-214fdb214905eb080e5c0a19410c9d067946ca7b09b16725c0fb1587590fd5b7");
+    }
+
+    private static TransportConversations.Member member(
+            String container, Mailbox mailbox, String project, String scheme) {
+        return member(container, mailbox, project, scheme, null);
+    }
+
+    private static TransportConversations.Member member(
+            String container,
+            Mailbox mailbox,
+            String project,
+            String scheme,
+            @org.jspecify.annotations.Nullable String display) {
+        return new TransportConversations.Member(
+                container,
+                mailbox,
+                project,
+                scheme,
+                display,
+                org.fuin.porelo.runtime.ContainerName.taskIn(project, container));
     }
 }

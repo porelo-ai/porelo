@@ -705,7 +705,10 @@ public final class MessageWatch implements AutoCloseable {
         final java.util.Set<String> named = new java.util.HashSet<>();
         for (final Path mailbox : mailboxes) {
             final String container = mailbox.getFileName().toString();
-            final String project = given != null ? given.name() : projectOf(container);
+            final String project = projectOf(container);
+            if (given != null && !given.name().equals(project)) {
+                continue;
+            }
             if (given != null) {
                 named.add(container);
             }
@@ -734,7 +737,7 @@ public final class MessageWatch implements AutoCloseable {
         for (final Path mailbox : taking) {
             final String container = mailbox.getFileName().toString();
             final Project own = given != null && named.contains(container) ? given : null;
-            final String project = own != null ? own.name() : projectOf(container);
+            final String project = projectOf(container);
             if (project == null) {
                 continue;
             }
@@ -1170,15 +1173,14 @@ public final class MessageWatch implements AutoCloseable {
                 peers.stream().map(org.fuin.porelo.core.project.Mail.Peer::name).toList();
         for (final org.fuin.porelo.runtime.ContainerSummary task : context.podman().poreloTasks()) {
             final String name = task.name();
+            final TaskIdentities.Result selected = new TaskIdentities(context).read(task);
             if (name.equals(container)
-                    || !name.startsWith("porelo-" + project.name() + "-")
-                    || TaskInventory.ofAnotherProject(task, project.name()) != null) {
-                // Its label says whose it is: 'web-app''s tasks begin with 'porelo-web-' too.
+                    || !(selected instanceof TaskIdentities.Found found)
+                    || !project.name().equals(found.identity().project())) {
                 continue;
             }
-            final String sibling =
-                    org.fuin.porelo.runtime.ContainerName.taskIn(project.name(), name);
-            if (sibling == null || written.contains(sibling)) {
+            final String sibling = found.identity().task();
+            if (written.contains(sibling)) {
                 continue;
             }
             // Through the project's conversation, on whichever transport keeps it: a person in it

@@ -461,6 +461,12 @@ public final class TaskReservations {
         return names;
     }
 
+    /** Retained logical owner, including retired tasks whose transport accounts still exist. */
+    public @Nullable Owner owner(String container) {
+        final Claim claim = known(container);
+        return claim == null ? null : new Owner(claim.project(), claim.task());
+    }
+
     /** Logical names claimed by this project, including starts with no container yet. */
     public Set<String> tasks(String project) throws IOException {
         final Set<String> tasks = new LinkedHashSet<>();

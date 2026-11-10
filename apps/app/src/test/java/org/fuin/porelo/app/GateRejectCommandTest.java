@@ -24,7 +24,12 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class GateRejectCommandTest {
 
-    private final CommandRunner runner = new ProcessCommandRunner();
+    private final CommandRunner gitRunner = new ProcessCommandRunner();
+    private final CommandRunner runner =
+            command ->
+                    command.arguments().getFirst().endsWith("podman")
+                            ? new CommandResult(command, 0, "", "")
+                            : gitRunner.run(command);
 
     @Test
     void workAlreadyUpstreamIsMarkedPendingAndRejectedOnlyWithForce(@TempDir Path dir)

@@ -57,7 +57,12 @@ public final class TaskIdentities {
     /** Applies new-name rules while allowing an existing legacy task to keep its name. */
     public java.util.Optional<String> newTaskRefusal(String project, String task) {
         if (ContainerName.reserved(project, task)) {
-            return lookup(task, project) instanceof Found
+            // Only a legacy task whose container still exists keeps the name; a retained record
+            // of a removed one is history and does not reserve it.
+            return lookup(task, project) instanceof Found found
+                            && context.podman().taskCandidates().stream()
+                                    .anyMatch(
+                                            row -> row.name().equals(found.identity().container()))
                     ? java.util.Optional.empty()
                     : java.util.Optional.of(
                             "'"
@@ -113,7 +118,40 @@ public final class TaskIdentities {
         }
         final List<TaskIdentity> matching = new ArrayList<>();
         Refused incomplete = null;
-        for (ContainerSummary summary : candidates) {
+        final List<ContainerSummary> known = new ArrayList<>(candidates);
+        final Path records = context.paths().tasks().taskRecord("");
+        if (Files.isDirectory(records, LinkOption.NOFOLLOW_LINKS)) {
+            try (var entries = Files.list(records)) {
+                for (Path entry : entries.toList()) {
+                    final String name = entry.getFileName().toString();
+                    if (candidates.stream().noneMatch(each -> each.name().equals(name))
+                            && name.matches("porelo-[a-z0-9_-]+")) {
+                        final Path sidecarFile = entry.resolve("sidecar.json");
+                        final Sidecar claimed =
+                                Files.isRegularFile(sidecarFile, LinkOption.NOFOLLOW_LINKS)
+                                        ? Sidecar.readFrom(sidecarFile)
+                                        : null;
+                        known.add(
+                                new ContainerSummary(
+                                        name,
+                                        "removed",
+                                        "",
+                                        claimed == null ? null : claimed.project(),
+                                        null,
+                                        null,
+                                        null,
+                                        claimed == null ? null : claimed.task(),
+                                        context.recordedId(name)));
+                    }
+                }
+            } catch (IOException
+                    | java.io.UncheckedIOException
+                    | IllegalArgumentException
+                    | org.fuin.porelo.wire.JsonException ex) {
+                return new Refused(Reason.INVALID_RECORD, given);
+            }
+        }
+        for (ContainerSummary summary : known) {
             final Result result = read(summary);
             if (result instanceof Found found) {
                 final TaskIdentity identity = found.identity();

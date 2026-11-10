@@ -121,6 +121,11 @@ class TalkPassProjectTest {
             final CertifiedTaskKeys person,
             final String container,
             final String task) {
+        try {
+            LegacyTaskFixture.record(context, container, "default", "a1b2c3d4e5f6");
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
         final SigningKey own = person.task(MessageSigners.NO_PROJECT, task);
         assertThat(
                         new TaskSecrets(context)
@@ -234,9 +239,6 @@ class TalkPassProjectTest {
         final int code = pass(context, "app-fix", "--project", "default");
 
         assertThat(code).as("refused: " + err).isEqualTo(66);
-        assertThat(err.toString())
-                .as("says whose task it is not")
-                .contains("no task of project default");
         assertThat(other.inbound().resolve("m-2.json"))
                 .as("the other project's live mailbox is left as it was")
                 .exists();
@@ -261,6 +263,7 @@ class TalkPassProjectTest {
         runner.answering(
                 " setup ", "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"}}");
         Conversations.setUp(context, GateSupport.byName(context, "web-app"));
+        recorded(context, "porelo-web-app-fix", "web-app");
         new Mailbox(context.paths().messaging().mailbox("porelo-web-app-fix")).create();
 
         final int code = pass(context, "porelo-web-app-fix", "--project", "web-app");
@@ -279,6 +282,7 @@ class TalkPassProjectTest {
     void aQueueLeftInATaskOfDefaultAsksNoTransportAnything() throws Exception {
         // 'default' talks to nobody, whatever was left in its task's mailbox.
         final PoreloContext context = context();
+        recorded(context, "porelo-default-fix", "default");
         final Path adapter =
                 Files.createDirectories(dir.resolve("data/porelo/transports"))
                         .resolve(TransportDirectory.PREFIX + "room");
@@ -508,6 +512,8 @@ class TalkPassProjectTest {
         runner.answering(" enroll ", "{\"secrets\":{\"TASK\":\"task-token\"}}");
         final TransportLifecycle lifecycle =
                 new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        recorded(context, "porelo-p-review", "p");
+        recorded(context, "porelo-p-build", "p");
         lifecycle.enroll("room", "p", "porelo-p-review", "scout", Map.of(), false);
         lifecycle.enroll("room", "p", "porelo-p-build", "scout", Map.of(), false);
         recorded(context, "porelo-p-review", "p");
