@@ -52,7 +52,13 @@ class GateProtectCommandTest {
                                 },
                         dir);
         final PoreloContext context =
-                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
+                new PoreloContext(
+                        command ->
+                                runner.run(
+                                        command.withEnvironment(
+                                                Map.of("GIT_CEILING_DIRECTORIES", dir.toString()))),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        command -> 0);
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
@@ -157,6 +163,7 @@ class GateProtectCommandTest {
     @Test
     void refusesADirectoryThatIsNotARepository(@TempDir Path root) throws Exception {
 
+        // Git discovery must not escape a fixture and install hooks in the real repository.
         final Path plain = root.resolve("plain");
         Files.createDirectories(plain);
 

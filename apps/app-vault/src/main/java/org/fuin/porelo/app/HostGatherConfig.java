@@ -5,7 +5,15 @@ import java.util.List;
 
 /** The person's selected destinations for a gathered transfer. */
 record HostGatherConfig(String local, String owner, Path ca, List<Repository> repositories) {
-    record Repository(String name, String central) {}
+    record Repository(String name, String central, List<String> keys) {
+        Repository {
+            keys = List.copyOf(keys);
+        }
+
+        Repository(String name, String central) {
+            this(name, central, List.of(name));
+        }
+    }
 
     static HostGatherConfig parse(Path source, String text, String project, String local) {
         String owner = "";
@@ -35,11 +43,38 @@ record HostGatherConfig(String local, String owner, Path ca, List<Repository> re
                     if (words.length < 2 || !repositoryName(words[1]))
                         throw bad(source, "names no valid repository name");
                     final String name = words[1];
-                    if (words.length != 3
-                            || !words[2].matches("https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/[^\\s?#@]+"))
+                    if (words.length != 3 && words.length != 4)
                         throw bad(source, "gives no valid https:// address for '" + name + "'");
-                    if (repos.putIfAbsent(name, new Repository(name, words[2])) != null)
-                        throw bad(source, "names repository '" + name + "' twice");
+                    final String key = words.length == 4 ? words[2] : name;
+                    final String address = words[words.length - 1];
+                    if (!repositoryName(key)
+                            || !address.matches("https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/[^\\s?#@]+"))
+                        throw bad(source, "gives no valid https:// address for '" + name + "'");
+                    final Repository previous = repos.get(name);
+                    if (previous == null)
+                        repos.put(name, new Repository(name, address, List.of(key)));
+                    else {
+                        if (words.length != 4
+                                || !previous.central().equals(address)
+                                || previous.keys().contains(key))
+                            throw bad(
+                                    source,
+                                    "names repository '"
+                                            + name
+                                            + "' twice with repeated or conflicting destinations; key/name pairs: "
+                                            + String.join(
+                                                    " ",
+                                                    previous.keys().stream()
+                                                            .map(value -> value + "/" + name)
+                                                            .toList())
+                                            + " "
+                                            + key
+                                            + "/"
+                                            + name);
+                        final var keys = new java.util.ArrayList<>(previous.keys());
+                        keys.add(key);
+                        repos.put(name, new Repository(name, address, keys));
+                    }
                 }
                 default -> throw bad(source, "names an unknown setting");
             }
@@ -52,34 +87,58 @@ record HostGatherConfig(String local, String owner, Path ca, List<Repository> re
     }
 
     List<Repository> select(List<String> names) {
+        final String available =
+                String.join(
+                        " ",
+                        repositories.stream()
+                                .flatMap(
+                                        repo ->
+                                                repo.keys().stream()
+                                                        .map(key -> key + "/" + repo.name()))
+                                .toList());
+        final var identities = new java.util.HashMap<String, Repository>();
+        for (var repo : repositories) {
+            final var aliases = new java.util.ArrayList<>(repo.keys());
+            aliases.add(repo.name());
+            for (String identity : aliases) {
+                final var previous =
+                        identities.putIfAbsent(identity.toLowerCase(java.util.Locale.ROOT), repo);
+                if (previous != null && !previous.equals(repo))
+                    throw HostGatherRefusal.host(
+                            "selection",
+                            64,
+                            "repository '"
+                                    + identity
+                                    + "' is ambiguous; available key/name pairs: "
+                                    + available);
+            }
+        }
         if (names.isEmpty()) return repositories;
         final var selected = new java.util.ArrayList<Repository>();
-        final var seen = new java.util.HashSet<String>();
+        final var seen = new java.util.HashSet<Repository>();
         for (String name : names) {
             if (!repositoryName(name))
                 throw HostGatherRefusal.host(
                         "selection", 64, "'" + name + "' is not a repository name");
-            final Repository repo =
-                    repositories.stream()
-                            .filter(item -> item.name().equals(name))
-                            .findFirst()
-                            .orElseThrow(
-                                    () ->
-                                            HostGatherRefusal.host(
-                                                    "selection",
-                                                    64,
-                                                    "the config for "
-                                                            + owner
-                                                            + " holds no repository '"
-                                                            + name
-                                                            + "'; it holds: "
-                                                            + String.join(
-                                                                    " ",
-                                                                    repositories.stream()
-                                                                            .map(Repository::name)
-                                                                            .toList())));
-            if (!seen.add(name))
-                throw HostGatherRefusal.host("selection", 64, "'" + name + "' is named twice");
+            final Repository repo = identities.get(name.toLowerCase(java.util.Locale.ROOT));
+            if (repo == null)
+                throw HostGatherRefusal.host(
+                        "selection",
+                        64,
+                        "the config for "
+                                + owner
+                                + " holds no repository '"
+                                + name
+                                + "'; available key/name pairs: "
+                                + available);
+            if (!seen.add(repo))
+                throw HostGatherRefusal.host(
+                        "selection",
+                        64,
+                        "'"
+                                + name
+                                + "' names a repository twice; available key/name pairs: "
+                                + available);
             selected.add(repo);
         }
         return List.copyOf(selected);
@@ -90,6 +149,7 @@ record HostGatherConfig(String local, String owner, Path ca, List<Repository> re
                 new java.util.ArrayList<>(java.util.List.of(this.local, owner, ca.toString()));
         for (var repo : repositories) {
             values.add(repo.name());
+            values.addAll(repo.keys());
             values.add(repo.central());
         }
         for (String value : values)

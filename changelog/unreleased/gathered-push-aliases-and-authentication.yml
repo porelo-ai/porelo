@@ -1,0 +1,2 @@
+title: Gathered pushes accept project keys and forge names and report a central HTTP 401 before pushing any repository.
+type: fixed

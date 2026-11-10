@@ -22,11 +22,17 @@ import org.jspecify.annotations.Nullable;
 final class HostGatherFlow {
     private final CommandRunner runner;
     private final Path git;
+    private final Path curl;
     private final Path temporary;
 
     HostGatherFlow(CommandRunner runner, Path git, Path temporary) {
+        this(runner, git, Path.of("/usr/bin/curl"), temporary);
+    }
+
+    HostGatherFlow(CommandRunner runner, Path git, Path curl, Path temporary) {
         this.runner = runner;
         this.git = git;
+        this.curl = curl;
         this.temporary = temporary;
     }
 
@@ -72,10 +78,17 @@ final class HostGatherFlow {
         boolean writing = false;
         try (Workspace workspace = new Workspace(temporary, err, runner)) {
             config.refuseCredentials(central, local);
+            if (!pull) {
+                for (var target : targets) {
+                    repository = target.name();
+                    progress.stage(repository, "reading");
+                    preflight(target, config.ca(), central);
+                }
+            }
             for (int index = 0; index < targets.size(); index++) {
                 final var target = targets.get(index);
                 repository = target.name();
-                progress.stage(repository, "reading");
+                if (pull) progress.stage(repository, "reading");
                 final String localUrl =
                         config.local() + "/" + config.owner() + "/" + target.name() + ".git";
                 final Path repo = workspace.path.resolve(target.name());
@@ -145,18 +158,21 @@ final class HostGatherFlow {
                 }
                 final String said =
                         redact(answer.standardOutput() + answer.standardError(), local, central);
+                final boolean unauthorized =
+                        answer.standardError()
+                                .lines()
+                                .anyMatch(
+                                        line ->
+                                                line.matches(
+                                                        "fatal: unable to access .+: The requested URL returned error: 401"));
+                if (unauthorized) throw tokenRefused(target, 401);
                 final boolean authentication =
                         answer.standardError()
                                 .lines()
                                 .anyMatch(
                                         line ->
-                                                line.startsWith("fatal: Authentication failed for ")
-                                                        || line.startsWith(
-                                                                "fatal: could not read Username for ")
-                                                        || line.startsWith(
-                                                                "fatal: could not read Password for ")
-                                                        || line.matches(
-                                                                "fatal: unable to access .+: The requested URL returned error: 401"));
+                                                line.startsWith(
+                                                        "fatal: Authentication failed for "));
                 final boolean refused =
                         answer.standardOutput()
                                 .lines()
@@ -289,6 +305,91 @@ final class HostGatherFlow {
             out.flush();
             err.flush();
         }
+    }
+
+    private void preflight(HostGatherConfig.Repository target, Path ca, char[] token) {
+        final byte[] input =
+                ("header = \"Authorization: Basic " + basic(token) + "\"\n")
+                        .getBytes(StandardCharsets.UTF_8);
+        final CommandResult answer;
+        try {
+            answer =
+                    runner.run(
+                            Command.of(
+                                            curl.toString(),
+                                            "--disable",
+                                            "--globoff",
+                                            "--silent",
+                                            "--fail",
+                                            "--proto",
+                                            "=https",
+                                            "--proto-redir",
+                                            "=https",
+                                            "--max-redirs",
+                                            "0",
+                                            "--proxy",
+                                            "",
+                                            "--noproxy",
+                                            "*",
+                                            "--connect-timeout",
+                                            "5",
+                                            "--max-time",
+                                            "15",
+                                            "--max-filesize",
+                                            "16777216",
+                                            "--cacert",
+                                            ca.toString(),
+                                            "--config",
+                                            "-",
+                                            "--write-out",
+                                            "\n%{http_code}",
+                                            "--url",
+                                            target.central().replaceAll("/+$", "")
+                                                    + "/info/refs?service=git-receive-pack")
+                                    .in(Path.of("/"))
+                                    .withChosenEnvironment(
+                                            Map.of("PATH", "/usr/sbin:/usr/bin", "LC_ALL", "C"))
+                                    .withBinaryInput(input));
+        } catch (CommandException ex) {
+            throw HostGatherRefusal.host(
+                    "transfer",
+                    69,
+                    target.name()
+                            + ": central authentication could not be checked; inspect the forge connection");
+        } finally {
+            Arrays.fill(input, (byte) 0);
+        }
+        final String output = answer.standardOutput();
+        final String status = output.substring(output.lastIndexOf('\n') + 1);
+        if (status.equals("401")) throw tokenRefused(target, 401);
+        if (!answer.successful()
+                || !status.equals("200")
+                || !output.startsWith("001f# service=git-receive-pack\n0000"))
+            throw HostGatherRefusal.host(
+                    "transfer",
+                    1,
+                    target.name()
+                            + ": central authentication could not be checked at "
+                            + forge(target)
+                            + (status.matches("[1-5][0-9]{2}") ? " (HTTP " + status + ")" : "")
+                            + "; inspect the central Git endpoint and retry; no repositories were pushed");
+    }
+
+    private static String forge(HostGatherConfig.Repository target) {
+        return java.net.URI.create(target.central()).getAuthority();
+    }
+
+    private static HostGatherRefusal tokenRefused(HostGatherConfig.Repository target, int status) {
+        return new HostGatherRefusal(
+                HostGatherRefusal.Kind.CENTRAL_TOKEN_REFUSED,
+                1,
+                target.name()
+                        + ": central forge "
+                        + forge(target)
+                        + " refused authentication (HTTP "
+                        + status
+                        + ")",
+                Map.of("forge", forge(target), "status", status));
     }
 
     private void pull(

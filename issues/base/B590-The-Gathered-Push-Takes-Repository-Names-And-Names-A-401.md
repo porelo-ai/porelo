@@ -1,6 +1,6 @@
 # [B590](README.md#b590) — The Gathered Push Takes Repository Names And Names A 401
 
-**Status:** Implementing, since 2026-11-10. Filed 2026-11-10 under ST290, from the fourth move.
+**Status:** Review. Filed 2026-11-10 under ST290, from the fourth move.
 **Size:** M - carry repository aliases from the follow into selection and detect central HTTP refusal before transferring any repository.
 **Blocked by:** [B544](README.md#b544), [B580](README.md#b580).
 
@@ -43,7 +43,33 @@ HTTP-status detection to that shared flow, not another daemon method or refusal 
 - On a machine with an open vault and a central token answered with 401, the push names the forge and `401`, exits
   nonzero, changes no central ref and asks for nothing. The daemon carries that refusal as a value.
 
-## To be checked
+- Supervisor machine check, not run here: follow a verified project whose key and forge name differ, then push
+  separately through either name using the CLI and the existing daemon flow. Check that each selects the same
+  repository, repeated aliases refuse, and ambiguous names change no repository.
+- Supervisor machine check, not run here: on a public central repository, verify that its authenticated
+  `info/refs?service=git-receive-pack` endpoint rejects a refused credential even while anonymous reads succeed.
+  With the vault already open, check CLI words, nonzero exit, no prompts or replacement command, unchanged central
+  refs, and the daemon's `CentralTokenRefused` forge/status fields. Repeat with only the second destination refusing.
+- Supervisor machine check, not run here: retain the installed sudo rule and account ownership checks; exercise
+  follow through its systemd unit and use the shared daemon acceptance from [B580](README.md#b580).
 
-- Choose the bounded authentication probe with the shared flow's implementation so that it tests the selected Git
-  endpoint's credential acceptance, including for a public repository, rather than trusting an anonymous read.
+## As built
+
+- Follow retains verified project-file keys beside forge names in the person's push configuration. Existing rows
+  remain readable; several verified keys for one forge repository coalesce into one destination. Selection accepts
+  either spelling, refuses collisions across destinations and repeated selection through aliases, and lists the
+  available key/name pairs before any transfer. This preserves the existing follow case in which another selected
+  project key keeps the same central repository. A verified key's canonical central address must match the forge's
+  recorded migration; matching only the basename would silently release a different repository after a refused
+  migration. That case was reproduced before adding the address check.
+- The existing shared gathered flow preflights every selected central Git receive advertisement before any clone
+  or push. The checked curl uses the same central credential and resolved root-owned CA, HTTPS only, no inherited
+  configuration, proxies, redirects or prompts, a fifteen-second deadline and bounded captured output. Error bodies
+  are discarded; an observed 401 survives a nonzero curl exit. No HTTP trace is enabled.
+- The CLI names the central forge and HTTP 401. The existing typed refusal gains optional forge and status fields;
+  its replacement command is empty. Missing credentials and explicit vault unlocking retain their own outcomes.
+  Later transfer-time refusals retain confirmed earlier pushes. No privileged verb or sudo grant is added.
+- Plan and code received separate read-only reviews. The code finding about incomplete 401 bodies was reproduced
+  as four failing behavior cases before its fix. A proposal to refuse every repeated project-key correspondence
+  was narrowed after the existing follow regression demonstrated that several keys can identify one destination;
+  conflicting destinations still refuse. Validation and sandbox limitations are in the local handover report.

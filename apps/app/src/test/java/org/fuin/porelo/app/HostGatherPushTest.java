@@ -111,7 +111,8 @@ class HostGatherPushTest {
         Files.setAttribute(config, "unix:mode", 0600);
         runner.answering("getent passwd", "alice:x:1000:1000::" + home + ":/bin/bash\n");
         runner.answering("sudo -n /usr/sbin/porelo-host forge issue-token", LOCAL + "\n");
-        runner.answering("git", "commit\n");
+        runner.answering("/usr/bin/git ", "commit\n");
+        runner.answering("/usr/bin/curl ", "001f# service=git-receive-pack\n0000\n200");
     }
 
     private void vault(Map<String, VaultEntry> entries, boolean open) {
@@ -169,23 +170,23 @@ class HostGatherPushTest {
 
     @Test
     void refusedCentralAuthenticationHasANamedOutcomeWithoutPromptWords() {
-        // A window must repair the central credential without presenting Git's prompt or leaking
-        // it.
+        // A central refusal must not cause a prompt, replacement request, or credential leak.
         vault(Map.of("forge.example.org.central", VaultEntry.of(CENTRAL)), true);
-        pushCode = 128;
-        pushError =
-                "fatal: could not read Username for 'https://central.example': terminal prompts disabled "
-                        + CENTRAL
-                        + " "
-                        + LOCAL
-                        + " "
-                        + basic(CENTRAL)
-                        + " "
-                        + basic(LOCAL);
+        runner.answering(
+                "/usr/bin/curl ",
+                CENTRAL + " " + LOCAL + " " + basic(CENTRAL) + " " + basic(LOCAL) + "\n401");
         final var events = new java.util.ArrayList<Map<String, Object>>();
         final var failure = refused(push(), events);
         assertThat(failure.kind()).isEqualTo(HostGatherRefusal.Kind.CENTRAL_TOKEN_REFUSED);
-        assertThat(failure.details()).containsEntry("credential", "forge.example.org.central");
+        assertThat(failure.details())
+                .containsEntry("credential", "forge.example.org.central")
+                .containsEntry("forge", "central.example")
+                .containsEntry("status", 401)
+                .containsEntry("storeCommand", java.util.List.of());
+        assertThat(prompts.get())
+                .as("a central refusal never asks for another credential")
+                .isZero();
+        assertThat(runner.invocations()).noneMatch(command -> command.arguments().contains("push"));
         assertThat(failure.details().toString() + events)
                 .doesNotContain(CENTRAL, LOCAL, "Username", "terminal prompts");
     }
@@ -206,7 +207,8 @@ class HostGatherPushTest {
     void repliesAndProgressNeverContainEitherTokenOrGitOutput() throws Exception {
         // A hostile Git answer must not carry credentials or arbitrary output into the window.
         vault(Map.of("forge.example.org.central", VaultEntry.of(CENTRAL)), true);
-        runner.answering("git", CENTRAL + " " + LOCAL + " " + basic(CENTRAL) + " " + basic(LOCAL));
+        runner.answering(
+                "/usr/bin/git ", CENTRAL + " " + LOCAL + " " + basic(CENTRAL) + " " + basic(LOCAL));
         final var events = new java.util.ArrayList<Map<String, Object>>();
         final var result =
                 push().push(

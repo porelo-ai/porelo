@@ -103,7 +103,8 @@ class HostGatherCommandTest {
         Files.setAttribute(config, "unix:mode", 0600);
         runner.answering("getent passwd", "alice:x:1000:1000::" + home + ":/bin/bash\n");
         runner.answering("sudo -n /usr/sbin/porelo-host forge issue-token", LOCAL + "\n");
-        runner.answering("git", "commit\n");
+        runner.answering("/usr/bin/git ", "commit\n");
+        runner.answering("/usr/bin/curl ", "001f# service=git-receive-pack\n0000\n200");
     }
 
     private void vault(Map<String, VaultEntry> entries, boolean open) {
@@ -295,7 +296,7 @@ class HostGatherCommandTest {
         for (var command : runner.invocations()) {
             assertThat(command.arguments().toString() + command)
                     .doesNotContain(CENTRAL, LOCAL, "stdin-must-not-be-used");
-            if (!command.program().endsWith("git")) {
+            if (!command.program().endsWith("git") && !command.program().endsWith("curl")) {
                 assertThat(command.environment().toString()).doesNotContain(CENTRAL, LOCAL);
                 assertThat(command.input()).isNull();
                 assertThat(command.binaryInput()).isNull();

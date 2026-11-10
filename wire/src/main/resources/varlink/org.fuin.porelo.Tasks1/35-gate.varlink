@@ -27,8 +27,10 @@ error CentralVaultShut(unlock: string, unlockCommand: []string)
 # No usable central credential exists at this exact vault key; no process ran.
 error MissingCentralToken(credential: string, storeCommand: []string)
 
-# Git refused central authentication. Replace the credential before retrying; no Git prompt text.
-error CentralTokenRefused(credential: string, storeCommand: []string, repository: string, pushed: []string, upToDate: []string)
+# Central refused authentication; forge and status carry checked HTTP evidence when available.
+# Every selected receive endpoint is checked before any push, including public repositories.
+# storeCommand is empty: this refusal never asks for a replacement token. No Git prompt text.
+error CentralTokenRefused(credential: string, storeCommand: []string, repository: string, pushed: []string, upToDate: []string, forge: ?string, status: ?int)
 
 # Every selected repository was confirmed unchanged, rather than newly pushed.
 error NothingToPush(pushed: []string, upToDate: []string)

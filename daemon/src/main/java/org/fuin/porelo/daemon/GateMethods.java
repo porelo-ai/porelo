@@ -73,16 +73,19 @@ final class GateMethods {
                         new VarlinkException(
                                 INTERFACE + ".MissingCentralToken",
                                 fields(details, "credential", "storeCommand"));
-                case CENTRAL_TOKEN_REFUSED ->
-                        new VarlinkException(
-                                INTERFACE + ".CentralTokenRefused",
-                                fields(
-                                        details,
-                                        "credential",
-                                        "storeCommand",
-                                        "repository",
-                                        "pushed",
-                                        "upToDate"));
+                case CENTRAL_TOKEN_REFUSED -> {
+                    final var parameters =
+                            fields(
+                                    details,
+                                    "credential",
+                                    "storeCommand",
+                                    "repository",
+                                    "pushed",
+                                    "upToDate");
+                    for (String name : List.of("forge", "status"))
+                        if (details.containsKey(name)) parameters.put(name, details.get(name));
+                    yield new VarlinkException(INTERFACE + ".CentralTokenRefused", parameters);
+                }
                 case NOTHING_TO_PUSH ->
                         new VarlinkException(
                                 INTERFACE + ".NothingToPush",

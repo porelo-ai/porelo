@@ -22,6 +22,62 @@ class HostGatherConfigTest {
     }
 
     @Test
+    void eitherRepositoryNameSelectsTheSameDestination() {
+        // A project key must release the same approved repository as its forge name.
+        final var config = parse(VALID.replace("repository first ", "repository first component "));
+        assertThat(config.select(List.of("component")))
+                .as("the project key selects its forge destination")
+                .isEqualTo(config.select(List.of("first")));
+    }
+
+    @Test
+    void collidingRepositoryNamesRefuseInsteadOfChoosingADestination() {
+        // An alias collision must never release a different repository by accident.
+        final var config = parse(VALID.replace("repository first ", "repository first second "));
+        assertThatThrownBy(() -> config.select(List.of("second")))
+                .as("both matching destinations must be named for repair")
+                .isInstanceOf(HostGatherRefusal.class)
+                .hasMessageContaining("ambiguous")
+                .hasMessageContaining("second/first")
+                .hasMessageContaining("second/second");
+        assertThatThrownBy(() -> config.select(List.of()))
+                .as("selecting all cannot bypass an ambiguous configuration")
+                .isInstanceOf(HostGatherRefusal.class)
+                .hasMessageContaining("ambiguous");
+    }
+
+    @Test
+    void selectingBothNamesCannotTransferTheRepositoryTwice() {
+        // Selecting both aliases must not write the same remote twice.
+        final var config = parse(VALID.replace("repository first ", "repository first component "));
+        assertThatThrownBy(() -> config.select(List.of("component", "first")))
+                .as("aliases are deduplicated by destination before any transfer")
+                .isInstanceOf(HostGatherRefusal.class)
+                .hasMessageContaining("twice")
+                .hasMessageContaining("component/first");
+    }
+
+    @Test
+    void severalProjectKeysForOneForgeRepositoryResolveToOneTransfer() {
+        // Repeated verified aliases must neither lose a usable key nor release one repository
+        // twice.
+        final var config =
+                parse(
+                        VALID.replace(
+                                "repository first https://central.example/acme/first.git",
+                                "repository first component https://central.example/acme/first.git\nrepository first module https://central.example/acme/first.git"));
+        assertThat(config.select(List.of("component")))
+                .as("each key resolves to the one forge repository")
+                .isEqualTo(config.select(List.of("module")))
+                .isEqualTo(config.select(List.of("first")));
+        assertThat(config.select(List.of())).as("all means each repository once").hasSize(2);
+        assertThatThrownBy(() -> config.select(List.of("component", "module")))
+                .as("two keys cannot cause two writes")
+                .isInstanceOf(HostGatherRefusal.class)
+                .hasMessageContaining("twice");
+    }
+
+    @Test
     void selectionKeepsConfiguredOrExplicitOrder() {
         // Selection must preserve every requested repository and its order.
         final var config = parse(VALID);

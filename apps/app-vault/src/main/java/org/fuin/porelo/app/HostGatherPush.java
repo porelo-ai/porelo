@@ -107,6 +107,7 @@ public final class HostGatherPush {
                         "account", 77, "push and pull run in the person's own account");
             final Settings settings = settings();
             final Path git = program("git");
+            final Path curl = pull ? git : program("curl");
             program("getent");
             program("sudo");
             try {
@@ -215,6 +216,7 @@ public final class HostGatherPush {
                                                                             open))
                                                             : context.runner(),
                                                     git,
+                                                    curl,
                                                     Path.of(System.getProperty("java.io.tmpdir")))
                                             .transfer(
                                                     pull,
@@ -240,12 +242,7 @@ public final class HostGatherPush {
         } catch (HostGatherRefusal ex) {
             final HostGatherRefusal safe = ex.redacted(central, new char[0]);
             if (safe.kind() == HostGatherRefusal.Kind.CENTRAL_TOKEN_REFUSED)
-                throw safe.withDetails(
-                        Map.of(
-                                "credential",
-                                credential,
-                                "storeCommand",
-                                List.of("porelo", "vault", "put", credential)));
+                throw safe.withDetails(Map.of("credential", credential, "storeCommand", List.of()));
             throw safe;
         } catch (VaultException ex) {
             throw vaultShut(65, "the vault refused the central forge token; unlock it and retry");

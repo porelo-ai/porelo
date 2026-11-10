@@ -147,10 +147,17 @@ local `main`, and a gathered push never forces central `main`. A rejected push s
 brings central's missing commits back for a task to merge and obtain approval.
 
 The window offers the same gathered push through Tasks1 `PushToCentral(project, repositories)`. Repository
-selection is optional. Its stream names each repository and its stage, then lists what was pushed and what was
+selection accepts project-file keys or forge names and is optional. Its stream names each forge repository and its stage, then lists what was pushed and what was
 already up to date. If everything is unchanged, `NothingToPush` says so. Vault unlock, missing central credentials,
 refused central authentication, untrusted host setup, unavailable local token issuance and central push refusal
 are separate named answers the window can act on. No process output or credential is sent to the window.
+
+Before the first push, every selected central Git receive endpoint is checked with the central credential and
+the checked CA. Public repository reads do not replace this write-authentication check. A central HTTP `401`
+stops the whole selection before any repository is pushed. The command names the central forge and `401` and
+exits nonzero; the daemon returns `CentralTokenRefused` with `forge` and `status`. That refusal asks for no
+credential and offers no replacement-token command. A token refused during a later transfer retains any earlier
+confirmed pushes in its answer; no rollback is claimed.
 
 The daemon asks no passphrase, terminal or sudo password. Unlock the vault through the route it names, or store
 `<forge>.central` with `porelo vault put <forge>.central`, then retry. It uses the same checked programs and existing
@@ -169,8 +176,12 @@ validated before a passphrase is asked, and that passphrase is kept for this com
 vault names `porelo host unlock <host>`; a device-only vault names its enrolled device. Neither gathered command
 reads a token from stdin or expands argument files.
 
-The person's `$XDG_CONFIG_HOME/porelo-host/push/<project>.conf` supplies `local`, `owner`, `central-ca`, and `repository
-<name> <https-url>` lines. Its directories belong to the person and are not writable by others; `push` is 0700 and
+The person's `$XDG_CONFIG_HOME/porelo-host/push/<project>.conf`, located through the account database, supplies `local`,
+`owner`, `central-ca`, and `repository <forge-name> <project-key> <https-url>` lines. Follow takes each key from the
+verified project file. Several keys for one forge repository repeat the row and resolve to one transfer. Existing
+`repository <forge-name> <https-url>` rows remain readable. Either name selects the same repository; unknown or
+ambiguous names and selecting one repository twice through different names refuse before transfer, naming the
+available key/name pairs. Its directories belong to the person and are not writable by others; `push` is 0700 and
 the file is 0600. Reads check opened descriptors, refuse links, pipes, NUL bytes and more than 64 KiB, and have a
 ten-second budget. The CA's entire resolved path is root's alone. Root-owned bundle links, including ancestor links
 and relative targets, use the same bounded component walk as the removal check. Without repository arguments, every
@@ -181,6 +192,11 @@ active Git processes
 are cleaned on interruption. Git output is captured completely up to 16 MiB per stream; an unreadable or larger
 reply refuses without displaying a partial diagnostic. Once a process exits, its output pipes have one shared
 two-second grace period; descendants retaining a pipe cannot hold the command indefinitely.
+
+The authentication check uses a root-checked `curl`, with its defaults disabled, the same central CA and credential,
+HTTPS only, and no redirects or proxies. It reads the Git receive advertisement with a fifteen-second deadline;
+captured output is bounded to 16 MiB. Authorization reaches curl only through private stdin. HTTP error bodies
+are discarded, and incomplete error bodies cannot erase an observed `401`.
 
 The only privileged operation is the existing `porelo-host forge issue-token`, through this exact sudo rule:
 

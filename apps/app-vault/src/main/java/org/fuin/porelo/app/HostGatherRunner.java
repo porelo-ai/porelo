@@ -77,8 +77,20 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
         final FutureTask<String> errors = new FutureTask<>(() -> read(process.getErrorStream()));
         final Thread reader = Thread.ofVirtual().name("porelo-gather-output").start(output);
         final Thread errorReader = Thread.ofVirtual().name("porelo-gather-errors").start(errors);
+        final FutureTask<Void> input =
+                new FutureTask<>(
+                        () -> {
+                            try (var pipe = process.getOutputStream()) {
+                                final byte[] binary = command.binaryInput();
+                                final String text = command.input();
+                                if (binary != null) pipe.write(binary);
+                                else if (text != null)
+                                    pipe.write(text.getBytes(StandardCharsets.UTF_8));
+                            }
+                            return null;
+                        });
+        final Thread writer = Thread.ofVirtual().name("porelo-gather-input").start(input);
         try {
-            process.getOutputStream().close();
             final long deadline =
                     executionLimit.isZero() ? 0 : System.nanoTime() + executionLimit.toNanos();
             while (process.isAlive()) {
@@ -96,17 +108,19 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
                 }
                 if (output.isDone()) output.get();
                 if (errors.isDone()) errors.get();
+                if (input.isDone()) input.get();
                 process.waitFor(10, TimeUnit.MILLISECONDS);
             }
             if (closing()) throw new HostGatherRefusal(130, "");
             final long readEnd = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            input.get(Math.max(1, readEnd - System.nanoTime()), TimeUnit.NANOSECONDS);
             final String stdout =
                     output.get(Math.max(1, readEnd - System.nanoTime()), TimeUnit.NANOSECONDS);
             final String stderr =
                     errors.get(Math.max(1, readEnd - System.nanoTime()), TimeUnit.NANOSECONDS);
             if (closing()) throw new HostGatherRefusal(130, "");
             return new CommandResult(command, process.exitValue(), stdout, stderr);
-        } catch (ExecutionException | IOException | TimeoutException ex) {
+        } catch (ExecutionException | TimeoutException ex) {
             if (closing()) throw new HostGatherRefusal(130, "");
             close();
             throw new HostGatherRefusal(
@@ -121,12 +135,14 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
             Thread.currentThread().interrupt();
             throw new HostGatherRefusal(1, "Git was interrupted; retry the gathered transfer");
         } finally {
+            input.cancel(true);
             output.cancel(true);
             errors.cancel(true);
             closePipe(process.getInputStream());
             closePipe(process.getErrorStream());
             reader.interrupt();
             errorReader.interrupt();
+            writer.interrupt();
         }
     }
 

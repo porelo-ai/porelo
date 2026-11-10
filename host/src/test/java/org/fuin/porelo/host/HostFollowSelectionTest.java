@@ -39,8 +39,53 @@ class HostFollowSelectionTest {
                                         "https://forge.example.org/acme/two.git"))));
     }
 
+    @Test
+    void pushConfigurationKeepsTheVerifiedProjectKeyBesideItsForgeName() throws Exception {
+        // Losing a verified alias can make a person release an unintended repository.
+        f.verified.put(
+                "repositories",
+                Map.of(
+                        "component",
+                        Map.of(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/acme/engine.git")));
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        assertThat(
+                        f.inputs.stream()
+                                .filter(text -> text.startsWith("# Written by porelo-host-person"))
+                                .toList()
+                                .getLast())
+                .as("the follow carries both identities from the verified file")
+                .contains("repository engine component https://forge.example.org/acme/engine.git");
+    }
+
     private static Map<String, Object> row(Object value) {
         return (Map<String, Object>) value;
+    }
+
+    @Test
+    void aProjectKeyCannotNameAnotherCentralsRepositoryWithTheSameBasename() throws Exception {
+        // A stale migration must not silently bind a project key to the wrong central destination.
+        f.verified.put(
+                "repositories",
+                Map.of(
+                        "component",
+                        Map.of(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/elsewhere/code.git")));
+        assertThatThrownBy(() -> f.refresh(ProjectFixture.CENTRAL_TOKEN))
+                .as("the verified address must match the forge's recorded migration")
+                .isInstanceOf(HostRefusal.class);
+        assertThat(f.inputs)
+                .as("no member receives a misleading alias")
+                .noneMatch(
+                        text ->
+                                text.startsWith("# Written by porelo-host-person")
+                                        && text.contains("repository code component "));
     }
 
     private Map<String, Object> status(String project) {

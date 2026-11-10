@@ -73,6 +73,8 @@ class HostGatherGitTest {
     }
 
     private CommandResult routed(Command command) {
+        if (command.program().endsWith("/curl"))
+            return new CommandResult(command, 0, "001f# service=git-receive-pack\n0000\n200", "");
         final var args = new ArrayList<>(command.arguments());
         for (int i = 0; i < args.size(); i++) {
             if (args.get(i).equals("http://127.0.0.1:3001/acme/first.git"))

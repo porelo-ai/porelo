@@ -520,6 +520,14 @@ Fetch and validate the complete state before changing access. Removed readers lo
 access before slow service and central questions. Project operations run in this
 process under the host configuration lock. The whole follow has five minutes;
 project-file reads share sixty seconds and central measurements share 120 seconds.
+The person's push configuration retains verified project-file keys beside forge
+repository names as repository <forge-name> <project-key> <central-https-url>.
+Several keys for the same forge repository repeat that row; the person's
+gathered command resolves them to one destination before transferring.
+Repositories without a project-file key keep repository <forge-name> <central-https-url>.
+The person's command checks every selected central receive endpoint using its
+checked curl and CA before pushing. A central HTTP 401 names the forge and status,
+returns nonzero, and requests no replacement token.
 .SS org refresh
 Follow immediately from the window over root's SSH connection. The central token
 arrives on standard input alone, at most 4096 bytes, for adding the host's read key

@@ -95,7 +95,8 @@ class HostGatherCaptureTest {
                         });
         final Thread thread = Thread.ofVirtual().start(task);
         try {
-            assertThat(task.get(4, java.util.concurrent.TimeUnit.SECONDS))
+            assertThat(task.get(8, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("the read deadline and owned-child teardown both remain bounded")
                     .isInstanceOf(HostGatherRefusal.class);
         } finally {
             runner.close();

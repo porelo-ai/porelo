@@ -1142,6 +1142,9 @@ final class FollowProjects {
         String text = null;
         if (carried && !members.isEmpty()) {
             final List<String> lines = new ArrayList<>();
+            final var file =
+                    optionalObject(optionalObject(progress.get().get(project)).get("file"));
+            final var declared = optionalObject(file.get("repositories"));
             try (var session = c.runtime.session(admin, "read:organization,read:repository")) {
                 final var repos = pages(session.forge(), "/orgs/" + project + "/repos", "name");
                 repos.sort(java.util.Comparator.comparing(row -> string(row.get("name"))));
@@ -1155,7 +1158,36 @@ final class FollowProjects {
                                 65,
                                 project + ": a repository has no valid central address to push to");
                     }
-                    lines.add("repository " + name + " " + address + "\n");
+                    final var keys =
+                            declared.entrySet().stream()
+                                    .filter(
+                                            entry ->
+                                                    object(entry.getValue()).get("central")
+                                                            instanceof String)
+                                    .filter(
+                                            entry ->
+                                                    takenAs(
+                                                                    entry.getKey(),
+                                                                    object(entry.getValue()))
+                                                            .equalsIgnoreCase(name))
+                                    .map(Map.Entry::getKey)
+                                    .toList();
+                    if (keys.isEmpty()) lines.add("repository " + name + " " + address + "\n");
+                    for (String key : keys) {
+                        final String expected = string(object(declared.get(key)).get("central"));
+                        if (!ProjectAddress.parse(expected)
+                                .https()
+                                .equals(ProjectAddress.parse(address).https()))
+                            throw new HostRefusal(
+                                    65,
+                                    project
+                                            + ": project key '"
+                                            + key
+                                            + "' has an ambiguous central destination for forge repository '"
+                                            + name
+                                            + "'");
+                        lines.add("repository " + name + " " + key + " " + address + "\n");
+                    }
                 }
             }
             final String port = c.setting("/etc/porelo-host/forge.conf", "git_port"),

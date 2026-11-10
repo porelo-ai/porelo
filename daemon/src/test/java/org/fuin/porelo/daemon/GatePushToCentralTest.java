@@ -36,7 +36,11 @@ class GatePushToCentralTest {
                                                             "credential",
                                                             "forge.example.central",
                                                             "repository",
-                                                            "first"));
+                                                            "first",
+                                                            "forge",
+                                                            "central.example",
+                                                            "status",
+                                                            401));
                                         },
                                         new Captured(true)))
                 .isInstanceOfSatisfying(
@@ -45,7 +49,9 @@ class GatePushToCentralTest {
                             assertThat(error.getErrorName())
                                     .isEqualTo(PoreloDaemon.INTERFACE + ".CentralTokenRefused");
                             assertThat(error.getParameters())
-                                    .containsEntry("credential", "forge.example.central");
+                                    .containsEntry("credential", "forge.example.central")
+                                    .containsEntry("forge", "central.example")
+                                    .containsEntry("status", 401);
                             assertThat(error.getParameters().toString())
                                     .doesNotContain("Username", "secret-fixture");
                         });

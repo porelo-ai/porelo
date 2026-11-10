@@ -45,6 +45,8 @@ class HostGatherFlowTest {
 
     private CommandResult run(Command command) {
         commands.add(command);
+        if (command.program().endsWith("/curl"))
+            return new CommandResult(command, 0, "001f# service=git-receive-pack\n0000\n200", "");
         final var args = command.arguments();
         String output = "";
         int code = 0;
@@ -145,6 +147,7 @@ class HostGatherFlowTest {
                                 assertThat(c.arguments())
                                         .contains("FETCH_HEAD:refs/heads/central/main"));
         assertThat(commands)
+                .filteredOn(c -> c.program().endsWith("/git"))
                 .noneMatch(c -> c.arguments().stream().anyMatch(a -> a.contains("second.git")));
         assertThat(err.toString()).contains("merge it in a task", "second");
     }
@@ -167,6 +170,7 @@ class HostGatherFlowTest {
         // Credentials must stay out of argv, logs and unrelated child environments.
         assertThat(transfer(false)).isZero();
         for (var command : commands) {
+            if (command.program().endsWith("/curl")) continue;
             assertThat(command.arguments().toString() + command)
                     .doesNotContain(LOCAL, CENTRAL, basic(LOCAL), basic(CENTRAL));
             assertThat(command.inheritsEnvironment()).isFalse();
@@ -228,7 +232,12 @@ class HostGatherFlowTest {
     void gitCannotStartAutomaticBackgroundMaintenance() {
         // Background maintenance must not race removal of a private clone.
         assertThat(transfer(false)).isZero();
-        final var argv = commands.getFirst().arguments();
+        final var git =
+                commands.stream()
+                        .filter(c -> c.program().endsWith("/git"))
+                        .findFirst()
+                        .orElseThrow();
+        final var argv = git.arguments();
         final int clone = argv.indexOf("clone");
         final var configArgs = new java.util.ArrayList<>(argv.subList(0, clone));
         configArgs.addAll(java.util.List.of("config", "--get", "maintenance.auto"));
@@ -251,8 +260,7 @@ class HostGatherFlowTest {
                         new org.fuin.porelo.core.process.ProcessCommandRunner()
                                 .run(
                                         org.fuin.porelo.core.process.Command.of(configArgs)
-                                                .withChosenEnvironment(
-                                                        commands.getFirst().environment()))
+                                                .withChosenEnvironment(git.environment()))
                                 .trimmedOutput())
                 .isEqualTo("0");
     }
