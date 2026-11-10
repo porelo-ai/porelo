@@ -56,7 +56,6 @@ from its side, as *blocked by*.
 | <a id="b540"></a>[B540](B540-The-Host-Tool-As-A-Module-Of-Porelo.md) | M | - | `host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only). |
 | <a id="b545"></a>[B545](B545-The-Host-Tool-Adds-Removes-Migrates-And-Takes-Off-A-Project.md) | L | [B541](#b541) | `porelo-host project add | remove | migrate | take-off`, internal, as `porelo-host-project`. |
 | <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. |
-| <a id="b563"></a>[B563](B563-The-Board-Told-Of-Every-Change.md) | S | [B562](README.md#b562) | `WatchStories` and `RefreshStories`: the whole board, then every change from the adapter or porelod. |
 | <a id="b555"></a>[B555](B555-A-Lock-Test-That-Misreads-The-Kernels-Lock-List.md) | S | - | The lock test reads the kernel's lock list until two reads agree, so a busy machine no longer fails it. |
 | <a id="b535"></a>[B535](B535-A-Sign-Ins-Vault-Said-And-Kept-Open.md) | S | - | A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision). |
 | <a id="b531"></a>[B531](B531-A-Projects-Repositories-On-This-Machine.md) | L | - | Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here. |
@@ -150,15 +149,11 @@ from its side, as *blocked by*.
 | <a id="b596"></a>[B596](B596-One-Identity-For-A-Task-Old-Name-Or-New.md) | M | - | One identity lookup for old and new container names; creation unchanged. |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. |
-| <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `SaveMoves` saves story and issue moves together, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
 | <a id="b593"></a>[B593](B593-A-Join-Says-When-It-Invited.md) | XS | - | `JoinMessages` answers `invited: true` when a join invited an account the person already has, so the window says to accept the invitation. |
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | M | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
-| <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
-| <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | S | - | `AgentEnded.answer`, the agent's declared last message, its end kept. |
+| <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | M | - | `AgentEnded.answer`, the agent's declared last message, its end kept; `Done(outcome, why)` answered as `Task.ended`, FAILED derived. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. | 0 |
-| <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
-| <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](#b467) | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
@@ -169,7 +164,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b603"></a>[B603](B603-A-Story-Takes-The-State-Given-It.md) | M | [B564](README.md#b564) | A story moved or written into a state keeps it over its issues' derived state; a mismatch is a warning ("… anyway? y/N"), never a refusal. |
+| <a id="b603"></a>[B603](B603-A-Story-Takes-The-State-Given-It.md) | M | - | A story moved or written into a state keeps it over its issues' derived state; a mismatch is a warning ("… anyway? y/N"), never a refusal. |
 | <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
 | <a id="b598"></a>[B598](B598-A-Container-Name-Reserved-Before-Anything-Is-Made.md) | M | [B596](README.md#b596) | Starts reserve their container name first; a taken name is refused by its owner. |
 | <a id="b599"></a>[B599](B599-A-Tasks-Secrets-And-Files-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Gate, vault and file paths are reached through a task's identity. |
@@ -178,9 +173,7 @@ from its side, as *blocked by*.
 | <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | [porelo-host#HO156](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho156) | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
 | <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
-| <a id="b565"></a>[B565](B565-Work-Started-From-The-Board.md) | L | [B562](README.md#b562), [B563](README.md#b563) | `ProposeStoryWork`, `StartStoryWork`, `GetStoryWork`, `StopStoryWork`: tasks started for a story's working state and recorded by porelod. |
-| <a id="b567"></a>[B567](B567-The-End-Of-A-Run-Sets-The-Done-State.md) | L | [B565](README.md#b565), [B566](README.md#b566) | A work task's end judged by `Outcome: done` or `blocked`: the done state set through the adapter, or the work left waiting for the operator. |
-| <a id="b568"></a>[B568](B568-A-Coordinator-While-Agents-Work.md) | M | [B565](README.md#b565), [B567](README.md#b567) | The project's coordinator started with the first work task, told of each new story, stopped after the last. |
+| <a id="b568"></a>[B568](B568-A-Coordinator-While-Agents-Work.md) | M | - | The project's coordinator started with the first work task, told of each new story, stopped after the last. |
 | <a id="b558"></a>[B558](B558-The-Event-Log-Has-A-Copy-Off-The-Machine.md) | M | [B154](#b154) | Medium. Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event. |
 | <a id="b559"></a>[B559](B559-The-Libraries-A-Plugin-Links-Are-Apache-Licensed.md) | M | - | `porelo-agent-api`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-wire` and the varlink definitions are Apache-2.0, checked by the build; the rest stays GPL-3.0-or-later. |
 | <a id="b569"></a>[B569](B569-The-Host-Tool-Tests-Stand-Without-The-Python.md) | M | [B552](#b552) | Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or "the Python" in a test, and a test that only proved the port is removed. |
@@ -204,6 +197,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. | None: the plan names what goes; the operator decides. |
 | <a id="b573"></a>[B573](B573-A-Tasks-Project-Reads-Held-To-Its-Own-Project.md) | S | - | A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high. | 0 |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
@@ -558,6 +552,13 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b560"></a>B560 | M | - | A planning adapter behind porelo's own contract is not built on: ST294's planning moves into the separate app porelo-planner (ST311), and porelo knows no stories or issues any more; `planning/api`, `Planning1` and the adapter discovery are removed ([B604](#b604)) (the operator, 2026-11-10). |
+| <a id="b561"></a>B561 | M | - | Work named in porelo's signed project file is not built: the work rules become the configuration of porelo-planner (ST311) (the operator, 2026-11-10). |
+| <a id="b562"></a>B562 | L | - | The board read through porelod is not built on: reading the board becomes porelo-planner's (ST311), and the part on main is removed ([B604](#b604)) (the operator, 2026-11-10). |
+| <a id="b563"></a>B563 | S | - | The board's change stream through porelod is not built on: it becomes porelo-planner's (ST311), and the part on main is removed ([B604](#b604)) (the operator, 2026-11-10). |
+| <a id="b564"></a>B564 | M | - | Moving states on the board through porelod is not built: porelo-planner moves them itself (ST311) (the operator, 2026-11-10). |
+| <a id="b565"></a>B565 | L | - | Work started from the board through porelod is not built: porelo-planner starts a task's work through the base task functions (ST311) (the operator, 2026-11-10). |
+| <a id="b567"></a>B567 | L | - | The done state set by porelod at a run's end is not built: porelo-planner sets it from the task's end ([B566](#b566)) (the operator, 2026-11-10). |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image built within the project's egress is not built: what a person builds into their image is their own risk, and a person may bring their own base image at any time, which Porelo does not see (the operator, 2026-11-08). |
 | <a id="b453"></a>B453 | S | - | A draft replacing a repository's own image is not built on its own: under [B462](#b462) one image source is taken whole, and the repository's `porelo.yml` stands before the project's `image`. |
 | <a id="b461"></a>B461 | S | - | A generated project file saying `base_image` once is not built on its own: the target structure of [B462](#b462) has no image, egress or limits on a repository, and writes only from its model. |

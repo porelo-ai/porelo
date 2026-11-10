@@ -3,7 +3,7 @@
 **Status:** Backlog. Filed 2026-11-10 in `porelo-project` ST309 (A story takes the state the operator gives it), the porelo CLI's part, as the operator ordered it (2026-11-10): file only, not built now.
 **Priority:** medium (the operator, 2026-11-10).
 **Size:** M - the board read takes a story's own state over the derived one, a move answers a mismatch as a warning, and one command sets it with "anyway? y/N"; the window's part is porelo-frontend's, the stories index's porelo-buildtools'.
-**Blocked by:** [B564](README.md#b564).
+**Blocked by:** -. The board moves it waited for were rejected with ST294 (2026-11-10).
 
 **What must be true.** A story put into a state by hand - moved on the board, or written in its head - has that
 state, whatever its issues' states are. Today the board read derives every story's state from its issues
@@ -14,7 +14,7 @@ confirms. A story with no state of its own keeps the derived one, as today.
 
 ## Plan
 
-Read `StoryStates`, `PlanningReads` (`GetPlanningBoard`) and the moves [B564](README.md#b564) builds (`PlanningMoves`, `SaveMoves`),
+Read `StoryStates`, `PlanningReads` (`GetPlanningBoard`) and the board moves ST294 planned (`PlanningMoves`, `SaveMoves`; rejected 2026-11-10),
 and the planning adapter API's story record: whether an adapter can carry a story's own state, or the API needs a
 field for it (porelo's planning API; porelo-adapters' stories-git then reads the head's `state`).
 

@@ -4,7 +4,7 @@
 2026-11-09; nothing is built before the operator's word. On 2026-11-10 the operator took MCP out of it: the whole MCP
 topic is held back, so this issue offers, restricts and tests nothing over MCP.
 **Size:** M - one oversight task's durable lifecycle and notifications reuse the work launcher; it schedules no agents and gains no start authority.
-**Blocked by:** [B565](README.md#b565), [B567](README.md#b567).
+**Blocked by:** -. The work start from the board and the done state set at a run's end that it waited for were rejected with ST294 (2026-11-10); their planning moves into porelo-planner (ST311).
 
 **What must be true.** A project has one coordinator while any recorded planning participant works, including
 builders, testers and readers. It oversees the story, task progress and findings, and remains the operator's common
@@ -17,7 +17,7 @@ dropped part. A chained Reading/Reworking transition does not briefly stop/resta
 ## Plan
 
 Read in `MessagingMethods.Tell` (`PersonNote.tell`, `AgentWake.announce`), `TaskControl.stop`,
-`TaskMethods.Start` and `PoreloDaemon.Watches`. WorkStart/PlanningWatch are planned in [B565](README.md#b565), [B567](README.md#b567).
+`TaskMethods.Start` and `PoreloDaemon.Watches`. WorkStart/PlanningWatch were planned with ST294, which is closed.
 
 - New `Coordinator` in app-planning retains a small oversight role: the story and the participant/state/round
   summaries arrive through the host's Tell path, with findings and failures. Start's comment and each KEEP/CHANGE/
