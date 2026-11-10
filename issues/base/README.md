@@ -146,6 +146,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
+| <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
 | <a id="b596"></a>[B596](B596-One-Identity-For-A-Task-Old-Name-Or-New.md) | M | - | One identity lookup for old and new container names; creation unchanged. |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. |
@@ -176,8 +178,6 @@ from its side, as *blocked by*.
 | <a id="b558"></a>[B558](B558-The-Event-Log-Has-A-Copy-Off-The-Machine.md) | M | [B154](#b154) | Medium. Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event. |
 | <a id="b559"></a>[B559](B559-The-Libraries-A-Plugin-Links-Are-Apache-Licensed.md) | M | - | `porelo-agent-api`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-wire` and the varlink definitions are Apache-2.0, checked by the build; the rest stays GPL-3.0-or-later. |
 | <a id="b569"></a>[B569](B569-The-Host-Tool-Tests-Stand-Without-The-Python.md) | M | [B552](#b552) | Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or "the Python" in a test, and a test that only proved the port is removed. |
-| <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
-| <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
 | <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. |

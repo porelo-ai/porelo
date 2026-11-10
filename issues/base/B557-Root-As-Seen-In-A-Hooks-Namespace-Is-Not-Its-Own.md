@@ -1,6 +1,6 @@
 # [B557](README.md#b557) — Root As Seen In A Hook's Namespace Is Not Its Own
 
-**Status:** Backlog. Filed 2026-11-09 from agy's reading of [B540](README.md#b540); for after the move.
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-09 from agy's reading of [B540](README.md#b540); for after the move.
 **Size:** S - one check where `wire` decides who root is, with its tests.
 **Blocked by:** -.
 
