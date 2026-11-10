@@ -87,6 +87,38 @@ class MessagingMethodsTest {
     }
 
     @Test
+    void aJoinThatInvitedAnAccountThePersonHasSaysSo() throws Exception {
+        // Told to sign in with a password that does not exist, a person asks for a new one and
+        // loses their account's sessions; an invitation is accepted in the client they use.
+        final PoreloContext context = context(false);
+        runner.answering(" join ", "{\"login\":{\"user\":\"@alice\"},\"invited\":true}");
+
+        final Map<String, Object> joined =
+                daemon(
+                        context,
+                        "JoinMessages",
+                        Map.of("project", "p", "person", "alice", "reset", false));
+
+        assertThat(joined.get("invited"))
+                .as("the transport's invitation reaches the window")
+                .isEqualTo(true);
+    }
+
+    @Test
+    void aJoinThatMadeAnAccountSaysItInvitedNobody() throws Exception {
+        // An absent field read as an invitation would hide the password made once.
+        final PoreloContext context = context(false);
+
+        final Map<String, Object> joined =
+                daemon(
+                        context,
+                        "JoinMessages",
+                        Map.of("project", "p", "person", "alice", "reset", false));
+
+        assertThat(joined.get("invited")).as("a made account is no invitation").isEqualTo(false);
+    }
+
+    @Test
     void aSetUpByTheDaemonIsGivenThisAccountsLogin() throws Exception {
         // As a join's: an account set up without the login is shared by two persons' projects.
         final PoreloContext context = context(false);

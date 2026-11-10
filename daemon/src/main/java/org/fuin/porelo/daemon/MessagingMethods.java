@@ -406,7 +406,7 @@ final class MessagingMethods {
      *
      * @param context The machine.
      * @param parameters {@code project}, {@code person}, {@code reset}.
-     * @return {@code transport}, {@code login} and {@code shown}.
+     * @return {@code transport}, {@code login}, {@code shown} and {@code invited}.
      */
     static Map<String, Object> joinMessages(PoreloContext context, Map<String, Object> parameters) {
         final org.fuin.porelo.core.project.Project project =
@@ -439,7 +439,10 @@ final class MessagingMethods {
                 "login",
                 login,
                 "shown",
-                said.get("shown") instanceof String shown ? shown : "");
+                said.get("shown") instanceof String shown ? shown : "",
+                // An account the person has already is invited, not made: no password to show.
+                "invited",
+                Boolean.TRUE.equals(said.get("invited")));
     }
 
     /** Returns the removal outcome or the same transport refusal as joining. */

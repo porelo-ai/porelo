@@ -1,0 +1,2 @@
+title: "`JoinMessages` answers `invited: true` when the join invited an account the person already has into the room, whose login then has no password"
+type: added

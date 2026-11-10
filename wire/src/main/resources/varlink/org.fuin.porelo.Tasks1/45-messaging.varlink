@@ -259,7 +259,10 @@ method JoinMessages(
 ) -> (
   transport: string,
   login: [string]string,
-  shown: string
+  shown: string,
+  # true when the person's existing account was invited into this room rather than made: the login has
+  # no password, and the person accepts the invitation in the client they use already.
+  invited: bool
 )
 
 # Lets another machine into a project's conversation on this machine's server. Answered once: the

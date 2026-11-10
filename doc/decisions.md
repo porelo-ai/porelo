@@ -810,7 +810,9 @@ person, let it into the project's room and direct chats, record the account on t
 without storing the password; the person uses any Matrix client, and no registration stays open. What that account
 writes in the room or a direct chat is delivered to the project's tasks as `ROLE_USER` without an SSH signature or
 content filtering, while host actions (starting, stopping, configuring, or approving) remain at the host's command line
-and Varlink socket.
+and Varlink socket. A person who already has an account on the same homeserver is invited into a second project's
+room instead: `JoinMessages` then answers `invited: true` and a login without a password, and the person accepts the
+invitation in the client they use already.
 
 ## A machine on a shared server is admitted by a person
 
