@@ -1,10 +1,6 @@
 # [B556](README.md#b556) — The Talk Log Says Whom A Line Was For And Whether It Woke
 
-<<<<<<< HEAD
-**Status:** Implementing, since 2026-11-10. Filed 2026-11-09 for the messenger's part of the automated rehearsal, which judges a person's room
-=======
 **Status:** Review. Filed 2026-11-09 for the messenger's part of the automated rehearsal, which judges a person's room
->>>>>>> 10151d97e (Say in the talk log whom a line was for and whether it woke)
 line in each task; for after the move.
 **Size:** S - three fields more in an answer porelo already gives, read from what it already keeps.
 **Blocked by:** -.
