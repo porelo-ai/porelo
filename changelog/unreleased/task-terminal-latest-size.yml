@@ -1,0 +1,2 @@
+title: "A task's terminal takes the size of the view last used instead of the smallest one attached, unless a person's own tmux file chooses otherwise"
+type: changed

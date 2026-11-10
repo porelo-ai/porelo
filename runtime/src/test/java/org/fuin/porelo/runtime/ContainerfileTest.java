@@ -429,13 +429,17 @@ class ContainerfileTest {
     }
 
     @Test
-    void twoTerminalsKeepOneWindowSizeUnlessAPersonChoosesOtherwise() {
+    void theTerminalTakesTheSizeOfTheViewLastUsedUnlessAPersonChoosesOtherwise() {
 
+        // The smallest client sized the agent's screen: a person's large window showed a small
+        // terminal.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
         final String rendered = Containerfile.render(project);
 
-        assertThat(rendered).contains("set -g window-size smallest");
-        assertThat(rendered.indexOf("set -g window-size smallest"))
+        assertThat(rendered)
+                .contains("set -g window-size latest")
+                .doesNotContain("window-size smallest");
+        assertThat(rendered.indexOf("set -g window-size latest"))
                 .as("the account's file may choose a different window size")
                 .isLessThan(rendered.indexOf("source-file -q " + Containerfile.ACCOUNT_TMUX_CONF));
     }

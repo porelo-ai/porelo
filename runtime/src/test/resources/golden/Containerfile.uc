@@ -93,10 +93,10 @@ RUN set -eux; \
 # own screen; Shift+PageDown scrolls back down and leaves the history at the bottom.
 # Options an older tmux lacks are set with '-q'.
 #
-# With the default 'latest', two terminals of different sizes hand the window's
-# size back and forth on every keystroke. Each resize makes the agent redraw; an
-# agent drawing on the main screen leaves a copy of its screen in the history
-# each time. 'smallest' keeps one size while both terminals are attached.
+# 'latest' gives the window the size of the terminal acted in last, so a large view
+# is not held to the size of a smaller terminal still attached. Two terminals of
+# different sizes then hand the size back and forth, and the agent redraws each
+# time; a person's own file may set 'smallest' to keep one size.
 #
 # Then a person's own file, copied in when a task starts, and last what Porelo itself
 # depends on, so nothing in that file changes it unawares.
@@ -113,7 +113,7 @@ RUN mkdir -p /etc/porelo \
         'set -g mouse on' \
         'bind -n S-PPage if -F "#{alternate_on}" "send-keys S-PPage" "copy-mode -eu"' \
         'bind -n S-NPage if -F "#{pane_in_mode}" "send-keys -X page-down" "send-keys S-NPage"' \
-        'set -g window-size smallest' \
+        'set -g window-size latest' \
         'source-file -q /etc/porelo/account-tmux.conf' \
         'source-file /etc/porelo/tmux-required.conf' \
         > /etc/porelo/tmux.conf \
@@ -158,6 +158,6 @@ ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="005c52d6882ce8c1"
+LABEL org.fuin.porelo.recipe="80f4dff5dcdfa42a"
 LABEL org.fuin.porelo.security-class="guarded"
 LABEL org.fuin.porelo.settings=""
