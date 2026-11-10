@@ -740,7 +740,6 @@ class HostPushAdapterTest {
                         HostJson.parse(
                                 HostReadFixture.task(
                                         "alice", "foreign", HostReadFixture.FINGERPRINT)));
-        task.put("project", "beta");
         task.put("principals", List.of("task:beta:foreign"));
         f.tree.put("/var/lib/porelo-host/tasks/alice/foreign.json", HostJson.write(task));
         assertThat(

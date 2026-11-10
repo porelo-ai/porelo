@@ -94,6 +94,8 @@ final class HostReadFixture {
         return new Answer(code, out.toString(), err.toString());
     }
 
+    // As HostCertificate.entry writes it: no project of its own, only the principal names it. A
+    // fixture that added one let the push judge pass here and refuse every real task's push.
     static String task(String login, String task, String fingerprint) {
         return "{\"task\":\""
                 + task
@@ -105,6 +107,6 @@ final class HostReadFixture {
                 + "B".repeat(43)
                 + "\",\"key_id\":\"porelo task\",\"principals\":[\"task:alpha:"
                 + task
-                + "\"],\"valid_after\":null,\"valid_before\":\"2030-01-02T03:04:05Z\",\"certificate\":\"ssh-ed25519-cert-v01@openssh.com fixture\",\"project\":\"alpha\"}";
+                + "\"],\"valid_after\":null,\"valid_before\":\"2030-01-02T03:04:05Z\",\"certificate\":\"ssh-ed25519-cert-v01@openssh.com fixture\"}";
     }
 }

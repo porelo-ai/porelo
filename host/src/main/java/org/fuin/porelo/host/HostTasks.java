@@ -192,13 +192,19 @@ final class HostTasks {
         boolean visibleTo(HostRecords.Person person) {
             for (String member : person.members()) {
                 final String[] membership = member.split(" ", -1);
-                if (membership.length == 2
-                        && List.of("task:" + membership[0] + ":" + name)
-                                .equals(entry.get("principals"))) {
+                if (membership.length == 2 && of(membership[0])) {
                     return true;
                 }
             }
             return false;
+        }
+
+        /**
+         * Whether the task belongs to a project: its certificate's one principal says so, as the
+         * record holds no project of its own.
+         */
+        boolean of(String project) {
+            return List.of("task:" + project + ":" + name).equals(entry.get("principals"));
         }
 
         Instant end() {

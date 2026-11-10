@@ -125,7 +125,7 @@ final class HostPush {
                         login -> new HostRecords(files).read().containsKey(login),
                         login ->
                                 tasks.read(login).stream()
-                                        .filter(task -> project.equals(task.entry().get("project")))
+                                        .filter(task -> task.of(project))
                                         .map(HostTasks.Task::name)
                                         .collect(java.util.stream.Collectors.toSet()),
                         updates -> verify(project, request, account, entry));
