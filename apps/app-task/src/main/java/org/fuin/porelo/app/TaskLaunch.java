@@ -929,35 +929,33 @@ public final class TaskLaunch {
         this.starterAgent = starterAgent;
     }
 
-    /**
-     * Takes a container name given where a task name belongs as the task it names, and says so.
-     *
-     * <p>Asked by both halves - bringing a task back and creating one - so whichever runs first
-     * settles it and the other finds it settled.
-     *
-     * @param project The project read from the request's file.
-     * @param out Where the note is written.
-     */
-    /**
-     * Says when the fetch brought other settings than this start took: egress and the rest were
-     * settled before it, so the next start takes them. The image is read after it.
-     */
+    /** Says when a stopped task's recorded repository settings differ from the file now. */
     private void settingsMovedOn(
             final java.nio.file.Path projectFile,
             final String project,
             final org.fuin.porelo.core.project.Repository repository,
             final PrintWriter out) {
+        final org.fuin.porelo.wire.TaskProfile earlier =
+                keptProfile(
+                        context.tasks()
+                                .containerName(ProjectReader.read(projectFile), request.task()));
+        if (earlier == null || earlier.settingsHash() == null || earlier.settingsHash().isEmpty()) {
+            return;
+        }
         final RepositoryOwnSettings.Found now =
-                RepositoryOwnSettings.ofOrganization(context, projectFile, project, repository);
+                DefaultProject.is(project)
+                        ? RepositoryOwnSettings.of(context, projectFile, repository)
+                        : RepositoryOwnSettings.ofOrganization(
+                                context, projectFile, project, repository);
         final String hash = now == null ? "" : now.hash();
-        if (!hash.equals(ownSettingsHash)) {
+        if (!hash.equals(earlier.settingsHash())) {
             out.println(
                     "settings       "
                             + ImageChoice.FILE
                             + " of "
                             + repository.name()
-                            + " changed with the fetch; this task keeps the egress and the other"
-                            + " settings it held before, and the next start takes the new ones");
+                            + " changed since this task was created; this task keeps the egress and the other"
+                            + " settings it held before, and a new task takes the new ones");
             out.flush();
         }
     }
@@ -977,7 +975,7 @@ public final class TaskLaunch {
         out.flush();
     }
 
-    /** The hash of what an organization's repository file gave this start before the fetch. */
+    /** The hash of the repository overrides this start applied before the fetch. */
     private String ownSettingsHash = "";
 
     /**
@@ -1005,6 +1003,7 @@ public final class TaskLaunch {
             said(own, out);
             return own.project();
         }
+        ownSettingsHash = own == null ? "" : own.hash();
         if (own == null) {
             return project;
         }
@@ -1463,6 +1462,24 @@ public final class TaskLaunch {
         }
         // Its agent as its start recorded it, so the room shows it by the name it had.
         final org.fuin.porelo.wire.TaskProfile recordedProfile = keptProfile(container);
+        if (recordedProfile != null
+                && recordedProfile.settingsHash() != null
+                && !recordedProfile.settingsHash().isEmpty()
+                && recorded != null
+                && !recorded.isBlank()) {
+            try {
+                settingsMovedOn(
+                        request.projectFile(),
+                        project.name(),
+                        GateSupport.repository(project, recorded),
+                        out);
+            } catch (ProjectException ex) {
+                err.println(
+                        "porelo: cannot compare the task's recorded repository settings: "
+                                + ex.getMessage());
+                err.flush();
+            }
+        }
         final String outside =
                 new TaskConversations(context)
                         .enroll(
@@ -2576,9 +2593,6 @@ public final class TaskLaunch {
                     err.flush();
                     return 64;
                 }
-                if (!DefaultProject.is(project.name())) {
-                    settingsMovedOn(projectFile, project.name(), repository, out);
-                }
                 if (previewRefusal != null || !fetched.equals(image)) {
                     project = fetched.applyTo(settled, repository);
                     out.println(
@@ -3351,7 +3365,8 @@ public final class TaskLaunch {
                             request.parent(),
                             model.from(),
                             model.label().isEmpty() ? null : model.label(),
-                            request.named())
+                            request.named(),
+                            ownSettingsHash.isEmpty() ? null : ownSettingsHash)
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());

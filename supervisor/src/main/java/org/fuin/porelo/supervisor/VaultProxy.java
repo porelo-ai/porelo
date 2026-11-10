@@ -1194,6 +1194,10 @@ public class VaultProxy implements AutoCloseable, Runnable {
         return next;
     }
 
+    static boolean opensAsEvents(final byte[] first) {
+        return opensAsEvents(first, opening(first));
+    }
+
     private static boolean opensAsEvents(final byte[] first, final int at) {
         return EVENT_FIELDS.stream().anyMatch(field -> opensWith(first, at, field));
     }

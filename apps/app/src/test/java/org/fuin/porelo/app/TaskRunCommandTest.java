@@ -4446,6 +4446,260 @@ class TaskRunCommandTest {
         return context(dir, true);
     }
 
+    @Test
+    void aFirstStartNeverClaimsToKeepSettingsFromAnEarlierStart(@TempDir Path dir)
+            throws Exception {
+        // A first start claiming earlier settings misleads the person about what the task holds.
+        final PoreloContext context = repositoryImageContext(dir);
+        final String file = changedSignedSettings(context, dir);
+        final Path projectFile = dir.resolve("project.yml");
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        final var launch =
+                new TaskLaunch(
+                        context,
+                        new TaskLaunch.Request(
+                                "shell",
+                                projectFile,
+                                null,
+                                null,
+                                null,
+                                8,
+                                null,
+                                false,
+                                false,
+                                "deny",
+                                true,
+                                org.fuin.porelo.wire.TaskMode.SHELL,
+                                null,
+                                null,
+                                null,
+                                60,
+                                "uc",
+                                java.util.Map.of()));
+        final var moved =
+                TaskLaunch.class.getDeclaredMethod(
+                        "settingsMovedOn",
+                        Path.class,
+                        String.class,
+                        org.fuin.porelo.core.project.Repository.class,
+                        PrintWriter.class);
+        moved.setAccessible(true);
+        moved.invoke(
+                launch, projectFile, "uc", project.repository("uc"), new PrintWriter(out, true));
+
+        assertThat(out.toString())
+                .as("new settings found with no earlier task record")
+                .doesNotContain("settings it held before");
+
+        assertThat(execute(context, "task", "start", "--attach", "shell", "--detach", "-p", file))
+                .as("a first start succeeds: %s", err)
+                .isZero();
+        assertThat(out.toString())
+                .as("no earlier task held settings")
+                .doesNotContain("settings it held before");
+    }
+
+    @Test
+    void aStartKeepsItsSettingsHashInTheDurableTaskRecord(@TempDir Path dir) throws Exception {
+        // Without a durable hash a later start invents what settings the earlier task held.
+        final PoreloContext context = repositoryImageContext(dir);
+        final String file = changedSignedSettings(context, dir);
+        final Path projectFile = dir.resolve("project.yml");
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        final var before =
+                RepositoryOwnSettings.ofOrganization(
+                        context, projectFile, project.name(), project.repository("uc"));
+        assertThat(before).as("settings exist before this start fetches").isNotNull();
+
+        assertThat(execute(context, "task", "start", "--attach", "shell", "--detach", "-p", file))
+                .as("the task starts: %s", err)
+                .isZero();
+        final var record =
+                (java.util.Map<?, ?>)
+                        org.fuin.porelo.wire.Json.parse(
+                                Files.readString(
+                                        context.paths()
+                                                .tasks()
+                                                .taskRecord(containerName())
+                                                .resolve("task.json")));
+        assertThat(record.get("settingsHash"))
+                .as("the settings actually taken before the fetch")
+                .isEqualTo(before.hash());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "different,true",
+        "same,false",
+        "absent,false",
+        "empty,false"
+    })
+    void aStoppedTasksSettingsNoticeNeedsADifferentHashFromItsEarlierStart(
+            String hash, boolean notice, @TempDir Path dir) throws Exception {
+        // A notice without a saved hash invents history, while hiding a change misleads a restart.
+        final PoreloContext context = repositoryImageContext(dir);
+        final String file = changedSignedSettings(context, dir);
+        final Path projectFile = dir.resolve("project.yml");
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        final String current =
+                RepositoryOwnSettings.ofOrganization(
+                                context, projectFile, "uc", project.repository("uc"))
+                        .hash();
+        final Path durable =
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell"));
+        final var record = new java.util.LinkedHashMap<String, Object>();
+        record.put("version", org.fuin.porelo.wire.TaskProfile.VERSION);
+        record.put("mode", "shell");
+        if (!hash.equals("absent"))
+            record.put(
+                    "settingsHash",
+                    hash.equals("same") ? current : hash.equals("empty") ? "" : "earlier-hash");
+        Files.writeString(durable.resolve("task.json"), org.fuin.porelo.wire.Json.write(record));
+        Files.writeString(
+                durable.resolve(org.fuin.porelo.wire.Sidecar.RECORDED_ID), "0123456789abcdef");
+        runner.answering("{{.Id}}", "0123456789abcdef");
+        runner.answering(
+                "ps", "porelo-uc-shell\tExited (0)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+
+        assertThat(execute(context, "task", "start", "shell", "--detach", "-p", file))
+                .as("the stopped task resumes: %s", err)
+                .isZero();
+
+        assertThat(out.toString().contains("settings it held before"))
+                .as("only a changed recorded hash justifies the notice: %s %s", out, err)
+                .isEqualTo(notice);
+        if (notice)
+            assertThat(out.toString())
+                    .as("only a new task takes changed settings")
+                    .contains("a new task")
+                    .doesNotContain("changed with the fetch", "the next start takes");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void aLegacyTaskStillStartsWhenItsRepositoryWasRemovedFromTheCurrentProject(
+            boolean recordedHash, @TempDir Path dir) throws Exception {
+        // A diagnostic must not prevent an existing task from resuming its saved workspace.
+        final PoreloContext context = context(dir, true);
+        projectFile(dir, MINIMAL + "repositories:\n  other: {}\n");
+        final Path durable =
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell"));
+        Files.writeString(
+                durable.resolve("task.json"),
+                recordedHash
+                        ? "{\"version\":10,\"mode\":\"shell\",\"settingsHash\":\"earlier-hash\"}"
+                        : "{\"version\":9,\"mode\":\"shell\"}");
+        Files.writeString(
+                durable.resolve(org.fuin.porelo.wire.Sidecar.RECORDED_ID), "0123456789abcdef");
+        runner.answering("{{.Id}}", "0123456789abcdef");
+        runner.answering(
+                "ps", "porelo-uc-shell\tExited (0)\t1700000000\t1700000100\tuc\tguarded\told\t\n");
+
+        final var launch =
+                new TaskLaunch(
+                        context,
+                        new TaskLaunch.Request(
+                                "shell",
+                                dir.resolve("project.yml"),
+                                null,
+                                null,
+                                null,
+                                8,
+                                null,
+                                false,
+                                false,
+                                "deny",
+                                true,
+                                org.fuin.porelo.wire.TaskMode.SHELL,
+                                null,
+                                null,
+                                null,
+                                60,
+                                null,
+                                java.util.Map.of()));
+        final var result =
+                launch.startExisting(new PrintWriter(out, true), new PrintWriter(err, true));
+        assertThat(result).as("the saved task was found").isNotNull();
+        assertThat(result.code()).as("a legacy task still starts: %s", err).isZero();
+        assertThat(out.toString())
+                .as("no earlier settings were recorded")
+                .doesNotContain("settings it held before");
+        assertThat(err.toString().contains("cannot compare"))
+                .as("only a recorded hash calls for a comparison diagnostic")
+                .isEqualTo(recordedHash);
+    }
+
+    private String changedSignedSettings(PoreloContext context, Path dir) throws Exception {
+        final Path key = dir.resolve("settings-key");
+        final Process generated =
+                new ProcessBuilder(
+                                "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key.toString())
+                        .start();
+        assertThat(generated.waitFor()).as("a signing key for this fixture only").isZero();
+        final String publicKey = Files.readString(key.resolveSibling("settings-key.pub")).strip();
+        OrganizationProjects.of(context)
+                .write(
+                        new OrganizationProjects.Placed(
+                                "uc",
+                                "0".repeat(40),
+                                "https://repo.example.org/uc/settings",
+                                null,
+                                List.of(
+                                        new OrganizationProjects.Key(
+                                                "developer",
+                                                "developer",
+                                                publicKey,
+                                                java.time.LocalDate.of(2000, 1, 1),
+                                                java.time.LocalDate.of(2999, 1, 1),
+                                                null)),
+                                null,
+                                null,
+                                null));
+        final Path upstream = Files.createDirectories(dir.resolve("upstream"));
+        git(upstream, "init", "-q");
+        Files.writeString(
+                upstream.resolve("porelo.yml"), "egress:\n  domains: [before.example.org]\n");
+        git(upstream, "add", "porelo.yml");
+        git(
+                upstream,
+                "-c",
+                "gpg.format=ssh",
+                "-c",
+                "user.signingkey=" + key,
+                "commit",
+                "-q",
+                "-S",
+                "-m",
+                "before");
+        final Path mirror = GateSupport.mirror(context, "uc", "uc");
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", upstream.toString(), mirror.toString());
+        Files.writeString(
+                upstream.resolve("porelo.yml"), "egress:\n  domains: [after.example.org]\n");
+        git(
+                upstream,
+                "-c",
+                "gpg.format=ssh",
+                "-c",
+                "user.signingkey=" + key,
+                "commit",
+                "-q",
+                "-S",
+                "-am",
+                "after");
+        final String name =
+                projectFile(
+                        dir,
+                        MINIMAL.replace(
+                                "  security_class: \"guarded\"",
+                                "  security_class: \"guarded\"\n  upstream: \"file://%s\""
+                                        .formatted(upstream)));
+        final Path placed = context.paths().projects().organizationClone("uc");
+        Files.createDirectories(placed);
+        Files.copy(dir.resolve("project.yml"), placed.resolve("project.yml"));
+        return name;
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"", "--no-gate", "--dry-run"})
     void aRefusedLocalOverrideStopsBeforeHostSidePreparation(String option, @TempDir Path dir)

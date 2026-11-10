@@ -338,7 +338,16 @@ class InterfaceDescriptionTest {
         assertThat(taskType.find()).as("the contract declares Task").isTrue();
         assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), taskType.group(1)))
                 .as("both task activity measurements are declared")
-                .contains("lastWrote", "inboxWaiting");
+                .contains(
+                        "lastWrote",
+                        "inboxWaiting",
+                        "model",
+                        "modelLabel",
+                        "modelFrom",
+                        "task",
+                        "short",
+                        "display",
+                        "name");
         try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("porelod.sock"))) {
             Thread.ofVirtual().start(server);
             try (VarlinkClient client = new VarlinkClient(server.socketPath())) {

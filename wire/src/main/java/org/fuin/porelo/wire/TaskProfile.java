@@ -61,6 +61,8 @@ import org.jspecify.annotations.Nullable;
  *     {@code null} when it gives none.
  * @param named The task's name as its start was given it, or {@code null} when the start took it
  *     from the repository. What a client shows; the container name stays what every call takes.
+ * @param settingsHash Hash of the repository overrides this task was created with, or {@code null}
+ *     when no earlier start recorded any. Kept through a stop and a reboot.
  */
 public record TaskProfile(
         int version,
@@ -78,7 +80,46 @@ public record TaskProfile(
         @Nullable String parent,
         String modelFrom,
         @Nullable String modelLabel,
-        @Nullable String named) {
+        @Nullable String named,
+        @Nullable String settingsHash) {
+
+    /** Creates a profile from before repository settings were recorded. */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model,
+            @Nullable String forgeBranch,
+            int subagents,
+            @Nullable String parent,
+            String modelFrom,
+            @Nullable String modelLabel,
+            @Nullable String named) {
+        this(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                label,
+                provider,
+                model,
+                forgeBranch,
+                subagents,
+                parent,
+                modelFrom,
+                modelLabel,
+                named,
+                null);
+    }
 
     /** Where a model a start asked for comes from. */
     public static final String FROM_START = "start";
@@ -457,7 +498,8 @@ public record TaskProfile(
                 parent,
                 modelFrom,
                 modelLabel,
-                named);
+                named,
+                settingsHash);
     }
 
     /**
@@ -487,7 +529,8 @@ public record TaskProfile(
                 parent,
                 modelFrom,
                 modelLabel,
-                named);
+                named,
+                settingsHash);
     }
 
     /**
@@ -507,7 +550,7 @@ public record TaskProfile(
     }
 
     /** Current schema version. */
-    public static final int VERSION = 9;
+    public static final int VERSION = 10;
 
     /** Name of the file in a task's state directory. */
     public static final String FILE = "task.json";
@@ -536,6 +579,7 @@ public record TaskProfile(
         document.put("modelFrom", modelFrom);
         document.put("modelLabel", modelLabel == null ? "" : modelLabel);
         document.put("named", named == null ? "" : named);
+        document.put("settingsHash", settingsHash == null ? "" : settingsHash);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -587,7 +631,8 @@ public record TaskProfile(
                     modelFrom(document),
                     text(document, "modelLabel"),
                     // A task started before it was recorded is shown by its short name.
-                    text(document, "named"));
+                    text(document, "named"),
+                    text(document, "settingsHash"));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.

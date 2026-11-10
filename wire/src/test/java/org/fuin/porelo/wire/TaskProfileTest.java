@@ -12,6 +12,23 @@ import org.junit.jupiter.api.io.TempDir;
 class TaskProfileTest {
 
     @Test
+    void changingACaptionOrClearanceKeepsTheRecordedSettingsHash(@TempDir Path dir)
+            throws IOException {
+        // Losing the hash in an ordinary edit erases the evidence for a later settings notice.
+        Files.writeString(
+                dir.resolve(TaskProfile.FILE),
+                "{\"version\":9,\"mode\":\"shell\",\"settingsHash\":\"earlier-hash\"}");
+        final TaskProfile read = TaskProfile.readFrom(dir);
+        assertThat(read).as("the task record reads").isNotNull();
+        read.withLabel("caption").withClearance("deny").writeTo(dir);
+        final var saved =
+                (java.util.Map<?, ?>) Json.parse(Files.readString(dir.resolve(TaskProfile.FILE)));
+        assertThat(saved.get("settingsHash"))
+                .as("the evidence survives both edits")
+                .isEqualTo("earlier-hash");
+    }
+
+    @Test
     void aTasksModelAndWhereItCameFromAreReadBackAsRecorded(@TempDir Path dir) throws IOException {
         new TaskProfile(
                         TaskProfile.VERSION,

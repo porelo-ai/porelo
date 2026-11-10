@@ -267,6 +267,18 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   [`--subagents`](project-file.md#limits) number: a continuation hands its agent the number the task was
   started with, takes `--subagents` with that number and refuses another with exit code 64.
 
+Omit `--model` to take the [default from the files](project-file.md#the-default-model).
+A daemon client likewise omits `Start.model` when the person has not chosen a model; sending the
+default explicitly records it as a choice from the start. A project's default is recorded as
+`modelFrom: project`, a repository's as `repository`, and the agent's own default as `agent`.
+
+A stopped task keeps its recorded repository settings. When those settings have changed, a start
+says that it keeps the settings it held before and that a new task takes the changed ones, only if
+an earlier start recorded a settings hash. The record survives a stop and a reboot. A first start,
+or an older task with no recorded hash, makes no claim about earlier settings.
+If the current repository settings cannot be compared, the start says so and resumes with its
+recorded settings.
+
 A start names each step as it takes it. The CLI adds `step`, `waiting` and `failed` lines to its
 usual output; a failure includes the dependency's last error line when available. With `more` and
 `steps: true`, the daemon streams the same steps; streamed calls without `steps` receive lines only.
@@ -366,6 +378,12 @@ its activity is `working` until it is idle again, with the declaration kept. `en
 meaning. Completion adds no waiting reason and does not stop the container: `running` still answers
 whether the container is up. `task list`, `task status` (including `--json`) and the daemon's `List`
 and `Watch` carry the same state.
+
+`task status --json` adds, after `name`, `state`, `running`, `project`, `repository` and `parameters` in that
+order, `task` for the short name, `container` for the full container name, and `model`, `modelLabel` and
+`modelFrom` from the task's saved profile. `name` keeps its full container name for existing readers. A task on its
+agent's default has null `model` and `modelLabel` and `agent` for `modelFrom`; a missing profile leaves all three
+null. An absent task's answer leaves these fields out, as before.
 
 `task status` also reads provider-reported token usage, summed by answering model, agent, local day
 and local hour. Each of input, cache read, cache write, output and reasoning has its reported total

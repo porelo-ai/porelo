@@ -31,6 +31,7 @@ final class UsageReading {
     private @Nullable Long rawInput;
     private @Nullable Long rawOutput;
     private boolean stream;
+    private boolean framed;
     private boolean failed;
     private boolean complete;
     private boolean error;
@@ -84,7 +85,7 @@ final class UsageReading {
     }
 
     void start(boolean events, int code) {
-        stream = events;
+        stream |= events;
         status = code;
         error |= code < 200 || code >= 300;
     }
@@ -101,6 +102,25 @@ final class UsageReading {
 
     void accept(byte[] bytes, int length) {
         if (failed) return;
+        if (!framed) {
+            if (length > LIMIT - buffer.size()) {
+                invalidate();
+                return;
+            }
+            buffer.write(bytes, 0, length);
+            final byte[] first = buffer.toByteArray();
+            if (!stream && VaultProxy.undecided(first)) return;
+            // A streamed answer can be labeled JSON; its opening, not the label, carries usage.
+            stream |= VaultProxy.opensAsEvents(first);
+            framed = true;
+            buffer.reset();
+            acceptFramed(first, first.length);
+            return;
+        }
+        acceptFramed(bytes, length);
+    }
+
+    private void acceptFramed(byte[] bytes, int length) {
         try {
             for (int i = 0; i < length && !failed; i++) {
                 final int b = bytes[i] & 255;

@@ -588,6 +588,8 @@ method Start(
   # for an agent that declares no model flag, a model that is not one word, and through a task's
   # MCP endpoint one its mcp.agents does not allow, whichever file named it, are refused with
   # exitCode 2 before anything is made. A task brought back keeps the model it was made with.
+  # A client leaves this out to take the default when the person did not choose a model. Sending
+  # even that same model explicitly records modelFrom as "start", rather than its file's source.
   model: ?string,
   # Turn limit, when the agent declares one.
   maxTurns: ?int,

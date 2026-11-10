@@ -40,7 +40,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
     @picocli.CommandLine.Option(
             names = "--json",
             description =
-                    "Prints name, state, running, project and repository as one JSON object, for a"
+                    "Prints name, state, running, project, repository, parameters, then task, container, model, modelLabel and"
+                            + " modelFrom as one JSON object, for a"
                             + " program. A task that is not there is state 'absent', exit 0.")
     private boolean json;
 
@@ -438,11 +439,25 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         report.put("project", task == null ? null : task.project());
         report.put("repository", task == null ? null : task.repository());
         report.put("parameters", task == null ? java.util.Map.of() : task.parameters());
+        // After the names a playbook reads, in their order; an absent task's answer stays as it
+        // was.
+        if (task != null) {
+            report.put("task", task.shortName());
+            report.put("container", task.name());
+            report.put("model", blankToNull(task.model()));
+            report.put("modelLabel", blankToNull(task.modelLabel()));
+            report.put("modelFrom", blankToNull(task.modelFrom()));
+        }
         // Left out when there is none, so what a program reads of an absent task stays as it was.
         final var usage = new TaskUsage(context).read(name);
         if (!usage.state().equals("absent")) report.put("usage", usage.asMap());
         out.println(org.fuin.porelo.wire.Json.write(report));
         out.flush();
         return 0;
+    }
+
+    private static @org.jspecify.annotations.Nullable String blankToNull(
+            final @org.jspecify.annotations.Nullable String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }
