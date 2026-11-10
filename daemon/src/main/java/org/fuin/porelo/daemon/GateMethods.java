@@ -27,6 +27,130 @@ final class GateMethods {
 
     private GateMethods() {}
 
+    @FunctionalInterface
+    interface GatheredPush {
+        org.fuin.porelo.app.HostGatherPush.Result run(
+                org.fuin.porelo.app.HostGatherPush.Progress progress,
+                java.util.function.BooleanSupplier open)
+                throws java.io.IOException;
+    }
+
+    static void pushToCentral(GatheredPush push, VarlinkServer.Replies replies)
+            throws java.io.IOException {
+        try {
+            final var result =
+                    push.run(
+                            (repository, stage) -> {
+                                if (replies.streaming())
+                                    replies.more(Map.of("repository", repository, "stage", stage));
+                            },
+                            () -> !replies.streaming() || replies.open());
+            replies.last(Map.of("pushed", result.pushed(), "upToDate", result.upToDate()));
+        } catch (org.fuin.porelo.app.HostGatherRefusal ex) {
+            final var details = new LinkedHashMap<String, Object>();
+            details.put("repository", "");
+            details.put("pushed", List.of());
+            details.put("upToDate", List.of());
+            details.put("reason", "transfer");
+            details.put("branch", "");
+            details.put("storeCommand", List.of());
+            details.putAll(ex.details());
+            throw switch (ex.kind()) {
+                case VAULT_SHUT -> {
+                    final Object command = details.get("unlockCommand");
+                    final String route =
+                            List.of("porelo", "vault", "init").equals(command)
+                                    ? "init"
+                                    : List.of("porelo", "host", "unlock", "<host>").equals(command)
+                                            ? "host"
+                                            : List.of().equals(command) ? "device" : "passphrase";
+                    details.put("unlock", route);
+                    yield new VarlinkException(
+                            INTERFACE + ".CentralVaultShut",
+                            fields(details, "unlock", "unlockCommand"));
+                }
+                case MISSING_CENTRAL_TOKEN ->
+                        new VarlinkException(
+                                INTERFACE + ".MissingCentralToken",
+                                fields(details, "credential", "storeCommand"));
+                case CENTRAL_TOKEN_REFUSED ->
+                        new VarlinkException(
+                                INTERFACE + ".CentralTokenRefused",
+                                fields(
+                                        details,
+                                        "credential",
+                                        "storeCommand",
+                                        "repository",
+                                        "pushed",
+                                        "upToDate"));
+                case NOTHING_TO_PUSH ->
+                        new VarlinkException(
+                                INTERFACE + ".NothingToPush",
+                                fields(details, "pushed", "upToDate"));
+                case HOST_TOKEN -> {
+                    details.putIfAbsent("reason", "issuer");
+                    if (!"busy".equals(details.get("reason"))) details.put("reason", "issuer");
+                    details.put("storeCommand", List.of("porelo", "host", "forge-token"));
+                    yield new VarlinkException(
+                            INTERFACE + ".HostPushTokenUnavailable",
+                            fields(details, "reason", "storeCommand"));
+                }
+                case PUSH ->
+                        new VarlinkException(
+                                INTERFACE + ".CentralPushRefused",
+                                fields(
+                                        details,
+                                        "repository",
+                                        "reason",
+                                        "branch",
+                                        "pushed",
+                                        "upToDate"));
+                case CANCELLED ->
+                        new VarlinkException(
+                                INTERFACE + ".CentralPushUncertain",
+                                fields(details, "repository", "pushed", "upToDate"));
+                case HOST -> {
+                    details.put("code", ex.code());
+                    yield new VarlinkException(
+                            INTERFACE + ".HostPushRefused",
+                            fields(details, "reason", "code", "repository", "pushed", "upToDate"));
+                }
+            };
+        } catch (RuntimeException ex) {
+            // VarlinkServer otherwise returns exception messages, which may hold child-process
+            // secrets.
+            throw new VarlinkException(
+                    INTERFACE + ".HostPushRefused",
+                    Map.of(
+                            "reason",
+                            "unexpected",
+                            "code",
+                            70,
+                            "repository",
+                            "",
+                            "pushed",
+                            List.of(),
+                            "upToDate",
+                            List.of()));
+        }
+    }
+
+    private static List<String> repositories(Map<String, Object> parameters) {
+        final Object value = parameters.get("repositories");
+        if (value == null) return List.of();
+        if (!(value instanceof List<?> names)
+                || names.stream().anyMatch(name -> !(name instanceof String)))
+            throw org.fuin.porelo.app.HostGatherRefusal.host(
+                    "selection", 64, "repositories must be strings");
+        return names.stream().map(String.class::cast).toList();
+    }
+
+    private static Map<String, Object> fields(Map<String, Object> details, String... names) {
+        final Map<String, Object> selected = new LinkedHashMap<>();
+        for (String name : names) selected.put(name, details.getOrDefault(name, ""));
+        return selected;
+    }
+
     /**
      * Registers this area's methods.
      *
@@ -41,6 +165,18 @@ final class GateMethods {
             PoreloContext context,
             TaskInventory inventory,
             TaskControl control) {
+        server.method(
+                "PushToCentral",
+                (parameters, replies) ->
+                        pushToCentral(
+                                (progress, open) ->
+                                        new org.fuin.porelo.app.HostGatherPush(context)
+                                                .push(
+                                                        text(parameters, "project"),
+                                                        repositories(parameters),
+                                                        progress,
+                                                        open),
+                                replies));
         server.method(
                 "Arrivals",
                 (parameters, replies) ->

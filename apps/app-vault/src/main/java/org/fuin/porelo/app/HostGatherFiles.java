@@ -121,6 +121,6 @@ final class HostGatherFiles {
     }
 
     private static HostGatherRefusal refused(Path source, String reason) {
-        return new HostGatherRefusal(66, source + " " + reason);
+        return HostGatherRefusal.host("configuration", 66, source + " " + reason);
     }
 }

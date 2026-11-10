@@ -166,6 +166,22 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
             return 65;
         }
 
+        final Optional<VaultFile.Opener> openerForIssue = opener;
+        try {
+            return FileLocks.holding(
+                    HostGatherPush.lock(context), () -> issue(settings, sudo, openerForIssue, err));
+        } catch (IOException ex) {
+            err.println("porelo: the forge token issuance lock could not be held");
+            err.flush();
+            return 69;
+        }
+    }
+
+    private int issue(
+            HostForgeSettings settings,
+            Path sudo,
+            Optional<VaultFile.Opener> opener,
+            PrintWriter err) {
         final CommandResult issued;
         try {
             issued =

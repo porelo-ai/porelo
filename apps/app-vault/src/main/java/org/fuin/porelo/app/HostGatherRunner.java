@@ -27,13 +27,19 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
     private final Set<ProcessHandle> observed = new LinkedHashSet<>();
     private boolean closed;
     private final Duration executionLimit;
+    private final java.util.function.BooleanSupplier open;
 
     HostGatherRunner() {
         this(Duration.ZERO);
     }
 
     private HostGatherRunner(Duration executionLimit) {
+        this(executionLimit, () -> true);
+    }
+
+    HostGatherRunner(Duration executionLimit, java.util.function.BooleanSupplier open) {
         this.executionLimit = executionLimit;
+        this.open = open;
     }
 
     static CommandResult system(
@@ -71,6 +77,14 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
             final long deadline =
                     executionLimit.isZero() ? 0 : System.nanoTime() + executionLimit.toNanos();
             while (process.isAlive()) {
+                if (!open.getAsBoolean()) {
+                    close();
+                    throw new HostGatherRefusal(
+                            HostGatherRefusal.Kind.CANCELLED,
+                            1,
+                            "gathered transfer stopped; a started push may have reached central",
+                            java.util.Map.of());
+                }
                 if (deadline != 0 && System.nanoTime() >= deadline) throw new TimeoutException();
                 synchronized (this) {
                     process.descendants().forEach(observed::add);

@@ -38,12 +38,44 @@ final class HostGatherFlow {
             char[] central,
             PrintWriter out,
             PrintWriter err) {
+        try {
+            transfer(pull, config, names, local, central, out, err, (repository, stage) -> {});
+            return 0;
+        } catch (HostGatherRefusal ex) {
+            if (!java.util.Objects.requireNonNull(
+                            ex.getMessage(), "Gathered refusals have safe words")
+                    .isBlank()) err.println("porelo: " + redact(ex.getMessage(), local, central));
+            return ex.code();
+        } catch (IOException ex) {
+            err.println("porelo: no temporary directory could be made or cleaned");
+            return 73;
+        } finally {
+            out.flush();
+            err.flush();
+        }
+    }
+
+    HostGatherPush.Result transfer(
+            boolean pull,
+            HostGatherConfig config,
+            List<String> names,
+            char[] local,
+            char[] central,
+            PrintWriter out,
+            PrintWriter err,
+            HostGatherPush.Progress progress)
+            throws IOException {
         final List<HostGatherConfig.Repository> targets = config.select(names);
+        final List<String> pushed = new ArrayList<>();
+        final List<String> upToDate = new ArrayList<>();
+        String repository = "";
+        boolean writing = false;
         try (Workspace workspace = new Workspace(temporary, err, runner)) {
             config.refuseCredentials(central, local);
-            final List<String> pushed = new ArrayList<>();
             for (int index = 0; index < targets.size(); index++) {
                 final var target = targets.get(index);
+                repository = target.name();
+                progress.stage(repository, "reading");
                 final String localUrl =
                         config.local() + "/" + config.owner() + "/" + target.name() + ".git";
                 final Path repo = workspace.path.resolve(target.name());
@@ -80,6 +112,8 @@ final class HostGatherFlow {
                                 local,
                                 central));
                 out.flush();
+                progress.stage(repository, "pushing");
+                writing = true;
                 final var answer =
                         request(
                                 in(
@@ -92,28 +126,68 @@ final class HostGatherFlow {
                                 target.central(),
                                 central,
                                 config.ca());
+                writing = false;
                 if (answer.successful()) {
                     out.println(target.name() + ": taken");
-                    pushed.add(target.name());
+                    final boolean unchanged =
+                            answer.standardOutput()
+                                    .lines()
+                                    .anyMatch(
+                                            line ->
+                                                    line.startsWith("=\t")
+                                                            && line.split("\t", -1).length == 3
+                                                            && line.split("\t", -1)[1].equals(
+                                                                    "refs/heads/main:refs/heads/main"));
+                    if (unchanged) upToDate.add(repository);
+                    else pushed.add(repository);
+                    progress.stage(repository, unchanged ? "up-to-date" : "pushed");
                     continue;
                 }
                 final String said =
                         redact(answer.standardOutput() + answer.standardError(), local, central);
+                final boolean authentication =
+                        answer.standardError()
+                                .lines()
+                                .anyMatch(
+                                        line ->
+                                                line.startsWith("fatal: Authentication failed for ")
+                                                        || line.startsWith(
+                                                                "fatal: could not read Username for ")
+                                                        || line.startsWith(
+                                                                "fatal: could not read Password for ")
+                                                        || line.matches(
+                                                                "fatal: unable to access .+: The requested URL returned error: 401"));
+                final boolean refused =
+                        answer.standardOutput()
+                                .lines()
+                                .anyMatch(
+                                        line ->
+                                                line.startsWith("!\t")
+                                                        && line.split("\t", -1).length == 3
+                                                        && line.split("\t", -1)[1].equals(
+                                                                "refs/heads/main:refs/heads/main"));
                 final String left =
                         String.join(
                                 " ",
                                 targets.subList(index + 1, targets.size()).stream()
                                         .map(HostGatherConfig.Repository::name)
                                         .toList());
-                if (!said.contains("[rejected]")
+                if (authentication
+                        || !said.contains("[rejected]")
                         || !(said.contains("fetch first") || said.contains("non-fast-forward")))
                     throw new HostGatherRefusal(
+                            authentication
+                                    ? HostGatherRefusal.Kind.CENTRAL_TOKEN_REFUSED
+                                    : refused
+                                            ? HostGatherRefusal.Kind.PUSH
+                                            : HostGatherRefusal.Kind.CANCELLED,
                             1,
                             target.name()
                                     + ": the push failed; not pushed: "
                                     + (left.isEmpty() ? "none" : left)
                                     + ". Git said: "
-                                    + said);
+                                    + said,
+                            Map.of("reason", "central-refused"));
                 require(
                         target.name() + ": refused, and central main could not be read",
                         request(
@@ -153,29 +227,64 @@ final class HostGatherFlow {
                         target.name()
                                 + ": they are on the local forge as the branch central/main; merge it in a task, approve it, push again.");
                 throw new HostGatherRefusal(
+                        HostGatherRefusal.Kind.PUSH,
                         1,
                         target.name()
                                 + ": not pushed; not pushed either: "
-                                + (left.isEmpty() ? "none" : left));
+                                + (left.isEmpty() ? "none" : left),
+                        Map.of("reason", "reconcile", "branch", "central/main"));
             }
-            if (!pull) out.println("pushed: " + String.join(" ", pushed));
-            return 0;
+            if (!pull)
+                out.println(
+                        "pushed: "
+                                + String.join(
+                                        " ",
+                                        targets.stream()
+                                                .map(HostGatherConfig.Repository::name)
+                                                .toList()));
+            return new HostGatherPush.Result(pushed, upToDate);
         } catch (HostGatherRefusal ex) {
-            if (!java.util.Objects.requireNonNull(
-                            ex.getMessage(), "Gathered refusals have safe words")
-                    .isBlank())
-                err.println(
-                        "porelo: "
-                                + redact(
-                                        java.util.Objects.requireNonNull(
-                                                ex.getMessage(),
-                                                "Gathered refusals have safe words"),
-                                        local,
-                                        central));
-            return ex.code();
+            final var failure =
+                    writing && ex.kind() == HostGatherRefusal.Kind.HOST
+                            ? new HostGatherRefusal(
+                                    HostGatherRefusal.Kind.CANCELLED,
+                                    ex.code(),
+                                    String.valueOf(ex.getMessage()),
+                                    Map.of())
+                            : ex;
+            throw failure.redacted(local, central)
+                    .withDetails(
+                            Map.of(
+                                    "repository",
+                                    repository,
+                                    "pushed",
+                                    List.copyOf(pushed),
+                                    "upToDate",
+                                    List.copyOf(upToDate)));
+        } catch (RuntimeException ex) {
+            throw new HostGatherRefusal(
+                    writing ? HostGatherRefusal.Kind.CANCELLED : HostGatherRefusal.Kind.HOST,
+                    70,
+                    "the gathered transfer failed; inspect the forge before retrying",
+                    Map.of(
+                            "reason",
+                            "unexpected",
+                            "repository",
+                            repository,
+                            "pushed",
+                            List.copyOf(pushed),
+                            "upToDate",
+                            List.copyOf(upToDate)));
         } catch (IOException ex) {
-            err.println("porelo: no temporary directory could be made or cleaned");
-            return 73;
+            throw new HostGatherRefusal(73, "no temporary directory could be made or cleaned")
+                    .withDetails(
+                            Map.of(
+                                    "repository",
+                                    repository,
+                                    "pushed",
+                                    List.copyOf(pushed),
+                                    "upToDate",
+                                    List.copyOf(upToDate)));
         } finally {
             out.flush();
             err.flush();

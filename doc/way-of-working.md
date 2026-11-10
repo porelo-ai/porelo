@@ -70,7 +70,7 @@ setup, registry, runner, credentials and what is lost with the host - is describ
    `porelo/<task>` on the forge at once.
 3. Review the task's branch and its build in the pull request Porelo opens at the task's first push, as the forge
    account of the `builds:` credential, and merge it into the forge's `main`.
-4. Send the merged work to the central forge, the gathered push; its tool is not built yet.
+4. Send the merged work to the central forge with `porelo host push` or the window’s gathered push.
 
 - **The person decides** twice: the merge on the host's forge, and the gathered push to the central forge.
 - **The first independent build** runs on the host's forge runner, before any approval, if the repository's workflow

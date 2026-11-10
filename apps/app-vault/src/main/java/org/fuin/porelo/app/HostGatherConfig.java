@@ -57,14 +57,16 @@ record HostGatherConfig(String local, String owner, Path ca, List<Repository> re
         final var seen = new java.util.HashSet<String>();
         for (String name : names) {
             if (!repositoryName(name))
-                throw new HostGatherRefusal(64, "'" + name + "' is not a repository name");
+                throw HostGatherRefusal.host(
+                        "selection", 64, "'" + name + "' is not a repository name");
             final Repository repo =
                     repositories.stream()
                             .filter(item -> item.name().equals(name))
                             .findFirst()
                             .orElseThrow(
                                     () ->
-                                            new HostGatherRefusal(
+                                            HostGatherRefusal.host(
+                                                    "selection",
                                                     64,
                                                     "the config for "
                                                             + owner
@@ -76,7 +78,8 @@ record HostGatherConfig(String local, String owner, Path ca, List<Repository> re
                                                                     repositories.stream()
                                                                             .map(Repository::name)
                                                                             .toList())));
-            if (!seen.add(name)) throw new HostGatherRefusal(64, "'" + name + "' is named twice");
+            if (!seen.add(name))
+                throw HostGatherRefusal.host("selection", 64, "'" + name + "' is named twice");
             selected.add(repo);
         }
         return List.copyOf(selected);
@@ -91,7 +94,8 @@ record HostGatherConfig(String local, String owner, Path ca, List<Repository> re
         }
         for (String value : values)
             if (!value.equals(HostGatherFlow.redact(value, central, local)))
-                throw new HostGatherRefusal(
+                throw HostGatherRefusal.host(
+                        "configuration",
                         65,
                         "the push configuration contains a credential; remove it from the settings and retry");
     }
@@ -101,6 +105,6 @@ record HostGatherConfig(String local, String owner, Path ca, List<Repository> re
     }
 
     private static HostGatherRefusal bad(Path source, String reason) {
-        return new HostGatherRefusal(65, source + " " + reason);
+        return HostGatherRefusal.host("configuration", 65, source + " " + reason);
     }
 }

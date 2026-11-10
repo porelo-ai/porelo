@@ -100,9 +100,12 @@ final class McpMethods {
      * or stops the board's work ({@code StartStoryWork}, {@code StopStoryWork}): no agent starts
      * another. {@code PullRequests} and {@code WatchPullRequests} spend the person's forge identity
      * to read reviews awaiting human judgment, so a task cannot ask them even from the local list.
+     * PushToCentral releases approved work with the person's central credential and is never
+     * offered.
      */
     static final Set<String> NEVER =
             Set.of(
+                    "PushToCentral",
                     "PullRequests",
                     "WatchPullRequests",
                     // A host-credentialed query returns unfiltered server names for the operator.

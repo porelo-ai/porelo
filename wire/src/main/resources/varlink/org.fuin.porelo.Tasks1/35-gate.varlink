@@ -1,3 +1,54 @@
+# The person's gathered release of approved host main, using the same flow as porelo host push.
+# Omitted or empty repositories select all from the person's checked push configuration, in order.
+# Reads <forge>.central from this account's vault; refreshes <forge>.person through the existing
+# checked sudo -n host issuer. Never prompts, reads a passphrase, opens askpass or adds a privilege.
+# With more, progress contains only repository and stage: reading, pushing, pushed, up-to-date.
+# Without more, only the final result is sent. The final reply lists confirmed pushed and unchanged
+# repositories separately. NothingToPush means every selected main was already up to date.
+# Stops on the first refusal. Error lists retain confirmed earlier completions; later repositories
+# were not attempted. CentralPushUncertain means a started write may have completed: inspect before retry.
+# A non-fast-forward brings central main to local central/main for a task merge and approval.
+# Each Git process has a ten-minute deadline; streaming disconnect stops Git and later repositories.
+# A one-shot caller may finish sending while still reading; its request is bounded by those deadlines.
+# Issuance and transfer hold the account's forge-token lock, including against the CLI token issuer.
+# No Git or issuer text, URL, credential or credential fragment is returned. Never offered through MCP:
+# releasing to central is a person's judgment. The window offers this action; its button is a client concern.
+method PushToCentral(project: string, repositories: ?[]string) -> (
+  repository: ?string,
+  stage: ?string,
+  pushed: ?[]string,
+  upToDate: ?[]string
+)
+
+# No process ran. unlock is init, passphrase, host or device; unlockCommand is an available command,
+# or empty for the enrolled device flow. A host command's <host> is filled in by the person's client.
+error CentralVaultShut(unlock: string, unlockCommand: []string)
+
+# No usable central credential exists at this exact vault key; no process ran.
+error MissingCentralToken(credential: string, storeCommand: []string)
+
+# Git refused central authentication. Replace the credential before retrying; no Git prompt text.
+error CentralTokenRefused(credential: string, storeCommand: []string, repository: string, pushed: []string, upToDate: []string)
+
+# Every selected repository was confirmed unchanged, rather than newly pushed.
+error NothingToPush(pushed: []string, upToDate: []string)
+
+# The existing noninteractive issuer could not supply a local token, or another transfer holds its lock.
+# reason is issuer or busy. Check the host's existing sudo rule; the daemon will not ask a password.
+error HostPushTokenUnavailable(reason: string, storeCommand: []string)
+
+# The central write was refused. reason is central-refused or reconcile; branch is central/main for
+# reconciliation, otherwise empty. Merge and approve central/main in a task before trying again.
+error CentralPushRefused(repository: string, reason: string, branch: string, pushed: []string, upToDate: []string)
+
+# A started write timed out, was interrupted or lost its connection; its remote outcome is unknown.
+error CentralPushUncertain(repository: string, pushed: []string, upToDate: []string)
+
+# Host trust/preflight or local transfer failed. reason is selection, account, settings, program,
+# configuration, authority, vault, transfer or unexpected. Repair the named category before retrying.
+# code is the corresponding host command exit code, never a process diagnostic.
+error HostPushRefused(reason: string, code: int, repository: string, pushed: []string, upToDate: []string)
+
 
 # A host forge review, observed with this account's person token.
 type HostPullRequest (

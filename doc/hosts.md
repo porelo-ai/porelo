@@ -116,6 +116,20 @@ person's commands, run in their own account, replacing `porelo-host-push` and it
 local `main`, and a gathered push never forces central `main`. A rejected push stops before later repositories and
 brings central's missing commits back for a task to merge and obtain approval.
 
+The window offers the same gathered push through Tasks1 `PushToCentral(project, repositories)`. Repository
+selection is optional. Its stream names each repository and its stage, then lists what was pushed and what was
+already up to date. If everything is unchanged, `NothingToPush` says so. Vault unlock, missing central credentials,
+refused central authentication, untrusted host setup, unavailable local token issuance and central push refusal
+are separate named answers the window can act on. No process output or credential is sent to the window.
+
+The daemon asks no passphrase, terminal or sudo password. Unlock the vault through the route it names, or store
+`<forge>.central` with `porelo vault put <forge>.central`, then retry. It uses the same checked programs and existing
+sudo rule as the command. Issuance and transfer hold one account lock so overlapping releases or a separate
+`porelo host forge-token` cannot revoke an active transfer's token. The daemon gives each Git process ten minutes
+and stops it when a streaming client disconnects. A one-shot client can finish sending while still reading. A cut-short write can have reached central; inspect it before retrying.
+Confirmed earlier pushes remain in the result of a later refusal. This release is a person's judgment and is
+never offered to a task through MCP, even when listed locally.
+
 Root publishes the forge's `name` and `git_port` in `/etc/porelo-host/forge.conf`. That checked `name` determines the
 vault entries: `<forge>.central` for the person's central token and `<forge>.person` for the freshly issued local
 token. Store the central token with `porelo vault put <forge>.central`. A missing entry in a readable vault names
