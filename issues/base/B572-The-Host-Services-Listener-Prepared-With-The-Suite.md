@@ -1,6 +1,6 @@
 # [B572](README.md#b572) — The Host-Services Listener Prepared With The Suite
 
-**Status:** Backlog. Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
+**Status:** Implementing. Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
 **Size:** S - one root-run preparation script beside the acceptance suite, called by the VM chain around the suite.
 
 **What must be true.** The acceptance feature `shield/host-services.feature` runs wherever the suite runs on a VM or a

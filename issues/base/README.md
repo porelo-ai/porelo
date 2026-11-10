@@ -111,6 +111,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. |
 | <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. |
 | <a id="b571"></a>[B571](B571-A-Task-Container-Finds-Its-Init.md) | XS | - | porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made. |
 | <a id="b574"></a>[B574](B574-A-Hosts-Waiting-Project-Is-Never-Shown-As-Carried.md) | L | [B543](#b543) | A project the host reports waiting (`waiting-for-token`) is never listed as carried; the host's state and why reach the window. |
@@ -147,7 +148,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b586"></a>[B586](B586-A-Task-Name-The-Room-Cannot-Hold.md) | S | - | A long task name on a clash, and one with two hyphens in a row, still get a name in the room. |
-| <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. |
 | <a id="b580"></a>[B580](B580-The-Gathered-Push-From-The-Window.md) | M | [B544](#b544) | `PushToCentral` over the daemon: the gathered push to central with progress and typed refusals, for the window's release. |
 | <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
 | <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `SaveMoves` saves story and issue moves together, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
