@@ -829,7 +829,9 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   `built-in`), `role`, `locked`, `host`, `opened`. On a host, a project the host carries for this person is listed from
   the host's file, with no organization named in the account, also before a first start there: the host names a person's
   projects in a file only that person may read, and does not list them otherwise, so that nobody learns the name of one
-  they are not in. An organization named here and never read yet, and out of
+  they are not in. A host file that does not read stays on that project's line with its file and reason
+  (`host_file_error` in JSON), and the other projects are listed as usual. An organization named here and never read
+  yet, and out of
   reach, answers 69 `cannot-say`, though a project of this machine alone would start. `Projects()` and `WatchProjects()` carry `lastUsed`: the latest
   recorded task start or message event here, an ISO-8601 instant, or `""` when none is recorded.
   They also name a project the host carries for this person before a first start there, with `carried` true and `file`
@@ -842,6 +844,7 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   person cannot read, is refused, and a gate command forwards nothing of it. Off a host `carriedHere` is
   absent. Before a carried project is taken, its rows are the repositories the host's file names, nothing measured.
   Projects and their repository rows also report optional `hostState` and `hostWhy` from the checked host publication.
+  A project's optional `hostFileError` names its unreadable host file and reason without hiding other projects.
   Project states are `pending`, `carried`, `waiting-for-token`, `held`, and `refused`; any state other than `carried`
   withholds both the project's `carried` flag and each repository's `carriedHere`. Waiting rows remain listed before
   a first take. `waiting-for-token` means the host needs the person's forge token once per new repository to add its

@@ -228,10 +228,8 @@ public final class OrganizationProjects {
      * @throws IOException When a file that is there does not read.
      */
     public List<Placed> hosted(final String account) throws IOException {
-        final java.util.Set<String> names = new java.util.TreeSet<>(names());
-        names.addAll(named(account));
         final List<Placed> hosted = new ArrayList<>();
-        for (final String name : names) {
+        for (final String name : knownNames(account)) {
             // A file that does not read is said, never passed over as not carried.
             final Placed placed = host(name);
             if (placed != null) {
@@ -239,6 +237,53 @@ public final class OrganizationProjects {
             }
         }
         return List.copyOf(hosted);
+    }
+
+    /**
+     * A project's host file read for a listing, including an absent or failed answer.
+     *
+     * @param project The name by which the file was opened.
+     * @param placed What the host says, or {@code null} when absent or unreadable.
+     * @param error The file and why it does not read, or {@code null}.
+     */
+    public record HostRead(String project, @Nullable Placed placed, @Nullable String error) {}
+
+    /**
+     * Reads a project's host file without failing a listing over that one file.
+     *
+     * @param name The project's name.
+     * @return Its answer or error; both absent when this person has no readable host file.
+     */
+    public HostRead readHost(final String name) {
+        try {
+            return new HostRead(name, host(name), null);
+        } catch (final IOException ex) {
+            return new HostRead(name, null, String.valueOf(ex.getMessage()));
+        }
+    }
+
+    /**
+     * Lists each known host project's answer or the reason its file does not read.
+     *
+     * @param account This person's account on the machine.
+     * @return Readable host projects and failed reads, by name; absent files stay out.
+     * @throws IOException When this account's records or its own host project list cannot be read.
+     */
+    public List<HostRead> hostedRows(final String account) throws IOException {
+        final List<HostRead> rows = new ArrayList<>();
+        for (final String name : knownNames(account)) {
+            final HostRead row = readHost(name);
+            if (row.placed() != null || row.error() != null) {
+                rows.add(row);
+            }
+        }
+        return List.copyOf(rows);
+    }
+
+    private java.util.Set<String> knownNames(final String account) throws IOException {
+        final java.util.Set<String> names = new java.util.TreeSet<>(names());
+        names.addAll(named(account));
+        return names;
     }
 
     /**
@@ -400,9 +445,14 @@ public final class OrganizationProjects {
     }
 
     private static Placed read(final Path file) throws IOException {
+        final String contents;
         try {
-            if (!(Json.parse(Files.readString(file, StandardCharsets.UTF_8))
-                            instanceof Map<?, ?> document)
+            contents = Files.readString(file, StandardCharsets.UTF_8);
+        } catch (final IOException ex) {
+            throw new IOException(file + " does not read: " + ex.getMessage(), ex);
+        }
+        try {
+            if (!(Json.parse(contents) instanceof Map<?, ?> document)
                     || !(document.get("signing_keys") instanceof List<?> rows)) {
                 throw new IOException(file + " does not read");
             }

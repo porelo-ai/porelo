@@ -57,6 +57,7 @@ public final class ProjectInventory {
      *     than one being inferred from the other.
      * @param lastUsed Latest recorded task start or message event, ISO-8601, or "".
      * @param carried Whether a host carries it for this person and it has no file here yet.
+     * @param hostFileError The host file and why it does not read, or {@code null}.
      */
     public record Summary(
             String name,
@@ -73,7 +74,8 @@ public final class ProjectInventory {
             String lastUsed,
             boolean carried,
             @Nullable String hostState,
-            @Nullable String hostWhy) {
+            @Nullable String hostWhy,
+            @Nullable String hostFileError) {
 
         public Summary(
                 String name,
@@ -103,6 +105,7 @@ public final class ProjectInventory {
                     repositories,
                     lastUsed,
                     carried,
+                    null,
                     null,
                     null);
         }
@@ -207,7 +210,8 @@ public final class ProjectInventory {
                             lastUsed,
                             carried,
                             hostState,
-                            hostWhy);
+                            hostWhy,
+                            hostFileError);
         }
 
         Summary prepared(boolean built, Readiness state) {
@@ -226,7 +230,8 @@ public final class ProjectInventory {
                     lastUsed,
                     carried,
                     hostState,
-                    hostWhy);
+                    hostWhy,
+                    hostFileError);
         }
 
         /**
@@ -255,7 +260,8 @@ public final class ProjectInventory {
                     lastUsed,
                     carried,
                     hostState,
-                    hostWhy);
+                    hostWhy,
+                    hostFileError);
         }
 
         /**
@@ -280,7 +286,8 @@ public final class ProjectInventory {
                     used,
                     carried,
                     hostState,
-                    hostWhy);
+                    hostWhy,
+                    hostFileError);
         }
 
         /**
@@ -305,7 +312,8 @@ public final class ProjectInventory {
                     lastUsed,
                     true,
                     hostState,
-                    hostWhy);
+                    hostWhy,
+                    hostFileError);
         }
 
         /**
@@ -330,7 +338,8 @@ public final class ProjectInventory {
                     lastUsed,
                     carried,
                     hostState,
-                    hostWhy);
+                    hostWhy,
+                    hostFileError);
         }
 
         Summary hostStatus(HostCentral.@Nullable Status status) {
@@ -350,7 +359,28 @@ public final class ProjectInventory {
                     lastUsed,
                     carried && status.permitsCarrying(),
                     status.state(),
-                    status.why());
+                    status.why(),
+                    hostFileError);
+        }
+
+        Summary hostFileError(@Nullable String error) {
+            return new Summary(
+                    name,
+                    securityClass,
+                    file,
+                    mirror,
+                    pending,
+                    tasks,
+                    running,
+                    prepared,
+                    readiness,
+                    behind,
+                    repositories,
+                    lastUsed,
+                    carried,
+                    hostState,
+                    hostWhy,
+                    error);
         }
 
         /**
@@ -368,6 +398,7 @@ public final class ProjectInventory {
             map.put("carried", carried);
             if (hostState != null) map.put("hostState", hostState);
             if (hostWhy != null) map.put("hostWhy", hostWhy);
+            if (hostFileError != null) map.put("hostFileError", hostFileError);
             map.put("mirror", mirror == null ? "" : mirror);
             map.put("pending", pending);
             map.put("tasks", tasks);
@@ -474,9 +505,13 @@ public final class ProjectInventory {
         for (final String name : placed) {
             found.put(name, new Summary(name, null, fileOf(name), null, pendingIn(name), 0, 0));
         }
-        final java.util.Set<String> untaken = hosted(organization);
+        final Map<String, OrganizationProjects.HostRead> hosted = hosted(organization);
+        final java.util.Set<String> untaken = new java.util.LinkedHashSet<>();
+        hosted.values().stream()
+                .filter(each -> each.placed() != null)
+                .forEach(each -> untaken.add(each.project()));
         untaken.removeAll(placed);
-        for (final String name : untaken) {
+        for (final String name : hosted.keySet()) {
             found.putIfAbsent(name, new Summary(name, null, null, null, 0, 0, 0));
         }
         for (final String name : mirroredNames()) {
@@ -544,8 +579,9 @@ public final class ProjectInventory {
                 .map(
                         summary -> {
                             final boolean built = images.contains("porelo/" + summary.name());
-                            final OrganizationProjects.Placed host =
-                                    hostOf(organization, summary.name());
+                            final OrganizationProjects.HostRead read =
+                                    hosted.computeIfAbsent(summary.name(), organization::readHost);
+                            final OrganizationProjects.Placed host = read.placed();
                             final HostCentral.Status status =
                                     host == null
                                             ? null
@@ -575,45 +611,36 @@ public final class ProjectInventory {
                                             used.containsKey(summary.name())
                                                     ? used.get(summary.name()).toString()
                                                     : "")
-                                    .hostStatus(status);
+                                    .hostStatus(status)
+                                    .hostFileError(read.error());
                         })
                 .toList();
     }
 
     /**
-     * The projects a host carries for this person, before a first start too. A listing is not the
-     * place to fail over a file, and reading them fetches nothing.
+     * The host projects this person knows, before a first start too. A single project's failed read
+     * stays in its row. A person's own list that does not read names no host project here, and
+     * every project of this machine is still listed: {@code porelo project list} is where it is
+     * said.
      */
-    private java.util.Set<String> hosted(final OrganizationProjects organization) {
-        final java.util.Set<String> names = new java.util.LinkedHashSet<>();
+    private Map<String, OrganizationProjects.HostRead> hosted(
+            final OrganizationProjects organization) {
+        final Map<String, OrganizationProjects.HostRead> rows = new LinkedHashMap<>();
         try {
-            for (final OrganizationProjects.Placed each :
-                    organization.hosted(System.getProperty("user.name"))) {
-                names.add(each.project());
+            for (final OrganizationProjects.HostRead each :
+                    organization.hostedRows(System.getProperty("user.name"))) {
+                rows.put(each.project(), each);
             }
-        } catch (final java.io.IOException ex) {
-            names.clear();
+        } catch (final IOException ex) {
+            rows.clear();
         }
-        return names;
+        return rows;
     }
 
     /** This account's projects, with the host's files read from where this inventory reads them. */
     private OrganizationProjects organization() {
         return new OrganizationProjects(
                 context.paths().projects().organizationProjects(), hostFiles);
-    }
-
-    /**
-     * What the host's file says of a project, or {@code null} where it says nothing: no host of it
-     * for this person, or a file that does not read, which a listing does not fail over.
-     */
-    private static OrganizationProjects.@Nullable Placed hostOf(
-            final OrganizationProjects organization, final String project) {
-        try {
-            return organization.host(project);
-        } catch (final IOException ex) {
-            return null;
-        }
     }
 
     /**

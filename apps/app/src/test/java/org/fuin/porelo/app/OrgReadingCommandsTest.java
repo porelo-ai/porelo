@@ -835,10 +835,58 @@ class OrgReadingCommandsTest {
 
     @Test
     void aHostFileThatDoesNotReadIsSaidNotPassedOver() throws Exception {
+        // One broken publication must neither hide another project nor lose its own diagnostic.
+        environment = Map.of("USER", "alice");
         PlacedFixture.record(context(), "demo");
-        Files.writeString(hostFiles().resolve("demo.json"), "{\"project\": \"demo\"}");
+        final Path broken = hostFiles().resolve("demo.json");
+        Files.writeString(broken, "{\"project\": \"demo\"}");
+        hostFile("other", "build");
 
-        assertThat(run("project", "list", "--json")).isNotZero();
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        assertThat(listed())
+                .as("both host projects stay listed")
+                .containsExactly("demo", "other", "default");
+        final List<?> rows = (List<?>) answer().get("projects");
+        assertThat(field(rows.getFirst(), "host_file_error"))
+                .as("the broken project's file and reason")
+                .asString()
+                .contains(broken.toString(), "does not read");
+        assertThat(field(rows.get(1), "host"))
+                .as("the healthy project's host is still read")
+                .isEqualTo("build");
+        assertThat(field(rows.get(1), "role"))
+                .as("its membership is still read")
+                .isEqualTo("admin");
+        assertThat(field(rows.get(1), "host_file_error"))
+                .as("no error on the healthy row")
+                .isNull();
+
+        assertThat(run("project", "list")).as("what it said: %s", err).isZero();
+        assertThat(out.toString().lines().filter(line -> line.startsWith("demo")))
+                .as("the failed host file is said on its project's line")
+                .singleElement()
+                .asString()
+                .contains("host file does not read", broken.toString(), "does not read");
+        assertThat(out.toString().lines())
+                .as("the healthy project remains in text too")
+                .contains("other");
+    }
+
+    @Test
+    void aPersonsProjectListThatDoesNotReadStillFailsTheCall() throws Exception {
+        // No per-project answer is possible when the person's list itself cannot be read.
+        hostFileOnly("other");
+        personFile(ownAccount(), "{\"projects\": false}");
+
+        assertThat(run("project", "list", "--json"))
+                .as("an unreadable person's list fails the whole call")
+                .isNotZero();
+        assertThat(out.toString())
+                .as("the failed list is identified")
+                .contains(
+                        dir.resolve("persons").resolve(ownAccount() + ".json").toString(),
+                        "does not read");
     }
 
     @Test

@@ -1,0 +1,2 @@
+title: "On a host, a project whose host file does not read is listed with the file and why, in `porelo project list` and as `hostFileError` on the `Projects()` row, and every other project is listed as usual"
+type: changed

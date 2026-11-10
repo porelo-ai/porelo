@@ -12,6 +12,8 @@ import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link ProjectInventory}, which answers the question an interface cannot answer for
@@ -1123,6 +1125,68 @@ class ProjectInventoryTest {
                 .as("a file that does not read is no answer, neither carried nor not")
                 .isNotEmpty()
                 .allSatisfy(each -> assertThat(each.asMap()).doesNotContainKey("carriedHere"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void oneBadHostFileKeepsItsErrorAndEveryOtherProject(boolean invalidUtf8, @TempDir Path dir)
+            throws IOException {
+        // An interface must keep the healthy project and say why the broken one cannot answer.
+        final ProjectInventory inventory = inventory(context(dir));
+        inventory.hostFiles = hostFiles(dir, "demo");
+        hostFiles(dir, "other");
+        Files.writeString(
+                inventory
+                        .hostFiles
+                        .resolveSibling("persons")
+                        .resolve(System.getProperty("user.name") + ".json"),
+                "{\"projects\": [\"demo\", \"other\"]}");
+        final Path broken = inventory.hostFiles.resolve("demo.json");
+        if (invalidUtf8) {
+            Files.write(broken, new byte[] {(byte) 0xc3, 0x28});
+        } else {
+            Files.writeString(broken, "{not json");
+        }
+
+        final var projects = inventory.projects();
+
+        assertThat(projects)
+                .as("all known projects remain listed")
+                .extracting(ProjectInventory.Summary::name)
+                .containsExactly("default", "demo", "other");
+        final var bad = projects.get(1);
+        assertThat(bad.asMap().get("hostFileError"))
+                .as("the wire row identifies the file and failure")
+                .asString()
+                .contains(broken.toString(), "does not read");
+        assertThat(bad.carried()).as("a failed read cannot authorize carrying").isFalse();
+        final var good = projects.get(2);
+        assertThat(good.carried()).as("the healthy project is carried as usual").isTrue();
+        assertThat(good.asMap())
+                .as("a healthy host file has no error")
+                .doesNotContainKey("hostFileError");
+        assertThat(projects.getFirst().asMap())
+                .as("off a host the error is absent")
+                .doesNotContainKey("hostFileError");
+    }
+
+    @Test
+    void aPersonsUnreadableProjectListHidesNoProjectOfThisMachine(@TempDir Path dir)
+            throws IOException {
+        // The window's whole list must not fail over the person's own file; the command says it.
+        final ProjectInventory inventory = inventory(context(dir));
+        inventory.hostFiles = hostFiles(dir, "other");
+        Files.writeString(
+                inventory
+                        .hostFiles
+                        .resolveSibling("persons")
+                        .resolve(System.getProperty("user.name") + ".json"),
+                "{\"projects\": false}");
+
+        assertThat(inventory.projects())
+                .as("this machine's projects are listed; no host row is claimed")
+                .extracting(ProjectInventory.Summary::name)
+                .containsExactly("default");
     }
 
     @Test

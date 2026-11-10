@@ -106,6 +106,8 @@ follow prunes departed projects.
 
 `Projects` and `WatchProjects` report this progress as `hostState` and `hostWhy` on projects and
 repositories. Waiting and refused progress can only withhold what the placement file authorizes.
+A project whose placement file does not read stays listed, with `hostFileError` naming the file and
+why, and every other project is listed as usual.
 In particular, `waiting-for-token` withholds carrying until a person supplies the forge token to
 install each new repository's read key and copy it; the host keeps no token. Unavailable or
 malformed publications withhold carrying with `cannot-say` and an explanation naming the refused

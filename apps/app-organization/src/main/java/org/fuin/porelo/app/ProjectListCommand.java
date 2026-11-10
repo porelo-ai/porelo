@@ -43,13 +43,17 @@ public class ProjectListCommand extends OrgReading {
                 login.flatMap(own -> listed(state, project, own)).ifPresent(rows::add);
             }
         }
-        for (final OrganizationProjects.Placed hosted :
+        for (final OrganizationProjects.HostRead hosted :
                 new OrganizationProjects(
                                 machine.paths().projects().organizationProjects(), hostFiles)
-                        .hosted(System.getProperty("user.name"))) {
+                        .hostedRows(System.getProperty("user.name"))) {
             if (!named.contains(hosted.project())) {
                 named.add(hosted.project());
                 rows.add(carried(hosted, machine));
+            } else if (hosted.error() != null) {
+                rows.stream()
+                        .filter(row -> hosted.project().equals(row.get("project")))
+                        .forEach(row -> row.put("host_file_error", hosted.error()));
             }
         }
         for (final String local : OrgAccess.localProjects(machine).keySet()) {
@@ -71,7 +75,12 @@ public class ProjectListCommand extends OrgReading {
         if (answer.get("projects") instanceof List<?> rows) {
             for (final Object row : rows) {
                 if (row instanceof Map<?, ?> project) {
-                    line(String.valueOf(project.get("project")));
+                    final Object error = project.get("host_file_error");
+                    line(
+                            project.get("project")
+                                    + (error == null
+                                            ? ""
+                                            : " - host file does not read: " + error));
                 }
             }
         }
@@ -100,8 +109,14 @@ public class ProjectListCommand extends OrgReading {
 
     /** What a host says: its file is there for this person only while they are not locked. */
     private static Map<String, @Nullable Object> carried(
-            final OrganizationProjects.Placed hosted, final PoreloContext machine)
+            final OrganizationProjects.HostRead read, final PoreloContext machine)
             throws IOException {
+        final OrganizationProjects.Placed hosted = read.placed();
+        if (hosted == null) {
+            final Map<String, @Nullable Object> row = other(read.project(), "organization");
+            row.put("host_file_error", read.error());
+            return row;
+        }
         final String login =
                 OrgAccess.ownLogin(machine).orElse(machine.environment().apply("USER"));
         final Map<String, @Nullable Object> row = new LinkedHashMap<>();

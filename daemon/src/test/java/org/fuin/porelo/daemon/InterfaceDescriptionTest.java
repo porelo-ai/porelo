@@ -38,6 +38,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 class InterfaceDescriptionTest {
 
     @Test
+    void aProjectDeclaresItsOptionalHostFileError() {
+        // Clients must distinguish an unreadable host file from a project the host does not carry.
+        final Matcher project =
+                Pattern.compile("(?ms)^type Project \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(project.find()).as("the project type is declared").isTrue();
+        assertThat(project.group(1))
+                .as("the per-project error is optional on the wire")
+                .contains("hostFileError: ?string");
+    }
+
+    @Test
     void missingBuildsCredentialsAreDeclaredForTheStartAndTask() {
         // Clients must learn the remedy and restart requirement from typed fields, never prose.
         final String description = PoreloDaemon.description();

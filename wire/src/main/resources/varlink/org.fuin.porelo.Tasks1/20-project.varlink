@@ -25,6 +25,9 @@ type Project (
   # Absent when there is no explanation. waiting-for-token needs the person's forge token once
   # per new repository to install its read key and copy it; the host keeps no token.
   hostWhy: ?string,
+  # The project's host file and why it does not read. Absent when the file reads or this machine
+  # is no host of the project for this person; other projects remain listed when one file fails.
+  hostFileError: ?string,
   # The gate's mirror for it. "" when it has never used the gate.
   mirror: string,
   # How many pushes are waiting for review in that mirror.
