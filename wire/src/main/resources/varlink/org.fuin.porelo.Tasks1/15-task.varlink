@@ -528,6 +528,10 @@ method Start(
   # Task name within the project. Omitted, the repository's name, or the next free one (my-first-2), never an
   # existing task's.
   task: ?string,
+  # Optional container spelling: [a-z][a-z0-9-]*, at most 16 characters, no underscore or porelo- prefix.
+  # Recorded at creation, alongside the project's short spelling; an existing task keeps its name.
+  # Container creation currently retains the legacy name.
+  short: ?string,
   # Project NAME, as Projects.name gives it. REQUIRED - there is no default directory any more.
   project: ?string,
   # Agent to run, by the name Agents reports. Default: the agent the project file names for the
@@ -1001,6 +1005,10 @@ method CanStart(
   # The task name Start would be given. Omitted, no name is checked. The length rule needs the
   # project, so without one only the characters are.
   task: ?string,
+  # Optional container spelling: [a-z][a-z0-9-]*, at most 16 characters, no underscore or porelo- prefix.
+  # Recorded at creation, alongside the project's short spelling; an existing task keeps its name.
+  # Container creation currently retains the legacy name.
+  short: ?string,
   # Agent to run. Omitted, the agent the project file names for the repository, else the only one
   # installed.
   agent: ?string,

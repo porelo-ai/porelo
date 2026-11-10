@@ -121,7 +121,8 @@ final class FileBinder {
                         b.text(s.get("central"), "project.central"),
                         b.text(s.get("upstream"), "project.upstream")),
                 b.text(s.get("review"), "project.review"),
-                b.word(s.get("nickname"), "project.nickname"));
+                b.word(s.get("nickname"), "project.nickname"),
+                b.word(s.get("short"), "project.short"));
     }
 
     private static @Nullable String named(

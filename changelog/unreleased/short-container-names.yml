@@ -1,0 +1,2 @@
+title: "Projects accept project.short and task start accepts --short, recording both spellings with the task identity; the compact codec uses them while container creation keeps legacy names"
+type: added

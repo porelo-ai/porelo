@@ -183,6 +183,9 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task check-certificate --task TASK --login LOGIN --keys FILE [--krl FILE] [--json]` | Run by a host's helper, not by hand: checks the task certificate on standard input before the host records it, and writes nothing ([the host's contract](hosts.md#a-task-certificate-judged-for-the-host)). |
 
 **`task start`**
+- `--short NAME`: records an optional container spelling for the task: `[a-z][a-z0-9-]*`, at most 16 characters,
+  no underscore and no `porelo-` prefix. It stays fixed with the project's short spelling when the task is created.
+  Container creation currently keeps the legacy name.
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
 - With no project named, at a terminal, a checkout with no project is asked about: what the adapters found, each host
   it would open, and anything they could not read, such as a JDK a parent POM sets that is not there yet, which a yes

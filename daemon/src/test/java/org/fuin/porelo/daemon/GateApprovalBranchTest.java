@@ -24,6 +24,56 @@ class GateApprovalBranchTest {
 
     // Clients need an additive field they can read without requiring every upstream to be a host.
     @Test
+    void aDaemonPreflightRefusesChangingAnExistingShortSpelling() throws Exception {
+        // Preflight must not promise that resuming can change an immutable spelling.
+        final PoreloContext context = context("");
+        final String id = "a".repeat(64);
+        ((FakeCommandRunner) context.runner())
+                .answering(
+                        "ps", "porelo-uc-work\tUp 1 minute\t\t\tuc\tguarded\tuc\t\t" + id + "\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-work"), id);
+        final var result =
+                TaskMethods.canStart(
+                        context,
+                        Map.of("task", "work", "short", "x", "noGate", true),
+                        dir.resolve("project.yml"));
+        assertThat(result.outcome())
+                .as("existing tasks keep their original spelling")
+                .isEqualTo(org.fuin.porelo.app.StartCheck.Outcome.BAD_TASK_NAME);
+        assertThat(result.detail()).as("a new task is the available remedy").contains("new task");
+    }
+
+    @Test
+    void aDaemonPreflightRefusesTheSameInvalidShortNameAsStart() throws Exception {
+        // CanStart must not offer a start whose spelling will be refused after side effects.
+        final PoreloContext context = context("");
+        final var result =
+                TaskMethods.canStart(
+                        context,
+                        Map.of("task", "work", "short", "Upper", "noGate", true),
+                        dir.resolve("project.yml"));
+        assertThat(result.outcome())
+                .as("the shared rule refuses the spelling")
+                .isEqualTo(org.fuin.porelo.app.StartCheck.Outcome.BAD_TASK_NAME);
+        assertThat(result.detail())
+                .as("the answer identifies the field and remedy")
+                .contains("short", "lowercase");
+    }
+
+    @Test
+    void aDaemonStartPassesTheShortSpellingToTheSharedRequest() throws Exception {
+        // A daemon start must preserve the same immutable spelling as a CLI start.
+        final var request =
+                PoreloDaemon.request(
+                        Map.of("project", "uc", "task", "work", "short", "x", "repository", "uc"),
+                        context(""));
+        assertThat(request.shortName())
+                .as("the wire spelling reaches the common start request")
+                .isEqualTo("x");
+    }
+
+    @Test
     void theApprovalContractCanReturnAPullRequestWithoutRequiringOne() {
         final String description = PoreloDaemon.description();
         final String approval =

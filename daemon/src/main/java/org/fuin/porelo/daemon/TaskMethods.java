@@ -134,6 +134,26 @@ final class TaskMethods {
         throw new VarlinkException(INTERFACE + ".SignInNeeded", fields);
     }
 
+    /** Maps the wire's preflight choices onto the same start validation the CLI uses. */
+    static org.fuin.porelo.app.StartCheck.Result canStart(
+            PoreloContext context,
+            Map<String, Object> parameters,
+            java.nio.file.@org.jspecify.annotations.Nullable Path projectFile) {
+        return org.fuin.porelo.app.StartCheck.check(
+                context,
+                projectFile,
+                empty(parameters, "task"),
+                empty(parameters, "agent"),
+                empty(parameters, "provider"),
+                empty(parameters, "credentialType"),
+                empty(parameters, "repository"),
+                !flag(parameters, "noGate"),
+                credentials(parameters),
+                values(parameters),
+                empty(parameters, "branch"),
+                PoreloDaemon.shortName(parameters));
+    }
+
     /**
      * Registers this area's methods.
      *
@@ -755,28 +775,7 @@ final class TaskMethods {
                         return;
                     }
                     final Map<String, Object> answer =
-                            new LinkedHashMap<>(
-                                    org.fuin.porelo.app.StartCheck.check(
-                                                    context,
-                                                    // A name, as everything else takes now. Left
-                                                    // out, no project is checked - which is how an
-                                                    // interface asks about the machine before one
-                                                    // is chosen.
-                                                    named,
-                                                    empty(parameters, "task"),
-                                                    empty(parameters, "agent"),
-                                                    empty(parameters, "provider"),
-                                                    empty(parameters, "credentialType"),
-                                                    empty(parameters, "repository"),
-                                                    // A run with no gate works on no repository, so
-                                                    // there is nothing for it to name - and asking
-                                                    // for one would be asking about something that
-                                                    // does not exist for that run.
-                                                    !flag(parameters, "noGate"),
-                                                    credentials(parameters),
-                                                    values(parameters),
-                                                    empty(parameters, "branch"))
-                                            .asMap());
+                            new LinkedHashMap<>(canStart(context, parameters, named).asMap());
                     // What the host offers, asked only when it is the question: it reaches the
                     // network.
                     answer.put(
@@ -886,7 +885,13 @@ final class TaskMethods {
                     // read as a lower number, or dropped, would bound the agent to something nobody
                     // asked for, and a host or a task looked up for it reached the network and the
                     // runtime for a start that was going to be refused.
-                    final String badSubagents = PoreloDaemon.subagentsRefused(parameters);
+                    final String badShort =
+                            org.fuin.porelo.core.project.ShortName.refusal(
+                                            PoreloDaemon.shortName(parameters))
+                                    .map(reason -> "short: " + reason)
+                                    .orElse(null);
+                    final String badSubagents =
+                            badShort == null ? PoreloDaemon.subagentsRefused(parameters) : badShort;
                     if (badSubagents != null) {
                         sink.println("porelo: " + badSubagents);
                         sink.println("porelo: nothing was created");

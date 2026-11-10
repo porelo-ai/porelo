@@ -183,6 +183,13 @@ final class ProjectSchema {
                             false),
                     key(
                             "project",
+                            "short",
+                            "Optional container spelling: lowercase letters, digits and hyphens, starting with a letter; at most 16 characters and no porelo- prefix.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "project",
                             "name",
                             "The project's name: lower-case letters, digits and hyphens, at most 63"
                                     + " characters, and not 'default'.",

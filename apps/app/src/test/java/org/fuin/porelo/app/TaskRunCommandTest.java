@@ -282,6 +282,87 @@ class TaskRunCommandTest {
         assertThat(execCalls).as("a refused start must not enter a task").isEmpty();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void anExistingTaskRefusesAnotherShortSpellingWithoutChangingIt(
+            boolean running, @TempDir Path dir) throws Exception {
+        // An ignored immutable option must not start work under a spelling the caller did not
+        // request.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                running
+                        ? RUNNING_SHELL
+                        : RUNNING_SHELL.replace("Up 4 minutes", "Exited (0) 4 minutes ago"));
+        assertThat(startAt(context, true, "-p", projectFile(dir, MINIMAL), "--short", "x"))
+                .as("an existing task cannot change its spelling: %s", err)
+                .isEqualTo(64);
+        assertThat(err.toString())
+                .as("the remedy is a new task, since stop cannot change the spelling")
+                .contains("--short", "new task")
+                .doesNotContain("effect only after");
+        assertThat(runner.lines())
+                .as("an immutable-name refusal must not resume or recreate the task")
+                .noneMatch(line -> line.contains("podman start") || line.contains("podman create"));
+    }
+
+    @Test
+    void recordsBothShortSpellingsWhileCreatingTheLegacyName(@TempDir Path dir) throws Exception {
+        // A later project edit must not lose the actual name or its original spelling.
+        final PoreloContext context = context(dir, true);
+        final String file =
+                projectFile(dir, MINIMAL.replace("name: \"uc\"", "name: \"uc\"\n  short: ws"));
+        assertThat(
+                        execute(
+                                context,
+                                "task",
+                                "start",
+                                "shell",
+                                "-p",
+                                file,
+                                "--attach",
+                                "shell",
+                                "--short",
+                                "x"))
+                .as("a short spelling reaches the ordinary start: %s", err)
+                .isZero();
+        for (Path state :
+                List.of(
+                        context.paths().tasks().containerState("porelo-uc-shell"),
+                        context.paths().tasks().taskRecord("porelo-uc-shell"))) {
+            final var sidecar =
+                    org.fuin.porelo.wire.Sidecar.readFrom(state.resolve("sidecar.json"));
+            assertThat(sidecar.task()).as("the logical owner is recorded").isEqualTo("shell");
+            assertThat(sidecar.projectShort())
+                    .as("the original project spelling is recorded")
+                    .isEqualTo("ws");
+            assertThat(sidecar.taskShort())
+                    .as("the requested task spelling is recorded")
+                    .isEqualTo("x");
+        }
+        assertThat(runner.lines())
+                .as("this slice keeps legacy creation")
+                .anyMatch(
+                        line ->
+                                line.contains("podman create")
+                                        && line.contains("--name porelo-uc-shell"));
+    }
+
+    @Test
+    void refusesAnInvalidShortNameBeforeMakingTaskState(@TempDir Path dir) throws Exception {
+        // Invalid names must not leave state for a task that can never be created.
+        final PoreloContext context = context(dir, true);
+        assertThat(execute(context, "task", "start", "shell", "--short", "Upper"))
+                .as("a wrong short spelling is a usage refusal")
+                .isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal identifies the option and rule")
+                .contains("--short", "lowercase");
+        assertThat(Files.exists(context.paths().tasks().containerState("porelo-uc-shell")))
+                .as("the refused start makes no task")
+                .isFalse();
+    }
+
     @Test
     void aHostRefusesAnUncertifiableStartBeforeStartingItsBroker(@TempDir Path dir)
             throws IOException {

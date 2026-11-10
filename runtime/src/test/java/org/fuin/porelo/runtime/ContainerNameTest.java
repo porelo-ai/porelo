@@ -7,6 +7,34 @@ import org.junit.jupiter.api.Test;
 /** Tests for {@link ContainerName}. */
 class ContainerNameTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(
+            value = {
+                "website, work, ws, x, porelo-ws_x",
+                "website, work, ws, NULL, porelo-ws_work",
+                "website, work, NULL, x, porelo-website_x",
+                "website, work, NULL, NULL, porelo-website_work",
+                "porelo, work, ws, x, porelo-x",
+                "porelo, work, ws, NULL, porelo-work"
+            },
+            nullValues = "NULL")
+    void usesEachRecordedShortSpellingIndependently(
+            String project, String task, String projectShort, String taskShort, String expected)
+            throws Exception {
+        // The recorded spelling must identify the same container on every lookup.
+        assertThat(ContainerName.encoded(project, task, projectShort, taskShort, 1000L))
+                .as("each absent spelling falls back to its logical name")
+                .isEqualTo(expected);
+        assertThat(ContainerName.isEncoded(project, task, projectShort, taskShort, expected))
+                .as("recorded-name verification uses the same codec")
+                .isEqualTo(true);
+        assertThat(
+                        ContainerName.isEncoded(
+                                project, task, projectShort, taskShort, expected + "-other"))
+                .as("a different container cannot be adopted")
+                .isEqualTo(false);
+    }
+
     @Test
     void encodesDistinctOwnersWithoutHyphenAmbiguity() {
         // A collision can make a second project resume or overwrite the first task.

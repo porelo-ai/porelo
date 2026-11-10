@@ -25,6 +25,9 @@ import java.util.Map;
  * @param poreloBinary Path to the {@code porelo} binary, so a hook can start the long-running
  *     helpers that need it. The hooks are static and make no native calls; anything that does has
  *     to be a separate process, and this is where they find it.
+ * @param task Logical task, or null for older records.
+ * @param projectShort Project spelling fixed when the task was created, or null.
+ * @param taskShort Task spelling fixed when the task was created, or null.
  * @param stateDirectory Directory the hooks write their own state into.
  */
 public record Sidecar(
@@ -34,7 +37,32 @@ public record Sidecar(
         String rulesetFile,
         String dnsConfigFile,
         String poreloBinary,
-        String stateDirectory) {
+        String stateDirectory,
+        @org.jspecify.annotations.Nullable String task,
+        @org.jspecify.annotations.Nullable String projectShort,
+        @org.jspecify.annotations.Nullable String taskShort) {
+
+    /** Constructor for a sidecar without an explicit logical task or short spellings. */
+    public Sidecar(
+            int version,
+            String project,
+            String securityClass,
+            String rulesetFile,
+            String dnsConfigFile,
+            String poreloBinary,
+            String stateDirectory) {
+        this(
+                version,
+                project,
+                securityClass,
+                rulesetFile,
+                dnsConfigFile,
+                poreloBinary,
+                stateDirectory,
+                null,
+                null,
+                null);
+    }
 
     /**
      * Current schema version.
@@ -177,7 +205,15 @@ public record Sidecar(
         map.put("dnsConfigFile", dnsConfigFile);
         map.put("poreloBinary", poreloBinary);
         map.put("stateDirectory", stateDirectory);
+        if (task != null) map.put("task", task);
+        if (projectShort != null) map.put("projectShort", projectShort);
+        if (taskShort != null) map.put("taskShort", taskShort);
         return Json.write(map);
+    }
+
+    private static @org.jspecify.annotations.Nullable String optionalString(
+            Map<?, ?> map, String key) {
+        return map.get(key) == null ? null : string(map, key);
     }
 
     /**
@@ -205,7 +241,10 @@ public record Sidecar(
                 string(map, "rulesetFile"),
                 string(map, "dnsConfigFile"),
                 string(map, "poreloBinary"),
-                string(map, "stateDirectory"));
+                string(map, "stateDirectory"),
+                optionalString(map, "task"),
+                optionalString(map, "projectShort"),
+                optionalString(map, "taskShort"));
     }
 
     /**

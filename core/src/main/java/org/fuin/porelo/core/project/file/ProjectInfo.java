@@ -11,6 +11,7 @@ import org.jspecify.annotations.Nullable;
  *     required.
  * @param upstream Where approved work on the project's own repository goes ({@code upstream}).
  * @param review {@code required} or {@code optional} ({@code review}).
+ * @param shortName Optional container spelling ({@code short}).
  * @param nickname The name the agent of its own repository goes by ({@code nickname}).
  */
 public record ProjectInfo(
@@ -19,4 +20,16 @@ public record ProjectInfo(
         @Nullable String securityClass,
         @Nullable String upstream,
         @Nullable String review,
-        @Nullable String nickname) {}
+        @Nullable String nickname,
+        @Nullable String shortName) {
+    /** Constructor for a file without a short spelling. */
+    public ProjectInfo(
+            @Nullable String name,
+            @Nullable String description,
+            @Nullable String securityClass,
+            @Nullable String upstream,
+            @Nullable String review,
+            @Nullable String nickname) {
+        this(name, description, securityClass, upstream, review, nickname, null);
+    }
+}

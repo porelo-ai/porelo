@@ -686,6 +686,61 @@ public final class StartCheck {
             Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
             @Nullable String branch) {
 
+        return check(
+                context,
+                projectFile,
+                taskName,
+                agentName,
+                providerName,
+                credentialType,
+                repository,
+                needsRepository,
+                credentials,
+                parameters,
+                branch,
+                null);
+    }
+
+    /** Preflights the same optional container spelling that the shared start records. */
+    public static Result check(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch,
+            @Nullable String shortName) {
+
+        final java.util.Optional<String> badShort =
+                org.fuin.porelo.core.project.ShortName.refusal(shortName);
+        if (badShort.isPresent())
+            return refused(Outcome.BAD_TASK_NAME, "short: " + badShort.orElseThrow());
+
+        if (shortName != null
+                && projectFile != null
+                && Files.isRegularFile(projectFile)
+                && taskName != null) {
+            org.fuin.porelo.core.project.Project project = null;
+            try {
+                project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            } catch (org.fuin.porelo.core.project.ProjectException ex) {
+                // The file's own check below reports why it cannot be read.
+            }
+            if (project != null) {
+                final java.util.Optional<String> immutable =
+                        TaskIdentities.shortNameRefusal(
+                                new TaskIdentities(context).lookup(taskName, project.name()),
+                                shortName);
+                if (immutable.isPresent())
+                    return refused(Outcome.BAD_TASK_NAME, immutable.orElseThrow());
+            }
+        }
+
         // One repository for its agent, as Start settles it.
         final org.fuin.porelo.core.project.Repository settled =
                 settledRepository(projectFile, repository, needsRepository);

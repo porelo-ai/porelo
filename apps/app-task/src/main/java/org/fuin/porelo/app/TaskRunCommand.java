@@ -57,6 +57,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean nameGiven;
 
     @Option(
+            names = "--short",
+            paramLabel = "<name>",
+            description =
+                    "Optional container spelling: lowercase letters, digits and hyphens, starting with a letter; at most 16 characters and no porelo- prefix.")
+    private @Nullable String shortName;
+
+    @Option(
             names = {"-p", "--project"},
             paramLabel = "<name>",
             description =
@@ -569,6 +576,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
+        final java.util.Optional<String> badShort =
+                org.fuin.porelo.core.project.ShortName.refusal(shortName);
+        if (badShort.isPresent()) {
+            err.println("porelo: --short: " + badShort.orElseThrow());
+            err.flush();
+            return 64;
+        }
 
         // Before --restarted: a start meant for a host never restarts this machine's tasks.
         if (host != null) {
@@ -800,7 +814,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         spec.commandLine().getParseResult().hasMatchedPositional(0)
                                                         || nameGiven
                                                 ? task
-                                                : null),
+                                                : null,
+                                        shortName),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.

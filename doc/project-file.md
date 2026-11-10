@@ -34,6 +34,11 @@ project:
   # A task's container is named 'porelo-<name>-<task>'.
   name: "myproject"
 
+  # Optional container spelling: [a-z][a-z0-9-]*, at most 16 characters, no underscore or porelo- prefix.
+  # Recorded with a task at creation; changing it leaves existing task identities unchanged.
+  # Container creation currently keeps the legacy name above.
+  short: "myproj"
+
   # Optional. For people; shown where the project is listed.
   description: "The thing that talks to the payment provider"
 

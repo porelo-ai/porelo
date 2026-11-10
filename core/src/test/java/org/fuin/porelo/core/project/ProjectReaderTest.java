@@ -25,6 +25,36 @@ class ProjectReaderTest {
         return ProjectReader.read(new StringReader(yaml), "test.yml");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "Ws, lowercase",
+        "w_s, lowercase",
+        "abcdefghijklmnopq, 16",
+        "porelo-x, porelo-"
+    })
+    void refusesAShortNameThatCannotBeEncoded(String shortName, String reason) {
+        // A spelling outside the shared alphabet can alias another container's owner.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL.replace(
+                                                "name: \"uc\"",
+                                                "name: \"uc\"\n  short: " + shortName)))
+                .as("project.short must be validated before a task can use it")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("project.short")
+                .hasMessageContaining(reason);
+    }
+
+    @Test
+    void readsAnOptionalShortNameWithoutChangingTheProjectIdentity() throws Exception {
+        final Project project = read(MINIMAL.replace("name: \"uc\"", "name: \"uc\"\n  short: ws"));
+        assertThat(project.shortName())
+                .as("the short spelling is available independently of the logical project")
+                .isEqualTo("ws");
+        assertThat(project.name()).as("the logical owner stays unchanged").isEqualTo("uc");
+    }
+
     @Test
     void readsAProjectDefinition() {
 

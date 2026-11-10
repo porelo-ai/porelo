@@ -2,6 +2,8 @@ package org.fuin.porelo.runtime;
 
 import org.fuin.porelo.core.project.Mail;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.core.project.ShortName;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Names of the objects Porelo creates in podman.
@@ -43,6 +45,26 @@ public final class ContainerName {
 
     /** Encodes a new task, refusing a spelling whose sockets cannot fit for this uid. */
     public static String encoded(String project, String task, long uid) {
+        return encoded(project, task, null, null, uid);
+    }
+
+    /** Encodes each supplied short spelling, retaining the logical names as the fallbacks. */
+    public static String encoded(
+            String project,
+            String task,
+            @Nullable String projectShort,
+            @Nullable String taskShort,
+            long uid) {
+        ShortName.refusal(projectShort)
+                .ifPresent(
+                        reason -> {
+                            throw new IllegalArgumentException("project.short: " + reason);
+                        });
+        ShortName.refusal(taskShort)
+                .ifPresent(
+                        reason -> {
+                            throw new IllegalArgumentException("--short: " + reason);
+                        });
         if (!project.matches(Project.NAME_PATTERN) || uid < 0 || uid > 4294967295L) {
             throw new IllegalArgumentException("Use a valid project name and unsigned 32-bit uid");
         }
@@ -50,15 +72,20 @@ public final class ContainerName {
         if (invalid.isPresent()) {
             throw new IllegalArgumentException(invalid.orElseThrow());
         }
-        if (reserved(project, task)) {
+        final String spelling = taskShort == null ? task : taskShort;
+        if (reserved(project, task) || reserved(project, spelling)) {
             throw new IllegalArgumentException(
                     "Choose another task name: login-<digits> is reserved in project porelo");
         }
-        final String prefix = PREFIX + (project.equals("porelo") ? "" : project + "_");
+        final String prefix =
+                PREFIX
+                        + (project.equals("porelo")
+                                ? ""
+                                : (projectShort == null ? project : projectShort) + "_");
         // The daemon endpoint is one byte longer than the SSH socket; neither may exceed 107.
         final int budget = 107 - (10 + Long.toString(uid).length() + 8 + 4 + 12);
         final int room = budget - prefix.length();
-        if (task.length() > room) {
+        if (spelling.length() > room) {
             throw new IllegalArgumentException(
                     "Choose a task name of at most "
                             + Math.max(0, room)
@@ -67,12 +94,29 @@ public final class ContainerName {
                             + "' so its sockets fit"
                             + (room <= 0 ? "; choose a shorter project name" : ""));
         }
-        return prefix + task;
+        return prefix + spelling;
     }
 
     /** Checks a recorded encoded identity without applying a new task's socket budget. */
     public static boolean isEncoded(String project, String task, String container) {
-        return container.equals(PREFIX + (project.equals("porelo") ? "" : project + "_") + task);
+        return isEncoded(project, task, null, null, container);
+    }
+
+    /** Verifies the actual name from its original short spellings, without a current uid budget. */
+    public static boolean isEncoded(
+            String project,
+            String task,
+            @Nullable String projectShort,
+            @Nullable String taskShort,
+            String container) {
+        if (ShortName.refusal(projectShort).isPresent() || ShortName.refusal(taskShort).isPresent())
+            return false;
+        return container.equals(
+                PREFIX
+                        + (project.equals("porelo")
+                                ? ""
+                                : (projectShort == null ? project : projectShort) + "_")
+                        + (taskShort == null ? task : taskShort));
     }
 
     /**

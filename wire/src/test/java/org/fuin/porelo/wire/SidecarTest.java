@@ -22,6 +22,25 @@ class SidecarTest {
                     "/run/user/1000/porelo/uc");
 
     @Test
+    void preservesOptionalIdentitySpellingsAcrossAReadAndWrite() {
+        // Dropping a recorded spelling makes an existing task unresolvable after restart.
+        final String recorded =
+                SIDECAR.toJson()
+                        .replace(
+                                "{",
+                                "{\"task\":\"work\",\"projectShort\":\"ws\",\"taskShort\":\"x\",");
+        assertThat(Json.parse(Sidecar.fromJson(recorded).toJson()))
+                .as("the hook record retains the task's immutable spelling")
+                .isInstanceOfSatisfying(
+                        java.util.Map.class,
+                        values ->
+                                assertThat(values)
+                                        .containsEntry("task", "work")
+                                        .containsEntry("projectShort", "ws")
+                                        .containsEntry("taskShort", "x"));
+    }
+
+    @Test
     void survivesARoundTrip() {
 
         assertThat(Sidecar.fromJson(SIDECAR.toJson())).isEqualTo(SIDECAR);

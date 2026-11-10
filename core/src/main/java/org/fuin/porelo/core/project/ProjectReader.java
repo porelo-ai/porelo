@@ -275,7 +275,8 @@ public final class ProjectReader {
                 review(info.review()),
                 image.env(),
                 file.baseBranch(),
-                providers(file, Map.of()));
+                providers(file, Map.of()),
+                info.shortName());
     }
 
     /**

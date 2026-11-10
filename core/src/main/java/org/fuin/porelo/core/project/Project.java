@@ -4,6 +4,7 @@ package org.fuin.porelo.core.project;
  * A project a task can run against.
  *
  * @param name Short name, used for container and image names.
+ * @param shortName Optional container spelling, independent of the project identity.
  * @param description Human-readable description, may be empty.
  * @param securityClass How much the agent is trusted with the outside world.
  * @param baseImage Container image the task image is built from.
@@ -59,7 +60,56 @@ public record Project(
         String review,
         java.util.Map<String, String> imageEnv,
         @org.jspecify.annotations.Nullable String baseBranch,
-        java.util.Map<String, ModelDefault> providers) {
+        java.util.Map<String, ModelDefault> providers,
+        @org.jspecify.annotations.Nullable String shortName) {
+
+    /** Constructor for a project without a short spelling. */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname,
+            @org.jspecify.annotations.Nullable BranchScheme branch,
+            String review,
+            java.util.Map<String, String> imageEnv,
+            @org.jspecify.annotations.Nullable String baseBranch,
+            java.util.Map<String, ModelDefault> providers) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                providers,
+                null);
+    }
 
     /**
      * Constructor for a project that names no provider's model.
@@ -845,6 +895,11 @@ public record Project(
     }
 
     public Project {
+        ShortName.refusal(shortName)
+                .ifPresent(
+                        reason -> {
+                            throw new ProjectException("project.short: " + reason);
+                        });
         parameters = parameters == null ? Parameters.none() : parameters;
         providers =
                 providers == null
@@ -1062,7 +1117,8 @@ public record Project(
                 review,
                 imageEnv,
                 baseBranch,
-                providers);
+                providers,
+                shortName);
     }
 
     /**
@@ -1093,7 +1149,8 @@ public record Project(
                 review,
                 imageEnv,
                 baseBranch,
-                each);
+                each,
+                shortName);
     }
 
     /**
@@ -1237,6 +1294,7 @@ public record Project(
                 review,
                 java.util.Map.of(),
                 baseBranch,
-                providers);
+                providers,
+                shortName);
     }
 }

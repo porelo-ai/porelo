@@ -857,7 +857,8 @@ public final class PoreloDaemon {
                 // The task whose MCP socket the call came over, never a field of the call.
                 McpTaskSockets.caller(),
                 // The caller's own word only: a name the MCP endpoint settled for it is none.
-                task.isEmpty() || flag(parameters, UNNAMED) ? null : task);
+                task.isEmpty() || flag(parameters, UNNAMED) ? null : task,
+                shortName(parameters));
     }
 
     /**
@@ -922,6 +923,15 @@ public final class PoreloDaemon {
                 + org.fuin.porelo.agent.api.SubagentLimit.MOST
                 + ", not "
                 + (given instanceof String text ? "'" + text + "'" : given);
+    }
+
+    /** Keeps an explicitly empty short spelling available for the shared validator to refuse. */
+    static @Nullable String shortName(Map<String, Object> parameters) {
+        final Object value = parameters.get("short");
+        if (value == null) return null;
+        if (value instanceof String name) return name;
+        throw new VarlinkException(
+                "org.varlink.service.InvalidParameter", Map.of("parameter", "short"));
     }
 
     /**

@@ -369,6 +369,8 @@ public final class ProjectFileCheck {
         }
         review(info.review(), "project.review");
         nickname(info.nickname(), "project.nickname");
+        org.fuin.porelo.core.project.ShortName.refusal(info.shortName())
+                .ifPresent(reason -> fault("project.short", "project.short: " + reason));
         return securityClass;
     }
 

@@ -63,6 +63,7 @@ public final class TaskLaunch {
      *     same time, or {@code null} for what the project file says, and none when it says nothing.
      * @param parent The task whose MCP endpoint asked for this start, by container name, or {@code
      *     null} for a person's start. The daemon takes it from the socket the start came over.
+     * @param shortName Optional container spelling, fixed when the task is created.
      * @param named The task name as the caller gave it, or {@code null} when the start took it from
      *     the repository or numbered it; recorded so a client shows the name a person chose.
      */
@@ -90,7 +91,62 @@ public final class TaskLaunch {
             @Nullable Integer subagents,
             @Nullable TaskBase base,
             @Nullable String parent,
-            @Nullable String named) {
+            @Nullable String named,
+            @Nullable String shortName) {
+
+        /** Constructor for a start without a task short spelling. */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch,
+                @Nullable Integer subagents,
+                @Nullable TaskBase base,
+                @Nullable String parent,
+                @Nullable String named) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    subagents,
+                    base,
+                    parent,
+                    named,
+                    null);
+        }
 
         /**
          * Constructor for a start whose name nobody gave.
@@ -662,7 +718,8 @@ public final class TaskLaunch {
                     base,
                     parent,
                     // The same task by its other name: a person who named it named it so.
-                    named == null ? null : name);
+                    named == null ? null : name,
+                    shortName);
         }
     }
 
@@ -1332,6 +1389,16 @@ public final class TaskLaunch {
         if (summary.isEmpty()) {
             return null;
         }
+        if (request.shortName() != null) {
+            final java.util.Optional<String> immutable =
+                    TaskIdentities.shortNameRefusal(
+                            new TaskIdentities(context).read(summary.get()), request.shortName());
+            if (immutable.isPresent()) {
+                err.println("porelo: " + container + ": " + immutable.orElseThrow());
+                err.flush();
+                return new Existing(container, project.name(), 64);
+            }
+        }
         // Refused by the launch: a stopped task needs 'ssh-keygen -Y' as a new one does. A running
         // one is only gone into, which needs no signature.
         if (!summary.get().running()
@@ -1706,7 +1773,8 @@ public final class TaskLaunch {
                             request.subagents(),
                             request.base(),
                             request.parent(),
-                            request.named());
+                            request.named(),
+                            request.shortName());
         }
         return null;
     }
@@ -2135,6 +2203,13 @@ public final class TaskLaunch {
     }
 
     private int launchSteps(PrintWriter out, PrintWriter err, AfterStart after) {
+        final java.util.Optional<String> badShort =
+                org.fuin.porelo.core.project.ShortName.refusal(request.shortName());
+        if (badShort.isPresent()) {
+            err.println("porelo: --short: " + badShort.orElseThrow());
+            err.flush();
+            return 64;
+        }
         // Even remembering the project would leave state for a task this machine cannot create.
         if (!request.dryRun()) {
             final java.util.Optional<String> missingInit = TaskInit.missing(context);
@@ -3101,7 +3176,9 @@ public final class TaskLaunch {
                     domains,
                     wiring,
                     out,
-                    steps);
+                    steps,
+                    request.task(),
+                    request.shortName());
 
             // Once the container is up, and only one the broker gave a token for: a credential the
             // vault lacks, or one the broker never came up for, was given to nobody. Names only,

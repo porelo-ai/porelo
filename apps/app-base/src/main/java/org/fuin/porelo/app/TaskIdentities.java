@@ -124,7 +124,7 @@ public final class TaskIdentities {
             } else if (result instanceof Refused refused
                     && summary.project() != null
                     && (project == null || project.equals(summary.project()))
-                    && given.equals(logical(summary.project(), summary))) {
+                    && given.equals(claimedTask(summary.project(), summary))) {
                 incomplete = refused;
             }
         }
@@ -156,6 +156,7 @@ public final class TaskIdentities {
         final Path durable = context.paths().tasks().taskRecord(name);
         String id = null;
         String project = summary.project();
+        Sidecar identityRecord = null;
         try {
             for (Path directory : List.of(durable, runtime)) {
                 final Path idFile = directory.resolve(Sidecar.RECORDED_ID);
@@ -184,6 +185,15 @@ public final class TaskIdentities {
                         return new Refused(Reason.PROJECT_MISMATCH, name);
                     }
                     project = sidecar.project();
+                    if (identityRecord != null
+                            && (!java.util.Objects.equals(identityRecord.task(), sidecar.task())
+                                    || !java.util.Objects.equals(
+                                            identityRecord.projectShort(), sidecar.projectShort())
+                                    || !java.util.Objects.equals(
+                                            identityRecord.taskShort(), sidecar.taskShort()))) {
+                        return new Refused(Reason.INVALID_RECORD, name);
+                    }
+                    identityRecord = sidecar;
                 }
             }
         } catch (IOException | IllegalArgumentException | org.fuin.porelo.wire.JsonException ex) {
@@ -198,27 +208,57 @@ public final class TaskIdentities {
         if (project == null || !project.matches(Project.NAME_PATTERN)) {
             return new Refused(Reason.MISSING_RECORD, name);
         }
-        final String task = logical(project, summary);
-        if (task.isEmpty() || !task.matches(Project.TASK_NAME_PATTERN)) {
+        final String projectShort = identityRecord == null ? null : identityRecord.projectShort();
+        final String taskShort = identityRecord == null ? null : identityRecord.taskShort();
+        if (org.fuin.porelo.core.project.ShortName.refusal(projectShort).isPresent()
+                || org.fuin.porelo.core.project.ShortName.refusal(taskShort).isPresent()) {
+            return new Refused(Reason.INVALID_RECORD, name);
+        }
+        final String recordedTask = identityRecord == null ? null : identityRecord.task();
+        if (recordedTask != null
+                && summary.task() != null
+                && !recordedTask.equals(summary.task())) {
+            return new Refused(Reason.INVALID_RECORD, name);
+        }
+        final String explicitTask = recordedTask == null ? summary.task() : recordedTask;
+        final String task =
+                explicitTask == null ? ContainerName.taskIn(project, name) : explicitTask;
+        if (task.isEmpty()
+                || !task.matches(Project.TASK_NAME_PATTERN)
+                || explicitTask == null && (projectShort != null || taskShort != null)) {
+            return new Refused(Reason.INVALID_RECORD, name);
+        }
+        final TaskIdentity.Format format;
+        if (name.equals(ContainerName.PREFIX + project + "-" + task)) {
+            format = TaskIdentity.Format.LEGACY;
+        } else if (explicitTask != null
+                && ContainerName.isEncoded(project, task, projectShort, taskShort, name)) {
+            format = TaskIdentity.Format.ENCODED;
+        } else {
             return new Refused(Reason.INVALID_RECORD, name);
         }
         return new Found(
-                new TaskIdentity(
-                        summary.task() == null
-                                ? TaskIdentity.Format.LEGACY
-                                : TaskIdentity.Format.ENCODED,
-                        project,
-                        task,
-                        name,
-                        id));
+                new TaskIdentity(format, project, task, name, id, projectShort, taskShort));
     }
 
-    private static String logical(String project, ContainerSummary summary) {
-        if (summary.task() == null) {
-            return ContainerName.taskIn(project, summary.name());
+    // An unverified label can only block an ambiguous lookup, never authorize an action.
+    private static String claimedTask(String project, ContainerSummary summary) {
+        return summary.task() == null
+                ? ContainerName.taskIn(project, summary.name())
+                : summary.task();
+    }
+
+    /** Refuses a request that would change an existing task's original spelling. */
+    public static java.util.Optional<String> shortNameRefusal(
+            Result identity, @Nullable String shortName) {
+        if (shortName == null
+                || identity instanceof Refused refused && refused.reason() == Reason.MISSING) {
+            return java.util.Optional.empty();
         }
-        return ContainerName.isEncoded(project, summary.task(), summary.name())
-                ? summary.task()
-                : "";
+        if (identity instanceof Found found && shortName.equals(found.identity().taskShort())) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(
+                "--short is fixed when a task is created; start a new task to use another spelling");
     }
 }

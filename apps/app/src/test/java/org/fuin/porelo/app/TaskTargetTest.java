@@ -20,6 +20,65 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class TaskTargetTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void anIncompleteShortenedOwnerCannotSelectAnotherProjectsTask(boolean mismatched)
+            throws Exception {
+        // Incomplete ownership must block unscoped commands from choosing a different task.
+        listed =
+                "porelo-other_work\tUp 1 minute\t\t\tother\tguarded\tr\t\t"
+                        + OTHER_ID
+                        + "\twork\n"
+                        + "porelo-ws_x\tUp 1 minute\t\t\twebsite\tguarded\tr\t\t"
+                        + ID
+                        + "\twork\n";
+        record("porelo-other_work", OTHER_ID);
+        if (mismatched) record("porelo-ws_x", OTHER_ID);
+        assertThat(new TaskIdentities(context).lookup("work", null))
+                .as("a second logical claim must prevent choosing the other project")
+                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.AMBIGUOUS, "work"));
+    }
+
+    @Test
+    void resolvesTheRecordedShortSpellingsAfterTheProjectChanges() throws Exception {
+        // A changed project file must never redirect an existing task to another container.
+        final String actual = "porelo-ws_x";
+        listed = actual + "\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\t" + ID + "\twork\n";
+        final Path state = context.paths().tasks().taskRecord(actual);
+        org.fuin.porelo.wire.Sidecar.recordId(state, ID);
+        Files.writeString(
+                state.resolve("sidecar.json"),
+                new org.fuin.porelo.wire.Sidecar(
+                                org.fuin.porelo.wire.Sidecar.VERSION,
+                                "default",
+                                "guarded",
+                                "/rules",
+                                "/dns",
+                                "/porelo",
+                                context.paths().tasks().containerState(actual).toString())
+                        .toJson()
+                        .replace(
+                                "{",
+                                "{\"task\":\"work\",\"projectShort\":\"ws\",\"taskShort\":\"x\","));
+        final var before = new TaskIdentities(context).lookup("work", "default");
+        assertThat(before)
+                .as("the recorded short spelling proves the logical owner")
+                .isInstanceOf(TaskIdentities.Found.class);
+        final Path project = dir.resolve("changed.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: default\n  short: changed\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n");
+        assertThat(org.fuin.porelo.core.project.ProjectReader.read(project).shortName())
+                .as("the project now names another spelling")
+                .isEqualTo("changed");
+        assertThat(new TaskIdentities(context).lookup("work", "default"))
+                .as("lookup uses the task's recorded spellings")
+                .isEqualTo(before);
+        assertThat(new TaskIdentities(context).retained(actual))
+                .as("durable identity still resolves after runtime loss")
+                .isEqualTo(before);
+    }
+
     @Test
     void anAbsentActualNameRemainsAHistoryKeyOnlyForReads() {
         // Retained logs and the absent-status contract must survive container removal.

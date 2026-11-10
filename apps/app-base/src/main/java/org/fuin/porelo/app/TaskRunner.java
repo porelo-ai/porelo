@@ -318,6 +318,37 @@ public class TaskRunner {
             StartProgress progress)
             throws IOException {
 
+        start(
+                project,
+                repository,
+                commit,
+                container,
+                layers,
+                environment,
+                allowedDomains,
+                wiring,
+                out,
+                progress,
+                org.fuin.porelo.runtime.ContainerName.taskIn(project.name(), container),
+                null);
+    }
+
+    /** Starts a container with its logical task and original short spelling in its sidecar. */
+    public void start(
+            Project project,
+            org.fuin.porelo.core.project.Repository repository,
+            String commit,
+            String container,
+            org.fuin.porelo.runtime.ImageLayers layers,
+            java.util.Map<String, String> environment,
+            java.util.List<String> allowedDomains,
+            TaskWiring wiring,
+            PrintWriter out,
+            StartProgress progress,
+            String task,
+            @org.jspecify.annotations.Nullable String shortName)
+            throws IOException {
+
         final Path state = paths.tasks().containerState(container);
         Directories.create(state);
         final Path authority = TaskCertificates.prepare(paths, state);
@@ -374,7 +405,10 @@ public class TaskRunner {
                         ruleset.toString(),
                         dnsConfig.toString(),
                         poreloBinary(),
-                        state.toString())
+                        state.toString(),
+                        task,
+                        project.shortName(),
+                        shortName)
                 .writeTo(sidecarFile);
         out.println("sidecar   " + sidecarFile);
 

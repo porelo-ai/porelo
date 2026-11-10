@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B597",
   "title": "Short Names For A Project And A Task",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 2,
@@ -16,7 +16,7 @@
 
 **Why this size.** the project file's `project.short`, a start's `--short`, the wire field and the codec's use of them.
 
-Implementing since 2026-11-10 (`porelo-project` ST307). Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+In Review since 2026-11-10 (`porelo-project` ST307). Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
 
 High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
@@ -32,3 +32,26 @@ to start.
 
 - A wrong short name is refused naming its key; the codec gives the short form and falls back per missing field.
 - The tests [B538](README.md#b538)'s slice names went red first and pass; no task of another project is touched.
+
+## As built
+
+The project reader and project-file check accept optional `project.short`, and the project-file writer and
+schema retain and describe it. One validator checks both project and task spellings: lowercase letters,
+digits and hyphens, beginning with a letter, at most 16 characters, without underscore or the `porelo-`
+prefix. The command line accepts `--short`; Tasks1 Start and CanStart accept optional `short` and pass it to
+the shared request and validation code. Invalid spellings are refused before start state is made.
+
+The compact codec takes both optional spellings and falls back independently to each logical name.
+Project `porelo` keeps its single-component form. Socket budgets and explicit-name refusals remain in force.
+The sidecar records the logical task and both original spellings and is saved with the existing durable task
+state. Identity lookup checks these records against the actual name and recorded id, including after the
+project file changes or runtime state is lost. Older sidecars and legacy containers remain readable.
+
+Container creation still uses legacy names. Atomic name reservations and the refusal of a second project
+using the same short spelling remain for [B598](README.md#b598); enabling compact names for new containers
+remains for [B601](README.md#b601). No reservation, rename or migration is added here.
+
+The reader, codec, sidecar, start and identity lookup, the daemon's Start and CanStart and the contract
+have unit cases that failed before the change. A short spelling that does not verify against the recorded
+identity never authorizes an action; it only makes a selection ambiguous. A start or preflight that would
+change an existing task's recorded spelling is refused, naming a new task as the way out.

@@ -239,7 +239,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. |
@@ -252,6 +251,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. |
+| <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
 | <a id="b596"></a>[B596](B596-One-Identity-For-A-Task-Old-Name-Or-New.md) | M | - | One identity lookup for old and new container names; creation unchanged. |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |

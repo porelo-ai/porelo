@@ -38,6 +38,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 class InterfaceDescriptionTest {
 
     @Test
+    void bothStartMethodsAcceptAnOptionalShortSpelling() {
+        // A client must be able to preflight exactly the request it starts.
+        for (String method : List.of("Start", "CanStart")) {
+            final Matcher declaration =
+                    Pattern.compile("(?ms)^method " + method + "\\(\\n(.*?)^\\)")
+                            .matcher(PoreloDaemon.description());
+            assertThat(declaration.find()).as("the method is declared").isTrue();
+            assertThat(declaration.group(1))
+                    .as("the optional spelling crosses the contract")
+                    .contains("short: ?string");
+        }
+    }
+
+    @Test
     void aProjectDeclaresItsOptionalHostFileError() {
         // Clients must distinguish an unreadable host file from a project the host does not carry.
         final Matcher project =
