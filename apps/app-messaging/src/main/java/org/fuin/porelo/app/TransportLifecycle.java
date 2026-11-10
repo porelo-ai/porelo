@@ -498,16 +498,19 @@ final class TransportLifecycle {
                 named != null && agentForm != null
                         ? agentForm.substring("Agent ".length())
                         : task.isEmpty() ? container : task;
-        final int room = DISPLAY_LENGTH - first.length() - " ()".length();
         // Numbered where two short names cut to one: a task shown by no name of its own is shown
         // by its account, which no head names.
         for (int number = 1; number <= held.size() + 1; number++) {
             final String suffix = number == 1 ? "" : "-" + number;
+            final String before =
+                    ContainerName.shortened(
+                            first, DISPLAY_LENGTH - " ()".length() - suffix.length() - 1);
+            final int room = DISPLAY_LENGTH - before.length() - " ()".length();
             final String cut = ContainerName.shortened(within, room - suffix.length());
             if (cut.isEmpty()) {
                 return null;
             }
-            final String second = first + " (" + cut + suffix + ")";
+            final String second = before + " (" + cut + suffix + ")";
             if (!others.contains(second.toLowerCase(java.util.Locale.ROOT))) {
                 return second;
             }
@@ -565,24 +568,21 @@ final class TransportLifecycle {
             return null;
         }
         final String shown = capitalized(task);
-        return shown != null && shown.length() <= DISPLAY_LENGTH ? shown : null;
+        return shown.length() <= DISPLAY_LENGTH ? shown : null;
     }
 
-    /**
-     * Returns "Agent" and a hyphenated name with each word capitalized, or null for an empty word.
-     */
-    private static @Nullable String capitalized(final String name) {
+    /** Returns "Agent" and a hyphenated name with each word capitalized, preserving empty words. */
+    private static String capitalized(final String name) {
         final StringBuilder shown = new StringBuilder("Agent ");
         final String[] words = name.split("-", -1);
         for (int i = 0; i < words.length; i++) {
-            if (words[i].isEmpty()) {
-                return null;
-            }
             if (i > 0) {
                 shown.append('-');
             }
-            shown.append(Character.toUpperCase(words[i].charAt(0)))
-                    .append(words[i], 1, words[i].length());
+            if (!words[i].isEmpty()) {
+                shown.append(Character.toUpperCase(words[i].charAt(0)))
+                        .append(words[i], 1, words[i].length());
+            }
         }
         return shown.toString();
     }
