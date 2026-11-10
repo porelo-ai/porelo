@@ -1,6 +1,6 @@
 # [B583](README.md#b583) — The Room's Members Over The Daemon
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** S - one transport verb read through `describe`, one Tasks1 method, its interface text.
 
 **What must be true.** A client of porelod can ask who is in a project's room: each member's shown name, whether it
