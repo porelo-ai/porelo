@@ -33,6 +33,67 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
     /** Replaced by a test, which has no forge to ask. */
     OrgAccess.Opener opener = OrgAccess::real;
 
+    OrgAccess.@Nullable Reading displayed;
+    private boolean refreshAfter;
+
+    /** Replaced by tests; a refresh belongs to a separate process after this answer exits. */
+    Refresher refresher = OrgReading::refreshLater;
+
+    @FunctionalInterface
+    interface Refresher {
+        void start(PoreloContext context, OrgAccess.Reading reading) throws IOException;
+    }
+
+    /** Selects the display path without changing the fresh path shared by decisions. */
+    final OrgAccess.Reading display(PoreloContext machine, boolean refresh) throws IOException {
+        OrgAccess.Reading reading =
+                refresh ? OrgAccess.refresh(machine, opener) : OrgAccess.show(machine, opener);
+        if (!reading.answers().whole()) {
+            reading = new OrgAccess.Reading(reading.answers(), null, null);
+        }
+        displayed = reading;
+        refreshAfter = !refresh && reading.stale();
+        return reading;
+    }
+
+    private static void refreshLater(PoreloContext machine, OrgAccess.Reading reading)
+            throws IOException {
+        final String repository = OrgAccess.repository(machine).orElseThrow();
+        final java.nio.file.Path log =
+                machine.paths().xdg().state().resolve("organization/refresh.log");
+        org.fuin.porelo.wire.Directories.create(log.getParent());
+        if (!java.nio.file.Files.exists(log, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            try {
+                java.nio.file.Files.createFile(
+                        log,
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                                java.nio.file.attribute.PosixFilePermissions.fromString(
+                                        "rw-------")));
+            } catch (java.nio.file.FileAlreadyExistsException createdMeanwhile) {
+                // Another display scheduled a refresh at the same time.
+            }
+        }
+        if (!java.nio.file.Files.isRegularFile(log, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("the organization refresh log is no regular file");
+        }
+        java.nio.file.Files.setPosixFilePermissions(
+                log, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+        final ProcessBuilder process =
+                new ProcessBuilder(
+                        PoreloBinary.path(),
+                        "org",
+                        "refresh-view",
+                        "--repository",
+                        repository,
+                        "--after",
+                        reading.checkedAt() == null ? "" : reading.checkedAt().toString());
+        process.directory(java.nio.file.Path.of("/").toFile());
+        process.redirectInput(java.nio.file.Path.of("/dev/null").toFile());
+        process.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+        process.redirectError(ProcessBuilder.Redirect.appendTo(log.toFile()));
+        process.start();
+    }
+
     @Override
     public void setContext(final PoreloContext context) {
         this.context = context;
@@ -41,6 +102,8 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
     @Override
     public Integer call() throws IOException {
         final PoreloContext machine = Objects.requireNonNull(context, "picocli sets the context");
+        displayed = null;
+        refreshAfter = false;
         try {
             final Map<String, @Nullable Object> answer = answer(machine);
             if (json) {
@@ -48,12 +111,33 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
             } else {
                 text(answer);
             }
+            refreshAfterAnswer(machine);
             return 0;
         } catch (Refused refused) {
-            return OrgOutput.refuse(spec, json, refused);
+            final Map<String, @Nullable Object> extra = new java.util.LinkedHashMap<>();
+            final OrgAccess.Reading reading = displayed;
+            if (reading != null) {
+                extra.put("stale", reading.stale());
+                reading.age(extra);
+            }
+            final int exit = OrgOutput.refuse(spec, json, refused, extra);
+            if (!json && reading != null) staleness(extra);
+            refreshAfterAnswer(machine);
+            return exit;
         } catch (IOException | RuntimeException ex) {
             OrgOutput.failed(spec, json, String.valueOf(ex.getMessage()));
             throw ex;
+        }
+    }
+
+    private void refreshAfterAnswer(PoreloContext machine) {
+        final OrgAccess.Reading reading = displayed;
+        if (refreshAfter && reading != null) {
+            try {
+                refresher.start(machine, reading);
+            } catch (IOException | RuntimeException ex) {
+                saying("the organization refresh could not start; run porelo org --refresh");
+            }
         }
     }
 
@@ -74,7 +158,17 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
      */
     final void staleness(final Map<String, @Nullable Object> answer) {
         if (Boolean.TRUE.equals(answer.get("stale"))) {
-            line("Stale: the organization cannot be reached, this is the last state trusted here");
+            line("Stale: this is the last state trusted here; refresh checks it again");
+        }
+        if (answer.get("checked_at") != null) {
+            line(
+                    "Checked: "
+                            + answer.get("checked_at")
+                            + " ("
+                            + answer.get("age_seconds")
+                            + " s ago)");
+        } else if (Boolean.TRUE.equals(answer.get("stale")) && answer.containsKey("checked_at")) {
+            line("Checked: unknown");
         }
     }
 

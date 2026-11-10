@@ -53,6 +53,15 @@ final class OrgOutput {
      * @return The exit code.
      */
     static int refuse(final CommandSpec spec, final boolean json, final Refused refused) {
+        return refuse(spec, json, refused, Map.of());
+    }
+
+    /** Adds display age to a refusal derived from a kept snapshot. */
+    static int refuse(
+            final CommandSpec spec,
+            final boolean json,
+            final Refused refused,
+            final Map<String, @Nullable Object> extra) {
         return say(
                 spec,
                 json,
@@ -60,7 +69,8 @@ final class OrgOutput {
                 String.valueOf(refused.getMessage()),
                 refused.revision(),
                 refused.entry(),
-                EXITS.getOrDefault(refused.reason(), FAILED));
+                EXITS.getOrDefault(refused.reason(), FAILED),
+                extra);
     }
 
     /**
@@ -84,9 +94,10 @@ final class OrgOutput {
             final String words,
             final @Nullable String revision,
             final @Nullable String entry,
-            final int exit) {
+            final int exit,
+            final Map<String, @Nullable Object> extra) {
         if (json) {
-            print(spec, reason, words, revision, entry);
+            print(spec, reason, words, revision, entry, extra);
         }
         // An entry to write keeps its lines, each made printable on its own.
         spec.commandLine()
@@ -106,6 +117,16 @@ final class OrgOutput {
             final String words,
             final @Nullable String revision,
             final @Nullable String entry) {
+        print(spec, reason, words, revision, entry, Map.of());
+    }
+
+    private static void print(
+            final CommandSpec spec,
+            final String reason,
+            final String words,
+            final @Nullable String revision,
+            final @Nullable String entry,
+            final Map<String, @Nullable Object> extra) {
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("reason", reason);
         answer.put("words", words);
@@ -114,6 +135,7 @@ final class OrgOutput {
         if (entry != null) {
             answer.put("entry", entry);
         }
+        answer.putAll(extra);
         answer(spec, answer);
     }
 

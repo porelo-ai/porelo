@@ -1,5 +1,6 @@
 package org.fuin.porelo.organization.gittree;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -24,8 +25,17 @@ import org.jspecify.annotations.Nullable;
  * @param commit The commit reached, or {@code null} when nothing was accepted yet.
  * @param model What was accepted.
  * @param refusals What was refused, the latest last.
+ * @param checkedAt When a complete fresh read checked this state, or null for an older record.
  */
-record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Refusal> refusals) {
+record TreeRecord(
+        @Nullable String commit,
+        TreeModel model,
+        List<Organization.Refusal> refusals,
+        @Nullable Instant checkedAt) {
+
+    TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Refusal> refusals) {
+        this(commit, model, refusals, null);
+    }
 
     private static final Pattern OBJECT = Pattern.compile("[0-9a-f]{40}([0-9a-f]{24})?");
 
@@ -45,6 +55,7 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
         final Map<String, Object> record = new LinkedHashMap<>();
         record.put("address", address);
         record.put("commit", commit);
+        record.put("checked_at", checkedAt == null ? null : checkedAt.toString());
         record.put(
                 "owners",
                 model.owners().stream()
@@ -174,6 +185,15 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
         require(address.equals(record.get("address")), "address");
         final String commit = string(record.get("commit"), "commit");
         require(OBJECT.matcher(commit).matches(), "commit");
+        final Instant checkedAt;
+        try {
+            checkedAt =
+                    record.get("checked_at") == null
+                            ? null
+                            : Instant.parse(string(record.get("checked_at"), "checked_at"));
+        } catch (DateTimeParseException ex) {
+            throw new CardException("the trust record has no valid checked_at");
+        }
         final TreeModel model = TreeModel.empty();
         for (final Object each : list(record.get("owners"), "owners")) {
             model.owners().add(owner(map(each, "owners")));
@@ -225,13 +245,14 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
         }
         final Object listed = record.get("organization_admins");
         if (listed == null) {
-            return new TreeRecord(commit, model, refusals);
+            return new TreeRecord(commit, model, refusals, checkedAt);
         }
         final List<String> logins = new ArrayList<>();
         for (final Object each : list(listed, "organization_admins")) {
             logins.add(login(each, "organization_admins"));
         }
-        return new TreeRecord(commit, model.withOrganizationAdmins(List.copyOf(logins)), refusals);
+        return new TreeRecord(
+                commit, model.withOrganizationAdmins(List.copyOf(logins)), refusals, checkedAt);
     }
 
     private static TreeFiles.Owner owner(final Map<?, ?> entry) {

@@ -271,7 +271,12 @@ class OrgReadingCommandsTest {
         line.setOut(new PrintWriter(out));
         line.setErr(new PrintWriter(err));
         wire(line);
-        return line.execute(args);
+        final List<String> arguments = new ArrayList<>(List.of(args));
+        if ((args[0].equals("org") && (args.length == 1 || args[1].startsWith("--")))
+                || (args.length > 1 && args[0].equals("project") && args[1].equals("show"))) {
+            arguments.add("--refresh");
+        }
+        return line.execute(arguments.toArray(String[]::new));
     }
 
     private Map<?, ?> answer() {

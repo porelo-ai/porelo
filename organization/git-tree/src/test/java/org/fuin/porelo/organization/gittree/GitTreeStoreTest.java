@@ -2252,6 +2252,7 @@ class GitTreeStoreTest {
                 runner, repo.toString(), ORGANISATION, "github.com", FetchAccess.NONE, state());
     }
 
+    // Staged copies must not leave trusted organization data readable or half-published.
     @Test
     void aReadKeepsARecordOwnerOnlyAndWhole() throws Exception {
         founded();
@@ -2265,7 +2266,9 @@ class GitTreeStoreTest {
         assertThat(Files.getPosixFilePermissions(state()))
                 .isEqualTo(PosixFilePermissions.fromString("rwx------"));
         try (var left = Files.list(state())) {
-            assertThat(left).as("nothing staged stays").containsExactly(trustRecord());
+            assertThat(left)
+                    .as("nothing staged stays")
+                    .containsExactlyInAnyOrder(trustRecord(), state().resolve("read.lock"));
         }
     }
 
@@ -2617,6 +2620,7 @@ class GitTreeStoreTest {
                 .isEqualTo(kept);
     }
 
+    // A failed record write must stop the read and remove every staged copy.
     @Test
     void aRecordThatCannotBeWrittenFailsTheReadAndLeavesNothingStaged() throws Exception {
         founded();
@@ -2627,7 +2631,9 @@ class GitTreeStoreTest {
                 .isInstanceOf(IOException.class);
 
         try (var left = Files.list(state())) {
-            assertThat(left).as("no half record stays").containsExactly(trustRecord());
+            assertThat(left)
+                    .as("no half record stays")
+                    .containsExactlyInAnyOrder(trustRecord(), state().resolve("read.lock"));
         }
     }
 

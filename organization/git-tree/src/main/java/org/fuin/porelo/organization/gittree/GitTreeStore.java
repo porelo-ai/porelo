@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -188,6 +189,45 @@ public final class GitTreeStore {
         return walk(identities, null);
     }
 
+    /** Whether a display refresh still belongs to the configured organization. */
+    @FunctionalInterface
+    public interface Current {
+        /**
+         * Checks that the requesting display's organization is still configured.
+         *
+         * @return Whether it is still current.
+         * @throws IOException When the settings cannot be checked.
+         */
+        boolean check() throws IOException;
+    }
+
+    /**
+     * Refreshes display state only while its configuration is current, checked under the record's
+     * transaction lock and again before keeping anything. An incomplete walk leaves the kept
+     * snapshot unchanged. Decisions always use {@link #read}.
+     *
+     * @param identities Who says whose keys are whose.
+     * @param current Whether the requesting display still belongs to this organization.
+     * @return A fresh answer, or empty for an obsolete request.
+     * @throws IOException When the source or the settings cannot be read.
+     */
+    public Optional<OrganizationQuestions> refresh(IdentitySource identities, Current current)
+            throws IOException {
+        final TreeReadLock.Read<Optional<OrganizationQuestions>> refreshing =
+                () -> {
+                    if (!current.check()) return Optional.empty();
+                    final OrganizationQuestions answer =
+                            walkLocked(
+                                    identities,
+                                    null,
+                                    () -> TreeRepository.fetch(repository, runner, access),
+                                    current,
+                                    false);
+                    return current.check() ? Optional.of(answer) : Optional.empty();
+                };
+        return state == null ? refreshing.run() : TreeReadLock.holding(state, refreshing);
+    }
+
     /**
      * Fetches the repository and walks its history to a revision, so that several answers rest on
      * one state. It keeps nothing.
@@ -241,9 +281,30 @@ public final class GitTreeStore {
      * @throws IOException When the record cannot be read.
      */
     public Optional<OrganizationQuestions> last() throws IOException {
+        return lastChecked().map(Checked::answers);
+    }
+
+    /**
+     * A locally validated kept value; neither field grants authority for a decision.
+     *
+     * @param answers What the record kept.
+     * @param checkedAt Its complete check time, or null when unknown.
+     */
+    public record Checked(OrganizationQuestions answers, @Nullable Instant checkedAt) {}
+
+    /**
+     * Reads the checked kept value and its timestamp from the same file, without waiting for a
+     * fetch.
+     *
+     * @return The value, or empty when the record fails its checks or is absent.
+     * @throws IOException When it cannot be read.
+     */
+    public Optional<Checked> lastChecked() throws IOException {
         final List<String> warnings = new ArrayList<>();
         final TreeRecord kept = kept(warnings);
-        return kept == null ? Optional.empty() : Optional.of(answers(kept, warnings));
+        return kept == null
+                ? Optional.empty()
+                : Optional.of(new Checked(answers(kept, warnings), kept.checkedAt()));
     }
 
     private OrganizationQuestions walk(
@@ -253,6 +314,24 @@ public final class GitTreeStore {
 
     private OrganizationQuestions walk(
             final IdentitySource identities, final @Nullable String revision, final Opening opening)
+            throws IOException {
+        return state == null
+                ? walkLocked(identities, revision, opening)
+                : TreeReadLock.holding(state, () -> walkLocked(identities, revision, opening));
+    }
+
+    private OrganizationQuestions walkLocked(
+            final IdentitySource identities, final @Nullable String revision, final Opening opening)
+            throws IOException {
+        return walkLocked(identities, revision, opening, () -> true, true);
+    }
+
+    private OrganizationQuestions walkLocked(
+            final IdentitySource identities,
+            final @Nullable String revision,
+            final Opening opening,
+            final Current current,
+            final boolean keepIncomplete)
             throws IOException {
         final List<String> warnings = new ArrayList<>();
         final TreeRecord kept = kept(warnings);
@@ -271,11 +350,15 @@ public final class GitTreeStore {
             walk.readChains();
             final TreeRecord start = start(walk, kept, line, revision, warnings);
             final TreeRecord walked = walk.read(revision, start);
-            if (revision == null && keeps(line, commit, walked.commit())) {
-                keep(walked);
+            final boolean whole = revision != null || line.getLast().equals(walked.commit());
+            if ((whole || keepIncomplete)
+                    && revision == null
+                    && keeps(line, commit, walked.commit())
+                    && (whole || !java.util.Objects.equals(commit, walked.commit()))
+                    && current.check()) {
+                keep(walked, whole);
             }
-            return answers(
-                    walked, warnings, revision != null || line.getLast().equals(walked.commit()));
+            return answers(walked, warnings, whole);
         } catch (CommandException ex) {
             // Git did not end in time: a forge that hangs says nothing of the state.
             throw new Unreachable("the organization's repository did not answer in time");
@@ -298,6 +381,17 @@ public final class GitTreeStore {
      *     for the pin, or a walk that cannot reach what was taken.
      */
     OrganizationQuestions fetchFor(
+            final IdentitySource identities,
+            final String host,
+            final Set<String> pin,
+            final String since)
+            throws IOException {
+        return state == null
+                ? fetchForLocked(identities, host, pin, since)
+                : TreeReadLock.holding(state, () -> fetchForLocked(identities, host, pin, since));
+    }
+
+    private OrganizationQuestions fetchForLocked(
             final IdentitySource identities,
             final String host,
             final Set<String> pin,
@@ -340,7 +434,7 @@ public final class GitTreeStore {
             final TreeRecord walked = walk.read(null, start);
             watch.finish();
             if (state != null && walked.commit() != null) {
-                keep(walked);
+                keep(walked, line.getLast().equals(walked.commit()));
             }
             return answers(walked, warnings);
         } catch (CommandException ex) {
@@ -432,7 +526,7 @@ public final class GitTreeStore {
     }
 
     /** Writes the record owner-only and whole: a reader never finds half of one. */
-    private void keep(final TreeRecord record) throws IOException {
+    private void keep(final TreeRecord record, final boolean whole) throws IOException {
         final Path directory = java.util.Objects.requireNonNull(state, "a store that keeps");
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             Files.createDirectories(directory);
@@ -446,7 +540,15 @@ public final class GitTreeStore {
                         PosixFilePermissions.asFileAttribute(
                                 PosixFilePermissions.fromString("rw-------")));
         try {
-            Files.writeString(staged, record.toJson(repository), StandardCharsets.UTF_8);
+            Files.writeString(
+                    staged,
+                    new TreeRecord(
+                                    record.commit(),
+                                    record.model(),
+                                    record.refusals(),
+                                    whole ? Instant.now() : null)
+                            .toJson(repository),
+                    StandardCharsets.UTF_8);
             Files.move(
                     staged,
                     directory.resolve(RECORD),

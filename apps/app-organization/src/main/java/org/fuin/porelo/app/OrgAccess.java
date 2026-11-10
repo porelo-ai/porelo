@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -88,12 +90,44 @@ final class OrgAccess {
      * @param answers The answers.
      * @param identities Who to ask about now, or {@code null} for a stale read, which reached
      *     nobody.
+     * @param checkedAt The last complete check time, or null when unknown.
      */
-    record Reading(OrganizationQuestions answers, @Nullable IdentitySource identities) {
+    record Reading(
+            OrganizationQuestions answers,
+            @Nullable IdentitySource identities,
+            @Nullable Instant checkedAt) {
+
+        Reading(OrganizationQuestions answers, @Nullable IdentitySource identities) {
+            this(answers, identities, identities != null && answers.whole() ? Instant.now() : null);
+        }
 
         boolean stale() {
             return identities == null;
         }
+
+        void age(Map<String, @Nullable Object> answer) {
+            answer.put("checked_at", checkedAt == null ? null : checkedAt.toString());
+            answer.put(
+                    "age_seconds",
+                    checkedAt == null
+                            ? null
+                            : Math.max(0, Duration.between(checkedAt, Instant.now()).getSeconds()));
+        }
+    }
+
+    /** Reads only for display; nothing authorizing an action may use this answer. */
+    static Reading show(final PoreloContext context, final Opener opener) throws IOException {
+        final Optional<String> repository = repository(context);
+        if (repository.isEmpty()) {
+            return refresh(context, opener);
+        }
+        final Opened opened = opener.open(context, repository.orElseThrow());
+        final Optional<GitTreeStore.Checked> last = opened.store().lastChecked();
+        if (last.isEmpty()) {
+            return fetched(context, repository.orElseThrow(), opened, true);
+        }
+        final GitTreeStore.Checked kept = last.orElseThrow();
+        return new Reading(kept.answers(), null, kept.checkedAt());
     }
 
     /**
@@ -107,6 +141,17 @@ final class OrgAccess {
      * @throws IOException When something unexpected happened.
      */
     static Reading read(final PoreloContext context, final Opener opener) throws IOException {
+        return read(context, opener, false);
+    }
+
+    /** A fresh replacement for a display; an incomplete walk never replaces its kept snapshot. */
+    static Reading refresh(final PoreloContext context, final Opener opener) throws IOException {
+        return read(context, opener, true);
+    }
+
+    private static Reading read(
+            final PoreloContext context, final Opener opener, final boolean display)
+            throws IOException {
         final String repository =
                 repository(context)
                         .orElseThrow(
@@ -117,20 +162,43 @@ final class OrgAccess {
                                                         + " first",
                                                 null));
         final Opened opened = opener.open(context, repository);
+        return fetched(context, repository, opened, display);
+    }
+
+    private static Reading fetched(
+            final PoreloContext context,
+            final String repository,
+            final Opened opened,
+            final boolean display)
+            throws IOException {
         try {
-            return new Reading(opened.store().read(opened.identities()), opened.identities());
+            final OrganizationQuestions answers =
+                    display
+                            ? opened.store()
+                                    .refresh(
+                                            opened.identities(),
+                                            () ->
+                                                    repository.equals(
+                                                            repository(context).orElse(null)))
+                                    .orElseThrow(
+                                            () ->
+                                                    new Refused(
+                                                            Refused.MOVED_ON,
+                                                            "the configured organization changed during the refresh; ask again",
+                                                            null))
+                            : opened.store().read(opened.identities());
+            return new Reading(answers, opened.identities());
         } catch (GitTreeStore.Unreachable ex) {
-            return new Reading(
+            final GitTreeStore.Checked last =
                     opened.store()
-                            .last()
+                            .lastChecked()
                             .orElseThrow(
                                     () ->
                                             unreached(
                                                     ex,
-                                                    "the organization cannot be reached, and"
-                                                            + " nothing is known of it yet",
-                                                    repository)),
-                    null);
+                                                    "the organization cannot be reached, and nothing is known of it yet",
+                                                    repository));
+            return new Reading(last.answers(), null, last.checkedAt());
         } catch (OrganizationException | CommandException ex) {
             throw new Refused(Refused.REFUSED_STATE, String.valueOf(ex.getMessage()), null);
         }
@@ -158,10 +226,42 @@ final class OrgAccess {
                         repository,
                         OrganizationAccess.lent(context),
                         state(context)),
-                new HttpForgeDirectory(
-                        origin.forge(),
-                        OrganizationAccess.forgeToken(context, origin),
-                        OrganizationAccess.http(context)));
+                new LazyIdentities(
+                        () ->
+                                new HttpForgeDirectory(
+                                        origin.forge(),
+                                        OrganizationAccess.forgeToken(context, origin),
+                                        OrganizationAccess.http(context))));
+    }
+
+    /** A kept display must not unlock credentials or construct a network client. */
+    private static final class LazyIdentities implements IdentitySource {
+        private final java.util.function.Supplier<IdentitySource> opening;
+        private @Nullable IdentitySource opened;
+
+        LazyIdentities(java.util.function.Supplier<IdentitySource> opening) {
+            this.opening = opening;
+        }
+
+        private synchronized IdentitySource get() {
+            if (opened == null) opened = opening.get();
+            return opened;
+        }
+
+        @Override
+        public Optional<Keys> keys(String login) {
+            return get().keys(login);
+        }
+
+        @Override
+        public Optional<Keys> keys(String login, String fingerprint) {
+            return get().keys(login, fingerprint);
+        }
+
+        @Override
+        public Optional<Boolean> owns(String organization, String login) {
+            return get().owns(organization, login);
+        }
     }
 
     /** Where the adapter keeps what the last read trusted. */

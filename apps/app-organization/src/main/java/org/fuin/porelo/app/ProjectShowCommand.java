@@ -15,6 +15,7 @@ import org.fuin.porelo.organization.gittree.CommitSigning;
 import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /** Answers one project, for its members, or one registered on this machine alone. */
@@ -24,6 +25,12 @@ import picocli.CommandLine.Parameters;
         exitCodeOnInvalidInput = 64,
         description = "Answers a project of the organization, for its members, or of this machine.")
 public class ProjectShowCommand extends OrgReading {
+
+    @Option(
+            names = "--refresh",
+            description =
+                    "Waits for fresh organization and project checks and answers their replacement value.")
+    private boolean refresh;
 
     private static final String REGISTRATION_TOKEN = "matrix-registration-token";
 
@@ -57,7 +64,7 @@ public class ProjectShowCommand extends OrgReading {
         if (OrgAccess.repository(machine).isEmpty() && localFile != null) {
             return local(localFile);
         }
-        final OrgAccess.Reading reading = OrgAccess.read(machine, opener);
+        final OrgAccess.Reading reading = display(machine, refresh);
         final OrganizationQuestions state = reading.answers();
         final Optional<OrganizationQuestions.Project> held =
                 state.getProjects().stream()
@@ -134,6 +141,7 @@ public class ProjectShowCommand extends OrgReading {
         answer.put("project", project);
         answer.put("revision", state.revision());
         answer.put("stale", reading.stale());
+        reading.age(answer);
         answer.put("first_admin", held.firstAdmin());
         answer.put("host", held.host());
         answer.put("opened", held.filed());
@@ -210,6 +218,8 @@ public class ProjectShowCommand extends OrgReading {
         answer.put("project", project);
         answer.put("revision", null);
         answer.put("stale", false);
+        answer.put("checked_at", null);
+        answer.put("age_seconds", null);
         answer.put("first_admin", null);
         answer.put("host", null);
         answer.put("opened", null);

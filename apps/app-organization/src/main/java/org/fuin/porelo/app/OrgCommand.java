@@ -14,6 +14,7 @@ import org.fuin.porelo.organization.gittree.TreeServices;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 /** Answers this machine's organization, as it stands. */
 @Command(
@@ -25,6 +26,7 @@ import picocli.CommandLine.Command;
             OrgCardCommand.class,
             OrgHostCardCommand.class,
             OrgFetchCommand.class,
+            OrgRefreshCommand.class,
             OrgSignersCommand.class,
             OrgAddReadKeyCommand.class,
             OrgRemoveReadKeyCommand.class,
@@ -37,11 +39,16 @@ import picocli.CommandLine.Command;
         })
 public class OrgCommand extends OrgReading {
 
+    @Option(
+            names = "--refresh",
+            description = "Waits for a fresh organization check and answers its replacement value.")
+    private boolean refresh;
+
     private static final String REVOKED = "revoked";
 
     @Override
     Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
-        final OrgAccess.Reading reading = OrgAccess.read(machine, opener);
+        final OrgAccess.Reading reading = display(machine, refresh);
         final Map<String, @Nullable Object> answer =
                 answer(reading, OrgAccess.ownLogin(machine).orElse(null));
         final String address = OrgAccess.repository(machine).orElseThrow();
@@ -59,6 +66,7 @@ public class OrgCommand extends OrgReading {
                 "Revision: "
                         + answer.get("revision")
                         + (Boolean.TRUE.equals(answer.get("stale")) ? " (stale)" : ""));
+        staleness(answer);
     }
 
     /** The answer, in the order the contract names its fields. */
@@ -72,6 +80,7 @@ public class OrgCommand extends OrgReading {
         answer.put("vouched_by", description.vouchedBy());
         answer.put("revision", state.revision());
         answer.put("stale", reading.stale());
+        reading.age(answer);
         answer.put("me", me(state, login));
         answer.put(
                 "owners", state.getOrganizationOwners().stream().map(OrgCommand::owner).toList());
