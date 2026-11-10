@@ -128,7 +128,11 @@ final class McpMethods {
                     "RevokeKeyslot",
                     "ReadHostVaultShare",
                     "AgentSignInStart",
-                    "AgentSignInWait");
+                    "AgentSignInWait",
+                    // The window's offer to take a repository out of 'default', on the person's
+                    // word.
+                    "NamedDefaultRepositories",
+                    "LeaveDefault");
 
     /** Methods that stand for a person's own judgement; offered only from the list, and named. */
     static final Set<String> JUDGEMENT =

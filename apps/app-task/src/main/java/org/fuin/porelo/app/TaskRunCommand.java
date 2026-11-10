@@ -298,6 +298,24 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     /** Asks whether to go into the task this checkout already has; a test answers it. */
     Offer.Asker taskAsker = Offer.Asker.terminal();
 
+    /**
+     * Asks whether to take the repository out of {@code default} once a project of the organization
+     * names it; a test answers it.
+     */
+    Offer.Asker leaveDefaultAsker = Offer.Asker.terminal();
+
+    /** The person's answer about leaving {@code default}, kept so a start tried again asks once. */
+    private @Nullable String leftDefault;
+
+    private Offer.Asker leaveDefaultAnswered() {
+        return question -> {
+            if (leftDefault == null) {
+                leftDefault = leaveDefaultAsker.ask(question);
+            }
+            return leftDefault;
+        };
+    }
+
     private PoreloContext context = PoreloContext.real();
 
     /** The phantom-token environment, kept so the agent run gets the same one the container has. */
@@ -786,7 +804,12 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
-                        .offering(offer(noInput, yes, Offer.atTerminal(), err));
+                        .offering(offer(noInput, yes, Offer.atTerminal(), err))
+                        // Asked at a terminal only; unattended the start only says it.
+                        .askingToLeaveDefault(
+                                noInput || dryRun || !terminal.getAsBoolean()
+                                        ? Offer.NOBODY
+                                        : new Offer(leaveDefaultAnswered(), false, yes, err));
         if (certifyStdin) {
             launch.certifyingOver(
                     new java.io.BufferedReader(

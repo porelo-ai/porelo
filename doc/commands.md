@@ -884,6 +884,16 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   bracketed or not, a user that is no plain name, or without a user all up to the last `@` that a host and a colon
   follow; an origin without a credential is kept as given. It cannot be removed, and its settings cannot be changed: for other
   settings, make a project of your own.
+- A repository stays in `default` until you take it out, also once a project of the organization names it: a start
+  from its checkout then goes into that project. A start in `default` on such a repository (`-p default -r NAME`, or
+  from the window) says so once, with the project and the command that takes it out,
+  `porelo project default remove NAME`, and goes on in `default`. At a terminal it asks once whether to take it out
+  (no by default, and `--yes` does not answer it); a yes takes it out once the start is through, unless a task of
+  `default` is still on it, which the start then names. Unattended and through the daemon it only says so.
+  `NamedDefaultRepositories()` lists such repositories for an interface, each with `project` and
+  `projectRepository`, and `LeaveDefault(name)` takes one out on the person's word, refused as
+  `DefaultRepositoryInUse` while a task of `default` works on it and `NoSuchDefaultRepository` for a name `default` does
+  not have.
 - Approved work in `default` reaches `origin` with your own ssh agent or key, or a token stored with
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a
   key without a passphrase works. Trust an ssh host first with `porelo credentials trust-host`; until then the

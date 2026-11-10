@@ -1069,6 +1069,9 @@ class TaskRunCommandTest {
 
     private final List<String> firstStartAsked = new ArrayList<>();
 
+    /** What the start asked about taking its repository out of 'default'. */
+    private final List<String> leaveDefaultAsked = new ArrayList<>();
+
     /** What the start asked about a task already there, and what the person answers. */
     private final List<String> taskAsked = new ArrayList<>();
 
@@ -1171,6 +1174,11 @@ class TaskRunCommandTest {
                 question -> {
                     taskAsked.add(question);
                     return taskAnswer;
+                };
+        start.leaveDefaultAsker =
+                question -> {
+                    leaveDefaultAsked.add(question);
+                    return answer;
                 };
         start.detector =
                 new EcosystemDetector() {
@@ -1497,6 +1505,87 @@ class TaskRunCommandTest {
         assertThat(firstStartAsked).isEmpty();
         assertThat(checkout.resolve("project.yml")).doesNotExist();
         assertThat(checkout.resolve("porelo.yml")).doesNotExist();
+    }
+
+    /**
+     * Starts in 'default' on 'shop', a checkout whose origin the organization's 'acme' names as
+     * 'storefront'; 'notes' is in 'default' too and named by nobody.
+     */
+    private PoreloContext startInDefaultNamedByTheOrganization(
+            final Path dir, final boolean terminal, final String answer) throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        PlacedFixture.place(
+                context,
+                "acme",
+                "project:\n  name: acme\n  security_class: guarded\n"
+                        + "image:\n  from: ubuntu:24.04\n"
+                        + "repositories:\n  storefront:\n    upstream: \""
+                        + firstStartOrigin
+                        + "\"\n");
+        final DefaultProject fallback = new DefaultProject(context);
+        try {
+            fallback.add(
+                    checkout.toString(),
+                    "shop",
+                    checkout.toString(),
+                    java.util.Objects.requireNonNull(firstStartOrigin));
+            fallback.add("https://forge.example/someone/notes.git", "notes", "");
+        } catch (DefaultProject.Refused ex) {
+            throw new IllegalStateException(ex);
+        }
+        firstStartAt(
+                context,
+                checkout,
+                terminal,
+                answer,
+                "-p",
+                "default",
+                "-r",
+                "shop",
+                "--attach",
+                "shell",
+                "--detach");
+        return context;
+    }
+
+    private static List<String> inDefault(final PoreloContext context) {
+        return new DefaultProject(context)
+                .entries().stream().map(DefaultProject.Entry::name).toList();
+    }
+
+    // Harm: a repository the organization's project took keeps its work in 'default', unsaid.
+    @Test
+    void aStartInDefaultOnARepositoryTheOrganizationNamesSaysSoAndStartsThere(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = startInDefaultNamedByTheOrganization(dir, true, "n");
+
+        assertThat(out.toString())
+                .contains("'acme' names this repository as 'storefront'")
+                .contains("porelo project default remove shop");
+        assertThat(leaveDefaultAsked).hasSize(1);
+        assertThat(String.join("\n", runner.lines())).contains("porelo-default-shop");
+        assertThat(inDefault(context)).containsExactly("shop", "notes");
+    }
+
+    // Harm: the person's yes leaves the repository in 'default', or takes the start out of it.
+    @Test
+    void aYesAtTheTerminalTakesItOutOfDefaultAndTheStartStaysThere(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = startInDefaultNamedByTheOrganization(dir, true, "y");
+
+        assertThat(String.join("\n", runner.lines())).contains("porelo-default-shop");
+        assertThat(inDefault(context)).containsExactly("notes");
+    }
+
+    // Harm: a start nobody can answer removes a repository nobody said yes to.
+    @Test
+    void anUnattendedStartOnlySaysIt(@TempDir Path dir) throws IOException {
+        final PoreloContext context = startInDefaultNamedByTheOrganization(dir, false, "y");
+
+        assertThat(out.toString()).contains("porelo project default remove shop");
+        assertThat(leaveDefaultAsked).isEmpty();
+        assertThat(inDefault(context)).containsExactly("shop", "notes");
     }
 
     private static final String APPROVED =

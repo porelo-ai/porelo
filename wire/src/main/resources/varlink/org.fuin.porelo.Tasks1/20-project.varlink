@@ -330,6 +330,44 @@ method RemoveFromDefault(
   name: string
 ) -> (removed: bool, keys: []MachineDeployKey)
 
+# The repositories of 'default' that a project of the organization names: the project that names
+# the checkout's origin (or the address) and its key for the repository there. A start from such a
+# checkout goes into that project; the repository stays in 'default' until the person takes it out
+# with LeaveDefault, which an interface offers beside this row. Empty when the organization names
+# none of them.
+method NamedDefaultRepositories() -> (repositories: []NamedDefaultRepository)
+
+# Takes a repository out of 'default' on the person's word, through the same removal
+# RemoveFromDefault and 'porelo project default remove' make: its mirror, and anything waiting in
+# it, stays, and this machine's deploy key for it is forgotten and answered in 'keys'. Refused with
+# DefaultRepositoryInUse while a task of 'default' works on it, and with NoSuchDefaultRepository for
+# a name 'default' does not have; either way nothing is removed.
+method LeaveDefault(
+  # The repository's name in 'default', as NamedDefaultRepositories gives it.
+  name: string
+) -> (removed: DefaultRepository, keys: []MachineDeployKey)
+
+# A repository of 'default' that a project of the organization names.
+type NamedDefaultRepository (
+  # Its name in 'default', what LeaveDefault takes.
+  name: string,
+  # Where its history comes from and its approved work goes in 'default'.
+  upstream: string,
+  # The organization's project that names it.
+  project: string,
+  # The repository's key in that project, what Start's 'repository' takes there.
+  projectRepository: string,
+  # The command that takes it out of 'default' at a terminal.
+  removal: string
+)
+
+# Tasks of 'default' still work on the repository, by container name; it stays in 'default' until
+# they are removed.
+error DefaultRepositoryInUse(name: string, tasks: []string)
+
+# 'default' has no repository of that name; nothing was removed.
+error NoSuchDefaultRepository(name: string)
+
 # One repository of 'default'.
 type DefaultRepository (
   # What Start's 'repository' takes.

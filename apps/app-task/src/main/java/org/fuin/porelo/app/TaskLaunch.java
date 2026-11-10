@@ -1709,6 +1709,111 @@ public final class TaskLaunch {
         return this;
     }
 
+    /** Who is asked whether to take the repository out of {@code default}; nobody by default. */
+    private Offer leavingDefault = Offer.NOBODY;
+
+    /** The repository of {@code default} the person said to take out once this start is through. */
+    private @Nullable String leaveDefault;
+
+    /** Whether this launch said already that a project of the organization names its repository. */
+    private boolean namedInDefaultSaid;
+
+    /**
+     * Asks once, at a start in {@code default} on a repository a project of the organization names,
+     * whether to take it out of {@code default}; the start goes on in {@code default} either way.
+     * Without it the start only says so, as a start through the daemon does.
+     *
+     * @param offer Who is asked: a person at a terminal.
+     * @return This launch.
+     */
+    public TaskLaunch askingToLeaveDefault(final Offer offer) {
+        this.leavingDefault = offer;
+        return this;
+    }
+
+    /**
+     * Says, once and not as a failure, that a project of the organization names this repository of
+     * {@code default} and how it is taken out, and asks a person who can answer.
+     */
+    private void sayNamedInDefault(final PrintWriter out, final String repository) {
+        final DefaultNamed.@Nullable Named named = DefaultNamed.of(context, repository);
+        if (named == null) {
+            return;
+        }
+        out.println("named          " + named.said());
+        out.flush();
+        if (!request.dryRun()
+                && leavingDefault != Offer.NOBODY
+                && leavingDefault.confirm(
+                        "'" + named.project() + "' names '" + repository + "'",
+                        "Take it out of '"
+                                + DefaultProject.NAME
+                                + "' once this start is through and no task of it works on"
+                                + " it? This start goes on in '"
+                                + DefaultProject.NAME
+                                + "' either way",
+                        "",
+                        true)) {
+            leaveDefault = repository;
+        }
+    }
+
+    /**
+     * Takes the repository out of {@code default} on the person's yes, once the start is through,
+     * through the same removal an interface makes: a task of {@code default} still on it, this
+     * start's own among them, keeps it there, and that is said with what to do.
+     */
+    private void leaveDefaultIfSaid(final PrintWriter out, final PrintWriter err) {
+        final String repository = leaveDefault;
+        if (repository == null) {
+            return;
+        }
+        leaveDefault = null;
+        switch (DefaultNamed.remove(context, new TaskInventory(context).tasks(), repository)) {
+            case DefaultNamed.Removal.Removed removed -> {
+                out.println(
+                        "removed        "
+                                + repository
+                                + " from '"
+                                + DefaultProject.NAME
+                                + "'; its mirror and anything waiting in it stay");
+                removed.keys()
+                        .forEach(
+                                key ->
+                                        out.println(
+                                                "forgot         deploy key '"
+                                                        + key.title()
+                                                        + "' "
+                                                        + key.fingerprint()
+                                                        + " - remove it at the forge"));
+                out.flush();
+            }
+            case DefaultNamed.Removal.InUse used -> {
+                err.println(
+                        "porelo: '"
+                                + repository
+                                + "' stays in '"
+                                + DefaultProject.NAME
+                                + "' while "
+                                + String.join(", ", used.tasks())
+                                + " works on it; remove that task, then 'porelo project default"
+                                + " remove "
+                                + repository
+                                + "'");
+                err.flush();
+            }
+            case DefaultNamed.Removal.NotThere missing -> {
+                err.println(
+                        "porelo: '"
+                                + DefaultProject.NAME
+                                + "' has no repository called '"
+                                + missing.repository()
+                                + "' any more");
+                err.flush();
+            }
+        }
+    }
+
     /** Where a start from the person's machine asks for its certificate, or {@code null}. */
     private java.io.@org.jspecify.annotations.Nullable BufferedReader certifyIn;
 
@@ -1920,6 +2025,11 @@ public final class TaskLaunch {
         try {
             final int code = launchSteps(out, reported, after);
             steps.finish(code);
+            // The start went on in 'default' whatever was answered; only now does the repository
+            // go, and only when no task of 'default' is left on it.
+            if (code != RETRY) {
+                leaveDefaultIfSaid(out, err);
+            }
             return code;
         } catch (RuntimeException ex) {
             steps.refusal(String.valueOf(ex.getMessage()));
@@ -2014,6 +2124,11 @@ public final class TaskLaunch {
         }
 
         workedOn = repository;
+        if (DefaultProject.is(project.name()) && !namedInDefaultSaid) {
+            // Once, however often a refused start is tried again on this launch.
+            namedInDefaultSaid = true;
+            sayNamedInDefault(out, repository.name());
+        }
 
         if (!request.dryRun()) {
             try {

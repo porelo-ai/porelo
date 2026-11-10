@@ -441,6 +441,21 @@ final class ProjectMethods {
                 });
 
         server.method(
+                "NamedDefaultRepositories",
+                (parameters, replies) ->
+                        replies.last(
+                                Map.of(
+                                        "repositories",
+                                        org.fuin.porelo.app.DefaultNamed.all(context).stream()
+                                                .map(org.fuin.porelo.app.DefaultNamed.Named::asMap)
+                                                .toList())));
+
+        server.method(
+                "LeaveDefault",
+                (parameters, replies) ->
+                        replies.last(leaveDefault(context, inventory, parameters)));
+
+        server.method(
                 "Prune",
                 (parameters, replies) ->
                         replies.last(
@@ -606,6 +621,42 @@ final class ProjectMethods {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", "host"));
         }
+    }
+
+    /**
+     * Takes a repository out of 'default' on the person's word, refusing one a task of 'default'
+     * still works on and a name 'default' does not have.
+     */
+    static Map<String, Object> leaveDefault(
+            final PoreloContext context,
+            final TaskInventory inventory,
+            final Map<String, Object> parameters) {
+        final String name = text(parameters, "name");
+        final org.fuin.porelo.app.DefaultNamed.Removal removal =
+                org.fuin.porelo.app.DefaultNamed.remove(context, inventory.tasks(), name);
+        return switch (removal) {
+            case org.fuin.porelo.app.DefaultNamed.Removal.Removed removed -> {
+                final Map<String, Object> row = new LinkedHashMap<>(removed.entry().asMap());
+                final org.fuin.porelo.app.DefaultNamed.@org.jspecify.annotations.Nullable Named
+                        named = removed.named();
+                row.put("claimedBy", named == null ? "" : named.project());
+                yield Map.of(
+                        "removed",
+                        row,
+                        "keys",
+                        removed.keys().stream()
+                                .map(org.fuin.porelo.app.LeftDeployKeys.Key::asMap)
+                                .toList());
+            }
+            case org.fuin.porelo.app.DefaultNamed.Removal.InUse used ->
+                    throw new VarlinkException(
+                            INTERFACE + ".DefaultRepositoryInUse",
+                            Map.of("name", used.repository(), "tasks", used.tasks()));
+            case org.fuin.porelo.app.DefaultNamed.Removal.NotThere missing ->
+                    throw new VarlinkException(
+                            INTERFACE + ".NoSuchDefaultRepository",
+                            Map.of("name", missing.repository()));
+        };
     }
 
     /** Removes a project of this machine alone, refusing the organization's and the built-in. */
