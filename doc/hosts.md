@@ -244,6 +244,11 @@ porelo commit verify --repository <git-dir> --signers signers --certifiers certi
   answer on standard output is every verdict with its signer, for the host to record; its fields are in
   [Commands](commands.md#commit).
 
+The host's forge itself shows these commits as unverified (`no_gpg_keys_found`): Forgejo counts an SSH signature only
+for a key its account holder verified by signing a token in the forge's web settings, which neither the follow nor a
+task's start does, and a commit whose committer email is not the account's never verifies there. That is how it is
+meant: the push judge above is the check, and the forge's badge is not.
+
 ## Reading a repository's arrivals
 
 Root's push judge appends accepted commit judgements to its private ledger at

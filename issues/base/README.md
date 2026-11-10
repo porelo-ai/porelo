@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b589"></a>[B589](B589-The-Forge-Knows-The-Key-That-Signed-A-Commit.md) | L | [B550](README.md#b550), [B547](README.md#b547) | Measure certified-signature support first, then register person and task signing keys on their push accounts so the host forge verifies commits. | 0 |
 | <a id="b586"></a>[B586](B586-A-Task-Name-The-Room-Cannot-Hold.md) | S | - | A long task name on a clash, and one with two hyphens in a row, still get a name in the room. |
 | <a id="b580"></a>[B580](B580-The-Gathered-Push-From-The-Window.md) | M | [B544](#b544) | `PushToCentral` over the daemon: the gathered push to central with progress and typed refusals, for the window's release. |
 | <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. |
@@ -192,7 +193,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b589"></a>[B589](B589-The-Forge-Knows-The-Key-That-Signed-A-Commit.md) | L | [B550](README.md#b550), [B547](README.md#b547) | Measure certified-signature support first, then register person and task signing keys on their push accounts so the host forge verifies commits. | 0 |
 | <a id="b573"></a>[B573](B573-A-Tasks-Project-Reads-Held-To-Its-Own-Project.md) | S | - | A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high. | 0 |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |

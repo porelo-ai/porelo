@@ -1,6 +1,6 @@
 # [B589](README.md#b589) — The Forge Knows The Key That Signed A Commit
 
-**Status:** Analyzed. Filed 2026-11-10 under ST290, from the fourth move.
+**Status:** Review. Filed 2026-11-10 under ST290, from the fourth move.
 **Size:** L - measure certificate verification before choosing the registration design, then reconcile person and task keys with forge accounts.
 **Blocked by:** [B550](README.md#b550), [B547](README.md#b547).
 
@@ -70,3 +70,12 @@ Central (GitHub) was not measured.
 
 - Certificate versus plain-key registration and verification, duplicate-key ownership rules, API scopes and the
   treatment of expired certificates and historical verification on each forge.
+
+## As built
+
+Built as option (c) of the measurement above: the forge's verification badge is not used. The follow registers no
+signing key, a task's start none, and no web session of an account is made; commits signed by a person or a task show
+unverified on the host's forge, and the push judge ([Hosts](../../doc/hosts.md#a-push-judged-when-it-arrives)) stays
+the only check of a signature. `doc/hosts.md` says so beside the judge. Registering a person's key through a signed
+token (option (a)) is not built.
+
