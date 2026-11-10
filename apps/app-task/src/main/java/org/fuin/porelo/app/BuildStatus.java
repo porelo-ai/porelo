@@ -32,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  * @param verdict The forge's verdict.
  * @param detail More from the forge.
  * @param jobs The jobs and their requested log text.
+ * @param runs The runs in the reader's order, with trigger and id when named.
  */
 public record BuildStatus(
         String project,
@@ -40,7 +41,8 @@ public record BuildStatus(
         String commit,
         String verdict,
         String detail,
-        List<Build.Job> jobs) {
+        List<Build.Job> jobs,
+        List<Build.Run> runs) {
 
     /**
      * Keeps the answer's job list immutable.
@@ -52,9 +54,12 @@ public record BuildStatus(
      * @param verdict The verdict.
      * @param detail More from the forge.
      * @param jobs The jobs.
+     * @param runs The runs.
      */
     public BuildStatus {
-        jobs = List.copyOf(jobs);
+        final Build bounded = new Build(verdict, jobs, detail, runs);
+        jobs = bounded.jobs();
+        runs = bounded.runs();
     }
 
     enum Reason {
@@ -218,29 +223,16 @@ public record BuildStatus(
                                 + "; choose an existing --branch=<name> or a full --commit=<sha>.");
             }
             final Build build = reader.build(target, commit, logs);
+            final Build safe = redacted(build, target);
             return new BuildStatus(
                     project.name(),
                     repository.name(),
                     request.branch(),
                     redacted(commit, target),
-                    build.verdict(),
-                    redacted(build.detail(), target),
-                    build.jobs().stream()
-                            .map(
-                                    job ->
-                                            job.log() == null
-                                                    ? new Build.Job(
-                                                            redacted(job.name(), target),
-                                                            redacted(job.result(), target))
-                                                    : new Build.Job(
-                                                            redacted(job.name(), target),
-                                                            redacted(job.result(), target),
-                                                            redacted(job.logText(), target)
-                                                                    .getBytes(
-                                                                            java.nio.charset
-                                                                                    .StandardCharsets
-                                                                                    .UTF_8)))
-                            .toList());
+                    safe.verdict(),
+                    safe.detail(),
+                    safe.jobs(),
+                    safe.runs());
         } catch (BuildRefused ex) {
             throw forgeRefusal(ex, builds.credential(), target);
         } catch (Refused ex) {
@@ -253,6 +245,101 @@ public record BuildStatus(
             Files.deleteIfExists(socket);
             Files.delete(directory);
         }
+    }
+
+    private static Build redacted(final Build build, final Target target) {
+        return new Build(
+                build.verdict(),
+                build.jobs().stream()
+                        .map(
+                                job ->
+                                        new Build.Job(
+                                                redactedField(job.name(), Build.MOST_TEXT, target),
+                                                redactedField(
+                                                        job.result(), Build.MOST_TEXT, target),
+                                                job.log() == null
+                                                        ? null
+                                                        : redacted(job.logText(), target)
+                                                                .getBytes(
+                                                                        java.nio.charset
+                                                                                .StandardCharsets
+                                                                                .UTF_8),
+                                                redactedOptional(job.run(), target),
+                                                job.failedTests() == null
+                                                        ? null
+                                                        : job.failedTests().stream()
+                                                                .map(
+                                                                        test ->
+                                                                                redactedField(
+                                                                                        test,
+                                                                                        Build
+                                                                                                .MOST_TEXT,
+                                                                                        target))
+                                                                .toList(),
+                                                forgePage(job.url(), target)))
+                        .toList(),
+                redacted(build.detail(), target),
+                build.runs().stream()
+                        .map(
+                                run ->
+                                        new Build.Run(
+                                                redactedField(run.name(), Build.MOST_TEXT, target),
+                                                        redactedField(
+                                                                run.result(),
+                                                                Build.MOST_TEXT,
+                                                                target),
+                                                redactedOptional(run.event(), target),
+                                                        redactedOptional(run.id(), target)))
+                        .toList());
+    }
+
+    private static @Nullable String redactedOptional(
+            final @Nullable String text, final Target target) {
+        return text == null ? null : redactedField(text, Build.MOST_ID, target);
+    }
+
+    private static String redactedField(final String text, final int most, final Target target) {
+        final String normalized = org.fuin.porelo.wire.BuildFields.flat(target.token());
+        final List<String> tokens =
+                java.util.stream.Stream.of(
+                                target.token(),
+                                normalized,
+                                normalized.toLowerCase(java.util.Locale.ROOT))
+                        .filter(token -> !token.isEmpty())
+                        .distinct()
+                        .sorted(java.util.Comparator.comparingInt(String::length).reversed())
+                        .toList();
+        String safe = text;
+        // A bound may leave only the beginning of a credential after a repository-controlled label.
+        if (text.codePointCount(0, text.length()) >= most) {
+            safe = withoutTokenPrefix(text, tokens);
+        }
+        for (final String token : tokens) {
+            safe = safe.replace(token, "[redacted]");
+        }
+        return safe;
+    }
+
+    private static String withoutTokenPrefix(final String text, final List<String> tokens) {
+        final int points = text.codePointCount(0, text.length());
+        for (int count = points; count > 0; count--) {
+            final int start = text.offsetByCodePoints(text.length(), -count);
+            final String suffix = text.substring(start);
+            if (tokens.stream().anyMatch(token -> token.startsWith(suffix))) {
+                return text.substring(0, start) + "[redacted]";
+            }
+        }
+        return text;
+    }
+
+    private static @Nullable String forgePage(final @Nullable String page, final Target target) {
+        final String host = GitCredentialNames.hostOf(target.upstream());
+        if (page == null
+                || host == null
+                || !host.equalsIgnoreCase(java.net.URI.create(page).getHost())) {
+            return null;
+        }
+        return redacted(page, target);
     }
 
     private static String redacted(final String text, final Target target) {
@@ -385,15 +472,35 @@ public record BuildStatus(
                 "jobs",
                 jobs.stream()
                         .map(
-                                job ->
-                                        Map.of(
-                                                "name",
-                                                job.name(),
-                                                "result",
-                                                job.result(),
-                                                "log",
-                                                job.logText()))
+                                job -> {
+                                    final Map<String, Object> each =
+                                            new LinkedHashMap<>(
+                                                    new TaskBuilds.Job(
+                                                                    job.name(),
+                                                                    job.result(),
+                                                                    null,
+                                                                    job.run(),
+                                                                    job.failedTests(),
+                                                                    job.url())
+                                                            .asMap());
+                                    each.put("log", shownLog(job));
+                                    return each;
+                                })
                         .toList());
+        if (!runs.isEmpty()) {
+            answer.put(
+                    "runs",
+                    runs.stream()
+                            .map(
+                                    run ->
+                                            new TaskBuilds.Run(
+                                                            run.name(),
+                                                            run.result(),
+                                                            run.event(),
+                                                            run.id())
+                                                    .asMap())
+                            .toList());
+        }
         return answer;
     }
 
@@ -408,13 +515,66 @@ public record BuildStatus(
         if (!detail.isEmpty()) {
             text.append("\ndetail: ").append(detail);
         }
+        final java.util.Set<String> unique = new java.util.HashSet<>();
+        for (final Build.Run run : runs) {
+            final String id = run.id();
+            if (id != null && runs.stream().filter(each -> id.equals(each.id())).count() == 1) {
+                unique.add(id);
+            }
+            text.append("\nrun: ").append(run.name()).append(" - ").append(run.result());
+            if (run.event() != null || run.id() != null) {
+                text.append(" (");
+                if (run.event() != null) {
+                    text.append(run.event());
+                }
+                if (run.id() != null) {
+                    text.append(run.event() == null ? "id: " : ", id: ").append(run.id());
+                }
+                text.append(')');
+            }
+            if (id != null && unique.contains(id)) {
+                for (final Build.Job job : jobs) {
+                    if (id.equals(job.run())) {
+                        appendJob(text, job, "  ");
+                    }
+                }
+            }
+        }
         for (final Build.Job job : jobs) {
-            text.append("\njob: ").append(job.name()).append(" - ").append(job.result());
-            if (!job.logText().isEmpty()) {
-                text.append("\nlog: ").append(job.name()).append('\n').append(job.logText());
+            if (!unique.contains(job.run())) {
+                appendJob(text, job, "");
             }
         }
         return terminalText(text.toString());
+    }
+
+    private static String shownLog(final Build.Job job) {
+        return Build.FAILURE.equals(job.result()) && job.failedTests() != null ? "" : job.logText();
+    }
+
+    private static void appendJob(
+            final StringBuilder text, final Build.Job job, final String indent) {
+        text.append('\n')
+                .append(indent)
+                .append("job: ")
+                .append(job.name())
+                .append(" - ")
+                .append(job.result());
+        if (Build.FAILURE.equals(job.result()) && job.failedTests() != null) {
+            for (final String test : job.failedTests()) {
+                text.append('\n').append(indent).append("  test: ").append(test);
+            }
+        } else if (!shownLog(job).isEmpty()) {
+            text.append('\n')
+                    .append(indent)
+                    .append("log: ")
+                    .append(job.name())
+                    .append('\n')
+                    .append(shownLog(job));
+        }
+        if (job.url() != null) {
+            text.append('\n').append(indent).append("  page: ").append(job.url());
+        }
     }
 
     static String terminalText(final String text) {

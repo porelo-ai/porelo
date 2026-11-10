@@ -420,7 +420,10 @@ porelo build status -p myproject -r backend --commit="$(git rev-parse HEAD)" --l
 ```
 
 The project must name `builds:` and be `online`. The default log policy is `failure`; `--logs=all` asks for every
-job's log and `--logs=none` asks for none. In a checkout of a project, omit `-p` and `-r` to use the project
+job's log and `--logs=none` asks for none. Human output lists runs by trigger and id, with their jobs under them;
+jobs without an unambiguous matching run are listed apart. A failed job's named failed tests replace its log,
+one line per test, at most 50 lines of 200 code points each. Its HTTPS page is shown only on the selected
+repository upstream's host. JSON carries the run and job metadata; a failed job with named tests has an empty `log` field. In a checkout of a project, omit `-p` and `-r` to use the project
 and repository its origin matches. A query never adds a checkout to `default`. The token stays on the host, in the
 vault and the reader's socket calls; human output escapes terminal controls in the forge's text.
 

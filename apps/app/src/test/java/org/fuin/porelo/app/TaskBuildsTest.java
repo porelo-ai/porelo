@@ -7,7 +7,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,6 +101,87 @@ class TaskBuildsTest {
 
         builds.reader(TASK, "github", "no build reader for 'github' is installed");
         assertThat(builds.view(TASK).problem()).contains("is installed");
+    }
+
+    @Test
+    void storedBuildFieldsReachTheDaemonAnswerWithTheApiBounds() throws IOException {
+        // A stored adapter answer must not lose its trigger or inject lines through failed tests.
+        final var line =
+                new java.util.LinkedHashMap<String, Object>(
+                        seen(COMMIT, "failure", "0123456789ab").asMap());
+        line.put("run", "0123456789ab");
+        line.put(
+                "runs",
+                List.of(
+                        Map.of(
+                                "name",
+                                "Build",
+                                "result",
+                                "failure",
+                                "event",
+                                "PUSH\nforged",
+                                "id",
+                                "7".repeat(70))));
+        line.put(
+                "jobs",
+                List.of(
+                        Map.of(
+                                "name",
+                                "unit",
+                                "result",
+                                "failure",
+                                "run",
+                                "7".repeat(70),
+                                "failedTests",
+                                java.util.Collections.nCopies(55, "x".repeat(199) + "\nforged"),
+                                "url",
+                                "https://forge.example/jobs/7")));
+        final Path record = dir.resolve("state/porelo/builds/" + TASK + ".jsonl");
+        Files.createDirectories(record.getParent());
+        Files.writeString(record, Json.write(line) + "\n");
+        final Map<String, Object> answer = builds.current(TASK).getFirst().asMap();
+        assertThat(answer.get("runs"))
+                .as("bounded trigger and id reach Tasks1")
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "name",
+                                        "Build",
+                                        "result",
+                                        "failure",
+                                        "event",
+                                        "push forged",
+                                        "id",
+                                        "7".repeat(64))));
+        final Map<?, ?> job = (Map<?, ?>) ((List<?>) answer.get("jobs")).getFirst();
+        assertThat(job.get("run")).as("the bounded run reference").isEqualTo("7".repeat(64));
+        assertThat(job.get("failedTests"))
+                .as("at most fifty single lines of two hundred code points")
+                .isEqualTo(java.util.Collections.nCopies(50, "x".repeat(199) + " "));
+        assertThat(job.get("url"))
+                .as("the adapter's page")
+                .isEqualTo("https://forge.example/jobs/7");
+    }
+
+    @Test
+    void anOldRecordStillReadsAndRoundTripsWithoutOptionalFields() throws IOException {
+        // Upgrading must preserve the builds recorded by readers that knew none of these fields.
+        final TaskBuilds.Seen old =
+                new TaskBuilds.Seen(
+                        COMMIT,
+                        "failure",
+                        List.of(new TaskBuilds.Job("unit", "failure", null)),
+                        "then",
+                        "",
+                        "0123456789ab",
+                        List.of(new TaskBuilds.Run("Build", "failure")));
+        builds.write(TASK, old);
+        assertThat(builds.current(TASK)).as("the old record still reads").containsExactly(old);
+        assertThat(builds.current(TASK).getFirst().asMap())
+                .as("no optional fields are invented")
+                .containsEntry("runs", List.of(Map.of("name", "Build", "result", "failure")))
+                .containsEntry(
+                        "jobs", List.of(Map.of("name", "unit", "result", "failure", "log", "")));
     }
 
     private static TaskBuilds.Seen seen(

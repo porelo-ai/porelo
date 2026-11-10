@@ -173,6 +173,107 @@ class BuildWatchTest {
     }
 
     @Test
+    void adapterMetadataReachesTheTasks1BuildAnswer() throws IOException {
+        // Losing metadata on delivery leaves the daemon unable to distinguish triggers or name
+        // failures.
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "unit",
+                                        "failure",
+                                        null,
+                                        "71",
+                                        List.of("Suite.fails"),
+                                        "https://forge.example/jobs/7")),
+                        "",
+                        List.of(new Build.Run("Build", "failure", "push", "71"))));
+        watch.round();
+        final Map<String, Object> answer = builds.current(TASK).getFirst().asMap();
+        assertThat(answer.get("runs"))
+                .as("the daemon's run fields come from the adapter")
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "name", "Build", "result", "failure", "event", "push", "id",
+                                        "71")));
+        assertThat(answer.get("jobs"))
+                .as("the daemon's job fields come from the adapter")
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "name",
+                                        "unit",
+                                        "result",
+                                        "failure",
+                                        "log",
+                                        "",
+                                        "run",
+                                        "71",
+                                        "failedTests",
+                                        List.of("Suite.fails"),
+                                        "url",
+                                        "https://forge.example/jobs/7")));
+    }
+
+    @Test
+    void failedTestsArrivingAfterTheVerdictReachTheDaemonAndSurviveResume() throws Exception {
+        // A later test report must not vanish just because the verdict and job names stayed the
+        // same.
+        final BuildWatch before = watch();
+        before.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(new Build.Job("unit", "failure", null, "71", null, null)),
+                        "",
+                        List.of(new Build.Run("Build", "failure", "push", "71"))));
+        before.round();
+        final BuildWatch resumed = watch();
+        resumed.run(() -> false);
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "unit",
+                                        "failure",
+                                        null,
+                                        "71",
+                                        List.of("Suite.fails"),
+                                        "https://forge.example/jobs/7")),
+                        "",
+                        List.of(new Build.Run("Build", "failure", "push", "71"))));
+        later(BuildWatch.SETTLED);
+        resumed.round();
+        assertThat(builds.current(TASK).getFirst().asMap().get("jobs"))
+                .as("new failure details replace the earlier record after resume")
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "name",
+                                        "unit",
+                                        "result",
+                                        "failure",
+                                        "log",
+                                        "",
+                                        "run",
+                                        "71",
+                                        "failedTests",
+                                        List.of("Suite.fails"),
+                                        "url",
+                                        "https://forge.example/jobs/7")));
+    }
+
+    @Test
     void followsOnlyWhatTheTaskPushesAndHandsInEachVerdictAsItChanges() throws IOException {
         final BuildWatch watch = watch();
         watch.round();

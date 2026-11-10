@@ -363,11 +363,25 @@ public final class BuildWatch {
                         new Build(
                                 seen.verdict(),
                                 seen.jobs().stream()
-                                        .map(job -> new Build.Job(job.name(), job.result()))
+                                        .map(
+                                                job ->
+                                                        new Build.Job(
+                                                                job.name(),
+                                                                job.result(),
+                                                                null,
+                                                                job.run(),
+                                                                job.failedTests(),
+                                                                job.url()))
                                         .toList(),
                                 seen.detail(),
                                 seen.runs().stream()
-                                        .map(each2 -> new Build.Run(each2.name(), each2.result()))
+                                        .map(
+                                                each2 ->
+                                                        new Build.Run(
+                                                                each2.name(),
+                                                                each2.result(),
+                                                                each2.event(),
+                                                                each2.id()))
                                         .toList());
                 each.seen = seen;
                 // Still followed: a workflow may start later, and its verdict is the task's. Its
@@ -601,7 +615,14 @@ public final class BuildWatch {
                             handIn(base + "-" + (jobs.size() + 1) + ".log", tail);
                     log = new TaskBuilds.Log(handed.name(), handed.bytes(), handed.sha256());
                 }
-                jobs.add(new TaskBuilds.Job(job.name(), job.result(), log));
+                jobs.add(
+                        new TaskBuilds.Job(
+                                job.name(),
+                                job.result(),
+                                log,
+                                job.run(),
+                                job.failedTests(),
+                                job.url()));
             }
             final TaskBuilds.Seen seen =
                     new TaskBuilds.Seen(
@@ -624,20 +645,22 @@ public final class BuildWatch {
         }
     }
 
-    /**
-     * The same jobs with the same results: a log's bytes are not compared, a job's end does not
-     * change.
-     */
+    /** Metadata may arrive after the verdict; a log's bytes alone do not change the answer. */
     private static boolean same(final List<Build.Job> told, final List<Build.Job> now) {
         return told.stream()
-                .map(job -> List.of(job.name(), job.result()))
+                .map(BuildWatch::withoutLog)
                 .toList()
-                .equals(now.stream().map(job -> List.of(job.name(), job.result())).toList());
+                .equals(now.stream().map(BuildWatch::withoutLog).toList());
+    }
+
+    private static Build.Job withoutLog(final Build.Job job) {
+        return new Build.Job(
+                job.name(), job.result(), null, job.run(), job.failedTests(), job.url());
     }
 
     private static List<TaskBuilds.Run> runs(final Build build) {
         return build.runs().stream()
-                .map(run -> new TaskBuilds.Run(run.name(), run.result()))
+                .map(run -> new TaskBuilds.Run(run.name(), run.result(), run.event(), run.id()))
                 .toList();
     }
 

@@ -36,7 +36,8 @@ class BuildStatusCommandTest {
 
     private static final String COMMIT = "a".repeat(40);
     private static final String UPSTREAM = "https://forge.example/acme/code.git";
-    private static final String VAULT_TOKEN = java.util.UUID.randomUUID().toString();
+    private static final String VAULT_TOKEN =
+            "BuildSecret" + java.util.UUID.randomUUID() + "MixedCase".repeat(20);
 
     /** One vault for the class, sealed once with the production cost; each test gets its copy. */
     private static Path sealedVault;
@@ -831,6 +832,152 @@ class BuildStatusCommandTest {
                 .isFalse();
     }
 
+    @Test
+    void failedTestsReplaceTheLogUnderTheirRunWithItsForgePage() {
+        // A log can bury the failed tests and two triggers can otherwise look like one run.
+        reader.answer = triggeredBuild("https://FORGE.example/jobs/7", "71");
+        assertThat(execute("build", "status", "-p", "acme", "--branch=main"))
+                .as("the build failed")
+                .isEqualTo(1);
+        assertThat(out.toString())
+                .as("runs group their jobs and tests take precedence over logs")
+                .containsSubsequence(
+                        "run: Build - failure (push, id: 71)",
+                        "  job: unit - failure",
+                        "    test: Suite.first forged",
+                        "    test: Suite.second",
+                        "    page: https://FORGE.example/jobs/7",
+                        "run: Build - success (pull_request, id: 72)")
+                .doesNotContain("hidden log");
+    }
+
+    @Test
+    void aPageOnAnotherHostNeverAppearsInEitherRendering() {
+        // A forged page must not send the person to another host even when it looks related.
+        reader.answer = triggeredBuild("https://forge.example.attacker.example/jobs/7", "71");
+        execute("build", "status", "-p", "acme", "--branch=main");
+        execute("build", "status", "-p", "acme", "--branch=main", "--json");
+        assertThat(out.toString())
+                .as("the foreign page is withheld")
+                .doesNotContain("attacker.example");
+    }
+
+    @Test
+    void aJobNamingNoRunIsListedApartInsteadOfDisappearing() {
+        // An unknown run reference must not hide a failed job or attach it to another trigger.
+        reader.answer = triggeredBuild("https://forge.example/jobs/7", "absent");
+        execute("build", "status", "-p", "acme", "--branch=main");
+        assertThat(out.toString())
+                .as("the API drops the reference and status lists the job apart")
+                .containsSubsequence(
+                        "run: Build - failure (push, id: 71)",
+                        "run: Build - success (pull_request, id: 72)",
+                        "\njob: unit - failure");
+    }
+
+    @Test
+    void jsonCarriesTheNewFieldsAndRedactsEveryOne() {
+        // Newly carried metadata must not become another route for a forge to echo its token.
+        reader.answer =
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "unit",
+                                        "failure",
+                                        null,
+                                        token,
+                                        List.of(token),
+                                        "https://forge.example/" + token)),
+                        "",
+                        List.of(new Build.Run("Build", "failure", token, token)));
+        execute("build", "status", "-p", "acme", "--branch=main", "--json");
+        assertThat(out.toString())
+                .as("new fields survive and the credential does not")
+                .contains("\"runs\"", "\"event\"", "\"id\"", "\"run\"", "\"failedTests\"")
+                .doesNotContain(
+                        token,
+                        token.substring(0, 64),
+                        token.substring(0, 64).toLowerCase(java.util.Locale.ROOT));
+    }
+
+    @Test
+    void labeledFailedTestCannotExposeATokenPrefixAtItsBound() {
+        // A label before a credential can leave a shorter secret prefix at the field's cutoff.
+        reader.answer =
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "unit",
+                                        "failure",
+                                        null,
+                                        null,
+                                        List.of("x".repeat(190) + token),
+                                        null)),
+                        "");
+        execute("build", "status", "-p", "acme", "--branch=main");
+        execute("build", "status", "-p", "acme", "--branch=main", "--json");
+        assertThat(out.toString())
+                .as("the shortened credential never reaches either output")
+                .doesNotContain(token.substring(0, 10));
+    }
+
+    @Test
+    void namedFailedTestsHideTheLogInJsonEvenWhenAllLogsAreRequested() {
+        // A JSON query must not expose the log that named failed tests replace at the terminal.
+        reader.answer = triggeredBuild("https://forge.example/jobs/7", "71");
+        execute("build", "status", "-p", "acme", "--branch=main", "--logs=all", "--json");
+        assertThat(out.toString())
+                .as("tests and page replace this failed job's log")
+                .contains(
+                        "Suite.first forged",
+                        "Suite.second",
+                        "https://forge.example/jobs/7",
+                        "\"log\":\"\"")
+                .doesNotContain("hidden log");
+    }
+
+    @Test
+    void duplicateRunIdsKeepEveryRunButListTheJobOnlyOnceApart() {
+        // Ambiguous ids must not claim that a failed job belongs to both triggers.
+        reader.answer =
+                new Build(
+                        Build.FAILURE,
+                        triggeredBuild("https://forge.example/jobs/7", "71").jobs(),
+                        "",
+                        List.of(
+                                new Build.Run("Build", "failure", "push", "71"),
+                                new Build.Run("Build", "success", "pull_request", "71")));
+        execute("build", "status", "-p", "acme", "--branch=main");
+        assertThat(out.toString())
+                .as("both runs remain and the ambiguous job is apart")
+                .containsSubsequence(
+                        "run: Build - failure (push, id: 71)",
+                        "run: Build - success (pull_request, id: 71)",
+                        "\njob: unit - failure");
+        assertThat(out.toString().lines().filter(line -> line.contains("job: unit")).count())
+                .as("the job is shown once")
+                .isEqualTo(1);
+    }
+
+    private static Build triggeredBuild(final String page, final String run) {
+        return new Build(
+                Build.FAILURE,
+                List.of(
+                        new Build.Job(
+                                "unit",
+                                "failure",
+                                "hidden log".getBytes(StandardCharsets.UTF_8),
+                                run,
+                                List.of("Suite.first\nforged", "Suite.second"),
+                                page)),
+                "",
+                List.of(
+                        new Build.Run("Build", "failure", "push", "71"),
+                        new Build.Run("Build", "success", "pull_request", "72")));
+    }
+
     private static final class FakeReader implements BuildStatusCommand.Reader {
         private Target target;
         private String head = COMMIT;
@@ -888,9 +1035,16 @@ class BuildStatusCommandTest {
                                                                     && "failure"
                                                                             .equals(job.result()))
                                                     ? job
-                                                    : new Build.Job(job.name(), job.result()))
+                                                    : new Build.Job(
+                                                            job.name(),
+                                                            job.result(),
+                                                            null,
+                                                            job.run(),
+                                                            job.failedTests(),
+                                                            job.url()))
                             .toList(),
-                    answer.detail());
+                    answer.detail(),
+                    answer.runs());
         }
 
         @Override

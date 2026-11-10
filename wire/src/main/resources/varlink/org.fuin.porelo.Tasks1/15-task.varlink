@@ -335,7 +335,11 @@ type BuildRun (
   # As the forge spells it, one line of printable text.
   name: string,
   # What became of it, lower case, or its state while it is not finished: "queued" | "in_progress" | ...
-  result: string
+  result: string,
+  # What started it, lower case as the forge spells it: "push", "pull_request", ...; at most 64 code points.
+  event: ?string,
+  # The forge's run id, one printable line of at most 64 code points; absent when the reader names none.
+  id: ?string
 )
 
 # One job of a build.
@@ -348,7 +352,17 @@ type BuildJob (
   result: string,
   # Its log's name in /porelo/files, the log's last 64 KiB: build-<first 12 of commit>-<n>.log, n counting from 1 in
   # this list; empty when no log of it was delivered.
-  log: string
+  log: string,
+  # The id of one of this build's runs; absent when the reader names none or an unknown run.
+  run: ?string,
+  # For a failed job, at most 50 failed tests as the runner names them, each one printable line of at most
+  # 200 code points. Absent when the reader names none.
+  failedTests: ?[]string,
+  # The forge's HTTPS job page, at most 2048 ASCII characters without spaces or user information; absent when
+  # the reader gives none of that form. Build status prints a page only on the repository upstream's host;
+  # it groups jobs under their run's trigger and id, lists unassigned jobs apart, and prints a failed job's
+  # tests instead of its log when tests are named.
+  url: ?string
 )
 
 # One file handed to a running task, as the record holds it.

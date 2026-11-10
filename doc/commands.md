@@ -119,7 +119,7 @@ it runs, `porelo task clearance TASK prompt` asks about each blocked connection.
 
 | Command | What it does |
 |---|---|
-| `porelo build status -p PROJECT [-r REPOSITORY] --branch=BRANCH` | Reads the branch's head, its build verdict, jobs and failed jobs' logs. |
+| `porelo build status -p PROJECT [-r REPOSITORY] --branch=BRANCH` | Reads the branch's head, its build verdict, runs by trigger and id, and jobs with failed tests and forge pages. |
 | `porelo build status -p PROJECT [-r REPOSITORY] --commit=SHA` | Reads the build of a full 40- or 64-character hexadecimal object name. |
 
 Choose exactly one of `--branch` and `--commit`. `-p`/`--project` and `-r`/`--repository` take keys from the
@@ -129,7 +129,16 @@ otherwise the command names the keys to choose from.
 
 `--logs=failure` is the default; `--logs=all` reads every job's log, and `--logs=none` requests no logs.
 `--json` writes one object with `project`, `repository`, `branch` (null for a commit query), `commit`, `verdict`,
-`detail` and `jobs`; each job has `name`, `result` and `log` as text. Human output escapes every control character
+`detail` and `jobs`; each job has `name`, `result` and `log` as text, and optional `run`, `failedTests` and `url`.
+When the reader names runs, `runs` lists their `name`, `result`, and optional `event` and `id`.
+
+Human output lists runs with their trigger and id, with jobs under the run whose id they name. Jobs with no run,
+an unknown run, or an ambiguous id are listed apart. A failed job with named failed tests prints each on its own
+line instead of its log, even with `--logs=all`; otherwise the requested log is printed. At most 50 tests of at
+most 200 code points each are shown, with line breaks and control characters replaced by spaces. A job's page
+is printed only when its HTTPS URL names the selected repository upstream's host (ignoring case), including
+in JSON; a different API host does not change the page's allowed host. JSON keeps the `log` field empty for a failed job with named tests, and carries the requested log otherwise.
+Human output escapes every control character
 except newline and tab as `\xNN`, and every format character - a bidirectional override, an invisible joiner -
 as `\uNNNN`, both in lower-case hexadecimal, so a log cannot rewrite or reorder what the terminal shows.
 A carriage return right before a newline is read as the line end.

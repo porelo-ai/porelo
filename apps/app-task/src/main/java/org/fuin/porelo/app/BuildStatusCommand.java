@@ -20,7 +20,8 @@ import picocli.CommandLine.Spec;
         name = "status",
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
-        description = "Reads a branch's or a commit's build from the project's forge.")
+        description =
+                "Reads a build's runs by trigger and id, with jobs, failed tests and forge pages.")
 public class BuildStatusCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     interface Reader extends BuildReader, AutoCloseable {

@@ -107,6 +107,23 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void buildMetadataIsOptionalInTheTasks1Contract() {
+        // Clients need typed optional metadata while older adapters must remain readable.
+        final String description = PoreloDaemon.description();
+        assertThat(
+                        description.substring(
+                                description.indexOf("type BuildRun ("),
+                                description.indexOf("# One file handed")))
+                .as("the new run and job fields are optional")
+                .contains(
+                        "event: ?string",
+                        "id: ?string",
+                        "run: ?string",
+                        "failedTests: ?[]string",
+                        "url: ?string");
+    }
+
+    @Test
     void memberRemovalDeclaresItsInputsOutcomesAndMissingMemberError() {
         // Clients need every outcome and a named missing-member refusal to implement revocation.
         final String description = PoreloDaemon.description();

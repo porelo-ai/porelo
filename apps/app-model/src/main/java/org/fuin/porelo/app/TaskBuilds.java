@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.BuildFields;
 import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
@@ -40,8 +41,31 @@ public final class TaskBuilds {
      * @param name As the forge spells it, workflow and job.
      * @param result What became of it, as the forge says it.
      * @param log Its log, or {@code null} when none was delivered.
+     * @param run Its run's id, or null when none of the build's runs is named.
+     * @param failedTests The bounded failed-test names, or null when none are named.
+     * @param url The bounded HTTPS page, or null when none is given.
      */
-    public record Job(String name, String result, @Nullable Log log) {
+    public record Job(
+            String name,
+            String result,
+            @Nullable Log log,
+            @Nullable String run,
+            @Nullable List<String> failedTests,
+            @Nullable String url) {
+
+        /** Keeps precisely the build API's bounds, including when reading a stored answer. */
+        public Job {
+            name = BuildFields.line(name);
+            result = BuildFields.line(result);
+            run = BuildFields.cut(run, BuildFields.MOST_ID);
+            failedTests = BuildFields.failedTests(failedTests);
+            url = BuildFields.page(url);
+        }
+
+        /** Creates a job from a reader that names no run, failed tests or page. */
+        public Job(final String name, final String result, final @Nullable Log log) {
+            this(name, result, log, null, null, null);
+        }
 
         /**
          * Returns it as the daemon sends it: the log as its name.
@@ -53,6 +77,15 @@ public final class TaskBuilds {
             map.put("name", name);
             map.put("result", result);
             map.put("log", log == null ? "" : log.name());
+            if (run != null) {
+                map.put("run", run);
+            }
+            if (failedTests != null) {
+                map.put("failedTests", failedTests);
+            }
+            if (url != null) {
+                map.put("url", url);
+            }
             return map;
         }
     }
@@ -62,8 +95,24 @@ public final class TaskBuilds {
      *
      * @param name As the forge spells it.
      * @param result What became of it, or its state while it is not finished.
+     * @param event The trigger, or null when the reader names none.
+     * @param id The run's id, or null when the reader names none.
      */
-    public record Run(String name, String result) {
+    public record Run(String name, String result, @Nullable String event, @Nullable String id) {
+
+        /** Keeps precisely the build API's one-line run fields. */
+        public Run {
+            name = BuildFields.line(name);
+            result = BuildFields.line(result).toLowerCase(java.util.Locale.ROOT);
+            final String trigger = BuildFields.cut(event, BuildFields.MOST_ID);
+            event = trigger == null ? null : trigger.toLowerCase(java.util.Locale.ROOT);
+            id = BuildFields.cut(id, BuildFields.MOST_ID);
+        }
+
+        /** Creates a run from a reader that names neither trigger nor id. */
+        public Run(final String name, final String result) {
+            this(name, result, null, null);
+        }
 
         /**
          * Returns it as the daemon sends it.
@@ -74,6 +123,12 @@ public final class TaskBuilds {
             final Map<String, Object> map = new LinkedHashMap<>();
             map.put("name", name);
             map.put("result", result);
+            if (event != null) {
+                map.put("event", event);
+            }
+            if (id != null) {
+                map.put("id", id);
+            }
             return map;
         }
     }
@@ -100,8 +155,33 @@ public final class TaskBuilds {
 
         /** Kept a copy. */
         public Seen {
-            jobs = List.copyOf(jobs);
-            runs = List.copyOf(runs);
+            runs =
+                    List.copyOf(
+                            runs.size() > BuildFields.MOST_RUNS
+                                    ? runs.subList(0, BuildFields.MOST_RUNS)
+                                    : runs);
+            final java.util.Set<String> ids = new java.util.HashSet<>();
+            for (final Run each : runs) {
+                if (each.id() != null) {
+                    ids.add(each.id());
+                }
+            }
+            jobs =
+                    jobs.stream()
+                            .limit(BuildFields.MOST_JOBS)
+                            .map(
+                                    job ->
+                                            BuildFields.knownRun(job.run(), ids) != null
+                                                            || job.run() == null
+                                                    ? job
+                                                    : new Job(
+                                                            job.name(),
+                                                            job.result(),
+                                                            job.log(),
+                                                            null,
+                                                            job.failedTests(),
+                                                            job.url()))
+                            .toList();
         }
 
         /**
@@ -282,7 +362,19 @@ public final class TaskBuilds {
                                                     number(each.get("bytes")),
                                                     text(each.get("sha256")))
                                             : null;
-                            jobs.add(new Job(text(job.get("name")), text(job.get("result")), log));
+                            jobs.add(
+                                    new Job(
+                                            text(job.get("name")),
+                                            text(job.get("result")),
+                                            log,
+                                            optionalText(job.get("run")),
+                                            job.get("failedTests") instanceof List<?> tests
+                                                    ? tests.stream()
+                                                            .filter(String.class::isInstance)
+                                                            .map(String.class::cast)
+                                                            .toList()
+                                                    : null,
+                                            optionalText(job.get("url"))));
                         }
                     }
                 }
@@ -290,7 +382,12 @@ public final class TaskBuilds {
                 if (map.get("runs") instanceof List<?> named) {
                     for (final Object entry : named) {
                         if (entry instanceof Map<?, ?> each) {
-                            runs.add(new Run(text(each.get("name")), text(each.get("result"))));
+                            runs.add(
+                                    new Run(
+                                            text(each.get("name")),
+                                            text(each.get("result")),
+                                            optionalText(each.get("event")),
+                                            optionalText(each.get("id"))));
                         }
                     }
                 }
@@ -426,6 +523,10 @@ public final class TaskBuilds {
 
     private static String text(final @Nullable Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static @Nullable String optionalText(final @Nullable Object value) {
+        return value instanceof String text ? text : null;
     }
 
     private static long number(final @Nullable Object value) {

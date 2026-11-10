@@ -9,6 +9,9 @@ This page is for whoever writes one for a forge Porelo does not read yet.
 Its repository, API address and credential entry come from the project's `builds:` declaration. Each query starts
 the reader with a socket in a new owner-only directory under the account's runtime directory and removes that
 directory when it finishes, including after a refusal. The token travels only in the socket call.
+Human status output groups jobs under runs by trigger and id. A failed job's named failed tests replace its log;
+its HTTPS page is shown only on the repository upstream's host. Jobs without an unambiguous matching run are
+listed apart, including when the API clears an unknown run reference. JSON carries the metadata; a failed job with named tests has an empty `log` field.
 
 ## What it is built on
 

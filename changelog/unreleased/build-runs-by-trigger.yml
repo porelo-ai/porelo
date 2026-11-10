@@ -1,2 +1,2 @@
-title: "Build2 names each run's trigger (`event`) and id, and a job's run, its failed tests and the forge's page of it, all optional, so a reader from before still works and a push run is told from its pull request run"
+title: "Build2 names each run's trigger (`event`) and id, and a job's run, its failed tests and the forge's page of it, all optional, so a reader from before still works; Tasks1 carries these fields and build status groups jobs by run and shows failed tests with same-forge pages instead of logs"
 type: added

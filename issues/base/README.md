@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. |
 | <a id="b583"></a>[B583](B583-The-Rooms-Members-Over-The-Daemon.md) | S | - | `RoomMembers` over the daemon from the transport's `members` verb: who is in a project's room, tasks by container. |
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
 | <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. |
@@ -138,7 +139,6 @@ from its side, as *blocked by*.
 | <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. |
 | <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. |
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
-| <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
 | <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |

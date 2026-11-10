@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.fuin.porelo.wire.BuildFields;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,19 +23,19 @@ import org.jspecify.annotations.Nullable;
 public record Build(String verdict, List<Job> jobs, String detail, List<Run> runs) {
 
     /** The most runs one build names, so a forge cannot flood a task or a reply. */
-    public static final int MOST_RUNS = 50;
+    public static final int MOST_RUNS = BuildFields.MOST_RUNS;
 
     /** The most code points of a job's or a run's name or result. */
-    public static final int MOST_TEXT = 200;
+    public static final int MOST_TEXT = BuildFields.MOST_TEXT;
 
     /** The most code points of a run's trigger or id. */
-    public static final int MOST_ID = 64;
+    public static final int MOST_ID = BuildFields.MOST_ID;
 
     /** The most failed tests a job names. */
-    public static final int MOST_FAILED_TESTS = 50;
+    public static final int MOST_FAILED_TESTS = BuildFields.MOST_FAILED_TESTS;
 
     /** The most characters of a job's page address. */
-    public static final int MOST_URL = 2048;
+    public static final int MOST_URL = BuildFields.MOST_URL;
 
     /**
      * One run of a workflow or pipeline for the commit, and what became of it or its state while it
@@ -76,62 +77,16 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
         }
     }
 
-    /**
-     * Returns a reader's optional text as one line of at most so many code points, or {@code null}
-     * when it is absent or blank.
-     */
     static @Nullable String cut(final @Nullable String text, final int most) {
-        final String stripped = flat(text);
-        if (stripped.isEmpty()) {
-            return null;
-        }
-        return stripped.codePointCount(0, stripped.length()) <= most
-                ? stripped
-                : stripped.substring(0, stripped.offsetByCodePoints(0, most));
+        return BuildFields.cut(text, most);
     }
 
-    /**
-     * Returns a reader's text as one line Porelo may write: control and format characters, line
-     * breaks among them, become a space; stripped and cut at {@link #MOST_TEXT} code points.
-     *
-     * <p>The name is the repository's to write: a workflow named {@code x\nverdict: success} wrote
-     * a forged line into the file a task reads.
-     *
-     * @param text What the reader said.
-     * @return It as one line.
-     */
     static String line(final @Nullable String text) {
-        final String stripped = flat(text);
-        return stripped.codePointCount(0, stripped.length()) <= MOST_TEXT
-                ? stripped
-                : stripped.substring(0, stripped.offsetByCodePoints(0, MOST_TEXT));
+        return BuildFields.line(text);
     }
 
-    /**
-     * Returns a text as one line, uncut: control and format characters, line breaks among them,
-     * become a space.
-     *
-     * @param text What the reader said.
-     * @return It as one line, stripped.
-     */
     static String flat(final @Nullable String text) {
-        if (text == null) {
-            return "";
-        }
-        final StringBuilder kept = new StringBuilder(Math.min(text.length(), MOST_TEXT * 2));
-        text.codePoints()
-                .map(
-                        point ->
-                                Character.isISOControl(point)
-                                                || Character.getType(point) == Character.FORMAT
-                                                || Character.getType(point)
-                                                        == Character.LINE_SEPARATOR
-                                                || Character.getType(point)
-                                                        == Character.PARAGRAPH_SEPARATOR
-                                        ? ' '
-                                        : point)
-                .forEach(kept::appendCodePoint);
-        return kept.toString().strip();
+        return BuildFields.flat(text);
     }
 
     /** Not started yet. */
@@ -176,7 +131,7 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
     public static final int MOST_LOG_BYTES = 2 * 1024 * 1024;
 
     /** The most jobs one build hands logs over for, so a matrix of hundreds cannot flood a task. */
-    public static final int MOST_JOBS = 50;
+    public static final int MOST_JOBS = BuildFields.MOST_JOBS;
 
     /** Which logs a caller wants downloaded and handed over. */
     public enum Logs {
@@ -269,20 +224,7 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
                                             log, log.length - TAIL, log.length)
                                     : log.clone();
             this.run = cut(run, MOST_ID);
-            List<String> kept = null;
-            if (failedTests != null) {
-                // A test's name is the repository's to write: a name with a line break wrote a line
-                // of its own into the status.
-                final List<String> named = new ArrayList<>();
-                for (final String test : failedTests) {
-                    final String each = cut(test, MOST_TEXT);
-                    if (each != null && named.size() < MOST_FAILED_TESTS) {
-                        named.add(each);
-                    }
-                }
-                kept = named.isEmpty() ? null : List.copyOf(named);
-            }
-            this.failedTests = kept;
+            this.failedTests = BuildFields.failedTests(failedTests);
             this.url = page(url);
         }
 
@@ -365,30 +307,8 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
         }
     }
 
-    /**
-     * Returns a job's page address when it is one Porelo may show: {@code https}, with a host, no
-     * user part, no space or control character, at most {@link #MOST_URL} characters.
-     */
     static @Nullable String page(final @Nullable String url) {
-        if (url == null || url.isEmpty() || url.length() > MOST_URL) {
-            return null;
-        }
-        for (int i = 0; i < url.length(); i++) {
-            final char c = url.charAt(i);
-            if (c <= ' ' || c >= 0x7f) {
-                return null;
-            }
-        }
-        try {
-            final java.net.URI address = new java.net.URI(url);
-            return "https".equals(address.getScheme())
-                            && address.getHost() != null
-                            && address.getRawUserInfo() == null
-                    ? url
-                    : null;
-        } catch (final java.net.URISyntaxException ex) {
-            return null;
-        }
+        return BuildFields.page(url);
     }
 
     /**
@@ -437,7 +357,11 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
             }
         }
         return jobs.stream()
-                .map(job -> job.run() == null || ids.contains(job.run()) ? job : job.ofNoRun())
+                .map(
+                        job ->
+                                BuildFields.knownRun(job.run(), ids) != null || job.run() == null
+                                        ? job
+                                        : job.ofNoRun())
                 .toList();
     }
 
