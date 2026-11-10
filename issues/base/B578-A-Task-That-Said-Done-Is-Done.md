@@ -1,6 +1,6 @@
 # [B578](README.md#b578) — A Task That Said Done Is Done
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** M - a task state from the agent's own word, kept across a stop, in the contract and the list.
 
 **What must be true.** A task whose agent said it is done and stopped has a state of its own, `done`, in the list,
