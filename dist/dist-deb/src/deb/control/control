@@ -10,7 +10,7 @@ Maintainer: Michael Schnell <michael@fuin.org>
 Homepage: https://github.com/porelo-ai/porelo
 # Podman 5, as the setup script demands: a plain apt install on a release offering 4 would fail 'porelo doctor'.
 # The C library and zlib at the floor the binaries were measured to need: jdeb does not read them.
-Depends: podman (>= 5), nftables, dnsmasq-base, git, util-linux, libc6 (>= [[package.glibc.floor]]), zlib1g
+Depends: podman (>= 5), catatonit, nftables, dnsmasq-base, git, util-linux, libc6 (>= [[package.glibc.floor]]), zlib1g
 # Recommended, not required: they depend on porelo, so requiring them would be a cycle. apt installs
 # a recommendation by default, which is what a machine without the setup script needs - without the
 # filter nothing leaves a task.

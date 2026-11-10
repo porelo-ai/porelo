@@ -204,11 +204,11 @@ record Install(
                 echo "STEP: apt-get update"
                 logged apt-get update -qq --error-on=any || failed "apt-get update"
                 echo "STEP: installing porelo"
-                logged apt-get install -y -qq /deb/porelo_*.deb || failed "installing porelo"
+                logged apt-get install -y -qq --no-install-recommends /deb/porelo_*.deb || failed "installing porelo"
                 echo "STEP: installing porelo-host"
-                logged apt-get install -y -qq /deb/porelo-host_*.deb || failed "installing porelo-host"
+                logged apt-get install -y -qq --no-install-recommends /deb/porelo-host_*.deb || failed "installing porelo-host"
                 echo "STEP: installing the agent"
-                logged apt-get install -y -qq /agent/porelo-agent-stub_*.deb && echo AGENT-OK \
+                logged apt-get install -y -qq --no-install-recommends /agent/porelo-agent-stub_*.deb && echo AGENT-OK \
                     || failed "installing the agent"
                 """
                 + COMMON

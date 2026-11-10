@@ -570,6 +570,16 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
 
+        // Taking an organization's project can write state before the common launch runs.
+        if (!dryRun) {
+            final java.util.Optional<String> missingInit = TaskInit.missing(context);
+            if (missingInit.isPresent()) {
+                err.println("porelo: " + missingInit.get());
+                err.flush();
+                return 69;
+            }
+        }
+
         final Path projectFile;
         try {
             if (projectName == null) {

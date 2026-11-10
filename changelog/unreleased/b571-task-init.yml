@@ -1,0 +1,2 @@
+title: Task starts check Podman's configured init before preparation, and Debian packages require catatonit even without recommended packages.
+type: fixed

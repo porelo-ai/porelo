@@ -41,8 +41,12 @@ adds `match-principals`, which it calls. Below that, `porelo doctor` says so and
 to start, naming the version found and the version needed. A version Porelo cannot read refuses
 nothing, and `porelo doctor` says it could not read it. Every system above ships 10.0 or newer.
 
-Porelo calls `podman`, `nft`, `dnsmasq`, `git` and `nsenter`. The packages declare them, so
-the package manager pulls them in.
+Porelo calls `podman`, `nft`, `dnsmasq`, `git` and `nsenter`. Task containers also need
+`catatonit`, the default host init used by `podman --init`. The packages declare these needs. The Debian package
+requires `catatonit` even when installing without recommended packages. A start checks Podman's rootless
+configuration before preparing a task: a missing configured `init_path` is named, and an absent default init
+names the `catatonit` package to install. Configured helper directories and `$PATH` are searched as well.
+If the configuration cannot be read or interpreted with certainty, Porelo leaves the decision to Podman.
 
 ## 1. Install
 

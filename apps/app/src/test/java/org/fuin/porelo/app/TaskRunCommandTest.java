@@ -4121,6 +4121,46 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aMissingInitIsRefusedBeforeResolvingAProject(@TempDir Path dir) throws IOException {
+        // Project resolution can fetch and write organization state before the launch is called.
+        final PoreloContext context = context(dir, false);
+        runner.failing("porelo-init-check", 1, "");
+
+        final int code = execute(context, "task", "start", "-p", "not-taken", "--no-input");
+
+        assertThat(err.toString())
+                .as("the init check must come before taking a project")
+                .contains("catatonit");
+        assertThat(code)
+                .as("a missing init refuses even before a project has been taken")
+                .isEqualTo(69);
+        assertThat(runner.lines())
+                .as("only the init may be checked")
+                .allMatch(line -> line.contains("porelo-init-check"));
+        assertThat(dir.resolve("data")).as("no project record is written").doesNotExist();
+        assertThat(dir.resolve("state")).as("no task record is written").doesNotExist();
+    }
+
+    @Test
+    void aMissingInitMakesNothing(@TempDir Path dir) throws IOException {
+        // Discovering a missing init after preparation leaves unusable task state behind.
+        final PoreloContext context = context(dir, false);
+        runner.failing("porelo-init-check", 1, "");
+
+        final int code = execute(context, "task", "start", "-p", projectFile(dir, MINIMAL));
+
+        assertThat(err.toString()).as("the missing init must be the reason").contains("catatonit");
+        assertThat(code).as("a missing program refuses the start").isEqualTo(69);
+        assertThat(runner.lines())
+                .as("no image or container may be made")
+                .noneMatch(line -> line.matches("podman (build|pull|create|run|start) .+"));
+        assertThat(context.paths().hooksDirectory())
+                .as("not even hooks are registered")
+                .doesNotExist();
+        assertThat(dir.resolve("state")).as("no task record is written").doesNotExist();
+    }
+
+    @Test
     void refusesToRunWhenTheHookBinariesAreNotInstalled(@TempDir Path dir) throws IOException {
 
         // A container started without its firewall looks completely normal, which is why this must
@@ -4138,6 +4178,7 @@ class TaskRunCommandTest {
                 .allMatch(
                         line ->
                                 line.startsWith("podman version")
+                                        || line.contains("porelo-init-check")
                                         || line.equals("ssh -V")
                                         || line.startsWith("podman ps ")
                                         || line.equals("git -C . rev-parse --show-toplevel"));

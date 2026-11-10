@@ -615,6 +615,21 @@ class InstallTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"ubuntu", "debian"})
+    void aptInstallsCannotHideMissingDependenciesBehindRecommendations(String distribution) {
+        // Recommendations can mask a package that cannot start a task on a minimal machine.
+        final Install install = new Install(Path.of("p.deb"), Path.of("p.rpm"), Path.of("a.deb"));
+        final String script =
+                distribution.equals("ubuntu")
+                        ? install.ubuntu("http://archive.ubuntu.com/ubuntu/")
+                        : install.debian();
+        assertThat(script.lines().filter(line -> line.contains("logged apt-get install")))
+                .as("every package install must resolve only hard dependencies")
+                .isNotEmpty()
+                .allSatisfy(line -> assertThat(line).contains("--no-install-recommends"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ubuntu", "debian"})
     void aptScriptsAnnounceEachStepBeforeRunningIt(String distribution) {
         final Install install =
                 new Install(
@@ -629,8 +644,8 @@ class InstallTest {
                         "export DEBIAN_FRONTEND",
                         "printf '%s",
                         "logged apt-get update",
-                        "logged apt-get install -y -qq /deb/",
-                        "logged apt-get install -y -qq /agent/",
+                        "logged apt-get install -y -qq --no-install-recommends /deb/",
+                        "logged apt-get install -y -qq --no-install-recommends /agent/",
                         "porelo --version >/dev/null",
                         "echo \"REPORTED:",
                         "porelo setup",

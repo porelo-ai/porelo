@@ -1896,6 +1896,15 @@ public final class TaskLaunch {
     }
 
     private int launchSteps(PrintWriter out, PrintWriter err, AfterStart after) {
+        // Even remembering the project would leave state for a task this machine cannot create.
+        if (!request.dryRun()) {
+            final java.util.Optional<String> missingInit = TaskInit.missing(context);
+            if (missingInit.isPresent()) {
+                err.println("porelo: " + missingInit.get());
+                err.flush();
+                return 69;
+            }
+        }
         Project project;
         java.nio.file.Path projectFile = request.projectFile();
         try {
