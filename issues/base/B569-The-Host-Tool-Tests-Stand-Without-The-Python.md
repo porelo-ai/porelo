@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B569",
   "title": "The Host Tool's Tests Stand Without The Python",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 13,
@@ -18,8 +18,9 @@
 restate the predecessor, and the module's README.
 
 Filed 2026-11-09 as porelo's part of `porelo-project` ST291, by the operator's request of
-2026-11-09. Built once porelo-host has replaced the host's Python tool with the `porelo-host` package and
-ST291 is accepted.
+2026-11-09. Implementing since 2026-11-10, on the coordinator's order of 13:56Z (ST291 is Highest; built
+with [B552](README.md#b552) in Review, on main as it is). Built by an Antigravity sub-agent (Claude Opus 5.5)
+under Core's supervision.
 
 **What must be true.** `host/`'s tests say what `porelo-host` does, not what the Python helpers did. No test, comment
 or assertion message names a Python test (`// py: test_...`), the predecessor scripts (`porelo-host-person`,
