@@ -1201,7 +1201,15 @@ public final class TaskInventory {
         this(context, agentWaiting, null);
     }
 
-    TaskInventory(
+    /**
+     * Constructor with the readers of what an agent waits for and of how its run ended.
+     *
+     * @param context Where podman and the paths come from.
+     * @param agentWaiting What derives whether a task waits for a person, or {@code null} for
+     *     nothing.
+     * @param ending What reads how a task's agent ended, or {@code null} for nothing.
+     */
+    public TaskInventory(
             PoreloContext context,
             @Nullable AgentWaiting agentWaiting,
             @Nullable AgentEnding ending) {

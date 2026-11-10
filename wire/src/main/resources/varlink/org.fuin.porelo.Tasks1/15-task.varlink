@@ -42,7 +42,13 @@ type AgentEnded (
   status: ?int,
   # Changed files and commits in the workspace that never reached the gate: work an agent wrote
   # before it ended and did not push.
-  unpushed: int
+  unpushed: int,
+  # What the agent answered: its last message, as the record its definition declares as the last
+  # message gives it, "" when it declares none or wrote none. A long answer keeps its end, at most
+  # 16 KiB of its UTF-8 and starting at a whole character, since a work order asks for its last line.
+  answer: string,
+  # Whether the answer was longer and only its end is kept.
+  answerCut: bool
 )
 
 # How a person is meant to be involved in a task.

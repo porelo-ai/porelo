@@ -1,0 +1,2 @@
+title: "A task whose agent's run ended says what the agent answered: the daemon's `List` and `Watch` carry `agentEnded.answer`, its last message as the record its package declares gives it, keeping the last 16 KiB with `answerCut` when longer, and `\"\"` from an agent that declares none"
+type: added

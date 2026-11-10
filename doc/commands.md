@@ -443,7 +443,11 @@ A quiet task is not a waiting one: waiting is never guessed from how long nothin
 run is said on a line of its own, `ended`: `finished at <time>`, or `with an error at <time>`, whose
 (the provider's, with its HTTP status, or the agent's) and its text. Work the agent wrote and never
 pushed is named there with the command that saves it, `porelo task remove TASK --rescue`; an agent that
-cannot read its own end says nothing. The `screen` line is separate, a reading of the agent's own
+cannot read its own end says nothing. Each row of the daemon's `List` and `Watch` carries the same as
+`agentEnded`, and with it `answer`, what the agent answered: its last message, taken from the record its
+package declares as its last message, or `""` when it declares none or wrote none. A long answer keeps its end,
+at most 16 KiB of its UTF-8 starting at a whole character, so a last line such as `Outcome: done` stays, and
+`answerCut` says when it was cut. The `screen` line is separate, a reading of the agent's own
 screen against rules its package declares, and says when an agent declares none. `since` is when the
 current state began, as an age and an instant.
 

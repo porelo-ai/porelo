@@ -152,6 +152,138 @@ class AgentEndingTest {
         assertThat(ended.unpushed()).as("as recorded when it stopped").isEqualTo(3);
     }
 
+    /** Where the stub agent of these tests declares its last message. */
+    private static final org.fuin.porelo.agent.api.Waiting.LastMessage RESULT =
+            new org.fuin.porelo.agent.api.Waiting.LastMessage(
+                    java.util.Map.of("type", "result"), "result");
+
+    /** A quiet log of an unattended run that said {@code said} last and then ended. */
+    private static void ranAndSaid(Path dir, String said) throws IOException {
+        final Path log =
+                Files.writeString(
+                        dir.resolve("task.log"),
+                        "{\"type\":\"start\"}\n"
+                                + org.fuin.porelo.wire.Json.write(
+                                        java.util.Map.of("type", "result", "result", "earlier"))
+                                + "\n"
+                                + org.fuin.porelo.wire.Json.write(
+                                        java.util.Map.of("type", "result", "result", said))
+                                + "\n{\"type\":\"agent_end\"}\n");
+        Files.setLastModifiedTime(log, FileTime.from(NOW.minusSeconds(120)));
+    }
+
+    private static AgentEnding declaring(
+            java.util.function.Function<
+                            String,
+                            org.fuin.porelo.agent.api.Waiting.@org.jspecify.annotations.Nullable
+                            LastMessage>
+                    declared) {
+        return new AgentEnding(
+                new FakeCommandRunner().answering("git status", "0 0"),
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                (agent, lines) ->
+                        lines.stream().anyMatch(line -> line.contains("agent_end"))
+                                ? new AgentEnd(true, "", AgentEnd.AGENT, null)
+                                : null,
+                declared);
+    }
+
+    @Test
+    void aLongAnswerKeepsItsEndWhereTheWorkOrdersLastLineStandsAndSaysItWasCut(@TempDir Path dir)
+            throws IOException {
+
+        // A work order reads its outcome from the answer's last line: a cut that kept the start
+        // lost exactly that line.
+        final String said = "report line\n".repeat(20 * 1024 / 12) + "Outcome: done";
+        ranAndSaid(dir, said);
+
+        final AgentEnding.Ended ended =
+                declaring(agent -> RESULT).about("porelo-p-t", true, "example", dir);
+
+        assertThat(ended).isNotNull();
+        assertThat(ended.answer()).endsWith("\nOutcome: done");
+        assertThat(said).endsWith(ended.answer());
+        assertThat(ended.answer().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .hasSizeLessThanOrEqualTo(16 * 1024)
+                .hasSizeGreaterThan(16 * 1024 - 4);
+        assertThat(ended.answerCut()).isTrue();
+        assertThat(ended.asMap())
+                .containsEntry("answer", ended.answer())
+                .containsEntry("answerCut", true);
+    }
+
+    @Test
+    void aShortAnswerIsWholeAndNotCut(@TempDir Path dir) throws IOException {
+
+        // A short answer said to be cut sends a person to the log for nothing it lacks.
+        ranAndSaid(dir, "All three files fixed.\nOutcome: done");
+
+        final AgentEnding.Ended ended =
+                declaring(agent -> RESULT).about("porelo-p-t", true, "example", dir);
+
+        assertThat(ended).isNotNull();
+        assertThat(ended.answer()).isEqualTo("All three files fixed.\nOutcome: done");
+        assertThat(ended.answerCut()).isFalse();
+    }
+
+    @Test
+    void anAgentDeclaringNoLastMessageAnswersNothing(@TempDir Path dir) throws IOException {
+
+        // An answer guessed from lines no agent declared as its word would be read as its word.
+        ranAndSaid(dir, "Outcome: done");
+
+        final AgentEnding.Ended ended =
+                declaring(agent -> null).about("porelo-p-t", true, "example", dir);
+
+        assertThat(ended).isNotNull();
+        assertThat(ended.answer()).isEmpty();
+        assertThat(ended.answerCut()).isFalse();
+    }
+
+    @Test
+    void aCutInsideAMultiByteCharacterKeepsAValidString(@TempDir Path dir) throws IOException {
+
+        // A cut through a character sends a broken string a client may refuse, and a reply with it.
+        for (final String character : java.util.List.of("\u20ac", "\ud83d\ude00")) {
+            final String said = character.repeat(6000) + "\nOutcome: done";
+            ranAndSaid(dir, said);
+
+            final AgentEnding.Ended ended =
+                    declaring(agent -> RESULT)
+                            .about("porelo-" + character.length(), true, "a", dir);
+
+            assertThat(ended).isNotNull();
+            assertThat(ended.answerCut()).isTrue();
+            assertThat(ended.answer()).doesNotContain("\ufffd").endsWith("Outcome: done");
+            assertThat(said).endsWith(ended.answer());
+            assertThat(ended.answer().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                    .hasSizeLessThanOrEqualTo(16 * 1024);
+        }
+    }
+
+    @Test
+    void theSameLogSizeIsNotReadTwiceForItsAnswer(@TempDir Path dir) throws IOException {
+
+        // Read on every pass, a listing twice a second parses 2 MiB of every ended task's log.
+        ranAndSaid(dir, "first");
+        final AtomicInteger asked = new AtomicInteger();
+        final AgentEnding ending =
+                declaring(
+                        agent -> {
+                            asked.incrementAndGet();
+                            return RESULT;
+                        });
+
+        assertThat(ending.about("porelo-p-t", true, "example", dir).answer()).isEqualTo("first");
+        ranAndSaid(dir, "other");
+        assertThat(ending.about("porelo-p-t", true, "example", dir).answer())
+                .as("the same size is not read again")
+                .isEqualTo("first");
+        assertThat(asked).hasValue(1);
+        ranAndSaid(dir, "longer");
+        assertThat(ending.about("porelo-p-t", true, "example", dir).answer()).isEqualTo("longer");
+    }
+
     @Test
     void aLineTheAgentFailsOnDoesNotHideTheEndBeforeIt() {
         // One bad line stopped the search, and the end was recorded as never said for that size.

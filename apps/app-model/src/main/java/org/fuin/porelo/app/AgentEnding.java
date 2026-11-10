@@ -12,9 +12,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import org.fuin.porelo.agent.api.AgentEnd;
+import org.fuin.porelo.agent.api.Waiting;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.runtime.Podman;
+import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.jspecify.annotations.Nullable;
 
@@ -29,6 +32,10 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>Asked only of a quiet log, and once per size.</strong> A log still growing is a run
  * still going, and asking on every pass would start every agent twice a second for every running
  * task.
+ *
+ * <p><strong>What it answered, from the same lines.</strong> The record the agent's definition
+ * declares as its last message is taken from the lines read for its end, so a person or a client
+ * reads the answer without a second read of the log.
  */
 public final class AgentEnding {
 
@@ -45,6 +52,12 @@ public final class AgentEnding {
 
     /** How many lines from the end are offered to the agent. */
     static final int LINES = 40;
+
+    /**
+     * The most of an answer that is kept, in UTF-8 bytes: its end, where a work order asks for the
+     * last line.
+     */
+    static final int ANSWER = 16 * 1024;
 
     /** Asks an agent which of its last lines is the end of its run. */
     @FunctionalInterface
@@ -69,6 +82,9 @@ public final class AgentEnding {
      * @param source {@code provider} or {@code agent}.
      * @param status The provider's HTTP status, when the provider refused.
      * @param unpushed Changed files and commits in the workspace that never reached the gate.
+     * @param answer The agent's last message, as the record its definition declares gives it; ""
+     *     when it declares none or none was written. At most its last {@link #ANSWER} bytes.
+     * @param answerCut Whether the answer was longer and only its end is kept.
      */
     public record Ended(
             String at,
@@ -76,7 +92,9 @@ public final class AgentEnding {
             String error,
             String source,
             @Nullable Integer status,
-            int unpushed) {
+            int unpushed,
+            String answer,
+            boolean answerCut) {
 
         /**
          * Returns it as an interface reads it.
@@ -93,6 +111,8 @@ public final class AgentEnding {
                 map.put("status", status);
             }
             map.put("unpushed", unpushed);
+            map.put("answer", answer);
+            map.put("answerCut", answerCut);
             return map;
         }
     }
@@ -105,6 +125,8 @@ public final class AgentEnding {
 
     private final Reader reader;
 
+    private final Function<String, Waiting.@Nullable LastMessage> declared;
+
     private final Map<String, Seen> seen = new ConcurrentHashMap<>();
 
     /**
@@ -115,9 +137,27 @@ public final class AgentEnding {
      * @param reader Asks an agent about its lines.
      */
     public AgentEnding(CommandRunner runner, Clock clock, Reader reader) {
+        this(runner, clock, reader, agent -> null);
+    }
+
+    /**
+     * Creates it with where each agent declares its last message.
+     *
+     * @param runner Runs podman, for the workspace's census.
+     * @param clock The time.
+     * @param reader Asks an agent about its lines.
+     * @param declared The record an agent declares as its last message, by its name, or {@code
+     *     null} when it declares none.
+     */
+    public AgentEnding(
+            CommandRunner runner,
+            Clock clock,
+            Reader reader,
+            Function<String, Waiting.@Nullable LastMessage> declared) {
         this.podman = new Podman(runner);
         this.clock = clock;
         this.reader = reader;
+        this.declared = declared;
     }
 
     /**
@@ -140,6 +180,18 @@ public final class AgentEnding {
                         return lastEnd(installed::ended, fromEnd);
                     } catch (RuntimeException ex) {
                         // An agent that cannot be asked says nothing about its end, as before.
+                        return null;
+                    }
+                },
+                agent -> {
+                    try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
+                        final org.fuin.porelo.agent.api.InstalledAgent installed =
+                                agents.find(agent).orElse(null);
+                        final Waiting waiting =
+                                installed == null ? null : installed.definition().waiting();
+                        return waiting == null ? null : waiting.lastMessage();
+                    } catch (RuntimeException ex) {
+                        // An agent that will not describe itself declares no last message.
                         return null;
                     }
                 });
@@ -201,7 +253,9 @@ public final class AgentEnding {
         if (known != null && known.size() == size) {
             return known.ended();
         }
-        final AgentEnd end = reader.ended(agent, lastLines(log, size));
+        final List<String> lines = wholeLines(log, size);
+        final AgentEnd end = reader.ended(agent, fromEnd(lines));
+        final Answer answer = end == null ? Answer.NONE : answer(agent, lines);
         final Ended ended =
                 end == null
                         ? null
@@ -211,7 +265,9 @@ public final class AgentEnding {
                                 end.error(),
                                 end.source(),
                                 end.status(),
-                                unpushed(container, running, state));
+                                unpushed(container, running, state),
+                                answer.text(),
+                                answer.cut());
         seen.put(container, new Seen(size, ended));
         return ended;
     }
@@ -223,7 +279,61 @@ public final class AgentEnding {
         return held.readable() ? held.changedFiles() + held.unpushedCommits() : 0;
     }
 
-    private static List<String> lastLines(Path log, long size) {
+    private record Answer(String text, boolean cut) {
+
+        static final Answer NONE = new Answer("", false);
+    }
+
+    private Answer answer(String agent, List<String> lines) {
+        final Waiting.LastMessage where = declared.apply(agent);
+        if (where == null) {
+            return Answer.NONE;
+        }
+        final List<Object> records = new ArrayList<>();
+        for (final String line : lines) {
+            try {
+                final Object record = Json.parse(line);
+                if (record != null) {
+                    records.add(record);
+                }
+            } catch (RuntimeException notARecord) {
+                // A line that is not a record - an error printed around the stream - says nothing
+                // here.
+            }
+        }
+        final String said = where.of(records);
+        return said == null ? Answer.NONE : kept(said);
+    }
+
+    /**
+     * Keeps the end of an answer, at most {@link #ANSWER} bytes of its UTF-8, starting at a whole
+     * character.
+     */
+    private static Answer kept(String said) {
+        final byte[] bytes = said.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length <= ANSWER) {
+            return new Answer(said, false);
+        }
+        int from = bytes.length - ANSWER;
+        // A continuation byte is the middle of a character: start at the next whole one.
+        while (from < bytes.length && (bytes[from] & 0xC0) == 0x80) {
+            from++;
+        }
+        return new Answer(
+                new String(bytes, from, bytes.length - from, StandardCharsets.UTF_8), true);
+    }
+
+    private static List<String> fromEnd(List<String> lines) {
+        final List<String> fromEnd = new ArrayList<>();
+        for (int i = lines.size() - 1; i >= 0 && fromEnd.size() < LINES; i--) {
+            if (!lines.get(i).isBlank()) {
+                fromEnd.add(lines.get(i));
+            }
+        }
+        return fromEnd;
+    }
+
+    private static List<String> wholeLines(Path log, long size) {
         final int length = (int) Math.min(size, TAIL);
         final byte[] tail = new byte[length];
         try (RandomAccessFile file = new RandomAccessFile(log.toFile(), "r")) {
@@ -232,16 +342,9 @@ public final class AgentEnding {
         } catch (IOException ex) {
             return List.of();
         }
-        final String[] lines = new String(tail, StandardCharsets.UTF_8).split("\n");
-        final List<String> fromEnd = new ArrayList<>();
+        final List<String> lines = List.of(new String(tail, StandardCharsets.UTF_8).split("\n"));
         // The first line of a cut read may be the end of a longer one: only whole lines are
         // offered.
-        final int first = size > length ? 1 : 0;
-        for (int i = lines.length - 1; i >= first && fromEnd.size() < LINES; i--) {
-            if (!lines[i].isBlank()) {
-                fromEnd.add(lines[i]);
-            }
-        }
-        return fromEnd;
+        return size > length && !lines.isEmpty() ? lines.subList(1, lines.size()) : lines;
     }
 }

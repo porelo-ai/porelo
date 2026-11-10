@@ -19,7 +19,9 @@ class TaskEndedLineTest {
                                         "This request requires more credits",
                                         "provider",
                                         402,
-                                        0)))
+                                        0,
+                                        "",
+                                        false)))
                 .isEqualTo(
                         "with an error at 2026-10-03T12:57:30Z: 402 from the provider - This request requires more"
                                 + " credits");
@@ -32,14 +34,28 @@ class TaskEndedLineTest {
         assertThat(
                         TaskStatusCommand.endedLine(
                                 new AgentEnding.Ended(
-                                        "2026-10-03T13:05:00Z", true, "", "agent", null, 1)))
+                                        "2026-10-03T13:05:00Z",
+                                        true,
+                                        "",
+                                        "agent",
+                                        null,
+                                        1,
+                                        "",
+                                        false)))
                 .isEqualTo(
                         "finished at 2026-10-03T13:05:00Z; 1 change never pushed to the gate - 'porelo task"
                                 + " remove TASK --rescue' pushes it there");
         assertThat(
                         TaskStatusCommand.endedLine(
                                 new AgentEnding.Ended(
-                                        "t", false, "error_max_turns", "agent", null, 0)))
+                                        "t",
+                                        false,
+                                        "error_max_turns",
+                                        "agent",
+                                        null,
+                                        0,
+                                        "",
+                                        false)))
                 .isEqualTo("with an error at t: the agent - error_max_turns");
     }
 }
