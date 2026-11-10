@@ -311,6 +311,7 @@ On a host, a project without its own `builds` declaration can use the builds nam
 project file. This applies to `guarded` and `online` tasks with an upstream branch. If this account's vault lacks
 the configured credential, work can still start without a build reader. The daemon's `CanStart` keeps
 `ready: true` and returns one entry in `missing`, with `for: "builds"`, the configured vault key in `credential`,
+the forge whose builds it reads in `forge` (as the project's `builds.forge` names it),
 `storeCommand: ["porelo", "host", "forge-token"]`, and `afterStore: "ask-again"`. Run that command on the host,
 then ask `CanStart` again. The list is empty when the entry is present, off a host, or when no project is chosen;
 a shut vault answers `VAULT_LOCKED` with `missing` empty. Show unknown `for` and `afterStore` values as they come.

@@ -62,6 +62,8 @@ class BuildsWiringTest {
                                 "builds",
                                 "credential",
                                 credential,
+                                "forge",
+                                "host-forge",
                                 "storeCommand",
                                 List.of("porelo", "host", "forge-token"),
                                 "afterStore",

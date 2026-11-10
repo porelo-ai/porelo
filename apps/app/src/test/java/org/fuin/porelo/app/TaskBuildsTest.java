@@ -46,6 +46,35 @@ class TaskBuildsTest {
     }
 
     @Test
+    void aMissingCredentialKeptBeforeItNamedItsForgeReadsWithNone() throws IOException {
+        // A record written before the field must still offer its remedy, never drop it.
+        Files.writeString(
+                paths.containerState(TASK).resolve(TaskBuilds.READER_FILE),
+                Json.write(
+                        Map.of(
+                                "reader",
+                                "host-forge",
+                                "problem",
+                                "missing",
+                                "credential",
+                                Map.of(
+                                        "for",
+                                        "builds",
+                                        "credential",
+                                        "host-builds",
+                                        "storeCommand",
+                                        List.of("porelo", "host", "forge-token"),
+                                        "afterStore",
+                                        "restart"))));
+
+        assertThat(builds.view(TASK).credential())
+                .as("an older record keeps its remedy and names no forge")
+                .isNotNull()
+                .extracting(MissingCredential::forge)
+                .isEqualTo("");
+    }
+
+    @Test
     void aNewReaderOutcomeClearsAnEarlierMissingCredential() throws IOException {
         // A restarted reader must not keep offering token rotation for an earlier start's problem.
         Files.writeString(

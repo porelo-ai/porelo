@@ -210,7 +210,10 @@ final class BuildsWiring {
             final PoreloContext context, final Builds builds, final String afterStore) {
         return context.readableCredentials()
                 .filter(entries -> !entries.containsKey(builds.credential()))
-                .map(entries -> MissingCredential.hostBuilds(builds.credential(), afterStore))
+                .map(
+                        entries ->
+                                MissingCredential.hostBuilds(
+                                        builds.credential(), builds.forge(), afterStore))
                 .orElse(null);
     }
 

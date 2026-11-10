@@ -9,11 +9,17 @@ import org.jspecify.annotations.Nullable;
  *
  * @param purpose What the entry is for; clients show unknown values as they come.
  * @param credential The vault key as configured.
+ * @param forge The forge whose builds the entry reads, by the name {@code builds.forge} gives it;
+ *     "" in a record kept before it was named.
  * @param storeCommand What to run on this machine, reading nothing on standard input.
  * @param afterStore Whether to ask again or restart; clients show unknown values as they come.
  */
 public record MissingCredential(
-        String purpose, String credential, List<String> storeCommand, String afterStore) {
+        String purpose,
+        String credential,
+        String forge,
+        List<String> storeCommand,
+        String afterStore) {
 
     /** Keeps the command immutable. */
     public MissingCredential {
@@ -21,9 +27,10 @@ public record MissingCredential(
     }
 
     /** Returns the host's remedy for a missing builds credential. */
-    public static MissingCredential hostBuilds(final String credential, final String afterStore) {
+    public static MissingCredential hostBuilds(
+            final String credential, final String forge, final String afterStore) {
         return new MissingCredential(
-                "builds", credential, List.of("porelo", "host", "forge-token"), afterStore);
+                "builds", credential, forge, List.of("porelo", "host", "forge-token"), afterStore);
     }
 
     /** Returns the fields agreed on the wire, including its reserved word. */
@@ -31,6 +38,7 @@ public record MissingCredential(
         return Map.of(
                 "for", purpose,
                 "credential", credential,
+                "forge", forge,
                 "storeCommand", storeCommand,
                 "afterStore", afterStore);
     }
@@ -46,6 +54,10 @@ public record MissingCredential(
             return null;
         }
         return new MissingCredential(
-                purpose, credential, command.stream().map(String.class::cast).toList(), afterStore);
+                purpose,
+                credential,
+                map.get("forge") instanceof String forge ? forge : "",
+                command.stream().map(String.class::cast).toList(),
+                afterStore);
     }
 }

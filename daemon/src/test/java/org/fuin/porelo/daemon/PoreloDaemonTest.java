@@ -3711,7 +3711,8 @@ class PoreloDaemonTest {
     @Test
     void canStartNamesTheMissingHostBuildsCredentialWithoutHoldingTheStart(@TempDir Path dir)
             throws Exception {
-        // A client must offer the host's remedy without blocking work or parsing a diagnostic.
+        // A client must offer the host's remedy without blocking work or parsing a diagnostic, and
+        // name the forge whose builds the entry reads.
         final Map<String, Object> reply = hostBuildsCheck(dir, true, false, "host-builds");
         assertThat(reply).containsEntry("ready", true).containsEntry("outcome", "READY");
         assertThat(reply.get("missing"))
@@ -3722,6 +3723,8 @@ class PoreloDaemonTest {
                                         "builds",
                                         "credential",
                                         "host-builds",
+                                        "forge",
+                                        "host-forge",
                                         "storeCommand",
                                         List.of("porelo", "host", "forge-token"),
                                         "afterStore",
@@ -3755,6 +3758,8 @@ class PoreloDaemonTest {
                                         "builds",
                                         "credential",
                                         "forge.person",
+                                        "forge",
+                                        "host-forge",
                                         "storeCommand",
                                         List.of("porelo", "host", "forge-token"),
                                         "afterStore",

@@ -944,6 +944,9 @@ type MissingCredential (
   # "builds" for now; show an unknown one as it comes.
   for: string,
   credential: string,
+  # The forge whose builds the entry reads, by the name the project's builds.forge gives it ("github"
+  # for one); "" for a task whose record was kept before this field.
+  forge: string,
   storeCommand: []string,
   # What it takes after storeCommand ran: "ask-again" (CanStart answers anew) or "restart" (a running task
   # follows its builds only from its next start). Show an unknown one as it comes.

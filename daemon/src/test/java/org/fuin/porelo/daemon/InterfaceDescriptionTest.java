@@ -58,7 +58,8 @@ class InterfaceDescriptionTest {
                         .matcher(description);
         assertThat(missing.find()).as("the missing credential type is declared").isTrue();
         assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), missing.group(1)))
-                .containsExactlyInAnyOrder("for", "credential", "storeCommand", "afterStore");
+                .containsExactlyInAnyOrder(
+                        "for", "credential", "forge", "storeCommand", "afterStore");
         assertThat(description)
                 .contains("missing: []MissingCredential", "buildsCredential: ?MissingCredential");
     }
