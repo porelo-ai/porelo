@@ -1,6 +1,6 @@
 # [B586](README.md#b586) — A Task Name The Room Cannot Hold
 
-**Status:** Backlog. Filed 2026-11-10 under ST290, from the reading of [B582](README.md#b582).
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-10 under ST290, from the reading of [B582](README.md#b582).
 **Size:** S - the bracket's room in `TransportLifecycle.display`, and `capitalized` for an empty word.
 
 **What must be true.** Every task enrolled in a room that shows names is given one no other task holds, within the

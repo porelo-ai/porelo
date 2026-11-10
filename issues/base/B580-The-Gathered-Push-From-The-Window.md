@@ -1,6 +1,6 @@
 # [B580](README.md#b580) — The Gathered Push From The Window
 
-**Status:** Backlog. Filed 2026-11-09 under ST291, from the fourth move.
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-09 under ST291, from the fourth move.
 **Size:** M - a daemon method for [B544](README.md#b544)'s gathered push, its progress and refusals as values.
 
 **What must be true.** A client of porelod can bring a host's finished `main` to central for a project, as
