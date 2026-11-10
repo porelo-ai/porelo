@@ -1,6 +1,6 @@
 # [B584](README.md#b584) — A Host's Open Pull Requests Over The Daemon
 
-**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** M - a read and a watch of the host forge's pull requests per project, with makers and end, in Tasks1.
 
 **What must be true.** A client of porelod on a host can read, and watch, the open pull requests of a project's
@@ -21,3 +21,23 @@ review and finds an open one; nothing reads the list for a person or reports an 
   final event per pull request that merged or closed; interface text and doc/.
 - Red first: a fake forge's open pull request is listed with its makers; one that merges between two polls ends with
   `merged`; a forge answer over the size bound is refused.
+
+## As built
+
+- `HostPullRequestReader` reads the person's `<name>.person` vault entry. `HostForgeSettings` shares the bounded,
+  root-owned plain-file read and name/account checks with `HostForgeTokenCommand`; the reader additionally requires
+  one valid `git_port`. It never mints a token or accepts a forge address or account from the caller.
+- Each carried repository is read at the configured port on literal `127.0.0.1`, with no proxy or redirects.
+  Responses and complete wire replies are bounded at one MiB, with at most 100 repositories, 500 open rows, and
+  100 pages of 50 per repository. Invalid numbers, commit ids, states or shapes refuse the observation.
+- Makers of exactly the head commit come from the local mirror, with a ten-second git deadline and 64 KiB output
+  bound. Displayed fields keep 1000 code points, and at most 50 unfolded help trailers are returned.
+- `PullRequests(project)` and `WatchPullRequests(project)` are registered in the gate's Tasks1 part. The watch waits
+  five seconds after a completed round. It sends the current open list and separately confirmed `merged` or `closed`
+  events; each terminal event ends a row, not the watch. Failed access and absence alone never become closed.
+- A missing or unusable token answers `MissingHostForgeToken(credential, storeCommand)`, naming
+  `porelo host forge-token`; a locked or unreadable vault is a separate named refusal. Both methods are in MCP's
+  `never` set because a task cannot spend the person's identity to read their review queue.
+- The four requested reader tests were observed red on behavior before implementation, then green. Daemon tests
+  were observed red for wire-error mapping, MCP exclusion, empty/one-shot watches, disconnect and per-row end events.
+  Final validation results and sandbox refusals are recorded in the untracked worktree report.

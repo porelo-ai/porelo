@@ -82,6 +82,32 @@ malformed publications withhold carrying with `cannot-say` and an explanation na
 field or value. Repository progress distinguishes a taken copy from one still waiting or not
 carried, independently of its last central distance.
 
+## Open pull requests over the daemon
+
+`org.fuin.porelo.Tasks1.PullRequests(project)` reads the open pull requests this account's person token can
+see in the project's repositories carried by the host. Each row names the repository key, positive review number,
+title, exact head commit, author, committer, `Assisted-by` and `Co-Authored-By` trailers, and state. Makers come from
+the local mirror, not the forge's account fields. They are claims in the commit, not a signature or approval judgment.
+Titles and makers are bounded plain text for display; clients must render them as text.
+
+`WatchPullRequests(project)` with varlink's `more` sends an initial snapshot, then changes, polling five seconds
+after each completed round. `pullRequests` is the complete current open list; `ended` contains confirmed `merged`
+or `closed` rows once per observed transition. These events end individual rows; the watch stays open. A review
+opened and ended entirely between polls can go unseen. Without `more`, the watch answers one snapshot.
+
+Both methods read the vault entry `<name>.person` written by `porelo host forge-token`. The name and port come from
+the same bounded, root-owned plain forge-settings file that command reads. A missing or unusable entry answers
+`MissingHostForgeToken(credential, storeCommand)`, naming `porelo host forge-token`. A locked or unreadable vault is
+`HostPullRequestsRefused` with reason `vault-unreadable`. Neither method mints credentials, fetches git objects,
+or is available to a task through MCP: they use the person's forge identity to read work awaiting human judgment.
+
+HTTP stays on the configured port at `127.0.0.1`, with no proxy or redirects, a ten-second connection timeout and
+a twenty-second request timeout. Each HTTP response and complete daemon reply is limited to one MiB; each project
+to 100 repositories and 500 open rows; each repository to 100 pages of 50. Maker queries allow ten seconds and
+64 KiB of output. Shown fields keep at most 1000 code points, and at most 50 help trailers are returned.
+A bound, unavailable mirror commit, forge failure, or loss of access refuses the observation and ends a stream
+with a named error. Absence alone never means closed. Clients must mark retained data stale and ask again.
+
 ## A task certificate judged for the host
 
 A machine is a host whose persons start tasks when `/etc/porelo-host` or the installed `/usr/sbin/porelo-host` is

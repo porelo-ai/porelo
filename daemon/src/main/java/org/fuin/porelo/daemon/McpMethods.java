@@ -98,10 +98,13 @@ final class McpMethods {
      * {@code CredentialDeclare}), or signs an agent in on the host's own network ({@code
      * AgentSignInStart}, and {@code AgentSignInWait}, which holds a call while one runs), or starts
      * or stops the board's work ({@code StartStoryWork}, {@code StopStoryWork}): no agent starts
-     * another.
+     * another. {@code PullRequests} and {@code WatchPullRequests} spend the person's forge identity
+     * to read reviews awaiting human judgment, so a task cannot ask them even from the local list.
      */
     static final Set<String> NEVER =
             Set.of(
+                    "PullRequests",
+                    "WatchPullRequests",
                     "StartStoryWork",
                     "StopStoryWork",
                     "Panic",

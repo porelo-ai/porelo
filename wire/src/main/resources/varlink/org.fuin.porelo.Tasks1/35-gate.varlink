@@ -1,4 +1,49 @@
 
+# A host forge review, observed with this account's person token.
+type HostPullRequest (
+  # The repository key in project.yml, not the forge's display name.
+  repository: string,
+  number: int,
+  # Outside text for plain-text display: controls and line separators removed, at most 1000 code points.
+  title: string,
+  # A full 40- or 64-digit lowercase hexadecimal commit id.
+  head: string,
+  # Makers of exactly head, read from the local mirror, never from the forge's user fields.
+  # Author, committer and each trailer are shown text cut to 1000 code points.
+  author: string,
+  committer: string,
+  # At most 50 Assisted-by and Co-Authored-By trailers, unfolded by git.
+  trailers: []string,
+  # open, merged or closed. These are observations, not signature or approval judgments.
+  state: string
+)
+
+# Reads open reviews the daemon account's person token can see in this project's carried repositories.
+# Uses <name>.person from the vault, with name and git_port from the checked root-owned forge settings.
+# No token is minted and no repository is fetched. Missing mirror commits refuse the observation.
+# Bounds: 100 repositories, 100 pages of 50 per repository, 500 open rows total, one MiB per HTTP
+# answer and per complete reply. A bound is a refusal, never a truncated successful list.
+# HTTP has no proxy or redirects, connects within 10 seconds and answers within 20 seconds.
+# Each git maker query has a 10-second deadline and a 64 KiB output limit.
+method PullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest)
+
+# Without more, one snapshot as PullRequests. With more, an initial snapshot (including empty), then
+# changed snapshots, polling five seconds after each completed round; rounds never overlap.
+# pullRequests is the whole current open list. ended contains each previously observed review that
+# was explicitly confirmed merged or closed, once per transition. Its terminal event ends that row,
+# not this watch. Reviews opened and ended entirely between polls need not be observed.
+# Absence alone, HTTP failure, lost access and missing maker objects never mean closed: a named error
+# ends the stream, and the client must treat its retained rows as stale and ask again.
+# Neither method is offered to tasks through MCP: each spends the person's forge identity.
+method WatchPullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest)
+
+# No usable person token exists under the exact entry written by the command on this host.
+error MissingHostForgeToken(credential: string, storeCommand: []string)
+
+# Safe diagnostic with no forge or process output. Reasons: settings, vault-unreadable, not-carried,
+# forge, forge-answer, makers, bounds. Unlock/repair an unreadable vault before retrying; missing is distinct.
+error HostPullRequestsRefused(reason: string, message: string)
+
 # A push waiting at the gate for a decision.
 type PendingPush (
   # Ref name under refs/porelo/incoming/, which is what Review, Approve and Reject take.

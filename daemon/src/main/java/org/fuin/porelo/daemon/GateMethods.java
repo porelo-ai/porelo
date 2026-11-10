@@ -49,6 +49,34 @@ final class GateMethods {
                                         text(parameters, "project"),
                                         text(parameters, "repository"))));
         server.method(
+                "PullRequests",
+                (parameters, replies) ->
+                        replies.last(
+                                pullRequestReply(
+                                        () ->
+                                                new org.fuin.porelo.app.HostPullRequestReader(
+                                                                context)
+                                                        .poll(
+                                                                GateSupport.byName(
+                                                                        context,
+                                                                        text(
+                                                                                parameters,
+                                                                                "project")),
+                                                                List.of()))));
+        server.method(
+                "WatchPullRequests",
+                (parameters, replies) -> {
+                    final var reader = new org.fuin.porelo.app.HostPullRequestReader(context);
+                    watchPullRequests(
+                            previous ->
+                                    reader.poll(
+                                            GateSupport.byName(
+                                                    context, text(parameters, "project")),
+                                            previous),
+                            replies,
+                            () -> sleep(java.time.Duration.ofSeconds(5)));
+                });
+        server.method(
                 "CredentialTryPush",
                 (parameters, replies) -> {
                     final String source = text(parameters, "source");
@@ -414,6 +442,63 @@ final class GateMethods {
                     }
                     replies.last(Map.of("rejected", text(parameters, "name"), "told", told));
                 });
+    }
+
+    /**
+     * Streams observations on the caller's connection, with an injectable wait for deterministic
+     * tests.
+     */
+    static void watchPullRequests(
+            java.util.function.Function<
+                            List<org.fuin.porelo.app.HostPullRequestReader.Pull>,
+                            org.fuin.porelo.app.HostPullRequestReader.Round>
+                    scan,
+            VarlinkServer.Replies replies,
+            Runnable pause)
+            throws java.io.IOException {
+        List<org.fuin.porelo.app.HostPullRequestReader.Pull> previous = List.of();
+        Map<String, Object> last = null;
+        while (replies.open()) {
+            final var before = previous;
+            final var round = pullRequestRound(() -> scan.apply(before));
+            final Map<String, Object> answer = round.asMap();
+            if (!replies.streaming()) {
+                replies.last(answer);
+                return;
+            }
+            if (!answer.equals(last)) {
+                replies.more(answer);
+                last = answer;
+            }
+            // Only open rows survive a round: each confirmed terminal row is sent once.
+            previous = round.open();
+            pause.run();
+        }
+    }
+
+    /** Maps the reader's safe named outcomes without letting forge words become wire errors. */
+    static Map<String, Object> pullRequestReply(
+            java.util.function.Supplier<org.fuin.porelo.app.HostPullRequestReader.Round> read) {
+        return pullRequestRound(read).asMap();
+    }
+
+    private static org.fuin.porelo.app.HostPullRequestReader.Round pullRequestRound(
+            java.util.function.Supplier<org.fuin.porelo.app.HostPullRequestReader.Round> read) {
+        try {
+            return read.get();
+        } catch (org.fuin.porelo.app.HostPullRequestReader.MissingToken ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".MissingHostForgeToken",
+                    Map.of(
+                            "credential",
+                            ex.credential(),
+                            "storeCommand",
+                            List.of("porelo", "host", "forge-token")));
+        } catch (org.fuin.porelo.app.HostPullRequestReader.Refused ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".HostPullRequestsRefused",
+                    Map.of("reason", ex.reason(), "message", String.valueOf(ex.getMessage())));
+        }
     }
 
     /**

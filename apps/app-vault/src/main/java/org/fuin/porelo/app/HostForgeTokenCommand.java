@@ -3,10 +3,6 @@ package org.fuin.porelo.app;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -50,14 +46,7 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
     public static final Path HOST_PROGRAM = Path.of("/usr/sbin/porelo-host");
 
     /** Where the host's forge settings are published by root. */
-    public static final Path FORGE_CONF = Path.of("/etc/porelo-host/forge.conf");
-
-    private static final int MAXIMUM_CONF_BYTES = 64 * 1024;
-
-    private static final Pattern ACCOUNT_NAME = Pattern.compile("^[a-z_][a-z0-9_-]{0,31}$");
-
-    private static final Pattern FORGE_NAME =
-            Pattern.compile("^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$");
+    public static final Path FORGE_CONF = HostForgeSettings.FILE;
 
     private static final Pattern TOKEN_LINE = Pattern.compile("^[0-9a-f]{40}$");
 
@@ -97,33 +86,21 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
         if (ifForge && missingPlain(forgeConf)) {
             return 0;
         }
-        final String confText = readForgeConf();
-        if (confText == null) {
+        final HostForgeSettings settings = HostForgeSettings.read(forgeConf, attributes);
+        if (settings == null) {
             err.println("porelo: the forge settings are not a plain file root alone can change");
             err.flush();
             return 69;
         }
-        String forgeName = "";
-        String forgeAccount = "";
-        int accounts = 0;
-        for (final String raw : confText.split("\n", -1)) {
-            final String line = raw.endsWith("\r") ? raw.substring(0, raw.length() - 1) : raw;
-            if (line.startsWith("name=")) {
-                forgeName = line.substring("name=".length());
-            } else if (line.startsWith("account=")) {
-                forgeAccount = line.substring("account=".length());
-                accounts++;
-            }
-        }
-        if (ifForge && accounts <= 1 && forgeAccount.isEmpty()) {
+        if (ifForge && settings.accounts() <= 1 && settings.account().isEmpty()) {
             return 0;
         }
-        if (accounts != 1 || !ACCOUNT_NAME.matcher(forgeAccount).matches()) {
+        if (!settings.validAccount()) {
             err.println("porelo: the forge settings name no single valid forge account");
             err.flush();
             return 69;
         }
-        if (!FORGE_NAME.matcher(forgeName).matches()) {
+        if (!settings.validName()) {
             err.println("porelo: the forge settings name no valid forge");
             err.flush();
             return 69;
@@ -230,7 +207,7 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
             err.flush();
             return 69;
         }
-        final String entryName = forgeName + ".person";
+        final String entryName = settings.entryName();
         try {
             context.vault()
                     .update(
@@ -254,24 +231,6 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
             return true;
         } catch (final IOException ex) {
             return false;
-        }
-    }
-
-    private @Nullable String readForgeConf() {
-        final byte[] bytes;
-        try {
-            bytes = RootOwnedFile.read(forgeConf, MAXIMUM_CONF_BYTES, attributes, 0);
-        } catch (final IOException | IllegalArgumentException ex) {
-            return null;
-        }
-        try {
-            return StandardCharsets.UTF_8
-                    .newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString();
-        } catch (final CharacterCodingException ex) {
-            return null;
         }
     }
 
