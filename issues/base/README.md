@@ -153,6 +153,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
 | <a id="b586"></a>[B586](B586-A-Task-Name-The-Room-Cannot-Hold.md) | S | - | A long task name on a clash, and one with two hyphens in a row, still get a name in the room. |
 | <a id="b580"></a>[B580](B580-The-Gathered-Push-From-The-Window.md) | M | [B544](#b544) | `PushToCentral` over the daemon: the gathered push to central with progress and typed refusals, for the window's release. |
 | <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
