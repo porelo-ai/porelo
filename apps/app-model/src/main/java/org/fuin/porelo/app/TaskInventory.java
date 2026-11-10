@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.fuin.porelo.gate.GateMode;
+import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.wire.Sidecar;
 import org.jspecify.annotations.Nullable;
@@ -1167,10 +1169,10 @@ public final class TaskInventory {
      * @return Tasks, in the order the runtime lists them.
      */
     public List<Task> tasks() {
-        // The refs waiting in each project's mirror, asked once per project rather than once per
+        // The refs waiting in each mirror and mode, asked once rather than once per
         // task: this list is read on every change, and a git call per task would make it cost what
         // a listing must not.
-        final Map<String, java.util.Set<String>> waiting = new java.util.HashMap<>();
+        final Map<WaitingMirror, java.util.Set<String>> waiting = new java.util.HashMap<>();
         final List<ContainerSummary> summaries = context.podman().poreloTasks();
         if (agentWaiting != null) {
             // The screens first, several at once; describing each task then reads what was read.
@@ -1195,9 +1197,11 @@ public final class TaskInventory {
         return summaries.stream().map(summary -> describe(summary, waiting)).toList();
     }
 
+    private record WaitingMirror(Path path, GateMode mode) {}
+
     /**
      * Returns the refs waiting for review in the mirror of one repository of a project, reading
-     * each mirror once.
+     * each mirror once per gate mode.
      *
      * <p>The repository's own mirror, not the project's: a task on another repository - every task
      * of {@code default} - pushes there, and asking the project's said nothing waited.
@@ -1205,30 +1209,31 @@ public final class TaskInventory {
      * @param cache Filled as mirrors are seen.
      * @param project Project name, or {@code null} when nothing recorded one.
      * @param repository The task's repository, or {@code null} for the project's own.
+     * @param securityClass The task's recorded class, or {@code null} when unknown.
      * @return Incoming ref names, without the namespace prefix.
      */
     private java.util.Set<String> waitingIn(
-            Map<String, java.util.Set<String>> cache,
+            Map<WaitingMirror, java.util.Set<String>> cache,
             @Nullable String project,
-            @Nullable String repository) {
+            @Nullable String repository,
+            @Nullable String securityClass) {
         if (project == null) {
             return java.util.Set.of();
         }
         return cache.computeIfAbsent(
-                GateSupport.mirror(context, project, repository).toString(),
-                name -> {
-                    final Path mirror = Path.of(name);
+                new WaitingMirror(
+                        GateSupport.mirror(context, project, repository),
+                        "online".equalsIgnoreCase(securityClass)
+                                ? GateMode.ONLINE
+                                : GateMode.GATEKEEPING),
+                key -> {
+                    final Path mirror = key.path();
                     if (!java.nio.file.Files.isDirectory(mirror)) {
                         return java.util.Set.of();
                     }
                     try {
                         return java.util.Set.copyOf(
-                                new org.fuin.porelo.gate.GitGate(
-                                                context.runner(),
-                                                mirror,
-                                                org.fuin.porelo.gate.GateMode.GATEKEEPING,
-                                                null)
-                                        .pending());
+                                new GitGate(context.runner(), mirror, key.mode(), null).pending());
                     } catch (RuntimeException ex) {
                         // A directory that is not a repository, or a git that would not run.
                         // Neither is worth failing a listing for, and a task that cannot be asked
@@ -1236,6 +1241,23 @@ public final class TaskInventory {
                         return java.util.Set.of();
                     }
                 });
+    }
+
+    /** A ref belongs to this task only when its recorded branch names it. */
+    private boolean waitingAtGate(
+            Map<WaitingMirror, java.util.Set<String>> cache,
+            @Nullable String project,
+            @Nullable String repository,
+            @Nullable String securityClass,
+            org.fuin.porelo.wire.@Nullable TaskProfile profile) {
+        if (profile == null
+                || profile.branch() == null
+                || !profile.branch().startsWith(GitGate.INCOMING)) {
+            return false;
+        }
+        final String name = profile.branch().substring(GitGate.INCOMING.length());
+        final java.util.Set<String> pending = waitingIn(cache, project, repository, securityClass);
+        return pending.contains(name);
     }
 
     /**
@@ -1261,8 +1283,16 @@ public final class TaskInventory {
     }
 
     private Task describe(
-            ContainerSummary summary, Map<String, java.util.Set<String>> waitingCache) {
+            ContainerSummary summary, Map<WaitingMirror, java.util.Set<String>> waitingCache) {
         final Sidecar sidecar = sidecarOf(summary.name());
+        final String project =
+                summary.project() != null
+                        ? summary.project()
+                        : sidecar == null ? null : sidecar.project();
+        final String securityClass =
+                summary.securityClass() != null
+                        ? summary.securityClass()
+                        : sidecar == null ? null : sidecar.securityClass();
         final Path state = context.paths().tasks().containerState(summary.name());
         // The saved copy when a restart emptied the runtime directory: which agent and mode are
         // still true of it.
@@ -1274,8 +1304,16 @@ public final class TaskInventory {
                 org.fuin.porelo.wire.TaskProfile.readFrom(
                         restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state);
         final java.time.Instant lastWrote = lastWrote(state);
-        final String waitingFor =
+        final boolean waitingAtGate =
+                waitingAtGate(waitingCache, project, summary.repository(), securityClass, profile);
+        final String question =
                 summary.running() ? org.fuin.porelo.wire.Waiting.about(state) : null;
+        final String waitingFor =
+                question != null
+                        ? question
+                        : summary.running() && waitingAtGate
+                                ? "its commit waits at the gate"
+                                : null;
         // Only by the deriving listing, and of a stopped task too while its state is here: an agent
         // whose container stopped with its run said only 'dead'.
         final AgentEnding.Ended ended =
@@ -1293,12 +1331,8 @@ public final class TaskInventory {
                 // last session ends. Reported as every surviving task listing "-" for both after
                 // the machine came back. The sidecar is the fallback, for containers a Porelo
                 // without the labels created.
-                summary.project() != null
-                        ? summary.project()
-                        : sidecar == null ? null : sidecar.project(),
-                summary.securityClass() != null
-                        ? summary.securityClass()
-                        : sidecar == null ? null : sidecar.securityClass(),
+                project,
+                securityClass,
                 summary.state(),
                 summary.running(),
                 helpersOf(summary.name()),
@@ -1316,29 +1350,7 @@ public final class TaskInventory {
                 waitingFor,
                 profile == null ? null : profile.clearance(),
                 profile == null ? null : profile.label(),
-                // Only what waits at the gate. An online task's push is passed on as it arrives and
-                // is never reviewed, so its gate lists nothing waiting.
-                profile == null
-                                || profile.branch() == null
-                                || !profile.branch()
-                                        .startsWith(org.fuin.porelo.gate.GitGate.INCOMING)
-                        ? 0
-                        : waitingIn(
-                                                waitingCache,
-                                                summary.project() != null
-                                                        ? summary.project()
-                                                        : sidecar == null
-                                                                ? null
-                                                                : sidecar.project(),
-                                                summary.repository())
-                                        .contains(
-                                                profile.branch()
-                                                        .substring(
-                                                                org.fuin.porelo.gate.GitGate
-                                                                        .INCOMING
-                                                                        .length()))
-                                ? 1
-                                : 0,
+                waitingAtGate ? 1 : 0,
                 // The same test resume makes, and a directory check rather than a runtime call: a
                 // stopped task with no state directory was started before this machine restarted,
                 // and Start would refuse it. Said here so nobody learns it by pressing.

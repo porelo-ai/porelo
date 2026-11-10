@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b577"></a>[B577](B577-An-Online-Tasks-Pushed-Commit-Waits-On-Nobody.md) | M | - | An online task whose push passed the gate is never shown as waiting on the person; its push appears as the task's. |
 | <a id="b543"></a>[B543](B543-The-Persons-Host-Commands-In-Porelo.md) | L | [B540](#b540) | `porelo host forge-token \| central-state \| stop-secrets`, and porelod reading the central state as a checked file. |
 | <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. |
 | <a id="b529"></a>[B529](B529-A-Peers-Message-Cannot-Pass-For-A-Filter-Note.md) | S | - | Another task's message shaped like a refusal note no longer wakes every task it reaches. |
@@ -130,7 +131,6 @@ from its side, as *blocked by*.
 | <a id="b584"></a>[B584](B584-A-Hosts-Open-Pull-Requests-Over-The-Daemon.md) | M | - | A host forge's open pull requests per project, with makers, read and watched over the daemon until each merges or closes. |
 | <a id="b583"></a>[B583](B583-The-Rooms-Members-Over-The-Daemon.md) | S | - | `RoomMembers` over the daemon from the transport's `members` verb: who is in a project's room, tasks by container. |
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
-| <a id="b577"></a>[B577](B577-An-Online-Tasks-Pushed-Commit-Waits-On-Nobody.md) | M | - | An online task whose push passed the gate is never shown as waiting on the person; its push appears as the task's. |
 | <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. |
 | <a id="b579"></a>[B579](B579-A-Single-Admins-Project-Needs-No-Review.md) | S | - | A project with a single admin is created with `review: optional`, and `required` that cannot be met is said. |
 | <a id="b534"></a>[B534](B534-A-Start-Waits-On-Its-Agents-Sign-In.md) | M | [B530](#b530) | A start missing its agent's credential waits on that agent's running sign-in, or is answered SignInNeeded / VaultLocked as typed values before anything is made. |

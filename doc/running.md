@@ -367,6 +367,12 @@ the socket reaches.
 
 ## Being told what the build of a push did
 
+The task listing takes review waiting from the gate's waiting list, using the task's recorded security class.
+An online push that passed on asks for no review, even while its ref remains in the mirror. Guarded and offline
+work keeps its review signal until the gate no longer lists its recorded ref. Rescued work remains in the gate's
+review queue; a name ending in `-rescued` alone does not associate it with another task. A clearance question remains
+a separate reason a running task needs an answer.
+
 A task in an `online` project pushes to its gate, which passes the task's own branch on to the upstream at once as
 `porelo/<task>`, or as the name the project's [`branch` block](project-file.md#branch) makes, and the forge builds it somewhere the task cannot see. When the project file names the forge, Porelo follows every commit the task pushes and hands the build's verdict
 into the task as it changes - the task asks for nothing and holds no forge credential:

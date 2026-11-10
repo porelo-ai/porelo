@@ -53,22 +53,25 @@ On a host, whatever `upstream` a row of a project's file says, a row with a `cen
 from `/etc/porelo-host/forge.conf`. So a project filled before it came to a machine needs no refiling, and a task's
 work never reaches a central address past the host's push judge. A task on a row with no `central` is refused, and so
 is a start or a gate command whose `--upstream` names another address. `porelo` and `porelod` read a project alike. Git
-reads that forge with a token asked of the host for each command, so it needs no vault entry, and the token is lent for
-that forge's address alone.
+reads that forge for a person's commands with a token asked of the host for each command, so those commands need no
+vault entry, and the token is lent for that forge's address alone. An online task's gate pushes with the task token
+issued for `porelo-<login>`, kept in the task's vault entries. The forge attributes that push to the task account;
+an explicit approval uses the person's token. A missing task token refuses an online task's push.
 
 ## A task certificate judged for the host
 
-A machine is a host whose persons start tasks when `/usr/local/sbin/porelo-host-person` is there; it is root's alone and reached by sudo. Porelo runs
+A machine is a host whose persons start tasks when `/etc/porelo-host` or the installed `/usr/sbin/porelo-host` is
+there. The program is root's alone and reached by sudo. Porelo runs
 it only by that path, through `sudo -n`, never with a shell, and never passes a task name beginning with `-` or `@`:
 
-- **Start:** `porelo-host-person task <task>`, standard input the task's certificate line and one line end, after
+- **Start:** `porelo-host task start <task>`, standard input the task's certificate line and one line end, after
   Porelo has checked the certificate itself. Exit 0: standard output is the forge token alone, or empty on a host
   without a forge; one trailing line end is not part of it. Porelo keeps the token in the task's vault entries for
   its gate, never in the container or a file. Any other exit fails the start: 69 is answered as 69, every other
   code as 65. Porelo shows the helper's standard error, never its standard output.
-- **End:** removing the task runs `porelo-host-person task --end <task>`, which answers
+- **End:** removing the task runs `porelo-host task end <task>`, which answers
   `{"task":"<task>","ended":true}`; any other answer is reported as not ended.
-- **Show:** `porelo task certificate <fingerprint>` asks `porelo-host-person task --show <fingerprint>` for a
+- **Show:** `porelo task certificate <fingerprint>` asks `porelo-host task show <fingerprint>` for a
   certificate this machine did not keep, and does not believe an answer naming another key.
 
 The helper has Porelo judge the certificate before it records anything, run as root's throwaway user with no home,

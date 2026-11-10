@@ -182,7 +182,8 @@ type Task (
   # stopped with its run (activity DEAD). Absent while it runs, and for an agent that does not read
   # its own end.
   agentEnded: ?AgentEnded,
-  # What it is waiting to be told, when activity is WAITING. "" otherwise.
+  # What it is waiting to be told: a clearance question, or review while its work is on the
+  # gate's waiting list. A passed online push supplies no review reason. "" for a stopped task.
   waitingFor: string,
   # What this task does with a blocked connection: "prompt", "allow", "deny" or "off" - the value
   # Start was given. "" when nothing recorded it, which is every task started before this field
@@ -200,9 +201,9 @@ type Task (
   # interface and the command line disagree about what a thing is called. Absent and empty are
   # deliberately the same state.
   label: string,
-  # Whether this task's own work is waiting at the gate. 1 when its ref is waiting for review, 0
-  # otherwise - and 0 for an online project, where nothing is ever reviewed, which is not a
-  # smaller number but a question the class does not have.
+  # Whether this task's own work is on the gate's waiting list, using its recorded class.
+  # 1 when its recorded ref waits for review, 0 otherwise. An online task's ordinary push passes
+  # on at once. Rescued refs remain in the gate's queue; a name suffix alone does not link a task.
   #
   # Answered here rather than left to a join, because there is no join to make: 'name' is a
   # CONTAINER name (porelo-<project>-<task>-<run>), PendingPush.name is a TASK name, and several
