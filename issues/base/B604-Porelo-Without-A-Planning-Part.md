@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B604",
   "title": "Porelo Without A Planning Part",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 1,
@@ -74,6 +74,16 @@ Read on main 563da03c2 with `git grep -il planning -- ':!issues'`. One commit, r
 
 Built by Codex under Core's supervision; Core runs the whole unit suite and `check-doc-site` before Push ready. The adapter contract may be wanted by porelo-planner; it is removed from porelo, not reshaped here.
 `core-st294w1` (wave 1, never pushed) is kept until the planner's agent has read what it needs; nothing of it lands.
+
+## As built
+
+As planned, in one commit: 78 files deleted (`planning/` 39, `apps/app-planning` 8, `wire` 20, `daemon` 3, `apps/app`
+tests 4, `doc/planning-adapters.md`, the three unreleased changelog entries), 22 changed (six POMs, four READMEs,
+`AGENTS.md`'s planning lines and its count of artifacts on Central, now six, `mkdocs.yml`, `doc/running.md`'s board
+section, `PoreloPaths`, `McpMethods`, `McpTaskSockets`, `PoreloDaemon`, the planning parts of five tests, the wire
+`parts` file) and `changelog/unreleased/planning-part-removed.yml` added. `git grep -il planning -- ':!issues'
+':!changelog/v*'` lists only the sentences about a project's own repository, `porelo-acme-planning` (a task name),
+`deploy:planning:planning` (a credential id) and the new changelog entry. `dist/` packaged no planning directory.
 
 ## Acceptance
 

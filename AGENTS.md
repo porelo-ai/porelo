@@ -22,7 +22,7 @@
   agents at runtime, and `AgentIsolationTest` fails the build otherwise. A difference between agents is a new field
   in the agent definition, never a branch in Porelo.
 - **An agent builds only against `porelo-agent-api` and `porelo-wire`**, with `porelo-acceptance-kit` in test scope and
-  `porelo-bom` imported - these, `porelo-build-api`, `porelo-ecosystem-api` and `porelo-planning-api` are the seven artifacts this repository publishes to Central.
+  `porelo-bom` imported - these, `porelo-build-api` and `porelo-ecosystem-api` are the six artifacts this repository publishes to Central.
 - **Every shipped agent has its own repository** (`porelo-claude-code`, `porelo-pi`, `porelo-omp`); `agents/` holds the
   contract and the **stub**, which the acceptance suite drives, so every scenario that starts a task names
   `--agent stub` and reads what it asserts about it from `porelo agents --verbose`.
@@ -55,13 +55,12 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 | projects, backups, clearing | `app-project` | `ProjectMethods` | `20-project` | `ProjectPaths` |
 | the gate and review | `app-gate` | `GateMethods` | `35-gate` | `GatePaths` |
 | the organization's commands: `org`, `project member\|repository\|address\|create-repository\|show`, `setup --organization` | `app-organization` | - | - | - |
-| the planning board | `app-planning` | `PlanningMethods` | `60-planning` | - |
 | the command line, `doctor`, `setup` | `app` | `MachineMethods` | `50-machine` | - |
 
 - **The modules' dependencies are the boundaries**: `base` depends on no area, `model` on `base` and `organization/git-tree`,
   `agents` on `base`; `vault`, `messaging` and `egress` on `base` and `model` and not on each other (`egress` also on
   `agents`); `task` on all of those and `organization/git-tree`; `project` on `task` and `messaging`; `gate` on `messaging`;
-  `organization` on `base`, `model`, `organization/api` and `organization/git-tree`; `planning` on `model` and `planning/api`.
+  `organization` on `base`, `model`, `organization/api` and `organization/git-tree`.
 - **A test that finds the repository's root from its module goes up two levels from `apps/app`** -
   `Path.of("").toAbsolutePath().getParent().getParent()`, or `Path.of("..", "..")`. Moved under `apps/`, a test that
   went up one level searched `apps/` alone: `NullMarkedPackagesTest` and `RealAccountTest` still passed that way
@@ -400,9 +399,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **porelo's Build ignores a push that changes only `**/*.md`, `mkdocs.yml`, `doc/**`, `issues/**`, `.github/**` or
   `porelo.yml`** (`paths-ignore` in `build.yml`), even without `[skip ci]`. A change there that needs a Build is
   dispatched, or rides on the next code push.
-- **Seven artifacts reach Central: `porelo-agent-api`, `porelo-wire`, `porelo-acceptance-kit`, `porelo-bom`, `porelo-build-api`, `porelo-ecosystem-api` and `porelo-planning-api`**, the `wire`, `ecosystems/api` and `planning/api` ones under Apache-2.0 and the others under GPL-3.0-or-later; the
+- **Six artifacts reach Central: `porelo-agent-api`, `porelo-wire`, `porelo-acceptance-kit`, `porelo-bom`, `porelo-build-api` and `porelo-ecosystem-api`**, the `wire` and `ecosystems/api` ones under Apache-2.0 and the others under GPL-3.0-or-later; the
   packages and the agents' go to Artifactory, `porelo-dist-deb` and `porelo-dist-rpm`.
-- **Under `-Pcentral-sonatype-release` only `skipPublishing` counts**, default-deny in the root and off in those seven.
+- **Under `-Pcentral-sonatype-release` only `skipPublishing` counts**, default-deny in the root and off in those six.
 - **Artifactory is spoken to with curl, through `.github/scripts/artifactory.sh`**: no client is downloaded into a job
   holding the token. A Debian upload needs `deb.distribution`, `deb.component` and `deb.architecture` (Annotate
   permission), or it is stored and never indexed; build-info is not published.

@@ -18,7 +18,6 @@ nav:
           - Writing a transport: transports.md
           - Writing a build reader: build-readers.md
           - Writing an ecosystem adapter: ecosystem-adapters.md
-          - Writing a planning adapter: planning-adapters.md
           - FAQ: faq.md
     - How it keeps an agent in its place:
           - Security classes, firewall and names: security.md

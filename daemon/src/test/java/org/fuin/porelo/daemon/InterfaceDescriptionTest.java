@@ -636,8 +636,7 @@ class InterfaceDescriptionTest {
         "40-agent, Agent",
         "45-messaging, Messaging",
         "50-machine, Machine",
-        "55-events, Event",
-        "60-planning, Planning"
+        "55-events, Event"
     })
     void eachAreaRegistersExactlyTheMethodsOfItsOwnPart(String part, String area, @TempDir Path dir)
             throws Exception {
@@ -648,44 +647,28 @@ class InterfaceDescriptionTest {
         final PoreloContext context = context(dir);
         final VarlinkServer server =
                 new VarlinkServer(dir.resolve("porelod.sock"), PoreloDaemon.INTERFACE);
-        // The board's area takes the daemon's one PlanningChanges, which its owner closes.
-        final java.util.function.Function<String, org.fuin.porelo.app.PlanningReadSnapshot>
-                snapshots = project -> org.fuin.porelo.app.PlanningReadSnapshot.empty();
-        final org.fuin.porelo.app.PlanningChanges changes =
-                PlanningMethods.changes(context, snapshots);
-        if ("Planning".equals(area)) {
-            PlanningMethods.register(
-                    server,
-                    context,
-                    org.fuin.porelo.app.TaskInventory.deriving(context),
-                    new org.fuin.porelo.app.TaskControl(context),
-                    snapshots,
-                    changes);
-        } else {
-            final Class<?> registrar = Class.forName("org.fuin.porelo.daemon." + area + "Methods");
-            final List<Class<?>> signature =
-                    new java.util.ArrayList<>(
-                            List.of(
-                                    VarlinkServer.class,
-                                    PoreloContext.class,
-                                    org.fuin.porelo.app.TaskInventory.class,
-                                    org.fuin.porelo.app.TaskControl.class));
-            final List<Object> arguments =
-                    new java.util.ArrayList<>(
-                            List.of(
-                                    server,
-                                    context,
-                                    org.fuin.porelo.app.TaskInventory.deriving(context),
-                                    new org.fuin.porelo.app.TaskControl(context)));
-            if (Set.of("Task", "Agent").contains(area)) {
-                signature.add(org.fuin.porelo.app.AgentSignInRuns.class);
-                arguments.add(org.fuin.porelo.app.AgentSignInRuns.of(context));
-            }
-            final java.lang.reflect.Method register =
-                    registrar.getDeclaredMethod("register", signature.toArray(Class<?>[]::new));
-            register.invoke(null, arguments.toArray());
+        final Class<?> registrar = Class.forName("org.fuin.porelo.daemon." + area + "Methods");
+        final List<Class<?>> signature =
+                new java.util.ArrayList<>(
+                        List.of(
+                                VarlinkServer.class,
+                                PoreloContext.class,
+                                org.fuin.porelo.app.TaskInventory.class,
+                                org.fuin.porelo.app.TaskControl.class));
+        final List<Object> arguments =
+                new java.util.ArrayList<>(
+                        List.of(
+                                server,
+                                context,
+                                org.fuin.porelo.app.TaskInventory.deriving(context),
+                                new org.fuin.porelo.app.TaskControl(context)));
+        if (Set.of("Task", "Agent").contains(area)) {
+            signature.add(org.fuin.porelo.app.AgentSignInRuns.class);
+            arguments.add(org.fuin.porelo.app.AgentSignInRuns.of(context));
         }
-        changes.close();
+        final java.lang.reflect.Method register =
+                registrar.getDeclaredMethod("register", signature.toArray(Class<?>[]::new));
+        register.invoke(null, arguments.toArray());
         final Set<String> registered =
                 new TreeSet<>(
                         server.methodNames().stream()

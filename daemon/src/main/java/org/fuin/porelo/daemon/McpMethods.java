@@ -37,14 +37,6 @@ final class McpMethods {
     static final Set<String> READING =
             Set.of(
                     "Arrivals",
-                    "GetPlanningWorkflow",
-                    "ListStories",
-                    "GetStory",
-                    "ListStoryIssues",
-                    "GetIssue",
-                    "WatchStories",
-                    "GetStoryWork",
-                    "ProposeStoryWork",
                     "List",
                     "McpMethods",
                     "Watch",
@@ -96,12 +88,10 @@ final class McpMethods {
      * cannot be had back, hands out a secret ({@code ReadHostVaultShare}, and {@code ReadHeld} with
      * a refused message's text), changes where a credential is sent ({@code WriteDestination},
      * {@code CredentialDeclare}), or signs an agent in on the host's own network ({@code
-     * AgentSignInStart}, and {@code AgentSignInWait}, which holds a call while one runs), or starts
-     * or stops the board's work ({@code StartStoryWork}, {@code StopStoryWork}): no agent starts
-     * another. {@code PullRequests} and {@code WatchPullRequests} spend the person's forge identity
-     * to read reviews awaiting human judgment, so a task cannot ask them even from the local list.
-     * PushToCentral releases approved work with the person's central credential and is never
-     * offered.
+     * AgentSignInStart}, and {@code AgentSignInWait}, which holds a call while one runs). {@code
+     * PullRequests} and {@code WatchPullRequests} spend the person's forge identity to read reviews
+     * awaiting human judgment, so a task cannot ask them even from the local list. PushToCentral
+     * releases approved work with the person's central credential and is never offered.
      */
     static final Set<String> NEVER =
             Set.of(
@@ -110,8 +100,6 @@ final class McpMethods {
                     "WatchPullRequests",
                     // A host-credentialed query returns unfiltered server names for the operator.
                     "RoomMembers",
-                    "StartStoryWork",
-                    "StopStoryWork",
                     "Panic",
                     "ReadHeld",
                     "WriteDestination",
@@ -137,8 +125,6 @@ final class McpMethods {
     /** Methods that stand for a person's own judgement; offered only from the list, and named. */
     static final Set<String> JUDGEMENT =
             Set.of(
-                    "SaveMoves",
-                    "ResolveIssueReading",
                     "Approve",
                     "Reject",
                     "Decide",

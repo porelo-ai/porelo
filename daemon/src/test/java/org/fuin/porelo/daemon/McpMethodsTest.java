@@ -29,7 +29,6 @@ class McpMethodsTest {
      */
     static final Set<String> WRITING_ONLY_FROM_THE_LIST =
             Set.of(
-                    "RefreshStories",
                     "Start",
                     "CanStart",
                     "FirstStart",
@@ -72,20 +71,6 @@ class McpMethodsTest {
                     "DismissMachine",
                     "RemoveMessageMember",
                     "Tighten");
-
-    @Test
-    void savingBoardMovesRequiresThePersonsJudgementAndList(@TempDir final Path dir)
-            throws Exception {
-        assertThat(McpMethods.JUDGEMENT)
-                .contains("SaveMoves")
-                .doesNotContain("MoveStory", "MoveIssues");
-        final Path list = dir.resolve(McpMethods.LOCAL_LIST);
-        assertThat(McpMethods.answer(list, McpMethods.described()).get("writing"))
-                .isEqualTo(List.of());
-        Files.writeString(list, "SaveMoves\nMoveStory\nMoveIssues\n");
-        assertThat(McpMethods.answer(list, McpMethods.described()).get("writing"))
-                .isEqualTo(List.of("SaveMoves"));
-    }
 
     // A task must be able to request arrivals without gaining another project's history.
     @Test

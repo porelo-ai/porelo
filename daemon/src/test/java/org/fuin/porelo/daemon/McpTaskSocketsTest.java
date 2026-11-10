@@ -793,25 +793,11 @@ class McpTaskSocketsTest {
 
     @Test
     void aMethodTakingAProjectReadsOnlyTheCallersOwnProject() throws IOException {
-        // A task cannot read another project's board or arrivals.
-        final Path socket =
-                opened(
-                        HEAD
-                                + SECTION.replace(
-                                        "\"Stop\"]",
-                                        "\"Stop\", \"ListStories\", \"WatchStories\","
-                                                + " \"GetIssue\", \"Arrivals\"]"));
+        // A task cannot read another project's arrivals.
+        final Path socket = opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"Arrivals\"]"));
         assertThat(McpTaskSockets.takingAProject())
-                .as("every board read is held to the caller's project")
-                .contains(
-                        "GetPlanningWorkflow",
-                        "ListStories",
-                        "WatchStories",
-                        "GetStory",
-                        "ListStoryIssues",
-                        "GetIssue",
-                        "ProposeStoryWork",
-                        "GetStoryWork")
+                .as("arrivals are held to the caller's project")
+                .contains("Arrivals")
                 .as("Start holds its project itself, and these read any of the person's projects")
                 .doesNotContain("Start", "Backups", "Egress", "Pending", "Review", "Peers");
 
@@ -821,27 +807,14 @@ class McpTaskSocketsTest {
                 Map.of("project", "other", "repository", "app"),
                 "ProjectNotItsOwn",
                 Map.of("project", "other", "own", "uc"));
-        for (final String method : List.of("ListStories", "WatchStories")) {
-            refused(
-                    socket,
-                    method,
-                    Map.of("project", "other"),
-                    "ProjectNotItsOwn",
-                    Map.of("project", "other", "own", "uc"));
-        }
         refused(
                 socket,
-                "GetIssue",
-                Map.of("project", "other", "issue", "B1"),
-                "ProjectNotItsOwn",
-                Map.of("project", "other", "own", "uc"));
-        refused(
-                socket,
-                "ListStories",
+                "Arrivals",
                 Map.of(),
                 "ProjectNotItsOwn",
                 Map.of("project", "", "own", "uc"));
-        final Object own = attempt(socket, Map.of("project", "uc"), "ListStories").join();
+        final Object own =
+                attempt(socket, Map.of("project", "uc", "repository", "app"), "Arrivals").join();
         if (own instanceof VarlinkException ex) {
             assertThat(ex.getErrorName()).as("its own project").doesNotEndWith(".ProjectNotItsOwn");
         }

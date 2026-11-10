@@ -162,8 +162,8 @@ What each Maven module is, in a few sentences of its own:
 - [runtime](runtime/README.md), [shield](shield/README.md), [clearance](clearance/README.md),
   [vault](vault/README.md), [gate](gate/README.md), [supervisor](supervisor/README.md) - what runs around a task
 - [organization](organization/README.md) - who may do what, behind an API
-- [agents](agents/README.md), [builds](builds/README.md), [ecosystems](ecosystems/README.md), [planning](planning/README.md) - the contracts agents,
-  build readers, ecosystem adapters and planning adapters are written against
+- [agents](agents/README.md), [builds](builds/README.md), [ecosystems](ecosystems/README.md) - the contracts agents,
+  build readers and ecosystem adapters are written against
 - [apps](apps/README.md) - the `porelo` command line, area by area
 - [daemon](daemon/README.md), [hooks](hooks/README.md) - `porelod` and the OCI hooks
 - [host](host/README.md) - the host's own privileged `porelo-host` program
@@ -171,9 +171,8 @@ What each Maven module is, in a few sentences of its own:
 - [dist](dist/README.md) - the packages
 
 ## License
-GNU General Public License v3.0 or later — see [LICENSE](LICENSE). [wire](wire/README.md),
-[ecosystems/api](ecosystems/api/README.md) and [planning/api](planning/api/README.md) are under Apache-2.0;
-[planning/stub](planning/stub/README.md) is under LGPL-3.0-or-later. Each carries its own `LICENSE`.
+GNU General Public License v3.0 or later — see [LICENSE](LICENSE). [wire](wire/README.md) and
+[ecosystems/api](ecosystems/api/README.md) are under Apache-2.0. Each carries its own `LICENSE`.
 
 -----
 

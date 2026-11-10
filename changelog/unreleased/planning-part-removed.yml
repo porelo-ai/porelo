@@ -1,0 +1,2 @@
+title: "porelo no longer has a planning part (the adapter contract, the board read through porelod and its change stream), which moves into the separate app porelo-planner"
+type: removed
