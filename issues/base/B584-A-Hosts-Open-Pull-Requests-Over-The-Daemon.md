@@ -1,6 +1,6 @@
 # [B584](README.md#b584) — A Host's Open Pull Requests Over The Daemon
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** M - a read and a watch of the host forge's pull requests per project, with makers and end, in Tasks1.
 
 **What must be true.** A client of porelod on a host can read, and watch, the open pull requests of a project's
