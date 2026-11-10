@@ -1,7 +1,21 @@
 # B230 — The Package Provides The Lowest Agent Protocol
 
-**Status:** Analyzed.
-**Size:** M - small in code, two package descriptions and one check, but a contract every agent repository's package
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B230",
+  "title": "The Package Provides The Lowest Agent Protocol",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 39,
+  "blockedBy": [],
+  "covers": "The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** small in code, two package descriptions and one check, but a contract every agent repository's package
 reads, and it must be published before any of them depends on it.
 
 **What must be true.** Porelo's `.deb` and `.rpm` each provide `porelo-agent-protocol-<LOWEST>`, the lowest agent

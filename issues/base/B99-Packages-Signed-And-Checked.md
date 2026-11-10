@@ -1,7 +1,20 @@
 # B99 — Packages Signed And Checked
 
-**Status:** Estimated.
-**Size:** L - crosses nine repositories on one day; Porelo's part is CI signing, one shared check, setup and docs.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B99",
+  "title": "Packages Signed And Checked",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "RPMs and the setup script signed in CI with the Debian repository's key, one shared `check-signed` in the release tools, a version pointer, `gpgcheck=1` everywhere from the next joint release."
+}
+```
+
+**Why this size.** crosses nine repositories on one day; Porelo's part is CI signing, one shared check, setup and docs.
 
 **What must be true.** An operator installing Porelo or an agent gets only packages, and a setup script, whose
 signature the machine has checked against the repository's packaging key.

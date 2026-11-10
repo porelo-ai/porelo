@@ -1,7 +1,20 @@
 # B480 — A Gate View Never Clones A Missing Mirror
 
-**Status:** Review.
-**Size:** S - the gate calls stop making a missing mirror; their tests. Estimate 30 minutes.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B480",
+  "title": "A Gate View Never Clones A Missing Mirror",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 84,
+  "blockedBy": [],
+  "covers": "Asking what waits at a gate only reads: no mirror, nothing pending and no clone from the upstream; review, approve and reject refuse there"
+}
+```
+
+**Why this size.** the gate calls stop making a missing mirror; their tests. Estimate 30 minutes.
 
 **What must be true.** Asking what waits at a gate only reads. For a repository this machine holds no mirror of, it
 answers that nothing is pending and reaches nothing: no clone from the repository's upstream, no network, no mirror

@@ -1,9 +1,26 @@
-# [B573](README.md#b573) — A Task's Project Reads Held To Its Own Project
+# B573 — A Task's Project Reads Held To Its Own Project
 
-**Status:** Analyzed. Filed 2026-11-09 from a code reading of the MCP task socket; accepted by the operator on
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B573",
+  "title": "A Task's Project Reads Held To Its Own Project",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** one module, the daemon's task socket, and its test; the refusal already exists.
+
+Filed 2026-11-09 from a code reading of the MCP task socket; accepted by the operator on
 2026-11-09 with no exception.
-**Size:** S - one module, the daemon's task socket, and its test; the refusal already exists.
-**Severity:** high - a task granted one of these reads reads another of the person's projects, its pushes waiting at
+
+**Severity.** high - a task granted one of these reads reads another of the person's projects, its pushes waiting at
 the gate among them.
 
 **What must be true.** Over its MCP socket a task reads only its own project: each of the seven Tasks1 methods below

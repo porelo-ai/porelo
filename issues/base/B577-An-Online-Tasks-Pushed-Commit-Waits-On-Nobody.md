@@ -1,7 +1,22 @@
-# [B577](README.md#b577) — An Online Task's Pushed Commit Waits On Nobody
+# B577 — An Online Task's Pushed Commit Waits On Nobody
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** M - the task's waiting reason, what Needs you is told, and whose account a task pushes as.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B577",
+  "title": "An Online Task's Pushed Commit Waits On Nobody",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 29,
+  "blockedBy": [],
+  "covers": "An online task whose push passed the gate is never shown as waiting on the person; its push appears as the task's."
+}
+```
+
+**Why this size.** the task's waiting reason, what Needs you is told, and whose account a task pushes as.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** In class `online`, a task whose push passed the gate to the host's forge is never shown as
 waiting on the person for that commit: no "Waits on you: its commit waits at the gate", nothing in *Needs you* for it,

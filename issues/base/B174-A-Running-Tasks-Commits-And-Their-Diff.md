@@ -1,7 +1,20 @@
 # B174 — A Running Task's Commits And Their Diff
 
-**Status:** Estimated.
-**Size:** M - one contract change (two methods and a type in `15-task.varlink`), the census that `WorkHeld` already
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B174",
+  "title": "A Running Task's Commits And Their Diff",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 33,
+  "blockedBy": [],
+  "covers": "`TaskCommits` and `TaskDiff`: a running task's commits no remote holds and their diff, cut at a file boundary; a stopped task's list from its note."
+}
+```
+
+**Why this size.** one contract change (two methods and a type in `15-task.varlink`), the census that `WorkHeld` already
 runs widened to a list, the stop's note keeping that list, a diff read in the container and cut as [B150](README.md#b150) cuts a review,
 and docs; no other repository's contract changes but the interface reading it.
 

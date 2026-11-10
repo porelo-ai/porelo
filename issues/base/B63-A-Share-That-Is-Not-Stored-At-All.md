@@ -1,7 +1,20 @@
 # B63 — A Share That Is Not Stored At All
 
-**Status:** Estimated.
-**Size:** XL - a measurement, FIDO2 at the machine, TPM2, and what the node proves are four pieces; split as the plan
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B63",
+  "title": "A Share That Is Not Stored At All",
+  "state": "Estimated",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 28,
+  "blockedBy": [],
+  "covers": "A share not stored at all; splits into a token measurement (S), FIDO2 enrolment (L), TPM2 (L), and proving what protected an unlock, an unproven slot shown as USER_SCOPED (L)."
+}
+```
+
+**Why this size.** a measurement, FIDO2 at the machine, TPM2, and what the node proves are four pieces; split as the plan
 says.
 
 **What must be true.** An operator whose device unlocks the vault can rely on that device being

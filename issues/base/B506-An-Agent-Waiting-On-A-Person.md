@@ -1,8 +1,22 @@
-# [B506](README.md#b506) — An Agent Waiting On A Person
+# B506 — An Agent Waiting On A Person
 
-**Status:** Backlog.
-**Size:** M - an activity in the task contract part (`15-task`), its judgment in `TaskInventory`, and an agent
-definition field.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B506",
+  "title": "An Agent Waiting On A Person",
+  "state": "Backlog",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 17,
+  "blockedBy": ["B118"],
+  "covers": "A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen."
+}
+```
+
+**Why this size.** read in the code on 2026-11-08, most of it is on the wire already and what is missing is
+[B118](README.md#b118); first sized M for an activity in the task contract part (`15-task`), its judgment
+in `TaskInventory`, and an agent definition field.
 
 **What must be true.** A task's listing says when its agent waits on a person for its own question, not only for a
 clearance, where the agent declares how that is seen; an agent that declares nothing is shown as working or quiet, as

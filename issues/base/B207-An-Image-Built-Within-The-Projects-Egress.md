@@ -1,10 +1,25 @@
 # B207 — An Image Built Within The Project's Egress
 
-**Status:** Rejected, by the operator on 2026-11-08. What a person builds into their image is their own risk: Porelo
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B207",
+  "title": "An Image Built Within The Project's Egress",
+  "state": "Rejected",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "An image built within the project's egress is not built: what a person builds into their image is their own risk, and a person may bring their own base image at any time, which Porelo does not see (the operator, 2026-11-08)."
+}
+```
+
+**Why this size.** the image build moves into a network Porelo controls, the project's egress applied to it through the
+firewall or a proxy, with a package source the build may reach without being named; a design to decide first.
+
+Rejected by the operator on 2026-11-08. What a person builds into their image is their own risk: Porelo
 neither can nor wants to take it from them. A person may also bring their own base image at any time, which Porelo
 does not see anyway. The plan below is kept as it was written.
-**Size:** L - the image build moves into a network Porelo controls, the project's egress applied to it through the
-firewall or a proxy, with a package source the build may reach without being named; a design to decide first.
 
 **What must be true.** An image's build reaches only what the project's egress allows, plus the package sources the
 project trusts. A snippet that fetches from anywhere else fails at the build, with the address it tried.

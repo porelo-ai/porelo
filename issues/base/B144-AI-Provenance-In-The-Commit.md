@@ -1,7 +1,20 @@
 # B144 — AI Provenance In The Commit
 
-**Status:** Estimated; blocked by porelo [B148](README.md#b148).
-**Size:** L - a new merge path for every approve in `gate`, a reader of the broker's record, a project setting for a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B144",
+  "title": "AI Provenance In The Commit",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": ["B148"],
+  "covers": "A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them."
+}
+```
+
+**Why this size.** a new merge path for every approve in `gate`, a reader of the broker's record, a project setting for a
 fast-forward, the daemon's approve, docs and an acceptance step.
 
 **What must be true.** Approved work carries, in a commit the host makes at approve, which models made it: every model

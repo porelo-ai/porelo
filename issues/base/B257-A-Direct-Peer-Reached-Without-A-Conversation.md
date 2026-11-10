@@ -1,6 +1,18 @@
 # B257 — A Direct Peer Reached Without A Conversation
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B257",
+  "title": "A Direct Peer Reached Without A Conversation",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 80,
+  "blockedBy": [],
+  "covers": "A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it"
+}
+```
 
 **What must be true.** A project that names a peer only by a direct transport address (`matrix:<address>`), with no
 `mail.transports` entry for that transport, either reaches the peer or is refused at its task's start, naming why. A

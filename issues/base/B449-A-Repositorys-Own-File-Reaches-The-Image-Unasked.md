@@ -1,7 +1,20 @@
 # B449 — A Repository's Own File Reaches The Image Unasked
 
-**Status:** Backlog.
-**Size:** S to M.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B449",
+  "title": "A Repository's Own File Reaches The Image Unasked",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 20,
+  "blockedBy": [],
+  "covers": "A repository's `porelo.yml` chooses no line of an image without a person's yes."
+}
+```
+
+**Why this size.** S to M.
 
 **What must be true.** A repository's `porelo.yml` chooses no line of an image on a person's machine without their yes.
 

@@ -1,7 +1,20 @@
 # B410 — Two Forges On One Host Told Apart
 
-**Status:** Idea.
-**Severity:** low: it takes two forges on one host holding the same path, and what goes wrong stays on that host.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B410",
+  "title": "Two Forges On One Host Told Apart",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 27,
+  "blockedBy": [],
+  "covers": "An address on another port of a host is not taken for the same repository, and a person is told which forge their work goes to"
+}
+```
+
+**Severity.** low: it takes two forges on one host holding the same path, and what goes wrong stays on that host.
 
 **What must be true.** Work named for a forge on one port of a host goes to that forge, not to another on the same host whose
 repository has the same path, and a person who gives such an address is told which forge their work goes to. The same forge

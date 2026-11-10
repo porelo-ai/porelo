@@ -1,7 +1,20 @@
 # B169 — Containers Inside A Task
 
-**Status:** Estimated.
-**Size:** L - an assessment to write and measure first, which decides whether anything is built; the build after it
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B169",
+  "title": "Containers Inside A Task",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 32,
+  "blockedBy": [],
+  "covers": "The nested-container assessment first, measured on both legs; then an opt-in `image.nested_containers`, never for `guarded`, and only on a task's own kernel if the assessment says so."
+}
+```
+
+**Why this size.** an assessment to write and measure first, which decides whether anything is built; the build after it
 touches the task's hardening, the image, the project file, `doctor` and the acceptance suite.
 
 **What must be true.** A build inside a task can start containers of its own - rootless podman in the task - and they

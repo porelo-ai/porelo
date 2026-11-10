@@ -1,10 +1,25 @@
 # B474 — A Task Fetches Its Project's Snapshots Through Its Broker
 
-**Status:** Backlog (Estimated, M, 180 minutes, on the operator's word, 2026-11-06).
-**Size:** M - a package route in the task's broker, the task's own forge token read for it, the start ordered for it,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B474",
+  "title": "A Task Fetches Its Project's Snapshots Through Its Broker",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 18,
+  "blockedBy": ["B470", "B467"],
+  "covers": "A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure; removing the task ends its token at once."
+}
+```
+
+**Why this size.** a package route in the task's broker, the task's own forge token read for it, the start ordered for it,
 and the settings through `porelo.yml` and Configure, the token's end kept pending until the host answers; their tests.
 Estimate 180 minutes, once
 [B470](README.md#b470) and [B467](README.md#b467) have landed.
+
+Backlog (Estimated, M, 180 minutes, on the operator's word, 2026-11-06).
 
 **What must be true.** A task's build resolves its project's own snapshots from the host's forge registry, by the
 repository name its `porelo.yml` declares, through Porelo's broker: `GET` and `HEAD` below

@@ -1,7 +1,20 @@
-# [B501](README.md#b501) — Matrix In Doctor
+# B501 — Matrix In Doctor
 
-**Status:** Review.
-**Size:** S - a doctor probe, its line in `Doctor`, and its test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B501",
+  "title": "Matrix In Doctor",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 67,
+  "blockedBy": [],
+  "covers": "`doctor` says whether the machine can carry its projects' messages: the transport installed, a local homeserver answering."
+}
+```
+
+**Why this size.** a doctor probe, its line in `Doctor`, and its test.
 
 **What must be true.** `porelo doctor`, and the daemon's `Doctor`, say whether this machine can carry its projects'
 messages: the installed transport, and for a local homeserver whether it answers. A transport that is not installed

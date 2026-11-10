@@ -1,8 +1,23 @@
-# [B479](README.md#b479) — A Host Carries Single Repositories Of A Project
+# B479 — A Host Carries Single Repositories Of A Project
 
-**Status:** Review. Accepted and set to Backlog on the operator's word (2026-11-06).
-**Size:** M - a second entry form in a host's `host.yml`, its judging, both verbs and what reads a host's projects;
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B479",
+  "title": "A Host Carries Single Repositories Of A Project",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 79,
+  "blockedBy": [],
+  "covers": "A host's file names single repositories of a project beside whole ones; `org host carry/uncarry --repository`; one repository on one host; a read key named or removed when one is taken off."
+}
+```
+
+**Why this size.** a second entry form in a host's `host.yml`, its judging, both verbs and what reads a host's projects;
 their tests. Estimate 150 minutes.
+
+Accepted and set to Backlog on the operator's word (2026-11-06).
 
 **What must be true.** A person puts one repository of a project on a host and takes it off again; the whole project
 stays the comfortable form when all are needed. The organization's files say which repositories a host carries, the

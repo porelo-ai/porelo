@@ -1,6 +1,20 @@
-# [B508](README.md#b508) — The Default Task Image On Ubuntu 26.04
+# B508 — The Default Task Image On Ubuntu 26.04
 
-**Status:** Idea. To be built after the trial moves, by the operator's word of 2026-11-08.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B508",
+  "title": "The Default Task Image On Ubuntu 26.04",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": [],
+  "covers": "The default task image moves from `ubuntu:24.04` to `ubuntu:26.04`: every task image, the places porelo names the default, and porelo-ecosystems' list; after the trial moves."
+}
+```
+
+To be built after the trial moves, by the operator's word of 2026-11-08.
 
 **What must be true.** A task image built from Porelo's defaults starts from `ubuntu:26.04` instead of `ubuntu:24.04`,
 and every place that names the default names the new one.

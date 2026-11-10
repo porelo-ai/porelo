@@ -1,9 +1,21 @@
-# [B547](README.md#b547) — Task Accounts And Lent Tokens Through The Host Tool
+# B547 — Task Accounts And Lent Tokens Through The Host Tool
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B547",
+  "title": "Task Accounts And Lent Tokens Through The Host Tool",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 36,
+  "blockedBy": ["B541"],
+  "covers": "`porelo-host task start | end`, `forge issue-token | lend-token`, for `SUDO_USER` alone; porelo's callers switched."
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** L.
-**Blocked by:** [B541](README.md#b541).
 
 **What must be true.** `task start <task>` reads the task's certificate on stdin from porelod, refuses one not signed by `SUDO_USER`'s
 current key for `task:<project>:<task>`, and answers the gate token on stdout; `task end`; `forge issue-token` and

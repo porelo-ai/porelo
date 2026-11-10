@@ -1,7 +1,22 @@
-# [B587](README.md#b587) — One Reader Of The Host's Forge Settings
+# B587 — One Reader Of The Host's Forge Settings
 
-**Status:** Backlog. Filed 2026-11-10 under ST291, from stacking [B544](README.md#b544) on [B584](README.md#b584).
-**Size:** S - one reader in `app-model`, its two callers in `app-vault`.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B587",
+  "title": "One Reader Of The Host's Forge Settings",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "porelo reads the host's forge.conf in one place; `porelo host push | pull` and `forge-token` share it."
+}
+```
+
+**Why this size.** one reader in `app-model`, its two callers in `app-vault`.
+
+Filed 2026-11-10 under ST291, from stacking [B544](README.md#b544) on [B584](README.md#b584).
 
 **What must be true.** porelo reads the host's root-owned `/etc/porelo-host/forge.conf` in one place, with one set of
 checks (a plain file only root can change, `name=` a forge name, `account=` once, the port), and every person's host

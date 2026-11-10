@@ -1,8 +1,23 @@
-# [B136](README.md#b136) — An Approve Bound To What Was Reviewed
+# B136 — An Approve Bound To What Was Reviewed
 
-**Status:** Analyzed.
-**Blocks:** [B141](README.md#b141), [B145](README.md#b145), [B95](README.md#b95), [B293](README.md#b293), [B163](README.md#b163), [B166](README.md#b166).
-**Size:** M - gate commands, daemon commit binding, approval hints and acceptance, providing the commit key for later review controls.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B136",
+  "title": "An Approve Bound To What Was Reviewed",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** gate commands, daemon commit binding, approval hints and acceptance, providing the commit key for later review controls.
+
+**Blocks.** [B141](README.md#b141), [B145](README.md#b145), [B95](README.md#b95), [B293](README.md#b293), [B163](README.md#b163), [B166](README.md#b166).
 
 **What must be true.** Gate approval forwards exactly the commit the person reviewed in the CLI, interface or IDE
 plugin. A concurrent push cannot forward unseen work or reuse confirmations made for another commit.

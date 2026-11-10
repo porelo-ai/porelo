@@ -1,7 +1,21 @@
 # B178 — A Credential With No Expiry Said So
 
-**Status:** Analyzed.
-**Size:** M - one rule in `app-model` read by three ways of storing and two lists, a field added to `Credential` in
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B178",
+  "title": "A Credential With No Expiry Said So",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** one rule in `app-model` read by three ways of storing and two lists, a field added to `Credential` in
 `30-vault.varlink` (a contract the interface reads), and `doc/credentials.md`; small for an M.
 
 **What must be true.** Storing a credential that carries no end - by `vault put`, `vault login` or `ImportCredential` -

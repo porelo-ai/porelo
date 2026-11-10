@@ -1,8 +1,23 @@
-# [B492](README.md#b492) — A Host Refuses An Uncertifiable Start At Once
+# B492 — A Host Refuses An Uncertifiable Start At Once
 
-**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B492",
+  "title": "A Host Refuses An Uncertifiable Start At Once",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 71,
+  "blockedBy": [],
+  "covers": "A start on a host that nothing could certify is refused before its broker or image, with the words the late refusal gives."
+}
+```
+
+**Why this size.** one check earlier in the start path and its tests; the refusal's words stay as they are.
+
+Built on the operator's word that every finding of the trial move is fixed before the second
 move.
-**Size:** S - one check earlier in the start path and its tests; the refusal's words stay as they are.
 
 **What must be true.** A task start on a host that has no way to have the task certified - no certificate asked of
 the person's computer, and no key of a certifier in an agent on the host - is refused before anything holds a credential

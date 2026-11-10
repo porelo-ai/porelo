@@ -1,9 +1,21 @@
-# [B541](README.md#b541) — The Host Tool Reads The Organization And A Task By Its Signature
+# B541 — The Host Tool Reads The Organization And A Task By Its Signature
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B541",
+  "title": "The Host Tool Reads The Organization And A Task By Its Signature",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 41,
+  "blockedBy": ["B540"],
+  "covers": "`porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does."
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** L.
-**Blocked by:** [B540](README.md#b540).
 
 **What must be true.** `porelo-host org status [--json]` (root's read of host, organization, persons, projects, repositories and their
 central state) and `porelo-host task show <fingerprint>` (through `sudo -n`, tasks in `SUDO_USER`'s projects) answer as

@@ -1,7 +1,20 @@
 # B139 — An Alert On What Looks Wrong
 
-**Status:** Estimated.
-**Size:** L - thresholds need a measured baseline first; three watchers, a contract event and containment.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B139",
+  "title": "An Alert On What Looks Wrong",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "Baselines first, then alerts on body size, clearance attempts and odd DNS names, to the desktop and `Watch`; per project alert only or stop with the token revoked."
+}
+```
+
+**Why this size.** thresholds need a measured baseline first; three watchers, a contract event and containment.
 
 **What must be true.** Porelo raises an alert on anomalies a person should see - very large prompt bodies, many clearance
 attempts, unusual name patterns under declared domains - and a project chooses what an alert does: it only alerts, or it

@@ -1,7 +1,20 @@
 # B450 — The RPM Index Loses What A Package Recommends
 
-**Status:** Review.
-**Size:** XS - the setting was turned on in Artifactory; what was left were the `dnf` lines in `doc/getting-started.md`.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B450",
+  "title": "The RPM Index Loses What A Package Recommends",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 92,
+  "blockedBy": [],
+  "covers": "A default `dnf install` brings what the package recommends, now that the RPM index keeps it, and the `dnf` lines no longer name it."
+}
+```
+
+**Why this size.** the setting was turned on in Artifactory; what was left were the `dnf` lines in `doc/getting-started.md`.
 
 **What must be true.** A default `dnf install porelo` brings what the package recommends, as `apt` does.
 

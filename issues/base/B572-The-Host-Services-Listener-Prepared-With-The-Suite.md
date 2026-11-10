@@ -1,7 +1,22 @@
-# [B572](README.md#b572) — The Host-Services Listener Prepared With The Suite
+# B572 — The Host-Services Listener Prepared With The Suite
 
-**Status:** Review. Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
-**Size:** S - one root-run preparation script beside the acceptance suite, called by the VM chain around the suite.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B572",
+  "title": "The Host-Services Listener Prepared With The Suite",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 20,
+  "blockedBy": [],
+  "covers": "A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it."
+}
+```
+
+**Why this size.** one root-run preparation script beside the acceptance suite, called by the VM chain around the suite.
+
+Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
 
 **What must be true.** The acceptance feature `shield/host-services.feature` runs wherever the suite runs on a VM or a
 rented machine, instead of being skipped because nothing prepared it.

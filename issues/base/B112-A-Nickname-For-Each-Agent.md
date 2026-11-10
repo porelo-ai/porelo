@@ -1,7 +1,20 @@
 # B112 — A Nickname For Each Agent
 
-**Status:** Estimated.
-**Size:** M - the label's rules, name resolution, the agent card, and two transport verbs a contract already names.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B112",
+  "title": "A Nickname For Each Agent",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 25,
+  "blockedBy": [],
+  "covers": "The label becomes a one-word nickname, unique in its project: `@label`, `you` in the card, `--display` and `rename`."
+}
+```
+
+**Why this size.** the label's rules, name resolution, the agent card, and two transport verbs a contract already names.
 
 **What must be true.** A person can call each agent by a nickname given when its work starts: it is
 shown in the window, the room and the direct chat, named with `@`, and the agent knows when a

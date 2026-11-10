@@ -1,7 +1,20 @@
 # B34 — What The Resolver Can Actually Do
 
-**Status:** Analyzed.
-**Size:** S - a named value in `shield`, `doctor`'s probe and JSON, the refusal's words, and the path of the binary.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B34",
+  "title": "What The Resolver Can Actually Do",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 22,
+  "blockedBy": [],
+  "covers": "The resolver's boolean becomes a named capability of two values with its path, shown in doctor, its JSON and setup's refusal."
+}
+```
+
+**Why this size.** a named value in `shield`, `doctor`'s probe and JSON, the refusal's words, and the path of the binary.
 
 **What must be true.** An operator can see what a machine's resolver can do and what follows for a
 task; a machine that cannot enforce egress by name is refused with the reason, naming what was

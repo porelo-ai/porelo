@@ -1,10 +1,22 @@
-# [B549](README.md#b549) — The Push Judge In The Host Tool
+# B549 — The Push Judge In The Host Tool
 
-**Status:** Review. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B549",
+  "title": "The Push Judge In The Host Tool",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 35,
+  "blockedBy": ["B547"],
+  "covers": "`porelo-host judge-push` behind the judge socket, with every refusal test; built, in review."
+}
+```
+
+Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
 built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
 move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
-**Size:** L.
-**Blocked by:** [B547](README.md#b547).
 
 **What must be true.** `porelo-host judge-push`, called by the socket's service from Forgejo's pre-receive hook, judges signatures, task
 branches and the pusher's own tasks as `verify-push` does, using porelo's `HostArrivals`/`CommitVerifyCommand` code as

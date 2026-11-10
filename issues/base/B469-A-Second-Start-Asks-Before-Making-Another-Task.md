@@ -1,7 +1,20 @@
 # B469 — A Second Start Asks Before Making Another Task
 
-**Status:** Review.
-**Size:** S - the checkout's tasks found for a checkout with its own project file, one question in the start, their
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B469",
+  "title": "A Second Start Asks Before Making Another Task",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 89,
+  "blockedBy": [],
+  "covers": "A start with no name in a repository that has a task asks to attach (A) or make a new one (N), instead of making another numbered task each time."
+}
+```
+
+**Why this size.** the checkout's tasks found for a checkout with its own project file, one question in the start, their
 tests and one line of `doc/commands.md`; no contract.
 
 **What must be true.** `porelo task start` with no name, in a repository that already has a task, never quietly makes

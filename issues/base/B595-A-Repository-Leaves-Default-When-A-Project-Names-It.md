@@ -1,9 +1,23 @@
-# [B595](README.md#b595) — A Repository Leaves Default When A Project Names It
+# B595 — A Repository Leaves Default When A Project Names It
 
-**Status:** Implementing, since 2026-11-10. Filed 2026-11-10 in `porelo-project` ST30 (Work without a project, with plain refusals), porelo's part of its PJ14.
-**Size:** M - one check at the start through `WorkOrigin`, one daemon method and record for the window, the removal itself
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B595",
+  "title": "A Repository Leaves Default When A Project Names It",
+  "state": "Implementing",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon."
+}
+```
+
+**Why this size.** one check at the start through `WorkOrigin`, one daemon method and record for the window, the removal itself
 and its tests; the window's part is porelo-frontend's.
-**Blocked by:** -.
+
+Implementing since 2026-11-10. Filed 2026-11-10 in `porelo-project` ST30 (Work without a project, with plain refusals), porelo's part of its PJ14.
 
 **What must be true.** When a repository kept in `default` is named by a project of the organization, porelo offers
 to remove it from `default`: at a start (`WorkOrigin` finds the organization's project for the repository's

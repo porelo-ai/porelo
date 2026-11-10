@@ -1,7 +1,20 @@
 # B151 — The Providers A Project Allows
 
-**Status:** Analyzed.
-**Size:** M - a project file key across `core` and its docs, one refusal in `StartCheck` that the CLI and the daemon
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B151",
+  "title": "The Providers A Project Allows",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 26,
+  "blockedBy": [],
+  "covers": "`providers:` in `project.yml`; the start check refuses a provider not on the list, naming the allowed ones, for the CLI and the daemon."
+}
+```
+
+**Why this size.** a project file key across `core` and its docs, one refusal in `StartCheck` that the CLI and the daemon
 share, and a new outcome in the contract.
 
 **What must be true.** A project names the providers its tasks may use, and a start with another is refused.

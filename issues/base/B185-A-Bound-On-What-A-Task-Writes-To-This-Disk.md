@@ -1,7 +1,20 @@
 # B185 — A Bound On What A Task Writes To This Disk
 
-**Status:** Estimated.
-**Size:** M - a measured size per task with a limit in `project.yml`, a task paused at the limit with a sentence that
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B185",
+  "title": "A Bound On What A Task Writes To This Disk",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on."
+}
+```
+
+**Why this size.** a measured size per task with a limit in `project.yml`, a task paused at the limit with a sentence that
 says why, the mailbox's own cap, unit tests and an acceptance scenario that writes past a small limit.
 
 **What must be true.** A task cannot fill the disk of the machine it runs on. What it writes into its mailbox and into

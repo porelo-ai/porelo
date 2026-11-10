@@ -1,7 +1,20 @@
 # B167 — An MCP Gateway On The Host
 
-**Status:** Estimated.
-**Size:** L - the broker taught a protocol, a tool list kept per tool, which a hold on a changed tool builds on,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B167",
+  "title": "An MCP Gateway On The Host",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 30,
+  "blockedBy": [],
+  "covers": "An MCP gateway on the broker for servers over HTTP only: `kind: mcp`, JSON-RPC `tools/list` and `tools/call` read, tool lists compared per tool, `mcp.log`, a project `mcp:` list."
+}
+```
+
+**Why this size.** the broker taught a protocol, a tool list kept per tool, which a hold on a changed tool builds on,
 agents' MCP settings in their own repositories, docs and an acceptance step.
 
 **What must be true.** The MCP servers a project names are reached through a gateway on the host, which sees and

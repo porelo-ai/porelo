@@ -1,7 +1,20 @@
 # B153 — Unused Slots And Keys Reported
 
-**Status:** Estimated.
-**Size:** M - a new account-wide settings file and its reader, a last-use record for deploy keys, a lock flag on a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B153",
+  "title": "Unused Slots And Keys Reported",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 22,
+  "blockedBy": [],
+  "covers": "Doctor reports left deploy keys, and device slots and lent credentials unused for 45 days (a setting in a new account-wide `config.yml`); last use recorded where credentials are lent; only what Porelo lends or opens with locked, where the settings ask."
+}
+```
+
+**Why this size.** a new account-wide settings file and its reader, a last-use record for deploy keys, a lock flag on a
 keyslot, a doctor probe, one contract field, docs.
 
 **What must be true.** `porelo doctor` reports every deploy key an earlier version left and a device slot or credential not

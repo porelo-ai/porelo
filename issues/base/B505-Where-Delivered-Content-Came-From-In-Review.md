@@ -1,7 +1,20 @@
-# [B505](README.md#b505) — Where Delivered Content Came From, In Review
+# B505 — Where Delivered Content Came From, In Review
 
-**Status:** Implementing.
-**Size:** M - a field in `Review` (`35-gate`), `GateMethods`, read from the hand-in records, then a record of what a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B505",
+  "title": "Where Delivered Content Came From, In Review",
+  "state": "Implementing",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": ["B467"],
+  "covers": "`Review` names where each file Porelo delivered into the task came from."
+}
+```
+
+**Why this size.** a field in `Review` (`35-gate`), `GateMethods`, read from the hand-in records, then a record of what a
 first start placed; part of [B38](README.md#b38)'s acceptance ("content Porelo delivered into a task carries its
 origin, and the review shows that origin").
 

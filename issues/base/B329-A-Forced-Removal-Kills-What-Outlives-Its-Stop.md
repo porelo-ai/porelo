@@ -1,7 +1,20 @@
 # B329 — A Forced Removal Kills What Outlives Its Stop
 
-**Status:** Review.
-**Size:** S - a second, forced round after the wait in the one place a task stop counts its survivors, and a zombie
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B329",
+  "title": "A Forced Removal Kills What Outlives Its Stop",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 114,
+  "blockedBy": [],
+  "covers": "`task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL"
+}
+```
+
+**Why this size.** a second, forced round after the wait in the one place a task stop counts its survivors, and a zombie
 told apart from a living process; tests with real processes.
 
 **What must be true.** `porelo task remove --force` ends a task's helpers and what they started, even a process that

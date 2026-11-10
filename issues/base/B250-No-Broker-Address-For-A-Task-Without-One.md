@@ -1,6 +1,18 @@
 # B250 — No Broker Address for a Task Without One
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B250",
+  "title": "No Broker Address for a Task Without One",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 77,
+  "blockedBy": [],
+  "covers": "An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered"
+}
+```
 
 **What must be true.** An agent's setup is told the broker's address only when the task has a broker. A task started
 without a credential tells it none, so `SetupContext.brokered()` is false there, as its contract says.

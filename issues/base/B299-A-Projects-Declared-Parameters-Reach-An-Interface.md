@@ -1,6 +1,18 @@
 # B299 — A Project's Declared Parameters Reach An Interface
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B299",
+  "title": "A Project's Declared Parameters Reach An Interface",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 57,
+  "blockedBy": [],
+  "covers": "`Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start`"
+}
+```
 
 **What must be true.** The daemon's `Projects` answer carries the parameters a project file declares under
 `parameters:` - each name, its description, whether it is required, its allowed values or pattern, and its default -

@@ -1,7 +1,20 @@
 # B470 — A Repository Of Its Own Stays In Default And Says What It Needs
 
-**Status:** Review.
-**Size:** L - the repository file's form and the merge in `core`, the image rule and the sources in `app-model`, the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B470",
+  "title": "A Repository Of Its Own Stays In Default And Says What It Needs",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 83,
+  "blockedBy": [],
+  "covers": "A checkout with no project of an organization stays in `default`; its `porelo.yml` says what its task needs, added to the project file's defaults key by key, allowed once on this machine or signed in an organization; detection writes `porelo.yml`, not `project.yml`."
+}
+```
+
+**Why this size.** the repository file's form and the merge in `core`, the image rule and the sources in `app-model`, the
 allowance and two daemon calls, the judging of `porelo.yml` in an organization's project, the first start's draft;
 built in four steps, each safe on its own. Estimate 180 minutes for the whole, from today's actuals against
 estimates.

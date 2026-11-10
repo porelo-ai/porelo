@@ -1,6 +1,18 @@
 # B284 — A Test Install On An Rpm Host
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B284",
+  "title": "A Test Install On An Rpm Host",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 70,
+  "blockedBy": [],
+  "covers": "The legs module's `deploy` installs on a Fedora machine, `--account` included, rather than unpacking only the `.deb` with `dpkg-deb`, which Fedora lacks"
+}
+```
 
 **What must be true.** The legs module's `deploy` installs a build on a Fedora machine as it does on an Ubuntu one,
 `--account` included, so a change is tested there against the binary it built.

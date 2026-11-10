@@ -1,7 +1,20 @@
 # B446 — A Record Prints What It Holds
 
-**Status:** Review.
-**Size:** S - sixteen records, one override each.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B446",
+  "title": "A Record Prints What It Holds",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 100,
+  "blockedBy": [],
+  "covers": "A record holding a secret prints what it is for, not what it holds."
+}
+```
+
+**Why this size.** sixteen records, one override each.
 
 **What must be true.** A value holding a secret cannot be printed by accident: its `toString` names what it is for, and
 not what it holds.

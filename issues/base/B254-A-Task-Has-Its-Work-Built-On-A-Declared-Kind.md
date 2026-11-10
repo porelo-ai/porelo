@@ -1,7 +1,22 @@
 # B254 — A Task Has Its Work Built on a Declared Kind
 
-**Status:** Idea; blocked by [B253](README.md#b253) and porelo-buildtools' machines asked for by kind.
-**Size, proposed:** L.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B254",
+  "title": "A Task Has Its Work Built on a Declared Kind",
+  "state": "Idea",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 75,
+  "blockedBy": ["B253"],
+  "covers": "A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused"
+}
+```
+
+**Why this size.** proposed.
+
+It also waits for porelo-buildtools' machines asked for by kind.
 
 **Decided:** it stays an Idea, as the agents' move does not need it: a task's push already starts the
 whole workflow on the local forge, its acceptance legs on the VM pool included, and the task follows that build as it

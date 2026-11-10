@@ -1,6 +1,18 @@
 # B325 — Tasks Started Together Share One Mirror Clone
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B325",
+  "title": "Tasks Started Together Share One Mirror Clone",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 49,
+  "blockedBy": [],
+  "covers": "Two tasks of one repository started at once both get the git gate; the mirror is cloned once"
+}
+```
 
 **What must be true.** Two tasks of one repository started at the same moment, before its mirror
 exists, both get the git gate: the second waits for the clone the first makes, or makes it itself

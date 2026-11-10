@@ -1,8 +1,23 @@
-# [B555](README.md#b555) — A Lock Test That Misreads The Kernel's Lock List
+# B555 — A Lock Test That Misreads The Kernel's Lock List
 
-**Status:** Review. Filed 2026-11-09 in Backlog, priority Highest (the first row), as a flaky test that blocked a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B555",
+  "title": "A Lock Test That Misreads The Kernel's Lock List",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 42,
+  "blockedBy": [],
+  "covers": "The lock test reads the kernel's lock list until two reads agree, so a busy machine no longer fails it."
+}
+```
+
+**Why this size.** the test's own reading of the kernel's lock list, no product code.
+
+Filed 2026-11-09 in Backlog, priority Highest (the first row), as a flaky test that blocked a
 delivery, under the shared rule; fixed the same day, at the first try.
-**Size:** S - the test's own reading of the kernel's lock list, no product code.
 
 **What must be true.** `FileLocksTest.aProbeNeverDropsTheLockAnotherThreadOfThisProcessHolds` fails only when a probe
 really drops the lock another thread of the process holds, never because its own read of the kernel's lock list missed

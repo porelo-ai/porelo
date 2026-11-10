@@ -1,7 +1,20 @@
 # B59 — A Kernel Of Its Own For A Task
 
-**Status:** Estimated.
-**Size:** XL - an experiment, a doctor probe and an adoption that would change the hooks; split as the plan says.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B59",
+  "title": "A Kernel Of Its Own For A Task",
+  "state": "Estimated",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 27,
+  "blockedBy": [],
+  "covers": "A kernel of its own for a task; splits into a krun/KVM experiment (M) that also measures snapshot and restore, a doctor probe (S), and an opt-in adoption (L) decided on the measurements and only if the ruleset fails closed."
+}
+```
+
+**Why this size.** an experiment, a doctor probe and an adoption that would change the hooks; split as the plan says.
 
 **What must be true.** Whether a task can run under a runtime that gives it its own kernel is measured rather than
 assumed, and a task never starts that way without its ruleset failing closed.

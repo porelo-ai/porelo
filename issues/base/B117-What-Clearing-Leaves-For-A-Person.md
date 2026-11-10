@@ -1,7 +1,20 @@
 # B117 — What Clearing Leaves For A Person
 
-**Status:** Estimated.
-**Size:** M - reading the vault's left keys in `app-model`, the clear's listing in `app-project`, a scenario, a doc.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B117",
+  "title": "What Clearing Leaves For A Person",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": [],
+  "covers": "`clear` names every left deploy key the vault holds, readable project or not; unreviewed gate refs and unpushed task work are listed before removal."
+}
+```
+
+**Why this size.** reading the vault's left keys in `app-model`, the clear's listing in `app-project`, a scenario, a doc.
 
 **What must be true.** A person who clears a project or this account learns of every deploy key the vault still holds,
 readable project or not, and is told what unreviewed work a clear removes before it is gone. Decided 2026-11-04: no

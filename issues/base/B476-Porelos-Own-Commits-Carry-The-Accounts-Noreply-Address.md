@@ -1,7 +1,22 @@
-# [B476](README.md#b476) — Porelo's Own Commits Carry The Account's Noreply Address
+# B476 — Porelo's Own Commits Carry The Account's Noreply Address
 
-**Status:** Idea. Low priority, on the operator's word (2026-11-06).
-**Size:** S - the address from the forge's account answer, passed to the one place that writes the identity; tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B476",
+  "title": "Porelo's Own Commits Carry The Account's Noreply Address",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Low",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority."
+}
+```
+
+**Why this size.** the address from the forge's account answer, passed to the one place that writes the identity; tests.
+
+Low priority, on the operator's word (2026-11-06).
 
 **What must be true.** A commit Porelo writes itself (an organization write, `porelo project sign`, a created project
 repository's first `project.yml`) carries the acting account's own noreply address on GitHub, of the form

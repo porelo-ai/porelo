@@ -1,7 +1,22 @@
-# [B485](README.md#b485) — project.yml Names `central`, Not `upstream`
+# B485 — project.yml Names `central`, Not `upstream`
 
-**Status:** Review. A Bug, Accepted on the operator's word (2026-11-06).
-**Size:** S - the key in the reader, the writer, the check and `project verify`; the docs. Estimate 60 minutes.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B485",
+  "title": "project.yml Names `central`, Not `upstream`",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 78,
+  "blockedBy": [],
+  "covers": "`project.yml` names `central:`; `upstream:` is read alike and `project verify` answers it as a rename, refusing nothing; Porelo writes only `central:`."
+}
+```
+
+**Why this size.** the key in the reader, the writer, the check and `project verify`; the docs. Estimate 60 minutes.
+
+A Bug, Accepted on the operator's word (2026-11-06).
 
 **What must be true.** `project.yml` names each repository's central forge as `central:`, and the project's own
 repository as `project.central:`. It names no host's address: a host derives its own. `upstream:` is the old name:

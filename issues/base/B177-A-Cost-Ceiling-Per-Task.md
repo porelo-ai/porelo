@@ -1,7 +1,20 @@
 # B177 — A Cost Ceiling Per Task
 
-**Status:** Analyzed; blocked by porelo [B138](README.md#b138) and porelo [B191](README.md#b191).
-**Size:** M - a field in the provider file and `ProviderDefinition` (an addition to the agent API), the cost taken
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B177",
+  "title": "A Cost Ceiling Per Task",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": ["B138", "B191"],
+  "covers": "A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value."
+}
+```
+
+**Why this size.** a field in the provider file and `ProviderDefinition` (an addition to the agent API), the cost taken
 from [B148](README.md#b148)'s record or priced by [B191](README.md#b191)'s table in the broker, `limits.cost` and its
 refusal beside [B138](README.md#b138)'s, and docs; no varlink change beyond what [B148](README.md#b148) adds.
 

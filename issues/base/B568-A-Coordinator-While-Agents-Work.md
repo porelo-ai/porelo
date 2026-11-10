@@ -1,10 +1,26 @@
-# [B568](README.md#b568) — A Coordinator While Agents Work
+# B568 — A Coordinator While Agents Work
 
-**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B568",
+  "title": "A Coordinator While Agents Work",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "The project's coordinator started with the first work task, told of each new story, stopped after the last."
+}
+```
+
+**Why this size.** one oversight task's durable lifecycle and notifications reuse the work launcher; it schedules no agents and gains no start authority.
+
+Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word. On 2026-11-10 the operator took MCP out of it: the whole MCP
 topic is held back, so this issue offers, restricts and tests nothing over MCP.
-**Size:** M - one oversight task's durable lifecycle and notifications reuse the work launcher; it schedules no agents and gains no start authority.
-**Blocked by:** -. The work start from the board and the done state set at a run's end that it waited for were rejected with ST294 (2026-11-10); their planning moves into porelo-planner (ST311).
+
+The work start from the board and the done state set at a run's end that it waited for were rejected with ST294 (2026-11-10); their planning moves into porelo-planner (ST311).
 
 **What must be true.** A project has one coordinator while any recorded planning participant works, including
 builders, testers and readers. It oversees the story, task progress and findings, and remains the operator's common

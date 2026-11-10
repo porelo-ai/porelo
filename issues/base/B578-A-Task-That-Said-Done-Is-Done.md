@@ -1,7 +1,22 @@
-# [B578](README.md#b578) — A Task That Said Done Is Done
+# B578 — A Task That Said Done Is Done
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** M - a task state from the agent's own word, kept across a stop, in the contract and the list.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B578",
+  "title": "A Task That Said Done Is Done",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 19,
+  "blockedBy": [],
+  "covers": "A task whose agent said done and stopped has the state `done`."
+}
+```
+
+**Why this size.** a task state from the agent's own word, kept across a stop, in the contract and the list.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** A task whose agent said it is done and stopped has a state of its own, `done`, in the list,
 `task status` and over the daemon, and is no longer shown as running or waiting on the person.

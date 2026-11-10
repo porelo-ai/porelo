@@ -1,11 +1,25 @@
-# [B569](README.md#b569) — The Host Tool's Tests Stand Without The Python
+# B569 — The Host Tool's Tests Stand Without The Python
 
-**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST291, by the operator's request of
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B569",
+  "title": "The Host Tool's Tests Stand Without The Python",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": ["B552"],
+  "covers": "Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or \"the Python\" in a test, and a test that only proved the port is removed."
+}
+```
+
+**Why this size.** comments and assertion wording across about twenty test classes of `host/`, a few tests that only
+restate the predecessor, and the module's README.
+
+Filed 2026-11-09 as porelo's part of `porelo-project` ST291, by the operator's request of
 2026-11-09. Built once porelo-host has replaced the host's Python tool with the `porelo-host` package and
 ST291 is accepted.
-**Size:** M - comments and assertion wording across about twenty test classes of `host/`, a few tests that only
-restate the predecessor, and the module's README.
-**Blocked by:** [B552](README.md#b552).
 
 **What must be true.** `host/`'s tests say what `porelo-host` does, not what the Python helpers did. No test, comment
 or assertion message names a Python test (`// py: test_...`), the predecessor scripts (`porelo-host-person`,

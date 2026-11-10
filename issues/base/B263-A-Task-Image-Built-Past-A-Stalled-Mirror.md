@@ -1,6 +1,18 @@
 # B263 — A Task Image Built Past A Stalled Mirror
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B263",
+  "title": "A Task Image Built Past A Stalled Mirror",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 73,
+  "blockedBy": [],
+  "covers": "A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s"
+}
+```
 
 **What must be true.** A task image whose Ubuntu archive fetches from the default mirror is still built when that one
 mirror stalls: the build tries a second mirror after a bounded first attempt, and says which mirror stalled and in

@@ -1,9 +1,24 @@
-# [B602](README.md#b602) — A Task Made Before Comes Through The Upgrade
+# B602 — A Task Made Before Comes Through The Upgrade
 
-**Status:** Backlog. Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
-**Priority:** high (the operator, 2026-11-09, for [B538](README.md#b538)).
-**Size:** M - one real-machine upgrade scenario and the operating notes.
-**Blocked by:** [B601](README.md#b601).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B602",
+  "title": "A Task Made Before Comes Through The Upgrade",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "High",
+  "rank": 7,
+  "blockedBy": ["B601"],
+  "covers": "A task made before the change survives the upgrade whole."
+}
+```
+
+**Why this size.** one real-machine upgrade scenario and the operating notes.
+
+Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+
+High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
 **What must be true.** A kept task made by the release before this change keeps its container, id, workspace, session, mail, credential route and MCP child through an upgrade of the CLI, daemon and hooks together, a daemon restart, a stop and a start (the operator, 2026-11-10: existing names stay for their lifetime; the three upgrade together). A new task started after it gets the new name.
 

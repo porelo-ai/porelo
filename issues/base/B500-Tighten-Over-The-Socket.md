@@ -1,7 +1,20 @@
-# [B500](README.md#b500) — Tighten Over The Socket
+# B500 — Tighten Over The Socket
 
-**Status:** Review.
-**Size:** S - one method in the machine's contract part (`50-machine`), `MachineMethods`, and its test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B500",
+  "title": "Tighten Over The Socket",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 68,
+  "blockedBy": [],
+  "covers": "`Tighten` with a dry run answers what `porelo tighten` changes, over the socket."
+}
+```
+
+**Why this size.** one method in the machine's contract part (`50-machine`), `MachineMethods`, and its test.
 
 **What must be true.** A client of the daemon asks what `porelo tighten` would change, and has it done, as one method
 with a dry run: each path it would tighten or tightened, from what to what; what it cannot change is said, never

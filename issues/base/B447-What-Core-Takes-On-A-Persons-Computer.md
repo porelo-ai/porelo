@@ -1,7 +1,20 @@
 # B447 — What Core Takes On A Person's Computer And A Central Host
 
-**Status:** Idea.
-**Size:** L - M for the measuring program, its result file and the one table; M for the central host's runs, which reuse
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B447",
+  "title": "What Core Takes On A Person's Computer And A Central Host",
+  "state": "Idea",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": [],
+  "covers": "A measured overhead of Core in Linux, in WSL, in a VM on a Mac and on a central host, in one table, and the Mac's day with an arm64 build."
+}
+```
+
+**Why this size.** M for the measuring program, its result file and the one table; M for the central host's runs, which reuse
 it; M to L for what an arm64 build needs ready before a rented Mac's day. Nothing is built before the test.
 
 **What must be true.** A person can read what their computer needs for Porelo Core, as a measured number each, with "not

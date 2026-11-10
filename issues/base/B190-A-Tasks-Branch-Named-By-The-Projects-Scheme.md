@@ -1,7 +1,20 @@
 # B190 — A Task's Branch Named By The Project's Scheme
 
-**Status:** Review.
-**Size:** L - a project file block, the start's check and record, a typed refusal and an optional approval branch in
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B190",
+  "title": "A Task's Branch Named By The Project's Scheme",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 115,
+  "blockedBy": [],
+  "covers": "`branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern."
+}
+```
+
+**Why this size.** a project file block, the start's check and record, a typed refusal and an optional approval branch in
 the daemon's contract, the gate's pass-on and its mirror refresh, the build watch, both approvals, and about 45 test
 assertions and eight documents that name `porelo/<task>`.
 

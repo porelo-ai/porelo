@@ -1,10 +1,24 @@
-# [B604](README.md#b604) — Porelo Without A Planning Part
+# B604 — Porelo Without A Planning Part
 
-**Status:** Backlog, by the operator 2026-11-10; built after ST51. Filed 2026-11-10 as the operator decided ST294's porelo issues: ST294 is closed, its planning
-moves into the separate app porelo-planner (`porelo-project` ST311), and porelo knows no stories or issues any more.
-**Size:** M - mechanical removal across wire, two app modules, the planning modules, the daemon and the docs; no new
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B604",
+  "title": "Porelo Without A Planning Part",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed."
+}
+```
+
+**Why this size.** mechanical removal across wire, two app modules, the planning modules, the daemon and the docs; no new
 behaviour, every remaining test green.
-**Blocked by:** -.
+
+Backlog by the operator 2026-11-10; built after ST51. Filed 2026-11-10 as the operator decided ST294's porelo issues: ST294 is closed, its planning
+moves into the separate app porelo-planner (`porelo-project` ST311), and porelo knows no stories or issues any more.
 
 **What must be true.** Porelo has no planning part. A task gets everything it needs from the window when it starts,
 through the base task functions; the end of its work is answered by [B566](README.md#b566). Removed, with

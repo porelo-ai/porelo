@@ -1,7 +1,20 @@
 # B140 — A Secret Scan Of The Workspace At Start
 
-**Status:** Estimated.
-**Size:** M - a scan in the gate, the start, a project setting, an acknowledgement file and docs.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B140",
+  "title": "A Secret Scan Of The Workspace At Start",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write."
+}
+```
+
+**Why this size.** a scan in the gate, the start, a project setting, an acknowledgement file and docs.
 
 **What must be true.** When a task starts, its workspace is scanned for credentials, and a found one is named to the person before the agent works.
 

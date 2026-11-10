@@ -1,7 +1,20 @@
 # B118 — An Attached Agent Said At Rest Or Working
 
-**Status:** Backlog.
-**Size:** M - a contract change (a new `Activity` value), `app-model`, the stub agent's declaration and a scenario.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B118",
+  "title": "An Attached Agent Said At Rest Or Working",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 16,
+  "blockedBy": [],
+  "covers": "A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`."
+}
+```
+
+**Why this size.** a contract change (a new `Activity` value), `app-model`, the stub agent's declaration and a scenario.
 
 **What must be true.** `porelo task status` and `porelo task list` say whether the agent of an attached session is
 `at rest` or `working`, read from its screen against the `session.at_rest` its definition declares, as `waiting`

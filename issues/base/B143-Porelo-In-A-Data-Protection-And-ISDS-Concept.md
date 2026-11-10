@@ -1,7 +1,20 @@
 # B143 — Porelo In A Data Protection And ISDS Concept
 
-**Status:** Estimated.
-**Size:** S - one new page, a link and a navigation entry, and one documents test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B143",
+  "title": "Porelo In A Data Protection And ISDS Concept",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 20,
+  "blockedBy": [],
+  "covers": "`doc/data-protection.md` in the chapters of the federal ISDS concept template: what Porelo provides and what the organisation regulates per chapter, what to back up; headings and paths checked by a documents test."
+}
+```
+
+**Why this size.** one new page, a link and a navigation entry, and one documents test.
 
 **What must be true.** A documentation page says what Porelo provides technically for a data protection and information security concept, what the organisation still has to regulate, and what to back up (the vault file, the journal).
 

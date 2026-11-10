@@ -1,7 +1,21 @@
 # B228 — A Key Pasted At The Prompt Is Read Whole
 
-**Status:** Analyzed.
-**Size:** S - the prompt's read in `VaultPutCommand` and one refusal in `StoredKey`, each with its test; no contract.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B228",
+  "title": "A Key Pasted At The Prompt Is Read Whole",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 35,
+  "blockedBy": [],
+  "covers": "A private key pasted at `vault put`'s prompt is read whole, as from a file or a pipe, and an unreadable key is called unreadable, not the wrong algorithm.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** the prompt's read in `VaultPutCommand` and one refusal in `StoredKey`, each with its test; no contract.
 
 **What must be true.** A private key pasted at `porelo vault put`'s prompt is stored as the same key `--from-file` or
 standard input would store, and a key that cannot be read is called unreadable, never a key of the wrong algorithm.

@@ -1,6 +1,18 @@
 # B307 — Not Waiting Is Read Once The Screen Settles
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B307",
+  "title": "Not Waiting Is Read Once The Screen Settles",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 54,
+  "blockedBy": [],
+  "covers": "The kit's \"not waiting\" step lets the screen settle after a key before it judges, and fails only on waiting read again after not waiting, as \"waiting\" already waits"
+}
+```
 
 **What must be true.** The acceptance kit's step "porelo shows the agent ... not waiting for a person" passes when the
 agent stops waiting a moment after the step begins, as after a key that closes a dialog, and fails only when Porelo

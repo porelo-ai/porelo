@@ -1,7 +1,22 @@
-# [B575](README.md#b575) — The Wizard's Host Key Is Not Asked Again
+# B575 — The Wizard's Host Key Is Not Asked Again
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** S - one ssh call that does not take the pinned known-hosts file, and its test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B575",
+  "title": "The Wizard's Host Key Is Not Asked Again",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 26,
+  "blockedBy": [],
+  "covers": "No second host key question after the wizard compared and stored the key."
+}
+```
+
+**Why this size.** one ssh call that does not take the pinned known-hosts file, and its test.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** After the setup wizard compared a host's key with the person and stored it, no later step of
 the setup asks for that key again (an OpenSSH askpass dialog or a terminal prompt).

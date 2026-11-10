@@ -1,7 +1,20 @@
 # B428 — What The Interface Can Ask Before Creating An Organization
 
-**Status:** Review.
-**Size:** L - many modules and a command an interface builds on, against a forge's real answers. Built in the order of its plan, each part on its own.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B428",
+  "title": "What The Interface Can Ask Before Creating An Organization",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 106,
+  "blockedBy": [],
+  "covers": "An interface can ask, changing nothing, whether an organization can be created at an address: each need's state and next action, and the token's rights named."
+}
+```
+
+**Why this size.** many modules and a command an interface builds on, against a forge's real answers. Built in the order of its plan, each part on its own.
 
 **What must be true.** An interface can ask Porelo, changing nothing on the machine or the forge, whether an organization
 can be created at an address, and gets each need's state and its next action in one answer, so a person is led through

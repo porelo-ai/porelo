@@ -1,8 +1,20 @@
 # B358 — A Task Reviews A Pull Request On The Central Forge
 
-**Status:** Accepted.
-**Blocked by:** [B172](README.md#b172).
-**Size:** - (estimated at its analysis).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B358",
+  "title": "A Task Reviews A Pull Request On The Central Forge",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": ["B172"],
+  "covers": "A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released"
+}
+```
+
+**Why this size.** estimated at its analysis.
 
 **What must be true.** A reviewer task, as [B172](README.md#b172) builds it, also takes as its target any existing pull
 request on the central forge, named by its URL, that no task made and no project maps, and it does so in a project or

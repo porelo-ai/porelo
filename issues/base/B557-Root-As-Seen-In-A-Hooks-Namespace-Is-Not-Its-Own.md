@@ -1,8 +1,22 @@
-# [B557](README.md#b557) — Root As Seen In A Hook's Namespace Is Not Its Own
+# B557 — Root As Seen In A Hook's Namespace Is Not Its Own
 
-**Status:** Review. Filed 2026-11-09 from agy's reading of [B540](README.md#b540); for after the move.
-**Size:** S - one check where `wire` decides who root is, with its tests.
-**Blocked by:** -.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B557",
+  "title": "Root As Seen In A Hook's Namespace Is Not Its Own",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "`wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's."
+}
+```
+
+**Why this size.** one check where `wire` decides who root is, with its tests.
+
+Filed 2026-11-09 from agy's reading of [B540](README.md#b540); for after the move.
 
 **What must be true.** `SystemProgram` and `RootOwnedFile` take a file as root's only when its owner can be nobody
 else. In a user namespace where the host's root is unmapped, an owner that reads as the overflow uid is not proof of

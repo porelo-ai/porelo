@@ -1,7 +1,20 @@
 # B306 — Porelo's Build Runs On The Local Forge
 
-**Status:** Review.
-**Size:** M - the deploy job's condition and profile, its package steps guarded, `settings.xml`'s registry and their
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B306",
+  "title": "Porelo's Build Runs On The Local Forge",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 88,
+  "blockedBy": [],
+  "covers": "porelo's workflows run green on the host's Forgejo and the central forge on one commit: the legs only on the central forge for now, no provider named, deploy and uploads switched by variables on both forges"
+}
+```
+
+**Why this size.** the deploy job's condition and profile, its package steps guarded, `settings.xml`'s registry and their
 tests here; what only a forge shows is measured on one. Estimate 150 minutes, the shared registry design given.
 
 **What must be true.** porelo's workflows run green on the host's Forgejo and on the central forge on the same commit,

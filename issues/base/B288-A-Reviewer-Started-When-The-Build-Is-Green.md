@@ -1,6 +1,18 @@
-# [B288](README.md#b288) — A Reviewer Started When The Build Is Green
+# B288 — A Reviewer Started When The Build Is Green
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B288",
+  "title": "A Reviewer Started When The Build Is Green",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 65,
+  "blockedBy": ["B171", "B172", "B293"],
+  "covers": "One bounded automatic reviewer per eligible green commit; E0 never auto-starts, restart-safe deduplication and no automatic approval."
+}
+```
 
 **What must be true.** An enabled project starts one reviewer on the exact pushed commit whose build is green,
 subject to the source policy and a bounded project budget. E0 input never triggers a reviewer automatically, and an
@@ -8,7 +20,6 @@ agent's check never approves or merges the work.
 
 ## Proposed
 
-- Blocked by: [B171](README.md#b171), [B172](README.md#b172), [B293](README.md#b293).
 - Build observation from [B253](README.md#b253) is present as `BuildWatch` and `TaskBuilds`.
 - Blocks: none.
 - Off unless `project.yml` enables it and names reviewer agent/provider settings. The daemon polls authenticated

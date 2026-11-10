@@ -1,8 +1,23 @@
-# [B535](README.md#b535) — A Sign-In's Vault: Said When Locked Meanwhile, Kept Open After A Terminal Sign-In
+# B535 — A Sign-In's Vault: Said When Locked Meanwhile, Kept Open After A Terminal Sign-In
 
-**Status:** Review. Filed 2026-11-09 from [B530](README.md#b530)'s code reading, findings 4 and 8, as the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B535",
+  "title": "A Sign-In's Vault: Said When Locked Meanwhile, Kept Open After A Terminal Sign-In",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 43,
+  "blockedBy": [],
+  "covers": "A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision)."
+}
+```
+
+**Why this size.** two small changes in the sign-in's store and the terminal's vault opening, each with its test.
+
+Filed 2026-11-09 from [B530](README.md#b530)'s code reading, findings 4 and 8, as the
 operator decided them (the operator's decision of 2026-11-09 on the open points of wave 2, points 1 and 2).
-**Size:** S - two small changes in the sign-in's store and the terminal's vault opening, each with its test.
 
 **What must be true.**
 1. A sign-in whose vault was locked while it ran, and could not store what it made, says so in plain words: the vault

@@ -1,7 +1,22 @@
-# [B574](README.md#b574) — A Host's Waiting Project Is Never Shown As Carried
+# B574 — A Host's Waiting Project Is Never Shown As Carried
 
-**Status:** Review. Filed 2026-11-09 under ST291, from the fourth move.
-**Size:** L - the host publishes each project's follow state beside its central state, porelod reads it, the contract carries it; [B543](README.md#b543) first.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B574",
+  "title": "A Host's Waiting Project Is Never Shown As Carried",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 23,
+  "blockedBy": ["B543"],
+  "covers": "A project the host reports waiting (`waiting-for-token`) is never listed as carried; the host's state and why reach the window."
+}
+```
+
+**Why this size.** the host publishes each project's follow state beside its central state, porelod reads it, the contract carries it; [B543](README.md#b543) first.
+
+Filed 2026-11-09 under ST291, from the fourth move.
 
 **What must be true.** While a host's follow reports a project as waiting (`waiting-for-token`, or another state that
 is not carried), porelo never reports that project or its repositories as carried there.

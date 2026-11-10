@@ -1,7 +1,20 @@
 # B135 — The SELinux Module Loaded By The Package
 
-**Status:** Analyzed.
-**Size:** M - maintainer scripts in both packages, the package check, docs, one run on an enforcing Fedora.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B135",
+  "title": "The SELinux Module Loaded By The Package",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 25,
+  "blockedBy": [],
+  "covers": "The packages load and remove the SELinux module in their maintainer scripts; the package check reads them; one run on an enforcing Fedora."
+}
+```
+
+**Why this size.** maintainer scripts in both packages, the package check, docs, one run on an enforcing Fedora.
 
 **What must be true.** Where SELinux is enabled, installing the `porelo` package loads Porelo's policy module, so a
 task reaches the vault proxy with no manual step, and removing the package removes the module. `porelo doctor` reports

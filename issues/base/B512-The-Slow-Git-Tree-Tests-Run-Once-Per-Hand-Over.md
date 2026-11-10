@@ -1,7 +1,20 @@
-# [B512](README.md#b512) — The Slow Git Tree Tests Run Once Per Hand-Over
+# B512 — The Slow Git Tree Tests Run Once Per Hand-Over
 
-**Status:** Review.
-**Size:** S - a JUnit tag on the slow classes, a Maven profile that the whole suite turns on, and the Shared Area's
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B512",
+  "title": "The Slow Git Tree Tests Run Once Per Hand-Over",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 59,
+  "blockedBy": [],
+  "covers": "Organization Git Tree's three slow classes are tagged `slow` and run only under `-Pwhole`, which the hand-over's suite, CI's build and the documented whole-suite commands name; `WholeSuiteProfileTest` holds the pom and CI to it."
+}
+```
+
+**Why this size.** a JUnit tag on the slow classes, a Maven profile that the whole suite turns on, and the Shared Area's
 "touched modules" run left without it.
 
 **What must be true.** A run of the touched modules during the work (`-pl <changed> -amd`) skips Organization Git

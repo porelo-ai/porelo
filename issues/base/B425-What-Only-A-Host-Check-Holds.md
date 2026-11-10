@@ -1,8 +1,22 @@
 # B425 — What Only A Host Check Holds
 
-**Status:** Accepted.
-**Size:** S - two unit tests on what `main` and the gate read from the host, and one line in a removal's answer.
-**Severity:** low: both were seen red and green on a test host, and nothing in the build would notice if they came undone.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B425",
+  "title": "What Only A Host Check Holds",
+  "state": "Accepted",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "A unit test holds what only a host check held: `porelod`'s host forge rule and the gate's refusal of another upstream; a removal with the vault shut says the task's forge token stays until the host's sweep."
+}
+```
+
+**Why this size.** two unit tests on what `main` and the gate read from the host, and one line in a removal's answer.
+
+**Severity.** low: both were seen red and green on a test host, and nothing in the build would notice if they came undone.
 
 **What must be true.** The build fails if a host's rules stop reaching `porelod` or the gate.
 

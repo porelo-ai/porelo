@@ -1,7 +1,22 @@
-# [B605](README.md#b605) — A Repository's Run File Starts In Default
+# B605 — A Repository's Run File Starts In Default
 
-**Status:** Idea. Filed 2026-11-10, found by Agent Ecosystems while testing [B449](README.md#b449).
-**Size:** S - the merge of a checkout's file with the default project's, and its tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B605",
+  "title": "A Repository's Run File Starts In Default",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree."
+}
+```
+
+**Why this size.** the merge of a checkout's file with the default project's, and its tests.
+
+Filed 2026-11-10, found by Agent Ecosystems while testing [B449](README.md#b449).
 
 **What must be true.** In the project `default`, a repository whose `porelo.yml` or `.porelo.yml` names its image lines
 in `image.run_file` starts, built with those lines, as one naming them in `image.run` does.

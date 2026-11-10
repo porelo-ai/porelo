@@ -1,6 +1,18 @@
 # B294 — A Task's Trust And Limits Measured Where Not Yet Seen
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B294",
+  "title": "A Task's Trust And Limits Measured Where Not Yet Seen",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 59,
+  "blockedBy": [],
+  "covers": "The task authority checked with git, Node and two concurrent tasks on an SELinux host, and a task's limits with `native-image` and on Fedora, where the rented-host test did not reach"
+}
+```
 
 **What must be true.** What `doc/credentials.md` says of the task authority and `doc/project-file.md` says of a task's
 limits holds for the tools and hosts not yet measured, or the docs say where it does not.

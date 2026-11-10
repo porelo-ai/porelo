@@ -1,7 +1,20 @@
 # B116 — A Log Read Back In Windows
 
-**Status:** Analyzed.
-**Size:** M - one daemon method and its reader, but `Tail` is a contract the interface reads.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B116",
+  "title": "A Log Read Back In Windows",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 32,
+  "blockedBy": [],
+  "covers": "`Tail` gets `before` to read back in windows, and a cap per line reported in `cut`."
+}
+```
+
+**Why this size.** one daemon method and its reader, but `Tail` is a contract the interface reads.
 
 **What must be true.** A client that started reading a task's log from its end can read what lies before, a window
 at a time, and no single line of a log can make a reply as large as the log itself, because the daemon caps a

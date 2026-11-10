@@ -1,7 +1,22 @@
-# [B525](README.md#b525) — Each Workflow Run Of A Build By Name
+# B525 — Each Workflow Run Of A Build By Name
 
-**Status:** Review. Filed 2026-11-08 from move 3's finding 16; the operator decided one line per workflow on the tile.
-**Size:** M - Build2 and Tasks1 each gain a list, BuildWatch carries it; the readers fill it (Agent Adapters).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B525",
+  "title": "Each Workflow Run Of A Build By Name",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 49,
+  "blockedBy": [],
+  "covers": "A build names each workflow run of the commit with its own state, also while it runs."
+}
+```
+
+**Why this size.** Build2 and Tasks1 each gain a list, BuildWatch carries it; the readers fill it (Agent Adapters).
+
+Filed 2026-11-08 from move 3's finding 16; the operator decided one line per workflow on the tile.
 
 **What must be true.** A build's answer names each workflow run of the commit with its own state at every answer,
 also while queued or running, not only once the verdict is final. The tile shows one line per run. A workflow that

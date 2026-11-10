@@ -1,7 +1,20 @@
-# [B486](README.md#b486) — The Name An Agent Goes By
+# B486 — The Name An Agent Goes By
 
-**Status:** Review.
-**Size:** S - the nickname's rule, the default name, the one check that two names differ, the schema and the docs.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B486",
+  "title": "The Name An Agent Goes By",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 76,
+  "blockedBy": [],
+  "covers": "Without a nickname an agent goes by \"Agent \" and its key capitalized, taken as it is; a nickname may be several ASCII words; colon, comma, control and non-ASCII characters and double spaces refused; no two names alike without case or with spaces collapsed, nor one the start of another before a space."
+}
+```
+
+**Why this size.** the nickname's rule, the default name, the one check that two names differ, the schema and the docs.
 Estimate 75 minutes.
 
 **What must be true.**

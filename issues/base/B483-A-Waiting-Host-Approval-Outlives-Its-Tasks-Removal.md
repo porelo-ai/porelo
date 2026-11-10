@@ -1,7 +1,22 @@
-# [B483](README.md#b483) — A Waiting Host Approval Outlives Its Task's Removal
+# B483 — A Waiting Host Approval Outlives Its Task's Removal
 
-**Status:** Idea. Filed on the Coordinator's word (2026-11-06), from [B481](README.md#b481)'s review.
-**Size:** S - a decision on the forge token's lifetime first; then removal, the gate's approval and their tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B483",
+  "title": "A Waiting Host Approval Outlives Its Task's Removal",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "Work waiting at a host's gate can still be approved as its task after the task is removed, or the removal says it cannot and how else; the forge token's lifetime is decided first."
+}
+```
+
+**Why this size.** a decision on the forge token's lifetime first; then removal, the gate's approval and their tests.
+
+Filed on the Coordinator's word (2026-11-06), from [B481](README.md#b481)'s review.
 
 **What must be true.** Work a task pushed to the gate can still be approved on a host after the task is removed, and
 the pull request it opens is still the task's own, or the removal says plainly that the waiting work can no longer be

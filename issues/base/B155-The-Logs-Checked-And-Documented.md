@@ -1,7 +1,20 @@
 # B155 — The Logs Checked And Documented
 
-**Status:** Estimated.
-**Size:** M - one documentation page over every log, a test per process that holds a secret, file rights checked,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B155",
+  "title": "The Logs Checked And Documented",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 23,
+  "blockedBy": [],
+  "covers": "A `doc/logs.md` page for every log; tests show the broker and gate logs hold no secret and every log file is `rw-------`; `task.log` cut after 30 days (a setting)."
+}
+```
+
+**Why this size.** one documentation page over every log, a test per process that holds a secret, file rights checked,
 and `task.log` cut after a period.
 
 **What must be true.** What broker, gate and journals write is documented field by field: no prompt contents, tokens or personal data, or redacted; where each log lies and who can read it.

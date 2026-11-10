@@ -1,8 +1,23 @@
-# [B533](README.md#b533) — A Default Model Per Provider
+# B533 — A Default Model Per Provider
 
-**Status:** Review. Filed 2026-11-08 from the third move's finding 11 (the operator's decision: the default model is
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B533",
+  "title": "A Default Model Per Provider",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 46,
+  "blockedBy": [],
+  "covers": "The project file names a default model per provider, a start takes it unless another is chosen, and the task row says which model and from where."
+}
+```
+
+**Why this size.** a new section of the project file, read at start, recorded and shown; a contract field and a reply.
+
+Filed 2026-11-08 from the third move's finding 11 (the operator's decision: the default model is
 set per provider in project.yml, each provider its own).
-**Size:** M - a new section of the project file, read at start, recorded and shown; a contract field and a reply.
 
 **What must be true.** A task runs on the model its project file names for its provider unless the person starting it
 chose another, and every client can show which model a task runs on and where that choice came from, before it starts

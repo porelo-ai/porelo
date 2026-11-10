@@ -1,9 +1,24 @@
 # B100 — A Task Can Be Looked At
 
-**Status:** Idea. Not planned now; the person looks at a task's work through the IntelliJ
-plugin (`porelo-intellij`).
-**Size:** XL - an image layer, a published port Porelo has never made, a credential, [B95](README.md#b95)'s container and the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B100",
+  "title": "A Task Can Be Looked At",
+  "state": "Idea",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 68,
+  "blockedBy": [],
+  "covers": "A VNC view relayed by the daemon from a socket in the task, switched on per project, a strong token before anything reaches the VNC server; splits into task view, image tools and review view."
+}
+```
+
+**Why this size.** an image layer, a published port Porelo has never made, a credential, [B95](README.md#b95)'s container and the
 interface; splits in three below.
+
+Not planned now; the person looks at a task's work through the IntelliJ
+plugin (`porelo-intellij`).
 
 **What must be true.** A person sees and drives what a task runs on its virtual screen, through a
 loopback-only view; nothing of the box runs on their computer.

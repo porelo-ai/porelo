@@ -1,9 +1,21 @@
-# [B545](README.md#b545) — The Host Tool Adds, Removes, Migrates And Takes Off A Project
+# B545 — The Host Tool Adds, Removes, Migrates And Takes Off A Project
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B545",
+  "title": "The Host Tool Adds, Removes, Migrates And Takes Off A Project",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 40,
+  "blockedBy": ["B541"],
+  "covers": "`porelo-host project add"
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** L.
-**Blocked by:** [B541](README.md#b541).
 
 **What must be true.** The forge-side work of a project (its organization and publisher, migration from central, taking it off) as
 `porelo-host project` verbs with the Python's 116 tests ported harm by harm; Forgejo's admin calls are new Java beside

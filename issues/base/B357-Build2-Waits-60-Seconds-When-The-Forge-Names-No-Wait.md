@@ -1,7 +1,20 @@
 # B357 — Build2 Waits 60 Seconds When The Forge Names No Wait
 
-**Status:** Idea.
-**Size:** S, proposed - one default in the `Build2` interface's `RateLimited` and the adapters that answer it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B357",
+  "title": "Build2 Waits 60 Seconds When The Forge Names No Wait",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 44,
+  "blockedBy": [],
+  "covers": "When a forge names no wait, `Build2.RateLimited` answers `retryAfter: 60`, as `Review1` does, not 0"
+}
+```
+
+**Why this size.** proposed: one default in the `Build2` interface's `RateLimited` and the adapters that answer it.
 
 **What must be true.** When a forge limits how often it is asked and names no wait, `Build2.RateLimited` answers
 `retryAfter: 60`, not 0, as `Review1` does. A caller that retries at once on 0 asks a limited forge again at once, and

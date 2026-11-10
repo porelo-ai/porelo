@@ -1,7 +1,20 @@
 # B355 — No Switch That Turns Every Check Off
 
-**Status:** Accepted.
-**Size:** S, proposed, plus the room's and the interface's parts - no `--insecure` is built; what is built is one
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B355",
+  "title": "No Switch That Turns Every Check Off",
+  "state": "Accepted",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": [],
+  "covers": "No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so"
+}
+```
+
+**Why this size.** proposed, plus the room's and the interface's parts: no `--insecure` is built; what is built is one
 visible mark for what already runs unsigned or unverified, in `task list`, the interface, the gate's verdicts and the
 room, read from state that exists.
 

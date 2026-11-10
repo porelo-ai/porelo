@@ -1,7 +1,20 @@
 # B359 — A Trust Record That Keeps Who Could Sign When
 
-**Status:** Idea.
-**Size:** M, proposed - the owners and host admins of each accepted change kept in the registry's trust record, and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B359",
+  "title": "A Trust Record That Keeps Who Could Sign When",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 43,
+  "blockedBy": [],
+  "covers": "The organization's trust record keeps who could sign at each change, so its check judges every signer as the walk does"
+}
+```
+
+**Why this size.** proposed: the owners and host admins of each accepted change kept in the registry's trust record, and
 the record's check judging each signer against those of its time.
 
 **What must be true.** The organization's trust record

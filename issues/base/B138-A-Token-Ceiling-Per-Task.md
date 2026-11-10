@@ -1,7 +1,20 @@
 # B138 — A Token Ceiling Per Task
 
-**Status:** Estimated; blocked by porelo [B148](README.md#b148).
-**Size:** M - the project file, the start, the per-task proxy and a refusal the agent reads; tokens only.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B138",
+  "title": "A Token Ceiling Per Task",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": ["B148"],
+  "covers": "A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it."
+}
+```
+
+**Why this size.** the project file, the start, the per-task proxy and a refusal the agent reads; tokens only.
 
 **What must be true.** A task cannot spend more than its project allows: the broker stops forwarding to the provider
 once a task's token ceiling is reached, and says so to the task and to the person.

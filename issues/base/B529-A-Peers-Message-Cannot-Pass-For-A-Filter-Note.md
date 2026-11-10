@@ -1,8 +1,22 @@
-# [B529](README.md#b529) — A Peer's Message Cannot Pass For A Filter Note
+# B529 — A Peer's Message Cannot Pass For A Filter Note
 
-**Status:** Review.
-**Size:** S - one predicate in `AgentWake` given the task's mailbox, and its tests; no contract changes.
-**Severity:** low - it costs every task it reaches a turn; it widens no reach and shows nothing.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B529",
+  "title": "A Peer's Message Cannot Pass For A Filter Note",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 32,
+  "blockedBy": [],
+  "covers": "Another task's message shaped like a refusal note no longer wakes every task it reaches."
+}
+```
+
+**Why this size.** one predicate in `AgentWake` given the task's mailbox, and its tests; no contract changes.
+
+**Severity.** low - it costs every task it reaches a turn; it widens no reach and shows nothing.
 
 **What must be true.** Only the filter's own answer to a task's message wakes that task as a filter note. A message
 another task wrote, carrying `inReplyToMessageId` or a part whose `data.decision` reads `rejected`, wakes a task only

@@ -1,7 +1,20 @@
-# [B488](README.md#b488) — A Repository File Signed From The Checkouts A Person Keeps
+# B488 — A Repository File Signed From The Checkouts A Person Keeps
 
-**Status:** Review.
-**Size:** M - one contract change of a command, read and signing paths in `organization/git-tree` beside today's,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B488",
+  "title": "A Repository File Signed From The Checkouts A Person Keeps",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 75,
+  "blockedBy": [],
+  "covers": "A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`."
+}
+```
+
+**Why this size.** one contract change of a command, read and signing paths in `organization/git-tree` beside today's,
 docs and an acceptance step; one repository.
 
 **What must be true.** Porelo needs exactly four things to sign a repository's `porelo.yml` anew, and nothing

@@ -1,7 +1,22 @@
-# [B583](README.md#b583) — The Room's Members Over The Daemon
+# B583 — The Room's Members Over The Daemon
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** S - one transport verb read through `describe`, one Tasks1 method, its interface text.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B583",
+  "title": "The Room's Members Over The Daemon",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 18,
+  "blockedBy": [],
+  "covers": "`RoomMembers` over the daemon from the transport's `members` verb: who is in a project's room, tasks by container."
+}
+```
+
+**Why this size.** one transport verb read through `describe`, one Tasks1 method, its interface text.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** A client of porelod can ask who is in a project's room: each member's shown name, whether it
 joined or is invited, and whether it is a task (with its container), a person or a helper, so the window's room dialog

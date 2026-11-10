@@ -1,7 +1,20 @@
 # B148 — Token Counting Per Task
 
-**Status:** Review.
-**Size:** L - four answer formats read in the broker, streamed and not, a request changed for one of them, a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B148",
+  "title": "Token Counting Per Task",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 125,
+  "blockedBy": [],
+  "covers": "The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`."
+}
+```
+
+**Why this size.** four answer formats read in the broker, streamed and not, a request changed for one of them, a
 per-task record that outlives the task, sums in `task status` and a new daemon method.
 
 **What must be true.** The broker counts each task's tokens per request, from the provider's own answer, and keeps

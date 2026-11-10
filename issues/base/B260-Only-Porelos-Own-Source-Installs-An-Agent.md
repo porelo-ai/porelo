@@ -1,9 +1,23 @@
 # B260 — Only Porelo's Own Source Installs An Agent
 
-**Status:** Accepted.
-**Size:** M - the setup script's install and catalogue, and `InstallablePackages`, bound to Porelo's package source on
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B260",
+  "title": "Only Porelo's Own Source Installs An Agent",
+  "state": "Accepted",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent"
+}
+```
+
+**Why this size.** the setup script's install and catalogue, and `InstallablePackages`, bound to Porelo's package source on
 both families, measured in Ubuntu and Fedora containers.
-**Estimate:** 180 min, no like issue measured.
+
+**Estimate.** 180 min, no like issue measured.
 
 **What must be true.** What the setup script's `--with` installs, and what its `--list` and the daemon's `Installable`
 offer, comes from Porelo's own package source and never from another source configured on the machine, on apt and on

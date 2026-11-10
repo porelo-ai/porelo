@@ -1,7 +1,20 @@
 # B455 — A First Start Says What A Plugin Could Not Place
 
-**Status:** Review.
-**Size:** S - two fields on the wire, the terminal's lines, their tests; Agent Frontend then shows them.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B455",
+  "title": "A First Start Says What A Plugin Could Not Place",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 95,
+  "blockedBy": [],
+  "covers": "A first start's question shows what a plugin could not place and its notes."
+}
+```
+
+**Why this size.** two fields on the wire, the terminal's lines, their tests; Agent Frontend then shows them.
 
 **What must be true.** What a plugin says for a person to read before a yes reaches that person, at the terminal and in an interface.
 

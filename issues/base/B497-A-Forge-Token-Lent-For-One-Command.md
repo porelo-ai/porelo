@@ -1,7 +1,20 @@
-# [B497](README.md#b497) — A Forge Token Lent For One Command
+# B497 — A Forge Token Lent For One Command
 
-**Status:** Review.
-**Size:** XS - the two lending callers and a unit test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B497",
+  "title": "A Forge Token Lent For One Command",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 64,
+  "blockedBy": [],
+  "covers": "The gate and a start ask the host's helper for a token lent for one command, leaving the person's token valid; needs `porelo-host` from `2b17e7e`."
+}
+```
+
+**Why this size.** the two lending callers and a unit test.
 
 **What must be true.** The gate's git commands against the host's forge and a task start's taking of a project ask the
 host's helper for a token lent for that command (`porelo-host-person forge-token --lend`), which leaves the person's

@@ -1,7 +1,21 @@
 # B175 — The Profile That May Bind The Socket
 
-**Status:** Analyzed; blocked by porelo [B135](README.md#b135).
-**Size:** L - AppArmor cannot carry over the SELinux rule as written, so a design is decided first; then two profiles,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B175",
+  "title": "The Profile That May Bind The Socket",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": ["B135"],
+  "covers": "On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** AppArmor cannot carry over the SELinux rule as written, so a design is decided first; then two profiles,
 the task's way into one, the package's scripts, `doctor`, and a scenario on the ubuntu leg.
 
 **What must be true.** On a machine that confines programs by AppArmor rather than SELinux, a task connects only to a

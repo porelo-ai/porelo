@@ -1,7 +1,20 @@
 # B434 — A Refused Start Says What Helps There
 
-**Status:** Review.
-**Size:** S - one refusal's words and one file's writing, with their tests; no contract other repositories read.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B434",
+  "title": "A Refused Start Says What Helps There",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 110,
+  "blockedBy": [],
+  "covers": "A start a host refuses for want of a certificate names `task start --host` at the person's own computer, not `ssh-add`."
+}
+```
+
+**Why this size.** one refusal's words and one file's writing, with their tests; no contract other repositories read.
 
 **What must be true.** A start a host refuses for want of a certificate says what helps the person where they are.
 

@@ -1,9 +1,24 @@
-# [B553](README.md#b553) — A Move Runs Without A Terminal, For A Rehearsal
+# B553 — A Move Runs Without A Terminal, For A Rehearsal
 
-**Status:** Review. Built on the operator's order of 2026-11-09 for the rehearsal; nothing of it reaches
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B553",
+  "title": "A Move Runs Without A Terminal, For A Rehearsal",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal."
+}
+```
+
+**Why this size.** a walk through every porelo command a move's person runs, unattended, each gap closed with a test.
+
+Built on the operator's order of 2026-11-09 for the rehearsal; nothing of it reaches
 `main` before the operator's move-4 test. Filed 2026-11-09 for the operator's automated rehearsal of a move on a rented
 server.
-**Size:** M - a walk through every porelo command a move's person runs, unattended, each gap closed with a test.
 
 **What must be true.** Every porelo command a person runs in a move works with no terminal and no person at a keyboard,
 given an SSH agent that serves the person's key and a vault opened beforehand by `porelo vault unlock

@@ -1,7 +1,20 @@
-# [B509](README.md#b509) — A Varlink Number Read Exactly
+# B509 — A Varlink Number Read Exactly
 
-**Status:** Review.
-**Size:** S - one parser call in `porelo-wire`, the numbers its readers take, and a red test on each side.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B509",
+  "title": "A Varlink Number Read Exactly",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 62,
+  "blockedBy": [],
+  "covers": "A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits."
+}
+```
+
+**Why this size.** one parser call in `porelo-wire`, the numbers its readers take, and a red test on each side.
 
 **What must be true.** A number in a varlink message reaches its reader as it was sent. An `int` of 1024 is 1024, not
 1024.0, and an int64 above 2^53, such as a byte count or a time in nanoseconds, keeps every digit. That holds for the

@@ -1,7 +1,20 @@
 # B458 — A Refused Key Gets Help
 
-**Status:** Implementing.
-**Size:** M - five parts, below; the window is Agent Frontend's `F389`.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B458",
+  "title": "A Refused Key Gets Help",
+  "state": "Implementing",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains."
+}
+```
+
+**Why this size.** five parts, below; the window is Agent Frontend's `F389`.
 
 **What must be true.** A person whose push is refused for its key is led through it: told what happened and which key was used, shown
 their keys, able to try one alone without writing anything, and to keep it for that address. A person who reads only an error has nothing to

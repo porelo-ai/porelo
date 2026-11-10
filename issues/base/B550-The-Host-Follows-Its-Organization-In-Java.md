@@ -1,9 +1,21 @@
-# [B550](README.md#b550) — The Host Follows Its Organization In Java
+# B550 — The Host Follows Its Organization In Java
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B550",
+  "title": "The Host Follows Its Organization In Java",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 34,
+  "blockedBy": ["B546", "B547"],
+  "covers": "`porelo-host org follow | refresh | renew-pin`; the project verbs called in-process."
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** L.
-**Blocked by:** [B546](README.md#b546), [B547](README.md#b547).
 
 **What must be true.** The follow (timer), refresh (window over root's ssh; the admin's central token on stdin only for a waiting
 migration) and renew-pin, as `porelo-host-person org ...`, calling [B545](README.md#b545) and [B546](README.md#b546) in-process instead of a subprocess.

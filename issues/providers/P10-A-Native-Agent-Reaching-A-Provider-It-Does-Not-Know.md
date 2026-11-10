@@ -1,7 +1,21 @@
 # P10 — A Native Agent Reaching A Provider It Does Not Know
 
-**Status:** Analyzed; blocked by [P09](README.md#p09).
-**Size:** M - one additive change of `porelo-agent-api` (a field of `SetupContext`, a key of the definition's
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "P10",
+  "title": "A Native Agent Reaching A Provider It Does Not Know",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": ["P09"],
+  "covers": "A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** one additive change of `porelo-agent-api` (a field of `SetupContext`, a key of the definition's
 `provider` block) that the agent repositories take, the dialect resolved once in `agents/api` and handed on by
 `TaskLaunch`, `porelo agents --verbose`, docs; the agents' own registration is an issue in each agent repository.
 

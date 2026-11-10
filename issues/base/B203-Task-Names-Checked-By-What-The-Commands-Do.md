@@ -1,6 +1,18 @@
 # B203 — Task Names Checked By What The Commands Do
 
-**Status:** Accepted.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B203",
+  "title": "Task Names Checked By What The Commands Do",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text."
+}
+```
 
 **What must be true.** Every `task` and `talk` command that takes a task finds it by its own name and by its
 container's name. A test proves this by running the commands, not by reading their source.

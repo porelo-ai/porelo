@@ -1,7 +1,20 @@
 # B86 — Messages Over Matrix, The Porelo Half
 
-**Status:** Analyzed.
-**Size:** M - Porelo's verbs are built; the vault entry per homeserver, and a walk on two machines.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B86",
+  "title": "Messages Over Matrix, The Porelo Half",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 29,
+  "blockedBy": [],
+  "covers": "The machine in the account's name, so one login on two machines stays apart; the transport account kept per homeserver, not per scheme; a registration token by `vault put`; docs; a walk on two machines."
+}
+```
+
+**Why this size.** Porelo's verbs are built; the vault entry per homeserver, and a walk on two machines.
 
 **What must be true.** Several machines run one project on one central homeserver: each is admitted by a person,
 each acts only on the accounts it made, and one can be revoked alone while the others keep messaging. One login on

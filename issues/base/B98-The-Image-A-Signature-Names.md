@@ -1,7 +1,20 @@
 # B98 — The Image A Signature Names
 
-**Status:** Estimated.
-**Size:** M - the core model, the image build and start, `project`, `follow` and `doctor`, and the default project.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B98",
+  "title": "The Image A Signature Names",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "A warning on a tag-only `base_image`, a tag-only organization project refused until allowed once, the base digest as an image label, a changed digest noted at start, an optional per-project signature policy, the default project pinned."
+}
+```
+
+**Why this size.** the core model, the image build and start, `project`, `follow` and `doctor`, and the default project.
 
 **What must be true.** A signed project's image is the image it names: an operator is told when a
 project names its image by tag only, the digest is recorded when the image is built, and a start

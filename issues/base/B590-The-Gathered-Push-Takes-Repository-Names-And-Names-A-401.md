@@ -1,8 +1,22 @@
-# [B590](README.md#b590) — The Gathered Push Takes Repository Names And Names A 401
+# B590 — The Gathered Push Takes Repository Names And Names A 401
 
-**Status:** Review. Filed 2026-11-10 under ST290, from the fourth move.
-**Size:** M - carry repository aliases from the follow into selection and detect central HTTP refusal before transferring any repository.
-**Blocked by:** [B544](README.md#b544), [B580](README.md#b580).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B590",
+  "title": "The Gathered Push Takes Repository Names And Names A 401",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": ["B544", "B580"],
+  "covers": "The gathered push takes a project-file key or forge name and reports a central 401 before any push, through the shared typed refusal."
+}
+```
+
+**Why this size.** carry repository aliases from the follow into selection and detect central HTTP refusal before transferring any repository.
+
+Filed 2026-11-10 under ST290, from the fourth move.
 
 **What must be true.** `porelo host push` accepts either a repository's key in `project.yml` or its name on the host's
 forge and pushes the same repository. A central HTTP 401 ends with a refusal naming that forge and the status, with

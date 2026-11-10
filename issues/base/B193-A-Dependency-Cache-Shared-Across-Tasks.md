@@ -1,7 +1,20 @@
 # B193 — A Dependency Cache Shared Across Tasks
 
-**Status:** Backlog.
-**Size:** XL - one ecosystem at a time; splits into Maven first (L: the cache, its mount, its fill from reviewed work,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B193",
+  "title": "A Dependency Cache Shared Across Tasks",
+  "state": "Backlog",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 23,
+  "blockedBy": [],
+  "covers": "Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first"
+}
+```
+
+**Why this size.** one ecosystem at a time; splits into Maven first (L: the cache, its mount, its fill from reviewed work,
 the start using it, docs and acceptance) and npm, pub and pip after it (an issue each, M, on the same mount and fill).
 
 **What must be true.** The dependencies a task downloads - Maven, npm, pub, pip - are cached once for a project's

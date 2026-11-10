@@ -1,9 +1,23 @@
-# [B145](README.md#b145) — Four Eyes At The Gate
+# B145 — Four Eyes At The Gate
 
-**Status:** Analyzed.
-**Blocked by:** [B136](README.md#b136), [B293](README.md#b293).
-**Blocks:** [B163](README.md#b163).
-**Size:** L - independent signing principals, task provenance, project rules, gate verification and an additive daemon contract.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B145",
+  "title": "Four Eyes At The Gate",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": ["B136", "B293"],
+  "covers": "Independent human signatures required for E0/C3 or project four-eyes policy, bound to the exact reviewed commit; no agent or forge verdict can substitute.",
+  "openQuestions": 2
+}
+```
+
+**Why this size.** independent signing principals, task provenance, project rules, gate verification and an additive daemon contract.
+
+**Blocks.** [B163](README.md#b163).
 
 **What must be true.** Two independent people approve the exact waiting commit whenever the project requires four
 eyes or the work is E0 or C3. The person who started or authored the work cannot authorize it alone, and an agent's

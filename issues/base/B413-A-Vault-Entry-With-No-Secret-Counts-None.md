@@ -1,7 +1,20 @@
 # B413 — A Vault Entry With No Secret Counts None
 
-**Status:** Idea.
-**Severity:** low: it reads wrong, and nothing goes wrong by it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B413",
+  "title": "A Vault Entry With No Secret Counts None",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 26,
+  "blockedBy": [],
+  "covers": "`vault list` names no length for an entry with no secret, where a public client's grant reads `1 characters`"
+}
+```
+
+**Severity.** low: it reads wrong, and nothing goes wrong by it.
 
 **What must be true.** `vault list` does not name a length for an entry that holds no secret.
 

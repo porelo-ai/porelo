@@ -1,8 +1,23 @@
-# [B534](README.md#b534) — A Start Waits On Its Agent's Sign-In
+# B534 — A Start Waits On Its Agent's Sign-In
 
-**Status:** Review. Split 2026-11-09 from [B530](README.md#b530), whose build stopped at the start's wait (the split
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B534",
+  "title": "A Start Waits On Its Agent's Sign-In",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 25,
+  "blockedBy": ["B530"],
+  "covers": "A start missing its agent's credential waits on that agent's running sign-in, or is answered SignInNeeded / VaultLocked as typed values before anything is made."
+}
+```
+
+**Why this size.** a start parameter, two typed errors, the credential check moved before side effects, one acceptance step.
+
+Split 2026-11-09 from [B530](README.md#b530), whose build stopped at the start's wait (the split
 its plan foresaw).
-**Size:** M - a start parameter, two typed errors, the credential check moved before side effects, one acceptance step.
 
 **What must be true.** A start over the daemon that needs its agent's credential, while a sign-in of that agent runs,
 waits on that sign-in and goes on once it is stored; without the wait, or after a sign-in that stored nothing, the

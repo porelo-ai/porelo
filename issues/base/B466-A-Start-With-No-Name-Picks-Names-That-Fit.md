@@ -1,7 +1,20 @@
 # B466 — A Start With No Name Picks Names That Fit
 
-**Status:** Review.
-**Size:** S - two naming methods and one refusal in `app-model` and `runtime`, with their unit tests; no contract.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B466",
+  "title": "A Start With No Name Picks Names That Fit",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 91,
+  "blockedBy": [],
+  "covers": "A start with no name proposes a project that leaves a task room and cuts the default task name to fit 64 characters; a too-long name is refused with one that fits."
+}
+```
+
+**Why this size.** two naming methods and one refusal in `app-model` and `runtime`, with their unit tests; no contract.
 
 **What must be true.** `porelo task start` with no name never picks a project and task name whose container name is longer
 than the 64 characters Porelo allows; when the names a person gave cannot fit, the refusal names a command that works.

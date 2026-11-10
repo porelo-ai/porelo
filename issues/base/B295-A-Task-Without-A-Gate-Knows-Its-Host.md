@@ -1,6 +1,18 @@
 # B295 — A Task Without A Gate Knows Its Host
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B295",
+  "title": "A Task Without A Gate Knows Its Host",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 58,
+  "blockedBy": [],
+  "covers": "A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about"
+}
+```
 
 **What must be true.** A task started without a gate (`--no-gate`, or a shell without a workspace) refuses a project
 that declares host services in one sentence naming the cause, and its clearance watcher still never asks about the

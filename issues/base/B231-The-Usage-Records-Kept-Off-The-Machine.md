@@ -1,7 +1,20 @@
 # B231 — The Usage Records Kept Off The Machine
 
-**Status:** Review.
-**Size:** M - one command with two directions and their refusals, in one module, but a command line the host's
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B231",
+  "title": "The Usage Records Kept Off The Machine",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 126,
+  "blockedBy": [],
+  "covers": "`porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one."
+}
+```
+
+**Why this size.** one command with two directions and their refusals, in one module, but a command line the host's
 playbook in porelo-host runs, which is a contract between repositories.
 
 **What must be true.** `porelo keep <dir>` copies the tasks' usage records into a directory as they stand, and

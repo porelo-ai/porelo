@@ -1,9 +1,23 @@
-# [B171](README.md#b171) — Forge Review Comments To And From A Task
+# B171 — Forge Review Comments To And From A Task
 
-**Status:** Analyzed.
-**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293).
-**Blocks:** [B288](README.md#b288), [B289](README.md#b289).
-**Size:** L - a review adapter contract, host synchronization and durable release flow across repositories, with project, daemon and message changes.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B171",
+  "title": "Forge Review Comments To And From A Task",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": ["B166", "B291", "B292", "B293"],
+  "covers": "Review1 beside Build2 for GitHub/Forgejo SARIF conversion; authenticated source/resolver rules, durable outbox and destination/content-bound releases with central rate limits.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** a review adapter contract, host synchronization and durable release flow across repositories, with project, daemon and message changes.
+
+**Blocks.** [B288](README.md#b288), [B289](README.md#b289).
 
 **What must be true.** Pull request comments, findings, suggestions, threads and observed verdicts reach the owning
 task as SARIF, and its released replies reach the same pull request through a host adapter. Each item's authenticated

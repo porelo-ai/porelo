@@ -1,9 +1,24 @@
-# [B493](README.md#b493) — A Host Task Reads The Builds Its Host Names
+# B493 — A Host Task Reads The Builds Its Host Names
 
-**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
-move, with the design the operator chose: the host's file names the builds, and the project stays as it is.
-**Size:** M - a field read from the host's file, the start's builds wiring for a guarded project, `doc/reach.md`
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B493",
+  "title": "A Host Task Reads The Builds Its Host Names",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 70,
+  "blockedBy": [],
+  "covers": "A guarded project's task on a host is told its builds on the host's forge when the host's file names them; `project.yml` stays unchanged."
+}
+```
+
+**Why this size.** a field read from the host's file, the start's builds wiring for a guarded project, `doc/reach.md`
 and their tests; the host's side is another repository's.
+
+Built on the operator's word that every finding of the trial move is fixed before the second
+move, with the design the operator chose: the host's file names the builds, and the project stays as it is.
 
 **What must be true.** A task on a host, of a project the host carries, is told what its builds did on the host's
 own forge - each verdict and the logs of a failed job in `/porelo/files`, as an online task with `builds:` is today -

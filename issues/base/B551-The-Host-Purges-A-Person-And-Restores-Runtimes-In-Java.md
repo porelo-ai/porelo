@@ -1,10 +1,22 @@
-# [B551](README.md#b551) — The Host Purges A Person And Restores Runtimes In Java
+# B551 — The Host Purges A Person And Restores Runtimes In Java
 
-**Status:** Review. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B551",
+  "title": "The Host Purges A Person And Restores Runtimes In Java",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": ["B550"],
+  "covers": "`porelo-host person purge <login> | restore-runtime`."
+}
+```
+
+Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
 built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
 move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
-**Size:** L.
-**Blocked by:** [B550](README.md#b550).
 
 **What must be true.** Purging a locked person (account, keys, Matrix account) and restarting each admitted person's user manager at up,
 as `porelo-host-person purge` and `restore-runtime`.

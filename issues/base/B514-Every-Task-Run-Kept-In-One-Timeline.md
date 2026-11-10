@@ -1,9 +1,24 @@
-# [B514](README.md#b514) — Every Task Run Kept, In One Timeline
+# B514 — Every Task Run Kept, In One Timeline
 
-**Status:** Backlog. Filed 2026-11-08 at the operator's word; to be built after [B515](README.md#b515) (the operator,
-15:23Z). The OTLP export is split off as [B516](README.md#b516).
-**Size:** M - mostly re-routing the existing log sources into one stream. Four pieces of new code beyond that: the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B514",
+  "title": "Every Task Run Kept, In One Timeline",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it."
+}
+```
+
+**Why this size.** mostly re-routing the existing log sources into one stream. Four pieces of new code beyond that: the
 lifecycle entries, the copy on stop with the archive on Remove, the `podman events` follower, and the readings.
+
+Filed 2026-11-08 at the operator's word; to be built after [B515](README.md#b515) (the operator,
+15:23Z). The OTLP export is split off as [B516](README.md#b516).
 
 **What must be true.** A task's whole life can be read, in the CLI and, through the readings below, in the window,
 for as long as the person keeps it, also after the task is stopped, the machine rebooted, or the task removed.

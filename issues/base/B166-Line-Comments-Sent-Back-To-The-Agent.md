@@ -1,9 +1,23 @@
-# [B166](README.md#b166) — Line Comments Sent Back To The Agent
+# B166 — Line Comments Sent Back To The Agent
 
-**Status:** Analyzed.
-**Blocked by:** [B136](README.md#b136), [B150](README.md#b150), [B291](README.md#b291), [B292](README.md#b292), [B323](README.md#b323).
-**Blocks:** [B171](README.md#b171), [B172](README.md#b172), [B176](README.md#b176), [B163](README.md#b163).
-**Size:** L - a shared review contract, host store, CLI, message path and acceptance across the filter, interface and IDE plugin.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B166",
+  "title": "Line Comments Sent Back To The Agent",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": ["B136", "B150", "B291", "B292", "B323"],
+  "covers": "Host-stored SARIF comments/findings on lines, files or whole reviews; validated fixes, reject delivery, local replies and authenticated origin through the shared message path.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** a shared review contract, host store, CLI, message path and acceptance across the filter, interface and IDE plugin.
+
+**Blocks.** [B171](README.md#b171), [B172](README.md#b172), [B176](README.md#b176), [B163](README.md#b163).
 
 **What must be true.** A person can comment on lines, a file or the whole review of waiting work, and a reject
 carries those comments into the task as untrusted review data. Comments, findings, suggestions and replies use the

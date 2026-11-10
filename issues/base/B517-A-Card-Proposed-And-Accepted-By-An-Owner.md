@@ -1,8 +1,23 @@
-# [B517](README.md#b517) — A Card Proposed, And Accepted By An Owner
+# B517 — A Card Proposed, And Accepted By An Owner
 
-**Status:** Backlog, since 2026-11-09, in ST295. Filed 2026-11-08. Its plan reading comes first.
-**Size:** M - a proposal's place in the organization's tree, a reading of waiting proposals, an owner's acceptance, and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B517",
+  "title": "A Card Proposed, And Accepted By An Owner",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 26,
+  "blockedBy": [],
+  "covers": "A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it."
+}
+```
+
+**Why this size.** a proposal's place in the organization's tree, a reading of waiting proposals, an owner's acceptance, and
 the CLI for both sides.
+
+Backlog since 2026-11-09, in ST295. Filed 2026-11-08. Its plan reading comes first.
 
 **What must be true.** A person who cannot write the organization's repository can still ask to join it.
 - They file their card as a **proposal**, signed through their own ssh-agent as `identity create` signs a card.

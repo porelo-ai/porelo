@@ -1,7 +1,22 @@
-# [B582](README.md#b582) — A Task Is Shown In Its Room By Its Own Name
+# B582 — A Task Is Shown In Its Room By Its Own Name
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** S - the order of two names in one method, the held names it keeps, and its tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B582",
+  "title": "A Task Is Shown In Its Room By Its Own Name",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 28,
+  "blockedBy": [],
+  "covers": "A task is shown in its room as \"Agent\" and its own name (\"Agent Pi\"), the agent's name only to tell two apart."
+}
+```
+
+**Why this size.** the order of two names in one method, the held names it keeps, and its tests.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** A task is shown in its project's room as "Agent" and its own name, as
 [B526](README.md#b526) set it: the task `pi` running Claude Code is "Agent Pi", never "Agent Claude". Where another

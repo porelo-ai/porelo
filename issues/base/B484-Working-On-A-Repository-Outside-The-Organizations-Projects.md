@@ -1,6 +1,20 @@
-# [B484](README.md#b484) — Working On A Repository Outside The Organization's Projects
+# B484 — Working On A Repository Outside The Organization's Projects
 
-**Status:** Idea. Reworded on the operator's word (2026-11-07) into an open question: how a repository that belongs to
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B484",
+  "title": "Working On A Repository Outside The Organization's Projects",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": [],
+  "covers": "How a repository of none of the organization's projects is worked on in the default project, alike on a laptop and on a host with or without its forge: first one of the person's own, pushed to; then someone else's, through a fork. Open question for the operator."
+}
+```
+
+Reworded on the operator's word (2026-11-07) into an open question: how a repository that belongs to
 none of the organization's projects is worked on in the default project, alike on a laptop and on a host with or
 without its own forge.
 

@@ -1,6 +1,18 @@
 # B198 — Settings Inherited Down An Organisation's Tree
 
-**Status:** Accepted.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B198",
+  "title": "Settings Inherited Down An Organisation's Tree",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": [],
+  "covers": "Teams, settings and locks as new paths in the organization's signed tree pass settings down to projects; `fixed` and `narrow-only` locks nothing below can undo, `project show --resolved`; an organisation's allowed providers are one locked setting of it."
+}
+```
 
 **What must be true.** An organisation passes good settings down to its teams and projects, and can make some of them
 binding. No project or team below can undo a binding setting, and none can slip in a forged one.

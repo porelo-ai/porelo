@@ -1,9 +1,24 @@
 # B221 — A Project Proposed From A Checkout
 
-**Status:** Review, in the smallest form: `porelo ecosystems`, `porelo project init` and filing the row as a signed commit. Left out, and not started: the daemon methods, streaming, a recorded state, the mirror's export, the writer of `.porelo.yml` and the question at `task start`.
-**Size:** L - a merge and two draft writers, an export of a mirror's tree that nothing makes today, a recorded state
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B221",
+  "title": "A Project Proposed From A Checkout",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 121,
+  "blockedBy": ["B220"],
+  "covers": "`porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied."
+}
+```
+
+**Why this size.** a merge and two draft writers, an export of a mirror's tree that nothing makes today, a recorded state
 per repository, two daemon methods (one streamed) and a field, a command, the question at `task start`, and one more
 source in [B192](README.md#b192)'s order; several modules and a contract the interface reads.
+
+In the smallest form: `porelo ecosystems`, `porelo project init` and filing the row as a signed commit. Left out, and not started: the daemon methods, streaming, a recorded state, the mirror's export, the writer of `.porelo.yml` and the question at `task start`.
 
 **What must be true.** `porelo project init <checkout>` asks every installed build-tool plugin what it recognizes,
 merges the answers into a tools draft (`.porelo.yml`) and, where anything needs a rule, a `project.yml` draft, each

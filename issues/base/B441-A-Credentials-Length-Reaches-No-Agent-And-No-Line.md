@@ -1,7 +1,20 @@
 # B441 — A Credential's Length Reaches No Agent And No Line
 
-**Status:** Review.
-**Size:** S - a check of who can read two fields, and closing what it finds.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B441",
+  "title": "A Credential's Length Reaches No Agent And No Line",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 98,
+  "blockedBy": [],
+  "covers": "A credential's length is shown to its owner and reaches no agent and no log."
+}
+```
+
+**Why this size.** a check of who can read two fields, and closing what it finds.
 
 **What must be true.** A credential's length is shown to its owner and reaches no agent and no log.
 

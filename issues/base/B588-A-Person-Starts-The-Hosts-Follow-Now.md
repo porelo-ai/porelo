@@ -1,8 +1,22 @@
-# [B588](README.md#b588) — A Person Starts The Host's Follow Now
+# B588 — A Person Starts The Host's Follow Now
 
-**Status:** Review. Filed 2026-11-10 under ST290, from the fourth move.
-**Size:** M - one authorized host verb and its person-side command, shared-pass waiting, documentation and machine acceptance.
-**Blocked by:** [B550](README.md#b550).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B588",
+  "title": "A Person Starts The Host's Follow Now",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 9,
+  "blockedBy": ["B550"],
+  "covers": "An admitted person's `porelo host follow` starts or joins one host follow pass through one sudo verb and answers its completion status."
+}
+```
+
+**Why this size.** one authorized host verb and its person-side command, shared-pass waiting, documentation and machine acceptance.
+
+Filed 2026-11-10 under ST290, from the fourth move.
 
 **What must be true.** An admitted person can ask the host to read the organization now, wait for one follow pass and
 receive its completion status. A second request while that pass runs waits for the same pass; a task's account or

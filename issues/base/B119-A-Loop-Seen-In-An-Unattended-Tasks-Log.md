@@ -1,7 +1,20 @@
 # B119 — A Loop Seen In An Unattended Task's Log
 
-**Status:** Analyzed.
-**Size:** S - the acceptance kit alone: one step, one more source for `LoopWatch`, and their unit tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B119",
+  "title": "A Loop Seen In An Unattended Task's Log",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 20,
+  "blockedBy": [],
+  "covers": "The kit's `LoopWatch` also counts a declared failure marker in each task's `task.log`, from a per-step baseline."
+}
+```
+
+**Why this size.** the acceptance kit alone: one step, one more source for `LoopWatch`, and their unit tests.
 
 **What must be true.** A wait in the acceptance kit stops early when an unattended task's agent repeats a failing
 tool call that its screen does not show, read from the task's `task.log` against a marker the scenario declares.

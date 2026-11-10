@@ -1,7 +1,20 @@
 # B439 — A Secret Echoed Back Reaches A Line
 
-**Status:** Review.
-**Size:** S - the four paths that print today; the records stay for later.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B439",
+  "title": "A Secret Echoed Back Reaches A Line",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 101,
+  "blockedBy": [],
+  "covers": "Text Porelo did not write reaches no line unless known to hold no secret, and a value holding one cannot be printed by accident."
+}
+```
+
+**Why this size.** the four paths that print today; the records stay for later.
 
 **What must be true.** Text Porelo did not write, an error from a service or a helper's standard error, reaches no line
 unless it is known to hold no secret, and a value holding a secret cannot be printed by accident.

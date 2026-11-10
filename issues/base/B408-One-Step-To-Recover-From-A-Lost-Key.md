@@ -1,9 +1,25 @@
 # B408 — One Step To Recover From A Lost Key
 
-**Status:** Idea, for after 0.7: the operator's word of 2026-11-03. A lost key is an unlikely case, not needed for the near
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B408",
+  "title": "One Step To Recover From A Lost Key",
+  "state": "Idea",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 28,
+  "blockedBy": ["B407"],
+  "covers": "After 0.7: an owner recovers a lost key in one step, with a listing of what it signed, a confirm that can leave a point out, and resuming by id"
+}
+```
+
+**Why this size.** a new command and its dialog, a listing across repositories, and several pushes that resume by id.
+
+For after 0.7: the operator's word of 2026-11-03. A lost key is an unlikely case, not needed for the near
 future.
-**Size:** L - a new command and its dialog, a listing across repositories, and several pushes that resume by id.
-**Blocked by:** [B407](README.md#b407), or else the owner stands as admin and stays so.
+
+It waits on [B407](README.md#b407), or else the owner stands as admin and stays so.
 
 **What must be true.** The person makes the new key and card, swaps the keys at the forge and hands the owner the card, and
 that is all they do. The owner runs one step, *Recover*: Porelo lists what the old key signed, the owner confirms, may leave a

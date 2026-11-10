@@ -1,7 +1,20 @@
 # B412 — A Prompted Start That Failed Says So In Its Exit
 
-**Status:** Idea.
-**Severity:** medium: a script takes a run that failed for one that worked.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B412",
+  "title": "A Prompted Start That Failed Says So In Its Exit",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 25,
+  "blockedBy": [],
+  "covers": "`task start -P` whose agent ended with an error exits non-zero, where it exits 0 today"
+}
+```
+
+**Severity.** medium: a script takes a run that failed for one that worked.
 
 **What must be true.** `task start -P` whose agent ended with an error exits non-zero, so a script can tell it from a run that
 finished.

@@ -1,6 +1,18 @@
 # B397 — A Plain Git Credential Goes To Any Host A Project Names
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B397",
+  "title": "A Plain Git Credential Goes To Any Host A Project Names",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 35,
+  "blockedBy": [],
+  "covers": "A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names."
+}
+```
 
 **What must be true.** A person's plain `git.token` or `git.ssh` reaches only a host the person meant it for. Today
 `GitCredentialNames` falls back from the entry named for a host to the plain one, so a project's file, by naming a host, can

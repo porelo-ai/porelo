@@ -1,7 +1,20 @@
 # B197 — A Push To A Slow Forge Has A Bound
 
-**Status:** Estimated.
-**Size:** M - a key of the project file (`core`'s `Limits`, `ProjectReader`, `ProjectSchema`), a per-command limit
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B197",
+  "title": "A Push To A Slow Forge Has A Bound",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 35,
+  "blockedBy": [],
+  "covers": "A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer."
+}
+```
+
+**Why this size.** a key of the project file (`core`'s `Limits`, `ProjectReader`, `ProjectSchema`), a per-command limit
 in `core`'s process runner, the gate in `gate` and `app-model`, their tests and `doc/`; no contract another repository
 reads.
 

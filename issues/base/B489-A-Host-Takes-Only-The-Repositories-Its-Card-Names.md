@@ -1,9 +1,24 @@
-# [B489](README.md#b489) — A Host Takes Only The Repositories Its Card Names
+# B489 — A Host Takes Only The Repositories Its Card Names
 
-**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
-move.
-**Size:** S - one module's answer and the offline contract that holds every adapter to it; the host already reads
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B489",
+  "title": "A Host Takes Only The Repositories Its Card Names",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 74,
+  "blockedBy": [],
+  "covers": "What `porelo org fetch` answers a host names, per project, the repositories its card carries, so a host carrying some takes only those; seen at the trial move taking all 17 of porelo, with 17 read keys on the central repositories."
+}
+```
+
+**Why this size.** one module's answer and the offline contract that holds every adapter to it; the host already reads
 the field, so no other repository changes.
+
+Built on the operator's word that every finding of the trial move is fixed before the second
+move.
 
 **What must be true.** A host whose card names some repositories of a project takes only those, plus the project's own
 repository. A card that names none carries the project whole, as today. What `porelo org fetch` answers a host says,

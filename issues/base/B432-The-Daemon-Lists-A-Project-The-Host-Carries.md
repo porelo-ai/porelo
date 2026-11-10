@@ -1,7 +1,20 @@
 # B432 — The Daemon Lists A Project The Host Carries
 
-**Status:** Review.
-**Size:** M - one contract change other repositories read, in two modules, with its documents.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B432",
+  "title": "The Daemon Lists A Project The Host Carries",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 111,
+  "blockedBy": [],
+  "covers": "The daemon's `Projects` names a project the host carries before its first start, as `project list` does."
+}
+```
+
+**Why this size.** one contract change other repositories read, in two modules, with its documents.
 
 **What must be true.** A project a host carries for a person is in the daemon's `Projects` before its first start, as it is
 in `porelo project list`. An interface that reads the daemon can then offer that start.

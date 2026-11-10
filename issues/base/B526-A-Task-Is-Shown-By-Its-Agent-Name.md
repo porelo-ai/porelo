@@ -1,7 +1,22 @@
-# [B526](README.md#b526) — A Task Is Shown By Its Agent Name
+# B526 — A Task Is Shown By Its Agent Name
 
-**Status:** Review. Filed 2026-11-08 from move 3's findings 10 and 19 (the display part).
-**Size:** S - `enroll` passes `--display` where the transport announces it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B526",
+  "title": "A Task Is Shown By Its Agent Name",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 50,
+  "blockedBy": [],
+  "covers": "A task is enrolled into its room under \"Agent <Name>\" where the transport takes `--display`."
+}
+```
+
+**Why this size.** `enroll` passes `--display` where the transport announces it.
+
+Filed 2026-11-08 from move 3's findings 10 and 19 (the display part).
 
 **What must be true.** A task enrolled into its project's room is shown there as "Agent" and its task's name, each
 word capitalized: `porelo-porelo-pi` is "Agent Pi", the name the persons write to and porelo-message-matrix reads as a head.

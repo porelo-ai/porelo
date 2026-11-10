@@ -1,9 +1,24 @@
 # B414 — A Developer Reads An Organization At GitHub
 
-**Status:** Idea; decided by the operator on 2026-11-03: the founder's admin on this repository. Its state and place in the plan
-are the Coordinator's.
-**Size:** S to M - one module and its tests, but `IdentitySource.owns` is a contract and the decision changes who a first read
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B414",
+  "title": "A Developer Reads An Organization At GitHub",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 23,
+  "blockedBy": [],
+  "covers": "At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's"
+}
+```
+
+**Why this size.** S to M: one module and its tests, but `IdentitySource.owns` is a contract and the decision changes who a first read
 trusts.
+
+Decided by the operator on 2026-11-03: the founder's admin on this repository. Its state and place in the plan
+are the Coordinator's.
 
 **What must be true.** At GitHub, a person with push access to the organization's repository reads the organization from its
 first commit, without being a member and without a token right on the organization's members. Whoever filed the first

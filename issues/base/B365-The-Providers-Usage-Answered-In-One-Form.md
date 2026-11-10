@@ -1,7 +1,20 @@
 # B365 — The Providers' Usage Answered In One Form
 
-**Status:** Idea.
-**Size:** M, proposed - one verb with a reader per provider, a threshold setting and its tests; the readers are
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B365",
+  "title": "The Providers' Usage Answered In One Form",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 41,
+  "blockedBy": [],
+  "covers": "`porelo usage` answers each provider's allowance left in one form, per machine, account and window, with a threshold that marks a window critical"
+}
+```
+
+**Why this size.** proposed: one verb with a reader per provider, a threshold setting and its tests; the readers are
 fragile, since none of the three providers offers a documented usage interface.
 
 **What must be true.** A person sees how much of each AI provider's allowance is left before a task stops on it.

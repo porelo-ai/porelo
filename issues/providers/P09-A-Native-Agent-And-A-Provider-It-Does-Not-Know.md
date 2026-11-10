@@ -1,7 +1,20 @@
 # P09 — A Native Agent And A Provider It Does Not Know
 
-**Status:** Estimated.
-**Size:** M - one change of `porelo-agent-api`, which the agent repositories read and take, a new refusal at the start,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "P09",
+  "title": "A Native Agent And A Provider It Does Not Know",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "A native agent is paired with every provider today and fails inside the task: `provider.knows` in the agent API and an `UNKNOWN_TO_AGENT` refusal."
+}
+```
+
+**Why this size.** one change of `porelo-agent-api`, which the agent repositories read and take, a new refusal at the start,
 `porelo agents --verbose`, docs and an acceptance step.
 
 **What must be true.** An agent that speaks `native` and is given a provider whose name it does not recognize is

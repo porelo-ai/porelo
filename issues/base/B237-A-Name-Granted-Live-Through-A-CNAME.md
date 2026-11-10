@@ -1,7 +1,20 @@
 # B237 — A Name Granted Live Through A CNAME
 
-**Status:** Estimated.
-**Size:** S - `ResolvedNames` in `shield` and its caller `ShieldWatchCommand`, maybe `ClearanceHub`; no contract.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B237",
+  "title": "A Name Granted Live Through A CNAME",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 37,
+  "blockedBy": [],
+  "covers": "A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped"
+}
+```
+
+**Why this size.** `ResolvedNames` in `shield` and its caller `ShieldWatchCommand`, maybe `ClearanceHub`; no contract.
 
 **What must be true.** A name granted to a running task is reached as it is when the project names it at the start,
 also when the name answers through a CNAME.

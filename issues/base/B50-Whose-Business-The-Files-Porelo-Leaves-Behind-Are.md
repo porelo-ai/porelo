@@ -1,7 +1,20 @@
 # B50 — Whose Business The Files Porelo Leaves Behind Are
 
-**Status:** Review.
-**Size:** M - several modules (paths, gate, registry, doctor), a correction of existing machines, and acceptance runs
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B50",
+  "title": "Whose Business The Files Porelo Leaves Behind Are",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 102,
+  "blockedBy": [],
+  "covers": "Data and state directories and `~/porelo/reviews` owner-only at creation, mirrors with `--shared=0600`, and a doctor probe that corrects older machines."
+}
+```
+
+**Why this size.** several modules (paths, gate, registry, doctor), a correction of existing machines, and acceptance runs
 under two umasks.
 
 **What must be true.** Every file Porelo writes is readable by whoever it concerns, and by nobody

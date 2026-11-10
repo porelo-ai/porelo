@@ -1,9 +1,24 @@
 # B361 — An Agent Starts Only The Subagents Its Task Allows
 
-**Status:** Review. Accepted.
-**Size:** M - estimated 70 minutes from the median of M builds (47, p75 93): the value takes the path the turn limit
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B361",
+  "title": "An Agent Starts Only The Subagents Its Task Allows",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 117,
+  "blockedBy": [],
+  "covers": "Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce"
+}
+```
+
+**Why this size.** estimated 70 minutes from the median of M builds (47, p75 93): the value takes the path the turn limit
 takes, from the task's start through the agent interface to the adapter, beside a declared block in the agent
 definition and its reader.
+
+Accepted.
 
 **What must be true.** Porelo's agent interface carries how many subagents an agent may start inside a task, the
 same for every adapter, and none unless the task says otherwise. Each agent definition declares what its adapter

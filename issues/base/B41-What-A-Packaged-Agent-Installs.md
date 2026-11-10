@@ -1,7 +1,20 @@
 # B41 — What a Packaged Agent Installs
 
-**Status:** Estimated.
-**Size:** M - one contract change (the `Agent` type says what a package ships), one reader shared by the daemon and the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B41",
+  "title": "What a Packaged Agent Installs",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 26,
+  "blockedBy": [],
+  "covers": "`--supply-chain` and the daemon's `Agent` list what a package ships, read from `/usr/share/porelo/sbom/<package>.cdx.json` by one shared reader."
+}
+```
+
+**Why this size.** one contract change (the `Agent` type says what a package ships), one reader shared by the daemon and the
 CLI, and its tests.
 
 **What must be true.** An operator asking `porelo agents --supply-chain` about a packaged agent is

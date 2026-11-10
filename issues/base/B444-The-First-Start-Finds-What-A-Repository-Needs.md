@@ -1,7 +1,20 @@
 # B444 — The First Start Finds What A Repository Needs
 
-**Status:** Review.
-**Size:** L - the start, the daemon and a question at a terminal.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B444",
+  "title": "The First Start Finds What A Repository Needs",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 96,
+  "blockedBy": [],
+  "covers": "`task start` in a checkout with no `project.yml` finds what it needs, asks yes or no, writes the file and starts from it."
+}
+```
+
+**Why this size.** the start, the daemon and a question at a terminal.
 
 **What must be true.** `porelo task start` in a checkout with no `project.yml` runs the detection, says what it found and what
 that allows, asks a short yes or no, writes `project.yml` where the person stands, and starts from it. Porelo does not commit it.

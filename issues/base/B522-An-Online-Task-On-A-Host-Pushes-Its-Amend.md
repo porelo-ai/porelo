@@ -1,7 +1,22 @@
-# [B522](README.md#b522) — An Online Task On A Host Pushes Its Amend
+# B522 — An Online Task On A Host Pushes Its Amend
 
-**Status:** Review. Filed 2026-11-08 for move 4 (an `online` project on a host), from Core's reading of 19:45Z.
-**Size:** S - `HostPush` pushes the task's own branch with a lease.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B522",
+  "title": "An Online Task On A Host Pushes Its Amend",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 53,
+  "blockedBy": [],
+  "covers": "An online task on a host pushes its amended commit to `porelo/<task>` with a lease on what the gate last pushed there."
+}
+```
+
+**Why this size.** `HostPush` pushes the task's own branch with a lease.
+
+Filed 2026-11-08 for move 4 (an `online` project on a host), from Core's reading of 19:45Z.
 
 **What must be true.** An online task on a host that amends its commit after a reading, as each task did in move 3's
 second round, has the amended commit reach `porelo/<task>` on the host's forge. The push replaces only what the gate

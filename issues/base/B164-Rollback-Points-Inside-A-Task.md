@@ -1,7 +1,20 @@
 # B164 — Rollback Points Inside A Task
 
-**Status:** Estimated.
-**Size:** L - a helper per task, a host-side store, a destructive command, the agents' session files and the contract.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B164",
+  "title": "Rollback Points Inside A Task",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 29,
+  "blockedBy": [],
+  "covers": "A helper keeps a host-side bundle of the files at each turn's end, the last 20 by default; `task rewind` restores files and, where declared, the session, offering to restart it."
+}
+```
+
+**Why this size.** a helper per task, a host-side store, a destructive command, the agents' session files and the contract.
 
 **What must be true.** After each step of the agent, the task's workspace is kept as a state on the host; going back to
 one restores its files and, where the agent can name its session, its conversation from that point.

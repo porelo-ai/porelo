@@ -1,9 +1,24 @@
-# [B600](README.md#b600) — A Task's Mail And Sockets Found By Its Identity
+# B600 — A Task's Mail And Sockets Found By Its Identity
 
-**Status:** Backlog. Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
-**Priority:** high (the operator, 2026-11-09, for [B538](README.md#b538)).
-**Size:** M - messaging and daemon consumers: mail, transports, watches, sockets, parent and child.
-**Blocked by:** [B596](README.md#b596), [B598](README.md#b598).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B600",
+  "title": "A Task's Mail And Sockets Found By Its Identity",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "High",
+  "rank": 5,
+  "blockedBy": ["B596", "B598"],
+  "covers": "Mail, watches and sockets are reached through a task's identity."
+}
+```
+
+**Why this size.** messaging and daemon consumers: mail, transports, watches, sockets, parent and child.
+
+Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+
+High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
 **What must be true.** Messaging and the daemon (mailboxes, transport accounts, clearing, watches, socket validation, parent and child, completion) find a task through its identity: old and new tasks in different projects receive only their own mail, an underscore endpoint opens, and no caller can stop, read or answer for a sibling.
 

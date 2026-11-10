@@ -1,8 +1,23 @@
-# [B510](README.md#b510) — The Tasks Contract In Porelo-Wire
+# B510 — The Tasks Contract In Porelo-Wire
 
-**Status:** Review. Built on 2026-11-08 at the operator's word, before the third trial move.
-**Size:** S - the interface files move into `porelo-wire`'s resources, where the daemon reads them as before, with the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B510",
+  "title": "The Tasks Contract In Porelo-Wire",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 61,
+  "blockedBy": [],
+  "covers": "The published `porelo-wire` jar carries the `Tasks1` interface files and their order, so a client such as porelo-mcp reads the real contract; the daemon reads them from there as before."
+}
+```
+
+**Why this size.** the interface files move into `porelo-wire`'s resources, where the daemon reads them as before, with the
 native image's resource entry and a test of the published jar.
+
+Built on 2026-11-08 at the operator's word, before the third trial move.
 
 **What must be true.** The published `porelo-wire` jar carries `org.fuin.porelo.Tasks1/*.varlink` from the next release
 on. A client outside porelo, such as porelo-mcp's stand-in daemon, reads the real contract from it, never from a copy.

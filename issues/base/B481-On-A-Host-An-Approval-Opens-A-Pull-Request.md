@@ -1,8 +1,23 @@
 # B481 — On A Host An Approval Opens A Pull Request
 
-**Status:** Review. Accepted on the operator's word (2026-11-06).
-**Size:** M - a branch target for approve on a host, a pull-request call to the host's forge, the task token's use;
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B481",
+  "title": "On A Host An Approval Opens A Pull Request",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 82,
+  "blockedBy": [],
+  "covers": "On a host, approve forwards to `porelo/<task>` and opens the pull request to `main` as the task's own forge account, so the person approves someone else's."
+}
+```
+
+**Why this size.** a branch target for approve on a host, a pull-request call to the host's forge, the task token's use;
 their tests. Estimate 120 minutes.
+
+Accepted on the operator's word (2026-11-06).
 
 **What must be true.** On a host, where `main` of each carried repository takes work only by pull request, a person's
 approval at the gate lands as a pull request they can approve: approve forwards the reviewed commit to `porelo/<task>`

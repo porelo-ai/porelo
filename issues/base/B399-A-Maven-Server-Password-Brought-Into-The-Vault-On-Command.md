@@ -1,7 +1,20 @@
 # B399 — A Maven Server Password Brought Into The Vault On Command
 
-**Status:** Idea.
-**Size:** - not estimated.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B399",
+  "title": "A Maven Server Password Brought Into The Vault On Command",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 38,
+  "blockedBy": [],
+  "covers": "A person brings one named Maven server's password from their own settings into the vault, at their explicit command"
+}
+```
+
+**Why this size.** not estimated.
 
 **What must be true.** A person can bring the password of one named Maven server from their own settings into the vault,
 by an explicit command that names its id, such as a form of `vault import`. Nothing does it without being asked, and no

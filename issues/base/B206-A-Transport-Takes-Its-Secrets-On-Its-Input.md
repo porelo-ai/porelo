@@ -1,9 +1,24 @@
 # B206 — A Transport Takes Its Secrets On Its Input
 
-**Status:** Review; its transport side, agreed on 2026-10-27, is the matrix transport's: it reads its secrets
-from standard input.
-**Size:** L - a change to the contract every transport implements, in porelo's four places that hand a transport
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B206",
+  "title": "A Transport Takes Its Secrets On Its Input",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 116,
+  "blockedBy": [],
+  "covers": "A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change."
+}
+```
+
+**Why this size.** a change to the contract every transport implements, in porelo's four places that hand a transport
 its secrets and in each transport, released together with a version both sides read.
+
+Its transport side, agreed on 2026-10-27, is the matrix transport's: it reads its secrets
+from standard input.
 
 **What must be true.** No secret Porelo keeps for a transport is in the environment of the transport's process.
 Another process of the same account that reads `/proc/<pid>/environ` at any moment of a run finds none of them.

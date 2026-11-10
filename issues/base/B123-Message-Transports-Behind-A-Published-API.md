@@ -1,7 +1,20 @@
 # B123 — Message Transports Behind A Published API
 
-**Status:** Estimated.
-**Size:** XL - a new published library, the host's client, a stub, and a move in another repository; splits below.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B123",
+  "title": "Message Transports Behind A Published API",
+  "state": "Estimated",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "`porelo-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract."
+}
+```
+
+**Why this size.** a new published library, the host's client, a stub, and a move in another repository; splits below.
 
 **What must be true.** A message transport is written against a published, versioned Java API, as an agent is - a
 library it builds on and a contract Porelo checks at runtime - and every transport lives in a repository of its own,

@@ -1,7 +1,20 @@
 # B473 — A Detached Attach Leaves The Terminal As It Was
 
-**Status:** Review.
-**Size:** S - the CLI saves the terminal's settings before an attach and restores them, with the modes tmux turns on
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B473",
+  "title": "A Detached Attach Leaves The Terminal As It Was",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 85,
+  "blockedBy": [],
+  "covers": "However an attach ends, the CLI restores the terminal's settings and resets the modes tmux turns on: no mouse reports typed at the prompt, typing works"
+}
+```
+
+**Why this size.** the CLI saves the terminal's settings before an attach and restores them, with the modes tmux turns on
 reset, however the attach ends; its tests, and a check on the VM. Estimate 60 minutes.
 
 **What must be true.** However `porelo task start` or `porelo task attach` leaves a task's session - the person detaches,

@@ -1,7 +1,20 @@
 # B10 — What An Egress Set Can Express
 
-**Status:** Analyzed.
-**Size:** L - four separate pieces in core, shield, the task's wiring and the daemon, and `Sets()` grows two fields.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B10",
+  "title": "What An Egress Set Can Express",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 21,
+  "blockedBy": [],
+  "covers": "Egress addresses in `project.yml`, refused lookups shown, set fingerprints, `complete: false` for sets; four commits, and `Sets()` grows."
+}
+```
+
+**Why this size.** four separate pieces in core, shield, the task's wiring and the daemon, and `Sets()` grows two fields.
 
 **What must be true.** An operator who needs a destination that cannot be written as a host name
 gets it supported or refused with a reason, never silently unreachable, and can tell when two

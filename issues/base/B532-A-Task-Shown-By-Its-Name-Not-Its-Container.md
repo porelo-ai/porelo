@@ -1,9 +1,24 @@
-# [B532](README.md#b532) — A Task Shown By Its Name, Not Its Container
+# B532 — A Task Shown By Its Name, Not Its Container
 
-**Status:** Review. Filed 2026-11-08 from the third move's findings 10 and 19 (the operator's decision: a task is
-shown by the name given at its start, or short by its repository; the container name only in the details).
-**Size:** M - three fields on the task row, the name recorded at start, the room's display taken from the repository's
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B532",
+  "title": "A Task Shown By Its Name, Not Its Container",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 45,
+  "blockedBy": [],
+  "covers": "A task is shown by the name given at its start or its short name from the repository, the container name only in its details, and in the room by its agent's name."
+}
+```
+
+**Why this size.** three fields on the task row, the name recorded at start, the room's display taken from the repository's
 agent; no container is renamed.
+
+Filed 2026-11-08 from the third move's findings 10 and 19 (the operator's decision: a task is
+shown by the name given at its start, or short by its repository; the container name only in the details).
 
 **What must be true.** Every client shows a task by the name a person gave it at its start, or else by its short name
 from its repository (`pi` for `porelo-pi`), and the container name (`porelo-porelo-pi`) only among its details. In the

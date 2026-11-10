@@ -1,7 +1,20 @@
 # B471 — The Installation Guide Leads To The Window
 
-**Status:** Review.
-**Size:** S - one section in `README.md` and one in `doc/getting-started.md`, and a line under *Before you start*; no
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B471",
+  "title": "The Installation Guide Leads To The Window",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 87,
+  "blockedBy": [],
+  "covers": "`README.md` and `doc/getting-started.md` name the window: `porelo-frontend` from the same repositories, and on Windows the ZIP or MSIX in the window's chapter, with Porelo in a WSL distribution of a supported system"
+}
+```
+
+**Why this size.** one section in `README.md` and one in `doc/getting-started.md`, and a line under *Before you start*; no
 code. Estimate 30 minutes.
 
 **What must be true.** A person installing Porelo, on Linux or in a WSL distribution on Windows, finds the window in

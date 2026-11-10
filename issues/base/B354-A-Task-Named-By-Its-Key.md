@@ -1,7 +1,20 @@
 # B354 — A Task Named By Its Key
 
-**Status:** Idea.
-**Size:** S, proposed - one suffix in the task's name from its certified key's fingerprint, unique per login.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B354",
+  "title": "A Task Named By Its Key",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 45,
+  "blockedBy": [],
+  "covers": "A task's name carries a short suffix from its key's fingerprint, unique per login, so a name names one task key"
+}
+```
+
+**Why this size.** proposed: one suffix in the task's name from its certified key's fingerprint, unique per login.
 
 **What must be true.** A task's name carries a short suffix from its own key's fingerprint, unique among the tasks of
 its login, so a name seen in a branch, a message or the host's records names one task key and no other. Two tasks of

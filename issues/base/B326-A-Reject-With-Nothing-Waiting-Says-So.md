@@ -1,6 +1,18 @@
 # B326 — A Reject With Nothing Waiting Says So
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B326",
+  "title": "A Reject With Nothing Waiting Says So",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 48,
+  "blockedBy": [],
+  "covers": "A reject of a name with nothing waiting says so and tells no task its work was discarded"
+}
+```
 
 **What must be true.** `porelo gate reject <name>` for a name with no waiting push says that nothing
 waits under that name and exits non-zero; it records no rejection and puts no reason into the

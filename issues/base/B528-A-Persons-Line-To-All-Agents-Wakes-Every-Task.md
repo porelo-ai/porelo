@@ -1,7 +1,22 @@
-# [B528](README.md#b528) — A Person's Line To All Agents Wakes Every Task
+# B528 — A Person's Line To All Agents Wakes Every Task
 
-**Status:** Review. Filed 2026-11-08 from the operator's decision on "All agents:" (move 3), with porelo-message-matrix marking such a line.
-**Size:** S - the person file's `all` carried into the task's message and honored by the wake.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B528",
+  "title": "A Person's Line To All Agents Wakes Every Task",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 48,
+  "blockedBy": [],
+  "covers": "A person's line headed \"All agents:\" reaches and wakes every task; a task's cannot."
+}
+```
+
+**Why this size.** the person file's `all` carried into the task's message and honored by the wake.
+
+Filed 2026-11-08 from the operator's decision on "All agents:" (move 3), with porelo-message-matrix marking such a line.
 
 **What must be true.** A person's line in the room headed "All agents:", which porelo-message-matrix marks
 `"all": true` in the person file, reaches every task of the project marked `metadata.all: true`, and wakes

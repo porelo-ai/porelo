@@ -1,7 +1,20 @@
 # B405 — A Host That Says Why A Project Has No Address
 
-**Status:** Idea.
-**Size:** - not estimated.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B405",
+  "title": "A Host That Says Why A Project Has No Address",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 31,
+  "blockedBy": [],
+  "covers": "A host carrying a project with no address says why: nobody opened it, or the file for its address stands refused"
+}
+```
+
+**Why this size.** not estimated.
 
 **What must be true.** Where a host's reading of its organization holds no address for a project it carries, the host's
 answer says why: nobody opened the project, or the organization's file for its address stands refused, and by whose key.

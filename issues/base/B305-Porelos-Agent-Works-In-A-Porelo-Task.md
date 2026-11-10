@@ -1,6 +1,18 @@
 # B305 — Porelo's Agent Works In A Porelo Task
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B305",
+  "title": "Porelo's Agent Works In A Porelo Task",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 55,
+  "blockedBy": [],
+  "covers": "porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own"
+}
+```
 
 **What must be true.** porelo's agent works in a Porelo task on the move's host, as the project's procedure for an agent's
 move lays out for the last builders,

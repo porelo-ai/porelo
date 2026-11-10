@@ -1,7 +1,20 @@
 # B393 — A Task Of The Default Project Never Joins A Room
 
-**Status:** Review.
-**Size:** S - a guard where a task enrolls, a filter where the project's file is written, and tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B393",
+  "title": "A Task Of The Default Project Never Joins A Room",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 118,
+  "blockedBy": [],
+  "covers": "A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused."
+}
+```
+
+**Why this size.** a guard where a task enrolls, a filter where the project's file is written, and tests.
 
 **What must be true.** A task of the project `default` talks to nobody, whatever this machine or host has: a homeserver
 on the host, an account's settings, a room peer left over. It never enrolls at a transport, never joins a room and

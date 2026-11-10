@@ -1,6 +1,18 @@
 # B202 — Credential Names In A Project File Checked
 
-**Status:** Accepted.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B202",
+  "title": "Credential Names In A Project File Checked",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided."
+}
+```
 
 **What must be true.** A credential's name in a project file is checked when the file is read, against the names that
 can safely become what Porelo makes of them, and a name outside them is refused by name. What happens to a file that

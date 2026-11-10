@@ -1,8 +1,23 @@
-# [B536](README.md#b536) — An MCP Start Takes The Project's Model Before The List Judges It
+# B536 — An MCP Start Takes The Project's Model Before The List Judges It
 
-**Status:** Idea. Filed 2026-11-09 from [B533](README.md#b533)'s code reading, finding 1, as the operator decided it
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B536",
+  "title": "An MCP Start Takes The Project's Model Before The List Judges It",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "An MCP start naming no model starts on the project's default when the agent's list allows it."
+}
+```
+
+Filed 2026-11-09 from [B533](README.md#b533)'s code reading, finding 1, as the operator decided it
 (the operator's decision of 2026-11-09 on the open points of wave 2, point 3: leave it now, file the change as an Idea).
-**Severity:** low: nothing passes that should not; an agent must name a model the project would have chosen anyway.
+
+**Severity.** low: nothing passes that should not; an agent must name a model the project would have chosen anyway.
 
 **What must be true.** A task's MCP `Start` that names no model, for an agent whose `mcp.agents.<agent>` lists models,
 starts on the project's (or repository's) default model when that model is on the list, instead of being refused.

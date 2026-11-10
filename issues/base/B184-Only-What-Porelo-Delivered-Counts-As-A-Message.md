@@ -1,7 +1,20 @@
 # B184 — Only What Porelo Delivered Counts As A Message
 
-**Status:** Estimated.
-**Size:** M - an owner check where the host reads the inbox, links never followed there, the guide's rule for the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B184",
+  "title": "Only What Porelo Delivered Counts As A Message",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner."
+}
+```
+
+**Why this size.** an owner check where the host reads the inbox, links never followed there, the guide's rule for the
 agent, the same check in the agent kit, unit tests and an acceptance scenario that plants a message from inside.
 
 **What must be true.** A file that a process in the container puts into its own inbox is never taken for a message

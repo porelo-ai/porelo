@@ -1,6 +1,18 @@
 # B436 — A Published BOM Test Runs From A Clean Tree
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B436",
+  "title": "A Published BOM Test Runs From A Clean Tree",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 17,
+  "blockedBy": [],
+  "covers": "`PublishedBomTest` needs a generated file, so a targeted test run in a clean tree fails."
+}
+```
 
 **What must be true.** `PublishedBomTest` passes or says what it needs in a tree nothing was built in, whichever modules are named.
 

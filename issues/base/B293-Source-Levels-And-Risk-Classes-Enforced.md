@@ -1,6 +1,20 @@
-# [B293](README.md#b293) — Source Levels And Risk Classes Enforced
+# B293 — Source Levels And Risk Classes Enforced
 
-**Status:** Idea. Part 2 of a split: the levels and classes themselves are derived and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B293",
+  "title": "Source Levels And Risk Classes Enforced",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 63,
+  "blockedBy": ["B323", "B136", "B141", "B283"],
+  "covers": "Daemon-authenticated source levels and deterministic C0-C3 rules constrain delivery, builds, secrets, replies and required human approvals; policies only tighten defaults."
+}
+```
+
+Part 2 of a split: the levels and classes themselves are derived and
 shown by [B323](README.md#b323).
 
 **What must be true.** The more restrictive permissions of source level, consumed inputs, risk class and policy decide
@@ -26,7 +40,6 @@ The defaults by profile, which a project file and then a machine's policy may ti
 
 ## Proposed
 
-- Blocked by: [B323](README.md#b323), [B136](README.md#b136), [B141](README.md#b141), [B283](README.md#b283).
 - Blocks: [B171](README.md#b171), [B172](README.md#b172), [B145](README.md#b145), [B288](README.md#b288),
   [B289](README.md#b289), [B95](README.md#b95); interface and IDE consumers that hold, release or refuse by level
   and class.

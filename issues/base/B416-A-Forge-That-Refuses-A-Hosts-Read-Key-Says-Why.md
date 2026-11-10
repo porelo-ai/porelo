@@ -1,7 +1,20 @@
 # B416 — A Forge That Refuses A Host's Read Key Says Why
 
-**Status:** Idea.
-**Severity:** medium: a host cannot be set up, and the person is not told the reason or where to change it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B416",
+  "title": "A Forge That Refuses A Host's Read Key Says Why",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 21,
+  "blockedBy": [],
+  "covers": "A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it"
+}
+```
+
+**Severity.** medium: a host cannot be set up, and the person is not told the reason or where to change it.
 
 **What must be true.** When the forge refuses a host's read key, the person reads why. Where the organization has deploy keys
 turned off, the refusal names that setting and its page. Before a host is prepared, an organization's owner knows this is

@@ -1,7 +1,20 @@
 # B452 — A Value With No File Prints No Line
 
-**Status:** Review.
-**Size:** XS - one comment's words, with a test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B452",
+  "title": "A Value With No File Prints No Line",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 94,
+  "blockedBy": [],
+  "covers": "A value with no file prints no `:0` in a draft."
+}
+```
+
+**Why this size.** one comment's words, with a test.
 
 **What must be true.** A value a tool has by itself is said to be that tool's, and a draft's comment prints no `:0`.
 

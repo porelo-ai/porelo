@@ -1,7 +1,20 @@
 # P08 — Provider Zhipu
 
-**Status:** Estimated.
-**Size:** S - two provider files, a test reading them, rows in `doc/credentials.md`, and a live scenario in an agent
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "P08",
+  "title": "Provider Zhipu",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "Two provider files, `zhipu` and `zai`: the upstream belongs to the provider file, so no upstream per credential is needed."
+}
+```
+
+**Why this size.** two provider files, a test reading them, rows in `doc/credentials.md`, and a live scenario in an agent
 repository; nothing in the broker changes.
 
 **What must be true.** A task is served models from Zhipu, without the credential entering the

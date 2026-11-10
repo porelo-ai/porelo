@@ -1,7 +1,20 @@
 # B40 — The Domain That May Bind The Socket
 
-**Status:** Estimated.
-**Size:** L - a domain of Porelo's own is a design to decide first, the module gains file contexts, and the agent and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B40",
+  "title": "The Domain That May Bind The Socket",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 16,
+  "blockedBy": [],
+  "covers": "Porelo's binaries, agent servers at `/usr/lib/<package>/<agent>` and build servers under `/usr/libexec/porelo` too, in their own SELinux domain, the only one that may create or bind `porelo_socket_t`."
+}
+```
+
+**Why this size.** a domain of Porelo's own is a design to decide first, the module gains file contexts, and the agent and
 build binaries bind labelled sockets too.
 
 **What must be true.** Only Porelo may bind a socket carrying Porelo's label, and a task that connects

@@ -1,8 +1,22 @@
 # B389 — A Stopped Test Walk's Core Findings
 
-**Status:** Review.
-**Severity:** medium.
-**Size:** S, proposed - three small fixes the stopped test walk of 2026-11-01 asked for before it resumes.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B389",
+  "title": "A Stopped Test Walk's Core Findings",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 113,
+  "blockedBy": [],
+  "covers": "Directories without group write, no Unsafe warning, and setup on a host vault said in words"
+}
+```
+
+**Why this size.** proposed: three small fixes the stopped test walk of 2026-11-01 asked for before it resumes.
+
+**Severity.** medium.
 
 **What must be true.** An account set up by the host's helpers, with an umask of 002 and a host vault, is set up
 without a refusal, a warning or a message that reads like a failure.

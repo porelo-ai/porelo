@@ -1,7 +1,20 @@
 # B38 — How Far Something That Got Through Can Get
 
-**Status:** Analyzed; blocked by porelo [B26](README.md#b26).
-**Size:** L - a field in the agent definition every agent repository fills, the deliveries wrapped, and a count kept.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B38",
+  "title": "How Far Something That Got Through Can Get",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 30,
+  "blockedBy": ["B26"],
+  "covers": "An origin field in the agent definition, applied by hand-in to every delivery, and a `podman diff` count kept at removal."
+}
+```
+
+**Why this size.** a field in the agent definition every agent repository fills, the deliveries wrapped, and a count kept.
 
 **What must be true.** Content Porelo itself delivers into a task carries its origin, so the agent reads it as
 data from a known source and a reviewer sees where it came from; and "how far did it get" has an answer after the

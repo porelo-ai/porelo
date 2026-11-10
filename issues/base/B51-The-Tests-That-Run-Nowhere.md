@@ -1,7 +1,20 @@
 # B51 — The tests that run nowhere
 
-**Status:** Estimated.
-**Size:** M - a JUnit condition, one test class run on the fedora leg, and a report across legs that touches the leg
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B51",
+  "title": "The tests that run nowhere",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": [],
+  "covers": "The SELinux tests on the Fedora rented machine, skips that can never apply say where they run, and a report across legs."
+}
+```
+
+**Why this size.** a JUnit condition, one test class run on the fedora leg, and a report across legs that touches the leg
 driver and the workflow.
 
 **What must be true.** Whoever reads a green build can tell a test that did not apply on this run from one that

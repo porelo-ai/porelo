@@ -1,7 +1,20 @@
 # B30 — Credentials The Broker Has To Fetch
 
-**Status:** Estimated.
-**Size:** L - three pieces in the broker and the vault, each with a stand-in service, and one run on a rented machine.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B30",
+  "title": "Credentials The Broker Has To Fetch",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 18,
+  "blockedBy": [],
+  "covers": "`client_credentials` end to end against a stand-in; then it rests until a service needs `private_key_jwt` or mTLS."
+}
+```
+
+**Why this size.** three pieces in the broker and the vault, each with a stand-in service, and one run on a rented machine.
 
 **What must be true.** A task uses a credential authenticated by a key rather than a secret -
 `private_key_jwt`, or mTLS client authentication - with the broker performing the signing on the host, so

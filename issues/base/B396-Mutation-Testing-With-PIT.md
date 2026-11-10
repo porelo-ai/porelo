@@ -1,6 +1,18 @@
 # B396 — Mutation Testing With PIT
 
-**Status:** Accepted.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B396",
+  "title": "Mutation Testing With PIT",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones."
+}
+```
 
 **What must be true.** A person can measure, by hand, which of this repository's tests would notice a change in the code
 they cover, and read which gaps are real.

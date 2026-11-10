@@ -1,6 +1,18 @@
-# [B95](README.md#b95) — A Container To Try Waiting Work In
+# B95 — A Container To Try Waiting Work In
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B95",
+  "title": "A Container To Try Waiting Work In",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 64,
+  "blockedBy": ["B136", "B292", "B293"],
+  "covers": "Pinned gate try in a throw-away container with source/risk limits; no gate route, E0/C3 no egress, bounded scanner import; IDE backend remains separate follow-up."
+}
+```
 
 **What must be true.** A reviewer or the host can build, test or scan waiting work in a fresh throw-away container,
 with source/risk restrictions and no way back to the gate. Output, exit and normalized SARIF evidence remain beside
@@ -8,7 +20,6 @@ the exact reviewed commit; E0/E1 work is only read and commented until this exec
 
 ## Proposed
 
-- Blocked by: [B136](README.md#b136), [B292](README.md#b292), [B293](README.md#b293).
 - Add `TryRun` in `apps/app-gate` and `GateTryCommand`: `porelo gate try <task> -- <argv...>`, with project/repository
   selection and exact captured commit. Refuse moved work as `MovedSinceReview`. `35-gate.varlink` gains streaming
   `Try` with the same target/commit/argv, output chunks and final exit; refuse calls without streaming as

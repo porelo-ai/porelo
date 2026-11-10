@@ -1,7 +1,20 @@
 # B26 — What This Machine Has Been Doing
 
-**Status:** Analyzed.
-**Size:** L - a new durable record written from many places, a method and a command over it, and two caps to measure.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B26",
+  "title": "What This Machine Has Been Doing",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 24,
+  "blockedBy": [],
+  "covers": "A durable per-account event journal with a cursor and caps, written from many places, `Events()` and a command; one log with [B154](README.md#b154)'s."
+}
+```
+
+**Why this size.** a new durable record written from many places, a method and a command over it, and two caps to measure.
 
 **What must be true.** An operator can ask a machine what it has done — which tasks ran, what
 reached the gate, what was refused and what failed — and get an answer for longer than the tasks

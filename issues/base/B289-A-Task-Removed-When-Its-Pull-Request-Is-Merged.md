@@ -1,6 +1,18 @@
-# [B289](README.md#b289) — A Task Removed When Its Pull Request Is Merged
+# B289 — A Task Removed When Its Pull Request Is Merged
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B289",
+  "title": "A Task Removed When Its Pull Request Is Merged",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 66,
+  "blockedBy": ["B171", "B176", "B293"],
+  "covers": "Authenticated human merge of the exact reviewed source head triggers safe stop/recheck/remove; unmerged work, pending replies and needed review pins are preserved."
+}
+```
 
 **What must be true.** An enabled project ends and removes a task after an authorized person merges its exact
 reviewed PR head, only when no unmerged work or pending review operation can be lost. The daemon verifies the merge
@@ -8,7 +20,6 @@ from authenticated forge state and explains every hold or removal.
 
 ## Proposed
 
-- Blocked by: [B171](README.md#b171), [B176](README.md#b176), [B293](README.md#b293).
 - Blocks: none.
 - Off unless the project enables it. The daemon fetches state through the host adapter; events only wake it.
   Require a merged PR for the task's mapped repository/branch, an authenticated authorized human merger and the

@@ -1,6 +1,20 @@
-# [B323](README.md#b323) — Source Levels And Risk Classes Derived And Shown
+# B323 — Source Levels And Risk Classes Derived And Shown
 
-**Status:** Idea, split from [B293](README.md#b293).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B323",
+  "title": "Source Levels And Risk Classes Derived And Shown",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 51,
+  "blockedBy": ["B291"],
+  "covers": "The daemon derives each item's source level from authenticated evidence and the C0-C3 class from rules over the complete change, and carries both with waiting work, comments and findings; nothing is refused by them yet"
+}
+```
+
+Split from [B293](README.md#b293).
 
 **What must be true.** The daemon assigns a source level to each pull request, commit and comment from authenticated
 evidence, and a code risk class from deterministic rules over the complete change. Both are carried with waiting work,
@@ -23,7 +37,7 @@ commit pushed into it is `E0`.
 
 ## Proposed
 
-- Blocked by: [B291](README.md#b291), whose profile carries the level and class on a comment and a finding.
+- [B291](README.md#b291)'s profile carries the level and class on a comment and a finding.
 - Blocks: [B293](README.md#b293), [B166](README.md#b166), [B163](README.md#b163); interface and IDE consumers that
   show the level and class.
 - `E0` is external unknown, `E1` external known, `I1` internal and `A` a daemon-recorded agent producer. Key account

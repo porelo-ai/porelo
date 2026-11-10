@@ -1,7 +1,20 @@
 # B33 — A Task's Own Fetches
 
-**Status:** Analyzed.
-**Size:** S - a reproduction on the VM first; at most one image line and one acceptance scenario follow from it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B33",
+  "title": "A Task's Own Fetches",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 23,
+  "blockedBy": [],
+  "covers": "The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios."
+}
+```
+
+**Why this size.** a reproduction on the VM first; at most one image line and one acceptance scenario follow from it.
 
 **What must be true.** A task can fetch from the forges its work depends on, and a failure to do so is never
 reported as a credential problem.

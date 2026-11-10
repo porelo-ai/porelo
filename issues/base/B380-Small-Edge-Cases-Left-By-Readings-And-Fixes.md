@@ -1,7 +1,20 @@
 # B380 — Small Edge Cases Left By Readings And Fixes
 
-**Status:** Idea.
-**Size:** -, not yet placed - one gathering issue for the small edge cases that readings and fixes left, since
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B380",
+  "title": "Small Edge Cases Left By Readings And Fixes",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 40,
+  "blockedBy": [],
+  "covers": "The small edge cases readings and fixes left, gathered to be placed; test SSH-agent cleanup done"
+}
+```
+
+**Why this size.** not yet placed: one gathering issue for the small edge cases that readings and fixes left, since
 none of them reaches another person's key, card, socket, mailbox or container, shows or lends a credential, trusts a
 key wrongly or loses data. Each one placed is split out with its own size.
 

@@ -1,7 +1,20 @@
 # B152 — Say What Offline Still Reaches
 
-**Status:** Analyzed.
-**Size:** S - wording on six pages and one documents test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B152",
+  "title": "Say What Offline Still Reaches",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 27,
+  "blockedBy": [],
+  "covers": "Wording on how-it-works, project-file, faq, reach, corporate-security and index; a documents test checks that each `offline` description names the provider."
+}
+```
+
+**Why this size.** wording on six pages and one documents test.
 
 **What must be true.** Every page that describes `offline` says that its agent still reaches its AI provider, so "nothing leaves" is not read as a data protection statement.
 

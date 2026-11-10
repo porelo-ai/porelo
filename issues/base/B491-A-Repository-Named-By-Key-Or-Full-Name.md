@@ -1,8 +1,23 @@
-# [B491](README.md#b491) — A Repository Named By Key Or Full Name
+# B491 — A Repository Named By Key Or Full Name
 
-**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B491",
+  "title": "A Repository Named By Key Or Full Name",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 72,
+  "blockedBy": [],
+  "covers": "`-r` takes a repository's key or its unique full name, and a refusal lists every repository as `<key> (<full name>)`."
+}
+```
+
+**Why this size.** one lookup shared by every command with `-r`, and its tests.
+
+Built on the operator's word that every finding of the trial move is fixed before the second
 move.
-**Size:** S - one lookup shared by every command with `-r`, and its tests.
 
 **What must be true.** Wherever a command takes `-r`/`--repository`, a person may name a repository by the key
 `project.yml` gives it (`sluice`) or by its full name, the last part of its address without `.git`

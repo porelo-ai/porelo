@@ -1,9 +1,21 @@
-# [B542](README.md#b542) — The Host Tool Sweeps Ended Task Tokens
+# B542 — The Host Tool Sweeps Ended Task Tokens
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B542",
+  "title": "The Host Tool Sweeps Ended Task Tokens",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 38,
+  "blockedBy": ["B541"],
+  "covers": "`porelo-host task sweep`, the timer's verb."
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** S.
-**Blocked by:** [B541](README.md#b541).
 
 **What must be true.** `porelo-host task sweep` deletes every task token whose certificate has ended, as `porelo-host-person sweep`; refused
 through sudo.

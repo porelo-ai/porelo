@@ -1,7 +1,20 @@
 # B423 — Small Words Found In A Host Rehearsal
 
-**Status:** Idea.
-**Severity:** low: each misleads a person a little, and none gives a wrong result.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B423",
+  "title": "Small Words Found In A Host Rehearsal",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 19,
+  "blockedBy": [],
+  "covers": "Five small wrong words noted in a rehearsal on a host: a lambda in a passphrase refusal, a probe's words, a missing `--json`, a `.tmp` warning, four characters of a token in `gate.log`."
+}
+```
+
+**Severity.** low: each misleads a person a little, and none gives a wrong result.
 
 **What must be true.** Each of these says what happened.
 

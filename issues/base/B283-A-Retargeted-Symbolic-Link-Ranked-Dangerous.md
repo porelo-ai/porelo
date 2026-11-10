@@ -1,6 +1,18 @@
-# [B283](README.md#b283) — A Retargeted Symbolic Link Ranked Dangerous
+# B283 — A Retargeted Symbolic Link Ranked Dangerous
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B283",
+  "title": "A Retargeted Symbolic Link Ranked Dangerous",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 62,
+  "blockedBy": [],
+  "covers": "Every changed symbolic link ranks dangerous, including retarget, deletion and replacement; feeds C3 evidence without traversal."
+}
+```
 
 **What must be true.** Creating, retargeting, replacing or removing a symbolic link is always ranked dangerous,
 never generated or reformatting. The same mode evidence feeds C3 classification, with no link traversal or actionable

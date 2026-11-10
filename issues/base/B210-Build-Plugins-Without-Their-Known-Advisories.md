@@ -1,7 +1,20 @@
 # B210 — Build Plugins Without Their Known Advisories
 
-**Status:** Estimated.
-**Size:** L - the change is in `porelo-parent`, whose snapshot reaches every Maven repository at once, each to be checked whole on it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B210",
+  "title": "Build Plugins Without Their Known Advisories",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 38,
+  "blockedBy": [],
+  "covers": "The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move."
+}
+```
+
+**Why this size.** the change is in `porelo-parent`, whose snapshot reaches every Maven repository at once, each to be checked whole on it.
 
 **What must be true.** No Maven plugin that porelo-parent versions carries a dependency with a known advisory, where a
 fixed version exists that has stood the age porelo-release asks

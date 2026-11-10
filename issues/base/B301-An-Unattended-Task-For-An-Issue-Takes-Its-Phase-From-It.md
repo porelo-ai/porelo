@@ -1,6 +1,18 @@
 # B301 — An Unattended Task For An Issue Takes Its Phase From It
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B301",
+  "title": "An Unattended Task For An Issue Takes Its Phase From It",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 56,
+  "blockedBy": [],
+  "covers": "An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else"
+}
+```
 
 **What must be true.** An unattended task - one without a shell for a person - is started for one issue, and the
 phase it works in follows from that issue, for example from its state, so the person names the issue and nothing

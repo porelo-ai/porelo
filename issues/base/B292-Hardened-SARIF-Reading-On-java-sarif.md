@@ -1,6 +1,18 @@
-# [B292](README.md#b292) — Hardened SARIF Reading On java-sarif
+# B292 — Hardened SARIF Reading On java-sarif
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B292",
+  "title": "Hardened SARIF Reading On java-sarif",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 61,
+  "blockedBy": ["B291"],
+  "covers": "Strict java-sarif/Jackson reader and fresh-object writer, plus isolated scanner normalization with byte, CPU and memory bounds and explicit completeness."
+}
+```
 
 **What must be true.** Every Java review reader and writer uses `com.contrastsecurity:java-sarif` 2.0 with a
 maintained Jackson 2.x dependency set and limits enforced before model binding. Scanner imports run in a bounded
@@ -11,7 +23,6 @@ The SARIF dependency and `porelo-review-api` artifact are absent from this check
 
 ## Proposed
 
-- Blocked by: [B291](README.md#b291).
 - Blocks: [B166](README.md#b166), [B171](README.md#b171), [B172](README.md#b172), [B141](README.md#b141),
   [B95](README.md#b95); the message filter, the forge adapters
   and the IDE plugin.

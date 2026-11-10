@@ -1,7 +1,20 @@
 # B55 — The Changelog Entry A Change Has To Bring
 
-**Status:** Estimated.
-**Size:** L - crosses repositories: the check is proposed to logchange first, otherwise built as a fuinorg plugin of
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B55",
+  "title": "The Changelog Entry A Change Has To Bring",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "A check that a change brings a changelog entry, proposed to logchange first, else a plugin of our own, bound in `porelo-parent` for every Maven repository and a step of its own in `porelo-frontend`, keeping the old script's three rules."
+}
+```
+
+**Why this size.** crosses repositories: the check is proposed to logchange first, otherwise built as a fuinorg plugin of
 its own, then bound in `porelo-parent` and given a step of its own in `porelo-frontend`.
 
 **What must be true.** A change to what ships or builds brings a changelog entry, or says on purpose

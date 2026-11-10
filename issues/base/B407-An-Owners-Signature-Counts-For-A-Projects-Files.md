@@ -1,7 +1,22 @@
 # B407 — An Owner's Signature Counts For A Project's Files
 
-**Status:** Idea, for after 0.7: the operator's word of 2026-11-03.
-**Size:** M - a rule in the walk and in the judging of `project.yml`, a contract check, and a change on the host's side.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B407",
+  "title": "An Owner's Signature Counts For A Project's Files",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 29,
+  "blockedBy": [],
+  "covers": "After 0.7: an owner's signature counts for a project's `repository.yml`, `members.yml` and `project.yml`, host files kept out"
+}
+```
+
+**Why this size.** a rule in the walk and in the judging of `project.yml`, a contract check, and a change on the host's side.
+
+For after 0.7: the operator's word of 2026-11-03.
 
 **What must be true.** An organization owner's signature counts for a project's `repository.yml`, `members.yml` and
 `project.yml`, with no need to stand as the project's admin first. Host files are kept out.

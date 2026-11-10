@@ -1,9 +1,23 @@
-# [B556](README.md#b556) — The Talk Log Says Whom A Line Was For And Whether It Woke
+# B556 — The Talk Log Says Whom A Line Was For And Whether It Woke
 
-**Status:** Review. Filed 2026-11-09 for the messenger's part of the automated rehearsal, which judges a person's room
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B556",
+  "title": "The Talk Log Says Whom A Line Was For And Whether It Woke",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "`talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent."
+}
+```
+
+**Why this size.** three fields more in an answer porelo already gives, read from what it already keeps.
+
+Filed 2026-11-09 for the messenger's part of the automated rehearsal, which judges a person's room
 line in each task; for after the move.
-**Size:** S - three fields more in an answer porelo already gives, read from what it already keeps.
-**Blocked by:** -.
 
 **What must be true.** `porelo talk log <task> --json` answers, for each message that reached the task, whom it was
 meant for and whether it woke the task's agent: the names in `to`, `via` (`room` or `direct`) and `all` as the message

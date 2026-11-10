@@ -1,7 +1,20 @@
-# [B499](README.md#b499) — A Vault Entry Removed And Replaced Over The Socket
+# B499 — A Vault Entry Removed And Replaced Over The Socket
 
-**Status:** Review.
-**Size:** M - two methods in the vault's contract part (`30-vault`), `VaultMethods`, and their tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B499",
+  "title": "A Vault Entry Removed And Replaced Over The Socket",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 69,
+  "blockedBy": [],
+  "covers": "`CredentialRemove` and `CredentialReplace` remove an entry's secret and replace its value over the socket, the value never logged or answered."
+}
+```
+
+**Why this size.** two methods in the vault's contract part (`30-vault`), `VaultMethods`, and their tests.
 
 **What must be true.** A client of the daemon removes a vault entry - its secret, not only the record
 `CredentialForget` forgets - and replaces an entry's value, as `porelo vault remove` and `porelo vault put` do at the

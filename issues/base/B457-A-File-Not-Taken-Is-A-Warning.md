@@ -1,7 +1,20 @@
 # B457 — A File Not Taken Is A Warning
 
-**Status:** Review.
-**Size:** XS - one way of saying it, one sentence, one field.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B457",
+  "title": "A File Not Taken Is A Warning",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 93,
+  "blockedBy": [],
+  "covers": "A start going on without a `project.yml` that was not taken warns in color."
+}
+```
+
+**Why this size.** one way of saying it, one sentence, one field.
 
 **What must be true.** A start going on in `default` because a `project.yml` was not taken does not pass as one more line.
 

@@ -1,9 +1,24 @@
-# [B515](README.md#b515) — A Start That Did Not Stream Answers With The Run's Result
+# B515 — A Start That Did Not Stream Answers With The Run's Result
 
-**Status:** Review. Filed 2026-11-08 from the local MCP test with a prompt; built the same day, before
-[B514](README.md#b514) (the operator, 15:23Z).
-**Size:** M - an optional `result` on `Start`'s final reply, read with what the agent API already declares, and the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B515",
+  "title": "A Start That Did Not Stream Answers With The Run's Result",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 57,
+  "blockedBy": [],
+  "covers": "A `Start` with a prompt that did not stream answers with the run's result in its final reply, the record its agent declares as its last message or else its last lines, so an MCP caller sees what the run answered; a streamed start also streams the run's own lines."
+}
+```
+
+**Why this size.** an optional `result` on `Start`'s final reply, read with what the agent API already declares, and the
 run's own lines on a streamed start; no new reading in the agent API and nothing in the plugins' repositories.
+
+Filed 2026-11-08 from the local MCP test with a prompt; built the same day, before
+[B514](README.md#b514) (the operator, 15:23Z).
 
 **What must be true.** A `Start` with a prompt that did not ask to stream gets back, in its one final reply, what the
 run answered. An agent using `Start` as an MCP tool then sees the result without having to know to call `Tail` or

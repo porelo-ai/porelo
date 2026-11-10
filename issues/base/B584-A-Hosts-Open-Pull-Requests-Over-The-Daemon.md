@@ -1,7 +1,22 @@
-# [B584](README.md#b584) — A Host's Open Pull Requests Over The Daemon
+# B584 — A Host's Open Pull Requests Over The Daemon
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** M - a read and a watch of the host forge's pull requests per project, with makers and end, in Tasks1.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B584",
+  "title": "A Host's Open Pull Requests Over The Daemon",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 22,
+  "blockedBy": [],
+  "covers": "A host forge's open pull requests per project, with makers, read and watched over the daemon until each merges or closes."
+}
+```
+
+**Why this size.** a read and a watch of the host forge's pull requests per project, with makers and end, in Tasks1.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** A client of porelod on a host can read, and watch, the open pull requests of a project's
 repositories on the host's forge: repository, number, title, head commit, its makers (author, committer, the commit's

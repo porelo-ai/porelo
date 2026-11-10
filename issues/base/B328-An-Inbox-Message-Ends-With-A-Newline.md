@@ -1,6 +1,18 @@
 # B328 — An Inbox Message Ends With A Newline
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B328",
+  "title": "An Inbox Message Ends With A Newline",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 47,
+  "blockedBy": [],
+  "covers": "A message delivered into a task's inbox ends with a newline, so `cat` of it leaves the prompt on its own line"
+}
+```
 
 **What must be true.** A message Porelo writes into a task's inbox (`/run/porelo/mail/inbox/new/<id>.json`) ends with a
 newline, so `cat` of it leaves the shell's prompt on a line of its own, as a text file does.

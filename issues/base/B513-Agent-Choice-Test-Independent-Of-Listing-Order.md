@@ -1,7 +1,22 @@
-# [B513](README.md#b513) — The Agent Choice Test Holds In Any Checkout
+# B513 — The Agent Choice Test Holds In Any Checkout
 
-**Status:** Review. Filed and built on 2026-11-08 at the operator's word.
-**Size:** S - find why the choice differs between checkouts, and make the choice or the test not depend on it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B513",
+  "title": "The Agent Choice Test Holds In Any Checkout",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 58,
+  "blockedBy": [],
+  "covers": "`AgentChoiceTest`'s dropped-provider case passes in every checkout, sub-agents' worktrees included, since a test's socket path takes the shorter of the relative and the absolute way."
+}
+```
+
+**Why this size.** find why the choice differs between checkouts, and make the choice or the test not depend on it.
+
+Filed and built on 2026-11-08 at the operator's word.
 
 **What must be true.** `AgentChoiceTest.aProviderTheAgentCannotDriveIsDroppedAndTheAgentStaysSignedIn` passes in
 every checkout: the main one, a git worktree under `.claude/worktrees`, and CI.

@@ -1,9 +1,24 @@
-# [B530](README.md#b530) — One Sign-In Per Agent That Starts Wait On
+# B530 — One Sign-In Per Agent That Starts Wait On
 
-**Status:** Review. The start's wait is split off as [B534](README.md#b534). Filed 2026-11-08 from the third move's finding 7/7b (the operator's decision: the whole flow runs
-in the window).
-**Size:** L - a new daemon contract (three methods), a lock and a wait the start takes, the sweep made safe, and the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B530",
+  "title": "One Sign-In Per Agent That Starts Wait On",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 47,
+  "blockedBy": [],
+  "covers": "One sign-in per agent and machine, signed in over the daemon as a detached login, never a task; a second sign-in answers the running one and the sweep spares it."
+}
+```
+
+**Why this size.** a new daemon contract (three methods), a lock and a wait the start takes, the sweep made safe, and the
 batch's order; one acceptance step.
+
+The start's wait is split off as [B534](README.md#b534). Filed 2026-11-08 from the third move's finding 7/7b (the operator's decision: the whole flow runs
+in the window).
 
 **What must be true.** A person starting work over the daemon learns, before any task is made, that the task's agent is
 not signed in on this machine, and can sign it in from there: the sign-in runs as a login task in its own terminal, one

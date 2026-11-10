@@ -1,7 +1,22 @@
-# [B519](README.md#b519) — A Person's Line On A Host Reaches The Tasks
+# B519 — A Person's Line On A Host Reaches The Tasks
 
-**Status:** Review. Filed 2026-11-08 from the third move (the operator, 19:02Z); built the same evening on the word to work the move's findings off (19:38Z).
-**Size:** S - one condition in `apps/app-messaging`, with a test seen red first.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B519",
+  "title": "A Person's Line On A Host Reaches The Tasks",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 56,
+  "blockedBy": [],
+  "covers": "On a host, an admitted person's line in the project's room reaches the tasks and wakes the one it mentions: on the host's own homeserver `TransportLifecycle.persons` no longer waits for the lifecycle verb `members`, which the Matrix transport dropped."
+}
+```
+
+**Why this size.** one condition in `apps/app-messaging`, with a test seen red first.
+
+Filed 2026-11-08 from the third move (the operator, 19:02Z); built the same evening on the word to work the move's findings off (19:38Z).
 
 **What must be true.** On a host, a person admitted to a project has their line in the project's room handed to the
 project's tasks, and a task they mention is woken.

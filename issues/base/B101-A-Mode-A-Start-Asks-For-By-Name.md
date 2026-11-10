@@ -1,7 +1,20 @@
 # B101 — A Mode A Start Asks For By Name
 
-**Status:** Analyzed.
-**Size:** M - the agent definition every adapter writes, the `Start` and `Agents` contract, and the start.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B101",
+  "title": "A Mode A Start Asks For By Name",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 28,
+  "blockedBy": [],
+  "covers": "Named modes and a thinking level in the agent definition, `--mode` and `--thinking` at start, both listed in `agents`."
+}
+```
+
+**Why this size.** the agent definition every adapter writes, the `Start` and `Agents` contract, and the start.
 
 **What must be true.** A person starting a task can ask for one of the agent's named modes, such as
 `read-only`, and nothing reaches the agent that its definition did not write.

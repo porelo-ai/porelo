@@ -1,9 +1,21 @@
-# [B552](README.md#b552) — The Forge Gates And The Pool In The Host Tool
+# B552 — The Forge Gates And The Pool In The Host Tool
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B552",
+  "title": "The Forge Gates And The Pool In The Host Tool",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 33,
+  "blockedBy": ["B540"],
+  "covers": "`porelo-host gate forge --web|--git|--runner` after porelo-host's load measure; `pool revert | make-vm | find-vm | delete-vm`."
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** L.
-**Blocked by:** [B540](README.md#b540).
 
 **What must be true.** The forge's three socket-activated gates, measured under move 4's load before they replace the Python (the web gate's keep-alive, porelo-host's own measure); the
 pool's revert service and its VMs made in Java (`virsh`/`virt-install` through `SystemProgram`), `porelo-vm` staying a

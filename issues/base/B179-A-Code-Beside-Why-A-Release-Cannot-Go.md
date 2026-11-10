@@ -1,7 +1,21 @@
 # B179 — A Code Beside Why A Release Cannot Go
 
-**Status:** Analyzed.
-**Size:** M - small in code, one module's six returns and one reply, but a contract the interface reads, with a new
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B179",
+  "title": "A Code Beside Why A Release Cannot Go",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 38,
+  "blockedBy": [],
+  "covers": "A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** small in code, one module's six returns and one reply, but a contract the interface reads, with a new
 type and two cases no test covers yet.
 
 **What must be true.** When a person's release of a held or refused message is answered `NOT_DELIVERABLE`, the reply

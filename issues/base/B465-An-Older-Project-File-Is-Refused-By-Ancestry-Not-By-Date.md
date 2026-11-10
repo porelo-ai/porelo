@@ -1,8 +1,22 @@
 # B465 — An Older Project File Is Refused By Ancestry, Not By Date
 
-**Status:** Idea.
-**Size:** S - what a machine remembers of the file it accepted, and how it compares a later one, with its tests.
-**Severity:** medium: anyone with write access to a project's repository can bring back an older file an admin signed, in a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B465",
+  "title": "An Older Project File Is Refused By Ancestry, Not By Date",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": [],
+  "covers": "A machine remembers the project file's commit it accepted and refuses a later one that does not descend from it, so a file signed in the same second as a newer one cannot come back."
+}
+```
+
+**Why this size.** what a machine remembers of the file it accepted, and how it compares a later one, with its tests.
+
+**Severity.** medium: anyone with write access to a project's repository can bring back an older file an admin signed, in a
 narrow case.
 
 **What must be true.** Once a machine accepted a project's file, it never accepts a file signed before that one, even if both

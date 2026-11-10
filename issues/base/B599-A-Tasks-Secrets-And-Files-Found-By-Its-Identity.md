@@ -1,9 +1,24 @@
-# [B599](README.md#b599) — A Task's Secrets And Files Found By Its Identity
+# B599 — A Task's Secrets And Files Found By Its Identity
 
-**Status:** Backlog. Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
-**Priority:** high (the operator, 2026-11-09, for [B538](README.md#b538)).
-**Size:** M - the gate, vault and file consumers routed through the identity.
-**Blocked by:** [B596](README.md#b596), [B598](README.md#b598).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B599",
+  "title": "A Task's Secrets And Files Found By Its Identity",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "High",
+  "rank": 4,
+  "blockedBy": ["B596", "B598"],
+  "covers": "Gate, vault and file paths are reached through a task's identity."
+}
+```
+
+**Why this size.** the gate, vault and file consumers routed through the identity.
+
+Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+
+High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
 **What must be true.** Gate, vault and filesystem consumers (`TaskSecrets`, `GateSupport`, `GateServeCommand`, `ReviewText`, `HandIns`, `ApprovalBranch`, `TaskBase`, `TaskControl`, certification and resume) find a task's secrets and files through its identity, never by rebuilding a name: an old task signs and pushes with its own key and token, and removing or pruning one task never touches another's.
 

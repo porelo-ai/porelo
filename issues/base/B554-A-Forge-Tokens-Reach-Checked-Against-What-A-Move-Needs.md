@@ -1,9 +1,24 @@
-# [B554](README.md#b554) — A Forge Token's Reach Checked Against What A Move Needs
+# B554 — A Forge Token's Reach Checked Against What A Move Needs
 
-**Status:** Review. Filed 2026-11-09 for the operator's automated rehearsal of a move on a rented server, run by the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B554",
+  "title": "A Forge Token's Reach Checked Against What A Move Needs",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 6,
+  "blockedBy": [],
+  "covers": "A forge token's permissions checked against what a move asks of it, each missing one named, before a server is rented."
+}
+```
+
+**Why this size.** one more need in the founding's check, read-only, from the forge's own answers.
+
+Filed 2026-11-09 for the operator's automated rehearsal of a move on a rented server, run by the
 agents under a test identity whose token the operator makes once; built the same day on the operator's order to build
 the rehearsal now.
-**Size:** S - one more need in the founding's check, read-only, from the forge's own answers.
 
 **What must be true.** Before a move, a person learns from porelo, without changing anything, whether their forge token
 reaches what the move will ask of it in the organization: reading who owns it (members), making a project's

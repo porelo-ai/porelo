@@ -1,8 +1,22 @@
-# [B594](README.md#b594) — A Room For Default Is Refused By Name
+# B594 — A Room For Default Is Refused By Name
 
-**Status:** Review. Filed 2026-11-10 in `porelo-project` ST30 (Work without a project, with plain refusals), porelo's part of its PJ14.
-**Size:** S - one refusal, said where a conversation or a peer is set up for `default`, in egress's words; its tests.
-**Blocked by:** -.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B594",
+  "title": "A Room For Default Is Refused By Name",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is."
+}
+```
+
+**Why this size.** one refusal, said where a conversation or a peer is set up for `default`, in egress's words; its tests.
+
+Filed 2026-11-10 in `porelo-project` ST30 (Work without a project, with plain refusals), porelo's part of its PJ14.
 
 **What must be true.** A transport or a peer for project `default` is refused, naming a project repository as the
 way, as a change to `default`'s egress already is (`EgressControl.DEFAULT_REFUSED`). Today a conversation set up

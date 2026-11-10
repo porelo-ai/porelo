@@ -1,9 +1,21 @@
-# [B546](README.md#b546) — The Host Tool Measures, Copies And Advances A Project
+# B546 — The Host Tool Measures, Copies And Advances A Project
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B546",
+  "title": "The Host Tool Measures, Copies And Advances A Project",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 37,
+  "blockedBy": ["B545"],
+  "covers": "`porelo-host project measure-central | copy | advance | check-central`."
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** L.
-**Blocked by:** [B545](README.md#b545).
 
 **What must be true.** Measuring against central (the central-state record [B543](README.md#b543) reads), copying and advancing `main`, and `check-central`
 for `down`, as `porelo-host-project` and `porelo-host-push --check` do.

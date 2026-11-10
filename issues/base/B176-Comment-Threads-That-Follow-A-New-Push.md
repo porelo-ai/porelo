@@ -1,9 +1,23 @@
-# [B176](README.md#b176) — Comment Threads That Follow A New Push
+# B176 — Comment Threads That Follow A New Push
 
-**Status:** Analyzed.
-**Blocked by:** [B166](README.md#b166), [B291](README.md#b291).
-**Blocks:** [B163](README.md#b163), [B289](README.md#b289).
-**Size:** M - Git-object line mapping, durable pin/reconcile logic and bounded SARIF projection, with CLI/daemon rendering and acceptance.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B176",
+  "title": "Comment Threads That Follow A New Push",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": ["B166", "B291"],
+  "covers": "Byte-exact thread relocation with original revision retained, outdated reasons and hidden pins; moved fixes revalidated and SARIF runs separated by revision.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** Git-object line mapping, durable pin/reconcile logic and bounded SARIF projection, with CLI/daemon rendering and acceptance.
+
+**Blocks.** [B163](README.md#b163), [B289](README.md#b289).
 
 **What must be true.** A line thread follows a new push of the same task only while its anchored bytes are unchanged,
 including a shift or file rename. Changed lines, a missing file or a reused task name leave it on its pinned old

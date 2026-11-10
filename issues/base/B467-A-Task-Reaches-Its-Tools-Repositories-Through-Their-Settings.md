@@ -1,8 +1,23 @@
 # B467 — A Task Reaches Its Tool's Repositories Through Their Settings
 
-**Status:** Backlog; folds into [B470](README.md#b470).
-**Size:** M - a section of the project file with its schema and document, the call at both start paths, the draft of a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B467",
+  "title": "A Task Reaches Its Tool's Repositories Through Their Settings",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 19,
+  "blockedBy": ["B468"],
+  "covers": "A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns."
+}
+```
+
+**Why this size.** a section of the project file with its schema and document, the call at both start paths, the draft of a
 first start, and their tests; no change to Porelo's own daemon contract.
+
+Folds into [B470](README.md#b470).
 
 **What must be true.** A project declares, in `project.yml`, the repositories its build tool reaches, each by its name
 and URL, and may keep settings for the tool's adapter beside them. When the project's task starts, it holds the settings files that the installed

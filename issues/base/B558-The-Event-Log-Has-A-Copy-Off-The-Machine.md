@@ -1,9 +1,23 @@
-# [B558](README.md#b558) — The Event Log Has A Copy Off The Machine
+# B558 — The Event Log Has A Copy Off The Machine
 
-**Status:** Backlog, priority Medium. Split off from [B154](README.md#b154) on the operator's word of 2026-11-09, as its
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B558",
+  "title": "The Event Log Has A Copy Off The Machine",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": ["B154"],
+  "covers": "Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event."
+}
+```
+
+**Why this size.** a setting, a sender that never blocks an event, its failure named by `doctor`, and the documentation.
+
+Split off from [B154](README.md#b154) on the operator's word of 2026-11-09, as its
 part 2; for after the move-4 test.
-**Size:** M - a setting, a sender that never blocks an event, its failure named by `doctor`, and the documentation.
-**Blocked by:** [B154](README.md#b154).
 
 **What must be true.** Where the account-wide `config.yml` names a destination (`event_log: {copy: <destination>}`,
 absent by default), each line appended to the event log is also sent off the machine, so the record does not hang on

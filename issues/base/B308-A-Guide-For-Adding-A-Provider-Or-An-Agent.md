@@ -1,7 +1,21 @@
 # B308 — A Guide For Adding A Provider Or An Agent
 
-**Status:** Analyzed.
-**Size:** L - crosses repositories: the kit's feature set and its steps, porelo-parent's acceptance profile, the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B308",
+  "title": "A Guide For Adding A Provider Or An Agent",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** crosses repositories: the kit's feature set and its steps, porelo-parent's acceptance profile, the
 guide and its scripts here; each adapter switches to the kit's set in an issue of its own.
 
 **What must be true.** Whoever adds a provider or an agent finds in `doc/` one guide to the checks that prove it

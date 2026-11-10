@@ -1,7 +1,20 @@
 # B426 — A Person's Projects Listed From The Host's File
 
-**Status:** Review.
-**Size:** S - one more file read in `OrganizationProjects`, a test, a doc line.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B426",
+  "title": "A Person's Projects Listed From The Host's File",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 124,
+  "blockedBy": [],
+  "covers": "`porelo project list` on a host names what the host's file for this person names, also before a first start"
+}
+```
+
+**Why this size.** one more file read in `OrganizationProjects`, a test, a doc line.
 
 **What must be true.** In a person's host account, `porelo project list` shows every project the host carries for that
 person, also before their first start there. porelo-host publishes the file at each follow; this reads it.

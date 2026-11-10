@@ -1,7 +1,20 @@
 # B214 — A Vault Entry Put Again Unchanged
 
-**Status:** Review.
-**Size:** M - two modules (`vault`, `app-vault`) and a `--json` answer porelo-host's play reads, with a row in `doc/hosts.md`.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B214",
+  "title": "A Vault Entry Put Again Unchanged",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 122,
+  "blockedBy": [],
+  "covers": "`vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed"
+}
+```
+
+**Why this size.** two modules (`vault`, `app-vault`) and a `--json` answer porelo-host's play reads, with a row in `doc/hosts.md`.
 
 **What must be true.** `porelo vault put NAME` given exactly the value the entry already holds says so and exits 0,
 so a playbook that puts its keys on every run can report that nothing changed, without ever comparing a value

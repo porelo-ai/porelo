@@ -1,6 +1,18 @@
 # B324 — A Moved Waiting Push Changes WatchProjects
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B324",
+  "title": "A Moved Waiting Push Changes WatchProjects",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 50,
+  "blockedBy": [],
+  "covers": "A waiting push that moves to another commit changes a `WatchProjects` reply, though no count changes, so an interface sees the new work within seconds"
+}
+```
 
 **What must be true.** When a task pushes again and its waiting push moves to another commit, a
 `WatchProjects` stream sends a reply within its usual delay even though no count changed, so an

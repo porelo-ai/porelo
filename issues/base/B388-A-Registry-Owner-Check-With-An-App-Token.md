@@ -1,9 +1,23 @@
 # B388 — A Registry Owner Check With An App Token
 
-**Status:** Review.
-**Severity:** high.
-**Size:** S, proposed - the registry takes a token declared in a variable or a file, and an organisation's App
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B388",
+  "title": "A Registry Owner Check With An App Token",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 112,
+  "blockedBy": [],
+  "covers": "The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault"
+}
+```
+
+**Why this size.** proposed: the registry takes a token declared in a variable or a file, and an organisation's App
 installation token is taken as one that sees every membership.
+
+**Severity.** high.
 
 **What must be true.** The registry's owner check works with a GitHub App installation token that a program hands it
 for one call, without a personal token in Porelo's vault.

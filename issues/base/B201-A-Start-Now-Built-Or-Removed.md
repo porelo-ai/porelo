@@ -1,7 +1,21 @@
 # B201 — A Start Now, Built Or Removed
 
-**Status:** Analyzed.
-**Size:** S - one option, a comment in the contract and two lines of docs; no change in what the daemon does.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B201",
+  "title": "A Start Now, Built Or Removed",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 36,
+  "blockedBy": [],
+  "covers": "`task start --now` is accepted and does nothing: built or removed, after finding what it was meant for.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** one option, a comment in the contract and two lines of docs; no change in what the daemon does.
 
 **What must be true.** `porelo task start --now` does what it says, or is no longer offered: an option a person can
 type and that changes nothing is either built or removed, with whichever is chosen written down.

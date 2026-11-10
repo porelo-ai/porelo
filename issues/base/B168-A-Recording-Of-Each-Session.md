@@ -1,7 +1,20 @@
 # B168 — A Recording Of Each Session
 
-**Status:** Estimated.
-**Size:** M - not small: tmux runs inside the task as the agent, so the recording needs a reader on the host the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B168",
+  "title": "A Recording Of Each Session",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 31,
+  "blockedBy": [],
+  "covers": "A session recording by a read-only tmux control-mode client run from the host, a `.cast` outside the task (an unattended run's `task.log`), kept 30 days, at most 64 MiB, `task replay`."
+}
+```
+
+**Why this size.** not small: tmux runs inside the task as the agent, so the recording needs a reader on the host the
 agent cannot steer, a format, a replay command, keeping and removing, docs and an acceptance step.
 
 **What must be true.** What a task's terminal showed is kept on the host as a recording, can be played back, and is

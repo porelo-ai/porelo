@@ -1,7 +1,20 @@
 # B459 — Every Credential's Failure Says What To Do
 
-**Status:** Implementing.
-**Size:** L - credential checks, upstream reads and pushes, provider grants, host access, and window controls cross modules and repositories.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B459",
+  "title": "Every Credential's Failure Says What To Do",
+  "state": "Implementing",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending."
+}
+```
+
+**Why this size.** credential checks, upstream reads and pushes, provider grants, host access, and window controls cross modules and repositories.
 
 **What must be true.** Every failure of a credential says what happened and what to do now, with a control for it in a window, and the command at a
 terminal. Nothing shows a tool's raw line alone.

@@ -1,10 +1,24 @@
 # B384 — A Start That Waits For Its Helpers
 
-**Status:** Idea.
-**Severity:** medium.
-**Size:** S, proposed - the gate and relay awaited until they record their pid, a helper that does not come up failing
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B384",
+  "title": "A Start That Waits For Its Helpers",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 39,
+  "blockedBy": [],
+  "covers": "A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task"
+}
+```
+
+**Why this size.** proposed: the gate and relay awaited until they record their pid, a helper that does not come up failing
 the start and the resume with a code, the host's two refusals moved before the resume record, a failed start's
 cleanup bound to the id it recorded itself, and the tests' helpers turned into stand-ins first.
+
+**Severity.** medium.
 
 **What must be true.** `porelo task start` and a resume answer success only when every helper of the task runs, and a
 start that fails leaves nothing it made running and stops nothing it did not make:

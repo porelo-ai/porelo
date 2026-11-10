@@ -1,6 +1,18 @@
 # B252 — A Sign-In Collected on No Disk
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B252",
+  "title": "A Sign-In Collected on No Disk",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 79,
+  "blockedBy": [],
+  "covers": "A sign-in made in a login container reaches the vault without lying in plaintext on a disk, where today it passes through the container's layer and the host's temporary directory"
+}
+```
 
 **What must be true.** A sign-in made in a login container reaches the vault without lying in plaintext on a disk
 on the way: not in the container's own layer, not in a temporary directory of the host.

@@ -1,8 +1,22 @@
 # B424 — A Person's Forge Token Replaced At Each Command
 
-**Status:** Accepted.
-**Size:** S - one lend per measuring round instead of one per repository, and its test.
-**Severity:** low for now: a retry works, and a failure refuses, but the person's own forge token can die under anything else holding it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B424",
+  "title": "A Person's Forge Token Replaced At Each Command",
+  "state": "Accepted",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "`porelod`'s measuring asks the host's forge for one lent token per round, not one per repository; the host tool's lending switch already keeps a lend from taking the person's or another lend's token."
+}
+```
+
+**Why this size.** one lend per measuring round instead of one per repository, and its test.
+
+**Severity.** low for now: a retry works, and a failure refuses, but the person's own forge token can die under anything else holding it.
 
 **What must be true.** Nothing a person does with their forge token on a host fails because another command of theirs asked for one.
 

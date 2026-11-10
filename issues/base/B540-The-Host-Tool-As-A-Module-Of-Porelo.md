@@ -1,9 +1,21 @@
-# [B540](README.md#b540) — The Host Tool As A Module Of Porelo
+# B540 — The Host Tool As A Module Of Porelo
 
-**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B540",
+  "title": "The Host Tool As A Module Of Porelo",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 39,
+  "blockedBy": [],
+  "covers": "`host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only)."
+}
+```
+
+Review since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
 the operator's move-4 test.
-**Size:** M.
-**Blocked by:** -.
 
 **What must be true.** A module `host/` of porelo, built by Agent Core and read by Agent Machines, builds the native binary `porelo-host` in porelo's reactor and
 the package `porelo-host` (`.deb`, binary at `/usr/sbin/porelo-host` and its man page), signed and published as

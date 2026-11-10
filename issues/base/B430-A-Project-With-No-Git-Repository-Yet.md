@@ -1,7 +1,20 @@
 # B430 — A Project With No Git Repository Yet
 
-**Status:** Review.
-**Size:** M - a command renamed and a contract the window reads, several modules, and the one step.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B430",
+  "title": "A Project With No Git Repository Yet",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 107,
+  "blockedBy": [],
+  "covers": "The command says it creates the project's Git repository instead of \"open\", and adding a project with yourself as its admin can be one step."
+}
+```
+
+**Why this size.** a command renamed and a contract the window reads, several modules, and the one step.
 
 **What must be true.** The command line says what happens: the project's Git repository is created, and its first
 `project.yml` is signed in the same step. A person adding a project with themselves as its admin can do it in one step.

@@ -1,9 +1,23 @@
-# [B141](README.md#b141) — New Dependencies Checked Before Review
+# B141 — New Dependencies Checked Before Review
 
-**Status:** Analyzed.
-**Blocked by:** [B136](README.md#b136), [B291](README.md#b291), [B292](README.md#b292).
-**Blocks:** [B323](README.md#b323), [B293](README.md#b293), [B163](README.md#b163).
-**Size:** XL - two manifest formats, registry metadata and commit-bound approval holds; splits into M, L and S parts below.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B141",
+  "title": "New Dependencies Checked Before Review",
+  "state": "Analyzed",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": ["B136", "B291", "B292"],
+  "covers": "Dependency changes and registry/name findings as SARIF; commit-bound human confirmation holds approval; splits into extraction (M), registry/hold (L), look-alike names (S).",
+  "openQuestions": 1
+}
+```
+
+**Why this size.** two manifest formats, registry metadata and commit-bound approval holds; splits into M, L and S parts below.
+
+**Blocks.** [B323](README.md#b323), [B293](README.md#b293), [B163](README.md#b163).
 
 **What must be true.** Added or changed dependencies appear in the review with existence, age and look-alike-name
 findings as SARIF evidence. A finding holds approval until a person confirms that dependency for the exact reviewed

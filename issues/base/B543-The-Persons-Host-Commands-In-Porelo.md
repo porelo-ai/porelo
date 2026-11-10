@@ -1,10 +1,22 @@
-# [B543](README.md#b543) — The Person's Host Commands In Porelo
+# B543 — The Person's Host Commands In Porelo
 
-**Status:** Review. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B543",
+  "title": "The Person's Host Commands In Porelo",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 30,
+  "blockedBy": ["B540"],
+  "covers": "`porelo host forge-token | central-state | stop-secrets`, and porelod reading the central state as a checked file."
+}
+```
+
+Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
 built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
 move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
-**Size:** L.
-**Blocked by:** [B540](README.md#b540).
 
 **What must be true.** porelo gains `porelo host forge-token` (calls `sudo -n porelo-host forge issue-token`, the token read from its
 stdout and stored into the vault; the passphrase asked only when the vault is shut), `porelo host central-state

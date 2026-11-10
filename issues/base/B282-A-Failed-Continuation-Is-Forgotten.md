@@ -1,6 +1,18 @@
 # B282 — A Failed Continuation Is Forgotten
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B282",
+  "title": "A Failed Continuation Is Forgotten",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 71,
+  "blockedBy": [],
+  "covers": "A continuation that fails without naming a session forgets the recorded one, so the next start is fresh and says so"
+}
+```
 
 **What must be true.** A run asked to continue a recorded session that fails without naming a session of its own has
 the recorded session forgotten, so the next start is fresh and says so, as the decision on sessions states; nothing

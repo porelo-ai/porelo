@@ -1,7 +1,20 @@
 # B468 — An Adapter Gets The Project's Settings Meant For It
 
-**Status:** Review.
-**Size:** S - one record, one optional parameter, the interface description, the adapter document and their tests in
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B468",
+  "title": "An Adapter Gets The Project's Settings Meant For It",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 90,
+  "blockedBy": [],
+  "covers": "An ecosystem adapter receives at `Configure` the block the project keeps for it under `extensions.<adapter>`, unchanged, unread by Porelo and bounded in size; no tool-specific field in the contract."
+}
+```
+
+**Why this size.** one record, one optional parameter, the interface description, the adapter document and their tests in
 `ecosystems/`; a contract other repositories read, grown compatibly.
 
 **What must be true.** An ecosystem adapter asked to `Configure` receives the settings the project keeps for that adapter

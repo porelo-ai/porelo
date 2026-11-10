@@ -1,8 +1,22 @@
-# [B593](README.md#b593) — A Join Says When It Invited
+# B593 — A Join Says When It Invited
 
-**Status:** Implementing, since 2026-11-10. Filed 2026-11-10 in `porelo-project` ST308, for porelo-frontend's F400.
-**Size:** XS - one field of the transport's join answer handed on by `JoinMessages`, its words and its test.
-**Blocked by:** -.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B593",
+  "title": "A Join Says When It Invited",
+  "state": "Implementing",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "`JoinMessages` answers `invited: true` when a join invited an account the person already has, so the window says to accept the invitation."
+}
+```
+
+**Why this size.** one field of the transport's join answer handed on by `JoinMessages`, its words and its test.
+
+Implementing since 2026-11-10. Filed 2026-11-10 in `porelo-project` ST308, for porelo-frontend's F400.
 
 **What must be true.** When a join invites a Matrix account the person already has into a second project's room,
 rather than making one, `JoinMessages` answers `invited: true` (and no password, as the transport gives none);

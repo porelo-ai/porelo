@@ -1,8 +1,23 @@
 # B274 — A Room Line Wakes Only The Tasks It Mentions
 
-**Status:** Accepted. It needs the transport to report a line addressed to the whole room.
-**Size:** S, a guess: one rule in `AgentWake.namesIt`, one field read from the transport, `doc/messages.md`, and the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B274",
+  "title": "A Room Line Wakes Only The Tasks It Mentions",
+  "state": "Accepted",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 7,
+  "blockedBy": [],
+  "covers": "A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention"
+}
+```
+
+**Why this size.** a guess: one rule in `AgentWake.namesIt`, one field read from the transport, `doc/messages.md`, and the
 tests.
+
+It needs the transport to report a line addressed to the whole room.
 
 **What must be true.** A person's line in the project's room wakes only the tasks it mentions, and every task when it
 is addressed to the whole room (`@room`). A line that names nobody is delivered to every task as today but wakes none:

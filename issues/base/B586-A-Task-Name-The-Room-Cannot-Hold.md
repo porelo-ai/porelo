@@ -1,7 +1,22 @@
-# [B586](README.md#b586) — A Task Name The Room Cannot Hold
+# B586 — A Task Name The Room Cannot Hold
 
-**Status:** Review. Filed 2026-11-10 under ST290, from the reading of [B582](README.md#b582).
-**Size:** S - the bracket's room in `TransportLifecycle.display`, and `capitalized` for an empty word.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B586",
+  "title": "A Task Name The Room Cannot Hold",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": [],
+  "covers": "A long task name on a clash, and one with two hyphens in a row, still get a name in the room."
+}
+```
+
+**Why this size.** the bracket's room in `TransportLifecycle.display`, and `capitalized` for an empty word.
+
+Filed 2026-11-10 under ST290, from the reading of [B582](README.md#b582).
 
 **What must be true.** Every task enrolled in a room that shows names is given one no other task holds, within the
 room's 64 characters: also a task whose own name is 54 characters or more when another task holds it, and a task whose

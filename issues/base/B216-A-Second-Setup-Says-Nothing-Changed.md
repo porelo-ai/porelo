@@ -1,7 +1,20 @@
 # B216 — A Second Setup Says Nothing Changed
 
-**Status:** Review.
-**Size:** M - one shell script, but a `--json` answer porelo-host's role reads, docs in `doc/running.md` and `doc/hosts.md`, and tests that stub the machine.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B216",
+  "title": "A Second Setup Says Nothing Changed",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 104,
+  "blockedBy": [],
+  "covers": "A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly"
+}
+```
+
+**Why this size.** one shell script, but a `--json` answer porelo-host's role reads, docs in `doc/running.md` and `doc/hosts.md`, and tests that stub the machine.
 
 **What must be true.** `porelo-setup.sh` run on a machine it already prepared changes nothing, and says so in a
 form a program reads: a playbook that runs it on every `up` can report "unchanged" truly, without reading the lines

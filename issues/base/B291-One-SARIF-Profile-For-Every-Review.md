@@ -1,6 +1,18 @@
-# [B291](README.md#b291) — One SARIF Profile For Every Review
+# B291 — One SARIF Profile For Every Review
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B291",
+  "title": "One SARIF Profile For Every Review",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 60,
+  "blockedBy": [],
+  "covers": "One closed SARIF 2.1.0 profile for every review producer and consumer, with field ownership, Git-tree anchors, safe rendering and shared fixtures."
+}
+```
 
 **What must be true.** Every review comment, finding, suggestion, thread and check round uses one closed,
 versioned SARIF 2.1.0 profile, shared by the daemon, message filter, forge adapters, CLI, interface and IDE plugin.

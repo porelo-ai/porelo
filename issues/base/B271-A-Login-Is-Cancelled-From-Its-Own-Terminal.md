@@ -1,7 +1,21 @@
 # B271 — A Login Is Cancelled From Its Own Terminal
 
-**Status:** Analyzed.
-**Size:** M - `AgentLogin`, `VaultLoginCommand`, the stub agent's login, a terminal key and an acceptance scenario,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B271",
+  "title": "A Login Is Cancelled From Its Own Terminal",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "`porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero; Ctrl-] twice, Porelo's own detach key, stops it whatever the agent does with Ctrl-C",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** `AgentLogin`, `VaultLoginCommand`, the stub agent's login, a terminal key and an acceptance scenario,
 and two document rows; no daemon contract.
 
 **What must be true.** A person who started `porelo vault login <agent>` can always end it from that terminal, whatever

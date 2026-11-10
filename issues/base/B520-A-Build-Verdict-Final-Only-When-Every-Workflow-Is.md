@@ -1,7 +1,22 @@
-# [B520](README.md#b520) — A Build Verdict Final Only When Every Workflow Is
+# B520 — A Build Verdict Final Only When Every Workflow Is
 
-**Status:** Review. Filed 2026-11-08 from the third move's findings 13b, 16 and 20 (the operator's decision, 19:38Z).
-**Size:** S - `BuildWatch` keeps watching a commit after its first final verdict.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B520",
+  "title": "A Build Verdict Final Only When Every Workflow Is",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 55,
+  "blockedBy": [],
+  "covers": "A commit's build verdict reaches the task as final only once every workflow of it is, and a later run of the same commit, started by hand, is followed again and its file replaced."
+}
+```
+
+**Why this size.** `BuildWatch` keeps watching a commit after its first final verdict.
+
+Filed 2026-11-08 from the third move's findings 13b, 16 and 20 (the operator's decision, 19:38Z).
 
 **What must be true.** Within the decided design (doc/running.md "builds": no forge credential in a task, Porelo
 reads from the host and replaces `build-<commit>.txt` as the verdict changes):

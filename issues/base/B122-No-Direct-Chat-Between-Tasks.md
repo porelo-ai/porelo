@@ -1,7 +1,20 @@
 # B122 — No Direct Chat Between Tasks
 
-**Status:** Analyzed.
-**Size:** M - `app-messaging` and the start's check in `app-task`, the mailbox guide and `doc/messages.md`.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B122",
+  "title": "No Direct Chat Between Tasks",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 16,
+  "blockedBy": [],
+  "covers": "Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send."
+}
+```
+
+**Why this size.** `app-messaging` and the start's check in `app-task`, the mailbox guide and `doc/messages.md`.
 
 **What must be true.** Two tasks never talk in a direct chat: a direct chat exists only between a
 task and a person who joined the project's conversation, so what tasks say to each other is said

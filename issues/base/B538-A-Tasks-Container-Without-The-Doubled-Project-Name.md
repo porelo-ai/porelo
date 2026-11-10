@@ -1,10 +1,26 @@
-# [B538](README.md#b538) — A Task's Container Without The Doubled Project Name
+# B538 — A Task's Container Without The Doubled Project Name
 
-**Status:** Implementing, since 2026-11-10 (`porelo-project` ST307; plan first). Filed 2026-11-09 from move 3's findings 10/19 and [B532](README.md#b532), as the operator decided
-it (the operator's decision of 2026-11-09 on the open points of wave 2, point 6: keep the name now, plan the change).
-**Priority:** high (the operator, 2026-11-09).
-**Size:** L for the build, split below: shared identity lookup, creation, credentials and messaging, daemon access,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B538",
+  "title": "A Task's Container Without The Doubled Project Name",
+  "state": "Implementing",
+  "size": "L",
+  "priority": "High",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority."
+}
+```
+
+**Why this size.** for the build, split below: shared identity lookup, creation, credentials and messaging, daemon access,
 and the window's validation cross module and repository boundaries. This work is the plan only; the build is [B596](README.md#b596) to [B602](README.md#b602).
+
+Implementing since 2026-11-10 (`porelo-project` ST307; plan first). Filed 2026-11-09 from move 3's findings 10/19 and [B532](README.md#b532), as the operator decided
+it (the operator's decision of 2026-11-09 on the open points of wave 2, point 6: keep the name now, plan the change).
+
+High priority (the operator, 2026-11-09).
 
 **What must be true.** A task of repository `porelo-pi` in project `porelo` is the container `porelo-pi`, not
 `porelo-porelo-pi`; tasks made before keep working (attach, resume, stop, their mail, vault entries, sockets), and no

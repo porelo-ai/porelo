@@ -1,7 +1,20 @@
 # B321 — A Long Command Says What It Is Doing
 
-**Status:** Review.
-**Size:** M - a line-by-line stderr path in the command runner, its redaction, the transport verbs and the other long
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B321",
+  "title": "A Long Command Says What It Is Doing",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 105,
+  "blockedBy": [],
+  "covers": "A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds"
+}
+```
+
+**Why this size.** a line-by-line stderr path in the command runner, its redaction, the transport verbs and the other long
 commands found by the sweep, docs and tests.
 
 **What must be true.** A person who runs a command that takes long sees what it is doing while it runs, including what

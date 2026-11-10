@@ -1,7 +1,20 @@
 # B142 — A Misuse Test Suite As A Release Condition
 
-**Status:** Estimated.
-**Size:** L - attack scenarios of three kinds and their steps in the acceptance kit, a documents test, and a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B142",
+  "title": "A Misuse Test Suite As A Release Condition",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 19,
+  "blockedBy": [],
+  "covers": "`@misuse` scenarios of all three kinds (escape, exfiltration by DNS, allowed domains and the broker, approval bypass), each naming its page; a red one holds the release, none is ever skipped, and the release refuses legs that ran fewer than the suite holds."
+}
+```
+
+**Why this size.** attack scenarios of three kinds and their steps in the acceptance kit, a documents test, and a
 check in the release workflow.
 
 **What must be true.** A release passes a suite of misuse scenarios - escaping the container, exfiltration past the firewall and the broker, bypassing the approval - before it is made.

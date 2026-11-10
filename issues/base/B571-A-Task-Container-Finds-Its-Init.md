@@ -1,7 +1,22 @@
-# [B571](README.md#b571) — A Task Container Finds Its Init
+# B571 — A Task Container Finds Its Init
 
-**Status:** Review. Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
-**Size:** XS - one package dependency and its check, in `dist/dist-deb` and the start's preflight.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B571",
+  "title": "A Task Container Finds Its Init",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 21,
+  "blockedBy": [],
+  "covers": "porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made."
+}
+```
+
+**Why this size.** one package dependency and its check, in `dist/dist-deb` and the start's preflight.
+
+Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
 
 **What must be true.** A machine that installed porelo's package can start a task.
 - porelo's `.deb` depends on `catatonit`, the init `podman create --init` looks up; every task container is started

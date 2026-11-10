@@ -1,7 +1,20 @@
 # B431 — Change A Repository Row In One Commit
 
-**Status:** Review.
-**Size:** S - one module's new subcommand and one write in `ProjectFile`, with tests; the file's format does not change.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B431",
+  "title": "Change A Repository Row In One Commit",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 108,
+  "blockedBy": [],
+  "covers": "`porelo project repository change` changes a row in one signed commit and keeps the fields it does not name."
+}
+```
+
+**Why this size.** one module's new subcommand and one write in `ProjectFile`, with tests; the file's format does not change.
 
 **What must be true.** A Project Admin changes a row of `project.yml` in one signed commit, and every field the change does
 not name stays as it was.

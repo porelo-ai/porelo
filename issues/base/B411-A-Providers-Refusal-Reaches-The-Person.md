@@ -1,7 +1,20 @@
 # B411 — A Provider's Refusal Reaches The Person
 
-**Status:** Idea.
-**Severity:** medium: a failed start hides why it failed, and the person looks in the wrong place; nothing leaks.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B411",
+  "title": "A Provider's Refusal Reaches The Person",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 24,
+  "blockedBy": [],
+  "covers": "A provider's error the proxy can check reaches the person, where JSON labelled `text/plain` is withheld today and `model_not_supported` is never read"
+}
+```
+
+**Severity.** medium: a failed start hides why it failed, and the person looks in the wrong place; nothing leaks.
 
 **What must be true.** A provider's error that can be checked for a credential reaches the person, so they read why the
 provider refused. An answer the proxy truly cannot check stays withheld.

@@ -1,7 +1,20 @@
 # B440 — An OpenSSH Below The Floor Is Refused In Words
 
-**Status:** Review.
-**Size:** S - one probe, one refusal, one page.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B440",
+  "title": "An OpenSSH Below The Floor Is Refused In Words",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 97,
+  "blockedBy": [],
+  "covers": "An OpenSSH below the stated floor is refused in words, and the documents state the floor."
+}
+```
+
+**Why this size.** one probe, one refusal, one page.
 
 **What must be true.** The documents state the lowest OpenSSH Porelo works with, and below it Porelo refuses in words that
 name the version found and the version needed, rather than failing later in a `ssh-keygen` call.

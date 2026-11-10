@@ -1,7 +1,20 @@
 # B438 — No Character Of A Token In A Line
 
-**Status:** Review.
-**Size:** S - the two abbreviations go, and the lines that used them say what they can.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B438",
+  "title": "No Character Of A Token In A Line",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 103,
+  "blockedBy": [],
+  "covers": "No character of a token in a start's lines, a log or an exception: the variable is named, and the abbreviations are gone."
+}
+```
+
+**Why this size.** the two abbreviations go, and the lines that used them say what they can.
 
 **What must be true.** No character of a token appears in a start's lines, a log, an exception, or anywhere a person or a
 log can read it. A prefix is part of a secret, even a task-scoped one.

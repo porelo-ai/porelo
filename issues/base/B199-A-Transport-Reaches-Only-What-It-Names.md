@@ -1,6 +1,18 @@
 # B199 — A Transport Reaches Only What It Names
 
-**Status:** Accepted.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B199",
+  "title": "A Transport Reaches Only What It Names",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 14,
+  "blockedBy": [],
+  "covers": "A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them."
+}
+```
 
 **What must be true.** A transport's adapter reaches only the hosts its `setup` names in `reaches`, as
 `doc/transports.md` promises ("Porelo lets the transport reach those and nothing else") - or the page says what holds

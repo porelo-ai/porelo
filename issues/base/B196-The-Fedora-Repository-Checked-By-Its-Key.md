@@ -1,7 +1,20 @@
 # B196 — The Fedora Repository Checked By Its Key
 
-**Status:** Estimated.
-**Size:** S - one branch of `porelo-setup.sh`, the Fedora blocks of `README.md` and `doc/getting-started.md`, one
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B196",
+  "title": "The Fedora Repository Checked By Its Key",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 34,
+  "blockedBy": [],
+  "covers": "On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu."
+}
+```
+
+**Why this size.** one branch of `porelo-setup.sh`, the Fedora blocks of `README.md` and `doc/getting-started.md`, one
 documents test; no contract another repository reads.
 
 **What must be true.** On Fedora, as on Debian and Ubuntu, a machine takes Porelo's packages only from a repository

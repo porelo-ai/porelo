@@ -1,7 +1,20 @@
 # B108 — The Narrowed Message Schema Enforced
 
-**Status:** Analyzed.
-**Size:** M - one schema document both sides read, the guide made from it, and the filter given it: a contract.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B108",
+  "title": "The Narrowed Message Schema Enforced",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 19,
+  "blockedBy": [],
+  "covers": "One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again."
+}
+```
+
+**Why this size.** one schema document both sides read, the guide made from it, and the filter given it: a contract.
 
 **What must be true.** An agent in a task can send only messages of the narrowed schema [B14](README.md#b14)'s design describes, and
 the guide it reads tells it exactly that schema, not a looser one.

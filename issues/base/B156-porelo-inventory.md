@@ -1,7 +1,20 @@
 # B156 — porelo inventory
 
-**Status:** Estimated; blocked by porelo [B148](README.md#b148).
-**Size:** M - one command and its daemon method over records others write; the models need [B148](README.md#b148)'s record first.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B156",
+  "title": "porelo inventory",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 24,
+  "blockedBy": ["B148"],
+  "covers": "`porelo inventory` (text, `--json`, a daemon method) lists the account, agents, providers, credentials with the projects they serve, slots, deploy keys, last use and models."
+}
+```
+
+**Why this size.** one command and its daemon method over records others write; the models need [B148](README.md#b148)'s record first.
 
 **What must be true.** `porelo inventory` lists the agents, providers, models, credentials and their last use on this
 machine, the account it describes and the projects each credential serves, also as JSON for central collection; the

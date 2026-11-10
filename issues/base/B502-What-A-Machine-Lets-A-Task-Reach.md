@@ -1,7 +1,20 @@
-# [B502](README.md#b502) — What A Machine Lets A Task Reach
+# B502 — What A Machine Lets A Task Reach
 
-**Status:** Review.
-**Size:** M - a method in the egress contract part (`25-egress`), its record, and a test reading the same code
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B502",
+  "title": "What A Machine Lets A Task Reach",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 66,
+  "blockedBy": [],
+  "covers": "`Reach` answers `doc/reach.md`'s rows with this machine's values, and per task where it was widened or narrowed."
+}
+```
+
+**Why this size.** a method in the egress contract part (`25-egress`), its record, and a test reading the same code
 `ReachDocumentTest` reads.
 
 **What must be true.** A client of the daemon asks what a task on this machine can reach, hold, spend and produce -

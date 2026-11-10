@@ -1,7 +1,22 @@
-# [B521](README.md#b521) — The Gate Is Also The Task's Origin
+# B521 — The Gate Is Also The Task's Origin
 
-**Status:** Review. Filed 2026-11-08 from the third move's finding 13a (the operator's decision, 19:38Z).
-**Size:** S - one remote more in the workspace's clone script.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B521",
+  "title": "The Gate Is Also The Task's Origin",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 54,
+  "blockedBy": [],
+  "covers": "A task's workspace has `origin` beside `porelo`, both the gate, so `origin/main` works in every check; pushes still reach only the gate."
+}
+```
+
+**Why this size.** one remote more in the workspace's clone script.
+
+Filed 2026-11-08 from the third move's finding 13a (the operator's decision, 19:38Z).
 
 **What must be true.** A task's workspace has a remote `origin` beside `porelo`, at the same gate address, fetched
 with it, so `origin/main` works in every check a repository runs. A push still reaches only the gate, whichever remote

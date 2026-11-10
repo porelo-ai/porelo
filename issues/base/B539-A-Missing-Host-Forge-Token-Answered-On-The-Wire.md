@@ -1,11 +1,27 @@
-# [B539](README.md#b539) — A Missing Host Forge Token Answered On The Wire
+# B539 — A Missing Host Forge Token Answered On The Wire
 
-**Status:** Review; Backlog by the operator 2026-11-10. Filed 2026-11-09 for porelo-frontend's forge token on a host, made by the host when a
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B539",
+  "title": "A Missing Host Forge Token Answered On The Wire",
+  "state": "Review",
+  "size": "S",
+  "priority": "High",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority."
+}
+```
+
+**Why this size.** one contract type, a field on `CanStart`'s answer and one on the task's builds, both filled from the check
+`BuildsWiring` already makes; tests and the contract's text.
+
+Backlog by the operator 2026-11-10. Filed 2026-11-09 for porelo-frontend's forge token on a host, made by the host when a
 start needs it, which the operator accepted with priority High; this is porelo's part. Not built before the
 operator's word.
-**Priority:** high (the operator, 2026-11-09, with the window's forge token on a host).
-**Size:** S - one contract type, a field on `CanStart`'s answer and one on the task's builds, both filled from the check
-`BuildsWiring` already makes; tests and the contract's text.
+
+High priority (the operator, 2026-11-09, with the window's forge token on a host).
 
 **What must be true.** A client learns, as an answer and never only as a line on standard error, that the person's
 vault on a host lacks the credential the host's forge builds are read with: before a start (`CanStart`) and while a

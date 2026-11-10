@@ -1,7 +1,20 @@
 # B360 — The Person's Own Files Read Only As Themselves
 
-**Status:** Idea.
-**Size:** M, proposed - the directory check the identity verbs use, applied to every file Porelo reads or writes
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B360",
+  "title": "The Person's Own Files Read Only As Themselves",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 42,
+  "blockedBy": [],
+  "covers": "Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory"
+}
+```
+
+**Why this size.** proposed: the directory check the identity verbs use, applied to every file Porelo reads or writes
 under the person's configuration and state directories.
 
 **What must be true.** The identity verbs (`identity create`, `rotate`, `revoke`) read and write their own directories only when

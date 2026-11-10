@@ -1,6 +1,18 @@
 # B290 — A Merge Task Started When The Central Forge Moved
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B290",
+  "title": "A Merge Task Started When The Central Forge Moved",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 67,
+  "blockedBy": [],
+  "covers": "A task started by the host when the gathered push is refused, merging `central/main` into the local work, off unless the project says so."
+}
+```
 
 **What must be true.** When the gathered push
 from the host's forge to the central one is

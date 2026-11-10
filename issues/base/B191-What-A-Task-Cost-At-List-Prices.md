@@ -1,7 +1,20 @@
 # B191 — What A Task Cost At List Prices
 
-**Status:** Analyzed; blocked by porelo [B148](README.md#b148).
-**Size:** L - price data and its reader, a declaration of the account's own, sums in two commands and a daemon
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B191",
+  "title": "What A Task Cost At List Prices",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 18,
+  "blockedBy": ["B148"],
+  "covers": "Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `porelo usage` and `Cost`."
+}
+```
+
+**Why this size.** price data and its reader, a declaration of the account's own, sums in two commands and a daemon
 method, and a design of what a subscription saved to decide first.
 
 **What must be true.** Porelo says what each task, agent and model cost at the providers' list prices, from

@@ -1,8 +1,23 @@
-# [B477](README.md#b477) — An Admin Signs A Repository's porelo.yml Anew
+# B477 — An Admin Signs A Repository's porelo.yml Anew
 
-**Status:** Review. Accepted on the operator's word (2026-11-06).
-**Size:** S - one verb on the pattern of `porelo project sign`, for a repository's `porelo.yml`; its tests. Estimate 45
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B477",
+  "title": "An Admin Signs A Repository's porelo.yml Anew",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 81,
+  "blockedBy": [],
+  "covers": "`porelo project sign-repository-file`: an admin or developer signs a repository's porelo.yml anew with an empty signed commit, on the pattern of `project sign`."
+}
+```
+
+**Why this size.** one verb on the pattern of `porelo project sign`, for a repository's `porelo.yml`; its tests. Estimate 45
 minutes.
+
+Accepted on the operator's word (2026-11-06).
 
 **What must be true.** A project admin or developer makes a repository's `porelo.yml` in an organization's project
 taken again with one command, without writing git by hand: `porelo project sign-repository-file <project>

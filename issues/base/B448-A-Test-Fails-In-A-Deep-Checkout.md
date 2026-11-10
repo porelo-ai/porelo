@@ -1,7 +1,20 @@
 # B448 — A Test Fails In A Deep Checkout
 
-**Status:** Idea.
-**Size:** XS - one test's fixture.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B448",
+  "title": "A Test Fails In A Deep Checkout",
+  "state": "Idea",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 15,
+  "blockedBy": [],
+  "covers": "One unit test fails in a deep checkout, by a socket path too long."
+}
+```
+
+**Why this size.** one test's fixture.
 
 **What must be true.** The unit tests pass wherever the repository is checked out.
 

@@ -1,9 +1,24 @@
-# [B531](README.md#b531) — A Project's Repositories On This Machine
+# B531 — A Project's Repositories On This Machine
 
-**Status:** Review. Filed 2026-11-08 from the third move's finding 5 (the operator's decision: a machine's project
-page shows the project's repositories on that machine).
-**Size:** L - three fields on a contract type, a second measure on a host (its forge's copy against central), the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B531",
+  "title": "A Project's Repositories On This Machine",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 44,
+  "blockedBy": [],
+  "covers": "Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here."
+}
+```
+
+**Why this size.** three fields on a contract type, a second measure on a host (its forge's copy against central), the
 upstream record grown by a column; no new method.
+
+Filed 2026-11-08 from the third move's finding 5 (the operator's decision: a machine's project
+page shows the project's repositories on that machine).
 
 **What must be true.** A client asking a machine for its projects learns, per repository of a project, whether this
 machine carries it, holds work of it, how its mirror stands against the central forge, and how many of its tasks run

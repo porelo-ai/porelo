@@ -1,8 +1,23 @@
-# [B585](README.md#b585) — A Build's Runs By Trigger, And A Failed Job's Tests
+# B585 — A Build's Runs By Trigger, And A Failed Job's Tests
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move, on Agent Adapters' proposal.
-**Size:** M - four optional fields in Build2 and its Java types, carried through Tasks1's build answer, and the status
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B585",
+  "title": "A Build's Runs By Trigger, And A Failed Job's Tests",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 17,
+  "blockedBy": [],
+  "covers": "Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs."
+}
+```
+
+**Why this size.** four optional fields in Build2 and its Java types, carried through Tasks1's build answer, and the status
 that prints them.
+
+Filed 2026-11-09 under ST290, from the fourth move, on Agent Adapters' proposal.
 
 **What must be true.**
 - Build2's `Run` gains `event` (the forge's trigger, lower case: `push`, `pull_request`, ...) and `id` (the forge's

@@ -1,10 +1,24 @@
-# [B566](README.md#b566) — An Ended Run Says What Its Agent Answered
+# B566 — An Ended Run Says What Its Agent Answered
 
-**Status:** Implementing, since 2026-11-10. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
-2026-11-09; nothing is built before the operator's word.
-**Size:** M - grew from S on 2026-11-10: the answer (built, unpushed, `cf5115887` on `core-st294w1`), and `Done` with an
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B566",
+  "title": "An Ended Run Says What Its Agent Answered",
+  "state": "Implementing",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": [],
+  "covers": "`AgentEnded.answer`, the agent's declared last message, its end kept; `Done(outcome, why)` answered as `Task.ended`, FAILED derived."
+}
+```
+
+**Why this size.** grew from S on 2026-11-10: the answer (built, unpushed, `cf5115887` on `core-st294w1`), and `Done` with an
 outcome and a reason answered as `Task.ended`; the contract, the durable record, the inventory and the task socket.
-**Blocked by:** -.
+
+Implementing since 2026-11-10. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+2026-11-09; nothing is built before the operator's word.
 
 **What must be true.** A task whose agent's run ended carries `AgentEnded.answer`: the agent's last message, as the
 record its definition declares as the last message gives it, else "". A long answer keeps its end, where a work

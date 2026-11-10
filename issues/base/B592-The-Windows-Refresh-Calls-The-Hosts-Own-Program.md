@@ -1,8 +1,24 @@
-# [B592](README.md#b592) — The Window's Refresh Calls The Host's Own Program
+# B592 — The Window's Refresh Calls The Host's Own Program
 
-**Status:** Backlog. Filed 2026-11-10 under ST291, from the check of [B550](README.md#b550) against `main`.
-**Size:** XS - one program name in `OrgHostRefreshCommand`, its words and `doc/commands.md`.
-**Blocked by:** [porelo-host#HO156](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho156).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B592",
+  "title": "The Window's Refresh Calls The Host's Own Program",
+  "state": "Backlog",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "`porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`."
+}
+```
+
+**Why this size.** one program name in `OrgHostRefreshCommand`, its words and `doc/commands.md`.
+
+Filed 2026-11-10 under ST291, from the check of [B550](README.md#b550) against `main`.
+
+It waits on [porelo-host#HO156](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho156), an issue of another repository.
 
 **What must be true.** `porelo org host refresh` hands the organization's token to the host's own program,
 `/usr/sbin/porelo-host org refresh`, once a host's collection installs that package, and its refusal words name that

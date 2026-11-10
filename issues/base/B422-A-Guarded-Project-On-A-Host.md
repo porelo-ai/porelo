@@ -1,7 +1,20 @@
 # B422 — A Guarded Project On A Host
 
-**Status:** Idea.
-**Severity:** medium: without a `branch` block, work approved onto `main` at a host's gate cannot reach the host's own forge, and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B422",
+  "title": "A Guarded Project On A Host",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 20,
+  "blockedBy": [],
+  "covers": "A guarded project on a host has a way to hand its work to the host's forge, or is refused before a task starts: `gate approve` pushes to a protected `main` today."
+}
+```
+
+**Severity.** medium: without a `branch` block, work approved onto `main` at a host's gate cannot reach the host's own forge, and
 only the push's refusal says so.
 
 **What must be true.** A guarded project on a host has a way to hand its work to the host's forge, or it is refused before a task

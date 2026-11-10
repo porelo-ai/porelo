@@ -1,7 +1,22 @@
 # B482 — Gate Review Shows The Commit Approve Wants
 
-**Status:** Review. A finding of the operator's rehearsal (2026-11-06), Accepted on the operator's word the same day.
-**Size:** XS - one format and a refusal's wording; their tests. Estimate 15 minutes.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B482",
+  "title": "Gate Review Shows The Commit Approve Wants",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 80,
+  "blockedBy": [],
+  "covers": "`gate review` shows the waiting commit in full, the id `gate approve --commit` takes; prefixes stay refused."
+}
+```
+
+**Why this size.** one format and a refusal's wording; their tests. Estimate 15 minutes.
+
+A finding of the operator's rehearsal (2026-11-06), Accepted on the operator's word the same day.
 
 **What must be true.** The commit `porelo gate review` shows is the one `porelo gate approve --commit` takes: in full.
 A refusal of a shortened id names where the full one is.

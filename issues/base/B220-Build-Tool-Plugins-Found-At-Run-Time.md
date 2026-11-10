@@ -1,7 +1,20 @@
 # B220 — Build-Tool Plugins Found At Run Time
 
-**Status:** Review.
-**Size:** M - a new contract module copied from `builds/api` (about 1,200 lines there), a stub, discovery of every
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B220",
+  "title": "Build-Tool Plugins Found At Run Time",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 120,
+  "blockedBy": [],
+  "covers": "Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub."
+}
+```
+
+**Why this size.** a new contract module copied from `builds/api` (about 1,200 lines there), a stub, discovery of every
 installed plugin, the isolation test, a doc page; no change to an existing contract.
 
 **What must be true.** A plugin for one build tool - Maven, Gradle, npm, pip, Flutter - is a native executable of its

@@ -1,7 +1,20 @@
 # B149 — A Local Provider Template
 
-**Status:** Estimated.
-**Size:** M - http for loopback in two validators, a broker route without a credential across `agents/api`,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B149",
+  "title": "A Local Provider Template",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "http only for loopback upstreams, a broker route with no credential, and two templates: `providers/local.yaml` on `127.0.0.1` and `providers/organisation.yaml` over https; the task reaches the host port through the broker."
+}
+```
+
+**Why this size.** http for loopback in two validators, a broker route without a credential across `agents/api`,
 `supervisor`, `app-task` and `app-vault`, two provider files and a page.
 
 **What must be true.** Porelo ships two example provider definitions for an OpenAI-compatible endpoint a person runs

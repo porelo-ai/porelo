@@ -1,7 +1,20 @@
 # B406 — A Revoked Person Comes Back Only When Agreed
 
-**Status:** Idea.
-**Size:** M - a rule in the walk that every reader holds, a contract check, the way an owner or admin agrees, and words in
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B406",
+  "title": "A Revoked Person Comes Back Only When Agreed",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 30,
+  "blockedBy": [],
+  "covers": "After a revoke, a person comes back only when an owner or admin agrees; a new key at the forge and *Add me* alone do not bring them back"
+}
+```
+
+**Why this size.** a rule in the walk that every reader holds, a contract check, the way an owner or admin agrees, and words in
 the commands and the window; no new file format is expected, not read through yet.
 
 **What must be true.** After a person's card is revoked, they come back only when an owner or an admin agrees. A new key

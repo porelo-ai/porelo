@@ -1,8 +1,23 @@
-# [B516](README.md#b516) — Task Records Exported Over OTLP
+# B516 — Task Records Exported Over OTLP
 
-**Status:** Idea. Split off [B514](README.md#b514) on 2026-11-08 at the operator's word (15:23Z); not built until the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B516",
+  "title": "Task Records Exported Over OTLP",
+  "state": "Idea",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": ["B514"],
+  "covers": "[B514](#b514)'s records exported as OpenTelemetry logs to a collector the organization names, off by default, chosen per kind, by the CLI only."
+}
+```
+
+**Why this size.** an OTLP log exporter on [B514](README.md#b514)'s one stream, its settings, and a choice per kind of record.
+
+Split off [B514](README.md#b514) on 2026-11-08 at the operator's word (15:23Z); not built until the
 operator says so.
-**Size:** M - an OTLP log exporter on [B514](README.md#b514)'s one stream, its settings, and a choice per kind of record.
 
 **What must be true.** The records of [B514](README.md#b514)'s stream can be sent as OpenTelemetry logs over OTLP to a collector the
 organization names.

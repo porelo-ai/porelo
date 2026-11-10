@@ -1,7 +1,22 @@
-# [B518](README.md#b518) — A Person Leaves An Organization
+# B518 — A Person Leaves An Organization
 
-**Status:** Backlog, since 2026-11-09, in ST295. Filed 2026-11-08.
-**Size:** S - `porelo org leave`, on code that exists for revoking a card, plus forgetting the organization here.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B518",
+  "title": "A Person Leaves An Organization",
+  "state": "Backlog",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 25,
+  "blockedBy": [],
+  "covers": "`porelo org leave`: a person withdraws their own card and roles and forgets the organization on this machine, refused where it would leave no owner; the window's *Leave…* runs it."
+}
+```
+
+**Why this size.** `porelo org leave`, on code that exists for revoking a card, plus forgetting the organization here.
+
+Backlog since 2026-11-09, in ST295. Filed 2026-11-08.
 
 **What must be true.** `porelo org leave` takes a person out of an organization in one step.
 - It withdraws their own card, as `porelo org person revoke <me>` does.

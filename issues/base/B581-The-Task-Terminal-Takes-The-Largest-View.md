@@ -1,7 +1,22 @@
-# [B581](README.md#b581) — The Task Terminal Takes The Largest View
+# B581 — The Task Terminal Takes The Largest View
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** XS - one tmux setting in the task image and its test.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B581",
+  "title": "The Task Terminal Takes The Largest View",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "The task terminal sizes to the latest client (`window-size latest`)."
+}
+```
+
+**Why this size.** one tmux setting in the task image and its test.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** A task's terminal grows with the view the person is looking at, instead of staying at the
 size of a smaller client still attached.

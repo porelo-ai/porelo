@@ -1,7 +1,20 @@
-# [B511](README.md#b511) — A Fraction Where A Whole Number Is Wanted Is Refused
+# B511 — A Fraction Where A Whole Number Is Wanted Is Refused
 
-**Status:** Idea.
-**Size:** S - one reader for whole numbers beside `VarlinkNumbers.intOf`, used at each reader below, with a refusal each
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B511",
+  "title": "A Fraction Where A Whole Number Is Wanted Is Refused",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 5,
+  "blockedBy": [],
+  "covers": "A fraction or an out-of-range number sent where a varlink contract wants a whole number is refused by the method, never truncated, at each reader [B509](#b509)'s reading named."
+}
+```
+
+**Why this size.** one reader for whole numbers beside `VarlinkNumbers.intOf`, used at each reader below, with a refusal each
 and a test.
 
 **What must be true.** A varlink call or reply that sends a fraction, such as `1.5`, where the contract wants a whole

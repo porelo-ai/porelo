@@ -1,7 +1,20 @@
 # P07 — Provider xAI
 
-**Status:** Estimated.
-**Size:** S - a provider file, a test reading it, a row in `doc/credentials.md`, and a live scenario in an agent
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "P07",
+  "title": "Provider xAI",
+  "state": "Estimated",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 2,
+  "blockedBy": [],
+  "covers": "`providers/xai.yaml` (`api.x.ai`, `openai` under `/v1`, Bearer), the subscription kept unbrokerable; a test, a doc row, a live scenario."
+}
+```
+
+**Why this size.** a provider file, a test reading it, a row in `doc/credentials.md`, and a live scenario in an agent
 repository; the subscription account is measured apart and stays refused until it is.
 
 **What must be true.** A task can be served models from xAI, without the credential entering the

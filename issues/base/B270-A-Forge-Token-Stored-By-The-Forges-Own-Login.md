@@ -1,6 +1,20 @@
 # B270 — A Forge Token Stored By The Forge's Own Login
 
-**Status:** Accepted, to be built after the trial moves. The interface ships first with the pasted token, and this then
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B270",
+  "title": "A Forge Token Stored By The Forge's Own Login",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; at GitHub a public GitHub App with user access tokens and their refresh, after the trial moves"
+}
+```
+
+To be built after the trial moves. The interface ships first with the pasted token, and this then
 opens the device-code login in the same terminals.
 
 **What must be true.** A person gets their forge token into a machine's vault, as `git.token.<host>`, by the forge's

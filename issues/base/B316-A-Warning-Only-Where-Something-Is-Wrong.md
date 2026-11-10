@@ -1,7 +1,20 @@
 # B316 — A Warning Only Where Something Is Wrong
 
-**Status:** Estimated
-**Size:** M - one check in `vault put` that knows what the followed projects ask for, and a sweep of every warning
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B316",
+  "title": "A Warning Only Where Something Is Wrong",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings"
+}
+```
+
+**Why this size.** one check in `vault put` that knows what the followed projects ask for, and a sweep of every warning
 the command line prints.
 
 **What must be true.** Porelo warns only where something is wrong or about to fail, and then names what to do; a

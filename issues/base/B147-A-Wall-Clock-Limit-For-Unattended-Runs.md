@@ -1,7 +1,20 @@
 # B147 — A Wall-Clock Limit For Unattended Runs
 
-**Status:** Estimated.
-**Size:** M - a project key, a stop that really ends the run and waits for an attached person, and a reason in the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B147",
+  "title": "A Wall-Clock Limit For Unattended Runs",
+  "state": "Estimated",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 21,
+  "blockedBy": [],
+  "covers": "`limits.minutes` in the project file, which `--minutes` may only shorten; a deadline inside the container plus a real `task stop`, held back while a person is attached and taken when they detach; the reason in status; measurement first."
+}
+```
+
+**Why this size.** a project key, a stop that really ends the run and waits for an attached person, and a reason in the
 status across `core`, `runtime`, `app-task` and the daemon's contract; one measurement first.
 
 **What must be true.** An unattended run ends at a time limit its project or its start sets, and says so.

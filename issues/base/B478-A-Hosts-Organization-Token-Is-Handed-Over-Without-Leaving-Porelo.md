@@ -1,9 +1,24 @@
-# [B478](README.md#b478) — A Host's Organization Token Is Handed Over Without Leaving Porelo
+# B478 — A Host's Organization Token Is Handed Over Without Leaving Porelo
 
-**Status:** Review. Accepted on the operator's word (2026-11-06), porelo's part of the window's request that a host get
-its organization token from it.
-**Size:** S - one verb that pipes a declared vault entry over the host card's pinned SSH; its tests. Estimate 60
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B478",
+  "title": "A Host's Organization Token Is Handed Over Without Leaving Porelo",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 77,
+  "blockedBy": [],
+  "covers": "One command pipes the token declared for an organization's forge to a host's org refresh on standard input, over SSH pinned to its card's key; the value never leaves Porelo."
+}
+```
+
+**Why this size.** one verb that pipes a declared vault entry over the host card's pinned SSH; its tests. Estimate 60
 minutes.
+
+Accepted on the operator's word (2026-11-06), porelo's part of the window's request that a host get
+its organization token from it.
 
 **What must be true.** The token a host needs to refresh its organization is handed to it without the value leaving
 Porelo or reaching the window: one command reads the token declared for the organization's forge address from this

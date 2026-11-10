@@ -1,8 +1,23 @@
-# [B527](README.md#b527) — A Task's Message Reaches The Task It Names
+# B527 — A Task's Message Reaches The Task It Names
 
-**Status:** Review. Filed 2026-11-08 from the operator's decision on move 3's 13c/22: "tasks reach each other only
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B527",
+  "title": "A Task's Message Reaches The Task It Names",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 31,
+  "blockedBy": [],
+  "covers": "A task's message reaches only the task it names, in place of every agent reading every message."
+}
+```
+
+**Why this size.** it replaces 2026-10-04's "every agent reads every message in the room" in the hand-out.
+
+Filed 2026-11-08 from the operator's decision on move 3's 13c/22: "tasks reach each other only
 by naming them".
-**Size:** M - it replaces 2026-10-04's "every agent reads every message in the room" in the hand-out.
 
 **What must be true.** A task's message that arrives through the project's conversation is handed to the task its
 `metadata.to` names and to no other task. A message to `people` reaches no task ([B523](README.md#b523)). The room

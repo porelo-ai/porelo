@@ -1,7 +1,20 @@
 # B219 — A Private Package Repository Through The Broker
 
-**Status:** Estimated.
-**Size:** L - a second kind of broker route that carries no token and answers binary bodies, a new `project.yml` key
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B219",
+  "title": "A Private Package Repository Through The Broker",
+  "state": "Estimated",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 36,
+  "blockedBy": [],
+  "covers": "A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task."
+}
+```
+
+**Why this size.** a second kind of broker route that carries no token and answers binary bodies, a new `project.yml` key
 and its contract, a second relay per task, `doc/reach.md` rows, an accepted risk, and an acceptance step against an
 authenticated HTTPS repository the suite must stand up.
 

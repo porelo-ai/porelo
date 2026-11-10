@@ -1,9 +1,24 @@
 # B154 — A Tamper-Evident Event Log Per Node
 
-**Status:** Implementing; part 1 built. The copy sent off the machine is [B558](README.md#b558), on the operator's word of
-2026-11-09.
-**Size:** L - a new record written from many commands, its anchor in the user's journal, and a log that `porelo clear`
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B154",
+  "title": "A Tamper-Evident Event Log Per Node",
+  "state": "Implementing",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": [],
+  "covers": "One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it"
+}
+```
+
+**Why this size.** a new record written from many commands, its anchor in the user's journal, and a log that `porelo clear`
 leaves.
+
+Part 1 built. The copy sent off the machine is [B558](README.md#b558), on the operator's word of
+2026-11-09.
 
 **What must be true.** Every security-relevant event of a node - approve, reject, clearance, hand-in, runtime extensions, and every change of permissions (a clearance at run time, `--credential`, a change of `project.yml`) - is written to a log that shows when it was changed afterwards.
 

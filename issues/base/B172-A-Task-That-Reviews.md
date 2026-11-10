@@ -1,9 +1,23 @@
-# [B172](README.md#b172) — A Task That Reviews
+# B172 — A Task That Reviews
 
-**Status:** Analyzed.
-**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293).
-**Blocks:** [B288](README.md#b288).
-**Size:** M - one task role across profile, launch, git server and message handling, using the shared review contract, plus daemon fields and acceptance.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B172",
+  "title": "A Task That Reviews",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": ["B166", "B291", "B292", "B293"],
+  "covers": "One read-only reviewer/check role, pinned target and SARIF output; no push, approval, suppression or resolution authority; ends after durable delivery.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** one task role across profile, launch, git server and message handling, using the shared review contract, plus daemon fields and acceptance.
+
+**Blocks.** [B288](README.md#b288).
 
 **What must be true.** A reviewer task receives another task's work read-only and submits only SARIF comments and
 findings. It cannot push, approve, reject, suppress or resolve findings, and its check is the same reviewer role used

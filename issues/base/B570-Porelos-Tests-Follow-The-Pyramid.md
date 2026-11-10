@@ -1,7 +1,22 @@
-# [B570](README.md#b570) — Porelo's Tests Follow The Pyramid
+# B570 — Porelo's Tests Follow The Pyramid
 
-**Status:** Accepted since 2026-11-09; filed 2026-11-09.
-**Size:** XL — **3 L + 9 M + 2 S**, split into fourteen independently reviewable fixes 1–14 follow-ups, each L or smaller. P-numbers are plan identifiers, not allocated issues; this remains one audit.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B570",
+  "title": "Porelo's Tests Follow The Pyramid",
+  "state": "Accepted",
+  "size": "XL",
+  "priority": "Medium",
+  "rank": 1,
+  "blockedBy": [],
+  "covers": "Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite."
+}
+```
+
+**Why this size.** **3 L + 9 M + 2 S**, split into fourteen independently reviewable fixes 1–14 follow-ups, each L or smaller. P-numbers are plan identifiers, not allocated issues; this remains one audit.
+
+Accepted since 2026-11-09; filed 2026-11-09.
 
 **What must be true.** Each domain flow is designed and proven first as plain logic behind small interfaces, with unit tests over fakes that run in seconds. Every module's unit suite runs in under a minute; integration proves real adapters narrowly, and the CLI's deliberately larger end-to-end suite runs last as its own step.
 

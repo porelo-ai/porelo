@@ -1,7 +1,20 @@
 # B371 — A History Judged Under The Rules Of Its Time
 
-**Status:** Backlog.
-**Size:** M, proposed - a second mode of `porelo commit verify` that reads the signers with their `valid-before` and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B371",
+  "title": "A History Judged Under The Rules Of Its Time",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 24,
+  "blockedBy": [],
+  "covers": "A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed"
+}
+```
+
+**Why this size.** proposed: a second mode of `porelo commit verify` that reads the signers with their `valid-before` and
 each task certificate at its commit, with its tests.
 
 **What must be true.** A host can check a whole migrated history before it arms its pre-receive hook, under the rules

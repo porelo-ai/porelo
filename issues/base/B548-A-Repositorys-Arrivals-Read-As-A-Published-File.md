@@ -1,10 +1,22 @@
-# [B548](README.md#b548) — A Repository's Arrivals Read As A Published File
+# B548 — A Repository's Arrivals Read As A Published File
 
-**Status:** Review. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B548",
+  "title": "A Repository's Arrivals Read As A Published File",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 24,
+  "blockedBy": ["B547"],
+  "covers": "root publishes arrivals with a read ACL; porelod reads the file, no sudo verb."
+}
+```
+
+Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
 built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
 move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
-**Size:** M.
-**Blocked by:** [B547](README.md#b547).
 
 **What must be true.** Root publishes each repository's judged pushes as a file readable by the project's unlocked members, as the central
 state; porelod reads it under the same file checks as [B543](README.md#b543) (regular, root's, not writable by group or others, missing

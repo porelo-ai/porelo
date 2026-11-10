@@ -1,8 +1,21 @@
-# [B163](README.md#b163) — Several Attempts At One Assignment
+# B163 — Several Attempts At One Assignment
 
-**Status:** Analyzed.
-**Blocked by:** [B136](README.md#b136), [B141](README.md#b141), [B145](README.md#b145), [B166](README.md#b166), [B176](README.md#b176), [B323](README.md#b323).
-**Size:** L - grouped task launch, gate comparison/approval, task and daemon contracts, rate-limit reporting and review-store cleanup.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B163",
+  "title": "Several Attempts At One Assignment",
+  "state": "Analyzed",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 11,
+  "blockedBy": ["B136", "B141", "B145", "B166", "B176", "B323"],
+  "covers": "Grouped attempts start at one commit; compare per-attempt risk/build/SARIF evidence and enforce selected-commit controls; safe cleanup preserves pending replies and pins.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** grouped task launch, gate comparison/approval, task and daemon contracts, rate-limit reporting and review-store cleanup.
 
 **What must be true.** `porelo task start --attempts N -P "..."` starts independent tasks on one assignment from the
 same commit. The gate compares their diff size, risk, build evidence and SARIF findings; approving one applies all

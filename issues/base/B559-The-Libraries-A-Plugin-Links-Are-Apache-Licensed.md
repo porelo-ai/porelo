@@ -1,10 +1,24 @@
-# [B559](README.md#b559) — The Libraries A Plugin Links Are Apache-Licensed
+# B559 — The Libraries A Plugin Links Are Apache-Licensed
 
-**Status:** Backlog. Filed 2026-11-09 as porelo's part of the plugin libraries' Apache-2.0 license, on the operator's word of 2026-11-09
-(Apache-2.0, without legal advice; the operator is the sole author). Built after the move-4 test.
-**Size:** M - the license files, POMs and headers of four modules and the varlink definitions, one build check, and
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B559",
+  "title": "The Libraries A Plugin Links Are Apache-Licensed",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "`porelo-agent-api`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-wire` and the varlink definitions are Apache-2.0, checked by the build; the rest stays GPL-3.0-or-later."
+}
+```
+
+**Why this size.** the license files, POMs and headers of four modules and the varlink definitions, one build check, and
 one page of documentation.
-**Blocked by:** -.
+
+Filed 2026-11-09 as porelo's part of the plugin libraries' Apache-2.0 license, on the operator's word of 2026-11-09
+(Apache-2.0, without legal advice; the operator is the sole author). Built after the move-4 test.
 
 **What must be true.** `porelo-agent-api`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-wire` and the `.varlink`
 interface definitions are Apache-2.0: each carries `LICENSE` and `NOTICE`, names Apache-2.0 in its POM's `<licenses>`

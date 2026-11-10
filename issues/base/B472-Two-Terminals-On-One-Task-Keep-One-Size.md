@@ -1,7 +1,20 @@
 # B472 — Two Terminals On One Task Keep One Size
 
-**Status:** Review.
-**Size:** S - one tmux option in the image's `tmux.conf`, its test, and a check with two clients on the VM. Estimate 45
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B472",
+  "title": "Two Terminals On One Task Keep One Size",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 86,
+  "blockedBy": [],
+  "covers": "`window-size smallest` in the image's `tmux.conf`: two terminals on one task keep one size, the agent is not redrawn on every switch, its history holds no copies."
+}
+```
+
+**Why this size.** one tmux option in the image's `tmux.conf`, its test, and a check with two clients on the VM. Estimate 45
 minutes.
 
 **What must be true.** A task attached from two terminals at once, of different sizes, keeps one size while both are

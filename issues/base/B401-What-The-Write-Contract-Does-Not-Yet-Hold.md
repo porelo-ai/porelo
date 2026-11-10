@@ -1,6 +1,18 @@
 # B401 — What The Write Contract Does Not Yet Hold
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B401",
+  "title": "What The Write Contract Does Not Yet Hold",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 36,
+  "blockedBy": [],
+  "covers": "What a store could do and still pass the write contract: five operations with role checks to extend, the source's silence, the last admin, backups and reasons never asserted"
+}
+```
 
 **What must be true.** A store that takes what the organization's rules refuse fails `WritesContract`. Today a store
 has gaps below that can still pass `organization/contract`; the five operations already have role checks. No fault in

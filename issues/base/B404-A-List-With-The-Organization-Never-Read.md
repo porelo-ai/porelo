@@ -1,6 +1,18 @@
 # B404 — A List With The Organization Never Read
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B404",
+  "title": "A List With The Organization Never Read",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 33,
+  "blockedBy": [],
+  "covers": "`project list` still shows a machine's own projects when its organization was never read and is out of reach"
+}
+```
 
 **What must be true.** `porelo project list` shows this machine's own projects and `default` when its organization was
 never read and is out of reach, saying that the organization could not be read, since a start of such a project goes. Today

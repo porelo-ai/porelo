@@ -1,7 +1,22 @@
-# [B523](README.md#b523) — A Message To People Reaches Persons Only
+# B523 — A Message To People Reaches Persons Only
 
-**Status:** Review. Filed 2026-11-08 from move 3's findings 13c and 22.
-**Size:** S - the hand-out of a task's message and the mailbox card.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B523",
+  "title": "A Message To People Reaches Persons Only",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 52,
+  "blockedBy": [],
+  "covers": "A task's message to `people` reaches the persons only, no other task; the card names the room and the admitted persons."
+}
+```
+
+**Why this size.** the hand-out of a task's message and the mailbox card.
+
+Filed 2026-11-08 from move 3's findings 13c and 22.
 
 **What must be true.** A task's message with `metadata.to` `people` goes into the room for the persons and is handed
 to no other task's inbox. A message naming another task still reaches that task, and the room sees it. The card

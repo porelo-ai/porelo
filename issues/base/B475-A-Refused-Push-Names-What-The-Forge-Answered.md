@@ -1,7 +1,20 @@
-# [B475](README.md#b475) — A Refused Push Names What The Forge Answered
+# B475 — A Refused Push Names What The Forge Answered
 
-**Status:** Idea.
-**Size:** S - one push result that keeps git's answer, its secrets kept out, carried to the refusal each writer
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B475",
+  "title": "A Refused Push Names What The Forge Answered",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "A push Porelo makes that the forge refuses says the forge's own words, secrets withheld, as a refusal rather than \"cannot be reached, may have been made\"."
+}
+```
+
+**Why this size.** one push result that keeps git's answer, its secrets kept out, carried to the refusal each writer
 already gives; tests.
 
 **What must be true.** When Porelo's own push to a project or organization repository is refused, the person reads

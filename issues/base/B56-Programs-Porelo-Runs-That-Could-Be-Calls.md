@@ -1,7 +1,20 @@
 # B56 — Programs Porelo Runs That Could Be Calls
 
-**Status:** Analyzed.
-**Size:** S - completing the table and a test that keeps it complete is one module; each replacement is an issue of its
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B56",
+  "title": "Programs Porelo Runs That Could Be Calls",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 31,
+  "blockedBy": [],
+  "covers": "The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue."
+}
+```
+
+**Why this size.** completing the table and a test that keeps it complete is one module; each replacement is an issue of its
 own.
 
 **What must be true.** Every external program Porelo starts either has a written reason to stay a program or is

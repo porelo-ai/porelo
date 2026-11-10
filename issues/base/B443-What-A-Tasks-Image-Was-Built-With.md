@@ -1,7 +1,20 @@
 # B443 — What A Task's Image Was Built With
 
-**Status:** Review.
-**Size:** M - a record at build, a field over the daemon, and `project show` for Default.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B443",
+  "title": "What A Task's Image Was Built With",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 99,
+  "blockedBy": [],
+  "covers": "The daemon answers which settings a task's image was built with and where each comes from, and `project show default` answers."
+}
+```
+
+**Why this size.** a record at build, a field over the daemon, and `project show` for Default.
 
 **What must be true.** The daemon answers for a task which settings its image was built with: base image, packages and tools,
 the agent and its version, the security class, and where each comes from, `project.yml` or Porelo's settings for Default. An

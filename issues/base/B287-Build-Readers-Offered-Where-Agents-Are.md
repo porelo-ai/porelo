@@ -1,6 +1,18 @@
 # B287 — Build Readers Offered Where Agents Are
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B287",
+  "title": "Build Readers Offered Where Agents Are",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 69,
+  "blockedBy": [],
+  "covers": "`porelo-setup.sh --list` and the daemon's `Installable` offer build readers, read from a virtual `porelo-build-reader` the reader packages provide, as kind `build-reader`"
+}
+```
 
 **What must be true.** `porelo-setup.sh --list` and the daemon's `Installable` offer the installed and installable
 build readers beside agents, transports and homeservers, so whoever prepares a machine sees which forges it can read

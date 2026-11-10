@@ -1,6 +1,20 @@
 # B322 — Porelo's Acceptance Legs Run On The Host's Forge
 
-**Status:** Idea. Waits for machines asked for by kind from the host's pool, rented from a workflow on the host's
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B322",
+  "title": "Porelo's Acceptance Legs Run On The Host's Forge",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 52,
+  "blockedBy": [],
+  "covers": "porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool, and the binary published there is again the one the Ubuntu leg tested"
+}
+```
+
+Waits for machines asked for by kind from the host's pool, rented from a workflow on the host's
 Forgejo; until then porelo's legs run only on the central forge.
 
 **What must be true.** porelo's acceptance legs run on the host's Forgejo as they do on the central forge, on the same

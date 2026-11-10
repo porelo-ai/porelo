@@ -1,8 +1,23 @@
-# [B150](README.md#b150) — The Whole Diff In Review
+# B150 — The Whole Diff In Review
 
-**Status:** Analyzed.
-**Blocks:** [B166](README.md#b166).
-**Size:** M - bounded daemon review replies and a growing varlink contract, with full-diff classification and explicit completeness.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B150",
+  "title": "The Whole Diff In Review",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 4,
+  "blockedBy": [],
+  "covers": "Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** bounded daemon review replies and a growing varlink contract, with full-diff classification and explicit completeness.
+
+**Blocks.** [B166](README.md#b166).
 
 **What must be true.** A review shows the whole diff or says where it was cut, and every changed file remains
 available. Presentation limits never hide risk or make incomplete review evidence look complete.

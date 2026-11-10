@@ -1,6 +1,18 @@
 # B333 — Porelod Prunes Once A Day
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B333",
+  "title": "Porelod Prunes Once A Day",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 81,
+  "blockedBy": [],
+  "covers": "`porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays"
+}
+```
 
 **What must be true.** `porelod` cleans up once a day by itself, with no one running `porelo prune`. Its daily
 run removes what the hand-run `porelo prune --yes` removes. It also removes dangling images, Porelo images that no

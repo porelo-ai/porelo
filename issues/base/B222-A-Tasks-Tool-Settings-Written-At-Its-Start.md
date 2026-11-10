@@ -1,7 +1,21 @@
 # B222 — A Task's Tool Settings Written At Its Start
 
-**Status:** Analyzed; blocked by [B220](README.md#b220) and [B219](README.md#b219).
-**Size:** M - one hook in the task start beside the agent's files, its refusals and tests, and an acceptance step with
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B222",
+  "title": "A Task's Tool Settings Written At Its Start",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 34,
+  "blockedBy": ["B220", "B219"],
+  "covers": "A task's start has the plugins `configure` it and places their tool settings, pointing at the broker with no credential.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** one hook in the task start beside the agent's files, its refusals and tests, and an acceptance step with
 the stub plugin; no new contract beyond [B220](README.md#b220)'s.
 
 **What must be true.** A task's start asks the build-tool plugins to `configure` it and places the settings they write

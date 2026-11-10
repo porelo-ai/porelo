@@ -1,7 +1,22 @@
-# [B579](README.md#b579) — A Single Admin's Project Needs No Review
+# B579 — A Single Admin's Project Needs No Review
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** S - the default written by project creation, and a word where `required` cannot be met.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B579",
+  "title": "A Single Admin's Project Needs No Review",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 27,
+  "blockedBy": [],
+  "covers": "A project with a single admin is created with `review: optional`, and `required` that cannot be met is said."
+}
+```
+
+**Why this size.** the default written by project creation, and a word where `required` cannot be met.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.** A project created with a single admin is written with `review: optional`; a project whose
 `review: required` cannot be met because it has only one admin says so where it is created and in `project show`.

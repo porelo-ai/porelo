@@ -1,7 +1,20 @@
 # B415 — A Project Admin Told How To Open Without The Right
 
-**Status:** Idea.
-**Severity:** low: nothing is lost and asking again is safe, but the person is left without a way on.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B415",
+  "title": "A Project Admin Told How To Open Without The Right",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 22,
+  "blockedBy": [],
+  "covers": "`project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again"
+}
+```
+
+**Severity.** low: nothing is lost and asking again is safe, but the person is left without a way on.
 
 **What must be true.** A project admin whose token may not make a repository on the forge is told what does work: somebody with
 the right makes the repository under the project's name, beside the organization's, empty, with write for this person, and they

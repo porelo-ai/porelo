@@ -1,6 +1,18 @@
 # B262 — A Stop's Survivors In The Form Its Interface Declares
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B262",
+  "title": "A Stop's Survivors In The Form Its Interface Declares",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 74,
+  "blockedBy": [],
+  "covers": "The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0"
+}
+```
 
 **What must be true.** The daemon's `Stop` answers `surviving` in the type its interface declares, so a client that
 decodes the declared reply sees what outlived the stop.

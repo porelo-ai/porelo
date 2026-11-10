@@ -1,7 +1,20 @@
 # B121 — A Message Record Without A Chain
 
-**Status:** Analyzed; blocked by porelo [B154](README.md#b154).
-**Size:** M - one class and one command in `app-messaging`, a scenario, and four documents with a decision.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B121",
+  "title": "A Message Record Without A Chain",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 17,
+  "blockedBy": ["B154"],
+  "covers": "Drop `previous` and `hash` from `MessageRecord`, remove `porelo talk verify`, its rows and scenario, and update the docs and the decision."
+}
+```
+
+**Why this size.** one class and one command in `app-messaging`, a scenario, and four documents with a decision.
 
 **What must be true.** A task's message record says what Porelo did with each message on this host - filtered, held,
 refused, delivered - as plain state, and nothing in it or about it claims to prove what was said or in which order;

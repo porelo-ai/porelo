@@ -1,7 +1,20 @@
 # B165 — A Port Of A Task On Loopback Only
 
-**Status:** Analyzed.
-**Size:** M - a new command with a relay into the task's namespace, a journal, two documents and an acceptance step.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B165",
+  "title": "A Port Of A Task On Loopback Only",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 33,
+  "blockedBy": [],
+  "covers": "`porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario."
+}
+```
+
+**Why this size.** a new command with a relay into the task's namespace, a journal, two documents and an acceptance step.
 
 **What must be true.** `porelo task port TASK 8080` makes a server listening on that port inside the task reachable on
 the machine's `127.0.0.1`, for the person at the machine only, by an explicit command, and journaled.

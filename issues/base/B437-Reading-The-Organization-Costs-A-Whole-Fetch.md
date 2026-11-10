@@ -1,7 +1,22 @@
 # B437 — Reading The Organization Costs A Whole Fetch
 
-**Status:** Implementing, since 2026-11-10. In `porelo-project` ST308; the operator asked for it on 2026-11-10.
-**Size:** M - a read answers from the kept state and refreshes after; every security check keeps reading fresh.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B437",
+  "title": "Reading The Organization Costs A Whole Fetch",
+  "state": "Implementing",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 3,
+  "blockedBy": [],
+  "covers": "A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches."
+}
+```
+
+**Why this size.** a read answers from the kept state and refreshes after; every security check keeps reading fresh.
+
+Implementing since 2026-11-10. In `porelo-project` ST308; the operator asked for it on 2026-11-10.
 
 **What must be true.** A question that shows the organization or a project to a person answers without waiting on a whole
 fetch of the organization's repository, and a decision that rests on the organization still fetches.

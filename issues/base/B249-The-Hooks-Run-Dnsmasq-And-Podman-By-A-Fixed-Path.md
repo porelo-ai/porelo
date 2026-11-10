@@ -1,6 +1,18 @@
 # B249 — The Hooks Run dnsmasq and podman by a Fixed Path
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B249",
+  "title": "The Hooks Run dnsmasq and podman by a Fixed Path",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 76,
+  "blockedBy": [],
+  "covers": "The hooks start `dnsmasq` and `podman` by a fixed root-owned path, as [B239](#b239) does `nsenter` and `nft`, where today both are found through the caller's `PATH`"
+}
+```
 
 **What must be true.** Every program a hook starts inside or for a container's namespace is taken by a fixed,
 root-owned path, as [B239](README.md#b239) takes `nsenter` and `nft`. None is found

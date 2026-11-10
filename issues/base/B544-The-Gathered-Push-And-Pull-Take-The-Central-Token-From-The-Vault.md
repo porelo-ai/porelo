@@ -1,10 +1,22 @@
-# [B544](README.md#b544) — The Gathered Push And Pull Take The Central Token From The Vault
+# B544 — The Gathered Push And Pull Take The Central Token From The Vault
 
-**Status:** Review. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B544",
+  "title": "The Gathered Push And Pull Take The Central Token From The Vault",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 16,
+  "blockedBy": ["B543"],
+  "covers": "`porelo host push | pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes."
+}
+```
+
+Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
 built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
 move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
-**Size:** M.
-**Blocked by:** [B543](README.md#b543).
 
 **What must be true.** `porelo host push` and `porelo host pull` do what `porelo-host-push` and `--pull` do, reading the central token from
 the person's vault (the passphrase only when it is shut) instead of a hidden prompt on stdin; a missing entry is

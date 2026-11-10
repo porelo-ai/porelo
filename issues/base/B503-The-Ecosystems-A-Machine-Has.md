@@ -1,7 +1,20 @@
-# [B503](README.md#b503) — The Ecosystems A Machine Has
+# B503 — The Ecosystems A Machine Has
 
-**Status:** Review.
-**Size:** M - a method in the agents' contract part (`40-agent`), read through `porelo-ecosystem-api`; a contract with
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B503",
+  "title": "The Ecosystems A Machine Has",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 63,
+  "blockedBy": [],
+  "covers": "`Ecosystems` lists the installed ecosystem plugins and what each places for a repository; its shape agreed with the ecosystems' repository first."
+}
+```
+
+**Why this size.** a method in the agents' contract part (`40-agent`), read through `porelo-ecosystem-api`; a contract with
 the ecosystems' repository, agreed first.
 
 **What must be true.** A client of the daemon lists the ecosystem plugins installed on this machine and, for a

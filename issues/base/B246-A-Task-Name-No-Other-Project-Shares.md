@@ -1,6 +1,18 @@
 # B246 — A Task Name No Other Project Shares
 
-**Status:** Accepted.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B246",
+  "title": "A Task Name No Other Project Shares",
+  "state": "Accepted",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them"
+}
+```
 
 **What must be true.** A task's container name belongs to one project and one task, so no task of another project
 ever has it - not while it runs, and not afterwards, when what Porelo keeps by that name is read again.

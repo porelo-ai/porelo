@@ -1,10 +1,24 @@
 # B385 — A KeePassXC Key That Is Usable
 
-**Status:** Implementing.
-**Severity:** medium.
-**Size:** L - one unlock serving three or more `keepassxc-cli` commands without Porelo reading the master password, proved
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B385",
+  "title": "A KeePassXC Key That Is Usable",
+  "state": "Implementing",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 10,
+  "blockedBy": [],
+  "covers": "`--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes"
+}
+```
+
+**Why this size.** one unlock serving three or more `keepassxc-cli` commands without Porelo reading the master password, proved
 first against the real program, then `KeePassXcKey`, the three verbs, the stand-in and about a dozen tests; the
 smallest piece (typed refusals for a terminal that is not the person's) is S on its own.
+
+**Severity.** medium.
 
 **What must be true.** `identity create`, `identity rotate` and `identity revoke --lost` with `--keepassxc DATABASE`
 are usable by a person at their terminal:

@@ -1,6 +1,18 @@
 # B251 — Porelo Inside a Lima VM
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B251",
+  "title": "Porelo Inside a Lima VM",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 78,
+  "blockedBy": [],
+  "covers": "Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there"
+}
+```
 
 **What must be true.** Porelo runs its tasks inside a Linux VM that Lima starts on a Mac, with the task firewall
 loaded and failing closed, or says before the first start what the VM lacks for it.

@@ -1,6 +1,18 @@
 # B309 — A Machine Sets Its Own Transport Settings
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B309",
+  "title": "A Machine Sets Its Own Transport Settings",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 53,
+  "blockedBy": [],
+  "covers": "A machine sets for itself what a transport lists - for Matrix its homeserver, room, CA and registration token - over the signed project file's, so one project file serves machines on different servers; split from [B304](#b304)"
+}
+```
 
 **What must be true.** A machine running a project may set some of a transport's settings for itself - for
 Matrix, the homeserver, the room, the CA certificate and the registration token - in place of what the project file

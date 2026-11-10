@@ -1,8 +1,23 @@
-# [B490](README.md#b490) — Host Refresh Shows The Host's Progress
+# B490 — Host Refresh Shows The Host's Progress
 
-**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B490",
+  "title": "Host Refresh Shows The Host's Progress",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 73,
+  "blockedBy": [],
+  "covers": "`porelo org host refresh` says first that it asks the host to follow, then shows each line the host writes as it comes, withholding any line that holds the token."
+}
+```
+
+**Why this size.** one command and its test; the host's words are passed on, not changed.
+
+Built on the operator's word that every finding of the trial move is fixed before the second
 move.
-**Size:** S - one command and its test; the host's words are passed on, not changed.
 
 **What must be true.** `porelo org host refresh <host>` says at once that it asks the host to follow the organization,
 and then shows each line the host writes while it follows, as it comes, so a person sees a follow of many repositories

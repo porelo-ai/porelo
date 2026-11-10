@@ -1,11 +1,26 @@
-# [B507](README.md#b507) — A Task That Starts Tasks Through An MCP Endpoint
+# B507 — A Task That Starts Tasks Through An MCP Endpoint
 
-**Status:** Review. Built on 2026-11-08 at the operator's word, before the third trial move.
-**Size:** L - `porelod` runs one `porelo-mcp` process per allowed task and serves it a per-task socket with the
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B507",
+  "title": "A Task That Starts Tasks Through An MCP Endpoint",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 60,
+  "blockedBy": [],
+  "covers": "A task the signed project file allows reaches Porelo's API as MCP through the gateway: porelod runs a `porelo-mcp` process per task on a 0600 Unix socket, the file sets its methods and limits, it stops only its own children, and the event log names the parent."
+}
+```
+
+**Why this size.** `porelod` runs one `porelo-mcp` process per allowed task and serves it a per-task socket with the
 allowed methods alone, started, resumed and stopped as `gate serve`
 is; a `unix:` destination the gateway connects to; a project-file section with the methods and limits allowed; a stop
 that takes only the endpoint's own children; a `started` event naming the parent; and the process in `task status`.
 The tools themselves are not built here: they are `porelo-mcp`'s.
+
+Built on 2026-11-08 at the operator's word, before the third trial move.
 
 **What must be true.** A task the signed project file allows reaches Porelo's API as MCP, through the gateway on the
 host, as every MCP server reaches a task. Through it the task starts tasks within the file's limits without anybody's

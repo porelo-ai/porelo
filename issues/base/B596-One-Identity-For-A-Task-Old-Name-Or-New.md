@@ -1,9 +1,24 @@
-# [B596](README.md#b596) — One Identity For A Task, Old Name Or New
+# B596 — One Identity For A Task, Old Name Or New
 
-**Status:** Review. Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
-**Priority:** high (the operator, 2026-11-09, for [B538](README.md#b538)).
-**Size:** M - the shared identity value and lookup, the legacy reader and the injective codec, with old creation kept.
-**Blocked by:** -.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B596",
+  "title": "One Identity For A Task, Old Name Or New",
+  "state": "Review",
+  "size": "M",
+  "priority": "High",
+  "rank": 5,
+  "blockedBy": [],
+  "covers": "One identity lookup for old and new container names; creation unchanged."
+}
+```
+
+**Why this size.** the shared identity value and lookup, the legacy reader and the injective codec, with old creation kept.
+
+Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+
+High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
 **What must be true.** Every command that names a task finds it through one identity - project, logical task, actual container and recorded id - whether its container was named the old way (`porelo-<project>-<task>`) or the new way (`porelo-<task>` in project `porelo`, `porelo-<project>_<task>` elsewhere). A name is never parsed back into a project by its longest prefix; `web/app-x` and `web-app/x` stay two tasks. New tasks are still created under old names until a later issue switches creation.
 

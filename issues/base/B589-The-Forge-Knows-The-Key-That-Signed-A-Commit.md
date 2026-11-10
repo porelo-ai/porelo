@@ -1,8 +1,22 @@
-# [B589](README.md#b589) — The Forge Knows The Key That Signed A Commit
+# B589 — The Forge Knows The Key That Signed A Commit
 
-**Status:** Review. Filed 2026-11-10 under ST290, from the fourth move.
-**Size:** L - measure certificate verification before choosing the registration design, then reconcile person and task keys with forge accounts.
-**Blocked by:** [B550](README.md#b550), [B547](README.md#b547).
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B589",
+  "title": "The Forge Knows The Key That Signed A Commit",
+  "state": "Review",
+  "size": "L",
+  "priority": "Medium",
+  "rank": 13,
+  "blockedBy": ["B550", "B547"],
+  "covers": "Measure certified-signature support first, then register person and task signing keys on their push accounts so the host forge verifies commits."
+}
+```
+
+**Why this size.** measure certificate verification before choosing the registration design, then reconcile person and task keys with forge accounts.
+
+Filed 2026-11-10 under ST290, from the fourth move.
 
 **What must be true.** A task's or person's signed commit on the host's forge shows a verified signature against the
 account used for its push, while a commit signed by an unrelated key does not. Before implementing registration,

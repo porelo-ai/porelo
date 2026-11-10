@@ -1,7 +1,22 @@
-# [B524](README.md#b524) — The Makers Of A Push In Review
+# B524 — The Makers Of A Push In Review
 
-**Status:** Review. Filed 2026-11-08 for the window's review, which shows who made each commit of a push (move 3's finding 14).
-**Size:** S - two Tasks1 fields filled from git.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B524",
+  "title": "The Makers Of A Push In Review",
+  "state": "Review",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 51,
+  "blockedBy": [],
+  "covers": "`PendingPush` and `Review` carry each commit's author, committer and trailers."
+}
+```
+
+**Why this size.** two Tasks1 fields filled from git.
+
+Filed 2026-11-08 for the window's review, which shows who made each commit of a push (move 3's finding 14).
 
 **What must be true.** `PendingPush` carries its head commit's `author` and `committer` (`name <email>`) and
 `trailers` (the message's trailer lines, as `git interpret-trailers --parse` reads them). `Review` carries a

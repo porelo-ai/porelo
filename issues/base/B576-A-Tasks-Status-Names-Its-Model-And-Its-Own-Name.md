@@ -1,7 +1,22 @@
-# [B576](README.md#b576) — A Task's Status Names Its Model And Its Own Name
+# B576 — A Task's Status Names Its Model And Its Own Name
 
-**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
-**Size:** M - the start's model source, the status JSON, broker usage and the durable settings record behind the start protocol.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B576",
+  "title": "A Task's Status Names Its Model And Its Own Name",
+  "state": "Review",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 12,
+  "blockedBy": [],
+  "covers": "`task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model."
+}
+```
+
+**Why this size.** the start's model source, the status JSON, broker usage and the durable settings record behind the start protocol.
+
+Filed 2026-11-09 under ST290, from the fourth move.
 
 **What must be true.**
 - A start that names no model runs on the project's default and says `modelFrom: project`; a model sent equal to the

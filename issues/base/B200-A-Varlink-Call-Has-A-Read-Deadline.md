@@ -1,7 +1,21 @@
 # B200 — A Varlink Call Has A Read Deadline
 
-**Status:** Analyzed.
-**Size:** M - a bounded read in `porelo-wire`, which `porelo-agent-api` publishes onward, and the callers in four
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B200",
+  "title": "A Varlink Call Has A Read Deadline",
+  "state": "Analyzed",
+  "size": "M",
+  "priority": "Medium",
+  "rank": 37,
+  "blockedBy": [],
+  "covers": "A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes.",
+  "openQuestions": 0
+}
+```
+
+**Why this size.** a bounded read in `porelo-wire`, which `porelo-agent-api` publishes onward, and the callers in four
 modules moved onto it, three hand-made limits among them; no contract changes.
 
 **What must be true.** A varlink call through porelo-wire's `VarlinkClient` ends within a stated time when the other

@@ -1,7 +1,20 @@
 # B394 — An Online Task On A Host With No Forge Passes On To Its Upstream
 
-**Status:** Idea.
-**Size:** S - one condition and its tests.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B394",
+  "title": "An Online Task On A Host With No Forge Passes On To Its Upstream",
+  "state": "Idea",
+  "size": "S",
+  "priority": "Medium",
+  "rank": 37,
+  "blockedBy": [],
+  "covers": "An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there."
+}
+```
+
+**Why this size.** one condition and its tests.
 
 **What must be true.** No function of Porelo relies on a forge being on the host. An `online` task on a host with no
 forge passes its branch on to the project's `upstream` at once, as on a machine that is no host.

@@ -1,7 +1,20 @@
-# [B504](README.md#b504) — An Unknown Project Removed From The Window
+# B504 — An Unknown Project Removed From The Window
 
-**Status:** Review.
-**Size:** XS - two tests; the code already does it.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B504",
+  "title": "An Unknown Project Removed From The Window",
+  "state": "Review",
+  "size": "XS",
+  "priority": "Medium",
+  "rank": 65,
+  "blockedBy": [],
+  "covers": "`RemoveProject` previews and removes a project the machine lists but has no file for, instead of `NoSuchProject`."
+}
+```
+
+**Why this size.** two tests; the code already does it.
 
 **What must be true.** A project the machine lists but has no file for can be previewed and removed over the socket:
 `RemoveProject` with `dryRun` answers `PREVIEWED` with what it removes, keeps and what of it is unreviewed, and the

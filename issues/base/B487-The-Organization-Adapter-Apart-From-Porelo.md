@@ -1,6 +1,18 @@
-# [B487](README.md#b487) — The Organization Adapter Apart From Porelo
+# B487 — The Organization Adapter Apart From Porelo
 
-**Status:** Idea.
+```json
+{
+  "$schema": "issue-1.json",
+  "id": "B487",
+  "title": "The Organization Adapter Apart From Porelo",
+  "state": "Idea",
+  "size": "-",
+  "priority": "Medium",
+  "rank": 8,
+  "blockedBy": [],
+  "covers": "Everything about the organization and the source of its projects moves out of `porelo` into an organization adapter, an executable of its own asked across a process boundary; `porelo` keeps tasks, the machine, code repositories, a cache of project settings, and `default` and hand-written projects."
+}
+```
 
 **What must be true.** `porelo` checks only what it must check in repositories - whether a code repository's commits are
 signed by whom the project allows, and a repository's `porelo.yml` - and works on the machine it runs on. Everything about
