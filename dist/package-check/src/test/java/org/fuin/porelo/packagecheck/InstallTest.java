@@ -219,6 +219,49 @@ class InstallTest {
         assertThat(install.ubuntu(AZURE)).contains("'Acquire::Retries \"5\";'");
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "E: Failed to fetch http://azure.archive.ubuntu.com/ubuntu/pool/main/p/perl/perl-base_5.40.1-7ubuntu0.4_amd64.deb  404  Not Found [IP: 52.147.219.192 80]",
+                "E: Failed to fetch http://azure.archive.ubuntu.com/ubuntu/pool/main/p/perl/perl_5.40.1-7ubuntu0.4_amd64.deb  Hash Sum mismatch"
+            })
+    void aMirrorCaughtMidSyncIsTriedAgainOnTheOther(String fetch) {
+        // A mirror whose index names a file its pool does not hold yet is down for a moment, not
+        // a broken package (2026-11-10, a 404 for perl on Azure right after apt-get update).
+        final var attempts = new java.util.ArrayList<List<String>>();
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"),
+                        Path.of("/r/porelo.rpm"),
+                        Path.of("/a/stub.deb"),
+                        (command, limit) -> {
+                            if (command.get(1).equals("rm")) {
+                                return new Commands.Result(0, "");
+                            }
+                            attempts.add(command);
+                            return attempts.size() == 1
+                                    ? new Commands.Result(
+                                            0,
+                                            "STEP: installing porelo\nFAILED: installing porelo\nFAILED:   "
+                                                    + "2026-11-10T15:48:10Z "
+                                                    + fetch
+                                                    + "\n")
+                                    : new Commands.Result(0, EVERYTHING);
+                        });
+
+        install.checkUbuntu("Ubuntu 26.04", VERSION, out.report);
+
+        assertThat(out.report.failures()).as("the other mirror recovers the install").isZero();
+        assertThat(attempts).as("one more fresh container").hasSize(2);
+        assertThat(attempts.get(1).getLast())
+                .as("the retry uses the archive mirror")
+                .contains("URIs: " + ARCHIVE);
+        assertThat(out.text())
+                .as("the report names the mirror that missed the file")
+                .contains("on azure.archive.ubuntu.com could not fetch")
+                .contains("tried again on archive.ubuntu.com");
+    }
+
     @Test
     void aFailureOtherThanATimeoutIsNotRetried() {
         final var attempts = new java.util.ArrayList<List<String>>();

@@ -154,17 +154,30 @@ record Install(
     }
 
     /**
-     * Checks Ubuntu, retrying only a timed-out attempt, each in a fresh container: the other
-     * mirror, then the first again, since one slow moment of a mirror failed a Build on its own.
+     * A fetch the mirror itself refused: a file its index names that its pool does not hold yet, or
+     * one that arrived different, as a mirror caught mid-sync answers right after {@code apt-get
+     * update}. Never a dependency or a package of ours, which stays red.
+     */
+    private static final java.util.regex.Pattern MIRROR_MISSED =
+            java.util.regex.Pattern.compile(
+                    "(?m)^FAILED: .*E: Failed to fetch \\S+\\s+(404\\s+Not Found|Hash Sum mismatch)");
+
+    /**
+     * Checks Ubuntu, retrying only an attempt the mirror failed - timed out, or missing a file it
+     * names - each in a fresh container: the other mirror, then the first again, since one slow or
+     * half-synced moment of a mirror failed a Build on its own.
      */
     void checkUbuntu(String label, String version, Report report) {
         report.section("installs on " + label);
         final List<String> mirrors = List.of(AZURE, ARCHIVE, AZURE);
         String mirror = mirrors.getFirst();
         Commands.Result result = runIn(Main.UBUNTU, ubuntu(mirror), report);
-        for (int next = 1; next < mirrors.size() && result.exit() == Commands.TIMED_OUT; next++) {
+        for (int next = 1; next < mirrors.size() && mirrorFailed(result); next++) {
+            final String host = " on " + URI.create(mirror).getHost();
             report.info(
-                    atLimit(label, " on " + URI.create(mirror).getHost(), result)
+                    (result.exit() == Commands.TIMED_OUT
+                                    ? atLimit(label, host, result)
+                                    : label + host + " could not fetch a file its index names")
                             + "; tried again on "
                             + URI.create(mirrors.get(next)).getHost());
             lastOutput(result.output(), report);
@@ -172,6 +185,10 @@ record Install(
             result = runIn(Main.UBUNTU, ubuntu(mirror), report);
         }
         checked(label, " on " + URI.create(mirror).getHost(), result, version, report);
+    }
+
+    private static boolean mirrorFailed(Commands.Result result) {
+        return result.exit() == Commands.TIMED_OUT || MIRROR_MISSED.matcher(result.output()).find();
     }
 
     /**
