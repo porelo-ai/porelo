@@ -141,31 +141,36 @@ public final class SignInStartSteps {
                 .as("the scenario must not take a pre-existing task")
                 .isEqualTo(1);
         container = task;
+        // The call waits on another thread, which holds no account of its own: the scenario's
+        // account and environment are taken here, on the step's thread, and handed to it.
+        final Machine machine = world.machine();
+        final String environment = world.environment();
         final Future<Ssh.Output> pending =
                 calls.submit(
                         () ->
-                                world.run(
-                                        call(
-                                                "Start",
-                                                Map.of(
-                                                        "project",
-                                                        "default",
-                                                        "repository",
-                                                        repo,
-                                                        "task",
-                                                        repo,
-                                                        "agent",
-                                                        agent,
-                                                        "provider",
-                                                        selected,
-                                                        "mode",
-                                                        "AGENT",
-                                                        "noGate",
-                                                        true,
-                                                        "clearance",
-                                                        "deny",
-                                                        "waitForSignIn",
-                                                        true))));
+                                machine.run(
+                                        environment
+                                                + call(
+                                                        "Start",
+                                                        Map.of(
+                                                                "project",
+                                                                "default",
+                                                                "repository",
+                                                                repo,
+                                                                "task",
+                                                                repo,
+                                                                "agent",
+                                                                agent,
+                                                                "provider",
+                                                                selected,
+                                                                "mode",
+                                                                "AGENT",
+                                                                "noGate",
+                                                                true,
+                                                                "clearance",
+                                                                "deny",
+                                                                "waitForSignIn",
+                                                                true))));
         start = pending;
         assertThatThrownBy(() -> pending.get(300, TimeUnit.MILLISECONDS))
                 .as("the start must wait before the credential is stored")
