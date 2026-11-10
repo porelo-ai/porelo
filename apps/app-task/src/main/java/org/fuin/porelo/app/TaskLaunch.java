@@ -4193,6 +4193,20 @@ public final class TaskLaunch {
     /** Refuses every missing non-model credential before considering a wait on the agent. */
     private boolean refusesOtherCredentials(
             Project project, org.fuin.porelo.wire.TaskMode mode, PrintWriter err) {
+        // A destination nobody declared refuses a start in every mode, before whether its
+        // credential is there: the same words and the same rule the launch and CanStart answer
+        // with, so the earlier check cannot say it otherwise.
+        final String undeclared =
+                StartCheck.undeclared(context, request.projectFile(), request.credentials());
+        if (undeclared != null) {
+            err.println("porelo: " + undeclared.substring(undeclared.indexOf('\n') + 1));
+            err.println(
+                    "porelo: nothing was created; declare it in "
+                            + context.paths().xdg().data().resolve("destinations")
+                            + ", or correct what names it");
+            err.flush();
+            return true;
+        }
         if (mode != org.fuin.porelo.wire.TaskMode.UNATTENDED) {
             return false;
         }
@@ -4202,7 +4216,28 @@ public final class TaskLaunch {
         for (final String name : names) {
             final StartCredentials.State state =
                     CredentialWiring.credentialUnavailable(context.readableCredentials(), name);
-            if (state != StartCredentials.State.PRESENT || authorizationMissing(name)) {
+            if (state == StartCredentials.State.PRESENT && authorizationMissing(name)) {
+                // Asked of a person too, not only said here, in the launch's words: somebody else
+                // may be the one who can grant it.
+                AuthorizationsNeeded.raise(
+                        context,
+                        name,
+                        context.tasks().containerName(project, request.task()),
+                        project.name(),
+                        AuthorizationsNeeded.NEVER);
+                err.println(
+                        "porelo: credential '"
+                                + name
+                                + "': nobody has granted it yet; a person authorizes it once with"
+                                + " 'porelo vault authorize "
+                                + name
+                                + "'");
+                err.println(
+                        "porelo: nothing was created; an unattended run cannot ask anybody, so it is refused rather than started to fail");
+                err.flush();
+                return true;
+            }
+            if (state != StartCredentials.State.PRESENT) {
                 if (state == StartCredentials.State.VAULT_LOCKED) {
                     credentialRefusal = new CredentialRefusal("", true, null);
                 }
@@ -4210,9 +4245,7 @@ public final class TaskLaunch {
                         "porelo: the project names credential '"
                                 + name
                                 + "', and "
-                                + (state == StartCredentials.State.PRESENT
-                                        ? "nobody has granted it yet"
-                                        : CredentialWiring.reason(state, name)));
+                                + CredentialWiring.reason(state, name));
                 err.println(
                         "porelo: nothing was created; an unattended run cannot ask anybody, so it is refused rather than started to fail");
                 err.flush();

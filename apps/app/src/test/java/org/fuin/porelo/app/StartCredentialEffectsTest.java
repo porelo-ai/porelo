@@ -246,6 +246,17 @@ class StartCredentialEffectsTest {
                 image: {from: 'ubuntu:24.04'}
                 credentials: {forge: elsewhere}
                 """);
+        // Declared, so that only the grant is in question: an undeclared one is refused first.
+        final Path destinations =
+                Files.createDirectories(context.paths().xdg().data().resolve("destinations"));
+        Files.writeString(
+                destinations.resolve("elsewhere.yaml"),
+                """
+                name: elsewhere
+                label: Elsewhere
+                upstream: https://elsewhere.example
+                auth_header: Authorization
+                """);
         Files.createDirectories(context.vault().path().getParent());
         context.vault()
                 .write(
@@ -284,6 +295,118 @@ class StartCredentialEffectsTest {
             assertThat(context.paths().hooksDirectory())
                     .as("the credential preflight changes no hooks")
                     .doesNotExist();
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void anUndeclaredDestinationIsRefusedInTheLaunchsWordsBeforeTheVaultIsAsked() throws Exception {
+        // Found on main's legs on 2026-11-10: the earlier check said the vault lacked it, where
+        // the launch and CanStart name the undeclared destination.
+        final PoreloContext context = context();
+        Files.delete(context.paths().xdg().data().resolve("agents/porelo-agent-stub"));
+        final Path project = dir.resolve("project.yml");
+        Files.writeString(
+                project,
+                """
+                project: {name: p, security_class: guarded}
+                image: {from: 'ubuntu:24.04'}
+                credentials: {forge: nowhere}
+                """);
+        final TaskLaunch launch =
+                new TaskLaunch(
+                        context,
+                        new TaskLaunch.Request(
+                                "work",
+                                project,
+                                null,
+                                null,
+                                null,
+                                8,
+                                null,
+                                false,
+                                false,
+                                "deny",
+                                true,
+                                TaskMode.UNATTENDED,
+                                "work",
+                                null,
+                                null,
+                                1,
+                                "p"));
+        assertThat(launch.credentialsReady(sink, sink)).as("%s", text).isFalse();
+        assertThat(launch.credentialCheckCode()).isEqualTo(69);
+        assertThat(text.toString())
+                .contains("the project names credential 'forge' for 'nowhere'")
+                .doesNotContain("the vault holds no credential");
+    }
+
+    @Test
+    void anUngrantedGrantIsRefusedInTheLaunchsWordsAndAskedOfAPerson() throws Exception {
+        // Found on main's legs on 2026-11-10: the earlier check refused without raising the
+        // question every interface sees.
+        final PoreloContext context = context().asking(shown -> "test passphrase".toCharArray());
+        Files.delete(context.paths().xdg().data().resolve("agents/porelo-agent-stub"));
+        final Path project = dir.resolve("project.yml");
+        Files.writeString(
+                project,
+                """
+                project: {name: p, security_class: guarded}
+                image: {from: 'ubuntu:24.04'}
+                credentials: {forge: elsewhere}
+                """);
+        final Path destinations =
+                Files.createDirectories(context.paths().xdg().data().resolve("destinations"));
+        Files.writeString(
+                destinations.resolve("elsewhere.yaml"),
+                """
+                name: elsewhere
+                label: Elsewhere
+                upstream: https://elsewhere.example
+                auth_header: Authorization
+                """);
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault()
+                .write(
+                        Map.of(
+                                "forge",
+                                new org.fuin.porelo.vault.VaultEntry("fixture", "oauth-device")),
+                        "test passphrase".toCharArray());
+        try {
+            assertThat(context.openerAsking(false, sink)).as("the test vault is open").isPresent();
+            final TaskLaunch launch =
+                    new TaskLaunch(
+                            context,
+                            new TaskLaunch.Request(
+                                    "work",
+                                    project,
+                                    null,
+                                    null,
+                                    null,
+                                    8,
+                                    null,
+                                    false,
+                                    false,
+                                    "deny",
+                                    true,
+                                    TaskMode.UNATTENDED,
+                                    "work",
+                                    null,
+                                    null,
+                                    1,
+                                    "p"));
+            assertThat(launch.credentialsReady(sink, sink)).as("%s", text).isFalse();
+            assertThat(text.toString())
+                    .contains("credential 'forge': nobody has granted it yet")
+                    .contains("porelo vault authorize forge");
+            assertThat(AuthorizationsNeeded.open(context))
+                    .as("the refusal is a question every interface sees")
+                    .anySatisfy(
+                            asked ->
+                                    assertThat(asked)
+                                            .containsEntry("credential", "forge")
+                                            .containsEntry("state", AuthorizationsNeeded.NEVER));
         } finally {
             PoreloContext.forgetAsked();
         }
