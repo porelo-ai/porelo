@@ -59,7 +59,10 @@ public final class HostGatherProcessChild {
                                     marker.toString())
                             .inheritIO()
                             .start();
-            Files.writeString(marker, ProcessHandle.current().pid() + " " + grandchild.pid());
+            // A reader polls for the marker: it must never see the file before its pids are in it.
+            final Path written = marker.resolveSibling(marker.getFileName() + ".tmp");
+            Files.writeString(written, ProcessHandle.current().pid() + " " + grandchild.pid());
+            Files.move(written, marker, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
             if (args[0].equals("orphan")) {
                 Thread.sleep(300);
                 return;
