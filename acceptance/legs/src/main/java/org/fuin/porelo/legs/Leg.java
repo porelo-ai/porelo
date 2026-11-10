@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.fuin.porelo.machines.AgentLeg;
 import org.fuin.porelo.machines.Credential;
@@ -340,7 +341,20 @@ public final class Leg {
 
                 if (suite != null) {
                     step("what a person does at a terminal");
-                    acceptance(suite, lease.address(), lease.hostKey(), credential, users);
+                    HostServices.around(
+                            command -> {
+                                final Ssh root = lease.ssh();
+                                root.reconnect();
+                                run(root, command);
+                            },
+                            environment ->
+                                    acceptance(
+                                            suite,
+                                            lease.address(),
+                                            lease.hostKey(),
+                                            credential,
+                                            users,
+                                            environment));
                     // Said after the scenarios, from the cache's own log: what every account's
                     // pulls were answered with. Without it a log cannot show that the images came
                     // from the machine and not from Docker Hub.
@@ -416,6 +430,8 @@ public final class Leg {
      * @param address The machine.
      * @param hostKey The host key the machine was made with, which the suite's kit accepts alone.
      * @param credential The key the suite connects with.
+     * @param users The prepared accounts.
+     * @param environment Capabilities prepared for the ordinary features.
      * @throws IOException If the suite fails, or proves nothing.
      */
     private static void acceptance(
@@ -423,39 +439,40 @@ public final class Leg {
             String address,
             HostKey hostKey,
             Credential credential,
-            List<String> users)
+            List<String> users,
+            Map<String, String> environment)
             throws IOException {
-        if (users.size() == 1) {
-            // EVERY scenario - see suite(), which says why there is no filter at all.
-            suite(repository, address, hostKey, credential, List.of());
-            return;
-        }
         // Features beside each other, one account each, and then what touches the whole machine,
         // alone and afterwards: a restart takes every account's daemon and connection with it, so
         // it can neither run beside a feature nor between two scenarios of one. Which scenarios
         // those are is their tag, in the feature, and not a list kept here.
-        suite(
-                repository,
-                address,
-                hostKey,
-                credential,
+        final List<List<String>> passes = suitePasses(users);
+        suite(repository, address, hostKey, credential, environment, passes.getFirst());
+        step("what touches the whole machine, alone");
+        suite(repository, address, hostKey, credential, Map.of(), passes.getLast());
+    }
+
+    /** Keeps transient host services ahead of any scenario that reboots the machine. */
+    static List<List<String>> suitePasses(List<String> users) {
+        return List.of(
                 List.of(
                         "-Dporelo.acceptance.users=" + String.join(",", users),
                         "-Dporelo.acceptance.parallel=true",
                         "-Dporelo.acceptance.parallelism=" + users.size(),
-                        "-Dcucumber.filter.tags=" + MACHINE_WIDE_EXCLUDED));
-        step("what touches the whole machine, alone");
-        // A report of its own: the second pass wrote over the first's, and the step times read from
-        // it afterwards - how long an agent took to its ready screen - were the restart pass's
-        // alone.
-        suite(
-                repository,
-                address,
-                hostKey,
-                credential,
+                        "-Dcucumber.filter.tags=" + MACHINE_WIDE_EXCLUDED),
                 List.of(
                         "-Dcucumber.filter.tags=" + MACHINE_WIDE,
                         "-Dporelo.acceptance.report=" + RESTART_REPORT));
+    }
+
+    /** Gives readiness only to the process that runs the prepared scenarios. */
+    static ProcessBuilder suiteRunner(
+            Path repository, List<String> command, Map<String, String> environment) {
+        final ProcessBuilder runner =
+                new ProcessBuilder(command).directory(repository.toFile()).inheritIO();
+        runner.environment().remove("PORELO_ACCEPTANCE_HOST_SERVICES");
+        runner.environment().putAll(environment);
+        return runner;
     }
 
     /**
@@ -498,6 +515,7 @@ public final class Leg {
      * @param address The machine.
      * @param hostKey The host key the machine was made with, which the suite's kit accepts alone.
      * @param credential The key the suite connects with.
+     * @param environment Capabilities prepared for this pass alone.
      * @param options What this pass adds to the command line.
      * @throws IOException If the suite fails, or proves nothing.
      */
@@ -506,35 +524,12 @@ public final class Leg {
             String address,
             HostKey hostKey,
             Credential credential,
+            Map<String, String> environment,
             List<String> options)
             throws IOException {
         final List<String> command = suiteCommand(address, hostKey, options);
-        final ProcessBuilder maven =
-                new ProcessBuilder(command)
-                        // EVERY scenario, including @slow. Excluding them was reasonable - each
-                        // builds a task image and that is minutes - and its consequence was not:
-                        // the eleven they hide ran NOWHERE, in CI or anywhere else, and every green
-                        // build reported them as "skipped" rather than as never run.
-                        //
-                        // What that cost, found when they were run for the first time: one scenario
-                        // had been describing pre-cut behaviour since the lifecycle cut (keeping
-                        // became the default, so the removal it asserted had nothing to refuse),
-                        // one file could not run twice on the same machine, and all eleven silently
-                        // depended on exactly one agent being installed - true of a CI leg and of
-                        // nothing else. Three faults that no amount of unit testing could see, in
-                        // scenarios that were written to catch exactly this and were never allowed
-                        // to.
-                        //
-                        // So they run every time. Measured against the libvirt VM with images
-                        // already built, the eleven add 56s; a leg builds its images from nothing,
-                        // so expect minutes rather than seconds here.
-                        //
-                        // No filter property at all rather than one that excludes nothing: a tag
-                        // expression that is always true is a place for an exclusion to grow back.
-                        // With several accounts, the two passes together are every scenario: the
-                        // one filter there splits the suite, and excludes nothing from the whole.
-                        .directory(repository.toFile())
-                        .inheritIO();
+        // Both passes include @slow: excluding it left the expensive scenarios untested everywhere.
+        final ProcessBuilder maven = suiteRunner(repository, command, environment);
         maven.environment().put("PORELO_ACCEPTANCE_KEY", credential.material());
         final int status;
         try {

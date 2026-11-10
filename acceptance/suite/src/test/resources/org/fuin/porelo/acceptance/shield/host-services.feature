@@ -2,7 +2,8 @@
 Feature: A declared name reaches a service on this host on TCP 443
 
     This needs a VM with pasta and a root-run TLS listener bound to exactly 127.0.0.1:443.
-    Prepare it outside the suite: its certificate names forge.host-service.test, GET / returns
+    acceptance/suite/src/test/host-services/listener.sh up prepares it as root; down removes it.
+    Its certificate names forge.host-service.test, GET / returns
     host-service-ok, and its public CA is readable at /var/tmp/porelo-host-services/ca.pem.
     Set PORELO_ACCEPTANCE_HOST_SERVICES on the suite runner only for that prepared VM.
     The kit's environment-variable step marks this skipped where the listener is unavailable;

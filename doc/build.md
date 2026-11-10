@@ -153,7 +153,17 @@ own, and that is how the workflows here run a leg, a sweep and the pinned GraalV
 **A leg** rents a machine booted from a snapshot, builds the product there and runs the acceptance
 suite. Its features run under four accounts beside each other (`--accounts 4`), and what touches the
 whole machine (`@restart`) runs alone afterwards. Every image comes through a pull-through cache on
-the machine, so no account waits on Docker Hub. After its scenarios a leg prints what the cache
+the machine, so no account waits on Docker Hub. Before ordinary features, the leg runs
+[the host-services listener script](https://github.com/porelo-ai/porelo/blob/main/acceptance/suite/src/test/host-services/listener.sh)
+with `up` through its root SSH connection. It prepares a TLS listener on exactly `127.0.0.1:443` for
+`forge.host-service.test`, answering `GET /` with `host-service-ok`. A fresh CA's public certificate is readable
+at `/var/tmp/porelo-host-services/ca.pem`; its signing key is deleted before the listener starts, and private
+material stays root-only under `/root/porelo-host-services`. Preparation refuses an occupied port or leftovers.
+Only a successfully prepared suite runner gets `PORELO_ACCEPTANCE_HOST_SERVICES`. The leg calls `down` afterwards,
+also when the suite fails; a failed stop is reported and retains the files for cleanup. Restart scenarios run last,
+with one account too, so they cannot remove the transient listener before the host-services feature uses it.
+A direct invocation of the suite needs the same root preparation and cleanup on its VM before setting that variable.
+After its scenarios a leg prints what the cache
 served. On the run of 2026-10-02 both legs printed 20 manifests and 20 blobs, `ubuntu` and `alpine`.
 A leg takes 15-20 minutes, against 26 when the scenarios ran one after another.
 
