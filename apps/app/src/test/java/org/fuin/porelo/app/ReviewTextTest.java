@@ -17,6 +17,34 @@ import org.junit.jupiter.api.io.TempDir;
 /** Tests for {@link ReviewText}: what a person reads before the patch. */
 class ReviewTextTest {
 
+    @Test
+    void aRescuedPushRetainsItsOriginalInstruction() throws IOException {
+        // Rescuing must not hide the instruction the unreviewed work was meant to follow.
+        final PoreloPaths paths = paths();
+        TaskIdentityFixture.record(paths, "porelo-checkout_fix", "checkout", "fix", "a".repeat(64));
+        task(paths.tasks().taskRecord("porelo-checkout_fix"), "original instruction", "fix");
+        assertThat(ReviewText.instruction(paths, "checkout", "fix" + GitGate.RESCUED).prompt())
+                .as("the rescued ref keeps its original task's instruction")
+                .isEqualTo("original instruction");
+    }
+
+    @Test
+    void retainedInstructionsFollowTheRecordedOwnerInBothFormats() throws IOException {
+        // A review must not omit an old instruction or show a different project's instruction.
+        final PoreloPaths paths = paths();
+        TaskIdentityFixture.record(paths, "porelo-web-app-x", "web", "app-x", "a".repeat(64));
+        TaskIdentityFixture.record(paths, "porelo-web-app_x", "web-app", "x", "b".repeat(64));
+        task(paths.tasks().taskRecord("porelo-web-app-x"), "original instruction", "app-x");
+        task(paths.tasks().taskRecord("porelo-web-app_x"), "sibling instruction", "x");
+
+        assertThat(ReviewText.instruction(paths, "web", "app-x").prompt())
+                .as("the old actual owner keeps its instruction")
+                .isEqualTo("original instruction");
+        assertThat(ReviewText.instruction(paths, "web-app", "x").prompt())
+                .as("the encoded sibling never borrows the overlapping old name")
+                .isEqualTo("sibling instruction");
+    }
+
     @TempDir Path dir;
 
     private PoreloPaths paths() {
@@ -34,6 +62,10 @@ class ReviewTextTest {
 
     private void task(Path directory, String prompt, String push) throws IOException {
         Files.createDirectories(directory);
+        final String container = directory.getFileName().toString();
+        if (!Files.exists(paths().tasks().taskRecord(container).resolve("sidecar.json"))) {
+            TaskIdentityFixture.record(paths(), container, "checkout", push, "a".repeat(64));
+        }
         new TaskProfile(
                         1,
                         "asker",

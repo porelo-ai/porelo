@@ -493,6 +493,10 @@ class TaskStopSurvivorsTest {
         final PoreloContext context = context(dir);
         final String other = "porelo-uc-z-last";
         Sidecar.recordId(context.paths().tasks().containerState(other), "bbbbbbbbbbbb");
+        LegacyTaskFixture.record(context, other, "uc", "bbbbbbbbbbbb");
+        Files.copy(
+                context.paths().tasks().taskRecord(other).resolve("sidecar.json"),
+                context.paths().tasks().containerState(other).resolve("sidecar.json"));
         runner.answering("ps", "bbbbbbbbbbbb\tpaused\na1b2c3d4e5f6\tstopping\nforeign\trunning\n");
         assertThat(new TaskPanic(context).panic(preview).tasks())
                 .as("only recorded identities, in runtime order")
@@ -581,8 +585,20 @@ class TaskStopSurvivorsTest {
             throws IOException {
         final PoreloContext context = context(dir);
         if (builtIn) {
+            new TaskState(context).forget(CONTAINER);
+            try (var paths = Files.walk(context.paths().tasks().containerState(CONTAINER))) {
+                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList())
+                    Files.delete(path);
+            }
+            final String actual = "porelo-default-shell-1";
+            TaskIdentityFixture.record(
+                    context.paths(), actual, "default", "shell-1", "a1b2c3d4e5f6");
+            Sidecar.recordId(context.paths().tasks().containerState(actual), "a1b2c3d4e5f6");
+            Files.copy(
+                    context.paths().tasks().taskRecord(actual).resolve("sidecar.json"),
+                    context.paths().tasks().containerState(actual).resolve("sidecar.json"));
             runner.answering(
-                    "ps", CONTAINER + "\tUp 4 minutes\t\t\tdefault\tguarded\t\t\ta1b2c3d4e5f6\n");
+                    "ps", actual + "\tUp 4 minutes\t\t\tdefault\tguarded\t\t\ta1b2c3d4e5f6\n");
         } else {
             project(dir);
         }

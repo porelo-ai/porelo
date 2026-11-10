@@ -135,14 +135,14 @@ public final class ApprovalBranch {
             final TaskBase pending =
                     TaskBase.waiting(GateSupport.mirror(context, project, repository), task);
             final TaskBase base =
-                    pending != null
-                            ? pending
-                            : TaskBase.recorded(
-                                    context,
-                                    org.fuin.porelo.runtime.ContainerName.of(project, task));
+                    pending != null ? pending : recordedBase(context, project.name(), task);
             return base == null ? null : base.branch();
         }
-        final String container = org.fuin.porelo.runtime.ContainerName.of(project, task);
+        final TaskIdentity identity = TaskHistory.forPush(context, project.name(), task);
+        if (identity == null)
+            throw new ProjectException(
+                    "no branch of " + task + " is recorded; name the branch to approve onto");
+        final String container = identity.container();
         org.fuin.porelo.wire.TaskProfile profile =
                 org.fuin.porelo.wire.TaskProfile.readFrom(
                         context.paths().tasks().containerState(container));
@@ -161,6 +161,12 @@ public final class ApprovalBranch {
                             + " accepts; name the branch to approve onto");
         }
         return recorded;
+    }
+
+    private static @Nullable TaskBase recordedBase(
+            PoreloContext context, String project, String task) {
+        final TaskIdentity identity = TaskHistory.forPush(context, project, task);
+        return identity == null ? null : TaskBase.recorded(context, identity.container());
     }
 
     /**

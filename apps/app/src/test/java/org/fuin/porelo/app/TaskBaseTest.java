@@ -35,7 +35,12 @@ class TaskBaseTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
+        final var other = new org.fuin.porelo.testing.FakeCommandRunner();
+        return new PoreloContext(
+                command ->
+                        command.program().equals("git") ? runner.run(command) : other.run(command),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                args -> 0);
     }
 
     private Project project(String extra) {
@@ -188,6 +193,11 @@ class TaskBaseTest {
         final String container = "porelo-app-fix";
         final Path state =
                 Files.createDirectories(context.paths().tasks().containerState(container));
+        TaskIdentityFixture.record(context.paths(), container, "app", "fix", "a".repeat(64));
+        org.fuin.porelo.wire.Sidecar.recordId(state, "a".repeat(64));
+        Files.copy(
+                context.paths().tasks().taskRecord(container).resolve("sidecar.json"),
+                state.resolve("sidecar.json"));
         new TaskBase("develop", "CHECKOUT").writeTo(state);
         new TaskState(context).save(container);
         Files.delete(state.resolve(TaskBase.FILE));

@@ -192,6 +192,12 @@ public final class TaskState {
      * @throws IOException If it cannot be made or filled.
      */
     Path restore(String container) throws IOException {
+        if (!(TaskIdentities.retained(context.paths(), container)
+                        instanceof TaskIdentities.Found found)
+                || !TaskReservations.matches(context.paths(), found.identity())) {
+            throw new IOException(
+                    "The task's identity cannot be verified; no runtime files were restored");
+        }
         final Path runtime = context.paths().tasks().containerState(container);
         final Path durable = context.paths().tasks().taskRecord(container);
         createPrivate(runtime);

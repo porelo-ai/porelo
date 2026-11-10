@@ -22,6 +22,55 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class ApprovalBranchTest {
 
+    @Test
+    void historicalOwnershipCannotAuthorizeASurvivingDifferentIdWithoutASidecar() throws Exception {
+        // A claim must not lend a replacement's base branch when ordinary ownership is incomplete.
+        final PoreloContext context = context();
+        final String container = "porelo-uc-fix";
+        TaskIdentityFixture.record(context.paths(), container, "uc", "fix", "a".repeat(64));
+        new TaskReservations(context).mutate(container, () -> Boolean.TRUE);
+        final Path state = context.paths().tasks().taskRecord(container);
+        Files.delete(state.resolve("sidecar.json"));
+        org.fuin.porelo.wire.Sidecar.recordId(state, "b".repeat(64));
+        new TaskBase("replacement", "FROM").writeTo(state);
+
+        assertThatThrownBy(
+                        () ->
+                                ApprovalBranch.of(
+                                        context,
+                                        project(""),
+                                        project("").ownRepository(),
+                                        "fix",
+                                        null))
+                .as("historical metadata cannot override a contradictory surviving id")
+                .isInstanceOf(ProjectException.class);
+        assertThat(state.resolve(TaskBase.FILE)).as("refusal changes no task files").exists();
+    }
+
+    @Test
+    void approvalAndReviewUseTheRetainedActualOwner() throws Exception {
+        // Rebuilding the old spelling can approve another project's starting branch.
+        final PoreloContext context = context();
+        final Project project = project("");
+        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
+        TaskIdentityFixture.record(
+                context.paths(), "porelo-uc_other", "uc", "other", "b".repeat(64));
+        new TaskBase("release", "FROM")
+                .writeTo(context.paths().tasks().taskRecord("porelo-uc-fix"));
+        new TaskBase("develop", "FROM")
+                .writeTo(context.paths().tasks().taskRecord("porelo-uc_other"));
+
+        assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "other", null))
+                .as("approval uses the encoded task's retained branch")
+                .isEqualTo("develop");
+        assertThat(TaskBase.reviewAgainst(context, project, "fix"))
+                .as("the old task still uses its original branch")
+                .isEqualTo("refs/heads/release");
+        assertThat(TaskBase.reviewAgainst(context, project, "other"))
+                .as("review reads the same actual record as approval")
+                .isEqualTo("refs/heads/develop");
+    }
+
     private static final String HEAD =
             """
             project:
@@ -62,6 +111,7 @@ class ApprovalBranchTest {
     private void recorded(
             final PoreloContext context, final Project project, final String forgeBranch)
             throws Exception {
+        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
         final Path state =
                 Files.createDirectories(
                         context.paths()
@@ -88,6 +138,7 @@ class ApprovalBranchTest {
         // Work started on develop must not be forwarded onto main by default.
         final PoreloContext context = context();
         final Project project = project("");
+        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
         final Path state =
                 Files.createDirectories(
                         context.paths()
@@ -111,6 +162,7 @@ class ApprovalBranchTest {
                   repo:
                     upstream: "http://127.0.0.1:3001/acme/repo.git"
                 """);
+        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
         final var repository = project.repository("repo");
         final Path state =
                 Files.createDirectories(

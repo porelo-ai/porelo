@@ -553,6 +553,16 @@ public final class TaskReservations {
      * Mutations recheck ownership before deletion, taking the name lock before any vault update.
      */
     public <T> T mutate(String container, Operation<T> action) throws IOException {
+        return mutate(container, action, false);
+    }
+
+    /** A bulk operation already matched the recorded id against its one runtime snapshot. */
+    public <T> T mutateRecorded(String container, Operation<T> action) throws IOException {
+        return mutate(container, action, true);
+    }
+
+    private <T> T mutate(String container, Operation<T> action, boolean recordedOnly)
+            throws IOException {
         return locked(
                 () -> {
                     Claim old = read(container, "", "");
@@ -579,7 +589,16 @@ public final class TaskReservations {
                         }
                     }
                     if (old == null) {
-                        final var identity = new TaskIdentities(context).retained(container);
+                        final var identities = new TaskIdentities(context);
+                        final var identity =
+                                recordedOnly
+                                        ? identities.retained(container)
+                                        : identities.lookup(container, null);
+                        if (identity instanceof TaskIdentities.Refused refused
+                                && refused.reason() != TaskIdentities.Reason.MISSING
+                                && refused.reason() != TaskIdentities.Reason.MISSING_RECORD) {
+                            throw taken("", "", container, null);
+                        }
                         if (identity instanceof TaskIdentities.Found found) {
                             final TaskIdentity owner = found.identity();
                             old =
@@ -678,7 +697,12 @@ public final class TaskReservations {
     }
 
     private Claim required(String container) throws IOException {
-        final Path file = claim(container);
+        return required(context.paths(), container);
+    }
+
+    private static Claim required(PoreloPaths paths, String container) throws IOException {
+        validate(container);
+        final Path file = paths.tasks().identity(container);
         final var attributes =
                 Files.readAttributes(
                         file,
@@ -720,6 +744,60 @@ public final class TaskReservations {
             throw new IOException("Contradictory task claim: " + container);
         if (result.pid() > 0) Instant.parse(result.started());
         return result;
+    }
+
+    /** Reads the original owner kept after removal, without taking a lock or adopting a task. */
+    public static java.util.Optional<TaskIdentity> historical(PoreloPaths paths, String container)
+            throws IOException {
+        final Claim owner;
+        try {
+            owner = required(paths, container);
+        } catch (NoSuchFileException absent) {
+            return java.util.Optional.empty();
+        }
+        if (owner.project().isEmpty() || owner.id().isEmpty()) return java.util.Optional.empty();
+        return java.util.Optional.of(
+                new TaskIdentity(
+                        container.equals("porelo-" + owner.project() + "-" + owner.task())
+                                ? TaskIdentity.Format.LEGACY
+                                : TaskIdentity.Format.ENCODED,
+                        owner.project(),
+                        owner.task(),
+                        container,
+                        owner.id()));
+    }
+
+    /**
+     * Only explicitly retired scopes may be pruned; unidentified vault leftovers keep their name.
+     */
+    public boolean retired(String container) {
+        final Claim owner = known(container);
+        if (owner == null || owner.stage() != Stage.RETIRED || owner.project().isEmpty())
+            return false;
+        if (Files.notExists(
+                        context.paths().tasks().containerState(container),
+                        LinkOption.NOFOLLOW_LINKS)
+                && Files.notExists(
+                        context.paths().tasks().taskRecord(container), LinkOption.NOFOLLOW_LINKS))
+            return true;
+        return new TaskIdentities(context).retained(container) instanceof TaskIdentities.Found found
+                && owner.owner(found.identity().project(), found.identity().task())
+                && owner.id().equals(found.identity().recordedId());
+    }
+
+    /**
+     * Checks committed metadata against the recorded owner; a legacy task may have no claim yet.
+     */
+    public static boolean matches(PoreloPaths paths, TaskIdentity identity) throws IOException {
+        final Claim owner;
+        try {
+            owner = required(paths, identity.container());
+        } catch (NoSuchFileException absent) {
+            return true;
+        }
+        return owner.stage() != Stage.RETIRED
+                && owner.owner(identity.project(), identity.task())
+                && (owner.id().isEmpty() || owner.id().equals(identity.recordedId()));
     }
 
     private static String text(Map<?, ?> map, String key) throws IOException {

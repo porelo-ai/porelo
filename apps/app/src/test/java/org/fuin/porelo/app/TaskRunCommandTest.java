@@ -28,6 +28,122 @@ import picocli.CommandLine;
 class TaskRunCommandTest {
 
     @Test
+    void aStartByAnEncodedActualNameResumesItsRecordedLogicalTask(@TempDir Path dir)
+            throws Exception {
+        // The actual spelling must not become a different logical owner at the reservation.
+        final PoreloContext context = context(dir, true);
+        final String actual = "porelo-uc_shell";
+        final String id = "a".repeat(64);
+        TaskIdentityFixture.record(context.paths(), actual, "uc", "shell", id);
+        new TaskHelpers(List.of()).writeTo(context.paths().tasks().taskRecord(actual));
+        runner.answering("ps", actual + "\tExited (0)\t\t\tuc\tguarded\tuc\t\t" + id + "\tshell\n");
+        runner.answering("{{.Id}}", id);
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        actual,
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--detach");
+
+        assertThat(code).as("resume uses the verified logical owner: %s", err).isZero();
+        assertThat(runner.lines())
+                .as("resume never creates a container with a rebuilt name")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aRebootResumeRestoresOnlyTheOldOwnersPathsAndRouteTokens(@TempDir Path dir)
+            throws Exception {
+        // A resume must restore the mounted old paths and tokens without borrowing a sibling's
+        // scope.
+        final PoreloContext context =
+                context(dir, true).asking(shown -> "fixture-passphrase".toCharArray());
+        final String actual = "porelo-uc-shell";
+        final String sibling = "porelo-uc_other";
+        final String id = "a".repeat(64);
+        TaskIdentityFixture.record(context.paths(), actual, "uc", "shell", id);
+        TaskIdentityFixture.record(context.paths(), sibling, "uc", "other", "b".repeat(64));
+        final Path durable = context.paths().tasks().taskRecord(actual);
+        final Path siblingFile = context.paths().tasks().taskRecord(sibling).resolve("sentinel");
+        Files.writeString(siblingFile, "sibling's file");
+        Files.writeString(durable.resolve("ruleset.nft"), "original rules");
+        new TaskHelpers(
+                        List.of(
+                                new TaskHelpers.Helper(
+                                        "gate",
+                                        List.of("unused-helper"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
+                .writeTo(durable);
+        runner.answering("ps", actual + "\tExited (0)\t\t\tuc\tguarded\tuc\t\t" + id + "\n");
+        runner.answering("{{.Id}}", id);
+        context.vault()
+                .write(
+                        java.util.Map.of(
+                                TaskSecrets.PREFIX + actual + "/gate-token",
+                                        org.fuin.porelo.vault.VaultEntry.of("old-gate"),
+                                TaskSecrets.PREFIX + actual + "/provider-token",
+                                        org.fuin.porelo.vault.VaultEntry.of("old-provider"),
+                                TaskSecrets.PREFIX + actual + "/route/forge",
+                                        org.fuin.porelo.vault.VaultEntry.of("old-route"),
+                                TaskSecrets.PREFIX + sibling + "/route/forge",
+                                        org.fuin.porelo.vault.VaultEntry.of("sibling-route")),
+                        "fixture-passphrase".toCharArray());
+        try {
+            context.openerAsking(false, new PrintWriter(err));
+            new TaskControl(context).resume(actual);
+            final Path runtime = context.paths().tasks().containerState(actual);
+            assertThat(runtime.resolve("ruleset.nft"))
+                    .as("the original mount's policy returns")
+                    .hasContent("original rules");
+            assertThat(
+                            "old-provider"
+                                    .equals(
+                                            Files.readString(
+                                                    runtime.resolve(TaskSecrets.PROVIDER_FILE))))
+                    .as("the original provider token returns to its original path")
+                    .isTrue();
+            assertThat("old-route".equals(Files.readString(runtime.resolve("routes/forge.token"))))
+                    .as("the original route token returns to its original path")
+                    .isTrue();
+            assertThat(context.paths().tasks().containerState(sibling))
+                    .as("resume creates no sibling runtime state")
+                    .doesNotExist();
+            assertThat(siblingFile)
+                    .as("the sibling's durable files stay untouched")
+                    .hasContent("sibling's file");
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
+    @Test
+    void removalRefusesAReplacementBeforeDeletingAnyOwnersFiles(@TempDir Path dir)
+            throws Exception {
+        // A stale identity must never delete files or secrets after a different container takes its
+        // name.
+        final PoreloContext context = context(dir, true);
+        final String actual = "porelo-uc-shell";
+        TaskIdentityFixture.record(context.paths(), actual, "uc", "shell", "a".repeat(64));
+        runner.answering(
+                "ps", actual + "\tExited (0)\t\t\tuc\tguarded\tuc\t\t" + "b".repeat(64) + "\n");
+        final Path sentinel = context.paths().tasks().taskRecord(actual).resolve("sentinel");
+        Files.writeString(sentinel, "owner's file");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new TaskControl(context).remove(actual, false, true))
+                .as("replacement ownership refuses removal")
+                .isInstanceOf(TaskReservations.ContainerNameTaken.class);
+        assertThat(sentinel).as("the original owner's files remain").hasContent("owner's file");
+        assertThat(runner.lines())
+                .as("no container is removed on contradictory ownership")
+                .noneMatch(line -> line.contains("podman rm"));
+    }
+
+    @Test
     void aClaimOfAnotherProjectRefusesALegacyOverlapBeforeTaskFiles(@TempDir Path dir)
             throws Exception {
         final PoreloContext context = context(dir, true);

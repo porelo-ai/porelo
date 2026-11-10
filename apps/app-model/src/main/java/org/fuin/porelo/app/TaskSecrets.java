@@ -174,6 +174,16 @@ public final class TaskSecrets {
      */
     public String keep(
             String container, Tokens tokens, java.util.function.Supplier<Set<String>> existing) {
+        try {
+            return new TaskReservations(context)
+                    .locked(() -> keepHeld(container, tokens, existing));
+        } catch (java.io.IOException ex) {
+            return "task ownership could not be checked, so its tokens could not be kept";
+        }
+    }
+
+    private String keepHeld(
+            String container, Tokens tokens, java.util.function.Supplier<Set<String>> existing) {
         if (tokens.gate() == null && tokens.provider() == null && tokens.routes().isEmpty()) {
             return "";
         }
@@ -207,7 +217,9 @@ public final class TaskSecrets {
                                         .removeIf(
                                                 name ->
                                                         name.startsWith(PREFIX)
-                                                                && !exist.contains(owner(name)));
+                                                                && !exist.contains(owner(name))
+                                                                && new TaskReservations(context)
+                                                                        .retired(owner(name)));
                                 put(updated, container + GATE, tokens.gate());
                                 put(updated, container + PROVIDER, tokens.provider());
                                 tokens.routes()
@@ -239,6 +251,10 @@ public final class TaskSecrets {
             // No vault, so nothing was ever kept in it: that is "not kept", not "locked".
             return Optional.of(new Tokens(null, null));
         }
+        return identified(container, () -> readHeld(container));
+    }
+
+    private Optional<Tokens> readHeld(String container) {
         final Optional<VaultFile.Opener> opener = context.opener();
         if (opener.isEmpty()) {
             return Optional.empty();
@@ -394,6 +410,10 @@ public final class TaskSecrets {
      * @return It, or empty when there is none or the vault cannot be read.
      */
     public Optional<String> forgeToken(String container) {
+        return identified(container, () -> forgeTokenHeld(container));
+    }
+
+    private Optional<String> forgeTokenHeld(String container) {
         final Optional<VaultFile.Opener> opener = context.opener();
         if (!context.vault().exists() || opener.isEmpty()) {
             return Optional.empty();
@@ -413,6 +433,10 @@ public final class TaskSecrets {
      * @return Both, or empty when there are none or the vault cannot be read.
      */
     public Optional<Signing> signing(String container) {
+        return identified(container, () -> signingHeld(container));
+    }
+
+    private Optional<Signing> signingHeld(String container) {
         final Optional<VaultFile.Opener> opener = context.opener();
         if (!context.vault().exists() || opener.isEmpty()) {
             return Optional.empty();
@@ -429,6 +453,70 @@ public final class TaskSecrets {
         }
     }
 
+    /** Reads only the forge token of the verified project-scoped task, in its actual namespace. */
+    public Optional<String> forgeToken(String project, String task) {
+        final TaskIdentity identity = TaskHistory.find(context, project, task);
+        return identity == null ? Optional.empty() : forgeToken(identity);
+    }
+
+    /** Reads only the signing key of the verified project-scoped task, in its actual namespace. */
+    public Optional<Signing> signing(String project, String task) {
+        final TaskIdentity identity = TaskHistory.find(context, project, task);
+        return identity == null ? Optional.empty() : signing(identity);
+    }
+
+    /** Reads only while this originally selected incarnation still owns the scope. */
+    public Optional<Signing> signing(TaskIdentity identity) {
+        return forIdentity(identity, () -> signingHeld(identity.container()));
+    }
+
+    /** Reads only while this originally selected incarnation still owns the scope. */
+    public Optional<String> forgeToken(TaskIdentity identity) {
+        return forIdentity(identity, () -> forgeTokenHeld(identity.container()));
+    }
+
+    /** Renews only the originally selected key, even if certification took time. */
+    public String keepSigning(TaskIdentity identity, Signing signing) {
+        try {
+            return new TaskReservations(context)
+                    .locked(
+                            () ->
+                                    new TaskIdentities(context).matches(identity)
+                                            ? keepSigning(identity.container(), signing)
+                                            : "the task's identity changed, so its certificate was not stored");
+        } catch (java.io.IOException ex) {
+            return "the task's identity could not be checked, so its certificate was not stored";
+        }
+    }
+
+    private <T> Optional<T> identified(
+            String container, java.util.function.Supplier<Optional<T>> read) {
+        final var result = new TaskIdentities(context).lookup(container, null);
+        return result instanceof TaskIdentities.Found found
+                ? forIdentity(found.identity(), read)
+                : Optional.empty();
+    }
+
+    private <T> Optional<T> forIdentity(
+            TaskIdentity identity, java.util.function.Supplier<Optional<T>> read) {
+        try {
+            return new TaskReservations(context)
+                    .locked(
+                            () ->
+                                    new TaskIdentities(context).matches(identity)
+                                            ? read.get()
+                                            : Optional.empty());
+        } catch (java.io.IOException ex) {
+            return Optional.empty();
+        }
+    }
+
+    private boolean verified(String container) {
+        final var identities = new TaskIdentities(context);
+        return identities.lookup(container, null) instanceof TaskIdentities.Found found
+                && identities.matches(found.identity());
+    }
+
     /**
      * Forgets a task's tokens, as removing the task does.
      *
@@ -437,6 +525,27 @@ public final class TaskSecrets {
      *     prunes them.
      */
     public String forget(String container) {
+        try {
+            final TaskReservations reservations = new TaskReservations(context);
+            return reservations.locked(
+                    () -> {
+                        final var identity = new TaskIdentities(context).lookup(container, null);
+                        final boolean absent =
+                                identity instanceof TaskIdentities.Refused refused
+                                        && refused.reason() == TaskIdentities.Reason.MISSING;
+                        if (!verified(container)
+                                && reservations.unmade(container) == null
+                                && !(absent && reservations.retired(container))) {
+                            return "the task's identity cannot be verified, so its secrets were retained";
+                        }
+                        return forgetHeld(container);
+                    });
+        } catch (java.io.IOException ex) {
+            return "the task's ownership could not be checked, so its secrets were retained";
+        }
+    }
+
+    private String forgetHeld(String container) {
         final Optional<VaultFile.Opener> opener = context.opener();
         if (!context.vault().exists()) {
             return "";

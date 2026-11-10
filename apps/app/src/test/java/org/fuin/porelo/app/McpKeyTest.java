@@ -28,6 +28,7 @@ class McpKeyTest {
     void theKeyIsKeptAsTheTasksOwnEntryReadBackAndGoesWithTheTask() throws Exception {
         Assumptions.assumeTrue(KernelKeyring.available(), "no kernel keyring here");
         final PoreloContext context = context();
+        TaskIdentityFixture.record(context.paths(), TASK, "p", "task", "a".repeat(64));
         final char[] passphrase = "correct horse battery staple".toCharArray();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {

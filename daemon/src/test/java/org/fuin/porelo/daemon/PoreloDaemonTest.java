@@ -75,6 +75,31 @@ class PoreloDaemonTest {
                         : runner.run(command);
     }
 
+    /** Leaves the records a real start of the task writes, under the id podman gave it. */
+    private static void recorded(
+            PoreloContext context, String container, String project, String task, String id)
+            throws java.io.IOException {
+        final Path state = context.paths().tasks().containerState(container);
+        final Path record = context.paths().tasks().taskRecord(container);
+        for (final Path where : List.of(state, record)) {
+            org.fuin.porelo.wire.Sidecar.recordId(where, id);
+            new org.fuin.porelo.wire.Sidecar(
+                            org.fuin.porelo.wire.Sidecar.VERSION,
+                            project,
+                            "guarded",
+                            "ruleset.nft",
+                            "dns.conf",
+                            "porelo",
+                            state.toString(),
+                            task,
+                            null,
+                            null)
+                    .writeTo(where.resolve("sidecar.json"));
+        }
+        Files.setPosixFilePermissions(
+                record, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+    }
+
     /** Runs the server on its own thread and hands the socket to the body. */
     private void serving(Path dir, ThrowingConsumer body) throws Exception {
         servingContext(context(dir), dir, body);
@@ -869,7 +894,10 @@ class PoreloDaemonTest {
     @Test
     void stopsATaskOverTheSocket(@TempDir Path dir) throws Exception {
 
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        recorded(context(dir), "porelo-uc-shell-1", "uc", "shell-1", "a1b2c3d4e5f6");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell-1\tUp 4 minutes\t\t\tuc\tguarded\t\t\ta1b2c3d4e5f6\tshell-1\n");
         runner.answering("git status --porcelain", "0 0");
         runner.answering("{{.State.Status}}", "exited");
 
@@ -2727,10 +2755,8 @@ class PoreloDaemonTest {
                         },
                         base.paths(),
                         base.exec());
-        org.fuin.porelo.wire.Sidecar.recordId(
-                context.paths().tasks().containerState("porelo-uc-shell-1"), "111111111111");
-        org.fuin.porelo.wire.Sidecar.recordId(
-                context.paths().tasks().containerState("porelo-uc-other-2"), "222222222222");
+        recorded(context, "porelo-uc-shell-1", "uc", "shell-1", "111111111111");
+        recorded(context, "porelo-uc-other-2", "uc", "other-2", "222222222222");
         servingContext(
                 context,
                 dir,
@@ -4107,6 +4133,7 @@ class PoreloDaemonTest {
                         + "\"blobs\":{\"sha1\":\"a20a2a96ff42adf7ecb4b6424b714e9dc55249d7\","
                         + "\"sha256\":\"da22591943cc2ef8885e5d12bc9935c55f5588d7b22174e01009ee5829b2b5c6\"}}\n");
 
+        recorded(context(dir), "porelo-default-t", "default", "t", "d00d".repeat(16));
         final Map<String, Object> review = reviewWithBase(dir, false);
 
         final Map<String, Map<?, ?>> byPath = new java.util.LinkedHashMap<>();

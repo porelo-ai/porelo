@@ -88,7 +88,7 @@ class BuildsWiringTest {
         final FakeCommandRunner runner = (FakeCommandRunner) context.runner();
         runner.answering(
                 "ps",
-                "porelo-demo-fix\tExited (0) 1 minute ago\t1788500000\t0\tdemo\tguarded\tdemo\t\t0123456789ab\n");
+                "porelo-demo-fix\tExited (0) 1 minute ago\t1788500000\t0\tdemo\tguarded\tdemo\t\t0123456789ab\tfix\n");
         runner.answering("{{.Id}}", "0123456789ab");
         runner.answering("{{.State.Pid}}", "123");
         final Path state =
@@ -130,6 +130,13 @@ class BuildsWiringTest {
                             new PrintWriter(new StringWriter()));
             assertThat(called).as("the missing token starts no reader").doesNotExist();
             new TaskHelpers(List.of()).writeTo(state);
+            // What the start records, under the id podman lists for it.
+            TaskIdentityFixture.record(
+                    context.paths(), "porelo-demo-fix", "demo", "fix", "0123456789ab");
+            Files.copy(
+                    context.paths().tasks().taskRecord("porelo-demo-fix").resolve("sidecar.json"),
+                    state.resolve("sidecar.json"),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             new TaskState(context).save("porelo-demo-fix");
             Files.delete(state.resolve(TaskBuilds.READER_FILE));
             new TaskState(context).restore("porelo-demo-fix");

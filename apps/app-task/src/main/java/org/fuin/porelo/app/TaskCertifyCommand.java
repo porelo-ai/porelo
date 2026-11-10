@@ -124,15 +124,15 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
         }
         // Named, the project picks its own task: a task of the same name in another project is
         // never the one certified.
-        final String container =
-                projectOption == null
-                        ? TaskTarget.spelled(context, task)
-                        : org.fuin.porelo.runtime.ContainerName.PREFIX
-                                + projectOption
-                                + "-"
-                                + org.fuin.porelo.runtime.ContainerName.taskFrom(
-                                        projectOption, task);
-        final String projectName = new TaskControl(context).projectOf(container);
+        final TaskIdentities.Result identified =
+                new TaskIdentities(context)
+                        .lookup(
+                                projectOption == null ? TaskTarget.spelled(context, task) : task,
+                                projectOption);
+        final TaskIdentity identity =
+                identified instanceof TaskIdentities.Found found ? found.identity() : null;
+        final String container = identity == null ? task : identity.container();
+        final String projectName = identity == null ? null : identity.project();
         if (projectOption != null && !projectOption.equals(projectName)) {
             err.println(
                     "porelo: "
@@ -144,7 +144,8 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
             return 66;
         }
         final TaskSecrets secrets = new TaskSecrets(context);
-        final Optional<TaskSecrets.Signing> held = secrets.signing(container);
+        final Optional<TaskSecrets.Signing> held =
+                identity == null ? Optional.empty() : secrets.signing(identity);
         if (projectName == null || held.isEmpty()) {
             err.println(
                     "porelo: "
@@ -155,7 +156,10 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
             return 66;
         }
         final Project project = GateSupport.byName(context, projectName);
-        final String name = org.fuin.porelo.runtime.ContainerName.taskIn(projectName, container);
+        final TaskIdentity owner =
+                java.util.Objects.requireNonNull(
+                        identity, "a task's key requires a verified identity");
+        final String name = owner.task();
         final List<String> certifiers =
                 TaskCertifying.renewing(
                         projectName,
@@ -209,7 +213,7 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                             Clock.systemUTC());
             final String unkept =
                     secrets.keepSigning(
-                            container,
+                            owner,
                             new TaskSecrets.Signing(
                                     held.get().seed(), issued.certificate().line()));
             if (!unkept.isEmpty()) {
@@ -220,7 +224,18 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
             new TaskCertificateRecords(context).keep(name, login, issued.certificate());
             // Last, and only said: the certificate holds whether a list can tell its end or not.
             try {
-                new TaskState(context).certified(container, issued.certificate().validBefore());
+                new TaskReservations(context)
+                        .locked(
+                                () -> {
+                                    if (!new TaskIdentities(context).matches(owner))
+                                        throw new java.io.IOException(
+                                                "the task's identity changed");
+                                    new TaskState(context)
+                                            .certified(
+                                                    owner.container(),
+                                                    issued.certificate().validBefore());
+                                    return Boolean.TRUE;
+                                });
             } catch (java.io.IOException ex) {
                 err.println("porelo: a list will not say the new end: " + ex.getMessage());
                 err.flush();

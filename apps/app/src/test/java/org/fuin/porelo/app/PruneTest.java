@@ -17,6 +17,26 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class PruneTest {
 
+    @Test
+    void applyPruneRetainsAVaultOnlyScopeWhoseOwnerCannotBeProved() throws Exception {
+        // Absence from the runtime is not permission to erase the only remaining task secrets.
+        final PoreloContext context = context().asking(shown -> "fixture-passphrase".toCharArray());
+        final String entry = TaskSecrets.PREFIX + "porelo-legacy-only/signing-key";
+        context.vault()
+                .write(
+                        java.util.Map.of(entry, org.fuin.porelo.vault.VaultEntry.of("sentinel")),
+                        "fixture-passphrase".toCharArray());
+        try {
+            context.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter()));
+            new Prune(context).run(true, false);
+            assertThat(context.vault().read("fixture-passphrase".toCharArray()).keySet())
+                    .as("prune retains unidentified legacy scopes")
+                    .contains(entry);
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
     void pruningCannotGiveAnotherOwnerAHistoricalName(boolean known) throws Exception {
@@ -417,6 +437,9 @@ class PruneTest {
                                 arguments -> 0)
                         .asking(prompt -> passphrase.clone());
         Files.createDirectories(context.vault().path().getParent());
+        TaskIdentityFixture.record(context.paths(), "porelo-p-gone", "p", "gone", "a".repeat(64));
+        new TaskReservations(context).mutate("porelo-p-gone", () -> Boolean.TRUE);
+        new TaskReservations(context).retire("porelo-p-gone");
         context.vault()
                 .write(
                         java.util.Map.of(

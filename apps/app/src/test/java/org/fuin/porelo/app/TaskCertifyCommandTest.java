@@ -17,6 +17,8 @@ class TaskCertifyCommandTest {
 
     @TempDir Path dir;
 
+    private final FakeCommandRunner runner = new FakeCommandRunner();
+
     @Test
     void aTaskWithNoKeyOfItsOwnIsNotCertifiedAndSaysWhy() {
         final StringWriter err = new StringWriter();
@@ -62,6 +64,8 @@ class TaskCertifyCommandTest {
     @Test
     void aProjectNamedPicksItsOwnTaskAndNoOtherProjects() throws Exception {
         // A task of the same name in another project is never the one certified.
+        TaskIdentityFixture.record(
+                context().paths(), "porelo-other-fix", "other", "fix", "a".repeat(64));
         final Path state = context().paths().tasks().containerState("porelo-other-fix");
         Files.createDirectories(state);
         new org.fuin.porelo.wire.Sidecar(
@@ -71,8 +75,16 @@ class TaskCertifyCommandTest {
                         state.resolve("r.nft").toString(),
                         state.resolve("dns.conf").toString(),
                         "/usr/bin/porelo",
-                        state.toString())
+                        state.toString(),
+                        "fix",
+                        null,
+                        null)
                 .writeTo(state.resolve("sidecar.json"));
+        runner.answering(
+                "ps",
+                "porelo-other-fix\tUp 1 minute\t\t\tother\tguarded\tother\t\t"
+                        + "a".repeat(64)
+                        + "\n");
         final StringWriter uc = new StringWriter();
         final StringWriter other = new StringWriter();
 
@@ -87,8 +99,16 @@ class TaskCertifyCommandTest {
 
     private PoreloContext context() {
         return new PoreloContext(
-                new FakeCommandRunner(),
-                new PoreloPaths(XdgPaths.of(name -> null, dir.resolve("home")), dir.resolve("bin")),
+                runner,
+                new PoreloPaths(
+                        XdgPaths.of(
+                                name ->
+                                        switch (name) {
+                                            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                            default -> null;
+                                        },
+                                dir.resolve("home")),
+                        dir.resolve("bin")),
                 args -> 0);
     }
 

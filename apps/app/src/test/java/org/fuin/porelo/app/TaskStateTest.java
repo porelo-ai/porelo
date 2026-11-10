@@ -20,6 +20,143 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class TaskStateTest {
 
+    @Test
+    void aCanceledKnownReservationReleasesItsOwnScopesWithoutAContainerId() throws Exception {
+        // An explicit cancellation must not keep its credential scopes alive indefinitely.
+        final PoreloContext context = context().asking(shown -> "fixture-passphrase".toCharArray());
+        context.vault().write(Map.of(), "fixture-passphrase".toCharArray());
+        final String canceled = "porelo-p-pending";
+        try {
+            context.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter()));
+            final TaskReservations reservations = new TaskReservations(context);
+            final TaskSecrets secrets = new TaskSecrets(context);
+            try (var lease = reservations.reserve("p", "pending", canceled, "attempt")) {
+                secrets.keep(
+                        canceled,
+                        new TaskSecrets.Tokens(null, "pending-token"),
+                        java.util.Set.of(canceled));
+            }
+            reservations.retire(canceled);
+            secrets.keep(TASK, new TaskSecrets.Tokens("gate", null), java.util.Set.of(TASK));
+            assertThat(context.vault().read("fixture-passphrase".toCharArray()).keySet())
+                    .as("only the proven canceled attempt's scope is released")
+                    .doesNotContain(TaskSecrets.PREFIX + canceled + "/provider-token")
+                    .contains(TaskSecrets.PREFIX + TASK + "/gate-token");
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "false,false",
+        "false,true",
+        "true,false",
+        "true,true"
+    })
+    void retirementCannotAuthorizeUnknownOrContradictoryVaultScopes(boolean known, boolean forget)
+            throws Exception {
+        // A tombstone without proof, or with contradicted proof, must never authorize secret
+        // deletion.
+        final PoreloContext context = context().asking(shown -> "fixture-passphrase".toCharArray());
+        final String owner = "porelo-p-retired";
+        context.vault()
+                .write(
+                        Map.of(
+                                TaskSecrets.PREFIX + owner + "/signing-key",
+                                VaultEntry.of("sentinel")),
+                        "fixture-passphrase".toCharArray());
+        final TaskReservations reservations = new TaskReservations(context);
+        if (known) {
+            TaskIdentityFixture.record(context.paths(), owner, "p", "retired", ID);
+            reservations.mutate(owner, () -> Boolean.TRUE);
+            reservations.retire(owner);
+            org.fuin.porelo.wire.Sidecar.recordId(
+                    context.paths().tasks().taskRecord(owner), OTHER_ID);
+        } else {
+            reservations.retainBeforeRemoval(owner);
+        }
+        try {
+            context.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter()));
+            final TaskSecrets secrets = new TaskSecrets(context);
+            if (forget) {
+                assertThat(secrets.forget(owner))
+                        .as("unproven retirement refuses explicit secret deletion")
+                        .isNotEmpty();
+            } else {
+                secrets.keep(TASK, new TaskSecrets.Tokens("gate", null), java.util.Set.of(TASK));
+            }
+            assertThat(context.vault().read("fixture-passphrase".toCharArray()).keySet())
+                    .as("the unverified owner's sentinel scope survives")
+                    .contains(TaskSecrets.PREFIX + owner + "/signing-key");
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
+    @Test
+    void restoringContradictoryOwnershipWritesNoRuntimeFiles() throws IOException {
+        // Restoring another recorded id must not recreate mounts for the wrong task.
+        final PoreloContext context = context();
+        TaskIdentityFixture.record(context.paths(), TASK, "p", "t", ID);
+        Files.writeString(
+                context.paths().tasks().taskRecord(TASK).resolve("ruleset.nft"), "original");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState(TASK), OTHER_ID);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new TaskState(context).restore(TASK))
+                .as("contradictory ids must refuse before copying any saved file")
+                .isInstanceOf(IOException.class);
+        assertThat(context.paths().tasks().containerState(TASK).resolve("ruleset.nft"))
+                .as("no policy was restored for an unverified container")
+                .doesNotExist();
+    }
+
+    @Test
+    void immediateTokenPruningRetainsBothOwnersAndUnidentifiedVaultScopes() throws Exception {
+        // An unrelated start must not destroy the only evidence of a legacy owner's secrets.
+        final PoreloContext context = context().asking(shown -> "fixture-passphrase".toCharArray());
+        final String sibling = "porelo-p_other";
+        final String pending = "porelo-p-pending";
+        final String unknown = "porelo-old-only";
+        context.vault()
+                .write(
+                        Map.of(
+                                TaskSecrets.PREFIX + TASK + "/route/forge",
+                                        VaultEntry.of("first-route"),
+                                TaskSecrets.PREFIX + sibling + "/route/forge",
+                                        VaultEntry.of("second-route"),
+                                TaskSecrets.PREFIX + unknown + "/signing-key",
+                                        VaultEntry.of("unidentified-key")),
+                        "fixture-passphrase".toCharArray());
+        try {
+            context.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter()));
+            try (var lease =
+                    new TaskReservations(context).reserve("p", "pending", pending, "attempt")) {
+                final TaskSecrets secrets = new TaskSecrets(context);
+                secrets.keepSigning(
+                        pending, new TaskSecrets.Signing("pending-key", "pending-certificate"));
+                assertThat(
+                                secrets.keep(
+                                        TASK,
+                                        new TaskSecrets.Tokens("gate", null),
+                                        java.util.Set.of(TASK, sibling)))
+                        .as("a start keeps exact scopes without reclaiming unknown ownership")
+                        .isEmpty();
+            }
+            assertThat(context.vault().read("fixture-passphrase".toCharArray()).keySet())
+                    .as("both owners, the pending attempt and unknown legacy scopes survive")
+                    .contains(
+                            TaskSecrets.PREFIX + TASK + "/route/forge",
+                            TaskSecrets.PREFIX + sibling + "/route/forge",
+                            TaskSecrets.PREFIX + pending + "/signing-key",
+                            TaskSecrets.PREFIX + unknown + "/signing-key");
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
     private static final String ID = "a".repeat(64);
     private static final String OTHER_ID = "b".repeat(64);
 
@@ -194,7 +331,12 @@ class TaskStateTest {
     }
 
     private Path runningTask(PoreloContext context) throws IOException {
+        TaskIdentityFixture.record(context.paths(), TASK, "p", "t", ID);
         final Path runtime = Files.createDirectories(context.paths().tasks().containerState(TASK));
+        org.fuin.porelo.wire.Sidecar.recordId(runtime, ID);
+        Files.copy(
+                context.paths().tasks().taskRecord(TASK).resolve("sidecar.json"),
+                runtime.resolve("sidecar.json"));
         Files.writeString(runtime.resolve("task.json"), "{\"version\":3}");
         Files.writeString(runtime.resolve("ruleset.nft"), "table inet porelo {}");
         Files.writeString(runtime.resolve(TaskRunner.HOST_ADDRESS_FILE), "169.254.1.2");
@@ -383,6 +525,9 @@ class TaskStateTest {
                                     org.fuin.porelo.vault.VaultEntry.of("sk-1")),
                             passphrase);
             keyring.store(passphrase);
+            TaskIdentityFixture.record(context.paths(), "porelo-p-gone", "p", "gone", OTHER_ID);
+            new TaskReservations(context).mutate("porelo-p-gone", () -> Boolean.TRUE);
+            new TaskReservations(context).retire("porelo-p-gone");
 
             assertThat(
                             new TaskSecrets(context)

@@ -245,7 +245,9 @@ final class CheckoutApproval {
      */
     private String branchOf(final String task) {
         if (gateProject != null) {
-            final String container = org.fuin.porelo.runtime.ContainerName.of(gateProject, task);
+            final TaskIdentity identity = TaskHistory.forPush(context, gateProject.name(), task);
+            if (identity == null) return "porelo/" + task;
+            final String container = identity.container();
             org.fuin.porelo.wire.TaskProfile profile =
                     org.fuin.porelo.wire.TaskProfile.readFrom(
                             context.paths().tasks().containerState(container));

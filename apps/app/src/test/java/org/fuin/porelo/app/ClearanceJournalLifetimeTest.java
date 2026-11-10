@@ -17,7 +17,7 @@ class ClearanceJournalLifetimeTest {
 
     private final StoppingCommandRunner runner = new StoppingCommandRunner();
 
-    private PoreloContext context(final Path dir) {
+    private PoreloContext context(final Path dir) throws IOException {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -29,7 +29,11 @@ class ClearanceJournalLifetimeTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        TaskIdentityFixture.record(
+                context.paths(), "porelo-uc-shell", "uc", "shell", "a".repeat(64));
+        return context;
     }
 
     private Path journal(final PoreloContext context) throws IOException {
@@ -44,7 +48,11 @@ class ClearanceJournalLifetimeTest {
             throws IOException {
         final PoreloContext context = context(dir);
         final Path journal = journal(context);
-        runner.answering("ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed(
+                        "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n",
+                        "a".repeat(64)));
 
         new TaskControl(context).stop("porelo-uc-shell");
 
@@ -60,7 +68,10 @@ class ClearanceJournalLifetimeTest {
         final PoreloContext context = context(dir);
         final Path journal = journal(context);
         runner.answering(
-                "ps", "porelo-uc-shell\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
+                "ps",
+                LegacyTaskFixture.listed(
+                        "porelo-uc-shell\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n",
+                        "a".repeat(64)));
 
         new TaskControl(context).remove("porelo-uc-shell", false, true);
 

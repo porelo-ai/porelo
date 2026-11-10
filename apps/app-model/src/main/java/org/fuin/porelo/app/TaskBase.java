@@ -204,8 +204,8 @@ public record TaskBase(String branch, String source) {
 
     /** Returns the review base; tasks predating the record retain the mirror's default. */
     public static String reviewAgainst(PoreloContext context, Project project, String task) {
-        final TaskBase base =
-                recorded(context, org.fuin.porelo.runtime.ContainerName.of(project, task));
+        final TaskIdentity identity = TaskHistory.forPush(context, project.name(), task);
+        final TaskBase base = identity == null ? null : recorded(context, identity.container());
         return base == null ? "HEAD" : "refs/heads/" + base.branch();
     }
 

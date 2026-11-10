@@ -501,13 +501,8 @@ public final class HandIns {
      * @return The deliveries, oldest first.
      */
     public List<Delivered> deliveredForPush(final String project, final String push) {
-        final List<Delivered> own = delivered(ReviewText.container(project, push));
-        if (own.isEmpty() && push.endsWith(GitGate.RESCUED)) {
-            return delivered(
-                    ReviewText.container(
-                            project, push.substring(0, push.length() - GitGate.RESCUED.length())));
-        }
-        return own;
+        final String container = ReviewText.container(paths.paths(), project, push);
+        return container == null ? List.of() : delivered(container);
     }
 
     /** One line of a record, or {@code null} where it does not read: the rest still does. */

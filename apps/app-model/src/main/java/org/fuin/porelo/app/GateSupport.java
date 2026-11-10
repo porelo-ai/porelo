@@ -241,11 +241,7 @@ public final class GateSupport {
             gate.pullRequests(
                     new HostPullRequests(
                             forwardTo,
-                            task ->
-                                    new TaskSecrets(context)
-                                            .forgeToken(
-                                                    org.fuin.porelo.runtime.ContainerName.of(
-                                                            project, task))));
+                            task -> new TaskSecrets(context).forgeToken(project.name(), task)));
         }
         return gate;
     }
@@ -350,7 +346,9 @@ public final class GateSupport {
         if (named != null && !named.isBlank()) {
             return repository(project, named);
         }
-        final String container = org.fuin.porelo.runtime.ContainerName.of(project, task);
+        final TaskIdentity identity = TaskHistory.forPush(context, project.name(), task);
+        if (identity == null) return OwnRepository.unnamed(project);
+        final String container = identity.container();
         for (final TaskInventory.Task each : new TaskInventory(context).tasks()) {
             if (container.equals(each.name()) && each.repository() != null) {
                 final Repository worked = project.repository(each.repository());

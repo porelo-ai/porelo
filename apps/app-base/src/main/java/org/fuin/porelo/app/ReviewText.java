@@ -57,8 +57,9 @@ public final class ReviewText {
      * @param push The pending push's name.
      * @return The task's container name.
      */
-    public static String container(String project, String push) {
-        return "porelo-" + project + "-" + push;
+    public static @Nullable String container(PoreloPaths paths, String project, String push) {
+        final TaskIdentity identity = TaskHistory.forPush(paths, project, push);
+        return identity == null ? null : identity.container();
     }
 
     /**
@@ -74,7 +75,9 @@ public final class ReviewText {
      * @return What is known.
      */
     public static Instruction instruction(PoreloPaths paths, String project, String push) {
-        final String container = container(project, push);
+        final TaskIdentity identity = TaskHistory.forPush(paths, project, push);
+        if (identity == null) return Instruction.GONE;
+        final String container = identity.container();
         for (final Path directory :
                 List.of(
                         paths.tasks().containerState(container),
@@ -83,7 +86,7 @@ public final class ReviewText {
                 continue;
             }
             final TaskProfile profile = TaskProfile.readFrom(directory);
-            if (profile != null && (GitGate.INCOMING + push).equals(profile.branch())) {
+            if (profile != null && (GitGate.INCOMING + identity.task()).equals(profile.branch())) {
                 return new Instruction(true, profile.prompt());
             }
         }

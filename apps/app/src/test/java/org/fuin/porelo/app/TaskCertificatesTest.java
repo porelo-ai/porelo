@@ -260,7 +260,11 @@ class TaskCertificatesTest {
         authority();
         start();
         final FakeCommandRunner resume =
-                new FakeCommandRunner().answering("{{.Id}}", "0123456789abcdef");
+                new FakeCommandRunner()
+                        .answering("{{.Id}}", "0123456789abcdef")
+                        .answering(
+                                "ps",
+                                TASK + "\tExited (0)\t\t\tp\tguarded\tp\t\t0123456789abcdef\n");
         final PoreloContext context = new PoreloContext(resume, paths(), arguments -> 0);
 
         new TaskControl(context).resume(TASK);

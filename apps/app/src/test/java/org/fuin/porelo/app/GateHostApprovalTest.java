@@ -32,6 +32,7 @@ import picocli.CommandLine;
 /** Approval must neither bypass the host's review nor overwrite somebody else's work. */
 class GateHostApprovalTest {
 
+    private static final String TASK_ID = "f1".repeat(32);
     private static final String TOKEN = "test-task-forge-secret";
 
     private static final String LENT_TOKEN = "test-person-lent-forge-secret";
@@ -95,6 +96,17 @@ class GateHostApprovalTest {
                                     if (command.program().equals("git")) {
                                         return runner.run(command);
                                     }
+                                    // The task is up, under the id its start recorded.
+                                    if (command.program().equals("podman")) {
+                                        return new CommandResult(
+                                                command,
+                                                0,
+                                                "porelo-demo-fix\tUp 4 minutes\t1700000000\t0"
+                                                        + "\tdemo\tguarded\t\t\t"
+                                                        + TASK_ID
+                                                        + "\tfix\n",
+                                                "");
+                                    }
                                     assertThat(command.arguments())
                                             .as("approval anchors its event in the journal")
                                             .containsExactly("logger", "--journald");
@@ -118,6 +130,7 @@ class GateHostApprovalTest {
                                 VaultEntry.of(TOKEN)),
                         share);
         owner.keep(share);
+        TaskIdentityFixture.record(context.paths(), "porelo-demo-fix", "demo", "fix", TASK_ID);
         forge = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         forge.createContext("/api/v1/repos/acme/repo", this::api);
         forge.createContext("/acme/repo.git", this::gitHttp);

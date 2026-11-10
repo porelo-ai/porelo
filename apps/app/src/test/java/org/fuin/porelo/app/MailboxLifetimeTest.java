@@ -35,6 +35,13 @@ class MailboxLifetimeTest {
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
+    private static final String ID = "c0ffee".repeat(10) + "abcd";
+
+    /** Leaves what a start of task shell in project uc records. */
+    private static void started(final PoreloContext context) throws IOException {
+        TaskIdentityFixture.record(context.paths(), "porelo-uc-shell", "uc", "shell", ID);
+    }
+
     private Path withMessage(final PoreloContext context, final String container)
             throws IOException {
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
@@ -49,7 +56,12 @@ class MailboxLifetimeTest {
             throws IOException {
         final PoreloContext context = context(dir);
         final Path message = withMessage(context, "porelo-uc-shell");
-        runner.answering("ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+        started(context);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\t\t\t"
+                        + ID
+                        + "\tshell\n");
 
         new TaskControl(context).stop("porelo-uc-shell");
 
@@ -60,8 +72,12 @@ class MailboxLifetimeTest {
     void removing_the_task_is_what_ends_it(@TempDir final Path dir) throws IOException {
         final PoreloContext context = context(dir);
         final Path message = withMessage(context, "porelo-uc-shell");
+        started(context);
         runner.answering(
-                "ps", "porelo-uc-shell\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
+                "ps",
+                "porelo-uc-shell\tExited (143)\t1700000000\t1700000100\tuc\tguarded\t\t\t"
+                        + ID
+                        + "\tshell\n");
 
         new TaskControl(context).remove("porelo-uc-shell", false, true);
 

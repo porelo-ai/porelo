@@ -54,6 +54,17 @@ public final class TaskIdentities {
         this.context = context;
     }
 
+    /** Rechecks a previously selected incarnation, including its committed ownership metadata. */
+    public boolean matches(TaskIdentity expected) {
+        final Result current = lookup(expected.container(), expected.project());
+        if (!(current instanceof Found found) || !found.identity().equals(expected)) return false;
+        try {
+            return TaskReservations.matches(context.paths(), expected);
+        } catch (IOException | RuntimeException ex) {
+            return false;
+        }
+    }
+
     /** Applies new-name rules while allowing an existing legacy task to keep its name. */
     public java.util.Optional<String> newTaskRefusal(String project, String task) {
         if (ContainerName.reserved(project, task)) {
@@ -76,10 +87,18 @@ public final class TaskIdentities {
      * Reads retained ownership for history, without claiming that a live container still exists.
      */
     public Result retained(String container) {
+        return retained(context.paths(), container);
+    }
+
+    /** Reads retained ownership without asking a runtime or opening the account. */
+    public static Result retained(PoreloPaths paths, String container) {
         if (!container.matches("porelo-[a-z0-9_-]+")) {
             return new Refused(Reason.INVALID_RECORD, container);
         }
+        final String runtimeId = Sidecar.recordedId(paths.tasks().containerState(container));
+        final String durableId = Sidecar.recordedId(paths.tasks().taskRecord(container));
         return read(
+                paths,
                 new ContainerSummary(
                         container,
                         "removed",
@@ -89,7 +108,7 @@ public final class TaskIdentities {
                         null,
                         null,
                         null,
-                        context.recordedId(container)));
+                        runtimeId == null ? durableId : runtimeId));
     }
 
     /** Resolves an exact actual name first, then a logical name in the optional project. */
@@ -186,12 +205,16 @@ public final class TaskIdentities {
 
     /** Verifies a runtime row against both copies of the original recorded id and sidecar. */
     public Result read(ContainerSummary summary) {
+        return read(context.paths(), summary);
+    }
+
+    private static Result read(PoreloPaths paths, ContainerSummary summary) {
         final String name = summary.name();
         if (!ContainerName.isTask(name) || !name.matches("porelo-[a-z0-9_-]+")) {
             return new Refused(Reason.INVALID_RECORD, name);
         }
-        final Path runtime = context.paths().tasks().containerState(name);
-        final Path durable = context.paths().tasks().taskRecord(name);
+        final Path runtime = paths.tasks().containerState(name);
+        final Path durable = paths.tasks().taskRecord(name);
         String id = null;
         String project = summary.project();
         Sidecar identityRecord = null;

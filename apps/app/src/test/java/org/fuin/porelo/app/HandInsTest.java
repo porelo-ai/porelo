@@ -27,6 +27,35 @@ import org.junit.jupiter.api.io.TempDir;
 
 class HandInsTest {
 
+    @Test
+    void aTaskWithARescueSuffixCannotBorrowAnotherTasksHandIns() throws IOException {
+        // An empty delivery record does not prove a different task owns this push.
+        TaskIdentityFixture.record(
+                paths.paths(),
+                "porelo-demo_shell-1-rescued",
+                "demo",
+                "shell-1-rescued",
+                "b".repeat(64));
+        handIns.give(TASK, "h.txt", Files.writeString(dir.resolve("h.txt"), "hi\n"), "alice");
+        assertThat(handIns.deliveredForPush("demo", "shell-1-rescued"))
+                .as("the exact logical owner has no hand-ins; the other task's stay its own")
+                .isEmpty();
+    }
+
+    @Test
+    void anOverlappingLegacyNameCannotLendAnotherProjectsDeliveries() throws IOException {
+        // A review must not attribute another task's delivered files to this push.
+        TaskIdentityFixture.record(paths.paths(), TASK, "demo", "shell-1", RUN);
+        handIns.give(TASK, "h.txt", Files.writeString(dir.resolve("h.txt"), "hi\n"), "alice");
+
+        assertThat(handIns.deliveredForPush("demo-shell", "1"))
+                .as("the actual old name is owned by demo/shell-1")
+                .isEmpty();
+        assertThat(handIns.deliveredForPush("demo", "shell-1" + GitGate.RESCUED))
+                .as("the original owner's rescued work retains its hand-ins")
+                .hasSize(1);
+    }
+
     private static final String TASK = "porelo-demo-shell-1";
 
     private static final String RUN = "0123456789ab";
@@ -59,6 +88,7 @@ class HandInsTest {
         paths = new PoreloPaths(xdg, dir.resolve("bin")).tasks();
         Files.createDirectories(paths.containerState(TASK));
         Sidecar.recordId(paths.containerState(TASK), RUN);
+        TaskIdentityFixture.record(paths.paths(), TASK, "demo", "shell-1", RUN);
         container = dir.resolve("container");
         Files.createDirectories(container.resolve("porelo/files"));
         Files.createDirectories(container.resolve("porelo/.incoming"));

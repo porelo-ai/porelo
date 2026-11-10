@@ -993,9 +993,7 @@ public final class TaskLaunch {
             final org.fuin.porelo.core.project.Repository repository,
             final PrintWriter out) {
         final org.fuin.porelo.wire.TaskProfile earlier =
-                keptProfile(
-                        context.tasks()
-                                .containerName(ProjectReader.read(projectFile), request.task()));
+                keptProfile(startContainer(ProjectReader.read(projectFile)));
         if (earlier == null || earlier.settingsHash() == null || earlier.settingsHash().isEmpty()) {
             return;
         }
@@ -1295,8 +1293,17 @@ public final class TaskLaunch {
     }
 
     private void adopt(Project project, PrintWriter out) {
+        // Only a name that reads as a container name can be another task's: a plain task name is
+        // taken as given, and a dry run asks podman nothing for it.
+        if (!request.task().startsWith(org.fuin.porelo.runtime.ContainerName.PREFIX)) {
+            return;
+        }
+        final TaskIdentities.Result identity =
+                new TaskIdentities(context).lookup(request.task(), project.name());
         final String task =
-                org.fuin.porelo.runtime.ContainerName.taskFrom(project.name(), request.task());
+                identity instanceof TaskIdentities.Found found
+                        ? found.identity().task()
+                        : request.task();
         if (!task.equals(request.task())) {
             out.println(
                     "task      '"
@@ -4645,7 +4652,7 @@ public final class TaskLaunch {
                 AuthorizationsNeeded.raise(
                         context,
                         name,
-                        context.tasks().containerName(project, request.task()),
+                        startContainer(project),
                         project.name(),
                         AuthorizationsNeeded.NEVER);
                 err.println(
@@ -4999,7 +5006,7 @@ public final class TaskLaunch {
                         project.name(),
                         workedOn.name(),
                         forgeBranch,
-                        context.tasks().containerName(project, request.task()));
+                        startContainer(project));
         return other == null
                 ? null
                 : "the task's branch '"

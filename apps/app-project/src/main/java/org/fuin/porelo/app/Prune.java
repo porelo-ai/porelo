@@ -606,7 +606,7 @@ public final class Prune {
         final Set<String> gone = new TreeSet<>();
         try {
             for (final String name : context.vault().read(opener.get()).keySet()) {
-                if (orphanedEntry(name, containers, remaining)) {
+                if (orphanedVaultEntry(name, containers, remaining)) {
                     gone.add(name);
                 }
             }
@@ -629,7 +629,7 @@ public final class Prune {
                                     }
                                     gone.clear();
                                     for (final String name : entries.keySet()) {
-                                        if (orphanedEntry(name, exist, remaining)) {
+                                        if (orphanedVaultEntry(name, exist, remaining)) {
                                             gone.add(name);
                                         }
                                     }
@@ -644,6 +644,12 @@ public final class Prune {
             return;
         }
         gone.forEach(name -> removes.add(new Item("VAULT", name, List.of("the vault entry"), "")));
+    }
+
+    private boolean orphanedVaultEntry(String name, Set<String> containers, Set<String> remaining) {
+        return orphanedEntry(name, containers, remaining)
+                && (!name.startsWith(TaskSecrets.PREFIX)
+                        || new TaskReservations(context).retired(TaskSecrets.owner(name)));
     }
 
     /**

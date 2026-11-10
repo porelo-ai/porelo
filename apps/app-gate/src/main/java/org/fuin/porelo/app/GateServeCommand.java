@@ -130,15 +130,13 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private GitHttpServer.Upstream hostPushing(
             final GitGate gate, final Project project, final String ref, final String repository) {
         final String task = ref.substring(GitGate.INCOMING.length());
-        final String container = org.fuin.porelo.runtime.ContainerName.of(project, task);
-        final TaskSecrets secrets = new TaskSecrets(context);
         final HostPush push =
                 new HostPush(
                         context,
                         gate.mirror(),
                         task,
                         repository,
-                        () -> secrets.forgeToken(container));
+                        forgeToken(context, project.name(), task));
         return new GitHttpServer.Upstream() {
             @Override
             public void refresh() {}
@@ -148,6 +146,20 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 return push.passOn(commit);
             }
         };
+    }
+
+    static GitHttpServer.Signer signing(PoreloContext context, String project, String task) {
+        final TaskSecrets secrets = new TaskSecrets(context);
+        final TaskIdentity identity = TaskHistory.find(context, project, task);
+        return TaskSigner.of(
+                () -> identity == null ? java.util.Optional.empty() : secrets.signing(identity));
+    }
+
+    static java.util.function.Supplier<java.util.Optional<String>> forgeToken(
+            PoreloContext context, String project, String task) {
+        final TaskSecrets secrets = new TaskSecrets(context);
+        final TaskIdentity identity = TaskHistory.find(context, project, task);
+        return () -> identity == null ? java.util.Optional.empty() : secrets.forgeToken(identity);
     }
 
     private void writePidFile(PrintWriter err) {
@@ -284,11 +296,8 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 if (ref != null && ref.startsWith(GitGate.INCOMING)) {
                     // A task's commit is signed here, never in its container. Read at each
                     // signature: a vault unlocked after the gate started is read then.
-                    final String container =
-                            org.fuin.porelo.runtime.ContainerName.of(
-                                    project, ref.substring(GitGate.INCOMING.length()));
-                    final TaskSecrets secrets = new TaskSecrets(context);
-                    server.signing(TaskSigner.of(() -> secrets.signing(container)));
+                    final String task = ref.substring(GitGate.INCOMING.length());
+                    server.signing(signing(context, project.name(), task));
                 }
                 if (principal != null && signers != null && ref != null) {
                     server.judging(

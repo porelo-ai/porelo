@@ -337,7 +337,7 @@ public final class TaskControl {
      *
      * @param task The removed task, as podman listed it.
      */
-    private void forgetOnline(final ContainerSummary task) {
+    private void forgetOnline(final ContainerSummary task, final TaskIdentity identity) {
         if (task.project() == null) {
             return;
         }
@@ -353,11 +353,7 @@ public final class TaskControl {
                             task.repository() == null || task.repository().isBlank()
                                     ? null
                                     : task.repository());
-            final String name =
-                    org.fuin.porelo.runtime.ContainerName.taskIn(project.name(), task.name());
-            if (name != null) {
-                GateSupport.gate(context, project, repository, null, null).forget(name);
-            }
+            GateSupport.gate(context, project, repository, null, null).forget(identity.task());
         } catch (RuntimeException ex) {
             // Left for the next start of that name, which forgets it before the task clones.
         }
@@ -378,8 +374,12 @@ public final class TaskControl {
             boolean force,
             @Nullable ContainerState before) {
         try {
-            return new TaskReservations(context)
-                    .mutate(container, () -> stopClaimed(container, purge, rescue, force, before));
+            final var reservations = new TaskReservations(context);
+            final TaskReservations.Operation<Stopped> stop =
+                    () -> stopClaimed(container, purge, rescue, force, before);
+            return before == null
+                    ? reservations.mutate(container, stop)
+                    : reservations.mutateRecorded(container, stop);
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException("Cannot reserve task removal", ex);
         }
@@ -390,8 +390,24 @@ public final class TaskControl {
             boolean purge,
             boolean rescue,
             boolean force,
-            @Nullable ContainerState before) {
+            @Nullable ContainerState before)
+            throws IOException {
 
+        // A bulk stop has already matched these records to its runtime snapshot by id.
+        final var identities = new TaskIdentities(context);
+        final TaskIdentities.Result identified =
+                before == null
+                        ? identities.lookup(container, null)
+                        : identities.retained(container);
+        if (identified instanceof TaskIdentities.Refused refused
+                && refused.reason() != TaskIdentities.Reason.MISSING) {
+            throw new TaskReservations.ContainerNameTaken(container, "", "", null, null);
+        }
+        final TaskIdentity identity =
+                identified instanceof TaskIdentities.Found found ? found.identity() : null;
+        if (identity != null && !TaskReservations.matches(context.paths(), identity)) {
+            throw new TaskReservations.ContainerNameTaken(container, "", "", null, null);
+        }
         final Path state = context.paths().tasks().containerState(container);
         final String recorded = context.recordedId(container);
         if (context.recognizesTasks() && recorded == null) {
@@ -546,29 +562,28 @@ public final class TaskControl {
         if (removed) {
             closeJournal(container);
             new TaskUsage(context).archive(container);
-            summary.ifPresent(this::forgetOnline);
+            if (identity != null) summary.ifPresent(task -> forgetOnline(task, identity));
             // Read before the records that say it go: the project a task belongs to is not in its
             // name, where both halves may hold hyphens.
-            final String project = projectOf(container);
+            final String project = identity == null ? null : identity.project();
+            final TaskSecrets secrets = new TaskSecrets(context);
+            final boolean signed = secrets.signing(container).isPresent();
+            secrets.forget(container);
             deleteTree(state);
             new TaskSession(context).forget(container);
             new TaskState(context).forget(container);
             // A vault that is locked keeps them until the next task started prunes them: a removal
             // is not refused for want of a passphrase.
-            final TaskSecrets secrets = new TaskSecrets(context);
             // The host is told only when its start reached it, which the task's key in the vault
             // says. A host that cannot be told now drops the token when its certificate expires.
             final HostPerson host = new HostPerson(context);
-            if (host.present() && secrets.signing(container).isPresent()) {
+            if (host.present() && signed && identity != null) {
                 try {
-                    host.end(
-                            org.fuin.porelo.runtime.ContainerName.taskIn(
-                                    String.valueOf(project), container));
+                    host.end(identity.task());
                 } catch (final HostPerson.Refused ex) {
                     // Nothing more to do here: the removal goes on.
                 }
             }
-            secrets.forget(container);
             // Out of its project's conversations: its account there ends with it.
             new TaskConversations(context).retire(context, container, project);
             // The mailbox outlives the container on purpose, so this is the one place it ends.
@@ -803,6 +818,15 @@ public final class TaskControl {
     }
 
     private Resumed resumeHeld(String container) {
+        final TaskIdentities.Result identity = new TaskIdentities(context).lookup(container, null);
+        if (identity instanceof TaskIdentities.Refused refused
+                && refused.reason() != TaskIdentities.Reason.MISSING) {
+            throw new TaskReservations.ContainerNameTaken(container, "", "", null, null);
+        }
+        if (identity instanceof TaskIdentities.Found found
+                && !new TaskIdentities(context).matches(found.identity())) {
+            throw new TaskReservations.ContainerNameTaken(container, "", "", null, null);
+        }
         final Path state = context.paths().tasks().containerState(container);
         TaskHelpers recorded = TaskHelpers.readFrom(state);
         Path logs = Files.isDirectory(state) ? state : null;
