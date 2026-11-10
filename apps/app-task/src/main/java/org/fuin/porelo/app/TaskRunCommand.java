@@ -1182,12 +1182,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                             + each.name()
                             + ": its run was interrupted by the restart; its session is kept,"
                             + " and 'porelo task start "
-                            + (each.project() == null
+                            + (each.project() == null || each.shortName() == null
                                     ? each.name()
-                                    : org.fuin.porelo.runtime.ContainerName.taskIn(
-                                                    each.project(), each.name())
-                                            + " --project "
-                                            + each.project())
+                                    : each.shortName() + " --project " + each.project())
                             + " --prompt ...' continues it");
         }
         if (down.isEmpty()) {
@@ -1214,8 +1211,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         for (final TaskInventory.Task each : down) {
             final String project = each.project();
             final String repository = each.repository();
-            final String prefix = "porelo-" + project + "-";
-            if (project == null || repository == null || !each.name().startsWith(prefix)) {
+            // By the task its record names, not by cutting its project off the container's name:
+            // a task made under the new names carries no such prefix.
+            final String task = each.shortName();
+            if (project == null || repository == null || task == null) {
                 out.println(
                         "not back  "
                                 + each.name()
@@ -1236,14 +1235,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             start.setErr(new PrintWriter(said));
             final int code =
                     start.execute(
-                            "task",
-                            "start",
-                            each.name().substring(prefix.length()),
-                            "-p",
-                            project,
-                            "-r",
-                            repository,
-                            "--detach");
+                            "task", "start", task, "-p", project, "-r", repository, "--detach");
             if (code == 0) {
                 out.println("back      " + each.name());
             } else {

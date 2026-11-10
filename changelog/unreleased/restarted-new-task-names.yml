@@ -1,0 +1,2 @@
+title: "After a restart, a task made under the new container names is brought back, and continued, by the task its record names"
+type: fixed

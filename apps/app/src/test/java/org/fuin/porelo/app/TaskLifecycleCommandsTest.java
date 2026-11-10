@@ -243,6 +243,39 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aTaskMadeUnderTheNewNamesIsBroughtBackAndContinuedByTheTaskItsRecordNames(
+            @TempDir Path dir) throws IOException {
+
+        // Its container is porelo-uc_<task>: cutting "porelo-uc-" off it finds no task, and the
+        // restart said nothing recorded its project while the record named all of it.
+        final PoreloContext context = context(dir);
+        final String talkId = "1".repeat(64);
+        final String workId = "2".repeat(64);
+        tasks(
+                "porelo-uc_talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\t"
+                        + talkId
+                        + "\ttalk\n"
+                        + "porelo-uc_work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\t"
+                        + workId
+                        + "\twork\n");
+        takenDownByARestart(
+                dir, "porelo-uc_talk", org.fuin.porelo.wire.TaskMode.UNATTENDED, "hello");
+        takenDownByARestart(dir, "porelo-uc_work");
+        TaskIdentityFixture.record(context.paths(), "porelo-uc_talk", "uc", "talk", talkId);
+        TaskIdentityFixture.record(context.paths(), "porelo-uc_work", "uc", "work", workId);
+
+        execute(context, "task", "start", "--restarted");
+
+        assertThat(out.toString())
+                .as("what --restarted said")
+                .contains("'porelo task start talk --project uc --prompt ...' continues it")
+                .doesNotContain("nothing recorded which project or repository it was");
+        // Taken to the start a person would type: what stops it now is that start's own answer.
+        assertThat(out.toString()).contains("not back  porelo-uc_work: ");
+        assertThat(out.toString()).doesNotContain("porelo-uc_work: start exited");
+    }
+
+    @Test
     void anUnnamedTaskIsNamedAfterItsRepositoryAndNeverTakesOverOneThatIsThere(@TempDir Path dir) {
 
         // Unnamed starts were all 'shell', which read as the wrong mode for an agent's session
