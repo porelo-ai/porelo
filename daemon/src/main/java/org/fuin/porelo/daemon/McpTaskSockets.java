@@ -483,12 +483,50 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             // effects.
             // The run's lines and answer are what Logs and Tail read: a section that allows neither
             // gets neither through Start.
-            start.call(held, readsTheRun(endpoint) ? replies : withoutTheRun(replies));
+            start.call(
+                    held,
+                    released(token, readsTheRun(endpoint) ? replies : withoutTheRun(replies)));
         } finally {
             synchronized (starting) {
                 starting.remove(token);
             }
         }
+    }
+
+    /**
+     * Returns replies whose last one first ends the start's reservation: a caller told the start
+     * ended may start the task again at once, before the start's thread has returned.
+     *
+     * @param token The start's place among those starting.
+     * @param replies Where the replies go.
+     * @return The replies to answer through.
+     */
+    private VarlinkServer.Replies released(
+            final Object token, final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                replies.more(parameters);
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                synchronized (starting) {
+                    starting.remove(token);
+                }
+                replies.last(parameters);
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+        };
     }
 
     /**

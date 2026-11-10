@@ -700,6 +700,43 @@ class McpTaskSocketsTest {
     }
 
     @Test
+    void aStartThatHasAnsweredNoLongerHoldsItsName() throws Exception {
+        // A caller told the start ended may start the task again at once, before the start's
+        // thread has returned: its answer, not its return, ends the reservation.
+        context(HEAD + SECTION);
+        final CountDownLatch answered = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Method answersThenLingers =
+                (parameters, replies) -> {
+                    replies.last(Map.of("exitCode", 0));
+                    answered.countDown();
+                    try {
+                        if (!release.await(30, TimeUnit.SECONDS)) {
+                            throw new IOException("the lingering start was not released");
+                        }
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("the lingering start was interrupted", ex);
+                    }
+                };
+        final CompletableFuture<Object> first =
+                attempt(named("own", start("alpha", null, 30)), answersThenLingers);
+        try {
+            assertThat(answered.await(5, TimeUnit.SECONDS)).as("the first start answered").isTrue();
+            final HeldStart again = new HeldStart();
+            again.letGo();
+            assertThat(
+                            attempt(named("own", start("alpha", null, 30)), again)
+                                    .get(5, TimeUnit.SECONDS))
+                    .as("the same task started again once the first start answered")
+                    .isEqualTo(Map.of("exitCode", 0));
+        } finally {
+            release.countDown();
+            first.get(30, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
     void aStartCarryingAParameterATaskMayNotSetIsRefusedNamingIt() throws IOException {
         final Path socket = opened(HEAD + SECTION);
         final Map<String, Object> refusedOnes = new java.util.LinkedHashMap<>();

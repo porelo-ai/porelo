@@ -1,0 +1,2 @@
+title: "A task that started a task through its MCP socket and was told the start ended can start that task again at once; it was refused as AlreadyStarting until the daemon had finished the first start's call"
+type: fixed
