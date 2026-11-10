@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B600",
   "title": "A Task's Mail And Sockets Found By Its Identity",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 5,
@@ -16,7 +16,7 @@
 
 **Why this size.** messaging and daemon consumers: mail, transports, watches, sockets, parent and child.
 
-Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+Implementing since 2026-11-10 (`porelo-project` ST307). Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
 
 High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
