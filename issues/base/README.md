@@ -137,6 +137,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> \| restore-runtime`. |
 | <a id="b588"></a>[B588](B588-A-Person-Starts-The-Hosts-Follow-Now.md) | M | [B550](README.md#b550) | An admitted person's `porelo host follow` starts or joins one host follow pass through one sudo verb and answers its completion status. | 0 |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. | 0 |
 | <a id="b580"></a>[B580](B580-The-Gathered-Push-From-The-Window.md) | M | [B544](#b544) | `PushToCentral` over the daemon: the gathered push to central with progress and typed refusals, for the window's release. |
@@ -169,7 +170,6 @@ from its side, as *blocked by*.
 | <a id="b569"></a>[B569](B569-The-Host-Tool-Tests-Stand-Without-The-Python.md) | M | [B552](#b552) | Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or "the Python" in a test, and a test that only proved the port is removed. |
 | <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
 | <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
-| <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> \| restore-runtime`. |
 | <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it. |

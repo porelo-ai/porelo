@@ -1,6 +1,6 @@
 # [B551](README.md#b551) — The Host Purges A Person And Restores Runtimes In Java
 
-**Status:** Backlog. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
 built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
 move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
 **Size:** L.
