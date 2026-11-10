@@ -227,7 +227,17 @@ class OrgHostRefreshCommandTest {
                         "VerifyHostKeyDNS=no",
                         "-p",
                         "2222")
-                .endsWith("root@host.example.org", "porelo-host", "org", "refresh");
+                .endsWith(
+                        "root@host.example.org",
+                        // A root SSH session carries pam_systemd's and sshd's names, which
+                        // porelo-host refuses: it starts with none but its own path and locale.
+                        "env",
+                        "-i",
+                        "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+                        "LANG=C.UTF-8",
+                        "porelo-host",
+                        "org",
+                        "refresh");
         assertThat(known.get())
                 .as("only the card's key is trusted")
                 .isEqualTo("[host.example.org]:2222 " + key + "\n");

@@ -185,7 +185,17 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                     machine.runner()
                             .run(
                                     ssh.command(
-                                            List.of("porelo-host", "org", "refresh"),
+                                            // A root SSH session carries pam_systemd's and
+                                            // sshd's names (DBUS_SESSION_BUS_ADDRESS,
+                                            // XDG_*, SSH_*), which porelo-host refuses.
+                                            List.of(
+                                                    "env",
+                                                    "-i",
+                                                    "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+                                                    "LANG=C.UTF-8",
+                                                    "porelo-host",
+                                                    "org",
+                                                    "refresh"),
                                             input,
                                             machine.environment()),
                                     line -> {

@@ -1,0 +1,2 @@
+title: "`porelo org host refresh` starts porelo-host on the host with only its path and locale, so a root SSH session's own variables (DBUS_SESSION_BUS_ADDRESS, XDG_*, SSH_*) no longer make porelo-host refuse it as a broken host environment"
+type: fixed
