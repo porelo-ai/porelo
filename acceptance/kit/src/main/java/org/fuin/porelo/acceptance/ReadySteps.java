@@ -94,6 +94,19 @@ public class ReadySteps {
     @Then(
             "the {string} agent in task {string} of {string} reaches work without being asked anything")
     public void theAgentReachesWork(String agent, String task, String project) throws IOException {
+        theAgentInContainerReachesWork(agent, container(project, task));
+    }
+
+    /**
+     * The same check for a task whose container a release before this one named, which no rule of
+     * this release's naming gives back.
+     *
+     * @param agent The agent, as a scenario names it.
+     * @param container The task's container, as it was made.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Then("the {string} agent in container {string} reaches work without being asked anything")
+    public void theAgentInContainerReachesWork(String agent, String container) throws IOException {
         final Ready ready =
                 declared(agent)
                         .orElseThrow(
@@ -103,7 +116,6 @@ public class ReadySteps {
                                                         + agent
                                                         + " agent declares no ready marker, so whether it reached work without being asked cannot be told."
                                                         + " It declares one as 'session: ready_marker:' in its manifest."));
-        final String container = container(project, task);
         final Steady steady = new Steady(ready.text(), STEADY);
         // The agent's bound counts from its session existing, not from the step: before that the
         // task is still being built and started, which the agent has no say in - measured, a first

@@ -50,7 +50,7 @@ public final class Leg {
     /** The tag of a scenario that touches the whole machine - a restart - and so runs alone. */
     private static final String MACHINE_WIDE = "@restart";
 
-    private static final String MACHINE_WIDE_EXCLUDED = "not " + MACHINE_WIDE;
+    private static final String MACHINE_WIDE_EXCLUDED = "not " + MACHINE_WIDE + " and not @upgrade";
 
     /**
      * How the product is built, named once and identical to what CI runs.

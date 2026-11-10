@@ -38,6 +38,7 @@ from its side, as *blocked by*.
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |
 | <a id="b423"></a>[B423](B423-Small-Words-Found-In-A-Host-Rehearsal.md) | - | - | Five small wrong words noted in a rehearsal on a host: a lambda in a passphrase refusal, a probe's words, a missing `--json`, a `.tmp` warning, four characters of a token in `gate.log`. |
 | <a id="b422"></a>[B422](B422-A-Guarded-Project-On-A-Host.md) | - | - | A guarded project on a host has a way to hand its work to the host's forge, or is refused before a task starts: `gate approve` pushes to a protected `main` today. |
+| <a id="b610"></a>[B610](B610-A-Removed-Tasks-Kept-Mail-Record-Frees-Its-Name.md) | S | - | After `task remove`, a task whose mail was recorded can be started again under its name, or the refusal says what holds the name and how to free it. |
 | <a id="b416"></a>[B416](B416-A-Forge-That-Refuses-A-Hosts-Read-Key-Says-Why.md) | - | - | A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it |
 | <a id="b415"></a>[B415](B415-A-Project-Admin-Told-How-To-Open-Without-The-Right.md) | - | - | `project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again |
 | <a id="b414"></a>[B414](B414-A-Developer-Reads-An-Organization-At-GitHub.md) | S | - | At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's |
@@ -100,6 +101,8 @@ from its side, as *blocked by*.
 | <a id="b257"></a>[B257](B257-A-Direct-Peer-Reached-Without-A-Conversation.md) | - | - | A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it |
 | <a id="b333"></a>[B333](B333-Porelod-Prunes-Once-A-Day.md) | - | - | `porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays |
 | <a id="b476"></a>[B476](B476-Porelos-Own-Commits-Carry-The-Accounts-Noreply-Address.md) | S | - | Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority. |
+| <a id="b608"></a>[B608](B608-A-Reattached-New-Task-Window-Names-Its-Task.md) | XS | - | `task start` going back into an existing task made under the new container names labels its window `<project>/<task>`, not `<project>/`. |
+| <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. |
 
 ## Accepted
 
@@ -235,7 +238,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
-| <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
@@ -253,6 +255,7 @@ from its side, as *blocked by*.
 | <a id="b596"></a>[B596](B596-One-Identity-For-A-Task-Old-Name-Or-New.md) | M | - | One identity lookup for old and new container names; creation unchanged. |
 | <a id="b600"></a>[B600](B600-A-Tasks-Mail-And-Sockets-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Mail, watches and sockets are reached through a task's identity. |
 | <a id="b601"></a>[B601](B601-New-Tasks-Get-The-Short-Container-Name.md) | S | [B597](README.md#b597), [B598](README.md#b598), [B599](README.md#b599), [B600](README.md#b600) | New tasks are created under the new container names. |
+| <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |
 | <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. |

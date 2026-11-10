@@ -98,7 +98,7 @@ class HostServicesTest {
             assertThat(passes).as("two passes for " + users).hasSize(2);
             assertThat(passes.getFirst())
                     .as("ordinary features first")
-                    .contains("-Dcucumber.filter.tags=not @restart");
+                    .contains("-Dcucumber.filter.tags=not @restart and not @upgrade");
             assertThat(passes.getLast())
                     .as("restart scenarios last with a separate report")
                     .contains(

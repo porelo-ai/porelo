@@ -173,6 +173,80 @@ test: the unit test failed after a minute, both legs were cancelled 30 seconds l
 server, and nothing was published. `Publish` builds the jars once, in the step that publishes them, and runs
 no unit test again.
 
+### Testing a package upgrade in one account
+
+**Not run here.** The package upgrade feature is one real-machine scenario, run alone in a disposable account.
+Allow roughly ten minutes on a warm VM; that is an estimate until its first run. It never reboots the machine or
+installs machine-wide packages. It replaces that account's CLI, daemon and hooks, stops and starts its own transient
+daemon, and removes only its recorded tasks. It uses the kit's one SSH connection, a test vault, a local TLS fake
+provider, a queue transport that always defers delivery, and the installed MCP helper. Nothing calls a paid provider.
+
+1. Prepare a dedicated, unprivileged account on a Debian or Ubuntu VM using the normal
+   [machine preparation](running.md#preparing-a-machine) and `deploy --account` path above. This step is **not run here**.
+   An administrator must already have installed podman 5 or later, nftables, dnsmasq with nftset support, rootless
+   uid/gid mappings, the kernel-keyring library, systemd user services, `python3` (the scenario's driver runs on
+   the VM), OpenSSL and `dpkg-deb`, and enabled lingering.
+   The account's login PATH must find the `porelo` the deploy places in its own bin directory.
+   The scenario refuses existing containers,
+   registered projects, custom TLS trust, nonstandard XDG roots, or `~/target/porelo-upgrade` leftovers. Keep the account
+   exclusive for the run. Neither package installation in the scenario requires root; missing machine prerequisites
+   must be prepared by the administrator, never by an invented privilege inside the scenario.
+
+2. Stage the input files on that VM and set the following environment variables on the machine running Maven.
+   This step is **not run here**. Paths must be absolute VM paths to regular files, with no symlink. Obtain the
+   baseline from a published package before the new naming behavior and take its digest from the publication's
+   recorded metadata. Pick a recent predecessor that already supports the stub's sessions, routes and task MCP.
+   The baseline must itself emit `porelo-porelo-kept`; a candidate container renamed to it is refused by the setup.
+   The candidate is the `.deb` built from the checkout under test, the same payload `deploy --account` extracts.
+   The two versions and digests are checked before the first install and printed in the scenario report.
+
+   | Variable | Value |
+   |---|---|
+   | `PORELO_ACCEPTANCE_HOST` | VM address reachable by SSH; `127.0.0.1` when Maven runs on the VM itself |
+   | `PORELO_ACCEPTANCE_UPGRADE_USER` | Dedicated VM login, also passed as the suite's user |
+   | `PORELO_ACCEPTANCE_KEY` | SSH authentication material, supplied as for other acceptance runs |
+   | `PORELO_ACCEPTANCE_BASELINE` | Absolute VM path to the published predecessor `.deb` |
+   | `PORELO_ACCEPTANCE_BASELINE_VERSION` | Its exact `dpkg-deb -f FILE Version` value |
+   | `PORELO_ACCEPTANCE_BASELINE_SHA256` | Its recorded SHA-256 |
+   | `PORELO_ACCEPTANCE_CANDIDATE` | Absolute VM path to this build's `.deb` |
+   | `PORELO_ACCEPTANCE_CANDIDATE_VERSION` | Its exact package version |
+   | `PORELO_ACCEPTANCE_CANDIDATE_SHA256` | Its SHA-256 |
+   | `PORELO_ACCEPTANCE_STUB`, `PORELO_ACCEPTANCE_STUB_SHA256` | VM path and digest of `porelo-agent-stub`, compatible with both packages |
+   | `PORELO_ACCEPTANCE_MCP`, `PORELO_ACCEPTANCE_MCP_SHA256` | VM path and digest of the `porelo-mcp` native executable |
+   | `PORELO_ACCEPTANCE_FILTER`, `PORELO_ACCEPTANCE_FILTER_SHA256` | VM path and digest of `porelo-message-sluice-filter` |
+
+   The helper files are installed explicitly into the account. The provider and transport fixtures are written by
+   the scenario, with a fresh TLS certificate trusted only by this account. The suite supplies
+   `PORELO_ACCEPTANCE_FAKE_CREDENTIAL=sk-porelo-acceptance-not-a-real-key`; no real credential is needed.
+
+3. Run this command from the candidate checkout, with JDK 25 and the variables above. It is **not run here**.
+
+   ```sh
+   ./mvnw -B -s settings.xml -o -pl acceptance/suite -am verify -Dsurefire.skip=true \
+     -Dit.test=AcceptanceIT -Dfailsafe.failIfNoSpecifiedTests=false \
+     -Dporelo.acceptance.host="$PORELO_ACCEPTANCE_HOST" \
+     -Dporelo.acceptance.user="$PORELO_ACCEPTANCE_UPGRADE_USER" \
+     -Dcucumber.filter.tags=@upgrade \
+     -Dcucumber.glue=org.fuin.porelo.acceptance \
+     -Dcucumber.features=classpath:org/fuin/porelo/acceptance/task/task-package-upgrade.feature
+   ```
+
+   Expected: one passing scenario, no undefined steps. The old task's id, name, initial start time, helpers, gate,
+   attach, mailbox and route survive the package replacement and the separate daemon restart. A fresh clearance
+   event reaches the daemon's restored subscription; MCP resumes only the old parent's child. Stop and resume by
+   logical name retains the sentinel, original session input, signed queued mail and route token. New containers
+   are `porelo-fresh` and `porelo-upgrade_fresh`. Those last assertions require the candidate's new-name allocator.
+   Selecting `AcceptanceIT` keeps the kit's separate `MachineIT` connection probe out of this run; all scenario
+   channels share the one SSH connection.
+
+4. Inspect the scenario report and the account after the run. This step is **not run here**. Successful cleanup
+   removes its task containers, fixture service, TLS trust and staging directory; the kit removes its projects and
+   test vault and restores the account's daemon if it had been running. The account remains on the candidate. A
+   failed cleanup fails the run and names the survivor; retain the report and inspect that account before retrying.
+   This feature has `@upgrade @isolated`, without `@slow` or `@restart`. The suite's default selection and ordinary CI
+   legs explicitly exclude `@upgrade`; the command above selects it. A custom tag expression for an ordinary run
+   should also exclude `@upgrade`. Once selected, missing inputs fail instead of skipping.
+
 ## The documentation site
 
 The site at `https://porelo-ai.github.io` is built in the repository `porelo-ai/porelo-ai.github.io`, from this

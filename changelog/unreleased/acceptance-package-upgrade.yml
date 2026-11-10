@@ -1,0 +1,2 @@
+title: "Acceptance kit supports a pinned package upgrade in an isolated account, preserving a predecessor's task through daemon restart and resume"
+type: added

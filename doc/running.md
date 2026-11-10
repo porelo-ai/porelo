@@ -133,6 +133,17 @@ seconds of an update it notices that its binary was replaced, and asks the accou
 definitions and restart it. Every account that runs `porelod` as its unit does this by itself. Running tasks keep
 running; they take the new version when they are next started.
 
+Upgrade the CLI, daemon and hooks together. Existing tasks keep their actual container names for their entire
+lifetime, including across a daemon restart and a task stop and resume. Their workspaces, agent sessions, mail,
+credential routes and MCP children stay with that container. Starting an existing task by its project and logical
+task name finds it under its original name.
+
+New tasks in project `porelo` use `porelo-<task>`; in another project they use `porelo-<project>_<task>`. Optional
+project and task short names supply the corresponding parts for new tasks. An existing `porelo-porelo-pi` stays
+`porelo-porelo-pi` until removed; a new task `pi` in project `porelo` uses `porelo-pi`. There is no renaming command.
+Use the actual name that `porelo task list` reports when addressing a container directly. The
+[package upgrade acceptance run](build.md#testing-a-package-upgrade-in-one-account) checks old and new tasks together.
+
 `porelo doctor` says when the daemon runs another version than the command - a daemon started by hand, which nothing
 restarts, says so once in its own output. By hand it is:
 

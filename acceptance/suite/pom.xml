@@ -32,6 +32,8 @@
         <!-- Features at a time; more than one needs as many accounts in porelo.acceptance.users. -->
         <porelo.acceptance.parallelism>1</porelo.acceptance.parallelism>
         <porelo.acceptance.parallel>false</porelo.acceptance.parallel>
+        <!-- Package replacement has its own disposable account and pinned inputs; select it explicitly. -->
+        <cucumber.filter.tags>not @upgrade</cucumber.filter.tags>
         <!-- Nothing to publish: this module is a test harness. -->
         <maven.deploy.skip>true</maven.deploy.skip>
         <maven.install.skip>true</maven.install.skip>
@@ -87,6 +89,7 @@
                         <!-- Repository-relative, so an annotation lands on the feature file. -->
                         <porelo.acceptance.features>acceptance/suite/src/test/resources/</porelo.acceptance.features>
                         <cucumber.plugin>${porelo.acceptance.report}</cucumber.plugin>
+                        <cucumber.filter.tags>${cucumber.filter.tags}</cucumber.filter.tags>
                     </systemPropertyVariables>
                     <environmentVariables>
                         <!-- Fake on purpose: a searched-for value proves the search, and no account is needed. -->
