@@ -1,6 +1,6 @@
 # [B561](README.md#b561) — What Starts Work Named In The Project File
 
-**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** M - signed work chains, feedback targets and a round cap add graph checks to the model, schema and runtime workflow check.
 **Blocked by:** -.

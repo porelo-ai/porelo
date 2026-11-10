@@ -1,6 +1,7 @@
 # B437 — Reading The Organization Costs A Whole Fetch
 
-**Status:** Backlog.
+**Status:** Implementing, since 2026-11-10. In `porelo-project` ST308; the operator asked for it on 2026-11-10.
+**Size:** M - a read answers from the kept state and refreshes after; every security check keeps reading fresh.
 
 **What must be true.** A question that shows the organization or a project to a person answers without waiting on a whole
 fetch of the organization's repository, and a decision that rests on the organization still fetches.

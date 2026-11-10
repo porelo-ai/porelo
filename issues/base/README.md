@@ -147,6 +147,15 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b596"></a>[B596](B596-One-Identity-For-A-Task-Old-Name-Or-New.md) | M | - | One identity lookup for old and new container names; creation unchanged. |
+| <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |
+| <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. |
+| <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `SaveMoves` saves story and issue moves together, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
+| <a id="b593"></a>[B593](B593-A-Join-Says-When-It-Invited.md) | XS | - | `JoinMessages` answers `invited: true` when a join invited an account the person already has, so the window says to accept the invitation. |
+| <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | M | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
+| <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
+| <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
+| <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | S | - | `AgentEnded.answer`, the agent's declared last message, its end kept. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. | 0 |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
@@ -160,12 +169,16 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b603"></a>[B603](B603-A-Story-Takes-The-State-Given-It.md) | M | [B564](README.md#b564) | A story moved or written into a state keeps it over its issues' derived state; a mismatch is a warning ("… anyway? y/N"), never a refusal. |
+| <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
+| <a id="b598"></a>[B598](B598-A-Container-Name-Reserved-Before-Anything-Is-Made.md) | M | [B596](README.md#b596) | Starts reserve their container name first; a taken name is refused by its owner. |
+| <a id="b599"></a>[B599](B599-A-Tasks-Secrets-And-Files-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Gate, vault and file paths are reached through a task's identity. |
+| <a id="b600"></a>[B600](B600-A-Tasks-Mail-And-Sockets-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Mail, watches and sockets are reached through a task's identity. |
+| <a id="b601"></a>[B601](B601-New-Tasks-Get-The-Short-Container-Name.md) | S | [B597](README.md#b597), [B598](README.md#b598), [B599](README.md#b599), [B600](README.md#b600) | New tasks are created under the new container names. |
+| <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | [porelo-host#HO156](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho156) | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
 | <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
-| <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
-| <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `SaveMoves` saves story and issue moves together, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
 | <a id="b565"></a>[B565](B565-Work-Started-From-The-Board.md) | L | [B562](README.md#b562), [B563](README.md#b563) | `ProposeStoryWork`, `StartStoryWork`, `GetStoryWork`, `StopStoryWork`: tasks started for a story's working state and recorded by porelod. |
-| <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | S | - | `AgentEnded.answer`, the agent's declared last message, its end kept. |
 | <a id="b567"></a>[B567](B567-The-End-Of-A-Run-Sets-The-Done-State.md) | L | [B565](README.md#b565), [B566](README.md#b566) | A work task's end judged by `Outcome: done` or `blocked`: the done state set through the adapter, or the work left waiting for the operator. |
 | <a id="b568"></a>[B568](B568-A-Coordinator-While-Agents-Work.md) | M | [B565](README.md#b565), [B567](README.md#b567) | The project's coordinator started with the first work task, told of each new story, stopped after the last. |
 | <a id="b558"></a>[B558](B558-The-Event-Log-Has-A-Copy-Off-The-Machine.md) | M | [B154](#b154) | Medium. Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event. |
@@ -174,7 +187,6 @@ from its side, as *blocked by*.
 | <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
 | <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
 | <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
-| <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
@@ -182,7 +194,6 @@ from its side, as *blocked by*.
 | <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
 | <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. |
-| <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
