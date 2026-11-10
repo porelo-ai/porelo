@@ -137,6 +137,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b590"></a>[B590](B590-The-Gathered-Push-Takes-Repository-Names-And-Names-A-401.md) | M | [B544](README.md#b544), [B580](README.md#b580) | The gathered push takes a project-file key or forge name and reports a central 401 before any push, through the shared typed refusal. | 0 |
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> \| restore-runtime`. |
 | <a id="b588"></a>[B588](B588-A-Person-Starts-The-Hosts-Follow-Now.md) | M | [B550](README.md#b550) | An admitted person's `porelo host follow` starts or joins one host follow pass through one sudo verb and answers its completion status. | 0 |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. | 0 |
@@ -192,7 +193,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b589"></a>[B589](B589-The-Forge-Knows-The-Key-That-Signed-A-Commit.md) | L | [B550](README.md#b550), [B547](README.md#b547) | Measure certified-signature support first, then register person and task signing keys on their push accounts so the host forge verifies commits. | 0 |
-| <a id="b590"></a>[B590](B590-The-Gathered-Push-Takes-Repository-Names-And-Names-A-401.md) | M | [B544](README.md#b544), [B580](README.md#b580) | The gathered push takes a project-file key or forge name and reports a central 401 before any push, through the shared typed refusal. | 0 |
 | <a id="b573"></a>[B573](B573-A-Tasks-Project-Reads-Held-To-Its-Own-Project.md) | S | - | A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high. | 0 |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |

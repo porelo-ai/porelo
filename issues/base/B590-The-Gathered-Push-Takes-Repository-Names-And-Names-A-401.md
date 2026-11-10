@@ -1,6 +1,6 @@
 # [B590](README.md#b590) — The Gathered Push Takes Repository Names And Names A 401
 
-**Status:** Analyzed. Filed 2026-11-10 under ST290, from the fourth move.
+**Status:** Implementing, since 2026-11-10. Filed 2026-11-10 under ST290, from the fourth move.
 **Size:** M - carry repository aliases from the follow into selection and detect central HTTP refusal before transferring any repository.
 **Blocked by:** [B544](README.md#b544), [B580](README.md#b580).
 
