@@ -30,11 +30,15 @@ Feature: The talk commands
             | command | more     |
             | held    |          |
             | verify  |          |
-            | pass    |          |
             | hold    | somebody |
             | read    | a-message |
             | release | a-message |
             | tell    |          |
+
+    Scenario: passing a held message names a task's identity before its mailbox, and a name of no task has none
+        When a script runs "porelo talk pass porelo-acceptance-no-such-task"
+        Then it exits non-zero
+        And its output contains "porelo-acceptance-no-such-task: no task has that name"
 
     @slow
     Scenario: a running task's conversation, from what is held to whether its record checks out
