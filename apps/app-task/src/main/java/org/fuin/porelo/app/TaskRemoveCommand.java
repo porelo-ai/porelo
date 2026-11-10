@@ -88,6 +88,19 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
                         container,
                         java.nio.file.Path.of("."),
                         TaskTarget.console(spec.commandLine().getOut()));
+        if (found.reason() == TaskIdentities.Reason.MISSING && container != null) {
+            final PrintWriter out = spec.commandLine().getOut();
+            final PrintWriter err = spec.commandLine().getErr();
+            if (!org.fuin.porelo.runtime.ContainerName.isTask(container.strip())) {
+                err.println("porelo: '" + container.strip() + "' is not a task Porelo created");
+                Suggests.offer(err, this);
+                err.flush();
+                return 64;
+            }
+            out.println("No task " + container.strip() + "; nothing to remove.");
+            out.flush();
+            return 0;
+        }
         if (found.container() == null) {
             spec.commandLine().getErr().println("porelo: " + found.refusal());
             if ((Object) this instanceof Suggests suggests) {

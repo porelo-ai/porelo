@@ -38,7 +38,7 @@ class TaskAttachCommandTest {
     private int execExit;
 
     /** Runs attach with a terminal and exit code supplied by the test. */
-    private int run(Path dir, String... arguments) {
+    private int run(Path dir, String... arguments) throws java.io.IOException {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -56,6 +56,9 @@ class TaskAttachCommandTest {
                             attached.addAll(command);
                             return execExit;
                         });
+        LegacyTaskFixture.record(context, "porelo-uc-shell-1", "uc", "a1b2c3d4e5f6");
+        LegacyTaskFixture.record(
+                context, "porelo-offlineproj-shell-1", "offlineproj", "a1b2c3d4e5f6");
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
@@ -73,8 +76,11 @@ class TaskAttachCommandTest {
     /** The attach command restores the terminal after either podman exit status. */
     @ParameterizedTest
     @ValueSource(ints = {0, 125})
-    void returnsTheTerminalAfterAttachingToAnExistingSession(int code, @TempDir Path dir) {
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+    void returnsTheTerminalAfterAttachingToAnExistingSession(int code, @TempDir Path dir)
+            throws java.io.IOException {
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed("porelo-uc-shell-1\tUp 4 minutes\n", "a1b2c3d4e5f6"));
         runner.answering("stty -g", "saved-settings\n");
         terminal = true;
         execExit = code;
@@ -93,12 +99,14 @@ class TaskAttachCommandTest {
     }
 
     @Test
-    void attachesToASessionThatIsFoundAgainOnReturn(@TempDir Path dir) {
+    void attachesToASessionThatIsFoundAgainOnReturn(@TempDir Path dir) throws java.io.IOException {
 
         // 'new-session -A' is attach-or-create in one call, so coming back and starting for the
         // first time are the same operation - and the one that matters is exercised every time
         // rather than only once.
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed("porelo-uc-shell-1\tUp 4 minutes\n", "a1b2c3d4e5f6"));
 
         assertThat(run(dir, "task", "attach", "porelo-uc-shell-1")).isZero();
 
@@ -118,12 +126,14 @@ class TaskAttachCommandTest {
     }
 
     @Test
-    void keepsTheProgramAndItsArgumentsApart(@TempDir Path dir) {
+    void keepsTheProgramAndItsArgumentsApart(@TempDir Path dir) throws java.io.IOException {
 
         // Joined into one string, podman looks for an executable called "tmux new-session -A -s
         // porelo" and fails with "no such file" - which reads as a broken container rather than as
         // a mistake here.
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed("porelo-uc-shell-1\tUp 4 minutes\n", "a1b2c3d4e5f6"));
 
         run(dir, "task", "attach", "porelo-uc-shell-1");
 
@@ -132,11 +142,15 @@ class TaskAttachCommandTest {
     }
 
     @Test
-    void aStoppedTaskIsSentToStartRatherThanToTheList(@TempDir Path dir) {
+    void aStoppedTaskIsSentToStartRatherThanToTheList(@TempDir Path dir)
+            throws java.io.IOException {
 
         // Two different things a person has to do next. "No such task" would send somebody looking
         // at the list for something that is right there, stopped.
-        runner.answering("ps", "porelo-uc-shell-1\tExited (0) 2 minutes ago\n");
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed(
+                        "porelo-uc-shell-1\tExited (0) 2 minutes ago\n", "a1b2c3d4e5f6"));
 
         assertThat(run(dir, "task", "attach", "porelo-uc-shell-1")).isEqualTo(69);
         assertThat(err.toString()).contains("is not running").contains("porelo task start");
@@ -144,10 +158,10 @@ class TaskAttachCommandTest {
     }
 
     @Test
-    void aTaskThatIsNotThereNamesTheOnesThereAre(@TempDir Path dir) {
+    void aTaskThatIsNotThereNamesTheOnesThereAre(@TempDir Path dir) throws java.io.IOException {
 
         // It named 'porelo task list' to type; the list is what was wanted, so it is said instead.
-        runner.answering("ps", "");
+        runner.answering("ps", LegacyTaskFixture.listed("", "a1b2c3d4e5f6"));
 
         assertThat(run(dir, "task", "attach", "porelo-uc-shell-1")).isEqualTo(69);
         assertThat(err.toString()).contains("no task called").contains("there is no task here");
@@ -179,7 +193,8 @@ class TaskAttachCommandTest {
     }
 
     @Test
-    void somethingThatIsNotATaskIsRefusedOnItsNameAlone(@TempDir Path dir) {
+    void somethingThatIsNotATaskIsRefusedOnItsNameAlone(@TempDir Path dir)
+            throws java.io.IOException {
 
         // The refusal is decided by the name, before anything about the machine is consulted. What
         // follows it is a listing, offered because somebody who typed a name that is not a task is
@@ -193,24 +208,30 @@ class TaskAttachCommandTest {
     }
 
     @Test
-    void anOfflineProjectIsNotRefused(@TempDir Path dir) {
+    void anOfflineProjectIsNotRefused(@TempDir Path dir) throws java.io.IOException {
 
         // The class governs egress - what resolves and what leaves - and a person typing in a
         // container is neither. Offline is precisely the case where somebody has to work by hand,
         // because the agent reaches nothing; refusing would remove the only way in.
-        runner.answering("ps", "porelo-offlineproj-shell-1\tUp 4 minutes\n");
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed(
+                        "porelo-offlineproj-shell-1\tUp 4 minutes\n", "a1b2c3d4e5f6"));
 
         assertThat(run(dir, "task", "attach", "porelo-offlineproj-shell-1")).isZero();
         assertThat(attached).contains("tmux");
     }
 
     @Test
-    void readsThePinnedConfigurationRatherThanWhateverIsAround(@TempDir Path dir) {
+    void readsThePinnedConfigurationRatherThanWhateverIsAround(@TempDir Path dir)
+            throws java.io.IOException {
 
         // What a session remembers IS the answer to "what may re-entering claim". Left to tmux's
         // own search it would come from the image, or a dotfile, or a default nobody chose - and
         // then the one process that has to state the figure does not know it.
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed("porelo-uc-shell-1\tUp 4 minutes\n", "a1b2c3d4e5f6"));
 
         run(dir, "task", "attach", "porelo-uc-shell-1");
 

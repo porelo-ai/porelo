@@ -1990,7 +1990,7 @@ public final class TaskLaunch {
 
         adopt(project, out);
         final java.util.Optional<String> badName =
-                org.fuin.porelo.runtime.ContainerName.refusal(project.name(), request.task());
+                new TaskIdentities(context).newTaskRefusal(project.name(), request.task());
         if (badName.isPresent()) {
             // Before the plan, the dry run and anything written. podman refuses such a name only
             // when the container is created, after the image is built and the policy, resolver and

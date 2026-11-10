@@ -2,7 +2,6 @@ package org.fuin.porelo.app;
 
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
@@ -112,26 +111,24 @@ public final class TaskRefresh {
      * @return What happened.
      */
     public Result refresh(final String container) {
-        final List<ContainerSummary> tasks = context.podman().poreloTasks();
-        // By its container's name, or by the task's own as 'porelo approve' takes it, when only one
-        // task has it.
-        final List<ContainerSummary> named =
-                tasks.stream().filter(each -> each.name().equals(container)).toList();
-        final List<ContainerSummary> found =
-                !named.isEmpty()
-                        ? named
-                        : tasks.stream()
-                                .filter(
-                                        each ->
-                                                each.project() != null
-                                                        && each.name()
-                                                                .equals(
-                                                                        "porelo-"
-                                                                                + each.project()
-                                                                                + "-"
-                                                                                + container))
-                                .toList();
-        final ContainerSummary summary = found.size() == 1 ? found.getFirst() : null;
+        final java.util.List<ContainerSummary> candidates = context.podman().taskCandidates();
+        final TaskIdentities.Result resolved =
+                new TaskIdentities(context).lookup(container, null, candidates);
+        if (resolved instanceof TaskIdentities.Refused refused) {
+            return new Result(
+                    refused.reason() == TaskIdentities.Reason.MISSING
+                            ? Outcome.NO_SUCH_TASK
+                            : Outcome.FAILED,
+                    Map.of(),
+                    "cannot resolve task '" + container + "': " + refused.reason(),
+                    false);
+        }
+        final TaskIdentity identity = ((TaskIdentities.Found) resolved).identity();
+        final ContainerSummary summary =
+                candidates.stream()
+                        .filter(each -> each.name().equals(identity.container()))
+                        .findFirst()
+                        .orElse(null);
         if (summary == null) {
             return new Result(
                     Outcome.NO_SUCH_TASK,
@@ -139,12 +136,9 @@ public final class TaskRefresh {
                     "no task '" + container + "' on this machine",
                     false);
         }
-        if (summary.project() == null) {
-            return new Result(Outcome.NOT_GATED, Map.of(), container + " names no project", false);
-        }
         final GitGate gate;
         try {
-            final Project project = GateSupport.byName(context, summary.project());
+            final Project project = GateSupport.byName(context, identity.project());
             final Repository repository =
                     summary.repository() == null || summary.repository().isBlank()
                             ? project.ownRepository()

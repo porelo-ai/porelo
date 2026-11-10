@@ -89,7 +89,7 @@ class MessageWatchLoopsTest {
                 "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},"
                         + "\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1:18008\"]}");
         runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
-        runner.answering("podman ps", containers);
+        runner.answering("podman ps", LegacyTaskFixture.listed(containers, "a1b2c3d4e5f6"));
         final Path file = dir.resolve("project.yml");
         Files.writeString(file, PROJECT);
         new ProjectRegistry(context.paths().projects().projectRegistry()).remember("p", file);
@@ -104,6 +104,7 @@ class MessageWatchLoopsTest {
     }
 
     private void task(final String container, final boolean account) throws IOException {
+        LegacyTaskFixture.record(context, container, "p", "a1b2c3d4e5f6");
         new Mailbox(context.paths().messaging().mailbox(container)).create();
         if (account) {
             assertThat(

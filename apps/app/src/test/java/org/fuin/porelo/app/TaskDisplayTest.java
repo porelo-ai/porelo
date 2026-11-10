@@ -65,13 +65,16 @@ class TaskDisplayTest {
         // row whose name moved would make every call that takes it miss the task.
         started("porelo-uc-fix", "fix");
         started("porelo-uc-pi", null);
-        final List<TaskInventory.Task> tasks =
-                new TaskInventory(
-                                context(
-                                        "porelo-uc-fix\tUp 4 minutes\t\t\tuc\n"
-                                                + "porelo-uc-pi\tUp 4 minutes\t\t\tuc\n"
-                                                + "porelo-gone-x\tUp 4 minutes\n"))
-                        .tasks();
+        final PoreloContext context =
+                context(
+                        LegacyTaskFixture.listed(
+                                "porelo-uc-fix\tUp 4 minutes\t\t\tuc\n"
+                                        + "porelo-uc-pi\tUp 4 minutes\t\t\tuc\n"
+                                        + "porelo-gone-x\tUp 4 minutes\n",
+                                "a1b2c3d4e5f6"));
+        LegacyTaskFixture.record(context, "porelo-uc-fix", "uc", "a1b2c3d4e5f6");
+        LegacyTaskFixture.record(context, "porelo-uc-pi", "uc", "a1b2c3d4e5f6");
+        final List<TaskInventory.Task> tasks = new TaskInventory(context).tasks();
 
         final Map<String, Map<String, Object>> rows = new java.util.HashMap<>();
         tasks.forEach(task -> rows.put(task.name(), task.asMap()));

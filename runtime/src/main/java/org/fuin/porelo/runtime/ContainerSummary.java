@@ -8,6 +8,8 @@ package org.fuin.porelo.runtime;
  * @param since When the current state began, ISO-8601, or empty.
  * @param project Project from the container's label, or {@code null} if it carries none.
  * @param securityClass Security class from the container's label, or {@code null}.
+ * @param task Logical task label, or {@code null} for a legacy container.
+ * @param id Live container id, or {@code null} when the runtime did not report one.
  */
 public record ContainerSummary(
         String name,
@@ -16,7 +18,21 @@ public record ContainerSummary(
         @org.jspecify.annotations.Nullable String project,
         @org.jspecify.annotations.Nullable String securityClass,
         @org.jspecify.annotations.Nullable String repository,
-        @org.jspecify.annotations.Nullable String commit) {
+        @org.jspecify.annotations.Nullable String commit,
+        @org.jspecify.annotations.Nullable String task,
+        @org.jspecify.annotations.Nullable String id) {
+
+    /** A summary from a runtime that did not yet report the logical task and live id. */
+    public ContainerSummary(
+            String name,
+            String state,
+            String since,
+            @org.jspecify.annotations.Nullable String project,
+            @org.jspecify.annotations.Nullable String securityClass,
+            @org.jspecify.annotations.Nullable String repository,
+            @org.jspecify.annotations.Nullable String commit) {
+        this(name, state, since, project, securityClass, repository, commit, null, null);
+    }
 
     /**
      * Constructor for a summary taken before the commit was labelled.

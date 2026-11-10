@@ -42,6 +42,10 @@ class TaskStopSurvivorsTest {
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0)
                         .recognizingTasks();
         Sidecar.recordId(context.paths().tasks().containerState(CONTAINER), "a1b2c3d4e5f6");
+        LegacyTaskFixture.record(context, CONTAINER, "uc", "a1b2c3d4e5f6");
+        Files.copy(
+                context.paths().tasks().taskRecord(CONTAINER).resolve("sidecar.json"),
+                context.paths().tasks().containerState(CONTAINER).resolve("sidecar.json"));
         new TaskState(context).save(CONTAINER);
         return context;
     }

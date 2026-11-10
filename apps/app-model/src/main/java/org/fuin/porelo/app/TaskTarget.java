@@ -43,7 +43,15 @@ public final class TaskTarget {
      * @param refusal Why none is, or "".
      * @param code The exit to end with when none is.
      */
-    public record Found(@Nullable String container, String refusal, int code) {}
+    public record Found(
+            @Nullable String container,
+            String refusal,
+            int code,
+            TaskIdentities.@Nullable Reason reason) {
+        public Found(@Nullable String container, String refusal, int code) {
+            this(container, refusal, code, null);
+        }
+    }
 
     private TaskTarget() {
         throw new UnsupportedOperationException("Utility class");
@@ -73,34 +81,38 @@ public final class TaskTarget {
      */
     public static String spelled(
             final PoreloContext context, final String given, final Path directory) {
-        final List<ContainerSummary> tasks = context.podman().poreloTasks();
-        if (tasks.stream().anyMatch(task -> task.name().equals(given))) {
-            return given;
+        final TaskIdentities.Result result = identified(context, given, directory);
+        return result instanceof TaskIdentities.Found found ? found.identity().container() : given;
+    }
+
+    private static TaskIdentities.Result identified(
+            PoreloContext context, String given, Path directory) {
+        final TaskIdentities identities = new TaskIdentities(context);
+        final TaskIdentities.Result result = identities.lookup(given, null);
+        if (result instanceof TaskIdentities.Refused refused
+                && refused.reason() == TaskIdentities.Reason.AMBIGUOUS) {
+            final Checkout standing = checkout(context, directory);
+            if (standing != null) {
+                return identities.lookup(given, standing.project());
+            }
         }
-        final List<String> own =
-                tasks.stream()
-                        .filter(
-                                task ->
-                                        task.project() != null
-                                                && task.name()
-                                                        .equals(
-                                                                "porelo-"
-                                                                        + task.project()
-                                                                        + "-"
-                                                                        + given))
-                        .map(ContainerSummary::name)
-                        .toList();
-        if (own.size() == 1) {
-            return own.getFirst();
+        return result;
+    }
+
+    private static Found found(TaskIdentities.Result result) {
+        if (result instanceof TaskIdentities.Found found) {
+            return new Found(found.identity().container(), "", 0);
         }
-        if (own.isEmpty()) {
-            return given;
-        }
-        // Two projects' tasks of one name: the one this checkout's project has, as a start here
-        // would take it.
-        final Checkout standing = checkout(context, directory);
-        final String here = standing == null ? null : "porelo-" + standing.project() + "-" + given;
-        return here != null && own.contains(here) ? here : given;
+        final TaskIdentities.Refused refused = (TaskIdentities.Refused) result;
+        return new Found(
+                null,
+                "cannot resolve task '"
+                        + refused.name()
+                        + "': "
+                        + refused.reason()
+                        + "; 'porelo task list' lists tasks by their actual names",
+                refused.reason() == TaskIdentities.Reason.AMBIGUOUS ? SEVERAL : NONE,
+                refused.reason());
     }
 
     /** The project and repository a checkout belongs to, as its start takes them. */
@@ -122,10 +134,12 @@ public final class TaskTarget {
         }
         final String inProject = found.project();
         final String ofRepository = found.repository();
+        final TaskIdentities identities = new TaskIdentities(context);
         return context.podman().poreloTasks().stream()
                 .filter(
                         task ->
-                                inProject.equals(task.project())
+                                identities.read(task) instanceof TaskIdentities.Found verified
+                                        && inProject.equals(verified.identity().project())
                                         && ofRepository != null
                                         && ofRepository.equals(task.repository()))
                 .map(ContainerSummary::name)
@@ -194,7 +208,7 @@ public final class TaskTarget {
             final Path directory,
             final @Nullable Asker asker) {
         if (given != null && !given.isBlank()) {
-            return new Found(spelled(context, given.strip(), directory), "", 0);
+            return found(identified(context, given.strip(), directory));
         }
         final List<String> started = fromCheckout(context, directory);
         if (started == null) {
@@ -214,7 +228,7 @@ public final class TaskTarget {
                     NONE);
         }
         if (started.size() == 1) {
-            return new Found(started.getFirst(), "", 0);
+            return found(identified(context, started.getFirst(), directory));
         }
         final String named = String.join(", ", started);
         final String answer =
@@ -232,10 +246,23 @@ public final class TaskTarget {
                     "several tasks were started from " + top + ": " + named + "; name one",
                     SEVERAL);
         }
-        final String chosen = spelled(context, answer.strip(), directory);
-        return started.contains(chosen)
-                ? new Found(chosen, "", 0)
+        final Found chosen = found(identified(context, answer.strip(), directory));
+        return started.contains(chosen.container())
+                ? chosen
                 : new Found(null, "'" + answer.strip() + "' is none of " + named, SEVERAL);
+    }
+
+    /** Resolves a read that also accepts an absent task's actual name as its history key. */
+    public static Found resolveRead(
+            PoreloContext context, @Nullable String given, Path directory, @Nullable Asker asker) {
+        final Found found = resolve(context, given, directory, asker);
+        return found.reason() != null
+                        && found.reason() != TaskIdentities.Reason.AMBIGUOUS
+                        && given != null
+                        && org.fuin.porelo.runtime.ContainerName.isTask(given)
+                        && given.matches("porelo-[a-z0-9_-]+")
+                ? new Found(given, "", 0, found.reason())
+                : found;
     }
 
     /**

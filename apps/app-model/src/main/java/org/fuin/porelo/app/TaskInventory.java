@@ -6,8 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GateMode;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.wire.Sidecar;
 import org.jspecify.annotations.Nullable;
@@ -74,6 +76,8 @@ public final class TaskInventory {
      * @param modelFrom Where it was settled from: {@code start}, {@code repository}, {@code
      *     project} or {@code agent}; {@code ""} when nothing recorded the task.
      * @param named The name its start was given, or {@code null} when it took its repository's.
+     * @param logicalTask Logical task for display, empty when unknown or contradictory, or {@code
+     *     null} for a legacy snapshot.
      */
     public record Task(
             String name,
@@ -113,7 +117,90 @@ public final class TaskInventory {
             String model,
             String modelLabel,
             String modelFrom,
-            @Nullable String named) {
+            @Nullable String named,
+            @Nullable String logicalTask) {
+
+        /** A snapshot made before a verified logical task was carried explicitly. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters,
+                String phase,
+                String lastWrote,
+                int inboxWaiting,
+                @Nullable String forgeBranch,
+                boolean certified,
+                String certifiedUntil,
+                String model,
+                String modelLabel,
+                String modelFrom,
+                @Nullable String named) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    phase,
+                    lastWrote,
+                    inboxWaiting,
+                    forgeBranch,
+                    certified,
+                    certifiedUntil,
+                    model,
+                    modelLabel,
+                    modelFrom,
+                    named,
+                    null);
+        }
 
         /** Creates a task whose model nothing recorded and whose start was given no name. */
         public Task(
@@ -200,9 +287,11 @@ public final class TaskInventory {
          */
         public @Nullable String shortName() {
             final String within =
-                    project == null
-                            ? ""
-                            : org.fuin.porelo.runtime.ContainerName.taskIn(project, name);
+                    logicalTask != null
+                            ? logicalTask
+                            : project == null
+                                    ? ""
+                                    : org.fuin.porelo.runtime.ContainerName.taskIn(project, name);
             return within.isEmpty() ? null : within;
         }
 
@@ -928,9 +1017,11 @@ public final class TaskInventory {
             // relating the two belongs here. It changed in this release, which is exactly why an
             // interface must not cut a prefix off the name to get it.
             final String within =
-                    project == null
-                            ? ""
-                            : org.fuin.porelo.runtime.ContainerName.taskIn(project, name);
+                    logicalTask != null
+                            ? logicalTask
+                            : project == null
+                                    ? ""
+                                    : org.fuin.porelo.runtime.ContainerName.taskIn(project, name);
             map.put("task", within);
             map.put("short", within);
             map.put("named", named == null ? "" : named);
@@ -1436,7 +1527,26 @@ public final class TaskInventory {
                 profile == null || profile.model() == null ? "" : profile.model(),
                 profile == null || profile.modelLabel() == null ? "" : profile.modelLabel(),
                 profile == null ? "" : profile.modelFrom(),
-                profile == null ? null : profile.named());
+                profile == null ? null : profile.named(),
+                logicalTask(summary));
+    }
+
+    /** A legacy project's label scopes its display name even when no id authorizes an action. */
+    private String logicalTask(ContainerSummary summary) {
+        final TaskIdentities.Result result = new TaskIdentities(context).read(summary);
+        if (result instanceof TaskIdentities.Found found) {
+            return found.identity().task();
+        }
+        final String project = summary.project();
+        if (result instanceof TaskIdentities.Refused refused
+                && refused.reason() == TaskIdentities.Reason.MISSING_RECORD
+                && summary.task() == null
+                && project != null
+                && project.matches(Project.NAME_PATTERN)) {
+            final String task = ContainerName.taskIn(project, summary.name());
+            return task.matches(Project.TASK_NAME_PATTERN) ? task : "";
+        }
+        return "";
     }
 
     /**

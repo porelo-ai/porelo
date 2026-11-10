@@ -20,9 +20,99 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class TaskTargetTest {
 
+    @Test
+    void anAbsentActualNameRemainsAHistoryKeyOnlyForReads() {
+        // Retained logs and the absent-status contract must survive container removal.
+        final String actual = "porelo-default_utils4j";
+        assertThat(TaskTarget.resolveRead(context, actual, dir, null).container())
+                .isEqualTo(actual);
+        assertThat(TaskTarget.resolve(context, actual, dir, null).reason())
+                .isEqualTo(TaskIdentities.Reason.MISSING);
+        assertThat(TaskTarget.resolve(context, actual, dir, null).container()).isNull();
+    }
+
+    @Test
+    void resolvesAnEncodedTaskAndKeepsTheWholeNumericSuffix() throws Exception {
+        // Resolving a different task can attach to or stop somebody else's container.
+        listed =
+                "porelo-default_app-x-123\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\t"
+                        + "a".repeat(64)
+                        + "\tapp-x-123\n";
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-default_app-x-123"), "a".repeat(64));
+        assertThat(TaskTarget.resolve(context, "app-x-123", checkout, null).container())
+                .isEqualTo("porelo-default_app-x-123");
+    }
+
+    @Test
+    void ambiguousAndMissingNamesAreRefusedBeforeAnAction() {
+        // Passing an unresolved spelling onward lets a mutator choose the wrong owner.
+        listed =
+                "porelo-web-x\tUp 1 minute\t\t\tweb\tguarded\tr\t\t"
+                        + ID
+                        + "\n"
+                        + "porelo-other-x\tUp 1 minute\t\t\tother\tguarded\tr\t\t"
+                        + OTHER_ID
+                        + "\n";
+        record("porelo-web-x");
+        record("porelo-other-x", OTHER_ID);
+        assertThat(TaskTarget.resolve(context, "x", dir, null).reason())
+                .isEqualTo(TaskIdentities.Reason.AMBIGUOUS);
+        assertThat(TaskTarget.resolve(context, "missing", dir, null).code())
+                .isEqualTo(TaskTarget.NONE);
+    }
+
+    @Test
+    void anExactActualNameWinsOverSeveralLogicalMatches() {
+        // An exact target must not be redirected to a sibling in the current checkout.
+        listed =
+                "porelo-web-x\tUp 1 minute\t\t\tweb\tguarded\tr\t\t"
+                        + ID
+                        + "\n"
+                        + "porelo-other_x\tUp 1 minute\t\t\tother\tguarded\tr\t\t"
+                        + OTHER_ID
+                        + "\tx\n";
+        record("porelo-web-x");
+        record("porelo-other_x", OTHER_ID);
+        assertThat(TaskTarget.resolve(context, "porelo-web-x", checkout, null).container())
+                .isEqualTo("porelo-web-x");
+        assertThat(TaskTarget.resolve(context, "x", dir, null).reason())
+                .isEqualTo(TaskIdentities.Reason.AMBIGUOUS);
+    }
+
+    @Test
+    void defaultNamesCountBothFormatsAndAvoidTheLoginNamespace() {
+        // An unnamed start must not take over an existing task or become login cleanup's target.
+        listed =
+                "porelo-default_utils4j\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\t"
+                        + ID
+                        + "\tutils4j\n"
+                        + "porelo-default-utils4j-2\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\t"
+                        + OTHER_ID
+                        + "\n";
+        record("porelo-default_utils4j");
+        record("porelo-default-utils4j-2", OTHER_ID);
+        assertThat(TaskNames.fromRepository(context, "default", "porelo-utils4j"))
+                .isEqualTo("utils4j-3");
+        assertThat(TaskNames.fromRepository(context, "porelo", "login-123"))
+                .isEqualTo("login-123-work");
+    }
+
+    private static final String ID = "a".repeat(64);
+    private static final String OTHER_ID = "b".repeat(64);
+
     @TempDir Path dir;
 
-    private final CommandRunner real = new ProcessCommandRunner();
+    private final CommandRunner real =
+            command ->
+                    new ProcessCommandRunner()
+                            .run(
+                                    command.withEnvironment(
+                                            java.util.Map.of(
+                                                    "GIT_CONFIG_GLOBAL",
+                                                    "/dev/null",
+                                                    "GIT_CONFIG_NOSYSTEM",
+                                                    "1")));
 
     /** What podman lists: one line per task, as poreloTasks reads them. */
     private String listed = "";
@@ -63,14 +153,31 @@ class TaskTargetTest {
                         "");
     }
 
+    private void record(String name) {
+        record(name, ID);
+    }
+
+    private void record(String name, String id) {
+        try {
+            org.fuin.porelo.wire.Sidecar.recordId(context.paths().tasks().taskRecord(name), id);
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
+
     private void tasks(final String... names) {
         final StringBuilder lines = new StringBuilder();
+        int index = 0;
         for (final String name : names) {
+            final String id = String.valueOf((char) ('a' + index++)).repeat(64);
+            record(name, id);
             final String repository = name.startsWith("porelo-default-other") ? "other" : "utils4j";
             lines.append(name)
                     .append("\tUp 1 minute\t\t\tdefault\tguarded\t")
                     .append(repository)
-                    .append("\t\tid\n");
+                    .append("\t\t")
+                    .append(id)
+                    .append("\n");
         }
         listed = lines.toString();
     }
@@ -93,24 +200,29 @@ class TaskTargetTest {
                 .isEqualTo("porelo-default-utils4j");
         assertThat(TaskTarget.resolve(context, "porelo-default-utils4j", dir, null).container())
                 .isEqualTo("porelo-default-utils4j");
-        assertThat(TaskTarget.resolve(context, "nobody", dir, null).container())
-                .as("left to the command to refuse")
-                .isEqualTo("nobody");
+        assertThat(TaskTarget.resolve(context, "nobody", dir, null).reason())
+                .isEqualTo(TaskIdentities.Reason.MISSING);
     }
 
     @Test
     void aShortNameTasksOfTwoProjectsShareMeansTheOneOfTheCheckoutStoodIn() {
         // Two projects' tasks shown by one name: in a checkout, its project's is the one meant.
         listed =
-                "porelo-elsewhere-utils4j\tUp 1 minute\t\t\telsewhere\tguarded\tutils4j\t\tid\n"
-                        + "porelo-default-utils4j\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\tid\n";
+                "porelo-elsewhere-utils4j\tUp 1 minute\t\t\telsewhere\tguarded\tutils4j\t\t"
+                        + ID
+                        + "\n"
+                        + "porelo-default-utils4j\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\t"
+                        + OTHER_ID
+                        + "\n";
 
+        record("porelo-elsewhere-utils4j");
+        record("porelo-default-utils4j", OTHER_ID);
         assertThat(TaskTarget.resolve(context, "utils4j", checkout, null).container())
                 .as("the task of the project this checkout belongs to")
                 .isEqualTo("porelo-default-utils4j");
         assertThat(TaskTarget.resolve(context, "utils4j", dir, null).container())
-                .as("outside a checkout neither is guessed, and the command refuses the name")
-                .isEqualTo("utils4j");
+                .as("outside a checkout neither is guessed")
+                .isNull();
     }
 
     @Test

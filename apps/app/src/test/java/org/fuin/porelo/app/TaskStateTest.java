@@ -20,6 +20,159 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class TaskStateTest {
 
+    private static final String ID = "a".repeat(64);
+    private static final String OTHER_ID = "b".repeat(64);
+
+    private PoreloContext identities(String listed) {
+        final PoreloContext base = context();
+        return new PoreloContext(
+                command -> new org.fuin.porelo.core.process.CommandResult(command, 0, listed, ""),
+                base.paths(),
+                arguments -> 0);
+    }
+
+    private void identityRecord(PoreloContext context, String container, String project)
+            throws IOException {
+        identityRecord(context, container, project, ID);
+    }
+
+    private void identityRecord(PoreloContext context, String container, String project, String id)
+            throws IOException {
+        final Path record = context.paths().tasks().taskRecord(container);
+        org.fuin.porelo.wire.Sidecar.recordId(record, id);
+        new org.fuin.porelo.wire.Sidecar(
+                        3,
+                        project,
+                        "guarded",
+                        "ruleset.nft",
+                        "dns.conf",
+                        "porelo",
+                        context.paths().tasks().containerState(container).toString())
+                .writeTo(record.resolve("sidecar.json"));
+    }
+
+    @Test
+    void corruptOrContradictoryEncodedOwnershipIsARefusal() throws IOException {
+        // Corrupt records must not let an action fall back to another task's ownership.
+        final String name = "porelo-web_x";
+        final PoreloContext context =
+                identities(name + "\tUp 1 minute\t\t\tweb\tguarded\tr\t\t" + ID + "\twrong-task\n");
+        identityRecord(context, name, "web");
+        assertThat(new TaskIdentities(context).lookup(name, null))
+                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.INVALID_RECORD, name));
+        Files.writeString(
+                context.paths().tasks().taskRecord(name).resolve("sidecar.json"), "{broken");
+        assertThat(new TaskIdentities(context).lookup(name, null))
+                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.INVALID_RECORD, name));
+    }
+
+    @Test
+    void resolvesBothFormatsFromTheirRecordedOwnerWithoutDroppingNumericSuffixes()
+            throws IOException {
+        // Decoding the wrong logical name lends another task's gate or retained state.
+        final PoreloContext context =
+                identities(
+                        "porelo-web-app-x-123\tUp 1 minute\t\t\tweb\tguarded\tr\t\t"
+                                + ID
+                                + "\n"
+                                + "porelo-web-app_x-123\tUp 1 minute\t\t\tweb-app\tguarded\tr\t\t"
+                                + OTHER_ID
+                                + "\tx-123\n");
+        identityRecord(context, "porelo-web-app-x-123", "web");
+        identityRecord(context, "porelo-web-app_x-123", "web-app", OTHER_ID);
+        final TaskIdentities lookup = new TaskIdentities(context);
+        assertThat(lookup.lookup("app-x-123", "web"))
+                .isEqualTo(
+                        new TaskIdentities.Found(
+                                new TaskIdentity(
+                                        TaskIdentity.Format.LEGACY,
+                                        "web",
+                                        "app-x-123",
+                                        "porelo-web-app-x-123",
+                                        ID)));
+        assertThat(lookup.lookup("x-123", "web-app"))
+                .isEqualTo(
+                        new TaskIdentities.Found(
+                                new TaskIdentity(
+                                        TaskIdentity.Format.ENCODED,
+                                        "web-app",
+                                        "x-123",
+                                        "porelo-web-app_x-123",
+                                        OTHER_ID)));
+        assertThat(new TaskInventory(context).tasks())
+                .extracting(TaskInventory.Task::shortName)
+                .containsExactly("app-x-123", "x-123");
+        assertThat(new TaskInventory(context).tasks().getLast().asMap())
+                .containsEntry("task", "x-123")
+                .containsEntry("name", "porelo-web-app_x-123");
+    }
+
+    @Test
+    void contradictoryProjectAndIdAndMissingOwnershipRefuseActions() throws IOException {
+        // A matching name must never authorize access to a replacement or another project.
+        final String name = "porelo-web-app-x";
+        final PoreloContext context =
+                identities(name + "\tUp 1 minute\t\t\tweb\tguarded\tr\t\t" + ID + "\n");
+        final TaskIdentities lookup = new TaskIdentities(context);
+        assertThat(lookup.lookup(name, null))
+                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.MISSING_RECORD, name));
+        identityRecord(context, name, "web-app");
+        assertThat(lookup.lookup(name, null))
+                .isEqualTo(
+                        new TaskIdentities.Refused(TaskIdentities.Reason.PROJECT_MISMATCH, name));
+        identityRecord(context, name, "web");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState(name), "b".repeat(64));
+        assertThat(lookup.lookup(name, null))
+                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.ID_MISMATCH, name));
+        Files.delete(
+                context.paths()
+                        .tasks()
+                        .containerState(name)
+                        .resolve(org.fuin.porelo.wire.Sidecar.RECORDED_ID));
+        assertThat(lookup.lookup(name, "web-app"))
+                .isEqualTo(
+                        new TaskIdentities.Refused(TaskIdentities.Reason.PROJECT_MISMATCH, name));
+        final PoreloContext replaced =
+                identities(name + "\tUp 1 minute\t\t\tweb\tguarded\tr\t\t" + "c".repeat(64) + "\n");
+        assertThat(new TaskIdentities(replaced).lookup(name, null))
+                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.ID_MISMATCH, name));
+    }
+
+    @Test
+    void durableLegacyOwnershipSurvivesRuntimeLossAndLookupWritesNothing() throws IOException {
+        // A reboot must not orphan the old task or make it borrow a new task's paths.
+        final String name = "porelo-porelo-login-123";
+        final PoreloContext context = identities(name + "\tExited (0)\t\t\t\t\t\t\t" + ID + "\n");
+        identityRecord(context, name, "porelo");
+        final TaskIdentities.Result found =
+                new TaskIdentities(context).lookup("login-123", "porelo");
+        assertThat(found)
+                .isEqualTo(
+                        new TaskIdentities.Found(
+                                new TaskIdentity(
+                                        TaskIdentity.Format.LEGACY,
+                                        "porelo",
+                                        "login-123",
+                                        name,
+                                        ID)));
+        assertThat(new TaskIdentities(context).newTaskRefusal("porelo", "login-123")).isEmpty();
+        assertThat(new TaskIdentities(identities("")).newTaskRefusal("porelo", "login-123"))
+                .isPresent();
+        assertThat(context.paths().tasks().containerState(name)).doesNotExist();
+        assertThat(context.podman().loginContainers("agent")).doesNotContainKey(name);
+        assertThat(new TaskInventory(context).tasks())
+                .singleElement()
+                .satisfies(
+                        task -> {
+                            assertThat(task.name()).isEqualTo(name);
+                            assertThat(task.shortName()).isEqualTo("login-123");
+                            assertThat(task.asMap())
+                                    .containsEntry("task", "login-123")
+                                    .containsEntry("short", "login-123");
+                        });
+    }
+
     private static final String TASK = "porelo-p-t";
 
     private static final String GATE_TOKEN = "gate-secret-0123456789";

@@ -10,7 +10,13 @@ import org.junit.jupiter.api.Test;
 class ProjectNamesTest {
 
     @Test
-    void theLabelSaysWhoseTaskItIsAndANameAloneOnlyWhenItCanMeanOneProject() {
+    void aUniqueTextualPrefixDoesNotProveOwnership() {
+        // Guessing ownership can lend another task's mailbox or signing identity.
+        assertThat(ProjectNames.of("porelo-web-x", Map.of(), List.of("web"))).isNull();
+    }
+
+    @Test
+    void theVerifiedLabelSaysWhoseTaskItIsAndANameAloneNeverDoes() {
 
         // Taken by its name's beginning, a task of 'web-app' was one of 'web' in messaging - web's
         // peers, web's conversation, web's tasks as vouched siblings - and the release check made
@@ -28,6 +34,6 @@ class ProjectNamesTest {
         assertThat(ProjectNames.of("porelo-web-app-x", Map.of(), projects))
                 .as("two could be meant")
                 .isNull();
-        assertThat(ProjectNames.of("porelo-web-x", Map.of(), List.of("web"))).isEqualTo("web");
+        assertThat(ProjectNames.of("porelo-web-x", Map.of(), List.of("web"))).isNull();
     }
 }

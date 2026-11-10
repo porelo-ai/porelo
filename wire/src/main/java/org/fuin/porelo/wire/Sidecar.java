@@ -116,6 +116,9 @@ public record Sidecar(
      */
     public static final String PROJECT_LABEL = "org.fuin.porelo.project";
 
+    /** Logical task name; absent on containers created with the legacy encoding. */
+    public static final String TASK_LABEL = "org.fuin.porelo.task";
+
     /** Label carrying the project's security class. See {@link #PROJECT_LABEL}. */
     public static final String CLASS_LABEL = "org.fuin.porelo.class";
 

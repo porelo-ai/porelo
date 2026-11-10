@@ -69,7 +69,7 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
     @Override
     public Integer call() {
         final TaskTarget.Found found =
-                TaskTarget.resolve(
+                TaskTarget.resolveRead(
                         context,
                         container,
                         java.nio.file.Path.of("."),

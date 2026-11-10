@@ -1392,6 +1392,8 @@ class TaskRunCommandTest {
             throws IOException {
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+        LegacyTaskFixture.record(
+                context(dir, true), "porelo-default-shop-2", "default", "0123456789abcdef");
         runner.answering(
                 "ps",
                 SHOP_TASK + SHOP_TASK.replace("porelo-default-shop\t", "porelo-default-shop-2\t"));
@@ -1423,7 +1425,7 @@ class TaskRunCommandTest {
     /** The task a first start in 'shop' made, as podman lists it. */
     private static final String SHOP_TASK =
             "porelo-default-shop\tExited (0)\t1700000000\t1700000100\tdefault\tguarded"
-                    + "\tshop\t\n";
+                    + "\tshop\t\t0123456789abcdef\n";
 
     @Test
     void aNoAtTheFirstStartGoesIntoDefaultAndKeepsNothing(@TempDir Path dir) throws IOException {

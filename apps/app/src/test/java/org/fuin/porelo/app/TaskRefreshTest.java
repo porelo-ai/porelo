@@ -12,7 +12,6 @@ import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GitGate;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -21,11 +20,18 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class TaskRefreshTest {
 
-    private static final String TASK = "porelo-default-app-writer";
-
     @TempDir Path dir;
 
-    private final CommandRunner real = new ProcessCommandRunner();
+    private final CommandRunner real =
+            command ->
+                    new ProcessCommandRunner()
+                            .run(
+                                    command.withEnvironment(
+                                            java.util.Map.of(
+                                                    "GIT_CONFIG_GLOBAL",
+                                                    "/dev/null",
+                                                    "GIT_CONFIG_NOSYSTEM",
+                                                    "1")));
 
     private String git(final Path in, final String... arguments) {
         final List<String> command =
@@ -44,11 +50,13 @@ class TaskRefreshTest {
         return result.standardOutput().strip();
     }
 
-    @Test
-    void aCheckoutThatMovedOnReachesTheGateAndTheAgentIsToldToFetchIt() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"porelo-default-app-writer", "porelo-default_app-writer"})
+    void aCheckoutThatMovedOnReachesTheGateAndTheAgentIsToldToFetchIt(String task)
+            throws Exception {
 
-        // Only a new task's start brought the source in; a running or restarted task never heard of
-        // it.
+        // Refreshing the wrong identity can send source to another task's gate or mailbox.
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -69,11 +77,17 @@ class TaskRefreshTest {
                                 ? new CommandResult(
                                         command,
                                         0,
-                                        TASK + "\tUp 2 minutes\t\t\tdefault\tguarded\tapp\t\tid\n",
+                                        task
+                                                + "\tUp 2 minutes\t\t\tdefault\tguarded\tapp\t\t"
+                                                + "a".repeat(64)
+                                                + (task.contains("_") ? "\tapp-writer" : "")
+                                                + "\n",
                                         "")
                                 : real.run(command);
         final PoreloContext context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord(task), "a".repeat(64));
         final Path checkout = Files.createDirectories(dir.resolve("app"));
         git(checkout, "init", "-q", "-b", "main");
         Files.writeString(checkout.resolve("README.md"), "app\n");
@@ -84,10 +98,10 @@ class TaskRefreshTest {
         final GitGate gate =
                 GateSupport.gate(context, project, project.repository("app"), null, null);
         gate.initialize();
-        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(TASK));
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(task));
         mailbox.create();
 
-        assertThat(new TaskRefresh(context).refresh(TASK).outcome())
+        assertThat(new TaskRefresh(context).refresh(task).outcome())
                 .as("nothing moved yet")
                 .isEqualTo(TaskRefresh.Outcome.UNCHANGED);
 
@@ -95,7 +109,7 @@ class TaskRefreshTest {
         git(checkout, "add", ".");
         git(checkout, "commit", "-q", "-m", "more");
         final String moved = git(checkout, "rev-parse", "HEAD");
-        final TaskRefresh.Result result = new TaskRefresh(context).refresh(TASK);
+        final TaskRefresh.Result result = new TaskRefresh(context).refresh(task);
 
         assertThat(result.outcome()).isEqualTo(TaskRefresh.Outcome.MOVED);
         assertThat(result.moved()).containsEntry("main", moved);

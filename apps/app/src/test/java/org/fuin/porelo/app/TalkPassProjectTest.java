@@ -148,9 +148,12 @@ class TalkPassProjectTest {
     }
 
     /** What the runtime lists: one live task, labelled with its project. */
-    private void running(final String container, final String project) {
+    private void running(final PoreloContext context, final String container, final String project)
+            throws IOException {
+        LegacyTaskFixture.record(context, container, project, "a1b2c3d4e5f6");
         runner.answering(
-                "podman ps", container + "\tUp 1 minute\t\t\t" + project + "\tguarded\t\t\tid\n");
+                "podman ps",
+                container + "\tUp 1 minute\t\t\t" + project + "\tguarded\t\t\ta1b2c3d4e5f6\n");
     }
 
     private int pass(final PoreloContext context, final String... arguments) {
@@ -198,7 +201,7 @@ class TalkPassProjectTest {
         // says it is the removed 'fix' of 'default' whose mailbox is meant.
         final PoreloContext context = context();
         register(context, "default-app", "");
-        running("porelo-default-app-fix", "default-app");
+        running(context, "porelo-default-app-fix", "default-app");
         final CertifiedTaskKeys person = new CertifiedTaskKeys(dir);
         certified(context, person, "porelo-default-fix", "fix");
         final SigningKey build = person.task(MessageSigners.NO_PROJECT, "build");
@@ -223,7 +226,7 @@ class TalkPassProjectTest {
         // its name would make it 'default''s 'app-fix'.
         final PoreloContext context = context();
         register(context, "default-app", "");
-        running("porelo-default-app-fix", "default-app");
+        running(context, "porelo-default-app-fix", "default-app");
         final CertifiedTaskKeys person = new CertifiedTaskKeys(dir);
         final SigningKey build = person.task(MessageSigners.NO_PROJECT, "build");
         final Mailbox other = arrived(context, "porelo-default-app-fix", "m-2", build);
@@ -303,7 +306,7 @@ class TalkPassProjectTest {
         // mailbox, and pass 'default''s conversation into it.
         final PoreloContext context = context();
         register(context, "other", "");
-        running("porelo-other-secret", "other");
+        running(context, "porelo-other-secret", "other");
         new Mailbox(context.paths().messaging().mailbox("porelo-default-fix")).create();
         final CertifiedTaskKeys person = new CertifiedTaskKeys(dir);
         final SigningKey build = person.task(MessageSigners.NO_PROJECT, "build");
@@ -344,16 +347,7 @@ class TalkPassProjectTest {
     /** What a start of a task records under the state directory, which outlives its container. */
     private void recorded(final PoreloContext context, final String container, final String project)
             throws IOException {
-        final Path record = Files.createDirectories(context.paths().tasks().taskRecord(container));
-        new org.fuin.porelo.wire.Sidecar(
-                        org.fuin.porelo.wire.Sidecar.VERSION,
-                        project,
-                        "guarded",
-                        "ruleset.nft",
-                        "dnsmasq.conf",
-                        "porelo",
-                        record.toString())
-                .writeTo(record.resolve("sidecar.json"));
+        LegacyTaskFixture.record(context, container, project, "a1b2c3d4e5f6");
     }
 
     @Test

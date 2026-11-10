@@ -118,7 +118,7 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
             }
         }
         final TaskTarget.Found found =
-                TaskTarget.resolve(
+                TaskTarget.resolveRead(
                         context, container, java.nio.file.Path.of("."), TaskTarget.console(out));
         if (found.container() == null) {
             err.println("porelo: " + found.refusal());

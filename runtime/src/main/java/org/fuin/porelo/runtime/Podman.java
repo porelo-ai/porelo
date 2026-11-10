@@ -967,6 +967,18 @@ public class Podman {
      * @return Summaries, running or not, in the runtime's own order.
      */
     public List<ContainerSummary> poreloTasks() {
+        return taskCandidates().stream()
+                .filter(
+                        summary ->
+                                recorded == null
+                                        || summary.id() != null
+                                                && summary.id()
+                                                        .equals(recorded.apply(summary.name())))
+                .toList();
+    }
+
+    /** Unverified task-shaped containers, including ones whose recorded id no longer matches. */
+    public List<ContainerSummary> taskCandidates() {
         // A tab rather than a space: the state is a phrase ("Up 4 minutes"), so anything the state
         // itself can contain cannot be the separator. Each label asked for by name. '{{.Labels}}'
         // renders Go's own map formatting - 'map[a:b c:d]', space separated, colon separated - not
@@ -992,21 +1004,15 @@ public class Podman {
                                         + "\"}}"
                                         + "\t{{index .Labels \""
                                         + Sidecar.COMMIT_LABEL
-                                        + "\"}}\t{{.ID}}"))
+                                        + "\"}}\t{{.ID}}\t{{index .Labels \""
+                                        + Sidecar.TASK_LABEL
+                                        + "\"}}"))
                 .standardOutput()
                 .lines()
-                .map(String::strip)
+                .map(String::stripLeading)
                 .filter(line -> !line.isEmpty())
-                .map(line -> line.split("\t", 9))
+                .map(line -> line.split("\t", -1))
                 .filter(parts -> ContainerName.isTask(parts[0]))
-                // Only what Porelo made: the live id is the one it recorded at create.
-                .filter(
-                        parts ->
-                                recorded == null
-                                        || parts.length > 8
-                                                && !parts[8].isBlank()
-                                                && parts[8].strip()
-                                                        .equals(recorded.apply(parts[0])))
                 .map(
                         parts ->
                                 new ContainerSummary(
@@ -1016,7 +1022,9 @@ public class Podman {
                                         label(parts, 4),
                                         label(parts, 5),
                                         label(parts, 6),
-                                        label(parts, 7)))
+                                        label(parts, 7),
+                                        label(parts, 9),
+                                        label(parts, 8)))
                 .toList();
     }
 

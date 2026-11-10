@@ -1,0 +1,2 @@
+title: Task lookup verifies recorded ownership for legacy and encoded container names while new tasks keep their current names
+type: changed

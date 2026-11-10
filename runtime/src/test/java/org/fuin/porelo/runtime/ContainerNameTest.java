@@ -8,6 +8,47 @@ import org.junit.jupiter.api.Test;
 class ContainerNameTest {
 
     @Test
+    void encodesDistinctOwnersWithoutHyphenAmbiguity() {
+        // A collision can make a second project resume or overwrite the first task.
+        assertThat(ContainerName.encoded("porelo", "pi-x-123", 1000)).isEqualTo("porelo-pi-x-123");
+        assertThat(ContainerName.encoded("web", "app-x", 1000)).isEqualTo("porelo-web_app-x");
+        assertThat(ContainerName.encoded("web-app", "x", 1000)).isEqualTo("porelo-web-app_x");
+        final java.util.Set<String> names = new java.util.HashSet<>();
+        for (String project : java.util.List.of("porelo", "web", "web-app", "a--b", "9")) {
+            for (String task : java.util.List.of("app-x", "x", "x-123", "a--b", "9a")) {
+                assertThat(names.add(ContainerName.encoded(project, task, 1000))).isTrue();
+            }
+        }
+        assertThat(names).hasSize(25);
+    }
+
+    @Test
+    void budgetsEverySocketForTheUidAndNeverTruncatesAnExplicitName() {
+        // A daemon socket that is too long leaves a task without its authorized endpoint.
+        final String fits = ContainerName.encoded("web", "a".repeat(52), 4294967295L);
+        assertThat(
+                        ("/run/user/4294967295/porelo/mcp/" + fits + ".daemon.sock")
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .hasSize(107);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> ContainerName.encoded("web", "a".repeat(53), 4294967295L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("52");
+        assertThat(ContainerName.encoded("web", "a".repeat(58), 1000)).endsWith("a".repeat(58));
+    }
+
+    @Test
+    void reservesTheLoginNamespaceOnlyForNewTasksOfTheCompactProject() {
+        // A task in the login namespace could be hidden or deleted by login cleanup.
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> ContainerName.encoded("porelo", "login-123", 1000))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(ContainerName.refusal("porelo", "login-123")).isEmpty();
+        assertThat(ContainerName.refusal("web", "login-123")).isEmpty();
+        assertThat(ContainerName.isTask("porelo-porelo-login-123")).isTrue();
+    }
+
+    @Test
     void tellsALoginContainerApartFromATask() {
 
         // Reported from the test machine: 'porelo task list' showed a login container, which has no

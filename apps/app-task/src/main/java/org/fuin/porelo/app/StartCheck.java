@@ -1523,7 +1523,7 @@ public final class StartCheck {
                             ? taskName
                             : org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, taskName);
             final java.util.Optional<String> badName =
-                    org.fuin.porelo.runtime.ContainerName.refusal(projectName, task);
+                    new TaskIdentities(context).newTaskRefusal(projectName, task);
             if (badName.isPresent()) {
                 return refused(Outcome.BAD_TASK_NAME, badName.get());
             }

@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
  * porelo-web-app-x} is task {@code app-x} of {@code web} or task {@code x} of {@code web-app}.
  * Taken by the first project that fitted, a task of one was the other's in messaging - its peers,
  * its conversation, its tasks as vouched siblings. The container's project label decides, then what
- * a removed task's start recorded; a name alone only when it can mean one project.
+ * a removed task's start recorded; a name alone never proves ownership.
  */
 final class ProjectNames {
 
@@ -31,11 +31,7 @@ final class ProjectNames {
         if (labelled != null && !labelled.isBlank()) {
             return labelled;
         }
-        final List<String> fitting =
-                projects.stream()
-                        .filter(name -> container.startsWith("porelo-" + name + "-"))
-                        .toList();
-        return fitting.size() == 1 ? fitting.getFirst() : null;
+        return null;
     }
 
     /**
@@ -47,9 +43,13 @@ final class ProjectNames {
      */
     static Map<String, String> labels(PoreloContext context) {
         final Map<String, String> labels = new java.util.HashMap<>();
-        for (final org.fuin.porelo.runtime.ContainerSummary task : context.podman().poreloTasks()) {
-            if (task.project() != null) {
-                labels.put(task.name(), task.project());
+        final TaskIdentities identities = new TaskIdentities(context);
+        final java.util.Set<String> live = new java.util.HashSet<>();
+        for (final org.fuin.porelo.runtime.ContainerSummary task :
+                context.podman().taskCandidates()) {
+            live.add(task.name());
+            if (identities.read(task) instanceof TaskIdentities.Found found) {
+                labels.put(task.name(), found.identity().project());
             }
         }
         // A removed task's start recorded its project, which its name alone may not tell.
@@ -58,9 +58,11 @@ final class ProjectNames {
             try (java.util.stream.Stream<java.nio.file.Path> entries =
                     java.nio.file.Files.list(records)) {
                 for (final java.nio.file.Path record : entries.toList()) {
-                    final String project = recorded(record);
-                    if (project != null) {
-                        labels.putIfAbsent(record.getFileName().toString(), project);
+                    final String container = record.getFileName().toString();
+                    if (!live.contains(container)
+                            && identities.retained(container)
+                                    instanceof TaskIdentities.Found found) {
+                        labels.put(container, found.identity().project());
                     }
                 }
             } catch (java.io.IOException | java.io.UncheckedIOException ex) {
@@ -68,17 +70,5 @@ final class ProjectNames {
             }
         }
         return labels;
-    }
-
-    private static @Nullable String recorded(final java.nio.file.Path record) {
-        final java.nio.file.Path file = record.resolve("sidecar.json");
-        try {
-            return java.nio.file.Files.isRegularFile(file)
-                    ? org.fuin.porelo.wire.Sidecar.readFrom(file).project()
-                    : null;
-        } catch (java.io.IOException | RuntimeException ex) {
-            // An unreadable record names no project.
-            return null;
-        }
     }
 }

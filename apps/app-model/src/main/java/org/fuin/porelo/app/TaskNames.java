@@ -37,11 +37,23 @@ public final class TaskNames {
         if (base.isEmpty() || ContainerName.reserved(base)) {
             base = "work";
         }
+        if (ContainerName.reserved(project, base)) {
+            base += "-work";
+        }
         final java.util.Set<String> taken = new java.util.HashSet<>();
-        new TaskInventory(context).tasks().forEach(task -> taken.add(task.name()));
+        final java.util.Set<String> logical = new java.util.HashSet<>();
+        final TaskIdentities identities = new TaskIdentities(context);
+        for (final org.fuin.porelo.runtime.ContainerSummary summary :
+                context.podman().taskCandidates()) {
+            taken.add(summary.name());
+            if (identities.read(summary) instanceof TaskIdentities.Found found
+                    && found.identity().project().equals(project)) {
+                logical.add(found.identity().task());
+            }
+        }
         final String prefix = ContainerName.PREFIX + project + "-";
         String chosen = fitted(project, base, "");
-        for (int at = 2; taken.contains(prefix + chosen); at++) {
+        for (int at = 2; taken.contains(prefix + chosen) || logical.contains(chosen); at++) {
             chosen = fitted(project, base, "-" + at);
         }
         return chosen;

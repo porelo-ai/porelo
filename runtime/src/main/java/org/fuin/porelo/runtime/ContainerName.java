@@ -41,6 +41,40 @@ public final class ContainerName {
         return PREFIX + project.name() + "-" + task;
     }
 
+    /** Encodes a new task, refusing a spelling whose sockets cannot fit for this uid. */
+    public static String encoded(String project, String task, long uid) {
+        if (!project.matches(Project.NAME_PATTERN) || uid < 0 || uid > 4294967295L) {
+            throw new IllegalArgumentException("Use a valid project name and unsigned 32-bit uid");
+        }
+        final java.util.Optional<String> invalid = refusal("", task);
+        if (invalid.isPresent()) {
+            throw new IllegalArgumentException(invalid.orElseThrow());
+        }
+        if (reserved(project, task)) {
+            throw new IllegalArgumentException(
+                    "Choose another task name: login-<digits> is reserved in project porelo");
+        }
+        final String prefix = PREFIX + (project.equals("porelo") ? "" : project + "_");
+        // The daemon endpoint is one byte longer than the SSH socket; neither may exceed 107.
+        final int budget = 107 - (10 + Long.toString(uid).length() + 8 + 4 + 12);
+        final int room = budget - prefix.length();
+        if (task.length() > room) {
+            throw new IllegalArgumentException(
+                    "Choose a task name of at most "
+                            + Math.max(0, room)
+                            + " characters for project '"
+                            + project
+                            + "' so its sockets fit"
+                            + (room <= 0 ? "; choose a shorter project name" : ""));
+        }
+        return prefix + task;
+    }
+
+    /** Checks a recorded encoded identity without applying a new task's socket budget. */
+    public static boolean isEncoded(String project, String task, String container) {
+        return container.equals(PREFIX + (project.equals("porelo") ? "" : project + "_") + task);
+    }
+
     /**
      * The longest container name whose sockets still fit a unix socket path, for any uid.
      *
@@ -63,6 +97,11 @@ public final class ContainerName {
      */
     public static boolean reserved(String task) {
         return Mail.PEOPLE.equals(task) || Mail.PERSON.equals(task);
+    }
+
+    /** Whether a new logical task would occupy the login-container namespace. */
+    public static boolean reserved(String project, String task) {
+        return project.equals("porelo") && isLogin(PREFIX + task);
     }
 
     /**
