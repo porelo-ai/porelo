@@ -14,6 +14,7 @@ import java.util.Optional;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.gittree.GitTreeWrites;
+import org.fuin.porelo.organization.gittree.HttpForgeDirectory;
 import org.fuin.porelo.organization.gittree.HttpForgeDirectory.TokenAccount;
 import org.fuin.porelo.organization.gittree.HttpForgeDirectory.TokenState;
 import org.fuin.porelo.testing.FakeCommandRunner;
@@ -291,6 +292,11 @@ class MoveWithoutTerminalTest {
                             @Override
                             public TokenAccount token() {
                                 return new TokenAccount(TokenState.NONE, null);
+                            }
+
+                            @Override
+                            public List<HttpForgeDirectory.Reach> tokenReach() {
+                                return List.of();
                             }
 
                             @Override

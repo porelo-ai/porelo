@@ -40,7 +40,8 @@ class UpstreamProbeTest {
         final Path conf = dir.resolve("forge.conf");
         Files.writeString(conf, "web_port=3000\ngit_port=3001\n");
         final var lending =
-                new HostForgeLending(machine, org.fuin.porelo.gate.GitCredentials.NONE, conf);
+                new HostForgeLending(
+                        machine, org.fuin.porelo.gate.GitCredentials.NONE, conf, () -> true);
         assertThat(UpstreamProbe.probe(machine, lending, "http://127.0.0.1:3001/acme/repo.git"))
                 .as("the bounded probe still gets its successful answer")
                 .isNull();
