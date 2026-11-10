@@ -19,7 +19,7 @@ Feature: An agent reaches work without being asked anything
         And a terminal on the machine
         When I run "porelo task start attended --project ready --repository ready --agent stub --clearance deny"
         Then the "stub" agent in task "attended" of "ready" reaches work without being asked anything
-        And a script runs "porelo task remove porelo-ready-attended --force"
+        And a script runs "porelo task remove porelo-ready_attended --force"
 
     Scenario: an agent that asks one question first does not pass
         Given a project called "asking" of class "guarded" with a file in it
@@ -30,7 +30,7 @@ Feature: An agent reaches work without being asked anything
         And a terminal on the machine
         When I run "porelo task start attended --project asking --repository asking --agent stub --clearance deny"
         Then waiting for the "stub" agent in task "attended" of "asking" to reach work fails, and the screen shows "Trust this folder?"
-        And a script runs "porelo task remove porelo-asking-attended --force"
+        And a script runs "porelo task remove porelo-asking_attended --force"
 
     Scenario: an agent that draws its prompt and then a question over it does not pass
         Given a project called "covering" of class "guarded" with a file in it
@@ -41,7 +41,7 @@ Feature: An agent reaches work without being asked anything
         And a terminal on the machine
         When I run "porelo task start attended --project covering --repository covering --agent stub --clearance deny"
         Then waiting for the "stub" agent in task "attended" of "covering" to reach work fails, and the screen shows "Setup step 1 of 5"
-        And a script runs "porelo task remove porelo-covering-attended --force"
+        And a script runs "porelo task remove porelo-covering_attended --force"
 
     Scenario: an unattended run of an agent that asks nothing ends within its bound
         Given a project called "unwatched" of class "guarded" with a file in it

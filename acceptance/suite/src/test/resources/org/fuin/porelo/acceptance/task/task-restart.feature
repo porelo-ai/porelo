@@ -23,7 +23,7 @@ Feature: What a task is after the machine restarts
     # the interesting failures hide behind.
 
     Scenario: a task that outlived the machine still says what it belongs to, and why it is down
-        Given a script runs "porelo task remove porelo-restarted-shell --force"
+        Given a script runs "porelo task remove porelo-restarted_shell --force"
         And a project called "restarted" with a file in it
         And a terminal on the machine
         When I run "porelo task start shell --project restarted --repository restarted --agent stub --attach shell"
@@ -35,11 +35,11 @@ Feature: What a task is after the machine restarts
         And a script running "porelo task list" mentions "down because the machine restarted"
 
     Scenario: its logs say the machine restarted rather than that nothing was written
-        Then a script running "porelo task logs $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-restarted[^ ]*' | head -1)" mentions "machine has restarted"
+        Then a script running "porelo task logs $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-restarted_[^ ]*' | head -1)" mentions "machine has restarted"
 
     Scenario: what it held cannot be read, and does not read as nothing
         # Nothing stopped it - the restart did - so no note of what it held was written on the way down.
-        Then a script running "porelo task status $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-restarted[^ ]*' | head -1)" mentions "cannot be read"
+        Then a script running "porelo task status $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-restarted_[^ ]*' | head -1)" mentions "cannot be read"
 
     Scenario: starting it again says plainly that it cannot come back whole, and why
         # This machine's account keeps no vault of its own - every scenario brings its own and takes it
@@ -49,4 +49,4 @@ Feature: What a task is after the machine restarts
         Then a script running "porelo task start shell --project restarted --repository restarted --agent stub --detach" mentions "cannot come back"
         # The last of the four, so this is where the shared container goes. A suite that leaves one
         # behind is a suite whose next run starts from a state nobody chose.
-        And a script runs "porelo task remove porelo-restarted-shell --force"
+        And a script runs "porelo task remove porelo-restarted_shell --force"

@@ -21,7 +21,7 @@ Feature: Porelo shows an agent waiting for a person, read by the agent's own dec
         And a terminal on the machine
         When I run "porelo task start attended --project waits --repository waits --agent stub --clearance deny"
         Then porelo shows the "stub" agent in task "attended" of "waits" waiting for a person
-        And a script runs "porelo task remove porelo-waits-attended --force"
+        And a script runs "porelo task remove porelo-waits_attended --force"
 
     Scenario: an attached agent at work is shown not waiting, and stays so
         Given a project called "works" of class "guarded" with a file in it
@@ -29,7 +29,7 @@ Feature: Porelo shows an agent waiting for a person, read by the agent's own dec
         When I run "porelo task start attended --project works --repository works --agent stub --clearance deny"
         Then the "stub" agent in task "attended" of "works" reaches work without being asked anything
         And porelo shows the "stub" agent in task "attended" of "works" not waiting for a person
-        And a script runs "porelo task remove porelo-works-attended --force"
+        And a script runs "porelo task remove porelo-works_attended --force"
 
     Scenario: what a finished unattended run said last is shown without opening its log
         Given a project called "ran" of class "guarded" with a file in it

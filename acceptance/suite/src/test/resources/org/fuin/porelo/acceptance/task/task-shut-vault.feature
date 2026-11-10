@@ -20,10 +20,10 @@ Feature: A task started on a shut vault at a terminal
         When I type "acceptance"
         Then within 600 seconds this script exits zero:
             """
-            podman ps --format '{{.Names}}' | grep -q '^porelo-shut-shell$'
+            podman ps --format '{{.Names}}' | grep -q '^porelo-shut_shell$'
             """
         # Asked by a script, with no terminal to ask at: only a vault left open answers, which the task's broker needs.
         When a script runs "porelo vault list"
         Then it exits zero
         And its output contains "anthropic"
-        And a script runs "porelo task remove porelo-shut-shell --force"
+        And a script runs "porelo task remove porelo-shut_shell --force"

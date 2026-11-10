@@ -413,7 +413,6 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         final TaskLaunch.Request request = PoreloDaemon.request(parameters, context);
         final boolean unnamed = PoreloDaemon.text(parameters, "task").isEmpty();
         final TaskIdentities identities = new TaskIdentities(context);
-        final String prefix = ContainerName.PREFIX + project + "-";
         Map<String, Object> held = new LinkedHashMap<>(parameters);
         final Object token = new Object();
         synchronized (starting) {
@@ -435,7 +434,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             // Unnamed, past the name another start picked and has not made yet.
             for (int at = 2;
                     unnamed
-                            && (beingStarted(prefix + name)
+                            && (beingStarted(newContainer(project, name, request.shortName()))
                                     || !(identities.lookup(name, project)
                                                     instanceof TaskIdentities.Refused refusal
                                             && refusal.reason() == TaskIdentities.Reason.MISSING)
@@ -446,7 +445,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             final String container =
                     !unnamed && selected instanceof TaskIdentities.Found found
                             ? found.identity().container()
-                            : prefix + name;
+                            : newContainer(project, name, request.shortName());
             if (beingStarted(container)) {
                 throw new VarlinkException(
                         INTERFACE + ".AlreadyStarting", Map.of("task", container));
@@ -967,6 +966,24 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                                                 held.call(parameters, replies);
                                                 return null;
                                             }));
+        }
+    }
+
+    /**
+     * The name a new task of the project is made under, as the launch makes it. A project that
+     * cannot be read, or a name too long for one, gets the old spelling here: the start refuses it,
+     * and until then it only keys the starts in flight.
+     */
+    private String newContainer(String project, String task, @Nullable String taskShort) {
+        try {
+            return context.tasks()
+                    .containerName(
+                            ProjectReader.read(
+                                    org.fuin.porelo.app.ProjectSource.require(context, project)),
+                            task,
+                            taskShort);
+        } catch (ProjectException | IllegalArgumentException unreadable) {
+            return ContainerName.PREFIX + project + "-" + task;
         }
     }
 

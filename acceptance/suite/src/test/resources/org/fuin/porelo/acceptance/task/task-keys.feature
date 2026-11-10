@@ -47,4 +47,4 @@ Feature: The keys a person presses reach the program in a task
         Then within 5 seconds the terminal shows "1b5b31333b3275.K6"
         When I run "exit"
         Then the terminal shows "ready$"
-        And a script runs "porelo task remove porelo-keys-keys --force"
+        And a script runs "porelo task remove porelo-keys_keys --force"

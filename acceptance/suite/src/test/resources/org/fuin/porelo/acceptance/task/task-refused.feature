@@ -31,10 +31,10 @@ Feature: A task that must not start, and what its refusal leaves behind
                 && echo "the start reported success" || echo "the start failed"
             # The name is put together here, so this script's own command line does not match it.
             p=unbuildable
-            pgrep -f "[s]okar-$p-" >/dev/null && echo "a helper is still running" || echo "no helper is running"
-            find "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo" -maxdepth 2 -path "*porelo-$p-*" -name '*.pid' | grep -q . \
+            pgrep -f "[s]okar-${p}_" >/dev/null && echo "a helper is still running" || echo "no helper is running"
+            find "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo" -maxdepth 2 -path "*porelo-${p}_*" -name '*.pid' | grep -q . \
                 && echo "a pid file claims a live helper" || echo "no pid file is left"
-            rm -rf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelo-$p-"*
+            rm -rf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelo-${p}_"*
             """
         Then its output contains "the start failed"
         And its output contains "no helper is running"
@@ -55,7 +55,7 @@ Feature: A task that must not start, and what its refusal leaves behind
             porelo task start unattended --project locked --repository locked --agent stub --clearance deny -P "say hello and stop"
             echo "exit $?"
             test -d "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/locked.git" && echo "a gate mirror was made" || echo "no gate mirror was made"
-            podman ps -a --format '{{.Names}}' | grep -q '^porelo-locked-unattended' && echo "a container was made" || echo "no container was made"
+            podman ps -a --format '{{.Names}}' | grep -q '^porelo-locked_unattended' && echo "a container was made" || echo "no container was made"
             """
         Then its output contains "the vault is locked"
         And its output does not contain "exit 0"

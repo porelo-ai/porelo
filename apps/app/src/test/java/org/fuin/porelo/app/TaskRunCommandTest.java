@@ -451,7 +451,7 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void recordsBothShortSpellingsWhileCreatingTheLegacyName(@TempDir Path dir) throws Exception {
+    void recordsBothShortSpellingsAndCreatesTheNameTheyMake(@TempDir Path dir) throws Exception {
         // A later project edit must not lose the actual name or its original spelling.
         final PoreloContext context = context(dir, true);
         final String file =
@@ -472,8 +472,8 @@ class TaskRunCommandTest {
                 .isZero();
         for (Path state :
                 List.of(
-                        context.paths().tasks().containerState("porelo-uc-shell"),
-                        context.paths().tasks().taskRecord("porelo-uc-shell"))) {
+                        context.paths().tasks().containerState("porelo-ws_x"),
+                        context.paths().tasks().taskRecord("porelo-ws_x"))) {
             final var sidecar =
                     org.fuin.porelo.wire.Sidecar.readFrom(state.resolve("sidecar.json"));
             assertThat(sidecar.task()).as("the logical owner is recorded").isEqualTo("shell");
@@ -485,11 +485,115 @@ class TaskRunCommandTest {
                     .isEqualTo("x");
         }
         assertThat(runner.lines())
-                .as("this slice keeps legacy creation")
+                .as("a new task is made under its short spellings")
                 .anyMatch(
                         line ->
                                 line.contains("podman create")
-                                        && line.contains("--name porelo-uc-shell"));
+                                        && line.contains("--name porelo-ws_x "));
+    }
+
+    @Test
+    void aNewTaskOfAProjectIsMadeUnderTheProjectAndTaskJoinedByAnUnderscore(@TempDir Path dir)
+            throws Exception {
+        // 'porelo-web-app-x' was both web's app-x and web-app's x; the underscore is in neither.
+        final PoreloContext context = context(dir, true);
+
+        assertThat(
+                        execute(
+                                context,
+                                "task",
+                                "start",
+                                "-p",
+                                projectFile(dir, MINIMAL),
+                                "--attach",
+                                "shell"))
+                .as("%s", err)
+                .isZero();
+
+        assertThat(runner.lines())
+                .as("the new name, and never the old one")
+                .anyMatch(
+                        line ->
+                                line.contains("podman create")
+                                        && line.contains("--name porelo-uc_shell "))
+                .noneMatch(line -> line.contains("porelo-uc-shell"));
+        assertThat(context.paths().tasks().taskRecord("porelo-uc_shell")).isDirectory();
+    }
+
+    @Test
+    void aNewTaskOfProjectPoreloIsMadeUnderItsTaskNameAlone(@TempDir Path dir) throws Exception {
+        // Repository porelo-pi's task is pi; 'porelo-porelo-pi' said the project twice.
+        final PoreloContext context = context(dir, true);
+        final String file = projectFile(dir, MINIMAL.replace("name: \"uc\"", "name: \"porelo\""));
+
+        assertThat(
+                        execute(
+                                context,
+                                "task",
+                                "start",
+                                "pi",
+                                "-p",
+                                file,
+                                "--repository",
+                                "porelo",
+                                "--attach",
+                                "shell"))
+                .as("%s", err)
+                .isZero();
+
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.contains("podman create")
+                                        && line.contains("--name porelo-pi "))
+                .noneMatch(line -> line.contains("porelo-porelo-pi"));
+    }
+
+    @Test
+    void aTaskMadeUnderTheOldNameIsBroughtBackUnderItAndNeverMadeAgain(@TempDir Path dir)
+            throws Exception {
+        // Its gate, mail, keys and workspace are all under the name it was made with.
+        final PoreloContext context = context(dir, true);
+        final String file = projectFile(dir, MINIMAL.replace("name: \"uc\"", "name: \"porelo\""));
+        final String id = "c0ffee".repeat(10) + "abcd";
+        // Listed as podman lists a task made before: no task label, its project's label.
+        runner.answering(
+                "ps",
+                "porelo-porelo-pi\tExited (0) 4 minutes ago\t1700000000\t1700000100\tporelo\tguarded"
+                        + "\t\t\t"
+                        + id
+                        + "\n");
+
+        // What its stop saved, as a reboot leaves it.
+        new TaskHelpers(List.of())
+                .writeTo(
+                        Files.createDirectories(
+                                context.paths().tasks().taskRecord("porelo-porelo-pi")));
+        runner.answering("{{.Id}}", id);
+
+        execute(context, "task", "start", "pi", "-p", file, "--repository", "porelo", "--detach");
+
+        assertThat(runner.lines())
+                .as("the old task is brought back: %s", err)
+                .anyMatch(
+                        line -> line.contains("podman start") && line.contains("porelo-porelo-pi"))
+                .noneMatch(line -> line.contains("podman create"));
+        assertThat(context.paths().tasks().taskRecord("porelo-pi"))
+                .as("nothing is made under the new name")
+                .doesNotExist();
+    }
+
+    @Test
+    void aDryRunNamesNoNewTaskAndClaimsNoName(@TempDir Path dir) throws Exception {
+        // A preview that held the name would refuse the start it previewed.
+        final PoreloContext context = context(dir, true);
+
+        assertThat(execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--dry-run"))
+                .isZero();
+
+        assertThat(context.paths().tasks().identity("porelo-uc_shell")).doesNotExist();
+        assertThat(context.paths().tasks().identity("porelo-uc-shell")).doesNotExist();
+        assertThat(runner.invocations()).as("a dry run must touch nothing").isEmpty();
     }
 
     @Test
@@ -942,7 +1046,7 @@ class TaskRunCommandTest {
 
         assertThat(called)
                 .as("the host's builds helper must actually start for a guarded task")
-                .containsSequence("task", "watch-builds", "porelo-uc-shell")
+                .containsSequence("task", "watch-builds", "porelo-uc_shell")
                 .containsSequence("--forge", "host-forge")
                 .containsSequence("--api", "http://127.0.0.1:3000/api/v1")
                 .containsSequence("--credential", "host-builds")
@@ -1217,16 +1321,14 @@ class TaskRunCommandTest {
             // The launch records each helper it started before it returns; only then is the
             // helper's own record of its arguments worth waiting for.
             final boolean watching =
-                    TaskHelpers.readFrom(context.paths().tasks().containerState("porelo-uc-shell"))
-                            .helpers()
-                            .stream()
+                    TaskHelpers.readFrom(shellState(context)).helpers().stream()
                             .anyMatch(helper -> helper.command().contains("watch-builds"));
             for (int attempt = 0; watching && attempt < 250 && !Files.exists(called); attempt++) {
                 Thread.sleep(20);
             }
             return watching ? Files.readAllLines(called) : List.of();
         } finally {
-            TaskLifecycle.stopHelpers(context.paths().tasks().containerState("porelo-uc-shell"));
+            TaskLifecycle.stopHelpers(shellState(context));
             System.setProperty(PoreloBinary.NAMED, ownPorelo);
             PoreloContext.forgetAsked();
         }
@@ -1619,7 +1721,7 @@ class TaskRunCommandTest {
                 .contains("base image", "egress.domains[repo.example.org]");
         assertThat(out.toString()).contains("project        'default'");
         assertThat(out.toString()).contains("task           shop");
-        assertThat(String.join("\n", runner.lines())).contains("porelo-default-shop");
+        assertThat(String.join("\n", runner.lines())).contains("porelo-default_shop");
     }
 
     @Test
@@ -1718,8 +1820,9 @@ class TaskRunCommandTest {
         runner.answering(
                 "ps",
                 SHOP_TASK
-                        .replace("porelo-default-shop", "porelo-shop-project-shop")
-                        .replace("\tdefault\t", "\tshop-project\t"));
+                        .replace("porelo-default-shop", "porelo-shop-project_shop")
+                        .replace("\tdefault\t", "\tshop-project\t")
+                        .replace("abcdef\n", "abcdef\tshop\n"));
         final Path file = checkout.resolve("project.yml");
         final String text = Files.readString(file);
         assertThat(text).contains("\n  shop:\n");
@@ -1729,7 +1832,7 @@ class TaskRunCommandTest {
 
         assertThat(TaskTarget.fromCheckout(context(dir, true), checkout))
                 .as("the approved copy says which repository this checkout is")
-                .containsExactly("porelo-shop-project-shop");
+                .containsExactly("porelo-shop-project_shop");
     }
 
     @Test
@@ -1926,7 +2029,7 @@ class TaskRunCommandTest {
                 .contains("'acme' names this repository as 'storefront'")
                 .contains("porelo project default remove shop");
         assertThat(leaveDefaultAsked).hasSize(1);
-        assertThat(String.join("\n", runner.lines())).contains("porelo-default-shop");
+        assertThat(String.join("\n", runner.lines())).contains("porelo-default_shop");
         assertThat(inDefault(context)).containsExactly("shop", "notes");
     }
 
@@ -1936,7 +2039,7 @@ class TaskRunCommandTest {
             throws IOException {
         final PoreloContext context = startInDefaultNamedByTheOrganization(dir, true, "y");
 
-        assertThat(String.join("\n", runner.lines())).contains("porelo-default-shop");
+        assertThat(String.join("\n", runner.lines())).contains("porelo-default_shop");
         assertThat(inDefault(context)).containsExactly("notes");
     }
 
@@ -2194,8 +2297,8 @@ class TaskRunCommandTest {
 
         assertThat(out.toString()).contains("task           uc - named after its repository");
         assertThat(String.join("\n", runner.lines()))
-                .contains("porelo-uc-uc")
-                .doesNotContain("porelo-uc-shell");
+                .contains("porelo-uc_uc")
+                .doesNotContain("porelo-uc_shell");
     }
 
     private PoreloContext twoAgentsOneSignedIn(Path dir) throws IOException {
@@ -2527,12 +2630,12 @@ class TaskRunCommandTest {
                 "type=bugfix");
         assertThat(
                         Files.readString(
-                                dir.resolve("state/porelo/tasks/porelo-uc-shell")
+                                dir.resolve("state/porelo/tasks/porelo-uc_shell")
                                         .resolve(org.fuin.porelo.wire.TaskProfile.FILE)))
                 .contains("\"forgeBranch\":\"bugfix/porelo/shell\"");
 
         runner.answering(
-                "ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+                "ps", "porelo-uc_shell\tUp 4 minutes\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
         err.getBuffer().setLength(0);
         final int code =
                 execute(
@@ -2549,7 +2652,7 @@ class TaskRunCommandTest {
                         "bugfix/porelo/shell");
 
         assertThat(code).as(err.toString()).isEqualTo(64);
-        assertThat(err.toString()).contains("porelo-uc-shell's already");
+        assertThat(err.toString()).contains("porelo-uc_shell's already");
     }
 
     @Test
@@ -2723,7 +2826,7 @@ class TaskRunCommandTest {
         assertThat(started).as("started: %s", err).isZero();
         assertThat(
                         org.fuin.porelo.wire.TaskProfile.readFrom(
-                                        context.paths().tasks().containerState("porelo-uc-shell"))
+                                        context.paths().tasks().containerState("porelo-uc_shell"))
                                 .subagents())
                 .as("its record keeps the number")
                 .isEqualTo(2);
@@ -2777,7 +2880,7 @@ class TaskRunCommandTest {
         assertThat(code).as("started: %s", err).isZero();
         assertThat(
                         org.fuin.porelo.wire.TaskProfile.readFrom(
-                                        context.paths().tasks().containerState("porelo-uc-shell"))
+                                        context.paths().tasks().containerState("porelo-uc_shell"))
                                 .parent())
                 .as("its record names the task that started it")
                 .isEqualTo("porelo-uc-lead");
@@ -2786,7 +2889,7 @@ class TaskRunCommandTest {
                 .anySatisfy(
                         event -> {
                             assertThat(event.get("kind")).isEqualTo(EventLog.STARTED);
-                            assertThat(event.get("task")).isEqualTo("porelo-uc-shell");
+                            assertThat(event.get("task")).isEqualTo("porelo-uc_shell");
                             assertThat(event.get("project")).isEqualTo("uc");
                             assertThat(String.valueOf(event.get("detail")))
                                     .contains("porelo-uc-lead");
@@ -2818,7 +2921,7 @@ class TaskRunCommandTest {
         assertThat(started).as("started: %s", err).isZero();
         assertThat(
                         org.fuin.porelo.wire.TaskProfile.readFrom(
-                                        context.paths().tasks().containerState("porelo-uc-uc"))
+                                        context.paths().tasks().containerState("porelo-uc_uc"))
                                 .named())
                 .as("named after its repository by nobody, so its record names nothing")
                 .isNull();
@@ -2844,7 +2947,7 @@ class TaskRunCommandTest {
         assertThat(started).as("started: %s", err).isZero();
         assertThat(
                         org.fuin.porelo.wire.TaskProfile.readFrom(
-                                        context.paths().tasks().containerState("porelo-uc-fix"))
+                                        context.paths().tasks().containerState("porelo-uc_fix"))
                                 .named())
                 .as("its record keeps the name the person gave")
                 .isEqualTo("fix");
@@ -2868,7 +2971,7 @@ class TaskRunCommandTest {
         assertThat(started).as("started: %s", err).isZero();
         assertThat(
                         org.fuin.porelo.wire.TaskProfile.readFrom(
-                                        context.paths().tasks().containerState("porelo-uc-shell"))
+                                        context.paths().tasks().containerState("porelo-uc_shell"))
                                 .parent())
                 .isNull();
         assertThat(EventLog.of(context).entries(null))
@@ -2918,7 +3021,7 @@ class TaskRunCommandTest {
         runner.answering("{{.State.Pid}}", "4242");
         anEarlierAttemptOfTheTask(context);
         final Path state =
-                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc_shell"));
         final Process helper = new ProcessBuilder("sleep", "60").start();
         try {
             org.fuin.porelo.wire.HelperPid.record(state.resolve("vault.pid"), helper.toHandle());
@@ -2943,7 +3046,7 @@ class TaskRunCommandTest {
                     .anyMatch(line -> line.contains("podman stop"));
             assertThat(out.toString())
                     .as("and kept, stopped, for a look: %s", out)
-                    .contains("kept      porelo-uc-shell - it failed");
+                    .contains("kept      porelo-uc_shell - it failed");
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new AssertionError(ex);
@@ -2976,11 +3079,11 @@ class TaskRunCommandTest {
         assertThat(started).as("refused: %s", err).isEqualTo(70);
         assertThat(out.toString())
                 .as("kept, and named for removal: %s", out)
-                .contains("discard with 'porelo task remove porelo-uc-shell'");
+                .contains("discard with 'porelo task remove porelo-uc_shell'");
         runner.answering("{{.State.Pid}}", "0");
         runner.answering("{{.State.Status}}", "exited");
 
-        assertThat(new TaskControl(context).remove("porelo-uc-shell", false, false).outcome())
+        assertThat(new TaskControl(context).remove("porelo-uc_shell", false, false).outcome())
                 .as("it is removed as it was named, held nothing")
                 .isNotEqualTo(TaskControl.Outcome.NOTHING_KNOWS);
     }
@@ -3266,17 +3369,18 @@ class TaskRunCommandTest {
             // As podman lists it: the id the start recorded and the task's label.
             final String recorded =
                     org.fuin.porelo.wire.Sidecar.recordedId(
-                            context.paths().tasks().containerState("porelo-uc-shell"));
+                            context.paths().tasks().containerState("porelo-uc_shell"));
             assertThat(recorded).as("the kept start recorded its container's id").isNotNull();
             runner.answering("{{.State.Status}}", "exited");
             runner.answering("{{.Id}}", recorded);
             runner.answering(
                     "ps",
                     RUNNING_SHELL
+                            .replace("porelo-uc-shell", "porelo-uc_shell")
                             .replace("Up 4 minutes", "Exited (0) 4 minutes ago")
                             .replace("\t\n", "\t\t" + recorded + "\tshell\n"));
 
-            assertThat(new TaskControl(context).resume("porelo-uc-shell").outcome())
+            assertThat(new TaskControl(context).resume("porelo-uc_shell").outcome())
                     .as("it comes back with what it had: %s", err)
                     .isNotEqualTo(TaskControl.Outcome.NO_HELPERS_RECORDED)
                     .isNotEqualTo(TaskControl.Outcome.NO_CONTAINER);
@@ -3674,15 +3778,24 @@ class TaskRunCommandTest {
         }
     }
 
+    /**
+     * The shell task's runtime state, under the name it was made with: the new name for a task this
+     * test started, the old one for a task a fixture lists as made before.
+     */
+    private static Path shellState(PoreloContext context) {
+        final Path made = context.paths().tasks().containerState("porelo-uc_shell");
+        return Files.isDirectory(made)
+                ? made
+                : context.paths().tasks().containerState("porelo-uc-shell");
+    }
+
     private static String taskLog(PoreloContext context) throws IOException {
-        return Files.readString(
-                context.paths().tasks().containerState("porelo-uc-shell").resolve("task.log"));
+        return Files.readString(shellState(context).resolve("task.log"));
     }
 
     private static org.fuin.porelo.wire.TaskProfile recorded(PoreloContext context) {
         return java.util.Objects.requireNonNull(
-                org.fuin.porelo.wire.TaskProfile.readFrom(
-                        context.paths().tasks().containerState("porelo-uc-shell")),
+                org.fuin.porelo.wire.TaskProfile.readFrom(shellState(context)),
                 "the start records its task");
     }
 
@@ -4052,12 +4165,12 @@ class TaskRunCommandTest {
                 .doesNotContainKey("PORELO_PARAM_LABEL");
         final String recorded =
                 Files.readString(
-                        dir.resolve("state/porelo/tasks/porelo-uc-shell")
+                        dir.resolve("state/porelo/tasks/porelo-uc_shell")
                                 .resolve(TaskInventory.PARAMETERS_FILE));
         assertThat(recorded).contains("AB-12").contains("command line").contains("default");
         // And its agent is told, after the text every task shares.
         final String guide =
-                Files.readString(new TaskGuide(context.paths(), "porelo-uc-shell").file());
+                Files.readString(new TaskGuide(context.paths(), "porelo-uc_shell").file());
         assertThat(guide)
                 .startsWith(TaskGuideText.text(false).substring(0, 40))
                 .contains("- `ticket`: `AB-12`, in `$TASK_TICKET`")
@@ -6187,7 +6300,7 @@ class TaskRunCommandTest {
      * start stand for ones its own reservation launched, never for another's leftovers.
      */
     private static void anEarlierAttemptOfTheTask(PoreloContext context) throws IOException {
-        try (var earlier = new TaskReservations(context).start("uc", "shell", "porelo-uc-shell")) {
+        try (var earlier = new TaskReservations(context).start("uc", "shell", "porelo-uc_shell")) {
             assertThat(earlier.attempt()).isNotBlank();
         }
     }
@@ -6195,7 +6308,8 @@ class TaskRunCommandTest {
     private String containerName() {
         // One container per project and task, with nothing unique appended. It used to carry the
         // launching process's pid, which is why a task could never be found again by its name.
-        return "porelo-uc-shell";
+        // A new task joins project and task with an underscore, which no project or task holds.
+        return "porelo-uc_shell";
     }
 
     @Test

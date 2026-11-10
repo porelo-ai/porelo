@@ -1444,7 +1444,21 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
      * checkout, detached or not, chooses nothing for it.
      */
     private boolean exists(final org.fuin.porelo.core.project.Project project) {
-        final String container = context.tasks().containerName(project, task);
+        // Under the name it was made with, which a task made before keeps.
+        final TaskIdentities.Result found =
+                new TaskIdentities(context).lookup(task, project.name());
+        if (found instanceof TaskIdentities.Found identity) {
+            final String container = identity.identity().container();
+            return context.podman().poreloTasks().stream()
+                    .anyMatch(summary -> summary.name().equals(container));
+        }
+        final String container;
+        try {
+            container = context.tasks().containerName(project, task);
+        } catch (IllegalArgumentException tooLong) {
+            // No new task can have it, so none exists under it.
+            return false;
+        }
         return context.podman().poreloTasks().stream()
                 .anyMatch(summary -> summary.name().equals(container));
     }

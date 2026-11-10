@@ -673,6 +673,8 @@ class McpTaskSocketsTest {
     void aStartBringingBackAnotherTasksChildIsRefused() throws IOException {
         final Path socket = opened(HEAD + SECTION);
         child(sockets.context(), "porelo-uc-theirs", "porelo-uc-other");
+        // Made before, under the old name, and stopped: podman still lists it.
+        runner.answering("ps", stopped("porelo-uc-theirs", "uc"));
 
         final Map<String, Object> start = new java.util.HashMap<>(start("alpha", null, 30));
         start.put("task", "theirs");
@@ -861,7 +863,7 @@ class McpTaskSocketsTest {
             assertRefused(
                     again.get(5, TimeUnit.SECONDS),
                     "AlreadyStarting",
-                    Map.of("task", "porelo-uc-child"));
+                    Map.of("task", "porelo-uc_child"));
             assertRefused(
                     attempt(named("other", start("alpha", null, 30)), held)
                             .get(5, TimeUnit.SECONDS),

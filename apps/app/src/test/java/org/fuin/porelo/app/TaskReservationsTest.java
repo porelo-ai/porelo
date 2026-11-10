@@ -49,12 +49,11 @@ class TaskReservationsTest {
     void aReservationWithoutAContainerRefusesBeforeCredentialPreflight() throws Exception {
         final PoreloContext context = context();
         try (var claim =
-                new TaskReservations(context)
-                        .reserve("web", "app-x", "porelo-web-app-x", "first")) {}
+                new TaskReservations(context).reserve("web", "x", "porelo-w_x", "first")) {}
         final Path project =
                 Files.writeString(
                         dir.resolve("project.yml"),
-                        "project: {name: web-app, security_class: guarded}\nimage: {from: 'ubuntu:24.04'}\n");
+                        "project: {name: web-app, short: w, security_class: guarded}\nimage: {from: 'ubuntu:24.04'}\n");
         final TaskLaunch launch =
                 new TaskLaunch(
                         context,
@@ -81,7 +80,7 @@ class TaskReservationsTest {
         assertThat(refused).isNotNull();
         assertThat(refused.code()).isEqualTo(64);
         assertThat(launch.containerNameTaken().ownerProject).isEqualTo("web");
-        assertThat(context.paths().tasks().containerState("porelo-web-app-x")).doesNotExist();
+        assertThat(context.paths().tasks().containerState("porelo-w_x")).doesNotExist();
     }
 
     @Test

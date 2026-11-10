@@ -98,7 +98,7 @@ Feature: A task holds more than one credential
             """
             porelo task start unbought --project buying --repository buying --agent stub --prompt 'say hello' --clearance deny
             echo "exit $?"
-            podman ps -a --format '{{.Names}}' | grep -c 'porelo-buying-unbought' | sed 's/^/containers: /'
+            podman ps -a --format '{{.Names}}' | grep -c 'porelo-buying_unbought' | sed 's/^/containers: /'
             rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/destinations/acceptance-bought.yaml"
             """
         Then its output contains "credential 'buyer': the authorization server at porelo-acceptance.invalid could not be reached"
@@ -133,7 +133,7 @@ Feature: A task holds more than one credential
             """
             porelo task start ungranted --project granting --repository granting --agent stub --prompt 'say hello' --clearance deny
             echo "exit $?"
-            podman ps -a --format '{{.Names}}' | grep -c 'porelo-granting-ungranted' | sed 's/^/containers: /'
+            podman ps -a --format '{{.Names}}' | grep -c 'porelo-granting_ungranted' | sed 's/^/containers: /'
             # The refusal is a question every interface sees: the stream's first reply is what is open now.
             printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.Authorizations","parameters":{},"more":true}' \
                 | timeout 5 porelo daemon connect 2>&1 | tr '\0' '\n' | head -1 > "$HOME/asked.out"

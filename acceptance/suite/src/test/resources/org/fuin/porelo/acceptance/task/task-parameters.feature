@@ -45,7 +45,7 @@ Feature: A task is started with the values its project declares
             porelo task start refused --project valued --repository valued --agent stub \
                 --attach shell --detach --clearance deny --set type=hotfix
             echo "start exit $?"
-            podman container exists porelo-valued-refused && echo "container made" || echo "no container"
+            podman container exists porelo-valued_refused && echo "container made" || echo "no container"
             """
         Then its output contains "start exit 64"
         And its output contains "[feature, bugfix]"
@@ -61,15 +61,15 @@ Feature: A task is started with the values its project declares
             timeout 600 porelo task start kept --project valued --repository valued --agent stub \
                 --attach shell --detach --clearance deny \
                 --set type=bugfix --set ticket --set-file ~/valued-values.yml
-            podman exec porelo-valued-kept sh -c 'echo "env: $PORELO_PARAM_TYPE $TASK_TICKET $PORELO_PARAM_LABEL"'
-            podman exec porelo-valued-kept cat /run/porelo/guide/README.md
-            porelo task status porelo-valued-kept
-            porelo task stop porelo-valued-kept > /dev/null
+            podman exec porelo-valued_kept sh -c 'echo "env: $PORELO_PARAM_TYPE $TASK_TICKET $PORELO_PARAM_LABEL"'
+            podman exec porelo-valued_kept cat /run/porelo/guide/README.md
+            porelo task status porelo-valued_kept
+            porelo task stop porelo-valued_kept > /dev/null
             set +e
             porelo task start kept --project valued --repository valued --no-input --set type=feature
             echo "again exit $?"
             set -e
-            porelo task remove porelo-valued-kept --force > /dev/null
+            porelo task remove porelo-valued_kept --force > /dev/null
             rm -f ~/valued-values.yml
             """
         Then it exits zero

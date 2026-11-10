@@ -25,7 +25,7 @@ Feature: Work starts without a project, in the project every machine has
             porelo task list | grep -cE '^probe +default ' | sed 's/^/a task in default: /'
             porelo shield egress --project default --add-domain example.org 2>&1 | grep -o "a project repository is the way"
             porelo project remove default 2>&1 | grep -o "is always there and is never removed"
-            porelo task remove porelo-default-probe --force > /dev/null 2>&1
+            porelo task remove porelo-default_probe --force > /dev/null 2>&1
             porelo project default remove "$repo"
             porelo project default | grep -c "^$repo " | sed 's/^/still listed: /'
             """
@@ -67,17 +67,17 @@ Feature: Work starts without a project, in the project every machine has
             grep -o "nothing was created" "$base/early"
             grep -o "this machine has never met 127.0.0.1" "$base/early"
             grep -o "porelo credentials trust-host 127.0.0.1" "$base/early"
-            podman container exists porelo-default-early && echo "a container exists" || echo "no container"
+            podman container exists porelo-default_early && echo "a container exists" || echo "no container"
             porelo credentials trust-host 127.0.0.1 \
                 --fingerprint "$(ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{ print $2 }')" > /dev/null
             cd "$base"
             timeout 300 porelo task start sshwork -p default -r "$repo" --agent stub --detach --clearance deny > "$base/start" 2>&1
             echo "start exit $?"
             # Detached, so the start returns before the workspace is cloned from the gate.
-            for i in $(seq 1 120); do podman exec porelo-default-sshwork git -C /workspace rev-parse HEAD > /dev/null 2>&1 && break; sleep 1; done
-            podman exec porelo-default-sshwork sh -c 'cd /workspace && echo "done by the agent" >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work for an ssh origin" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            for i in $(seq 1 120); do podman exec porelo-default_sshwork git -C /workspace rev-parse HEAD > /dev/null 2>&1 && break; sleep 1; done
+            podman exec porelo-default_sshwork sh -c 'cd /workspace && echo "done by the agent" >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work for an ssh origin" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
             echo "pushed to the gate $?"
-            podman exec porelo-default-sshwork sh -c 'env | grep -c "^SSH_AUTH_SOCK=" ; grep -rl "porelo-acceptance-" "$HOME" /workspace 2>/dev/null | wc -l' | tr '\n' ' ' | sed 's/^/in the task (agent socket, key): /'
+            podman exec porelo-default_sshwork sh -c 'env | grep -c "^SSH_AUTH_SOCK=" ; grep -rl "porelo-acceptance-" "$HOME" /workspace 2>/dev/null | wc -l' | tr '\n' ' ' | sed 's/^/in the task (agent socket, key): /'
             echo
             # As a person types it: no repository named. The task's own record says which one it worked on.
             porelo gate pending --project default | grep -c "^$repo  *sshwork " | sed 's/^/listed as pending: /'
@@ -96,7 +96,7 @@ Feature: Work starts without a project, in the project every machine has
             porelo gate approve sshwork --project default --branch porelo/sshwork > "$base/approve" 2>&1
             echo "approve exit $?"
             git --git-dir="$base/$repo.git" log --format='%s' -1 porelo/sshwork | sed 's/^/arrived: /'
-            porelo task remove porelo-default-sshwork --force > /dev/null 2>&1
+            porelo task remove porelo-default_sshwork --force > /dev/null 2>&1
             porelo credentials forget "$origin" > /dev/null
             porelo project default remove "$repo" > /dev/null
             ssh-agent -k > /dev/null
@@ -205,7 +205,7 @@ Feature: Work starts without a project, in the project every machine has
             grep -o "refused this machine" "$base/early"
             grep -o "nothing was created" "$base/early"
             grep -c "Start a shell" "$base/early" | sed 's/^/shell offered: /'
-            podman container exists porelo-default-early && echo "a container exists" || echo "no container"
+            podman container exists porelo-default_early && echo "a container exists" || echo "no container"
             porelo credentials check "$origin" > "$base/check" 2>&1; echo "check before storing exit $?"
             # Nothing stored yet: it says so, with the command that stores it, before it would connect.
             head -1 "$base/check" | awk '{ print $1 }' | sed 's/^/check said: /'

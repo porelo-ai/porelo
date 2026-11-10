@@ -20,9 +20,9 @@ Feature: An unattended run, started at the terminal and through the daemon
         When a script runs:
             """
             porelo task start headless --project unattended --repository unattended --agent stub --clearance deny -P "say hello and stop" >/dev/null 2>&1
-            log="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelo-unattended-headless/task.log"
+            log="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelo-unattended_headless/task.log"
             test -s "$log" && echo "the agent's output was kept" || echo "nothing was kept at $log"
-            porelo task remove porelo-unattended-headless --force >/dev/null 2>&1
+            porelo task remove porelo-unattended_headless --force >/dev/null 2>&1
             """
         Then its output contains "the agent's output was kept"
 
@@ -68,7 +68,7 @@ Feature: An unattended run, started at the terminal and through the daemon
             true
             """
         Then its output contains '"refusedDomains":["example.net"]'
-        And its output contains "started: porelo-unattended-viadaemon"
+        And its output contains "started: porelo-unattended_viadaemon"
         And its output contains "the daemon ran the agent, not only the container"
         And its output contains 'answered: "result":"stub: finished"'
         And its output contains 'answered: "resultKind":"ANSWER"'
@@ -78,22 +78,22 @@ Feature: An unattended run, started at the terminal and through the daemon
             """
             porelo task start archived --project unattended --repository unattended --agent stub --clearance deny -P "say hello and stop" >/dev/null 2>&1
             base=$(mktemp -d); cd "$base"
-            porelo task logs porelo-unattended-archived --zip > "$base/said" 2>&1; echo "zip exit $?"
-            archive=$(ls porelo-logs-unattended-archived-*.zip)
+            porelo task logs porelo-unattended_archived --zip > "$base/said" 2>&1; echo "zip exit $?"
+            archive=$(ls porelo-logs-unattended_archived-*.zip)
             stat -c '%a' "$archive" | sed 's/^/mode: /'
             unzip -Z1 "$archive" | sed 's/^/entry: /'
-            mkdir out && (cd out && unzip -q "../$archive" && cd unattended-archived && sha256sum -c --quiet SHA256SUMS && echo "sums hold")
-            porelo task logs porelo-unattended-archived --zip "$archive" > /dev/null 2>&1; echo "again exit $?"
-            porelo task logs porelo-unattended-archived --zip with-agent.zip --with-agent-output > /dev/null 2>&1
+            mkdir out && (cd out && unzip -q "../$archive" && cd unattended_archived && sha256sum -c --quiet SHA256SUMS && echo "sums hold")
+            porelo task logs porelo-unattended_archived --zip "$archive" > /dev/null 2>&1; echo "again exit $?"
+            porelo task logs porelo-unattended_archived --zip with-agent.zip --with-agent-output > /dev/null 2>&1
             unzip -Z1 with-agent.zip | grep -c 'task.log$' | sed 's/^/agent output when asked: /'
-            porelo task remove porelo-unattended-archived --force >/dev/null 2>&1
+            porelo task remove porelo-unattended_archived --force >/dev/null 2>&1
             """
         Then it exits zero
         And its output contains "zip exit 0"
         And its output contains "mode: 600"
-        And its output contains "entry: unattended-archived/status.txt"
-        And its output contains "entry: unattended-archived/SHA256SUMS"
-        And its output does not contain "entry: unattended-archived/task.log"
+        And its output contains "entry: unattended_archived/status.txt"
+        And its output contains "entry: unattended_archived/SHA256SUMS"
+        And its output does not contain "entry: unattended_archived/task.log"
         And its output contains "sums hold"
         And its output contains "again exit 70"
         And its output contains "agent output when asked: 1"

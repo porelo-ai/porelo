@@ -24,7 +24,7 @@ Feature: After the machine restarts, a task goes on with the conversation it was
         # Whatever a stopped run of this file left, so this one starts from a state somebody chose.
         Given a script runs:
             """
-            for task in talk attended fresh; do porelo task remove porelo-recall-$task --force >/dev/null 2>&1; done
+            for task in talk attended fresh; do porelo task remove porelo-recall_$task --force >/dev/null 2>&1; done
             rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/agents/porelo-agent-stub-sessionless"
             """
         And a project called "recall" of class "guarded" with a file in it
@@ -55,23 +55,23 @@ Feature: After the machine restarts, a task goes on with the conversation it was
         And the vault is unlocked with the passphrase "acceptance"
         And a script runs "porelo task start --restarted"
         # The attached task comes back; the two runs nobody watches do not.
-        Then its output contains "back      porelo-recall-attended"
-        And its output contains "stays     porelo-recall-talk: its run was interrupted by the restart; its session is kept"
-        And its output contains "stays     porelo-recall-fresh: its run was interrupted by the restart"
-        And its output does not contain "back      porelo-recall-talk"
-        And its output does not contain "not back  porelo-recall-attended"
-        And a script running "podman inspect --format 'running={{.State.Running}}' porelo-recall-talk" mentions "running=false"
+        Then its output contains "back      porelo-recall_attended"
+        And its output contains "stays     porelo-recall_talk: its run was interrupted by the restart; its session is kept"
+        And its output contains "stays     porelo-recall_fresh: its run was interrupted by the restart"
+        And its output does not contain "back      porelo-recall_talk"
+        And its output does not contain "not back  porelo-recall_attended"
+        And a script running "podman inspect --format 'running={{.State.Running}}' porelo-recall_talk" mentions "running=false"
         When a script runs "porelo task list"
-        Then its output has a line matching "^interrupted by the machine's restart, staying stopped: .*porelo-recall-talk.*"
+        Then its output has a line matching "^interrupted by the machine's restart, staying stopped: .*porelo-recall_talk.*"
         # Not under the line that says '--restarted' brings it back.
-        When a script runs "porelo task list | grep '^down because the machine restarted' | grep -c porelo-recall-talk"
+        When a script runs "porelo task list | grep '^down because the machine restarted' | grep -c porelo-recall_talk"
         Then its output has a line matching "^0$"
         And porelo says task "talk" of "recall" has a session to continue
 
         # The attached agent continues the session the person typed into. Its container is running again, so it is
         # gone into: 'task start' says it is running and names 'task attach', which starts the agent again.
         Given a terminal on the machine
-        When I run "porelo task attach porelo-recall-attended"
+        When I run "porelo task attach porelo-recall_attended"
         Then the screen of task "attended" of "recall" shows "remembering compass"
         # The run nobody watches continues at its next start, and knows the word only its first run was given.
         When a task called "talk" nobody is watching is started in "recall" for the "stub" agent and ends within 120 seconds
@@ -84,6 +84,6 @@ Feature: After the machine restarts, a task goes on with the conversation it was
         And porelo says task "fresh" of "recall" last said "stub: finished"
         And a script runs:
             """
-            for task in talk attended fresh; do porelo task remove porelo-recall-$task --force; done
+            for task in talk attended fresh; do porelo task remove porelo-recall_$task --force; done
             rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/agents/porelo-agent-stub-sessionless"
             """

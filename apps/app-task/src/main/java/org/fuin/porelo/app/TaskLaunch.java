@@ -2208,9 +2208,21 @@ public final class TaskLaunch {
     private String startContainer(Project project) {
         final TaskIdentities.Result result =
                 new TaskIdentities(context).lookup(request.task(), project.name());
-        return result instanceof TaskIdentities.Found found
-                ? found.identity().container()
-                : context.tasks().containerName(project, request.task());
+        if (result instanceof TaskIdentities.Found found) {
+            return found.identity().container();
+        }
+        try {
+            return context.tasks().containerName(project, request.task(), request.shortName());
+        } catch (IllegalArgumentException unnamed) {
+            // A name no task can have is refused by the start in its own words, before anything
+            // is made; until then the name it would have had is only looked at.
+            if (new TaskIdentities(context)
+                    .newTaskRefusal(project.name(), request.task())
+                    .isPresent()) {
+                return org.fuin.porelo.runtime.ContainerName.of(project, request.task());
+            }
+            throw unnamed;
+        }
     }
 
     private int reservationVaultCode = 69;

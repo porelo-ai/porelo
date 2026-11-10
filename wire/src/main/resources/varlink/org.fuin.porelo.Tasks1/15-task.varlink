@@ -232,8 +232,8 @@ type Task (
   # on at once. Rescued refs remain in the gate's queue; a name suffix alone does not link a task.
   #
   # Answered here rather than left to a join, because there is no join to make: 'name' is a
-  # CONTAINER name (porelo-<project>-<task>-<run>), PendingPush.name is a TASK name, and several
-  # containers over time share one ref. Anything lined up from the two would be right for at most
+  # CONTAINER name (porelo-<project>_<task> for a new task, the older forms for one made before),
+  # PendingPush.name is a TASK name, and several containers over time share one ref. Anything lined up from the two would be right for at most
   # one of them and silently wrong for the rest.
   waiting: int,
   # Name within the project, which is what Start takes. 'name' is the container it produced.
@@ -850,7 +850,8 @@ type StartOutcome (
   # The project file is not there, or cannot be read.
   NO_PROJECT_FILE,
   # The task name is one Start would refuse: lowercase letters, digits and inner hyphens, not
-  # only digits, and 'porelo-<project>-<task>' at most 65 characters. 'detail' says which.
+  # only digits, and 'porelo-<project>-<task>' at most 64 characters, which no shorter form of a
+  # new task's container name exceeds. 'detail' says which.
   BAD_TASK_NAME,
   # A value handed in is one project.yml's 'parameters:' does not allow, names no declaration, or a required
   # one is missing. 'detail' names it and what is allowed. Answered in every mode: no value nothing allows

@@ -49,7 +49,7 @@ Feature: The first start finds what a repository needs
             porelo task start second --agent stub --no-input --dry-run > "$HOME/first-start-probe/second.out" 2>&1 || true
             grep -q -E "^project +'?default" "$HOME/first-start-probe/second.out" && echo 'in default again: yes'
             grep -c 'not allowed on this machine yet' "$HOME/first-start-probe/second.out" | sed 's/^/asked again: /'
-            porelo task remove porelo-default-probe --force > /dev/null 2>&1 || true
+            porelo task remove porelo-default_probe --force > /dev/null 2>&1 || true
             rm -rf ~/first-start-probe
             """
         Then its output contains "the host in it: 1"
@@ -97,7 +97,7 @@ Feature: The first start finds what a repository needs
             """
             cd ~/first-start-resolve/tool
             test -e porelo.yml && echo 'a file was written' || echo 'no file after a no'
-            porelo task remove porelo-default-probe --force > /dev/null 2>&1 || true
+            porelo task remove porelo-default_probe --force > /dev/null 2>&1 || true
             rm -rf ~/first-start-resolve
             """
         Then its output contains "no file after a no"

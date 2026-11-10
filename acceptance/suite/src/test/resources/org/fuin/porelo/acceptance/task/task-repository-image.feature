@@ -51,8 +51,8 @@ Feature: A repository says what its tasks are built in
         And the terminal shows "porelo/imaged_tooled"
         When a script runs:
             """
-            podman exec porelo-imaged-shaped sh -c 'cat /etc/porelo-repository-image; echo "env: $REPOSITORY_IMAGE"'
-            porelo task remove porelo-imaged-shaped --force > /dev/null
+            podman exec porelo-imaged_shaped sh -c 'cat /etc/porelo-repository-image; echo "env: $REPOSITORY_IMAGE"'
+            porelo task remove porelo-imaged_shaped --force > /dev/null
             podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
             """
         Then it exits zero
@@ -84,8 +84,8 @@ Feature: A repository says what its tasks are built in
         And the terminal shows "from porelo.yml at refs/heads/main of pinned"
         When a script runs:
             """
-            podman exec porelo-imaged-copied sh -c 'grep -c "^ID=ubuntu" /etc/porelo-copied-os-release'
-            porelo task remove porelo-imaged-copied --force > /dev/null
+            podman exec porelo-imaged_copied sh -c 'grep -c "^ID=ubuntu" /etc/porelo-copied-os-release'
+            porelo task remove porelo-imaged_copied --force > /dev/null
             podman rmi porelo/imaged_pinned > /dev/null 2>&1 || true
             """
         Then it exits zero
@@ -107,7 +107,7 @@ Feature: A repository says what its tasks are built in
                 --attach shell --detach --clearance deny
             echo "exit $?"
             podman image exists porelo/imaged_widened && echo "an image was built" || echo "no image was built"
-            porelo task remove porelo-imaged-widening --force > /dev/null 2>&1 || true
+            porelo task remove porelo-imaged_widening --force > /dev/null 2>&1 || true
             """
         Then its output contains "'egress' cannot be set here; only image may be set here"
         And its output has a line matching "exit [1-9][0-9]*"
@@ -143,9 +143,9 @@ Feature: A repository says what its tasks are built in
             """
             override="${XDG_CONFIG_HOME:-$HOME/.config}/porelo/projects/imaged/tooled"
             trap 'rm -rf -- "$override"' EXIT
-            podman exec porelo-imaged-overridden sh -c \
+            podman exec porelo-imaged_overridden sh -c \
                 'echo "env: $REPOSITORY_IMAGE / ${KEPT:-unset}"; cat /etc/porelo-repository-image 2>/dev/null || echo "no repository lines"'
-            porelo task remove porelo-imaged-overridden --force > /dev/null
+            porelo task remove porelo-imaged_overridden --force > /dev/null
             podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
             """
         Then it exits zero
@@ -158,7 +158,7 @@ Feature: A repository says what its tasks are built in
             set -e
             base=~/default-image-probe
             repo=dimgprobe
-            porelo task remove porelo-default-fromco --force > /dev/null 2>&1 || true
+            porelo task remove porelo-default_fromco --force > /dev/null 2>&1 || true
             porelo project default remove "$repo" > /dev/null 2>&1 || true
             rm -rf "$base"
             git init -q --bare --initial-branch=main "$base/$repo.git"
@@ -190,8 +190,8 @@ Feature: A repository says what its tasks are built in
         And the terminal shows "porelo/default_dimgprobe"
         When a script runs:
             """
-            trap 'porelo task remove porelo-default-fromco --force > /dev/null 2>&1; porelo project default remove dimgprobe > /dev/null 2>&1; podman rmi porelo/default_dimgprobe > /dev/null 2>&1; rm -rf ~/default-image-probe' EXIT
-            podman exec porelo-default-fromco sh -c \
+            trap 'porelo task remove porelo-default_fromco --force > /dev/null 2>&1; porelo project default remove dimgprobe > /dev/null 2>&1; podman rmi porelo/default_dimgprobe > /dev/null 2>&1; rm -rf ~/default-image-probe' EXIT
+            podman exec porelo-default_fromco sh -c \
                 'echo "env: $CHECKOUT_IMAGE"; cat /etc/porelo-checkout-image 2>/dev/null || echo "no checked-in lines"'
             """
         Then it exits zero

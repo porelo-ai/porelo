@@ -229,10 +229,10 @@ Feature: The vault commands
             porelo vault clear --yes --force; echo "exit $?"
             test -f "$PORELO_VAULT" && echo "the vault file is still there"
             """
-        Then its output contains "porelo-cleared-first"
+        Then its output contains "porelo-cleared_first"
         And its output does not contain "exit 0"
         And its output contains "the vault file is still there"
-        When a script runs "porelo task remove porelo-cleared-first --force"
+        When a script runs "porelo task remove porelo-cleared_first --force"
         Then it exits zero
         # Listed first, and nothing goes without --yes.
         When a script runs:
@@ -268,7 +268,7 @@ Feature: The vault commands
         Given the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
         When a task called "second" is started in "cleared" for the "stub" agent and left running
         Then a script running "porelo task list | grep -E '^second +cleared '" mentions "second"
-        And a script runs "porelo task remove porelo-cleared-second --force"
+        And a script runs "porelo task remove porelo-cleared_second --force"
 
     # What root's helper runs in a person's account to lock them out: no terminal, standard input closed, the vault
     # open as a running task needs it. Guards a dropped person whose task keeps running, or whose vault or cached
@@ -290,7 +290,7 @@ Feature: The vault commands
             grep -q -F " $key: " /proc/keys && echo "cached before"
             porelo task stop --all </dev/null 2>&1; echo "stop $?"
             porelo vault clear --yes --force </dev/null 2>&1; echo "clear $?"
-            podman ps --format '{{.Names}}' | grep -q '^porelo-lockedout-' && echo "a task still runs"
+            podman ps --format '{{.Names}}' | grep -q '^porelo-lockedout_' && echo "a task still runs"
             for suffix in '' .old .lock; do test -e "$PORELO_VAULT$suffix" && echo "left: $PORELO_VAULT$suffix"; done
             for each in "$key" "$key:share"; do
               grep -q -F " $each: " /proc/keys && echo "still in the keyring: $each"
@@ -302,4 +302,4 @@ Feature: The vault commands
         And its output does not contain "a task still runs"
         And its output does not contain "left: "
         And its output does not contain "still in the keyring"
-        And a script runs "porelo task remove porelo-lockedout-only --force"
+        And a script runs "porelo task remove porelo-lockedout_only --force"

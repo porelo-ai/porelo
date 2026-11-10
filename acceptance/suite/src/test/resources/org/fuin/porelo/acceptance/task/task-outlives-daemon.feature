@@ -23,11 +23,11 @@ Feature: A task outlives the daemon that started it
             printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.Start","parameters":{"task":"outlives","project":"outlived","agent":"stub","repository":"outlived","clearance":"deny","keep":true}}' \
                 | timeout 600 porelo daemon connect 2>/dev/null | tr '\0' '\n' | head -1 | grep -oE '"container":"[^"]*"'
             """
-        Then its output contains '"container":"porelo-outlived-outlives"'
+        Then its output contains '"container":"porelo-outlived_outlives"'
         # A test that fails if a task's process is ever found in the daemon's control group again.
         When a script runs:
             """
-            c=porelo-outlived-outlives; state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$c"
+            c=porelo-outlived_outlives; state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$c"
             for pid in $(podman inspect --format '{{.State.ConmonPid}}' "$c") $(cut -d' ' -f1 "$state"/*.pid 2>/dev/null); do
                 grep -q 'porelo-acceptance-porelod.service' "/proc/$pid/cgroup" 2>/dev/null && echo "in the daemon's group: $pid $(tr '\0' ' ' < /proc/$pid/cmdline)"
                 grep -q '/porelo.slice/' "/proc/$pid/cgroup" 2>/dev/null && echo "in a scope of its own: $pid"
@@ -38,7 +38,7 @@ Feature: A task outlives the daemon that started it
         When the daemon's unit is stopped
         And a script runs:
             """
-            c=porelo-outlived-outlives; state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$c"
+            c=porelo-outlived_outlives; state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$c"
             podman ps --filter "name=^$c\$" --format '{{.Status}}' | sed 's/^/container: /'
             for f in "$state"/*.pid; do kill -0 "$(cut -d' ' -f1 "$f")" 2>/dev/null && echo "alive: $(basename "$f" .pid)" || echo "gone: $(basename "$f" .pid)"; done
             podman exec "$c" sh -c 'cd /workspace && timeout 20 git ls-remote porelo >/dev/null' && echo "the gate answers"
@@ -51,7 +51,7 @@ Feature: A task outlives the daemon that started it
         And the daemon crashes and systemd restarts it
         And a script runs:
             """
-            c=porelo-outlived-outlives
+            c=porelo-outlived_outlives
             podman ps --filter "name=^$c\$" --format '{{.Status}}' | sed 's/^/container: /'
             podman exec "$c" sh -c 'cd /workspace && timeout 20 git ls-remote porelo >/dev/null' && echo "the gate answers"
             """
@@ -61,11 +61,11 @@ Feature: A task outlives the daemon that started it
         When a script runs:
             """
             # Put together here, so this script's own command line does not match what it looks for.
-            p=outlived; c="porelo-$p-outlives"
+            p=outlived; c="porelo-${p}_outlives"
             porelo task remove "$c" --force >/dev/null 2>&1
             sleep 2
             systemctl --user list-units --type=scope --all --no-legend --plain | grep -F "porelo $c" | sed 's/^/left: /'
-            pgrep -af "[s]okar-$p-outlives" | sed 's/^/process left: /'
+            pgrep -af "[s]okar-${p}_outlives" | sed 's/^/process left: /'
             true
             """
         Then its output does not contain "left:"

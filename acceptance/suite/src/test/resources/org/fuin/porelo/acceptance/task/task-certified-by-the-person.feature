@@ -99,7 +99,7 @@ Feature: A start through the daemon has the person's own computer certify its ta
         When a script runs:
             """
             timeout 600 python3 ~/certifying/.git/person/start.py refused 'no key of yours here' ~/certifying/.git/person
-            echo "containers: $(podman ps -a --format '{{.Names}}' | grep -c porelo-certifying-refused)"
+            echo "containers: $(podman ps -a --format '{{.Names}}' | grep -c porelo-certifying_refused)"
             """
         Then its output contains "asked for: task:certifying:refused"
         And its output contains "certifiers: 1"
@@ -115,7 +115,7 @@ Feature: A start through the daemon has the person's own computer certify its ta
                 | timeout 60 porelo daemon connect 2>/dev/null | tr '\0' '\n' | head -1 | python3 -c '
             import json, sys
             for row in json.loads(sys.stdin.readline())["parameters"]["tasks"]:
-                if row.get("name", "").endswith("certifying-signed"):
+                if row.get("name", "").endswith("certifying_signed"):
                     print("certified:", row.get("certified"))
                     print("certified until set:", bool(row.get("certifiedUntil")))'
             """
@@ -126,7 +126,7 @@ Feature: A start through the daemon has the person's own computer certify its ta
         And its output contains "certified until set: True"
         When a script runs:
             """
-            porelo task remove porelo-certifying-signed --force >/dev/null 2>&1
+            porelo task remove porelo-certifying_signed --force >/dev/null 2>&1
             places="${XDG_STATE_HOME:-$HOME/.local/state}/porelo/organization-projects"
             rm -f "$places/certifying.json" "$places/certifying.git"
             true
@@ -181,7 +181,7 @@ Feature: A start through the daemon has the person's own computer certify its ta
             PY
             timeout 600 python3 "$base/start.py" "$repo"
             porelo task list | grep -cE "^$repo +default " | sed 's/^/a task in default: /'
-            porelo task remove "porelo-default-$repo" --force > /dev/null 2>&1
+            porelo task remove "porelo-default_$repo" --force > /dev/null 2>&1
             porelo project default remove "$repo" > /dev/null 2>&1
             rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/default/$repo.git"
             rm -rf "$base"

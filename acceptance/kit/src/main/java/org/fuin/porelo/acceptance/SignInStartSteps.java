@@ -135,7 +135,7 @@ public final class SignInStartSteps {
                 java.util.Objects.requireNonNull(repository, "the scenario made its repository");
         final String selected =
                 java.util.Objects.requireNonNull(provider, "the stub declared its provider");
-        final String task = "porelo-default-" + repo;
+        final String task = "porelo-default_" + repo;
         final Ssh.Output before = world.run("podman container exists " + Shell.quote(task));
         assertThat(before.status())
                 .as("the scenario must not take a pre-existing task")

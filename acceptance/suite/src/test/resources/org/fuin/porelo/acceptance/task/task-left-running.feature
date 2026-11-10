@@ -60,7 +60,7 @@ Feature: A task left running, and what it holds
             timeout 900 porelo task start asked --project refused --repository refused --agent stub -P 'say hello' \
                 --detach --clearance deny >/dev/null 2>&1; echo "start exit $?"
             for i in $(seq 1 45); do
-              said=$(porelo task status porelo-refused-asked 2>&1)
+              said=$(porelo task status porelo-refused_asked 2>&1)
               echo "$said" | grep -q '^ended' && break
               sleep 2
             done

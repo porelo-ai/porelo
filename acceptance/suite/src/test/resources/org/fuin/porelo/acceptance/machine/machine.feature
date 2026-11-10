@@ -187,7 +187,7 @@ Feature: The commands a machine answers about itself
             exec 3> "$dir/asked"
             printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.Watch","more":true}' >&3
             timeout 600 porelo task start --project hop --repository hop --agent stub --detach --clearance deny > "$dir/started" 2>&1
-            task=$(grep -o 'porelo-hop-[A-Za-z0-9_.-]*' "$dir/started" | head -1)
+            task=$(grep -o 'porelo-hop_[A-Za-z0-9_.-]*' "$dir/started" | head -1)
             [ -n "$task" ] || { echo "no task started"; tail -5 "$dir/started"; exit 1; }
             for i in $(seq 60); do grep -qF "\"$task\"" "$dir/watched" && break; sleep 1; done
             grep -qF "\"$task\"" "$dir/watched" && echo "the watch over ssh saw the task start"

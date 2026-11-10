@@ -242,13 +242,13 @@ class StartProgressReviewTest {
                         .failing(" build ", 125, "registry refused");
         final PoreloContext context = context(machine);
         try (var claim =
-                new TaskReservations(context).reserve("p", "work", "porelo-p-work", "earlier")) {}
+                new TaskReservations(context).reserve("p", "work", "porelo-p_work", "earlier")) {}
         installHooks(context);
         final Path blocked =
                 Files.createDirectories(
                         context.paths()
                                 .tasks()
-                                .containerState("porelo-p-work")
+                                .containerState("porelo-p_work")
                                 .resolve("start-step.json"));
         Files.writeString(blocked.resolve("keep"), "occupied");
         final java.io.ByteArrayOutputStream warnings = new java.io.ByteArrayOutputStream();

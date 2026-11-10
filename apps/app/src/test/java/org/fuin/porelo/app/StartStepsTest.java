@@ -185,7 +185,7 @@ class StartStepsTest {
                 image: {from: 'ubuntu:24.04'}
                 """);
         final Path phase =
-                context.paths().tasks().containerState("porelo-p-work").resolve("start-step.json");
+                context.paths().tasks().containerState("porelo-p_work").resolve("start-step.json");
         final List<StartStep> events = new ArrayList<>();
         final StartSteps steps =
                 new StartSteps(

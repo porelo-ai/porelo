@@ -40,9 +40,9 @@ Feature: A repository names the agent it is worked with
             git -C ~/named add project.yml && git -C ~/named commit -q -m named
             timeout 600 porelo task start authored --project named --repository tested \
                 --attach shell --detach --clearance deny > /dev/null
-            podman exec porelo-named-authored sh -c 'cd /workspace && echo work > work.txt \
+            podman exec porelo-named_authored sh -c 'cd /workspace && echo work > work.txt \
                 && git add work.txt && git commit -q -m work && git log -1 --format="author %an <%ae>"'
-            porelo task remove porelo-named-authored --force > /dev/null
+            porelo task remove porelo-named_authored --force > /dev/null
             """
         Then it exits zero
         And its output contains "author Agent Sea Tester <agent@localhost>"

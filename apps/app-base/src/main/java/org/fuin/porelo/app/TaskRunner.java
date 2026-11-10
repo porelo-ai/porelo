@@ -114,14 +114,35 @@ public class TaskRunner {
     }
 
     /**
-     * Returns the container name for one task run.
+     * Returns the container name a new task is made under.
+     *
+     * <p>Only for a task that does not exist yet: one made before keeps the name it was made with,
+     * which its identity records.
      *
      * @param project The project.
      * @param task Task name.
      * @return Container name.
      */
     public String containerName(Project project, String task) {
-        return ContainerName.of(project, task);
+        return containerName(project, task, null);
+    }
+
+    /**
+     * Returns the container name a new task is made under, with the short spelling its start was
+     * given.
+     *
+     * @param project The project, with its own short spelling if it has one.
+     * @param task Task name.
+     * @param taskShort The task's short spelling, or {@code null}.
+     * @return Container name.
+     */
+    public String containerName(Project project, String task, @Nullable String taskShort) {
+        return ContainerName.encoded(
+                project.name(),
+                task,
+                project.shortName(),
+                taskShort,
+                org.fuin.porelo.core.process.SocketPeer.ownUid());
     }
 
     /**

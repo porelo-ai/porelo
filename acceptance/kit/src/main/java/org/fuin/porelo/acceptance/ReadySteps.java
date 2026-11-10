@@ -187,7 +187,9 @@ public class ReadySteps {
      * @return The container's name.
      */
     static String container(String project, String task) {
-        return "porelo-" + TaskSteps.aName(project) + "-" + TaskSteps.aName(task);
+        final String checkedProject = TaskSteps.aName(project);
+        final String projectPart = checkedProject.equals("porelo") ? "" : checkedProject + "_";
+        return "porelo-" + projectPart + TaskSteps.aName(task);
     }
 
     /**

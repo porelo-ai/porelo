@@ -17,23 +17,23 @@ Feature: A task that comes back continues the conversation it was having
         When a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 120 seconds
         Then porelo says task "talk" of "cont" last said "stub: finished"
         And porelo says task "talk" of "cont" has a session to continue
-        When a script runs "porelo task stop porelo-cont-talk"
+        When a script runs "porelo task stop porelo-cont_talk"
         And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 120 seconds
         Then porelo says task "talk" of "cont" last said "stub: continued, remembering hello"
         # Removing the task forgets its session: a new task of the same name has nothing to continue.
-        When a script runs "porelo task remove porelo-cont-talk --force"
+        When a script runs "porelo task remove porelo-cont_talk --force"
         And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 120 seconds
         Then porelo says task "talk" of "cont" last said "stub: finished"
-        And a script runs "porelo task remove porelo-cont-talk --force"
+        And a script runs "porelo task remove porelo-cont_talk --force"
 
     Scenario: an attached agent stopped and started again continues its session
         Given a project called "back" of class "guarded" with a file in it
         And a terminal on the machine
         When I run "porelo task start attended --project back --repository back --agent stub --clearance deny"
         Then the "stub" agent in task "attended" of "back" reaches work without being asked anything
-        When a script runs "porelo task stop porelo-back-attended"
+        When a script runs "porelo task stop porelo-back_attended"
         Then porelo says task "attended" of "back" has a session to continue
         Given a terminal on the machine
         When I run "porelo task start attended --project back --repository back --agent stub --clearance deny"
         Then the screen of task "attended" of "back" shows "stub: continuing"
-        And a script runs "porelo task remove porelo-back-attended --force"
+        And a script runs "porelo task remove porelo-back_attended --force"

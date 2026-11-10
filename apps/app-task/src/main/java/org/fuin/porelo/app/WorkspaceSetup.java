@@ -185,10 +185,12 @@ final class WorkspaceSetup {
                     final java.util.List<String> containers = context.podman().poreloContainers();
                     for (int n = 2; n < 100 && freeName == null; n++) {
                         final String candidate = task + "-" + n;
+                        // Taken under either name: one made before, or one a new task gets.
                         if (gate.waiting(candidate) == null
                                 && !containers.contains(
                                         org.fuin.porelo.runtime.ContainerName.of(
-                                                project, candidate))) {
+                                                project, candidate))
+                                && !containers.contains(newName(project, candidate))) {
                             freeName = candidate;
                         }
                     }
@@ -376,5 +378,14 @@ final class WorkspaceSetup {
         }
         out.flush();
         return code == 0;
+    }
+
+    /** The name a new task of that name gets, or "" when it is too long to get one. */
+    private String newName(org.fuin.porelo.core.project.Project project, String task) {
+        try {
+            return context.tasks().containerName(project, task);
+        } catch (IllegalArgumentException tooLong) {
+            return "";
+        }
     }
 }

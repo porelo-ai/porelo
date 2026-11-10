@@ -1130,7 +1130,7 @@ that would work.
   only digits, is neither `people` nor `person` (the names a message gives the room's people and a person's own
   note), does not begin with `porelo-`, the beginning of a container's name, and `porelo-<project>-<task>` is at
   most 64 characters. A container name such as
-  `porelo-myproject-backend` is taken as the task `backend`.
+  `porelo-myproject_backend` is taken as the task `backend`.
 - New tasks in project `porelo` cannot be named `login-<digits>`; choose another name. An unnamed task
   from such a repository uses `login-<digits>-work` before numbering. Existing legacy tasks keep that
   logical name and remain usable by their original container name.
@@ -1139,5 +1139,9 @@ Task lookup checks the recorded container id and the project label or saved side
 `porelo-<project>-<task>` names and, with an explicit logical-task label, `porelo-<task>` in project
 `porelo` or `porelo-<project>_<task>` elsewhere. An exact actual name takes precedence over a logical
 name; ambiguous or inconsistent ownership is refused. Hyphens and numeric suffixes are part of the task
-name. Existing containers, state directories and sockets keep their actual names. Task creation still
-uses the legacy form; reading the encoded form does not enable its creation.
+name. Existing containers, state directories and sockets keep their actual names.
+
+A new task is made under the new form: `porelo-<task>` in project `porelo`, `porelo-<project>_<task>`
+elsewhere, with the project's `short` and the start's `--short` in place of either name when given. A
+start by logical name finds a task made before under its old name and brings it back; it is never made
+again under the new one.

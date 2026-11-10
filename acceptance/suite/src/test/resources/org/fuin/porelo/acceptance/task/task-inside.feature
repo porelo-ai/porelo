@@ -32,7 +32,7 @@ Feature: Being inside a task, the way a person is
         Then the terminal shows "search-lines-0"
         When I run "exit"
         Then the terminal shows "ready$"
-        And a script runs "porelo task remove porelo-accept-shell --force"
+        And a script runs "porelo task remove porelo-accept_shell --force"
 
     Scenario: the prompt inside a task says which task it is
         Given a project called "accept" with a file in it
@@ -42,7 +42,7 @@ Feature: Being inside a task, the way a person is
         Then the terminal shows "porelo[accept/shell]"
         When I run "exit"
         Then the terminal shows "ready$"
-        And a script runs "porelo task remove porelo-accept-shell --force"
+        And a script runs "porelo task remove porelo-accept_shell --force"
 
     Scenario: a bare push inside a task reaches the gate, not a branch in the mirror
         Given a project called "accept" with a file in it
@@ -58,7 +58,7 @@ Feature: Being inside a task, the way a person is
         Then the terminal shows "ready$"
         # Rejected, not left behind: a new task called shell is refused while work of an earlier one waits at the gate.
         And a script runs "porelo gate reject shell --project accept --repository accept"
-        And a script runs "porelo task remove porelo-accept-shell --force"
+        And a script runs "porelo task remove porelo-accept_shell --force"
 
     # --rm, because that is what the scenario is about. Keeping became the DEFAULT at the lifecycle
     # cut, so without it nothing was ever going to be removed, there was nothing to refuse, and the
@@ -72,7 +72,7 @@ Feature: Being inside a task, the way a person is
         And I run "echo uncommitted >> /workspace/README.md"
         And I run "exit"
         Then the terminal shows "never reached the gate"
-        And a script runs "porelo task remove porelo-accept-shell --force"
+        And a script runs "porelo task remove porelo-accept_shell --force"
 
     Scenario: a task and its image build size their workers from the CPU limit
         Given a project called "cpu-bound" of class "offline" whose project file also says:
@@ -92,4 +92,4 @@ Feature: Being inside a task, the way a person is
         And the terminal shows "build nproc 1"
         When I run "exit"
         Then the terminal shows "ready$"
-        And a script runs "porelo task remove porelo-cpu-bound-shell --force"
+        And a script runs "porelo task remove porelo-cpu-bound_shell --force"
