@@ -164,7 +164,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b603"></a>[B603](B603-A-Story-Takes-The-State-Given-It.md) | M | - | A story moved or written into a state keeps it over its issues' derived state; a mismatch is a warning ("… anyway? y/N"), never a refusal. |
 | <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
 | <a id="b598"></a>[B598](B598-A-Container-Name-Reserved-Before-Anything-Is-Made.md) | M | [B596](README.md#b596) | Starts reserve their container name first; a taken name is refused by its owner. |
 | <a id="b599"></a>[B599](B599-A-Tasks-Secrets-And-Files-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Gate, vault and file paths are reached through a task's identity. |
@@ -552,6 +551,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b603"></a>B603 | M | - | A story taking the state given it over its issues' derived one is not built in porelo: the function moved into porelo-planner (ST311) (the operator, 2026-11-10). |
 | <a id="b560"></a>B560 | M | - | A planning adapter behind porelo's own contract is not built on: ST294's planning moves into the separate app porelo-planner (ST311), and porelo knows no stories or issues any more; `planning/api`, `Planning1` and the adapter discovery are removed ([B604](#b604)) (the operator, 2026-11-10). |
 | <a id="b561"></a>B561 | M | - | Work named in porelo's signed project file is not built: the work rules become the configuration of porelo-planner (ST311) (the operator, 2026-11-10). |
 | <a id="b562"></a>B562 | L | - | The board read through porelod is not built on: reading the board becomes porelo-planner's (ST311), and the part on main is removed ([B604](#b604)) (the operator, 2026-11-10). |
