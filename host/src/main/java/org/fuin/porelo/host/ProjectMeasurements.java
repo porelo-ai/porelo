@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Publishes the follow's timestamped central answer to its current unlocked members. */
 final class ProjectMeasurements {
@@ -33,6 +34,15 @@ final class ProjectMeasurements {
 
     /** Revoke all former readers before resolving any replacement reader. */
     void prepare(List<String> projects) throws IOException {
+        prepare(projects, true);
+        final Path directory = files.etc.resolve("organization/central");
+        if (files.exists(directory)) {
+            java.nio.file.Files.setAttribute(
+                    directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        }
+    }
+
+    private void prepare(List<String> projects, boolean pruneDeparted) throws IOException {
         final Path directory = files.etc.resolve("organization/central");
         if (projects.isEmpty() && !files.exists(directory)) return;
         files.mkdir(directory, 0711);
@@ -45,6 +55,8 @@ final class ProjectMeasurements {
                 files.delete(path);
                 publish(path, content, publication.readers(name.substring(0, name.length() - 5)));
                 continue;
+            } else if (name.endsWith(".json") && !pruneDeparted) {
+                continue;
             } else if (!(name.startsWith(".porelo-host-person.")
                     || name.endsWith(".json.new")
                     || name.endsWith(".json"))) {
@@ -52,8 +64,6 @@ final class ProjectMeasurements {
             }
             files.delete(path);
         }
-        java.nio.file.Files.setAttribute(
-                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
     }
 
     void measure(String account, String project) throws IOException {
@@ -61,15 +71,37 @@ final class ProjectMeasurements {
     }
 
     void measure(String account, List<String> projects) throws IOException {
-        prepare(projects);
+        measure(account, projects, List.of(), false);
+    }
+
+    void measure(
+            @Nullable String account,
+            List<String> measured,
+            List<Map<String, @Nullable Object>> statuses)
+            throws IOException {
+        measure(account, measured, statuses, true);
+    }
+
+    private void measure(
+            @Nullable String account,
+            List<String> measured,
+            List<Map<String, @Nullable Object>> statuses,
+            boolean pruneDeparted)
+            throws IOException {
+        final List<String> projects =
+                statuses.isEmpty()
+                        ? measured
+                        : statuses.stream()
+                                .map(row -> HostJson.string(row.get("project")))
+                                .toList();
+        prepare(projects, pruneDeparted);
         final var readers = new java.util.LinkedHashMap<String, List<String>>();
         for (String project : projects) {
             readers.put(project, publication.readers(project));
         }
         final Path directory = files.etc.resolve("organization/central");
         files.mkdir(directory, 0711);
-        java.nio.file.Files.setAttribute(
-                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        revoke();
         for (Path path : files.list(directory)) {
             files.trusted(path, false);
             final String name = path.getFileName().toString();
@@ -100,7 +132,9 @@ final class ProjectMeasurements {
                             .withZone(java.time.ZoneOffset.UTC)
                             .format(clock.instant());
             Object rows = List.of();
-            if (clock.instant().isBefore(deadline)) {
+            if (account != null
+                    && measured.contains(project)
+                    && clock.instant().isBefore(deadline)) {
                 try {
                     rows = keys.centralState(account, project).get("repositories");
                 } catch (HostRefusal | IOException ex) {
@@ -118,12 +152,70 @@ final class ProjectMeasurements {
             }
             final var answer = ProjectRecords.object("project", project, "read_at", readAt);
             answer.put("repositories", rows);
+            final Path previous = directory.resolve(project + ".json");
+            if (statuses.isEmpty() && files.exists(previous)) {
+                final var earlier =
+                        HostJson.object(
+                                ProjectRecords.json(
+                                        files.text(previous, false),
+                                        "the previous central answer does not read",
+                                        65));
+                for (String field : List.of("state", "why", "host_repositories")) {
+                    if (earlier.containsKey(field)) answer.put(field, earlier.get(field));
+                }
+            }
+            statuses.stream()
+                    .filter(row -> project.equals(row.get("project")))
+                    .findFirst()
+                    .ifPresent(
+                            status -> {
+                                answer.put("state", status.get("state"));
+                                reason(answer, status.get("why"));
+                                final var progress =
+                                        new java.util.ArrayList<Map<String, @Nullable Object>>();
+                                for (Object value : HostJson.array(status.get("repositories"))) {
+                                    final var row = HostJson.object(value);
+                                    final var entry =
+                                            ProjectRecords.object(
+                                                    "repository",
+                                                    HostJson.string(row.get("repository")),
+                                                    "state",
+                                                    HostJson.string(row.get("state")));
+                                    reason(entry, row.get("why"));
+                                    progress.add(entry);
+                                }
+                                answer.put("host_repositories", progress);
+                            });
             publish(
                     directory.resolve(project + ".json"),
                     ProjectRecords.pythonJson(answer, false) + "\n",
                     java.util.Objects.requireNonNull(
                             readers.get(project), "Every measured project has resolved readers"));
         }
+        java.nio.file.Files.setAttribute(
+                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private static void reason(Map<String, @Nullable Object> answer, @Nullable Object value) {
+        if (!(value instanceof String text) || text.isEmpty()) return;
+        final StringBuilder shown = new StringBuilder();
+        text.codePoints()
+                .limit(200)
+                .forEach(
+                        point -> {
+                            final int type = Character.getType(point);
+                            shown.appendCodePoint(
+                                    Character.isISOControl(point)
+                                                    || type == Character.LINE_SEPARATOR
+                                                    || type == Character.PARAGRAPH_SEPARATOR
+                                                    || type == Character.FORMAT
+                                                    || type == Character.UNASSIGNED
+                                                    || type == Character.SURROGATE
+                                                    || type == Character.PRIVATE_USE
+                                            ? '?'
+                                            : point);
+                        });
+        answer.put("why", shown.toString());
     }
 
     private void publish(Path destination, String text, List<String> readers) throws IOException {

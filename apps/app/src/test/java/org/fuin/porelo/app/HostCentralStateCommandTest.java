@@ -230,16 +230,17 @@ class HostCentralStateCommandTest {
                 .doesNotContain("up-to-date");
         assertThat(Json.parse(out.toString()))
                 .as("reports cannot-say with HostCentral's refused reason")
-                .isEqualTo(
-                        Map.of(
-                                "project",
-                                "porelo",
-                                "state",
-                                "cannot-say",
-                                "why",
-                                HostCentral.REFUSED,
-                                "repositories",
-                                List.of()));
+                .isInstanceOfSatisfying(
+                        Map.class,
+                        answer -> {
+                            assertThat(answer)
+                                    .containsEntry("project", "porelo")
+                                    .containsEntry("state", "cannot-say")
+                                    .containsEntry("repositories", List.of());
+                            assertThat(answer.get("why"))
+                                    .asString()
+                                    .startsWith(HostCentral.REFUSED + ": ");
+                        });
     }
 
     @ParameterizedTest

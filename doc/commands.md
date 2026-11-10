@@ -801,13 +801,23 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   with the project. A start on a repository the host's file does not carry, or of a project whose host file this
   person cannot read, is refused, and a gate command forwards nothing of it. Off a host `carriedHere` is
   absent. Before a carried project is taken, its rows are the repositories the host's file names, nothing measured.
+  Projects and their repository rows also report optional `hostState` and `hostWhy` from the checked host publication.
+  Project states are `pending`, `carried`, `waiting-for-token`, `held`, and `refused`; any state other than `carried`
+  withholds both the project's `carried` flag and each repository's `carriedHere`. Waiting rows remain listed before
+  a first take. `waiting-for-token` means the host needs the person's forge token once per new repository to add its
+  read key and copy it, since the host keeps no token. While the project waits, each repository carries that state
+  and explanation. Otherwise published repository progress permits carrying only for `taken`, still subject to the
+  placement file; `waiting`, `not-carried`, `held`, `no-central`, and an omitted repository withhold it.
+  Unreadable or refused publications report `cannot-say` and withhold carrying; a refusal names its field or value
+  in bounded printable text. A valid older central file without progress keeps the placement answer and omits
+  these fields. A repository outside this host's placement is not carried whatever the publication says.
   On a host, the upstream timer reads once per carried project what the host's follow last found of central, from
   `/etc/porelo-host/organization/central/<project>.json` in the person's own account (no sudo, and only while root alone
   can write the file and its directories), and a listing reads what it recorded: `central` is `up-to-date`, `ahead`,
   `moved-on` (central has commits the copy lacks), `cannot-say` or `no-central` (the row names no `central`, so the
   host keeps no copy), and `centralWhy` says why it cannot say: the host's reason (`no-read-key`, `unreachable`,
   `no-central-main`, `local`; `unreachable` too for a repository the host did not list), or Porelo's own,
-  `host-answer-refused` for an answer that is not what the file may hold and `host-command-failed` where the file could
+  `host-answer-refused: <field/value>` for an answer that is not what the file may hold and `host-command-failed` where the file could
   not be read or trusted. `ahead` is the commits for `ahead` and 0 for `up-to-date`, with `aheadMeasured` the
   time the follow read it; otherwise absent, never 0 in its place, and a refused or failed answer keeps the earlier
   `ahead`. `behind` stays the gate's own measure. Off a host, or where `carriedHere` is not true, none of them is

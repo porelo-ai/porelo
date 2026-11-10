@@ -524,6 +524,11 @@ final class FollowProjects {
                             }
                         });
         final List<String> words = new ArrayList<>();
+        if ("waiting-for-token".equals(item.get("state"))
+                && !Boolean.TRUE.equals(item.get("migrated"))) {
+            words.add(
+                    "The host needs the person's forge token once per new repository to add its read key and copy it; the host keeps no token.");
+        }
         for (Object value :
                 java.util.Arrays.asList(
                         item.get("migrate_refused"),
@@ -923,20 +928,24 @@ final class FollowProjects {
     void measure(Map<String, @Nullable Object> applied) throws IOException {
         final var entries = progress.get();
         final List<String> names = new ArrayList<>();
+        final Set<String> appliedNames = new HashSet<>();
         for (Object value : array(applied.get("projects"))) {
             final String name = string(object(value).get("project"));
+            appliedNames.add(name);
             if (Boolean.TRUE.equals(optionalObject(entries.get(name)).get("migrated"))) {
                 names.add(name);
             }
         }
         final ProjectMeasurements measurements =
                 new ProjectMeasurements(c.files, c.runtime, c.clock);
-        measurements.prepare(names);
         final var configuration = c.runtime.configuration(HostFollow.admin(applied));
-        if (configuration == null) {
-            return;
-        }
-        measurements.measure(configuration.account(), names);
+        measurements.measure(
+                configuration == null ? null : configuration.account(),
+                names,
+                new HostProjects(c.host)
+                        .status(applied).stream()
+                                .filter(row -> appliedNames.contains(row.get("project")))
+                                .toList());
     }
 
     void members(

@@ -393,7 +393,9 @@ class UpstreamWatchTest {
     private static void refusedKeepingTheEarlier(Path dir) {
         final UpstreamDistance.Central central = records(dir).get("quad.backend").central();
         assertThat(central.state()).as("refused, so it cannot say").isEqualTo("cannot-say");
-        assertThat(central.why()).as("and says it was refused").isEqualTo("host-answer-refused");
+        assertThat(central.why())
+                .as("and names the refused field")
+                .startsWith("host-answer-refused: ");
         assertThat(central.ahead()).as("the earlier number, never 0 or a guess").isEqualTo(2);
         assertThat(central.aheadMeasured())
                 .as("with the age it had")

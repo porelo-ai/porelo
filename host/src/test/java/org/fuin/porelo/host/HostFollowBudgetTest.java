@@ -71,16 +71,28 @@ class HostFollowBudgetTest {
                 .isEmpty();
     }
 
-    // py: test_a_project_not_copied_has_no_central_answer_and_one_taken_off_loses_it
+    // A waiting project needs a published status even before there is a copy to measure.
     @Test
-    void measurementsSelectOnlyMigratedProjectsAndPruneDepartedOnes() throws Exception {
+    void measurementsPublishUnmigratedProgressAndPruneDepartedProjects() throws Exception {
         f.run();
-        assertThat(Files.exists(f.path(FollowFixture.ORG + "central"))).isFalse();
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json"))
+                .containsEntry("state", "carried");
         f.migrated();
         f.run();
         assertThat(Files.exists(f.path(FollowFixture.ORG + "central/alpha.json"))).isTrue();
         f.write(FollowFixture.ORG + "host-projects.json", "{}");
         final var applied = HostJson.object(f.applied());
+        new FollowProjects(
+                        f.context(),
+                        (origin, token) -> {
+                            throw new AssertionError();
+                        },
+                        () -> HostJson.object(f.progress()))
+                .measure(applied);
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json").get("repositories"))
+                .asList()
+                .isEmpty();
+        applied.put("projects", List.of());
         new FollowProjects(
                         f.context(),
                         (origin, token) -> {

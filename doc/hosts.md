@@ -58,6 +58,30 @@ vault entry, and the token is lent for that forge's address alone. An online tas
 issued for `porelo-<login>`, kept in the task's vault entries. The forge attributes that push to the task account;
 an explicit approval uses the person's token. A missing task token refuses an online task's push.
 
+## The host's published project progress
+
+The follow publishes each applied project's progress beside its central measurements in
+`/etc/porelo-host/organization/central/<project>.json`, including projects waiting before their
+first migration. The timestamped envelope adds `state` and an optional `why`; `host_repositories`
+contains logical project-file repository names with their own progress state and optional reason.
+Central measurement rows continue to name the forge's copies, so a logical name differing from its
+copy's name cannot attach progress to the wrong repository. Reasons are printable and bounded to
+200 code points, including grouped reasons for large projects. Unmigrated projects are published
+without asking central. The file uses the existing root ownership, plain-file, no-symlink, size
+and named-user read ACL rules; the daemon reads at most 1 MiB and refuses the whole answer on an
+unknown field, state, duplicate or malformed value. Older files without progress remain readable.
+The central directory stays closed until updated answers succeed. A standalone distance refresh
+preserves progress for that project and leaves other projects' publications in place; only a full
+follow prunes departed projects.
+
+`Projects` and `WatchProjects` report this progress as `hostState` and `hostWhy` on projects and
+repositories. Waiting and refused progress can only withhold what the placement file authorizes.
+In particular, `waiting-for-token` withholds carrying until a person supplies the forge token to
+install each new repository's read key and copy it; the host keeps no token. Unavailable or
+malformed publications withhold carrying with `cannot-say` and an explanation naming the refused
+field or value. Repository progress distinguishes a taken copy from one still waiting or not
+carried, independently of its last central distance.
+
 ## A task certificate judged for the host
 
 A machine is a host whose persons start tasks when `/etc/porelo-host` or the installed `/usr/sbin/porelo-host` is

@@ -71,7 +71,41 @@ public final class ProjectInventory {
             org.fuin.porelo.gate.UpstreamDistance.Distance behind,
             List<RepositorySummary> repositories,
             String lastUsed,
-            boolean carried) {
+            boolean carried,
+            @Nullable String hostState,
+            @Nullable String hostWhy) {
+
+        public Summary(
+                String name,
+                @Nullable String securityClass,
+                @Nullable String file,
+                @Nullable String mirror,
+                int pending,
+                int tasks,
+                int running,
+                boolean prepared,
+                Readiness readiness,
+                org.fuin.porelo.gate.UpstreamDistance.Distance behind,
+                List<RepositorySummary> repositories,
+                String lastUsed,
+                boolean carried) {
+            this(
+                    name,
+                    securityClass,
+                    file,
+                    mirror,
+                    pending,
+                    tasks,
+                    running,
+                    prepared,
+                    readiness,
+                    behind,
+                    repositories,
+                    lastUsed,
+                    carried,
+                    null,
+                    null);
+        }
 
         /**
          * Constructor for a project whose image has not been looked for yet.
@@ -171,7 +205,9 @@ public final class ProjectInventory {
                             behind,
                             repositories,
                             lastUsed,
-                            carried);
+                            carried,
+                            hostState,
+                            hostWhy);
         }
 
         Summary prepared(boolean built, Readiness state) {
@@ -188,7 +224,9 @@ public final class ProjectInventory {
                     behind,
                     repositories,
                     lastUsed,
-                    carried);
+                    carried,
+                    hostState,
+                    hostWhy);
         }
 
         /**
@@ -215,7 +253,9 @@ public final class ProjectInventory {
                     behind,
                     named,
                     lastUsed,
-                    carried);
+                    carried,
+                    hostState,
+                    hostWhy);
         }
 
         /**
@@ -238,7 +278,9 @@ public final class ProjectInventory {
                     behind,
                     repositories,
                     used,
-                    carried);
+                    carried,
+                    hostState,
+                    hostWhy);
         }
 
         /**
@@ -261,7 +303,9 @@ public final class ProjectInventory {
                     behind,
                     repositories,
                     lastUsed,
-                    true);
+                    true,
+                    hostState,
+                    hostWhy);
         }
 
         /**
@@ -284,7 +328,29 @@ public final class ProjectInventory {
                     distance,
                     repositories,
                     lastUsed,
-                    carried);
+                    carried,
+                    hostState,
+                    hostWhy);
+        }
+
+        Summary hostStatus(HostCentral.@Nullable Status status) {
+            if (status == null) return this;
+            return new Summary(
+                    name,
+                    securityClass,
+                    file,
+                    mirror,
+                    pending,
+                    tasks,
+                    running,
+                    prepared,
+                    readiness,
+                    behind,
+                    repositories.stream().map(repository -> repository.hostStatus(status)).toList(),
+                    lastUsed,
+                    carried && status.permitsCarrying(),
+                    status.state(),
+                    status.why());
         }
 
         /**
@@ -300,6 +366,8 @@ public final class ProjectInventory {
             map.put("securityClass", securityClass == null ? "" : securityClass);
             map.put("file", file == null ? "" : file);
             map.put("carried", carried);
+            if (hostState != null) map.put("hostState", hostState);
+            if (hostWhy != null) map.put("hostWhy", hostWhy);
             map.put("mirror", mirror == null ? "" : mirror);
             map.put("pending", pending);
             map.put("tasks", tasks);
@@ -344,6 +412,12 @@ public final class ProjectInventory {
 
     /** Where a host's files are; another place only in a test. */
     Path hostFiles = OrganizationProjects.HOST_FILES;
+
+    /** Where the host publishes its follow state; another place only in a test. */
+    Path centralFiles = HostCentral.DIRECTORY;
+
+    /** Reads root ownership and mode; another reader only in a test. */
+    org.fuin.porelo.wire.RootOwnedFile.Attributes centralAttributes = HostCentral.ATTRIBUTES;
 
     /**
      * Constructor with the context to read from.
@@ -470,6 +544,13 @@ public final class ProjectInventory {
                 .map(
                         summary -> {
                             final boolean built = images.contains("porelo/" + summary.name());
+                            final OrganizationProjects.Placed host =
+                                    hostOf(organization, summary.name());
+                            final HostCentral.Status status =
+                                    host == null
+                                            ? null
+                                            : new HostCentral(centralFiles, centralAttributes)
+                                                    .status(summary.name());
                             // The class of the file in force, which a new task starts with; a
                             // task's only where no file is read.
                             return summary.classed(classOf(summary.file()))
@@ -487,13 +568,14 @@ public final class ProjectInventory {
                                             repositoriesOf(
                                                     summary,
                                                     upstream,
-                                                    hostOf(organization, summary.name()),
+                                                    host,
                                                     perRepository.getOrDefault(
                                                             summary.name(), Map.of())))
                                     .lastUsed(
                                             used.containsKey(summary.name())
                                                     ? used.get(summary.name()).toString()
-                                                    : "");
+                                                    : "")
+                                    .hostStatus(status);
                         })
                 .toList();
     }
@@ -657,7 +739,73 @@ public final class ProjectInventory {
             String goesBy,
             @Nullable Boolean carriedHere,
             int tasks,
-            int running) {
+            int running,
+            @Nullable String hostState,
+            @Nullable String hostWhy) {
+
+        public RepositorySummary(
+                String name,
+                boolean own,
+                String upstream,
+                String mirror,
+                int pending,
+                org.fuin.porelo.gate.UpstreamDistance.Distance behind,
+                List<Grant> egress,
+                ResolvedLimits limits,
+                String agent,
+                String nickname,
+                String goesBy,
+                @Nullable Boolean carriedHere,
+                int tasks,
+                int running) {
+            this(
+                    name,
+                    own,
+                    upstream,
+                    mirror,
+                    pending,
+                    behind,
+                    egress,
+                    limits,
+                    agent,
+                    nickname,
+                    goesBy,
+                    carriedHere,
+                    tasks,
+                    running,
+                    null,
+                    null);
+        }
+
+        RepositorySummary hostStatus(HostCentral.Status status) {
+            final HostCentral.Progress progress =
+                    own && status.permitsCarrying()
+                            ? new HostCentral.Progress(
+                                    status.state() == null ? "" : status.state(), status.why())
+                            : status.repository(name);
+            return new RepositorySummary(
+                    name,
+                    own,
+                    upstream,
+                    mirror,
+                    pending,
+                    behind,
+                    egress,
+                    limits,
+                    agent,
+                    nickname,
+                    goesBy,
+                    carriedHere == null
+                            ? null
+                            : carriedHere
+                                    && (own
+                                            ? status.permitsCarrying()
+                                            : status.permitsRepository(name)),
+                    tasks,
+                    running,
+                    progress.state().isEmpty() ? null : progress.state(),
+                    progress.why());
+        }
 
         /**
          * Constructor for a repository reported before its egress and limits were.
@@ -732,6 +880,8 @@ public final class ProjectInventory {
             if (carriedHere != null) {
                 map.put("carriedHere", carriedHere);
             }
+            if (hostState != null) map.put("hostState", hostState);
+            if (hostWhy != null) map.put("hostWhy", hostWhy);
             map.put("tasks", tasks);
             map.put("running", running);
             map.put("egress", egress.stream().map(Grant::asMap).toList());

@@ -64,7 +64,16 @@ final class HostCentral {
     /** Why recorded where the host's file could not be read or trusted. */
     static final String FAILED = "host-command-failed";
 
-    private static final Set<String> ANSWER_FIELDS = Set.of("project", "read_at", "repositories");
+    private static final Set<String> ANSWER_FIELDS =
+            Set.of("project", "read_at", "repositories", "state", "why", "host_repositories");
+
+    private static final Set<String> PROJECT_STATES =
+            Set.of("pending", "carried", "waiting-for-token", "held", "refused");
+
+    private static final Set<String> REPOSITORY_STATES =
+            Set.of("taken", "waiting", "not-carried", "held", "no-central");
+
+    private static final Set<String> HOST_ENTRY_FIELDS = Set.of("repository", "state", "why");
 
     private static final Set<String> ENTRY_FIELDS = Set.of("repository", "state", "commits", "why");
 
@@ -89,6 +98,55 @@ final class HostCentral {
         /** An answer that could not be taken, for the reason given. */
         static Answer notTaken(final String why) {
             return new Answer("cannot-say", null, null, why, true);
+        }
+    }
+
+    /** The follow's progress, independently of its last distance from central. */
+    record Progress(String state, @Nullable String why) {}
+
+    /** A valid legacy file permits placement's answer; a refused file never does. */
+    record Status(
+            @Nullable String state,
+            @Nullable String why,
+            Map<String, Progress> repositories,
+            boolean repositoriesKnown) {
+        boolean permitsCarrying() {
+            return state == null || state.equals("carried");
+        }
+
+        Progress repository(String name) {
+            if (!permitsCarrying()) {
+                return new Progress(
+                        java.util.Objects.requireNonNull(
+                                state, "A withheld project has a host state"),
+                        why);
+            }
+            return repositories.getOrDefault(
+                    name,
+                    new Progress(
+                            repositoriesKnown ? "not-carried" : state == null ? "" : state, why));
+        }
+
+        boolean permitsRepository(String name) {
+            final Progress progress = repositories.get(name);
+            return permitsCarrying()
+                    && (progress == null ? !repositoriesKnown : progress.state().equals("taken"));
+        }
+    }
+
+    private record Publication(Map<String, Object> values, Status status, List<Measurement> rows) {}
+
+    private record Measurement(String name, Answer answer) {}
+
+    private static final class RefusedAnswer extends IllegalArgumentException {
+        RefusedAnswer(String field) {
+            super(REFUSED + ": " + safe(field, LONGEST_WHY - REFUSED.length() - 2));
+        }
+
+        @Override
+        public String getMessage() {
+            return java.util.Objects.requireNonNull(
+                    super.getMessage(), "Every refused answer names its field");
         }
     }
 
@@ -131,8 +189,24 @@ final class HostCentral {
         if (output == null) {
             return all(carried, Answer.notTaken(FAILED));
         }
-        final Map<String, Answer> read = read(output, project, carried);
-        return read == null ? all(carried, Answer.notTaken(REFUSED)) : read;
+        try {
+            return answers(parse(output, project), carried);
+        } catch (RefusedAnswer ex) {
+            return all(carried, Answer.notTaken(ex.getMessage()));
+        }
+    }
+
+    /** Read the same checked publication for the inventory, without reaching a forge. */
+    Status status(final String project) {
+        final String output = readFile(project);
+        if (output == null) {
+            return new Status("cannot-say", FAILED, Map.of(), false);
+        }
+        try {
+            return parse(output, project).status();
+        } catch (RefusedAnswer ex) {
+            return new Status("cannot-say", ex.getMessage(), Map.of(), false);
+        }
     }
 
     /**
@@ -147,8 +221,11 @@ final class HostCentral {
         if (output == null) {
             return cannotSay(project, FAILED);
         }
-        final Map<String, Object> judged = readStandalone(output, project);
-        return judged == null ? cannotSay(project, REFUSED) : judged;
+        try {
+            return parse(output, project).values();
+        } catch (RefusedAnswer ex) {
+            return cannotSay(project, ex.getMessage());
+        }
     }
 
     private @Nullable String readFile(final String project) {
@@ -190,51 +267,11 @@ final class HostCentral {
      * @return The judged answer map, or {@code null} where the answer is refused.
      */
     static @Nullable Map<String, Object> readStandalone(final String output, final String project) {
-        final Object parsed;
         try {
-            parsed = Json.parseExact(output.strip());
-        } catch (final RuntimeException ex) {
+            return parse(output, project).values();
+        } catch (RefusedAnswer ex) {
             return null;
         }
-        if (!(parsed instanceof Map<?, ?> answer)
-                || !ANSWER_FIELDS.containsAll(answer.keySet())
-                || !project.equals(answer.get("project"))
-                || !(answer.get("read_at") instanceof String text)
-                || !(answer.get("repositories") instanceof List<?> entries)) {
-            return null;
-        }
-        final Instant readAt = utc(text);
-        if (readAt == null) {
-            return null;
-        }
-        final Set<String> seen = new HashSet<>();
-        final List<Map<String, Object>> rows = new ArrayList<>(entries.size());
-        for (final Object each : entries) {
-            if (!(each instanceof Map<?, ?> entry)
-                    || !(entry.get("repository") instanceof String named)
-                    || !printable(named)
-                    || !seen.add(named.toLowerCase(Locale.ROOT))) {
-                return null;
-            }
-            final Answer judged = judged(entry, readAt);
-            if (judged == null) {
-                return null;
-            }
-            final Map<String, Object> row = new LinkedHashMap<>();
-            row.put("repository", named);
-            row.put("state", judged.state());
-            if ("ahead".equals(judged.state()) && judged.ahead() != null) {
-                row.put("commits", judged.ahead());
-            } else if ("cannot-say".equals(judged.state()) && judged.why() != null) {
-                row.put("why", judged.why());
-            }
-            rows.add(Map.copyOf(row));
-        }
-        final Map<String, Object> result = new LinkedHashMap<>();
-        result.put("project", project);
-        result.put("read_at", text);
-        result.put("repositories", List.copyOf(rows));
-        return Map.copyOf(result);
     }
 
     /**
@@ -249,40 +286,26 @@ final class HostCentral {
             final String output,
             final String project,
             final Map<String, @Nullable String> carried) {
-        final Object parsed;
         try {
-            parsed = Json.parseExact(output.strip());
-        } catch (final RuntimeException ex) {
+            return answers(parse(output, project), carried);
+        } catch (RefusedAnswer ex) {
             return null;
         }
-        if (!(parsed instanceof Map<?, ?> answer)
-                || !ANSWER_FIELDS.containsAll(answer.keySet())
-                || !project.equals(answer.get("project"))
-                || !(answer.get("read_at") instanceof String text)
-                || !(answer.get("repositories") instanceof List<?> entries)) {
-            return null;
-        }
-        final Instant readAt = utc(text);
-        if (readAt == null) {
-            return null;
-        }
+    }
+
+    private static Map<String, Answer> answers(
+            Publication publication, Map<String, @Nullable String> carried) {
+        final Instant readAt = Instant.parse((String) publication.values().get("read_at"));
         final Map<String, Answer> found = new LinkedHashMap<>();
-        for (final Object each : entries) {
-            if (!(each instanceof Map<?, ?> entry)
-                    || !(entry.get("repository") instanceof String named)) {
-                return null;
-            }
-            final List<String> matching = matching(carried, named);
+        for (final Measurement each : publication.rows()) {
+            final List<String> matching = matching(carried, each.name());
             // None carried, or two rows for one entry, or two entries for one row: no repository
             // can be named for it.
             if (matching.size() != 1 || found.containsKey(matching.getFirst())) {
-                return null;
+                throw new RefusedAnswer(
+                        "repositories.repository: unmatched or ambiguous " + each.name());
             }
-            final Answer judged = judged(entry, readAt);
-            if (judged == null) {
-                return null;
-            }
-            found.put(matching.getFirst(), judged);
+            found.put(matching.getFirst(), each.answer());
         }
         final Map<String, Answer> all = new LinkedHashMap<>();
         for (final Map.Entry<String, @Nullable String> row : carried.entrySet()) {
@@ -292,7 +315,7 @@ final class HostCentral {
                 all.put(row.getKey(), new Answer("no-central", null, readAt, null, false));
             } else if (said != null) {
                 all.put(row.getKey(), said);
-            } else if (entries.isEmpty()) {
+            } else if (publication.rows().isEmpty()) {
                 // The host could not say of any of them.
                 all.put(row.getKey(), new Answer("cannot-say", null, readAt, null, false));
             } else {
@@ -300,6 +323,137 @@ final class HostCentral {
             }
         }
         return all;
+    }
+
+    private static Publication parse(String output, String project) {
+        if (output.length() > MAXIMUM_BYTES) {
+            throw new RefusedAnswer("answer: exceeds size bound");
+        }
+        final Object parsed;
+        try {
+            parsed = Json.parseExact(output.strip());
+        } catch (RuntimeException ex) {
+            throw new RefusedAnswer("answer: invalid JSON or UTF-8");
+        }
+        final Map<?, ?> answer = object(parsed, "answer");
+        if (!project.equals(text(answer.get("project"), "project", 40))) {
+            throw new RefusedAnswer("project: does not match requested project");
+        }
+        final String at = text(answer.get("read_at"), "read_at", 64);
+        final Instant readAt = utc(at);
+        if (readAt == null) {
+            throw new RefusedAnswer("read_at: expected a UTC instant");
+        }
+        fields(answer, ANSWER_FIELDS, "answer");
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("project", project);
+        values.put("read_at", at);
+        final List<Measurement> measurements = new ArrayList<>();
+        final List<Map<String, Object>> rows = new ArrayList<>();
+        final Set<String> seen = new HashSet<>();
+        final List<?> entries = list(answer.get("repositories"), "repositories");
+        for (int i = 0; i < entries.size(); i++) {
+            final String field = "repositories[" + i + "]";
+            final Map<?, ?> entry = object(entries.get(i), field);
+            final String named = text(entry.get("repository"), field + ".repository", LONGEST_WHY);
+            if (!seen.add(named.toLowerCase(Locale.ROOT))) {
+                throw new RefusedAnswer(field + ".repository: duplicate " + named);
+            }
+            final Answer judged = judged(entry, readAt, field);
+            measurements.add(new Measurement(named, judged));
+            final Map<String, Object> row = new LinkedHashMap<>();
+            row.put("repository", named);
+            row.put("state", judged.state());
+            if ("ahead".equals(judged.state()) && judged.ahead() != null) {
+                row.put("commits", judged.ahead());
+            }
+            if (judged.why() != null) {
+                row.put("why", judged.why());
+            }
+            rows.add(Map.copyOf(row));
+        }
+        values.put("repositories", List.copyOf(rows));
+        final String state =
+                answer.containsKey("state")
+                        ? state(answer.get("state"), PROJECT_STATES, "state")
+                        : null;
+        final String why = reason(answer, "why");
+        if (state == null
+                && (answer.containsKey("why") || answer.containsKey("host_repositories"))) {
+            throw new RefusedAnswer("state: required with host progress");
+        }
+        final Map<String, Progress> progress = new LinkedHashMap<>();
+        if (answer.containsKey("host_repositories")) {
+            final List<?> statuses = list(answer.get("host_repositories"), "host_repositories");
+            final List<Map<String, Object>> hostRows = new ArrayList<>();
+            for (int i = 0; i < statuses.size(); i++) {
+                final String field = "host_repositories[" + i + "]";
+                final Map<?, ?> row = object(statuses.get(i), field);
+                fields(row, HOST_ENTRY_FIELDS, field);
+                final String name = text(row.get("repository"), field + ".repository", 96);
+                final String status = state(row.get("state"), REPOSITORY_STATES, field + ".state");
+                final String detail = reason(row, field + ".why");
+                if (progress.putIfAbsent(name, new Progress(status, detail)) != null) {
+                    throw new RefusedAnswer(field + ".repository: duplicate " + name);
+                }
+                final Map<String, Object> hostRow = new LinkedHashMap<>();
+                hostRow.put("repository", name);
+                hostRow.put("state", status);
+                if (detail != null) hostRow.put("why", detail);
+                hostRows.add(Map.copyOf(hostRow));
+            }
+            values.put("host_repositories", List.copyOf(hostRows));
+        }
+        if (state != null) values.put("state", state);
+        if (why != null) values.put("why", why);
+        return new Publication(
+                Map.copyOf(values),
+                new Status(
+                        state, why, Map.copyOf(progress), answer.containsKey("host_repositories")),
+                List.copyOf(measurements));
+    }
+
+    private static Map<?, ?> object(@Nullable Object value, String field) {
+        if (value instanceof Map<?, ?> map) return map;
+        throw new RefusedAnswer(field + ": expected an object");
+    }
+
+    private static List<?> list(@Nullable Object value, String field) {
+        if (value instanceof List<?> list) return list;
+        throw new RefusedAnswer(field + ": expected an array");
+    }
+
+    private static String text(@Nullable Object value, String field, int maximum) {
+        if (value instanceof String text
+                && text.codePointCount(0, text.length()) <= maximum
+                && printable(text)) return text;
+        throw new RefusedAnswer(field + ": expected bounded printable text");
+    }
+
+    private static String state(@Nullable Object value, Set<String> states, String field) {
+        final String text = text(value, field, 32);
+        if (!states.contains(text)) throw new RefusedAnswer(field + ": unknown value " + text);
+        return text;
+    }
+
+    private static @Nullable String reason(Map<?, ?> row, String field) {
+        return row.get("why") == null ? null : text(row.get("why"), field, LONGEST_WHY);
+    }
+
+    private static void fields(Map<?, ?> row, Set<String> allowed, String field) {
+        for (Object key : row.keySet()) {
+            if (!allowed.contains(key))
+                throw new RefusedAnswer(
+                        field + "." + safe(String.valueOf(key), 80) + ": unknown field");
+        }
+    }
+
+    private static String safe(String value, int maximum) {
+        final StringBuilder shown = new StringBuilder();
+        value.codePoints()
+                .limit(maximum)
+                .forEach(point -> shown.appendCodePoint(unreadable(point) ? '?' : point));
+        return shown.toString();
     }
 
     /** The carried repositories whose copy has this name on the forge, ignoring case. */
@@ -315,23 +469,20 @@ final class HostCentral {
         return matching;
     }
 
-    /** One entry, judged; {@code null} where it says what no host may. */
-    private static @Nullable Answer judged(final Map<?, ?> entry, final Instant readAt) {
-        if (!ENTRY_FIELDS.containsAll(entry.keySet())
-                || !(entry.get("state") instanceof String state)
-                || !STATES.contains(state)) {
-            return null;
-        }
+    /** A central measurement, refused whole when any field is invalid. */
+    private static Answer judged(final Map<?, ?> entry, final Instant readAt, final String field) {
+        fields(entry, ENTRY_FIELDS, field);
+        final String state = state(entry.get("state"), STATES, field + ".state");
         final Integer ahead;
         if ("ahead".equals(state)) {
             if (!(entry.get("commits") instanceof Long number
                     && number >= 0
                     && number < MOST_COMMITS)) {
-                return null;
+                throw new RefusedAnswer(field + ".commits: expected a count from 0 through 999999");
             }
             ahead = Math.toIntExact(number);
         } else if (entry.containsKey("commits")) {
-            return null;
+            throw new RefusedAnswer(field + ".commits: unavailable for " + state);
         } else {
             ahead = "up-to-date".equals(state) ? 0 : null;
         }
@@ -343,7 +494,7 @@ final class HostCentral {
                 && printable(text)) {
             why = text;
         } else {
-            return null;
+            throw new RefusedAnswer(field + ".why: expected bounded printable text for cannot-say");
         }
         return new Answer(state, ahead, readAt, why, false);
     }

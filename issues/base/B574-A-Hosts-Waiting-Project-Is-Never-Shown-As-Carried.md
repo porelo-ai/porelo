@@ -1,6 +1,6 @@
 # [B574](README.md#b574) — A Host's Waiting Project Is Never Shown As Carried
 
-**Status:** Implementing. Filed 2026-11-09 under ST291, from the fourth move.
+**Status:** Review. Filed 2026-11-09 under ST291, from the fourth move.
 **Size:** L - the host publishes each project's follow state beside its central state, porelod reads it, the contract carries it; [B543](README.md#b543) first.
 
 **What must be true.** While a host's follow reports a project as waiting (`waiting-for-token`, or another state that
@@ -32,3 +32,26 @@ central read (`HostCentral`, after [B543](README.md#b543) a root-published file 
 
 - Why every repository of an 18-repository project read `host-answer-refused` on the move: run the host's central read
   against the follow's answer for a waiting project and name the field.
+
+## As built
+
+The follow publishes every applied project's own state and bounded printable explanation beside
+its timestamped central measurements, including projects waiting before migration without asking
+central. Separate repository progress uses logical project-file names and covers repositories that
+have no measured copy yet. The existing root publication and member read ACL rules remain in force.
+The first token wait explains the forge token, read key and copy action. Publication keeps the
+central directory closed until updated answers succeed; a standalone distance refresh preserves
+both the refreshed project's progress and every other project's publication.
+
+The checked reader accepts the host's defined project and repository states and refuses the whole
+publication on unknown or malformed data, naming the refused field or value in bounded printable
+text. Valid older central files without progress retain their placement-based carrying answer.
+The follow's project status row itself is not a central measurement envelope: it has progress
+fields and no measurement timestamp, so feeding that shape into the old reader refused every
+repository together. The original move's exact file was not available to identify its first refusal.
+
+Projects and repository rows expose `hostState` and `hostWhy` through Tasks1. Placement remains
+necessary; a waiting or refused project withholds carrying for every row, and a supplied repository
+progress permits carrying only for a taken copy. Waiting rows remain visible before a local take,
+and a known host state keeps an untaken project out of pruning. The contract, interface description,
+host documentation and changelog describe the added fields and compatibility behavior.

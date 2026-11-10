@@ -17,6 +17,14 @@ type Project (
   # it to say so. TakeProject brings the file, when the person acts on this row; false everywhere
   # else, and once the file is here.
   carried: bool,
+  # The host's published project progress: pending, carried, waiting-for-token, held or refused.
+  # cannot-say when the checked publication is unavailable or refused. Absent off a host and
+  # for a valid older publication without progress. A state other than carried withholds carrying.
+  hostState: ?string,
+  # The host's explanation, or a bounded printable refusal naming the rejected field/value.
+  # Absent when there is no explanation. waiting-for-token needs the person's forge token once
+  # per new repository to install its read key and copy it; the host keeps no token.
+  hostWhy: ?string,
   # The gate's mirror for it. "" when it has never used the gate.
   mirror: string,
   # How many pushes are waiting for review in that mirror.
@@ -416,13 +424,19 @@ type Repository (
   # true; ahead, aheadMeasured and centralWhy with it.
   central: ?string,
   # Why 'central' is cannot-say, one line: the host's own (no-read-key, unreachable,
-  # no-central-main, local) or Porelo's (host-answer-refused, host-command-failed). Absent
+  # no-central-main, local) or Porelo's (host-answer-refused: <field/value>, host-command-failed). Absent
   # otherwise.
   centralWhy: ?string,
   # Whether this machine, a host of the project, carries this repository: the host's file names
   # it or carries the project whole, and its forge keeps a copy. A start on one it does not carry
   # is refused. Absent on a machine that is no host of the project.
   carriedHere: ?bool,
+  # The project's hostState/hostWhy while it waits or cannot be read. Otherwise the repository's
+  # own progress when published: taken, waiting, not-carried, held or no-central; a legacy project
+  # progress without repository progress uses carried. Unknown states refuse the whole publication.
+  # Placement is always necessary: host progress can only withhold carriedHere, never grant it.
+  hostState: ?string,
+  hostWhy: ?string,
   # The project's tasks on this repository, running or stopped; a task naming no repository counts
   # on the project's own. A task of a repository the file no longer names counts on the project
   # alone.

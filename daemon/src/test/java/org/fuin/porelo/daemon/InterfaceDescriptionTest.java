@@ -375,8 +375,7 @@ class InterfaceDescriptionTest {
 
     @Test
     void repositoryRowsCarryExactlyTheFieldsTheContractDeclares() {
-        // A field sent and not declared is one no client knows it is sent; declared and not sent,
-        // one a client waits for in vain.
+        // A mismatched contract can hide a host's withheld carrying decision from its client.
         final Matcher repositoryType =
                 Pattern.compile("(?ms)^type Repository \\(\\n(.*?)^\\)")
                         .matcher(PoreloDaemon.description());
@@ -407,7 +406,9 @@ class InterfaceDescriptionTest {
                         "Agent Backend",
                         true,
                         0,
-                        0);
+                        0,
+                        "taken",
+                        "copy installed");
 
         assertThat(
                         names(

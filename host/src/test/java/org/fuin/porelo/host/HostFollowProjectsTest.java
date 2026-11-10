@@ -41,6 +41,117 @@ class HostFollowProjectsTest {
         f.write(FollowFixture.ORG + "host-projects.json", HostJson.write(entries));
     }
 
+    // A project waiting before its first migration must not be presented as already carried.
+    @Test
+    void aNeverMigratedProjectPublishesItsWaitingState() throws Exception {
+        f.forge();
+        f.run();
+        assertThat(f.path(FollowFixture.ORG + "central/alpha.json")).exists();
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json"))
+                .containsEntry("state", "waiting-for-token");
+        assertThat(f.project.centralCalls).isEmpty();
+    }
+
+    // A person cannot complete first migration without knowing which credential the host needs.
+    @Test
+    void aFirstMigrationWaitExplainsTheTokenAction() throws Exception {
+        f.forge();
+        f.run();
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json").get("why"))
+                .asString()
+                .contains("forge token", "read key", "copy", "keeps no token");
+    }
+
+    // An interrupted follow must not reopen old carrying progress after a project starts waiting.
+    @Test
+    void replacingProgressKeepsOldCarryingStatusClosed() throws Exception {
+        f.migrated();
+        f.run();
+        item(fields("state", "waiting-for-token", "why", "needs a forge token"));
+        final var original = f.project.files;
+        final Path central = f.path(FollowFixture.ORG + "central");
+        new ProjectMeasurements(original, f.runtime, f.clock).revoke();
+        f.project.files =
+                new ProjectFiles(
+                        original.root,
+                        original.owner,
+                        Files::deleteIfExists,
+                        path -> {
+                            final var attributes = original.attributes(path);
+                            if (path.equals(central)) {
+                                assertThat((int) attributes.get("mode") & 0001)
+                                        .as(
+                                                "old carried progress stays unreachable until replacement succeeds")
+                                        .isZero();
+                            }
+                            return attributes;
+                        },
+                        original::owner);
+        new FollowProjects(
+                        f.context(),
+                        (origin, token) -> {
+                            throw new AssertionError();
+                        },
+                        () -> HostJson.object(f.progress()))
+                .measure(HostJson.object(f.applied()));
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json"))
+                .containsEntry("state", "waiting-for-token");
+    }
+
+    // Refreshing one distance must not erase another project's carrying decision or token action.
+    @Test
+    void aStandaloneMeasurementKeepsOtherProjectsProgress() throws Exception {
+        f.forge();
+        f.answer.put("projects", List.of(f.project(), FollowFixture.project("beta")));
+        f.run();
+        final Path beta = f.path(FollowFixture.ORG + "central/beta.json");
+        final byte[] before = Files.readAllBytes(beta);
+        new ProjectMeasurements(f.project.files, f.runtime, f.clock).measure("forge", "alpha");
+        assertThat(beta).exists();
+        assertThat(Files.readAllBytes(beta)).isEqualTo(before);
+    }
+
+    // Grouped repository reasons must not make an ordinary waiting publication unreadable.
+    @Test
+    void aWaitingPublicationBoundsReasonsAndKeepsEveryRepositoryStatus() throws Exception {
+        f.migrated();
+        final var repositories = new LinkedHashMap<String, Object>();
+        for (int i = 0; i < 18; i++) {
+            repositories.put(
+                    "repository-" + i,
+                    fields(
+                            "review",
+                            "required",
+                            "central",
+                            "https://forge.example.org/acme/repository-" + i + ".git"));
+        }
+        f.verified.put("repositories", repositories);
+        f.run();
+        final var answer = f.json(FollowFixture.ORG + "central/alpha.json");
+        assertThat(answer).containsEntry("state", "waiting-for-token");
+        assertThat(answer.get("why")).asString().isNotEmpty().hasSizeLessThanOrEqualTo(200);
+        assertThat(answer.get("host_repositories")).asList().hasSize(18);
+    }
+
+    // A standalone distance refresh must not erase the host's withholding state.
+    @Test
+    void aStandaloneMeasurementKeepsPublishedWaitingProgress() throws Exception {
+        f.migrated();
+        f.verified.put(
+                "repositories",
+                fields(
+                        "extra",
+                        fields(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/acme/extra.git")));
+        f.run();
+        new ProjectMeasurements(f.project.files, f.runtime, f.clock).measure("forge", "alpha");
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json"))
+                .containsEntry("state", "waiting-for-token");
+    }
+
     // py: test_a_host_without_services_admits_a_project_without_running_service_commands
     @Test
     void aHostWithoutServicesCarriesItsProjectWithoutAForgeOrGate() throws Exception {
