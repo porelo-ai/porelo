@@ -262,6 +262,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b606"></a>[B606](B606-The-Packages-Carry-The-Third-Party-Notices.md) | S | - | The `.deb` and `.rpm` carry a generated THIRD-PARTY-NOTICES with the full texts of all code compiled into the executables. |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |
 | <a id="b516"></a>[B516](B516-Task-Records-Exported-Over-OTLP.md) | M | [B514](#b514) | [B514](#b514)'s records exported as OpenTelemetry logs to a collector the organization names, off by default, chosen per kind, by the CLI only. |
