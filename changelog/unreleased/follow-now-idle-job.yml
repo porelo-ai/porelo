@@ -1,0 +1,2 @@
+title: "`porelo-host org follow-now` takes an idle follow service on systemd 259 and later, which shows no job as an empty `Job`, and no longer refuses it with \"systemd answered no valid start job\""
+type: fixed

@@ -181,7 +181,9 @@ final class HostFollowNow {
         }
         final String state = fields.getOrDefault("ActiveState", "");
         final String job = fields.getOrDefault("Job", "");
-        if (job.equals("0") && List.of("inactive", "failed").contains(state)) return null;
+        // No job is an empty Job from systemd 259 on, 0 before it.
+        final boolean noJob = job.isEmpty() || job.equals("0");
+        if (noJob && List.of("inactive", "failed").contains(state)) return null;
         final String invocation = fields.getOrDefault("InvocationID", "");
         if (!List.of("inactive", "failed", "activating", "active", "deactivating")
                 .contains(state)) {

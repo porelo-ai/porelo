@@ -27,6 +27,7 @@ class HostFollowNowTest {
     private HostReadFixture fixture;
     private volatile boolean running;
     private boolean autoComplete;
+    private String noJob = "0";
     private Runnable beforePerson = () -> {};
     private final AtomicInteger starts = new AtomicInteger();
     private final AtomicInteger requests = new AtomicInteger();
@@ -92,7 +93,7 @@ class HostFollowNowTest {
                         + "\nInvocationID="
                         + (active ? INVOCATION : "")
                         + "\nJob="
-                        + (active ? "42" : "0")
+                        + (active ? "42" : noJob)
                         + "\n");
     }
 
@@ -167,6 +168,20 @@ class HostFollowNowTest {
         } finally {
             first.cancel(true);
         }
+    }
+
+    // systemd 259 shows a unit with no job as an empty Job, older ones as 0; both are an idle unit.
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0"})
+    void anIdleServiceStartsOnePassWhicheverWaySystemdSaysNoJob(String idle) {
+        noJob = idle;
+        autoComplete = true;
+
+        final HostReadFixture.Answer answer = run(HostReadFixture.SUDO, "org", "follow-now");
+
+        assertThat(answer.err()).as("an idle unit is no invalid job").isEmpty();
+        assertThat(answer.code()).as("the pass's own exit status is the answer").isEqualTo(65);
+        assertThat(starts.get()).as("one start of the fixed service").isEqualTo(1);
     }
 
     // Slow account lookup must not turn a join into another privileged pass.
