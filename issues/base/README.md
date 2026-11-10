@@ -158,6 +158,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | [porelo-host#HO156](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho156) | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
 | <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
 | <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
 | <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `SaveMoves` saves story and issue moves together, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
