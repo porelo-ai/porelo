@@ -15,7 +15,8 @@ public final class RootOwnedFile {
     /**
      * Reads a regular file without following symbolic links, after checking root ownership and
      * absence of group/other write permission on the file and every ancestor through the root. Root
-     * ownership is interpreted in the current user namespace as in {@link SystemProgram}.
+     * ownership requires the initial user namespace; unmapped owners are refused because root
+     * cannot be distinguished from another unmapped account.
      *
      * @param file Absolute, normalized file path.
      * @param maximumBytes Positive read limit, smaller than {@link Integer#MAX_VALUE}.
@@ -45,7 +46,8 @@ public final class RootOwnedFile {
 
     /**
      * Reads with an explicit attribute source and root uid. All path, type, ownership, permission
-     * and size checks of {@link #read(Path, int)} still apply.
+     * and size checks of {@link #read(Path, int)} still apply. An explicit nonzero root uid is
+     * refused; the attribute source and a zero root uid are a trusted caller's ownership fixture.
      */
     public static byte[] read(Path file, int maximumBytes, Attributes attributes, int root)
             throws IOException {

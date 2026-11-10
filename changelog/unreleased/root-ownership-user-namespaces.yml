@@ -1,0 +1,2 @@
+title: Refuse uncertain root ownership in user namespaces, limiting unmapped owners to programs in fixed distribution directories
+type: security

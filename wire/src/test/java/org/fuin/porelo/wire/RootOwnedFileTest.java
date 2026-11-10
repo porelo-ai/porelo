@@ -174,18 +174,91 @@ class RootOwnedFileTest {
     }
 
     @Test
-    void anUnmappedHostsRootIsAcceptedButTheNamespaceOwnerIsRefused() throws Exception {
+    void anotherUnmappedAccountsDataIsRefused() throws Exception {
+        // Another unmapped account must not pass its data off as root's configuration.
         final Path file = file();
-        final RootOwnedFile.Attributes unmappedRoot =
+        final RootOwnedFile.Attributes unmappedOwner =
                 path -> {
                     final Map<String, Object> values = rootOwned(path);
                     values.put("uid", 65534);
                     return values;
                 };
-        assertThat(RootOwnedFile.read(file, 100, unmappedRoot, 65534))
-                .as("the host's root may appear as the overflow uid")
-                .hasSize(9);
+        assertThatThrownBy(
+                        () ->
+                                RootOwnedFile.read(
+                                        file,
+                                        100,
+                                        unmappedOwner,
+                                        SystemProgram.rootAsSeenHere(
+                                                "0 1008 1\n1 624288 65536\n", 65534)))
+                .as("root and every other unmapped owner have the same numeric uid")
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("unmapped");
+    }
+
+    @Test
+    void anOverflowOwnerDoesNotQualifyEvenAtADistributionPath() {
+        // The executable-only exception must not make ambiguous data trusted host configuration.
+        assertThatThrownBy(
+                        () ->
+                                RootOwnedFile.checkPath(
+                                        Path.of("/usr/bin/host-data"),
+                                        path ->
+                                                Map.of(
+                                                        "uid",
+                                                        65534,
+                                                        "mode",
+                                                        path.getFileName() != null
+                                                                        && path.getFileName()
+                                                                                .toString()
+                                                                                .equals("host-data")
+                                                                ? 0100644
+                                                                : 040755),
+                                        SystemProgram.rootAsSeenHere(
+                                                "0 1008 1\n1 624288 65536\n", 65534)))
+                .as("data reads have no distribution-path exception")
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("unmapped");
+    }
+
+    @Test
+    void anOpenFileOfAnotherUnmappedAccountIsRefused() throws Exception {
+        // Pinning an inode does not prove that an overflow owner is the host's root.
+        final Path file = file();
+        try (var input = Files.newInputStream(file);
+                var descriptors = Files.list(Path.of("/proc/self/fd"))) {
+            Path descriptor = null;
+            for (Path candidate : descriptors.toList()) {
+                try {
+                    if (Files.readSymbolicLink(candidate).equals(file)) {
+                        descriptor = candidate;
+                        break;
+                    }
+                } catch (java.nio.file.NoSuchFileException ex) {
+                    // Unrelated descriptors may close while the fixture's file stays pinned.
+                }
+            }
+            final Path opened =
+                    java.util.Objects.requireNonNull(
+                            descriptor, "the fixture must hold its file open");
+            assertThatThrownBy(
+                            () ->
+                                    RootOwnedFile.readOpened(
+                                            opened,
+                                            100,
+                                            path -> Map.of("uid", 65534, "mode", 0100644),
+                                            SystemProgram.rootAsSeenHere(
+                                                    "0 1008 1\n1 624288 65536\n", 65534)))
+                    .as("a descriptor must not bypass the ownership refusal")
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("unmapped");
+        }
+    }
+
+    @Test
+    void theNamespaceOwnerCannotSupplyHostConfiguration() throws Exception {
         // Namespace uid zero may be the unprivileged caller rather than the host's root.
+        final Path file = file();
         assertThatThrownBy(() -> RootOwnedFile.read(file, 100, this::rootOwned, 65534))
                 .as("uid zero inside a rootless namespace cannot supply host configuration")
                 .isInstanceOf(IOException.class)

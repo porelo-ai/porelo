@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Guards against executing a program another account can replace. */
 class SystemProgramTest {
@@ -139,50 +141,160 @@ class SystemProgramTest {
     }
 
     @Test
-    void theHostsRootIsWhereTheNamespaceMapsItOrTheOverflowUidWhereItDoesNot() {
-        // As measured in rootless podman's namespace: the caller is uid 0, the host's root
-        // unmapped.
+    void theInitialNamespaceTakesTheHostsRootOwnedProgram() throws Exception {
+        // Refusing the host's own root would prevent the firewall hook from starting tasks.
+        final Path program = executable();
         assertThat(
-                        SystemProgram.rootAsSeenHere(
-                                "         0       1008          1\n         1     624288      65536\n",
-                                65534))
-                .as("under rootless podman the host's root reads as the overflow uid")
-                .isEqualTo(65534);
-        assertThat(SystemProgram.rootAsSeenHere("         0          0 4294967295\n", 65534))
-                .as("in the host's own namespace root is uid 0")
-                .isEqualTo(0);
-        assertThat(SystemProgram.rootAsSeenHere("      1000          0          1\n", 65534))
-                .as("a namespace that maps the host's root sees it where it maps it")
-                .isEqualTo(1000);
+                        SystemProgram.find(
+                                "nft",
+                                List.of(directory),
+                                this::rootOwned,
+                                SystemProgram.rootAsSeenHere(" 0 0 4294967295\n", 65534)))
+                .as("the full identity map establishes the host's own root")
+                .isEqualTo(program.toRealPath());
+    }
+
+    private static final String ROOTLESS_MAP = " 0 1008 1\n 1 624288 65536\n";
+
+    private SystemProgram.Attributes distribution(Path program, Path target, int owner) {
+        return new SystemProgram.Attributes() {
+            @Override
+            public Map<String, Object> read(Path path) {
+                return Map.of("uid", owner, "mode", path.equals(target) ? 0100755 : 040755);
+            }
+
+            @Override
+            public void exists(Path path) throws IOException {
+                if (!path.equals(program))
+                    throw new java.nio.file.NoSuchFileException(path.toString());
+            }
+
+            @Override
+            public Path realPath(Path path) {
+                return target;
+            }
+
+            @Override
+            public boolean executable(Path path) {
+                return path.equals(target);
+            }
+        };
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/usr/sbin", "/usr/bin", "/sbin", "/bin"})
+    void aMultilineRootlessMapAllowsFixedDistributionPrograms(String directory) throws Exception {
+        // The real two-line podman map must still let the hooks load the task's firewall.
+        final Path program = Path.of(directory, "nft");
+        final Path target = Path.of("/usr/bin/nft");
+        assertThat(
+                        SystemProgram.find(
+                                "nft",
+                                List.of(program.getParent()),
+                                distribution(program, target, 65534),
+                                SystemProgram.rootAsSeenHere(ROOTLESS_MAP, 65534)))
+                .as("only fixed distribution paths get the unmapped-owner exception")
+                .isEqualTo(target);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {" 0 0 1\n", " 1000 0 1\n", " 0 1008 1\n 1 624288 65536\n 70000 0 1\n"})
+    void aMapOfRootOutsideTheInitialNamespaceIsRefused(String map) {
+        // A nested namespace must not promote its unprivileged uid zero into the host's root.
+        assertThatThrownBy(() -> SystemProgram.rootAsSeenHere(map, 65534))
+                .as("a short identity map or host root at another inside uid is unsafe")
+                .isInstanceOf(IOException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "",
+                "bad map",
+                "0 1008 1\nmalformed\n",
+                "0 1008 0\n",
+                "-1 1008 1\n",
+                "0 4294967295 1\n",
+                "4294967294 1008 2\n",
+                "0 1008 1\n0 624288 65536\n",
+                "0 1008 1\n1 1008 1\n"
+            })
+    void anUncertainMapIsRefused(String map) {
+        // An incomplete or invalid map must not grant the unmapped-owner exception.
+        assertThatThrownBy(() -> SystemProgram.rootAsSeenHere(map, 65534))
+                .as("every range must be understood before ownership can be trusted")
+                .isInstanceOf(IOException.class);
     }
 
     @Test
-    void inARootlessNamespaceTheHostsRootPassesAndTheCallersOwnUidDoesNot() throws Exception {
-        final Path program = executable();
-        final SystemProgram.Attributes asSeenRootless =
-                path -> {
-                    final Map<String, Object> attributes = rootOwned(path);
-                    attributes.put("uid", 65534);
-                    return attributes;
-                };
+    void anOverflowUidOfZeroCannotIdentifyRootInARootlessMap() {
+        // A configurable overflow uid of zero must not turn every unmapped owner into root.
+        assertThatThrownBy(() -> SystemProgram.rootAsSeenHere(ROOTLESS_MAP, 0))
+                .as("ambiguous overflow ownership cannot take the initial-root path")
+                .isInstanceOf(IOException.class);
+    }
 
-        assertThat(SystemProgram.find("nft", List.of(directory), asSeenRootless, 65534))
-                .as("the host's root's program, read as the overflow uid, is taken")
-                .isEqualTo(program.toRealPath());
+    @Test
+    void anotherUnmappedAccountsProgramOutsideDistributionPathsIsRefused() throws Exception {
+        // Another unmapped account must not supply an executable under its own directory.
+        final Path program = executable();
         assertThatThrownBy(
                         () ->
                                 SystemProgram.find(
                                         "nft",
                                         List.of(directory),
-                                        path -> {
-                                            final Map<String, Object> attributes =
-                                                    asSeenRootless.read(path);
-                                            if (path.equals(program)) {
-                                                attributes.put("uid", 0);
-                                            }
-                                            return attributes;
-                                        },
-                                        65534))
+                                        distribution(program, program, 65534),
+                                        SystemProgram.rootAsSeenHere(ROOTLESS_MAP, 65534)))
+                .as("the overflow uid alone cannot establish root ownership")
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("unmapped");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/usr/bin/../bin", "/usr/bin/tools", "/usr/binary"})
+    void anOverflowOwnerCannotUseAnAmbiguousOrNonDistributionPath(String directory)
+            throws Exception {
+        // Normalization or prefix matching must not extend the distribution exception.
+        final Path program = Path.of(directory, "nft");
+        assertThatThrownBy(
+                        () ->
+                                SystemProgram.find(
+                                        "nft",
+                                        List.of(program.getParent()),
+                                        distribution(program, program, 65534),
+                                        SystemProgram.rootAsSeenHere(ROOTLESS_MAP, 65534)))
+                .as("only normalized immediate children of the fixed directories qualify")
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    void aDistributionLinkCannotEscapeToAnotherUnmappedAccountsProgram() throws Exception {
+        // A distribution symlink must not carry the overflow exception into another account's
+        // files.
+        final Path program = Path.of("/usr/bin/nft");
+        final Path target = Path.of("/home/other/nft");
+        assertThatThrownBy(
+                        () ->
+                                SystemProgram.find(
+                                        "nft",
+                                        List.of(program.getParent()),
+                                        distribution(program, target, 65534),
+                                        SystemProgram.rootAsSeenHere(ROOTLESS_MAP, 65534)))
+                .as("the resolved executable must qualify independently")
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    void inARootlessNamespaceTheCallersOwnUidDoesNotPass() throws Exception {
+        // The caller's own uid zero must not supply a distribution executable to the hook.
+        final Path program = Path.of("/usr/bin/nft");
+        assertThatThrownBy(
+                        () ->
+                                SystemProgram.find(
+                                        "nft",
+                                        List.of(program.getParent()),
+                                        distribution(program, program, 0),
+                                        SystemProgram.rootAsSeenHere(ROOTLESS_MAP, 65534)))
                 .as("the caller's own file, uid 0 inside the namespace, is not root's")
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("not owned by root");
