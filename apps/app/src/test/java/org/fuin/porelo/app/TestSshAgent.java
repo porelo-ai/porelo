@@ -27,19 +27,35 @@ final class TestSshAgent implements AutoCloseable, AfterEachCallback {
                             .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                             .start();
             agents.add(agent);
-            for (int i = 0; i < 100 && !Files.exists(socket); i++) {
+            // The socket file appears when the agent binds it, before it listens: a client in
+            // between is refused. Waited for until a connection is taken, not until the file is
+            // there.
+            for (int i = 0; i < 250 && !accepts(socket); i++) {
                 if (!agent.isAlive()) {
-                    throw new IOException("test SSH agent exited before creating " + socket);
+                    throw new IOException("test SSH agent exited before listening on " + socket);
                 }
                 Thread.sleep(20);
             }
-            if (!Files.exists(socket)) {
-                throw new IOException("test SSH agent did not create " + socket);
+            if (!accepts(socket)) {
+                throw new IOException("test SSH agent does not listen on " + socket);
             }
             return agent;
         } catch (IOException | InterruptedException | RuntimeException | Error ex) {
             close();
             throw ex;
+        }
+    }
+
+    /** Whether the agent takes a connection on its socket yet. */
+    private static boolean accepts(Path socket) {
+        if (!Files.exists(socket)) {
+            return false;
+        }
+        try (var channel =
+                java.nio.channels.SocketChannel.open(java.net.StandardProtocolFamily.UNIX)) {
+            return channel.connect(java.net.UnixDomainSocketAddress.of(socket));
+        } catch (IOException refused) {
+            return false;
         }
     }
 
