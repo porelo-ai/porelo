@@ -15,8 +15,9 @@ and every place that names the default names the new one.
   - `ProjectCreateRepositoryCommand`, a new repository's file;
   - `AgentLogin.LOGIN_BASE_IMAGE`, the image an agent's login runs in.
   - The tests and the documentation that name 24.04.
-- **Ecosystems' list:** porelo-ecosystems' Maven plugin knows which base images carry which tools
-  (`plugins/maven/.../ToolNeeds.java`), so the list there moves with it, and its release goes with Porelo's.
+- **Ecosystems' list:** porelo-ecosystems' Maven adapter knows which base images carry which tools
+  (`adapters/maven/src/main/java/org/fuin/porelo/ecosystem/maven/ToolNeeds.java`), so the list there moves with it,
+  and its release goes with Porelo's.
 - **The packages layer:** each package a task image installs from Ubuntu is checked to exist under the same name in
   26.04.
 
