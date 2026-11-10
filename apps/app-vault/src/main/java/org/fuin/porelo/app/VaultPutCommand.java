@@ -429,7 +429,8 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 err.flush();
             }
         }
-        if (GitCredentialNames.isOne(name)) {
+        if (GitCredentialNames.isOne(name)
+                || name.matches("[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?\\.(central|person)")) {
             // Not a provider's name and not meant to be: these are read by the git commands this
             // machine runs. Warning that "no provider is declared" for one sent people looking for
             // a mistake they had not made.

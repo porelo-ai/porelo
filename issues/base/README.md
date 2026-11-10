@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. |
 | <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. |
 | <a id="b583"></a>[B583](B583-The-Rooms-Members-Over-The-Daemon.md) | S | - | `RoomMembers` over the daemon from the transport's `members` verb: who is in a project's room, tasks by container. |
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
@@ -136,7 +137,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. |
 | <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. |
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |

@@ -3,6 +3,7 @@ package org.fuin.porelo.app;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -74,6 +75,9 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
 
     /** Whether a terminal is present to ask a passphrase on; another check only in a test. */
     BooleanSupplier terminal = Offer::atTerminal;
+
+    /** A gathered transfer keeps the issued token even when its vault update fails. */
+    java.util.function.Consumer<String> received = secret -> {};
 
     @Override
     public void setContext(final PoreloContext context) {
@@ -165,15 +169,19 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
         final CommandResult issued;
         try {
             issued =
-                    context.runner()
-                            .run(
-                                    org.fuin.porelo.core.process.Command.of(
+                    HostGatherRunner.system(
+                            context.runner(),
+                            org.fuin.porelo.core.process.Command.of(
                                             sudo.toString(),
                                             "-n",
                                             hostProgram.toString(),
                                             "forge",
-                                            "issue-token"));
-        } catch (final CommandException ex) {
+                                            "issue-token")
+                                    .in(Path.of("/"))
+                                    .withChosenEnvironment(
+                                            java.util.Map.of(
+                                                    "PATH", "/usr/sbin:/usr/bin", "LC_ALL", "C")));
+        } catch (final CommandException | HostGatherRefusal ex) {
             err.println(
                     "porelo: sudo -n "
                             + HOST_PROGRAM
@@ -208,6 +216,7 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
             return 69;
         }
         final String entryName = settings.entryName();
+        received.accept(secret);
         try {
             context.vault()
                     .update(
@@ -250,6 +259,15 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
         for (final String line : stdout.lines().toList()) {
             if (!line.isEmpty()) {
                 words = words.replace(line, "[redacted]");
+                final byte[] bytes = ("x-access-token:" + line).getBytes(StandardCharsets.UTF_8);
+                try {
+                    words =
+                            words.replace(
+                                    java.util.Base64.getEncoder().encodeToString(bytes),
+                                    "[redacted]");
+                } finally {
+                    java.util.Arrays.fill(bytes, (byte) 0);
+                }
             }
         }
         return words.replaceAll("[0-9a-f]{40}", "[redacted]")

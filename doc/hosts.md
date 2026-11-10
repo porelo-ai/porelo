@@ -108,6 +108,48 @@ to 100 repositories and 500 open rows; each repository to 100 pages of 50. Maker
 A bound, unavailable mirror commit, forge failure, or loss of access refuses the observation and ends a stream
 with a named error. Absence alone never means closed. Clients must mark retained data stale and ask again.
 
+## A person's gathered push and pull
+
+`porelo host push <project> [<repository>...]` sends the host's approved local `main` to central; `porelo host pull
+<project> [<repository>...]` brings central `main` to local `central/main` for reconciliation in a task. These are the
+person's commands, run in their own account, replacing `porelo-host-push` and its `--pull` mode. Pull never changes
+local `main`, and a gathered push never forces central `main`. A rejected push stops before later repositories and
+brings central's missing commits back for a task to merge and obtain approval.
+
+Root publishes the forge's `name` and `git_port` in `/etc/porelo-host/forge.conf`. That checked `name` determines the
+vault entries: `<forge>.central` for the person's central token and `<forge>.person` for the freshly issued local
+token. Store the central token with `porelo vault put <forge>.central`. A missing entry in a readable vault names
+this command and runs
+nothing. A non-interactively shut vault also refuses before any process runs. At a terminal, configuration is
+validated before a passphrase is asked, and that passphrase is kept for this command only. A shut share-only host
+vault names `porelo host unlock <host>`; a device-only vault names its enrolled device. Neither gathered command
+reads a token from stdin or expands argument files.
+
+The person's `$XDG_CONFIG_HOME/porelo-host/push/<project>.conf` supplies `local`, `owner`, `central-ca`, and `repository
+<name> <https-url>` lines. Its directories belong to the person and are not writable by others; `push` is 0700 and
+the file is 0600. Reads check opened descriptors, refuse links, pipes, NUL bytes and more than 64 KiB, and have a
+ten-second budget. The CA's entire resolved path is root's alone. Root-owned bundle links, including ancestor links
+and relative targets, use the same bounded component walk as the removal check. Without repository arguments, every
+configured repository
+is selected in file order. Git uses a private scratch directory and only the current destination's credential,
+with no redirects, hooks, credential helpers, proxies, automatic maintenance or inherited configuration. Scratch and
+active Git processes
+are cleaned on interruption. Git output is captured completely up to 16 MiB per stream; an unreadable or larger
+reply refuses without displaying a partial diagnostic. Once a process exits, its output pipes have one shared
+two-second grace period; descendants retaining a pipe cannot hold the command indefinitely.
+
+The only privileged operation is the existing `porelo-host forge issue-token`, through this exact sudo rule:
+
+```sudoers
+%porelo-people ALL=(root) NOPASSWD: /usr/sbin/porelo-host forge issue-token
+```
+
+It takes the person from `SUDO_USER` and checks `SUDO_UID`, with no person argument. Sudo starts in `/` with only
+`PATH=/usr/sbin:/usr/bin` and `LC_ALL=C`, so caller secrets, locale and working directory are not inherited. Its stdout goes directly into
+the vault and the current operation, never a terminal. If saving a newly issued local token fails, the gathered
+operation warns and continues using it in memory. There is no privileged push or pull verb. For removal, the host
+keeps `porelo-host project check-central`, the read-only preservation check; `down` is separate.
+
 ## A task certificate judged for the host
 
 A machine is a host whose persons start tasks when `/etc/porelo-host` or the installed `/usr/sbin/porelo-host` is

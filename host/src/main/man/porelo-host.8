@@ -85,6 +85,16 @@ and print {"task":"<task>","ended":true}. An unrecorded task is refused.
 .B forge issue\-token
 Through sudo only: replace the person's forge tokens except lends younger than
 one day, and answer the new token alone, without a line end.
+Used by porelo host forge-token and the person's gathered porelo host push and
+porelo host pull. The person comes from SUDO_USER, with SUDO_UID checked against
+the account database; there is no person argument and stdin carries no central token.
+The exact sudo rule for this existing verb is:
+.nf
+%porelo-people ALL=(root) NOPASSWD: /usr/sbin/porelo-host forge issue-token
+.fi
+The person's commands read <forge>.central from their vault, with <forge> from
+root's forge.conf, and run Git in their own account. There is no root push or pull
+verb. Removal uses project check-central; down is not a gathered transfer.
 .TP
 .B forge lend\-token
 Through sudo only: make a token for one command, preserving the person's token

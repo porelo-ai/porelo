@@ -72,7 +72,9 @@ public class PoreloCli implements Callable<Integer> {
      * @return The command line.
      */
     public static CommandLine commandLine(PoreloContext context) {
-        final CommandLine line = new CommandLine(new PoreloCli(), new PoreloFactory(context));
+        final CommandLine line =
+                new CommandLine(new PoreloCli(), new PoreloFactory(context))
+                        .setExpandAtFiles(false);
         // Added here: clearing the vault reaches transports and tasks, which the vault's area does
         // not depend on.
         java.util.Objects.requireNonNull(

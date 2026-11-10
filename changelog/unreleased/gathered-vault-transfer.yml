@@ -1,0 +1,2 @@
+title: "`porelo host push` and `porelo host pull` take the central token from the person's vault and reconcile central changes through local `central/main`"
+type: added

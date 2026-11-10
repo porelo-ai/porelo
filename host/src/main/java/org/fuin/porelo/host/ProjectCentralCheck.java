@@ -290,48 +290,22 @@ final class ProjectCentralCheck {
             ca = Path.of(content);
         }
         try {
-            ca = resolveAuthority(ca, 0);
+            ca =
+                    org.fuin.porelo.wire.RootOwnedAuthority.resolve(
+                            ca,
+                            files.root,
+                            files.owner,
+                            path ->
+                                    Files.readAttributes(
+                                            path,
+                                            "unix:uid,mode",
+                                            java.nio.file.LinkOption.NOFOLLOW_LINKS));
             files.trusted(ca, false);
         } catch (HostRefusal | IOException | IllegalArgumentException ex) {
             throw new HostRefusal(
                     66, "the central forge's CA " + ca + " is not a file only root can change");
         }
         return ca;
-    }
-
-    private Path resolveAuthority(Path path, int links) throws IOException {
-        if (!path.isAbsolute() || !path.startsWith(files.root) || links > 40) {
-            throw new IOException("CA path is outside its trust anchor or has too many links");
-        }
-        if (path.equals(files.root)) {
-            return path;
-        }
-        final Path parent = resolveAuthority(ProjectFiles.parent(path), links);
-        final Path resolved = parent.resolve(path.getFileName()).normalize();
-        if (!resolved.startsWith(files.root)) {
-            throw new IOException("CA path leaves its trust anchor");
-        }
-        final var attributes =
-                Files.readAttributes(
-                        resolved, "unix:uid,mode", java.nio.file.LinkOption.NOFOLLOW_LINKS);
-        final int mode =
-                (int)
-                        java.util.Objects.requireNonNull(
-                                attributes.get("mode"), "Unix attributes include mode");
-        if ((mode & 0170000) == 0120000) {
-            if (!Integer.valueOf(files.owner).equals(attributes.get("uid"))) {
-                throw new IOException("CA link is not owned by root");
-            }
-            final Path target = Files.readSymbolicLink(resolved);
-            return resolveAuthority(
-                    target.isAbsolute() ? target : parent.resolve(target), links + 1);
-        }
-        if ((mode & 0170000) == 0040000) {
-            files.directory(resolved, false, false);
-        } else {
-            files.trusted(resolved, false);
-        }
-        return resolved;
     }
 
     private List<String> refs(String name, Path repo, String side, String prefix)

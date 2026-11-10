@@ -11,6 +11,8 @@ import picocli.CommandLine.Command;
             HostUnlockCommand.class,
             HostForgeTokenCommand.class,
             HostCentralStateCommand.class,
-            HostStopSecretsCommand.class
+            HostStopSecretsCommand.class,
+            HostGatherPushCommand.class,
+            HostGatherPullCommand.class
         })
 public class HostCommand {}

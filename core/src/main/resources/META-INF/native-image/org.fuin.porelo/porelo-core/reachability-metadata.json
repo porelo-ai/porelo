@@ -33,6 +33,14 @@
         "parameterTypes": [
           "jint"
         ]
+      },
+      {
+        "returnType": "jint",
+        "parameterTypes": [
+          "jint",
+          "void*",
+          "jint"
+        ]
       }
     ]
   }
