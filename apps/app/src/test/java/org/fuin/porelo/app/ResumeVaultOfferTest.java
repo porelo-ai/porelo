@@ -88,6 +88,9 @@ class ResumeVaultOfferTest {
                                 new TaskHelpers.Helper(
                                         "vault", List.of("true"), Map.of(), TaskHelpers.BEFORE)))
                 .writeTo(record);
+        LegacyTaskFixture.record(context, TASK, "uc", "c0ffeec0ffee");
+        runner.answering("ps", TASK + "\tExited (0)\t\t\tuc\tguarded\tuc\t\tc0ffeec0ffee\n");
+        runner.answering("container inspect --format {{.Id}}", "c0ffeec0ffee");
         runner.answering("container inspect", "4711");
         return context;
     }

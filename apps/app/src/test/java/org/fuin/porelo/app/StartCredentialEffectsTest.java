@@ -78,6 +78,11 @@ class StartCredentialEffectsTest {
         return context;
     }
 
+    private void stoppedTask(PoreloContext context) throws java.io.IOException {
+        LegacyTaskFixture.record(context, "porelo-p-work", "p", "c0ffeec0ffee");
+        machine.answering("ps", "porelo-p-work\tExited (0)\t\t\tp\tguarded\tp\t\tc0ffeec0ffee\n");
+    }
+
     private TaskLaunch launch(PoreloContext context) throws Exception {
         final Path project = dir.resolve("project.yml");
         Files.writeString(
@@ -159,9 +164,7 @@ class StartCredentialEffectsTest {
         final PoreloContext context = context();
         requireStub(context);
         final TaskLaunch launch = launch(context);
-        machine.answering(
-                "ps",
-                "porelo-p-work\tExited (0) 4 minutes ago\t1700000000\t1700000100\tp\tguarded\tp\t\n");
+        stoppedTask(context);
         new TaskProfile(
                         TaskProfile.VERSION,
                         AGENT,
@@ -191,9 +194,7 @@ class StartCredentialEffectsTest {
         final PoreloContext context = context();
         Files.delete(context.paths().xdg().data().resolve("agents/porelo-agent-stub"));
         final TaskLaunch launch = launch(context);
-        machine.answering(
-                "ps",
-                "porelo-p-work\tExited (0) 4 minutes ago\t1700000000\t1700000100\tp\tguarded\tp\t\n");
+        stoppedTask(context);
         final Path saved =
                 Files.createDirectories(context.paths().tasks().taskRecord("porelo-p-work"));
         new TaskProfile(
@@ -240,9 +241,7 @@ class StartCredentialEffectsTest {
         final PoreloContext context = context();
         Files.delete(context.paths().xdg().data().resolve("agents/porelo-agent-stub"));
         final TaskLaunch launch = launch(context);
-        machine.answering(
-                "ps",
-                "porelo-p-work\tExited (0) 4 minutes ago\t1700000000\t1700000100\tp\tguarded\tp\t\n");
+        stoppedTask(context);
         final Path saved =
                 Files.createDirectories(context.paths().tasks().taskRecord("porelo-p-work"));
         new TaskProfile(
@@ -543,9 +542,7 @@ class StartCredentialEffectsTest {
         final PoreloContext context = context();
         Files.delete(context.paths().xdg().data().resolve("agents/porelo-agent-stub"));
         final TaskLaunch launch = launch(context);
-        machine.answering(
-                "ps",
-                "porelo-p-work\tExited (0) 4 minutes ago\t1700000000\t1700000100\tp\tguarded\tp\t\n");
+        stoppedTask(context);
         new TaskProfile(
                         TaskProfile.VERSION,
                         AGENT,
@@ -581,9 +578,7 @@ class StartCredentialEffectsTest {
         final PoreloContext context = context().asking(shown -> "test passphrase".toCharArray());
         Files.delete(context.paths().xdg().data().resolve("agents/porelo-agent-stub"));
         final TaskLaunch launch = launch(context);
-        machine.answering(
-                "ps",
-                "porelo-p-work\tExited (0) 4 minutes ago\t1700000000\t1700000100\tp\tguarded\tp\t\n");
+        stoppedTask(context);
         new TaskProfile(
                         TaskProfile.VERSION,
                         AGENT,

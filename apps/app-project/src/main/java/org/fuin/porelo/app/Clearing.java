@@ -186,6 +186,14 @@ public final class Clearing {
      * @return What it did; no items for a project this machine has nothing of.
      */
     public Result project(final String name, final boolean dryRun, final boolean force) {
+        try {
+            return new TaskReservations(context).locked(() -> projectHeld(name, dryRun, force));
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot check task reservations", ex);
+        }
+    }
+
+    private Result projectHeld(final String name, final boolean dryRun, final boolean force) {
         final List<Item> items = new ArrayList<>();
         @Nullable Project known = null;
         try {
@@ -267,6 +275,33 @@ public final class Clearing {
      * @return What it did; no items for an account with nothing to clear.
      */
     public Result account(final boolean dryRun, final boolean force) {
+        try {
+            return new TaskReservations(context)
+                    .locked(
+                            () -> {
+                                final java.util.Set<String> pending =
+                                        new TaskReservations(context).unfinishedNames();
+                                if (!pending.isEmpty()) {
+                                    final List<Item> kept =
+                                            pending.stream()
+                                                    .map(
+                                                            task ->
+                                                                    new Item(
+                                                                            "task",
+                                                                            task,
+                                                                            Status.NOT_REMOVED,
+                                                                            "its start is unfinished; retry it or remove that task first"))
+                                                    .toList();
+                                    return new Result(kept, List.of(), "", true);
+                                }
+                                return accountHeld(dryRun, force);
+                            });
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot check task reservations", ex);
+        }
+    }
+
+    private Result accountHeld(final boolean dryRun, final boolean force) {
         // All or nothing: cleared project by project, it stopped at the first that held work, and
         // the ones before it were already gone. Without force, the listing goes first; a refusal in
         // it clears nothing.

@@ -79,6 +79,13 @@ public class TaskRunner {
 
     private final CommandRunner commands;
 
+    private TaskReservations.@Nullable Lease reservation;
+
+    /** Uses the start's already published claim when recording podman's id. */
+    public void reserving(TaskReservations.@Nullable Lease lease) {
+        reservation = lease;
+    }
+
     /**
      * Constructor.
      *
@@ -918,6 +925,8 @@ public class TaskRunner {
                     durable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }
         Sidecar.recordId(durable, id);
+        final TaskReservations.Lease held = reservation;
+        if (held != null) held.created(id);
     }
 
     /**

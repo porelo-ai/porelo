@@ -290,7 +290,11 @@ For a new task, `phase` appears from its container on; the conversation's wait c
 is in `Start`'s stream only.
 A waiting phase includes ` - waiting on <waitingOn>` after the step's text, and the phase clears
 when the start ends.
-Typed error replies (`EarlierWorkWaits`, `UpstreamUnreadable`, `SignInNeeded`, `VaultLocked`) carry no `steps`.
+Typed error replies (`ContainerNameTaken`, `EarlierWorkWaits`, `UpstreamUnreadable`, `SignInNeeded`, `VaultLocked`) carry no `steps`.
+A start reserves its actual container name before making task files, helpers or secrets. `ContainerNameTaken`
+answers exit 64 on the CLI: choose another task name. It names the owning project and task when their
+records prove them; otherwise it reports occupied or unrecognized state. A failed start keeps its original
+attempt for a retry. Prune keeps that attempt's state, mail and secrets until an explicit task removal.
 For a start that needs its agent's model credential, `SignInNeeded` names the agent and any running sign-in;
 `VaultLocked` asks for unlocking instead. `waitForSignIn: true` waits on that agent's running sign-in for at most
 30 minutes and re-checks the exact credential needed by the selected provider. A different credential stored by

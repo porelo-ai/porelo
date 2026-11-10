@@ -12,6 +12,15 @@ import java.nio.file.Path;
  * @param paths The machine's roots.
  */
 public record TaskPaths(PoreloPaths paths) {
+    /** The account-wide cross-process name lock, always taken before a vault update. */
+    public Path reservationsLock() {
+        return paths.xdg().state().resolve("task-names.lock");
+    }
+
+    /** Committed ownership, retained even when a task's ordinary state is removed. */
+    public Path identity(String container) {
+        return paths.xdg().state().resolve("task-identities").resolve(container + ".json");
+    }
 
     /**
      * Returns where a start remembers advice already said for an old local project's checkout.

@@ -92,6 +92,11 @@ class TaskLifecycleCommandsTest {
         runner.answering("ps", LegacyTaskFixture.listed(rows, "c0ffeec0ffee"));
     }
 
+    private void stoppedTask(PoreloContext context) throws IOException {
+        LegacyTaskFixture.record(context, "porelo-uc-shell-1", "uc", "c0ffeec0ffee");
+        tasks("porelo-uc-shell-1\tExited (0)\t\t\tuc\tguarded\tuc\t\tc0ffeec0ffee\n");
+    }
+
     private Path stateOf(String container) throws IOException {
         return stateOf(container, "uc");
     }
@@ -621,7 +626,8 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
-    void saysATaskPredatesARestartRatherThanLettingPodmanExplain(@TempDir Path dir) {
+    void saysATaskPredatesARestartRatherThanLettingPodmanExplain(@TempDir Path dir)
+            throws IOException {
 
         // Reported: 'task resume' on a task from before a reboot answered sixteen frames of picocli
         // wrapping crun's "cannot stat .../vault.sock". The state directory is under
@@ -629,6 +635,7 @@ class TaskLifecycleCommandsTest {
         // broker socket out of it - so podman cannot start it and no helper can be started that
         // would bring the socket back. No state directory is exactly that situation.
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         runner.answering("container inspect", "c0ffee\n");
         tasks("porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n");
 
@@ -1088,6 +1095,7 @@ class TaskLifecycleCommandsTest {
     void resumingStartsTheContainerAndItsRecordedHelpers(@TempDir Path dir) throws Exception {
 
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         runner.answering("container inspect", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
         new TaskHelpers(
@@ -1201,6 +1209,7 @@ class TaskLifecycleCommandsTest {
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 org.fuin.porelo.vault.KernelKeyring.available(), "no kernel keyring here");
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         final char[] passphrase = "correct horse battery staple".toCharArray();
         final org.fuin.porelo.vault.KernelKeyring keyring =
                 new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
@@ -1248,6 +1257,7 @@ class TaskLifecycleCommandsTest {
     @Test
     void aResumeWhoseMcpKeyCannotBeReadSaysSoAndStartsNoMcp(@TempDir Path dir) throws Exception {
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         final McpDaemonSockets.Opener before =
                 McpDaemonSockets.install(opening(Optional.of(dir.resolve("daemon.sock"))));
         final Path stand = mcpStandIn(dir);
@@ -1313,6 +1323,7 @@ class TaskLifecycleCommandsTest {
         // the container first, it held the previous run's deleted socket and every request through
         // it went nowhere, while the same request from the host was answered.
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         runner.answering("container inspect", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
         final Path order = dir.resolve("order.txt");
@@ -1465,6 +1476,7 @@ class TaskLifecycleCommandsTest {
         // Told, not upgraded: everything installed in the container since it started would be lost
         // if resuming swapped the image, which is the opposite of what resuming is for.
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         runner.answering("container inspect --format {{.Id}}", "abc123");
         runner.answering("container inspect --format {{.ImageName}}", "porelo/uc\tsha256:old");
         runner.answering("image inspect", "sha256:new");
@@ -1488,6 +1500,7 @@ class TaskLifecycleCommandsTest {
     void resumingSaysNothingWhenTheImageIsUnchanged(@TempDir Path dir) throws IOException {
 
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         runner.answering("container inspect --format {{.Id}}", "abc123");
         runner.answering("container inspect --format {{.ImageName}}", "porelo/uc\tsha256:same");
         runner.answering("image inspect", "sha256:same");
@@ -1550,6 +1563,7 @@ class TaskLifecycleCommandsTest {
         // The container's environment is fixed when it is created: a freshly minted token would be
         // rejected by the proxy and would read as a bad credential.
         final PoreloContext context = context(dir);
+        stoppedTask(context);
         runner.answering("container inspect", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
         final Path marker = dir.resolve("argv.txt");

@@ -119,6 +119,18 @@ final class TaskMethods {
     }
 
     /** Maps the common start gate to the daemon's typed refusals. */
+    static void containerNameRefused(
+            org.fuin.porelo.app.TaskReservations.@Nullable ContainerNameTaken taken) {
+        if (taken == null) return;
+        final Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("container", taken.container);
+        fields.put("project", taken.project);
+        fields.put("task", taken.task);
+        if (taken.ownerProject != null) fields.put("ownerProject", taken.ownerProject);
+        if (taken.ownerTask != null) fields.put("ownerTask", taken.ownerTask);
+        throw new VarlinkException(INTERFACE + ".ContainerNameTaken", fields);
+    }
+
     static void credentialRefused(TaskLaunch.@Nullable CredentialRefusal refused) {
         if (refused == null) {
             return;
@@ -1015,6 +1027,7 @@ final class TaskMethods {
                                             undeclared.substring(0, undeclared.indexOf('\n'))));
                         }
                         if (!launch.credentialsReady(sink, sink)) {
+                            containerNameRefused(launch.containerNameTaken());
                             credentialRefused(launch.credentialRefusal());
                             final Map<String, Object> reply = new LinkedHashMap<>();
                             reply.put("container", "");
@@ -1072,6 +1085,7 @@ final class TaskMethods {
                                         });
                     }
                     sink.flush();
+                    containerNameRefused(launch.containerNameTaken());
                     credentialRefused(launch.credentialRefusal());
                     final org.fuin.porelo.gate.GitGate.Waiting earlier = launch.earlierWork();
                     if (existing == null && code != 0 && earlier != null) {

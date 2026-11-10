@@ -197,10 +197,16 @@ class PoreloDaemonTest {
         // state directory, so it was started before the machine restarted.
         final PoreloContext context = hooked(dir);
         final Path project = projectFile(dir);
-        runner.answering("container inspect", "c0ffee\n");
+        runner.answering(
+                "container inspect",
+                "c0ffee0000000000000000000000000000000000000000000000000000000000\n");
         runner.answering(
                 "ps",
-                "porelo-uc-shell\tExited (143) 1 day ago\t1700000000\t1700000100\tuc\tguarded\n");
+                "porelo-uc-shell\tExited (143) 1 day ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\tc0ffee0000000000000000000000000000000000000000000000000000000000\n");
+        // As a real start leaves it: the id recorded where it is kept across a restart.
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"),
+                "c0ffee0000000000000000000000000000000000000000000000000000000000");
 
         servingContext(
                 context,
@@ -239,10 +245,16 @@ class PoreloDaemonTest {
         // kept the work. The container name has to reach the task it names.
         final PoreloContext context = hooked(dir);
         final Path project = projectFile(dir);
-        runner.answering("container inspect", "c0ffee\n");
+        runner.answering(
+                "container inspect",
+                "c0ffee0000000000000000000000000000000000000000000000000000000000\n");
         runner.answering(
                 "ps",
-                "porelo-uc-shell\tExited (143) 1 day ago\t1700000000\t1700000100\tuc\tguarded\n");
+                "porelo-uc-shell\tExited (143) 1 day ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\tc0ffee0000000000000000000000000000000000000000000000000000000000\n");
+        // As a real start leaves it: the id recorded where it is kept across a restart.
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"),
+                "c0ffee0000000000000000000000000000000000000000000000000000000000");
 
         servingContext(
                 context,
@@ -426,7 +438,13 @@ class PoreloDaemonTest {
 
         final PoreloContext context = hooked(dir);
         final Path project = projectFile(dir);
-        runner.answering("ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\tc0ffee0000000000000000000000000000000000000000000000000000000000\n");
+        // As a real start leaves it: the id recorded where it is kept across a restart.
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"),
+                "c0ffee0000000000000000000000000000000000000000000000000000000000");
 
         servingContext(
                 context,

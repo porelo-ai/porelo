@@ -147,6 +147,33 @@ public final class ProjectDeletion {
      * @return What happened, or would have.
      */
     public Result delete(String project, boolean dryRun, boolean force) {
+        final TaskReservations reservations = new TaskReservations(context);
+        try {
+            return reservations.locked(
+                    () -> {
+                        final String pending = reservations.projectBusy(project);
+                        if (pending != null)
+                            return new Result(
+                                    Outcome.FAILED,
+                                    List.of(),
+                                    List.of(),
+                                    List.of(),
+                                    List.of(),
+                                    pending);
+                        return deleteHeld(project, dryRun, force);
+                    });
+        } catch (IOException ex) {
+            return new Result(
+                    Outcome.FAILED,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    "cannot check task reservations: " + ex.getMessage());
+        }
+    }
+
+    private Result deleteHeld(String project, boolean dryRun, boolean force) {
         final Prepared prepared = prepare(project, force);
         final Result checked = prepared.result();
         if (dryRun || checked.outcome() != Outcome.PREVIEWED) {

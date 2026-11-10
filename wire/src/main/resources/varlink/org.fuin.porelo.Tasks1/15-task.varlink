@@ -1376,6 +1376,13 @@ error EarlierWorkWaits(task: string, commit: string, subject: string)
 # name as Start settled it; 'detail' says which; name another branch with Start's 'branch' or other values.
 error BranchTaken(task: string, branch: string, detail: string)
 
+# Start refuses an actual container name held by another task or unrecognized state, before task
+# files, helpers or secrets are made. project and task are the requested logical owner. Optional
+# ownerProject and ownerTask identify the proven owner; absence means occupied with unknown ownership.
+# Choose another task name. The CLI answers exit 64 for the same refusal.
+error ContainerNameTaken(container: string, project: string, task: string, ownerProject: ?string, ownerTask: ?string)
+
+
 error NoSuchTask(task: string)
 
 # The refusals of a task's MCP socket, the per-task socket porelod serves a task's porelo-mcp on

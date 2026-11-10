@@ -51,6 +51,13 @@ public final class TaskNames {
                 logical.add(found.identity().task());
             }
         }
+        try {
+            final TaskReservations reservations = new TaskReservations(context);
+            taken.addAll(reservations.protectedNames());
+            logical.addAll(reservations.tasks(project));
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot check reserved task names", ex);
+        }
         final String prefix = ContainerName.PREFIX + project + "-";
         String chosen = fitted(project, base, "");
         for (int at = 2; taken.contains(prefix + chosen) || logical.contains(chosen); at++) {

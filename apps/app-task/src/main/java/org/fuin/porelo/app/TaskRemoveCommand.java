@@ -82,12 +82,30 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Override
     public Integer call() {
-        final TaskTarget.Found found =
+        try {
+            return removeTask();
+        } catch (TaskReservations.ContainerNameTaken ex) {
+            spec.commandLine().getErr().println("porelo: " + ex.getMessage());
+            spec.commandLine().getErr().flush();
+            return 64;
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot resolve an unfinished task", ex);
+        }
+    }
+
+    private Integer removeTask() throws java.io.IOException {
+        TaskTarget.Found found =
                 TaskTarget.resolve(
                         context,
                         container,
                         java.nio.file.Path.of("."),
                         TaskTarget.console(spec.commandLine().getOut()));
+        if (found.container() == null
+                && container != null
+                && org.fuin.porelo.runtime.ContainerName.isTask(container.strip())
+                && new TaskReservations(context).pendingRemoval(container.strip())) {
+            found = new TaskTarget.Found(container.strip(), "", 0);
+        }
         if (found.reason() == TaskIdentities.Reason.MISSING && container != null) {
             final PrintWriter out = spec.commandLine().getOut();
             final PrintWriter err = spec.commandLine().getErr();

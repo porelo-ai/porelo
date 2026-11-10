@@ -159,18 +159,27 @@ public final class Prune {
      * @return What was found, and what became of it.
      */
     public Result run(final boolean apply, final boolean includingWork) {
+        try {
+            return new TaskReservations(context).locked(() -> runLocked(apply, includingWork));
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot check task reservations", ex);
+        }
+    }
+
+    private Result runLocked(final boolean apply, final boolean includingWork) throws IOException {
         final List<Item> removes = new ArrayList<>();
         final List<Item> keeps = new ArrayList<>();
         final List<String> unchecked = new ArrayList<>();
 
         final List<ProjectInventory.Summary> projects = new ProjectInventory(context).projects();
-        final Set<String> running = new LinkedHashSet<>();
+        final Set<String> claimedProjects = new TaskReservations(context).projects();
+        final Set<String> running = new LinkedHashSet<>(claimedProjects);
         for (final TaskInventory.Task task : new TaskInventory(context).tasks()) {
             if (task.running() && task.project() != null) {
                 running.add(task.project());
             }
         }
-        final Set<String> remaining = new TreeSet<>();
+        final Set<String> remaining = new TreeSet<>(claimedProjects);
         final Set<String> placed = placed();
         for (final ProjectInventory.Summary project : projects) {
             if (!orphaned(project, running) || placed.contains(project.name())) {
@@ -187,6 +196,7 @@ public final class Prune {
         }
 
         final Set<String> containers = new LinkedHashSet<>(context.podman().poreloContainers());
+        containers.addAll(new TaskReservations(context).protectedNames());
         for (final String container : goneTasks(containers)) {
             final Item item = task(container, apply, includingWork);
             (item.holds().isEmpty() ? removes : keeps).add(item);
@@ -381,11 +391,19 @@ public final class Prune {
         }
         if (apply) {
             try {
-                new TaskState(context).forget(container);
-                new TaskSession(context).forget(container);
-                deleteTree(context.paths().tasks().containerState(container));
-                mailbox.delete();
-                new TaskGuide(context.paths(), container).delete();
+                final TaskReservations reservations = new TaskReservations(context);
+                reservations.mutate(
+                        container,
+                        () -> {
+                            reservations.retainBeforeRemoval(container);
+                            new TaskState(context).forget(container);
+                            new TaskSession(context).forget(container);
+                            deleteTree(context.paths().tasks().containerState(container));
+                            mailbox.delete();
+                            new TaskGuide(context.paths(), container).delete();
+                            reservations.retire(container);
+                            return Boolean.TRUE;
+                        });
             } catch (IOException | RuntimeException ex) {
                 return new Item("TASK", container, what, "not removed: " + ex.getMessage());
             }
@@ -603,6 +621,12 @@ public final class Prune {
                                     final Set<String> exist =
                                             new LinkedHashSet<>(
                                                     context.podman().poreloContainers());
+                                    try {
+                                        exist.addAll(
+                                                new TaskReservations(context).protectedNames());
+                                    } catch (IOException ex) {
+                                        throw new java.io.UncheckedIOException(ex);
+                                    }
                                     gone.clear();
                                     for (final String name : entries.keySet()) {
                                         if (orphanedEntry(name, exist, remaining)) {

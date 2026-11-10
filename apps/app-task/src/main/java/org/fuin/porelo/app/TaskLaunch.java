@@ -1365,6 +1365,28 @@ public final class TaskLaunch {
      *     to be created.
      */
     public @Nullable Existing startExisting(PrintWriter out, PrintWriter err, boolean goingIn) {
+        try {
+            return startExistingSteps(out, err, goingIn);
+        } catch (TaskReservations.ContainerNameTaken ex) {
+            nameTaken = ex;
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return new Existing(ex.container, ex.project, 64);
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            credentialRefusal = new CredentialRefusal("", true, null);
+            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: nothing was created");
+            err.flush();
+            return new Existing("", "", reservationVaultCode);
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        } finally {
+            releaseReservation();
+        }
+    }
+
+    private @Nullable Existing startExistingSteps(PrintWriter out, PrintWriter err, boolean goingIn)
+            throws java.io.IOException {
 
         if (request.dryRun()) {
             // A dry run must touch nothing, and asking the runtime what exists is touching it. The
@@ -1381,12 +1403,16 @@ public final class TaskLaunch {
         }
 
         adopt(project, out);
-        final String container = context.tasks().containerName(project, request.task());
+        final String container = startContainer(project);
         final java.util.Optional<org.fuin.porelo.runtime.ContainerSummary> summary =
                 context.podman().poreloTasks().stream()
                         .filter(found -> found.name().equals(container))
                         .findFirst();
         if (summary.isEmpty()) {
+            if (new TaskIdentities(context)
+                    .newTaskRefusal(project.name(), request.task())
+                    .isEmpty())
+                new TaskReservations(context).checkClaim(project.name(), request.task(), container);
             return null;
         }
         if (request.shortName() != null) {
@@ -1399,6 +1425,7 @@ public final class TaskLaunch {
                 return new Existing(container, project.name(), 64);
             }
         }
+        reserveTask(project, container, err);
         // Refused by the launch: a stopped task needs 'ssh-keygen -Y' as a new one does. A running
         // one is only gone into, which needs no signature.
         if (!summary.get().running()
@@ -2162,6 +2189,50 @@ public final class TaskLaunch {
         return upstreamFinding(project);
     }
 
+    private TaskReservations.@Nullable Lease reservation;
+
+    private TaskReservations.@Nullable ContainerNameTaken nameTaken;
+
+    /** The refusal shared by terminal, daemon and child starts. */
+    public TaskReservations.@Nullable ContainerNameTaken containerNameTaken() {
+        return nameTaken;
+    }
+
+    private String startContainer(Project project) {
+        final TaskIdentities.Result result =
+                new TaskIdentities(context).lookup(request.task(), project.name());
+        return result instanceof TaskIdentities.Found found
+                ? found.identity().container()
+                : context.tasks().containerName(project, request.task());
+    }
+
+    private int reservationVaultCode = 69;
+
+    private void reserveTask(Project project, String container, PrintWriter err)
+            throws java.io.IOException {
+        reservationVaultCode =
+                !project.mail().conversations().isEmpty()
+                                || request.mode() == org.fuin.porelo.wire.TaskMode.SHELL
+                        ? 77
+                        : 69;
+        context.openIfShut(
+                context.vault().exists() && context.recordedId(container) == null, true, err);
+        reservation =
+                new TaskReservations(context).start(project.name(), request.task(), container);
+    }
+
+    private void releaseReservation() {
+        final TaskReservations.Lease held = reservation;
+        reservation = null;
+        if (held != null) {
+            try {
+                held.close();
+            } catch (java.io.IOException ex) {
+                throw new java.io.UncheckedIOException(ex);
+            }
+        }
+    }
+
     /**
      * Starts a task and reports every entered stage to its listener.
      *
@@ -2182,11 +2253,28 @@ public final class TaskLaunch {
                 leaveDefaultIfSaid(out, err);
             }
             return code;
+        } catch (TaskReservations.ContainerNameTaken ex) {
+            nameTaken = ex;
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            steps.finish(64);
+            return 64;
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            credentialRefusal = new CredentialRefusal("", true, null);
+            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: nothing was created");
+            err.flush();
+            final int code = reservationVaultCode;
+            steps.finish(code);
+            return code;
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
         } catch (RuntimeException ex) {
             steps.refusal(String.valueOf(ex.getMessage()));
             steps.finish(70);
             throw ex;
         } finally {
+            releaseReservation();
             steps.clear();
         }
     }
@@ -2202,7 +2290,8 @@ public final class TaskLaunch {
         };
     }
 
-    private int launchSteps(PrintWriter out, PrintWriter err, AfterStart after) {
+    private int launchSteps(PrintWriter out, PrintWriter err, AfterStart after)
+            throws java.io.IOException {
         final java.util.Optional<String> badShort =
                 org.fuin.porelo.core.project.ShortName.refusal(request.shortName());
         if (badShort.isPresent()) {
@@ -2289,6 +2378,7 @@ public final class TaskLaunch {
         }
 
         if (!request.dryRun()) {
+            reserveTask(project, startContainer(project), err);
             try {
                 if (!newCredentialsReady(project, projectFile, repository, out, err)) {
                     return credentialCheckCode;
@@ -2530,7 +2620,8 @@ public final class TaskLaunch {
         }
 
         final TaskRunner runner = context.tasks();
-        final String container = runner.containerName(project, request.task());
+        final String container = startContainer(project);
+        runner.reserving(reservation);
         // Until the task is handed on, a failure is a start that failed, which leaves nothing
         // running whether or not the task was to be kept.
         handedOver = false;
@@ -3351,6 +3442,7 @@ public final class TaskLaunch {
             // them.
             steps.done(StartStep.Step.HELPERS);
             handedOver = true;
+            releaseReservation();
             return after.started(
                     new Running(
                             runner,

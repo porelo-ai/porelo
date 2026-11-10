@@ -74,6 +74,29 @@ public final class VaultClearing {
      * @return What it did; no items for an account with nothing to clear.
      */
     public Clearing.Result clear(final boolean dryRun, final boolean force) {
+        try {
+            return new TaskReservations(context).locked(() -> clearHeld(dryRun, force));
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot check task reservations", ex);
+        }
+    }
+
+    private Clearing.Result clearHeld(final boolean dryRun, final boolean force)
+            throws IOException {
+        final Set<String> pending = new TaskReservations(context).unfinishedNames();
+        if (!pending.isEmpty()) {
+            final List<Clearing.Item> kept =
+                    pending.stream()
+                            .map(
+                                    task ->
+                                            new Clearing.Item(
+                                                    "task",
+                                                    task,
+                                                    Clearing.Status.NOT_REMOVED,
+                                                    "its start is unfinished; retry it or remove that task first"))
+                            .toList();
+            return new Clearing.Result(kept, List.of(), "", true, Clearing.Kept.TASKS);
+        }
         final List<Clearing.Item> items = new ArrayList<>();
         final VaultFile vault = context.vault();
         final boolean exists = vault.exists();

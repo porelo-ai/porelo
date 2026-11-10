@@ -1,0 +1,2 @@
+title: "Task starts reserve their container name across the CLI, daemon and child starts before making task state, refuse a taken name as ContainerNameTaken with its known owner, and keep unfinished attempts through prune for a safe retry"
+type: added

@@ -35,6 +35,22 @@ import picocli.CommandLine;
  */
 class VaultClearingTest {
 
+    @Test
+    void anUnfinishedAttemptKeepsTheVaultEvenWithForce() throws Exception {
+        final PoreloContext context = context().asking(shown -> "test-passphrase".toCharArray());
+        context.vault().write(Map.of(), "test-passphrase".toCharArray());
+        assertThat(context.openerAsking(false, new PrintWriter(err))).isPresent();
+        try {
+            try (var claim =
+                    new TaskReservations(context).reserve("web", "x", "porelo-web-x", "first")) {}
+            final Clearing.Result result = new VaultClearing(context).clear(false, true);
+            assertThat(result.refused()).isTrue();
+            assertThat(context.vault().path()).exists();
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
 
     @TempDir Path dir;

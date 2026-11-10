@@ -17,6 +17,31 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class PruneTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void pruningCannotGiveAnotherOwnerAHistoricalName(boolean known) throws Exception {
+        final PoreloContext context = context();
+        final String name = "porelo-web-app-x";
+        if (known) LegacyTaskFixture.record(context, name, "web", "c0ffeec0ffee");
+        else Files.createDirectories(context.paths().tasks().taskRecord(name));
+        final Path state = context.paths().tasks().taskRecord(name);
+        try (var paths = Files.walk(state)) {
+            for (Path path : paths.toList())
+                Files.setLastModifiedTime(
+                        path, java.nio.file.attribute.FileTime.from(java.time.Instant.EPOCH));
+        }
+        new Prune(context).run(true, true);
+        assertThat(state).doesNotExist();
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new TaskReservations(context).reserve("web-app", "x", name, "other"))
+                .isInstanceOfSatisfying(
+                        TaskReservations.ContainerNameTaken.class,
+                        taken -> {
+                            assertThat(taken.ownerProject).isEqualTo(known ? "web" : null);
+                            assertThat(taken.ownerTask).isEqualTo(known ? "app-x" : null);
+                        });
+    }
+
     @TempDir Path dir;
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
@@ -34,6 +59,31 @@ class PruneTest {
                                 },
                         dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void anUnfinishedAttemptKeepsItsStateAndMailPastTheGrace(boolean live) throws Exception {
+        final PoreloContext context = context();
+        try (var claim =
+                new TaskReservations(context).reserve("web", "x", "porelo-web-x", "first")) {
+            final Path state = context.paths().tasks().taskRecord("porelo-web-x");
+            final Path mailbox = context.paths().messaging().mailbox("porelo-web-x");
+            for (Path directory : java.util.List.of(state, mailbox)) {
+                Files.createDirectories(directory);
+                Files.writeString(directory.resolve("sentinel"), "kept");
+                try (var paths = Files.walk(directory)) {
+                    for (Path path : paths.toList())
+                        Files.setLastModifiedTime(
+                                path,
+                                java.nio.file.attribute.FileTime.from(java.time.Instant.EPOCH));
+                }
+            }
+            if (!live) claim.close();
+            new Prune(context).run(true, true);
+            assertThat(state.resolve("sentinel")).exists();
+            assertThat(mailbox.resolve("sentinel")).exists();
+        }
     }
 
     /**

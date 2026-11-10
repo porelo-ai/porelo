@@ -241,6 +241,8 @@ class StartProgressReviewTest {
                         .answering("podman version", "5.8.1")
                         .failing(" build ", 125, "registry refused");
         final PoreloContext context = context(machine);
+        try (var claim =
+                new TaskReservations(context).reserve("p", "work", "porelo-p-work", "earlier")) {}
         installHooks(context);
         final Path blocked =
                 Files.createDirectories(
@@ -439,7 +441,7 @@ class StartProgressReviewTest {
                 .answering("{{.Id}}", "0123456789abcdef")
                 .answering(
                         "ps",
-                        "porelo-p-work\tExited (0) 1 minute ago\t1788500000\t1788500060\tp\tguarded\tp\t\n");
+                        "porelo-p-work\tExited (0) 1 minute ago\t1788500000\t1788500060\tp\tguarded\tp\t\t0123456789abcdef\n");
     }
 
     @Test
@@ -453,6 +455,7 @@ class StartProgressReviewTest {
                         .failing(" setup ", 75, "first line\nresume refused");
         final PoreloContext context =
                 context(machine).asking(shown -> "test passphrase".toCharArray());
+        LegacyTaskFixture.record(context, "porelo-p-work", "p", "0123456789abcdef");
         installHooks(context);
         Files.createDirectories(context.paths().tasks().containerState("porelo-p-work"));
         Files.createDirectories(context.vault().path().getParent());
@@ -500,6 +503,7 @@ class StartProgressReviewTest {
     void resumingTheContainerReportsItsHelperStageWithoutChangingWarnings() throws Exception {
         // A resume must expose helper startup even when it can only warn about missing records.
         final PoreloContext context = context(stoppedMachine());
+        LegacyTaskFixture.record(context, "porelo-p-work", "p", "0123456789abcdef");
         installHooks(context);
         Files.createDirectories(context.paths().tasks().containerState("porelo-p-work"));
         final List<StartStep> events = new ArrayList<>();

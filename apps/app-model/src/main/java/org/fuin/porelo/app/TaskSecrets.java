@@ -193,7 +193,12 @@ public final class TaskSecrets {
                                 // Asked here, under the vault's lock, not before it: a start beside
                                 // this one that kept its tokens in between has its container by
                                 // then, and its tokens are not pruned as a gone task's.
-                                final Set<String> exist = existing.get();
+                                final Set<String> exist = new java.util.HashSet<>(existing.get());
+                                try {
+                                    exist.addAll(new TaskReservations(context).protectedNames());
+                                } catch (java.io.IOException ex) {
+                                    throw new java.io.UncheckedIOException(ex);
+                                }
                                 // Only a task's own entries, whose owner is a container: a grant or
                                 // a transport's secrets are the account's, owned by no task.
                                 // Pruning every reserved name took them too, at every task start

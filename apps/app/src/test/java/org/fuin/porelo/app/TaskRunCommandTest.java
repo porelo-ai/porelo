@@ -27,6 +27,34 @@ import picocli.CommandLine;
 @org.junit.jupiter.api.extension.ExtendWith({OwnPorelo.class, NoPodman.class})
 class TaskRunCommandTest {
 
+    @Test
+    void aClaimOfAnotherProjectRefusesALegacyOverlapBeforeTaskFiles(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir, true);
+        try (var original =
+                new TaskReservations(context)
+                        .reserve("web", "app-x", "porelo-web-app-x", "original")) {}
+        final String file = projectFile(dir, MINIMAL.replace("\"uc\"", "\"web-app\""));
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "x",
+                        "-p",
+                        file,
+                        "--no-gate",
+                        "--attach",
+                        "shell");
+        assertThat(code)
+                .as("a collision must not create another owner's task: %s", err)
+                .isEqualTo(64);
+        assertThat(context.paths().tasks().containerState("porelo-web-app-x")).doesNotExist();
+        assertThat(context.paths().messaging().mailbox("porelo-web-app-x")).doesNotExist();
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman create") || line.contains("podman build"));
+    }
+
     private static final String MINIMAL =
             """
             project:
@@ -1096,7 +1124,43 @@ class TaskRunCommandTest {
      * than by thirty call sites, each of which is about something else; the requirement itself is
      * measured by {@link #startingATaskWithoutNamingARepositoryIsRefused}.
      */
+    /** Supplies the id and sidecar a real start left for the old abbreviated runtime rows. */
+    private void recordedTasks(PoreloContext context) {
+        final String rows = ((StoppingCommandRunner) runner).listedTasks();
+        if (rows.isBlank()) return;
+        final List<String> complete = new ArrayList<>();
+        for (String row : rows.lines().toList()) {
+            final String[] original = row.split("\t", -1);
+            if (!org.fuin.porelo.runtime.ContainerName.isTask(original[0])) {
+                complete.add(row);
+                continue;
+            }
+            final String[] fields = java.util.Arrays.copyOf(original, Math.max(9, original.length));
+            java.util.Arrays.fill(fields, original.length, fields.length, "");
+            if (fields[8].isEmpty())
+                fields[8] =
+                        java.util.Objects.requireNonNullElse(
+                                context.recordedId(fields[0]), "0123456789abcdef");
+            if (!fields[4].isEmpty()
+                    && !Files.exists(
+                            context.paths()
+                                    .tasks()
+                                    .taskRecord(fields[0])
+                                    .resolve("sidecar.json"))) {
+                try {
+                    LegacyTaskFixture.record(context, fields[0], fields[4], fields[8]);
+                } catch (IOException ex) {
+                    throw new java.io.UncheckedIOException(ex);
+                }
+            }
+            complete.add(String.join("\t", fields));
+        }
+        runner.answering("ps", String.join("\n", complete) + "\n");
+    }
+
     private int execute(PoreloContext context, String... args) {
+        if (args.length > 1 && args[0].equals("task") && args[1].equals("start"))
+            recordedTasks(context);
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
@@ -1125,6 +1189,7 @@ class TaskRunCommandTest {
      * as a script, which the test says since it has no terminal.
      */
     private int startAt(PoreloContext context, boolean terminal, String... args) {
+        recordedTasks(context);
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
@@ -1226,6 +1291,7 @@ class TaskRunCommandTest {
     private int firstStartAt(
             PoreloContext context, Path checkout, boolean terminal, String answer, String... args)
             throws IOException {
+        recordedTasks(context);
         runner.answering("--show-toplevel", checkout.toString());
         if (firstStartOrigin == null) {
             runner.failing("get-url origin", 2, "error: No such remote 'origin'");
@@ -2734,6 +2800,7 @@ class TaskRunCommandTest {
         Files.writeString(
                 context.paths().xdg().data().resolve("agents/preview.yaml.setup-fails"), "");
         runner.answering("{{.State.Pid}}", "4242");
+        anEarlierAttemptOfTheTask(context);
         final Path state =
                 Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
         final Process helper = new ProcessBuilder("sleep", "60").start();
@@ -2880,9 +2947,8 @@ class TaskRunCommandTest {
     void aStartThatFailsBeforeItsContainerLeavesAContainerOfItsNameItDidNotMake(@TempDir Path dir)
             throws IOException {
 
-        // Somebody else's container that has the task's name is no task of Porelo's: a start that
-        // failed before it made its own stopped and removed that one by name. Running, it also hid
-        // the helpers the start had already made from the reaping.
+        // Existing state without a proven owner prevents reservation. This attempt cannot stop
+        // the container or helper that another attempt may own.
         final PoreloContext context = countingContext(dir);
         runner.failing("podman build", 125, "the image does not build");
         runner.answering("{{.Id}}", "0123456789ab");
@@ -2909,9 +2975,9 @@ class TaskRunCommandTest {
                     .as("the container it did not make is left alone: %s", runner.lines())
                     .noneMatch(line -> line.contains("podman stop"))
                     .noneMatch(line -> line.contains("podman rm"));
-            assertThat(helper.waitFor(5, java.util.concurrent.TimeUnit.SECONDS))
-                    .as("what it made is stopped all the same: %s", err)
-                    .isTrue();
+            assertThat(helper.waitFor(100, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .as("a refusal before reservation cannot stop an unowned helper: %s", err)
+                    .isFalse();
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new AssertionError(ex);
@@ -3081,10 +3147,18 @@ class TaskRunCommandTest {
                     .as("its gate was up, and it is kept to start again: %s", out)
                     .contains("gate      http")
                     .contains("which offers to start it again");
+            // As podman lists it: the id the start recorded and the task's label.
+            final String recorded =
+                    org.fuin.porelo.wire.Sidecar.recordedId(
+                            context.paths().tasks().containerState("porelo-uc-shell"));
+            assertThat(recorded).as("the kept start recorded its container's id").isNotNull();
             runner.answering("{{.State.Status}}", "exited");
-            runner.answering("{{.Id}}", "0123456789ab");
+            runner.answering("{{.Id}}", recorded);
             runner.answering(
-                    "ps", RUNNING_SHELL.replace("Up 4 minutes", "Exited (0) 4 minutes ago"));
+                    "ps",
+                    RUNNING_SHELL
+                            .replace("Up 4 minutes", "Exited (0) 4 minutes ago")
+                            .replace("\t\n", "\t\t" + recorded + "\tshell\n"));
 
             assertThat(new TaskControl(context).resume("porelo-uc-shell").outcome())
                     .as("it comes back with what it had: %s", err)
@@ -5171,6 +5245,7 @@ class TaskRunCommandTest {
         runner.answering(
                 "ps", "porelo-uc-shell\tExited (0)\t1700000000\t1700000100\tuc\tguarded\told\t\n");
 
+        recordedTasks(context);
         final var launch =
                 new TaskLaunch(
                         context,
@@ -5991,6 +6066,16 @@ class TaskRunCommandTest {
                 .containsPattern("(?m)^sidecar   \\S+sidecar\\.json$");
     }
 
+    /**
+     * Reserves the task's name for an attempt whose holder has ended: helpers written before the
+     * start stand for ones its own reservation launched, never for another's leftovers.
+     */
+    private static void anEarlierAttemptOfTheTask(PoreloContext context) throws IOException {
+        try (var earlier = new TaskReservations(context).start("uc", "shell", "porelo-uc-shell")) {
+            assertThat(earlier.attempt()).isNotBlank();
+        }
+    }
+
     private String containerName() {
         // One container per project and task, with nothing unique appended. It used to carry the
         // launching process's pid, which is why a task could never be found again by its name.
@@ -6006,6 +6091,7 @@ class TaskRunCommandTest {
         // their sockets, and the next run failed for a reason unrelated to what changed.
         final PoreloContext context = context(dir, true);
         runner.failing("start", 125, "OCI runtime error");
+        anEarlierAttemptOfTheTask(context);
 
         final Path state = dir.resolve("run/porelo").resolve(containerName());
         Files.createDirectories(state);

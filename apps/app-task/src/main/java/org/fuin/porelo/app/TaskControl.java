@@ -238,6 +238,35 @@ public final class TaskControl {
      * @return What happened.
      */
     public Stopped remove(String container, boolean rescue, boolean force) {
+        if (!ContainerName.isTask(container)) {
+            return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
+        }
+        final TaskReservations reservations = new TaskReservations(context);
+        try {
+            return reservations.mutate(
+                    container,
+                    () -> {
+                        final TaskReservations.Owner pending = reservations.unmade(container);
+                        if (pending == null) return removeExisting(container, rescue, force);
+                        context.tasks().reapOrphans(container);
+                        new TaskConversations(context)
+                                .retire(context, container, pending.project());
+                        deleteTree(context.paths().tasks().containerState(container));
+                        new TaskState(context).forget(container);
+                        new TaskSession(context).forget(container);
+                        new TaskSecrets(context).forget(container);
+                        new Mailbox(context.paths().messaging().mailbox(container)).delete();
+                        new TaskGuide(context.paths(), container).delete();
+                        reservations.retire(container);
+                        return new Stopped(
+                                Outcome.STOPPED, null, null, true, 0, List.of(), null, null, 0);
+                    });
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot remove an unfinished task", ex);
+        }
+    }
+
+    private Stopped removeExisting(String container, boolean rescue, boolean force) {
         if (context.recognizesTasks() && context.recordedId(container) == null) {
             return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
         }
@@ -343,6 +372,20 @@ public final class TaskControl {
     }
 
     private Stopped stopRecorded(
+            String container,
+            boolean purge,
+            boolean rescue,
+            boolean force,
+            @Nullable ContainerState before) {
+        try {
+            return new TaskReservations(context)
+                    .mutate(container, () -> stopClaimed(container, purge, rescue, force, before));
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot reserve task removal", ex);
+        }
+    }
+
+    private Stopped stopClaimed(
             String container,
             boolean purge,
             boolean rescue,
@@ -535,6 +578,11 @@ public final class TaskControl {
             } catch (final java.io.IOException e) {
                 throw new java.io.UncheckedIOException(
                         "Removed the task but could not delete its mailbox: " + container, e);
+            }
+            try {
+                new TaskReservations(context).retire(container);
+            } catch (java.io.IOException ex) {
+                throw new java.io.UncheckedIOException("Cannot retire task identity", ex);
             }
         }
         return new Stopped(
@@ -747,7 +795,7 @@ public final class TaskControl {
                         .tasks()
                         .containerState(container)
                         .resolveSibling(container + ".resume.lock");
-        try {
+        try (var reservation = new TaskReservations(context).resume(container).orElse(null)) {
             return FileLocks.holding(lock, () -> resumeHeld(container));
         } catch (final java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);

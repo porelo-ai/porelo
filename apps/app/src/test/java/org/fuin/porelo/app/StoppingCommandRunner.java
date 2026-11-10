@@ -11,6 +11,7 @@ final class StoppingCommandRunner extends FakeCommandRunner {
     private String initialState;
     private String afterStop;
     private boolean attemptedStop;
+    private String scriptedTasks = "";
 
     void afterStop(String state) {
         afterStop = state;
@@ -35,6 +36,7 @@ final class StoppingCommandRunner extends FakeCommandRunner {
     @Override
     public FakeCommandRunner answering(String match, String output) {
         if (match.equals("ps")) {
+            scriptedTasks = output;
             initialStates.clear();
             output.lines()
                     .forEach(
@@ -45,6 +47,18 @@ final class StoppingCommandRunner extends FakeCommandRunner {
                             });
         }
         return super.answering(match, output);
+    }
+
+    String listedTasks() {
+        return scriptedTasks
+                .lines()
+                .filter(row -> !removed.contains(id(row)))
+                .map(
+                        row ->
+                                stopped.contains(id(row))
+                                        ? row.replaceFirst("\t[^\t]*", "\tExited (0)")
+                                        : row)
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private static String stateWord(String status) {

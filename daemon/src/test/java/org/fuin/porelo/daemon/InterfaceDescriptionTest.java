@@ -52,6 +52,13 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void aTakenContainerCarriesTheRequestedAndOptionalProvenOwner() {
+        assertThat(PoreloDaemon.description())
+                .contains(
+                        "error ContainerNameTaken(container: string, project: string, task: string, ownerProject: ?string, ownerTask: ?string)");
+    }
+
+    @Test
     void aProjectDeclaresItsOptionalHostFileError() {
         // Clients must distinguish an unreadable host file from a project the host does not carry.
         final Matcher project =
