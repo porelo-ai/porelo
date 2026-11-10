@@ -25,12 +25,27 @@ public final class TaskIdentities {
 
     /** Why ownership could not be established. */
     public enum Reason {
-        MISSING,
-        AMBIGUOUS,
-        MISSING_RECORD,
-        ID_MISMATCH,
-        PROJECT_MISMATCH,
-        INVALID_RECORD
+        MISSING("no task has that name"),
+        AMBIGUOUS("tasks of several projects have that name"),
+        MISSING_RECORD("its container has no identity record"),
+        ID_MISMATCH("its identity record names another container"),
+        PROJECT_MISMATCH("its identity record names another project"),
+        INVALID_RECORD("its identity record cannot be read");
+
+        private final String said;
+
+        Reason(final String said) {
+            this.said = said;
+        }
+
+        /**
+         * Returns the reason in a person's words.
+         *
+         * @return The words.
+         */
+        public String said() {
+            return said;
+        }
     }
 
     private final PoreloContext context;

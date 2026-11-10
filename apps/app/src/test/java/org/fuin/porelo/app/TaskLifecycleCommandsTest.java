@@ -1046,6 +1046,22 @@ class TaskLifecycleCommandsTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"status", "logs", "attach", "stop"})
+    void aNameThatIsNotATaskIsRefusedAsNotATask(String verb, @TempDir Path dir) {
+        // task-commands.feature: a name no task has, not shaped as one, is "not a task", never a
+        // lookup's code word; nothing is acted on.
+        tasks("");
+
+        assertThat(execute(context(dir), "task", verb, "somebody-elses-container")).isNotZero();
+        assertThat(err.toString())
+                .contains("not a task")
+                .doesNotContain("MISSING")
+                .doesNotContain("cannot resolve");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.startsWith("podman rm") || line.startsWith("podman stop"));
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"stop", "remove", "attach"})
     void aMatchingContainerWithoutARecordStillRefusesAnAction(String verb, @TempDir Path dir) {
         // A container with a task's name and labels must not be adopted by a cleanup or attach.
@@ -1053,7 +1069,7 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context(dir), "task", verb, "porelo-uc-shell-1"))
                 .isEqualTo(TaskTarget.NONE);
-        assertThat(err.toString()).contains("MISSING_RECORD");
+        assertThat(err.toString()).contains("its container has no identity record");
         assertThat(runner.lines()).allMatch(line -> line.startsWith("podman ps"));
     }
 

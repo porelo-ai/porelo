@@ -109,7 +109,7 @@ public final class TaskTarget {
                 "cannot resolve task '"
                         + refused.name()
                         + "': "
-                        + refused.reason()
+                        + refused.reason().said()
                         + "; 'porelo task list' lists tasks by their actual names",
                 refused.reason() == TaskIdentities.Reason.AMBIGUOUS ? SEVERAL : NONE,
                 refused.reason());
@@ -256,9 +256,15 @@ public final class TaskTarget {
     public static Found resolveRead(
             PoreloContext context, @Nullable String given, Path directory, @Nullable Asker asker) {
         final Found found = resolve(context, given, directory, asker);
-        return found.reason() != null
-                        && found.reason() != TaskIdentities.Reason.AMBIGUOUS
-                        && given != null
+        if (found.reason() == null || given == null || given.isBlank()) {
+            return found;
+        }
+        // A name no task has goes on to the command's own answer, as before identities: not a task
+        // of this machine, no task called it, or an absent task's history.
+        if (found.reason() == TaskIdentities.Reason.MISSING) {
+            return new Found(given.strip(), "", 0, found.reason());
+        }
+        return found.reason() != TaskIdentities.Reason.AMBIGUOUS
                         && org.fuin.porelo.runtime.ContainerName.isTask(given)
                         && given.matches("porelo-[a-z0-9_-]+")
                 ? new Found(given, "", 0, found.reason())
