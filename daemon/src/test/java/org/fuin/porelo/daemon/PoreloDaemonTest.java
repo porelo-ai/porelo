@@ -36,6 +36,9 @@ class PoreloDaemonTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
+    private final org.fuin.porelo.core.process.ProcessCommandRunner git =
+            new org.fuin.porelo.core.process.ProcessCommandRunner();
+
     /** Written into and read back out of a vault that only exists for the length of one test. */
     private static final char[] VAULT_PASSPHRASE = "correct horse battery staple".toCharArray();
 
@@ -51,7 +54,25 @@ class PoreloDaemonTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        return new PoreloContext(
+                routed(new PoreloPaths(xdg, dir.resolve("bin"))),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0);
+    }
+
+    /**
+     * The fake runner, except for the gate's own Git: it runs unattended through the context and
+     * reaches its real mirrors, as it did through its own runner. Everything else stays fake.
+     */
+    private org.fuin.porelo.core.process.CommandRunner routed(PoreloPaths paths) {
+        final String mirrors = paths.xdg().data().resolve("mirrors") + "/";
+        return command ->
+                command.program().equals("git")
+                                && command.arguments().contains("credential.helper=")
+                                && command.arguments().stream()
+                                        .anyMatch(argument -> argument.startsWith(mirrors))
+                        ? git.run(command)
+                        : runner.run(command);
     }
 
     /** Runs the server on its own thread and hands the socket to the body. */
@@ -4181,7 +4202,8 @@ class PoreloDaemonTest {
         // made.
         final PoreloContext hooked = hooked(dir);
         final PoreloContext context =
-                new PoreloContext(runner, hooked.paths(), arguments -> 0, name -> null, true);
+                new PoreloContext(
+                        routed(hooked.paths()), hooked.paths(), arguments -> 0, name -> null, true);
         final org.fuin.porelo.core.process.ProcessCommandRunner git =
                 new org.fuin.porelo.core.process.ProcessCommandRunner();
         final java.util.function.BiConsumer<Path, String[]> in =
@@ -4358,7 +4380,8 @@ class PoreloDaemonTest {
         // command line as exit 70. Seen on the Ubuntu VM, 2026-10-09.
         final PoreloContext hooked = hooked(dir);
         final PoreloContext context =
-                new PoreloContext(runner, hooked.paths(), arguments -> 0, name -> null, true);
+                new PoreloContext(
+                        routed(hooked.paths()), hooked.paths(), arguments -> 0, name -> null, true);
         final Path checkout = Files.createDirectories(dir.resolve("app"));
         final org.fuin.porelo.core.process.ProcessCommandRunner git =
                 new org.fuin.porelo.core.process.ProcessCommandRunner();
