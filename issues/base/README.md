@@ -147,6 +147,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. |
 | <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
 | <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |
@@ -166,6 +167,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+|  <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. |
 | <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
 | <a id="b598"></a>[B598](B598-A-Container-Name-Reserved-Before-Anything-Is-Made.md) | M | [B596](README.md#b596) | Starts reserve their container name first; a taken name is refused by its owner. |
 | <a id="b599"></a>[B599](B599-A-Tasks-Secrets-And-Files-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Gate, vault and file paths are reached through a task's identity. |
@@ -196,9 +198,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. | None: the plan names what goes; the operator decides. |
 | <a id="b573"></a>[B573](B573-A-Tasks-Project-Reads-Held-To-Its-Own-Project.md) | S | - | A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high. | 0 |
-| <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |

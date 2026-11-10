@@ -1,6 +1,6 @@
 # [B604](README.md#b604) — Porelo Without A Planning Part
 
-**Status:** Analyzed. Filed 2026-11-10 as the operator decided ST294's porelo issues: ST294 is closed, its planning
+**Status:** Backlog, by the operator 2026-11-10; built after ST51. Filed 2026-11-10 as the operator decided ST294's porelo issues: ST294 is closed, its planning
 moves into the separate app porelo-planner (`porelo-project` ST311), and porelo knows no stories or issues any more.
 **Size:** M - mechanical removal across wire, two app modules, the planning modules, the daemon and the docs; no new
 behaviour, every remaining test green.

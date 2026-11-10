@@ -1,6 +1,6 @@
 # [B539](README.md#b539) — A Missing Host Forge Token Answered On The Wire
 
-**Status:** Analyzed. Filed 2026-11-09 for porelo-frontend's forge token on a host, made by the host when a
+**Status:** Implementing, since 2026-11-10; Backlog by the operator 2026-11-10. Filed 2026-11-09 for porelo-frontend's forge token on a host, made by the host when a
 start needs it, which the operator accepted with priority High; this is porelo's part. Not built before the
 operator's word.
 **Priority:** high (the operator, 2026-11-09, with the window's forge token on a host).
