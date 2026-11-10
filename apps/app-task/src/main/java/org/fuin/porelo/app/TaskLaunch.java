@@ -1421,14 +1421,21 @@ public final class TaskLaunch {
                 return new Existing(container, project.name(), code, "NEEDS_VAULT");
             }
         }
+        // A repository its project no longer names takes its own settings with it; the task
+        // still comes back, on its project's.
+        org.fuin.porelo.core.project.@Nullable Repository worked = null;
+        if (recorded != null && !recorded.isBlank()) {
+            try {
+                worked = GateSupport.repository(project, recorded);
+            } catch (ProjectException ex) {
+                worked = null;
+            }
+        }
         try {
             final Project effective =
-                    recorded == null || recorded.isBlank()
+                    worked == null
                             ? project
-                            : credentialProject(
-                                    project,
-                                    request.projectFile(),
-                                    GateSupport.repository(project, recorded));
+                            : credentialProject(project, request.projectFile(), worked);
             if (profile != null) {
                 final org.fuin.porelo.wire.TaskMode mode =
                         refusesWithoutCredential(request.mode()) ? request.mode() : profile.mode();
