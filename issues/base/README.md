@@ -111,6 +111,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. |
 | <a id="b571"></a>[B571](B571-A-Task-Container-Finds-Its-Init.md) | XS | - | porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made. |
 | <a id="b574"></a>[B574](B574-A-Hosts-Waiting-Project-Is-Never-Shown-As-Carried.md) | L | [B543](#b543) | A project the host reports waiting (`waiting-for-token`) is never listed as carried; the host's state and why reach the window. |
 | <a id="b584"></a>[B584](B584-A-Hosts-Open-Pull-Requests-Over-The-Daemon.md) | M | - | A host forge's open pull requests per project, with makers, read and watched over the daemon until each merges or closes. |
@@ -165,7 +166,6 @@ from its side, as *blocked by*.
 | <a id="b547"></a>[B547](B547-Task-Accounts-And-Lent-Tokens-Through-The-Host-Tool.md) | L | [B541](#b541) | `porelo-host task start \| end`, `forge issue-token \| lend-token`, for `SUDO_USER` alone; porelo's callers switched. |
 | <a id="b546"></a>[B546](B546-The-Host-Tool-Measures-Copies-And-Advances-A-Project.md) | L | [B545](#b545) | `porelo-host project measure-central \| copy \| advance \| check-central`. |
 | <a id="b545"></a>[B545](B545-The-Host-Tool-Adds-Removes-Migrates-And-Takes-Off-A-Project.md) | L | [B541](#b541) | `porelo-host project add \| remove \| migrate \| take-off`, internal, as `porelo-host-project`. |
-| <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. |
 | <a id="b542"></a>[B542](B542-The-Host-Tool-Sweeps-Ended-Task-Tokens.md) | S | [B541](#b541) | `porelo-host task sweep`, the timer's verb. |
 | <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
