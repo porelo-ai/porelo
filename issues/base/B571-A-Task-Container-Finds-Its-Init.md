@@ -1,6 +1,6 @@
 # [B571](README.md#b571) — A Task Container Finds Its Init
 
-**Status:** Backlog, since 2026-11-09. Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
+**Status:** Implementing. Filed 2026-11-09 under ST291, from the targeted run of the porelo-host stack on the shared test host.
 **Size:** XS - one package dependency and its check, in `dist/dist-deb` and the start's preflight.
 
 **What must be true.** A machine that installed porelo's package can start a task.
