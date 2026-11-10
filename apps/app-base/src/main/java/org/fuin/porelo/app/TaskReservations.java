@@ -261,7 +261,7 @@ public final class TaskReservations {
                     final var opener = context.opener();
                     if (opener.isEmpty())
                         throw new VaultException(
-                                "The vault is locked; run 'porelo vault unlock' and start again");
+                                "the vault is locked; run 'porelo vault unlock' and start again");
                     context.vault()
                             .update(
                                     opener.get(),
@@ -357,7 +357,7 @@ public final class TaskReservations {
             final var opener = context.opener();
             if (opener.isEmpty())
                 throw new VaultException(
-                        "The vault is locked; run 'porelo vault unlock' and start again");
+                        "the vault is locked; run 'porelo vault unlock' and start again");
             final boolean known = verified != null;
             context.vault()
                     .update(

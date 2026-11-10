@@ -36,6 +36,16 @@ class TaskReservationsTest {
     }
 
     @Test
+    void aLockedVaultRefusesTheClaimInTheWordsEveryStartUses() throws Exception {
+        // The start's refusal says "the vault is locked", as every other locked-vault answer does.
+        final PoreloContext context = context();
+        context.vault().write(java.util.Map.of(), "fixture passphrase".toCharArray());
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new TaskReservations(context).start("web", "x", "porelo-web-x"))
+                .hasMessageStartingWith("the vault is locked; run 'porelo vault unlock'");
+    }
+
+    @Test
     void aReservationWithoutAContainerRefusesBeforeCredentialPreflight() throws Exception {
         final PoreloContext context = context();
         try (var claim =
