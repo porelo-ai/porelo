@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B604",
   "title": "Porelo Without A Planning Part",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 1,
@@ -17,7 +17,7 @@
 **Why this size.** mechanical removal across wire, two app modules, the planning modules, the daemon and the docs; no new
 behaviour, every remaining test green.
 
-Backlog by the operator 2026-11-10; built after ST51. Filed 2026-11-10 as the operator decided ST294's porelo issues: ST294 is closed, its planning
+Backlog by the operator 2026-11-10; built after ST51. Implementing since 2026-11-10. Filed 2026-11-10 as the operator decided ST294's porelo issues: ST294 is closed, its planning
 moves into the separate app porelo-planner (`porelo-project` ST311), and porelo knows no stories or issues any more.
 
 **What must be true.** Porelo has no planning part. A task gets everything it needs from the window when it starts,
@@ -47,8 +47,32 @@ project's files, not this part, and stays.
 
 ## Plan
 
-To be written before it is started. Read first: `git grep -il planning -- ':!issues'` on main, and the planner's needs
-in ST311. The adapter contract may be wanted by porelo-planner; it is removed from porelo, not reshaped here.
+Read on main 563da03c2 with `git grep -il planning -- ':!issues'`. One commit, removal only, in this order:
+
+1. **Modules.** Delete `planning/` (`api`, `stub`, its `pom.xml` and `README.md`) and `apps/app-planning`; drop them from
+   the root `pom.xml` (`<module>planning</module>`, the `porelo-planning-api` and `porelo-app-planning` management
+   entries), `apps/pom.xml`, `apps/app/pom.xml`, `daemon/pom.xml` (api and stub) and `bom/pom.xml`. The root `pom.xml`
+   comment naming the published artifacts loses the planning ones.
+2. **Wire.** Delete `wire/.../wire/planning/` (19 classes) with `PlanningContractTest`, `60-planning.varlink`, and its
+   line in `varlink/org.fuin.porelo.Tasks1/parts`. The sentences in `15-task.varlink` and `20-project.varlink` about the
+   project's own repository stay.
+3. **Daemon.** Delete `PlanningMethods` with `PlanningMethodsTest` and `PlanningStreamsTest`; take its registration out
+   of `PoreloDaemon`, the `PlanningChanges` parameters and their closing out of `McpTaskSockets`, and
+   `GetPlanningWorkflow` (and any other planning method) out of `McpMethods`' list; the planning parts of
+   `InterfaceDescriptionTest` and `McpTaskSocketsTest`.
+4. **Apps.** `PoreloPaths.planningDirectories()` and its test in `PoreloPathsTest`; `PlanningChangesTest`,
+   `PlanningModulesTest`, `PlanningReadsTest`, `StoryStatesTest`; the two planning rules in `AgentIsolationTest`. Not
+   planning and staying: `porelo-acme-planning` in `ProjectTasksArePeersTest` (a task name) and `deploy:planning:planning`
+   in `FollowCredentialTest` (a credential id).
+5. **Docs.** `doc/planning-adapters.md` and its `mkdocs.yml` entry; the planning passages of `doc/running.md`,
+   `doc/project-file.md`, `README.md` (the license line for `planning/stub`), `apps/README.md`, `agents/README.md`;
+   `AGENTS.md` only where it describes this part. The changelog entries `planning-adapter-contract.yml`,
+   `planning-board-contract.yml` and `planning-board-updates.yml` go, unreleased as they are, and one entry says the
+   planning part is removed.
+6. **Packages.** Nothing packages `/usr/libexec/porelo/planning` (read in `dist/`); the native build of the stub goes
+   with its module.
+
+Built by Codex under Core's supervision; Core runs the whole unit suite and `check-doc-site` before Push ready. The adapter contract may be wanted by porelo-planner; it is removed from porelo, not reshaped here.
 `core-st294w1` (wave 1, never pushed) is kept until the planner's agent has read what it needs; nothing of it lands.
 
 ## Acceptance

@@ -219,7 +219,6 @@ from its side, as *blocked by*.
 | <a id="b600"></a>[B600](B600-A-Tasks-Mail-And-Sockets-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Mail, watches and sockets are reached through a task's identity. |
 | <a id="b601"></a>[B601](B601-New-Tasks-Get-The-Short-Container-Name.md) | S | [B597](README.md#b597), [B598](README.md#b598), [B599](README.md#b599), [B600](README.md#b600) | New tasks are created under the new container names. |
 | <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. |
-| <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | - | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
 | <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
 | <a id="b568"></a>[B568](B568-A-Coordinator-While-Agents-Work.md) | M | - | The project's coordinator started with the first work task, told of each new story, stopped after the last. |
@@ -245,6 +244,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
+| <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. |
 | <a id="b593"></a>[B593](B593-A-Join-Says-When-It-Invited.md) | XS | - | `JoinMessages` answers `invited: true` when a join invited an account the person already has, so the window says to accept the invitation. |
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | M | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | M | - | `AgentEnded.answer`, the agent's declared last message, its end kept; `Done(outcome, why)` answered as `Task.ended`, FAILED derived. |
