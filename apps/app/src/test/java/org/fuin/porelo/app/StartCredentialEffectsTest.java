@@ -234,6 +234,58 @@ class StartCredentialEffectsTest {
     }
 
     @Test
+    void aTaskWhoseTokensARestartLostSaysItCannotComeBackBeforeAnyCredential() throws Exception {
+        // Refused for a missing credential instead, a person stores a key and still cannot get
+        // the task back.
+        final PoreloContext context = context();
+        Files.delete(context.paths().xdg().data().resolve("agents/porelo-agent-stub"));
+        final TaskLaunch launch = launch(context);
+        machine.answering(
+                "ps",
+                "porelo-p-work\tExited (0) 4 minutes ago\t1700000000\t1700000100\tp\tguarded\tp\t\n");
+        final Path saved =
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-p-work"));
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        AGENT,
+                        TaskMode.AGENT,
+                        null,
+                        null,
+                        "",
+                        "deny",
+                        null,
+                        "anthropic",
+                        null,
+                        null,
+                        0)
+                .writeTo(saved);
+        new TaskHelpers(
+                        List.of(
+                                new TaskHelpers.Helper(
+                                        "gate",
+                                        List.of("porelo", "gate", "serve"),
+                                        Map.of(),
+                                        TaskHelpers.AFTER)))
+                .writeTo(saved);
+
+        final TaskLaunch.Existing existing = launch.startExisting(sink, sink);
+
+        assertThat(existing).as("the saved task is refused: %s", text).isNotNull();
+        assertThat(existing.action()).as("what Start did").isEqualTo("PREDATES_RESTART");
+        assertThat(text.toString())
+                .as("what it said")
+                .contains("cannot come back")
+                .doesNotContain("holds no credential");
+        assertThat(launch.credentialRefusal()).as("no credential was asked for").isNull();
+        assertThat(context.paths().hooksDirectory())
+                .as("a refused start must not install hooks")
+                .doesNotExist();
+        assertThat(machine.lines())
+                .as("nothing is started")
+                .noneMatch(line -> line.contains(" start ") || line.contains("porelo-hook"));
+    }
+
+    @Test
     void anAuthorizedOtherGrantDoesNotRefuseTheStart() throws Exception {
         // An already-authorized grant must not block work or cause another authorization.
         final PoreloContext context = context().asking(shown -> "test passphrase".toCharArray());

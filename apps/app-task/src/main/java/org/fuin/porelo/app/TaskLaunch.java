@@ -1378,7 +1378,29 @@ public final class TaskLaunch {
                                             "gate".equals(helper.name())
                                                     || "vault".equals(helper.name()));
             context.openIfShut(needsTokens, true, err);
-            if (needsTokens && new TaskSecrets(context).read(container).isEmpty()) {
+            final java.util.Optional<TaskSecrets.Tokens> keptTokens =
+                    needsTokens
+                            ? new TaskSecrets(context).read(container)
+                            : java.util.Optional.of(new TaskSecrets.Tokens(null, null));
+            if (keptTokens.isPresent() && TaskControl.tokensLost(saved, keptTokens.get())) {
+                // Before its credentials: no key stored now brings back the tokens it was never
+                // kept with, so a refusal naming a credential sends a person the wrong way.
+                final int code =
+                        TaskResumeCommand.render(
+                                new TaskControl.Resumed(
+                                        TaskControl.Outcome.TOKENS_NOT_KEPT,
+                                        0,
+                                        saved.helpers().size(),
+                                        null,
+                                        null,
+                                        java.util.List.of()),
+                                container,
+                                out,
+                                err,
+                                null);
+                return new Existing(container, project.name(), code, "PREDATES_RESTART");
+            }
+            if (keptTokens.isEmpty()) {
                 credentialRefusal =
                         new CredentialRefusal(
                                 profile == null || profile.agent() == null ? "" : profile.agent(),

@@ -720,6 +720,20 @@ public final class TaskControl {
         return caption == null || caption.isBlank() ? Labelled.CLEARED : Labelled.LABELLED;
     }
 
+    /**
+     * Whether a task a restart took down lost a token its saved helpers need, so it cannot come
+     * back whole.
+     *
+     * @param saved The helpers its start saved.
+     * @param tokens What the vault kept for it.
+     * @return {@code true} when its gate or its vault proxy would start without its token.
+     */
+    static boolean tokensLost(TaskHelpers saved, TaskSecrets.Tokens tokens) {
+        final boolean gated = saved.helpers().stream().anyMatch(h -> "gate".equals(h.name()));
+        final boolean proxied = saved.helpers().stream().anyMatch(h -> "vault".equals(h.name()));
+        return gated && tokens.gate() == null || proxied && tokens.provider() == null;
+    }
+
     public Resumed resume(String container) {
 
         if (!ContainerName.isTask(container)) {
@@ -793,7 +807,7 @@ public final class TaskControl {
                             List.of());
                 }
                 tokens = kept.get();
-                if (gated && tokens.gate() == null || proxied && tokens.provider() == null) {
+                if (tokensLost(savedHelpers, tokens)) {
                     return new Resumed(
                             Outcome.TOKENS_NOT_KEPT,
                             0,
