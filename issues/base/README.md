@@ -224,7 +224,6 @@ from its side, as *blocked by*.
 | <a id="b568"></a>[B568](B568-A-Coordinator-While-Agents-Work.md) | M | - | The project's coordinator started with the first work task, told of each new story, stopped after the last. |
 | <a id="b558"></a>[B558](B558-The-Event-Log-Has-A-Copy-Off-The-Machine.md) | M | [B154](README.md#b154) | Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event. |
 | <a id="b559"></a>[B559](B559-The-Libraries-A-Plugin-Links-Are-Apache-Licensed.md) | M | - | `porelo-agent-api`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-wire` and the varlink definitions are Apache-2.0, checked by the build; the rest stays GPL-3.0-or-later. |
-| <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](README.md#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
@@ -250,6 +249,7 @@ from its side, as *blocked by*.
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
+| <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
 
 ## Review
 

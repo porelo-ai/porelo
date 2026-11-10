@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B537",
   "title": "One Host File That Does Not Read Hides No Other Project",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 14,
@@ -17,7 +17,8 @@
 **Why this size.** a field on the project row, the listing reads past one bad file, and the window shows it.
 
 Filed 2026-11-09 from [B531](README.md#b531)'s code reading, as the operator decided it
-(the operator's decision of 2026-11-09 on the open points of wave 2, point 4: B, after move 4).
+(the operator's decision of 2026-11-09 on the open points of wave 2, point 4: B, after move 4). Implementing since 2026-11-10, on the
+coordinator's order of 14:17Z (ST290 is Highest). Built by Codex under Core's supervision.
 
 **What must be true.** On a host, a carried project whose host file does not read is listed as a row saying so
 (`hostFileError`), and every other project is listed as usual; the file is still said, never passed over as not carried.
