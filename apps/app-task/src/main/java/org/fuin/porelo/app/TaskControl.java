@@ -849,6 +849,7 @@ public final class TaskControl {
             restored = true;
         }
 
+        new TaskDone(context.paths()).clear(container);
         if (recorded.helpers().isEmpty()) {
             context.podman().start(container);
             context.tasks().trustCertificates(container);

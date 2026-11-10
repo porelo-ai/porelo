@@ -100,6 +100,11 @@ public record TaskPaths(PoreloPaths paths) {
         return paths.xdg().state().resolve("tasks").resolve(container);
     }
 
+    /** Returns the host-only completion record, outside every directory mounted into the task. */
+    public Path doneRecord(String container) {
+        return taskRecord(container).resolve("done");
+    }
+
     /**
      * Returns the directory holding the guide a task's agent is given, mounted into the task.
      *

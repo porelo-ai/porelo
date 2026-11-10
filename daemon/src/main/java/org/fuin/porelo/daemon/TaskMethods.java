@@ -39,6 +39,31 @@ final class TaskMethods {
 
     private TaskMethods() {}
 
+    static Map<String, Object> list(final TaskInventory inventory) {
+        final List<TaskInventory.Task> found = inventory.tasks();
+        return Map.of(
+                "tasks", found.stream().map(TaskInventory.Task::asMap).toList(),
+                "unrecognized", inventory.unrecognized(found));
+    }
+
+    static void done(final PoreloContext context, final Map<String, Object> parameters)
+            throws java.io.IOException {
+        final String task = text(parameters, "task");
+        // A child is somebody else's work too: only the socket's own task can say it is done.
+        if (!task.equals(McpTaskSockets.caller())
+                || !task.matches("porelo-[a-z0-9][a-z0-9-]{0,200}")) {
+            throw new VarlinkException(
+                    INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
+        }
+        for (final String parameter : parameters.keySet()) {
+            if (!"task".equals(parameter)) {
+                throw new VarlinkException(
+                        "org.varlink.service.InvalidParameter", Map.of("parameter", parameter));
+            }
+        }
+        new org.fuin.porelo.app.TaskDone(context.paths()).record(task);
+    }
+
     static org.fuin.porelo.app.FirstStart firstStart(final PoreloContext context) {
         return new org.fuin.porelo.app.FirstStart(
                 context, org.fuin.porelo.app.EcosystemDetector.INSTALLED);
@@ -119,13 +144,14 @@ final class TaskMethods {
         server.method(
                 "List",
                 (parameters, replies) -> {
-                    final List<TaskInventory.Task> found = inventory.tasks();
-                    replies.last(
-                            Map.of(
-                                    "tasks",
-                                    found.stream().map(TaskInventory.Task::asMap).toList(),
-                                    "unrecognized",
-                                    inventory.unrecognized(found)));
+                    replies.last(list(inventory));
+                });
+
+        server.method(
+                "Done",
+                (parameters, replies) -> {
+                    done(context, parameters);
+                    replies.last(Map.of());
                 });
 
         server.method(

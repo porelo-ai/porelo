@@ -1,6 +1,6 @@
 # [B578](README.md#b578) — A Task That Said Done Is Done
 
-**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Review. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** M - a task state from the agent's own word, kept across a stop, in the contract and the list.
 
 **What must be true.** A task whose agent said it is done and stopped has a state of its own, `done`, in the list,
@@ -16,3 +16,16 @@ Read in the code: a task's state comes from its container and the activity read 
 - `TaskInventory` reports `done` for a task so recorded that is stopped or at rest; a later start clears it.
 - Tasks1's state values, its interface text, `doc/` and a changelog entry.
 - Red first: a task that recorded done and stopped lists as `done`, not `exited`/running.
+
+## As built
+
+The task endpoint can carry `Done(task)`, a writing method held to the socket's own task. It refuses
+even a child and accepts no completion text. Porelod writes the fixed completion value into the
+host's private durable task record, outside the mailbox mount. Stops and reboots keep it; a later
+start clears it. The room message remains part of the agent's instructions.
+
+The inventory reports state `done` and activity `DONE` for a recorded task that is stopped or whose
+existing observed activity is `IDLE`. New output reports `WORKING` while keeping the declaration;
+`WAITING`, `UNKNOWN` and `ENDED` keep their meanings. The completion record adds no waiting reason.
+CLI list, status and daemon list use this inventory. Test execution and environment limits are in
+the worktree's untracked build report.

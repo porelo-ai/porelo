@@ -5,6 +5,9 @@
 # not the same: a task blocked on a question nobody saw and a task grinding through a build are
 # both running: true, and that difference is the one that costs an afternoon.
 type Activity (
+  # The agent declared completion through its own task socket. Its container is stopped, or its
+  # observed activity is IDLE. No waiting reason is added. A later start clears the declaration.
+  DONE,
   # Its container is not up. Stopped, finished or dead - all three are gone.
   DEAD,
   # Waiting for a person to answer something, said by the thing that asked rather than guessed
@@ -120,8 +123,9 @@ type Task (
   commit: string,
   # offline, guarded or online - or "" when nothing recorded it.
   securityClass: string,
-  # The container runtime's own words, such as "Up 4 minutes" or "Exited (143) 2 seconds ago".
-  # Free text meant for a person; do not parse it. Use running for the decision.
+  # "done" when activity is DONE; otherwise the container runtime's own words, such as
+  # "Up 4 minutes" or "Exited (143) 2 seconds ago". Use activity for the work and running for the
+  # container; a running container can hold completed work. Other free text is not parsed.
   state: string,
   # Whether the runtime says it is up.
   running: bool,
@@ -166,11 +170,12 @@ type Task (
   # When its current certificate ends, ISO-8601 in UTC, renewed by 'porelo task certify'. "" when it
   # has none, or for a task started before this field existed.
   certifiedUntil: string,
-  # When the current state began, ISO-8601: a running task since it started, a stopped one since
+  # When the container's current state began, ISO-8601: a running task since it started, a stopped one since
   # it exited. "" when the runtime could not say - a container that was created and never started
   # has no honest answer. This is what "idle for forty minutes" is arithmetic on; state is not.
   since: string,
-  # What the work is doing, beside state rather than instead of it.
+  # What the work is doing. A recorded done declaration applies only to stopped or IDLE work;
+  # WORKING, WAITING, UNKNOWN and ENDED keep their meaning. The declaration stays until a start.
   activity: Activity,
   # Last modification time of task.log, as an ISO-8601 instant; "" without a readable log.
   # Ask Tail(last: 1) for the last line when showing it. This timestamp alone does not change Watch.
@@ -423,6 +428,15 @@ type Log (
 # (made before it recorded one, or by something else), so no method acts on them and none adopts them. A client
 # shows them as what they are, never as tasks: removing one removes what is in it.
 method List() -> (tasks: []Task, unrecognized: []string)
+
+# The task's own declaration that its work is done, carried only by a task socket whose project's
+# mcp.methods includes Done. task must be that socket's task, never even a child or another project.
+# A call over the person's socket, or naming anybody else, is NotItsOwn. No free text is accepted.
+# The daemon stores the fixed value in its private durable task record, outside the mailbox mount.
+# Stopped or IDLE work then has activity DONE and state "done". Work that resumes output is WORKING
+# again without losing the declaration; ENDED is unchanged. A later start clears the declaration.
+# This replaces no completion message to the room, and neither stops nor removes the container.
+method Done(task: string) -> ()
 
 # The same answer, again whenever it changes.
 #

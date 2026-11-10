@@ -22,7 +22,8 @@ import org.fuin.porelo.wire.Json;
  * task is durable. The runtime directory is still where everything is used from: the container's
  * annotation and mounts name its paths, fixed when the container was created. So the durable files
  * are <em>copies</em>, saved whenever they change and put back when a reboot left the runtime
- * directory empty - never a second place anything is read from while the task runs.
+ * directory empty. The host's completion declaration ({@link TaskDone}) stays only in the durable
+ * record, outside every task mount; it is neither copied from nor restored into runtime state.
  *
  * <p><strong>Nothing secret is saved here.</strong> The resume record is saved without the gate
  * token, and the phantom provider token's file is not saved at all; both are in the vault ({@link

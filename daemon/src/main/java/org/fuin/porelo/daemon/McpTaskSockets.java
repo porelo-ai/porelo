@@ -99,7 +99,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "steps");
 
     /** The methods a task's endpoint may carry beside the reading ones. */
-    private static final Set<String> WRITING = Set.of("Start", "Stop");
+    private static final Set<String> WRITING = Set.of("Start", "Stop", "Done");
 
     /** One socket, and the thread serving it. */
     private record Served(VarlinkServer server, Thread thread) {}
@@ -207,7 +207,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                         "mcp.methods: '"
                                 + method
                                 + "' is not offered to a task: its endpoint carries only the"
-                                + " reading methods McpMethods names, Start and Stop");
+                                + " reading methods McpMethods names, Start, Stop and Done");
             }
         }
         return List.copyOf(refused);

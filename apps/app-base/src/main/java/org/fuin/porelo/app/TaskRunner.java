@@ -471,6 +471,7 @@ public class TaskRunner {
         out.println("container " + container);
 
         // If the nft hook fails, this is where it stops: the container never reaches running.
+        new TaskDone(paths).clear(container);
         podman.start(container);
         if (authority != null) {
             trustCertificates(container);

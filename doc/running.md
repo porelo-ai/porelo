@@ -456,6 +456,13 @@ declaration's `default`.
 
 ## What a task's agent is told
 
+A task whose project's MCP endpoint allows `Done` can declare its own work complete with
+`Done(task: CONTAINER)`. It still sends the room the completion message its instructions ask for.
+Porelo records completion on the host, outside the task's mailbox mount. Once the task stops or its
+observed activity is `IDLE`, its state is `done`, with no waiting reason. New output reports working
+again while keeping the declaration; an ended run keeps its `ENDED` activity. A later start clears
+completion. See [task status](commands.md) for the activity values.
+
 An agent learns what Porelo gives it in its task from one guide, which it takes into its standing instructions at
 every start when its definition declares how (`instructions`): Porelo writes it to `/run/porelo/guide/README.md`,
 mounted into the task and read only there. Where the task has a mailbox, the mailbox's text from

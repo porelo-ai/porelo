@@ -428,6 +428,14 @@ public final class Reach {
                         Kind.CONTROL),
                 new Row(
                         Part.PRODUCE,
+                        "A declaration of completion over MCP",
+                        "Only the task bound to that socket may be marked done, never a child or"
+                                + " another project's task. The endpoint must allow `Done`; the"
+                                + " daemon writes only a fixed value to its private durable record,"
+                                + " outside every task mount, and a later start clears it",
+                        Kind.CONTROL),
+                new Row(
+                        Part.PRODUCE,
                         "`gate protect`'s hook",
                         "Fires on a first, an ordinary and a force push. Four things go round it:"
                                 + " `--no-verify`, a `core.hooksPath` pointing elsewhere, a fresh"

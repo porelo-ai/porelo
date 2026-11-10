@@ -179,6 +179,28 @@ class McpTaskSocketsTest {
     }
 
     @Test
+    void aTaskCanMarkOnlyItselfDone() throws IOException {
+        // Finishing a sibling, child or another project's task would hide somebody else's work.
+        final PoreloContext context =
+                context(HEAD + SECTION.replace("\"Stop\"", "\"Stop\", \"Done\""));
+        child(context, "porelo-uc-child", LEAD);
+        child(context, "porelo-uc-other", null);
+        child(context, "porelo-other-work", LEAD);
+        final Path socket = sockets.open(LEAD, "uc").orElseThrow();
+        for (final String other :
+                List.of("porelo-uc-child", "porelo-uc-other", "porelo-other-work", "../escape")) {
+            refused(socket, "Done", Map.of("task", other), "NotItsOwn", Map.of());
+            assertThat(context.paths().tasks().taskRecord(other).resolve("done")).doesNotExist();
+        }
+        call(socket, "Done", Map.of("task", LEAD));
+        final Path record = context.paths().tasks().taskRecord(LEAD).resolve("done");
+        assertThat(record).hasContent("done\n");
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(record)))
+                .isEqualTo("rw-------");
+        assertThat(record.startsWith(context.paths().messaging().mailbox(LEAD))).isFalse();
+    }
+
+    @Test
     void aProjectWhoseFileHasNoSectionGetsNoSocket() throws IOException {
         context(HEAD);
 

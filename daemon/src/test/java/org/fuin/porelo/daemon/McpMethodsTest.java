@@ -37,6 +37,7 @@ class McpMethodsTest {
                     "Certify",
                     "RefreshTask",
                     "Stop",
+                    "Done",
                     "Lock",
                     "AllowSettings",
                     "Label",

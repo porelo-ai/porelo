@@ -336,17 +336,27 @@ with `--with-agent-output`. Unpushed work is only known while the task runs, or 
 
 **`task status`** says what was recorded when the task was created: its agent and provider, its mode
 (`shell`, `agent` or `unattended`, kept when a stopped task is brought back), the branch its work goes
-to, and for an unattended task the prompt it was given, kept after it has finished. `state` is the
-container runtime's own words; `activity` says what the work is doing:
+to, and for an unattended task the prompt it was given, kept after it has finished. `state` is `done`
+for declared completion while stopped or idle, and otherwise the container runtime's own words;
+`activity` says what the work is doing:
 
 | Activity | Meaning |
 |---|---|
+| `done` | the task declared completion through its own MCP socket and is stopped or idle; it waits on nobody |
 | `working` | producing output |
 | `idle` | up, producing nothing, and not waiting for anybody as far as anything can tell |
 | `waiting` | waiting for a person, said by whatever asked (a clearance prompt, say); `waiting` names what about |
 | `ended` | up, and its agent's run has ended: nothing more will happen in it on its own |
 | `dead` | the container is not up |
 | `unknown` | nothing on this side can see what it does, such as a task with a terminal attached |
+
+Where the project's MCP endpoint allows `Done`, a task calls `Done(task: CONTAINER)` for itself only.
+The daemon keeps the fixed completion value in the host's private durable task record, outside the
+mailbox mount. A stop or reboot keeps it; a later start clears it. If the task produces output again,
+its activity is `working` until it is idle again, with the declaration kept. `ended` keeps its existing
+meaning. Completion adds no waiting reason and does not stop the container: `running` still answers
+whether the container is up. `task list`, `task status` (including `--json`) and the daemon's `List`
+and `Watch` carry the same state.
 
 `task status` also reads provider-reported token usage, summed by answering model, agent, local day
 and local hour. Each of input, cache read, cache write, output and reasoning has its reported total

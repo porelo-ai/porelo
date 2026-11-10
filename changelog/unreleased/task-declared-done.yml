@@ -1,0 +1,2 @@
+title: "Tasks can declare themselves done through their own MCP socket, keeping completion across stops until a later start"
+type: added

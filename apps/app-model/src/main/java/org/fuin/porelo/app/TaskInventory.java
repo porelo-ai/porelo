@@ -33,14 +33,16 @@ public final class TaskInventory {
      * @param name Container name, which is what every other command takes.
      * @param project Project the task belongs to, or {@code null} when nothing recorded it.
      * @param securityClass The project's class, or {@code null} when nothing recorded it.
-     * @param state The runtime's own words, such as {@code Up 4 minutes}.
+     * @param state {@code done} for declared completion at rest or stopped; otherwise the runtime's
+     *     words.
      * @param running Whether the runtime says it is up.
      * @param helpers How many recorded helper processes are alive.
      * @param agent Agent running in it, or {@code null} when it has none or nothing recorded one.
      * @param mode How somebody is meant to be involved, or {@code null} when nothing recorded it.
      * @param prompt What an unattended task was asked to do, or {@code null}.
      * @param branch Ref its work goes to, or {@code null} when it has no gate.
-     * @param since When its current state began, ISO-8601, or empty when the runtime cannot say.
+     * @param since When its container's current state began, ISO-8601, or empty when the runtime
+     *     cannot say.
      * @param activity What the work is doing, as against what the container is doing.
      * @param waitingFor What it is waiting to be told, when it is waiting.
      * @param clearance What it does with a blocked connection, or {@code null} when nothing
@@ -1004,6 +1006,9 @@ public final class TaskInventory {
      */
     public enum Activity {
 
+        /** Its agent declared completion, and its container is stopped or its activity was idle. */
+        DONE,
+
         /** Its container is not up. Stopped, finished or dead - all three are gone. */
         DEAD,
 
@@ -1324,6 +1329,15 @@ public final class TaskInventory {
                                 summary.running(),
                                 profile == null ? null : profile.agent(),
                                 state);
+        final Activity observed =
+                ended != null && summary.running()
+                        ? Activity.ENDED
+                        : activityOf(summary, lastWrote, waitingFor);
+        final Activity activity =
+                (observed == Activity.DEAD || observed == Activity.IDLE)
+                                && new TaskDone(context.paths()).recorded(summary.name())
+                        ? Activity.DONE
+                        : observed;
         return new Task(
                 summary.name(),
                 // The container's own label first: it survives a reboot, and the sidecar does not
@@ -1333,7 +1347,7 @@ public final class TaskInventory {
                 // without the labels created.
                 project,
                 securityClass,
-                summary.state(),
+                activity == Activity.DONE ? "done" : summary.state(),
                 summary.running(),
                 helpersOf(summary.name()),
                 profile == null ? null : profile.agent(),
@@ -1344,9 +1358,7 @@ public final class TaskInventory {
                 profile == null ? null : profile.prompt(),
                 profile == null ? null : profile.branch(),
                 summary.since(),
-                ended != null && summary.running()
-                        ? Activity.ENDED
-                        : activityOf(summary, lastWrote, waitingFor),
+                activity,
                 waitingFor,
                 profile == null ? null : profile.clearance(),
                 profile == null ? null : profile.label(),
