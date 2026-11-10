@@ -108,8 +108,9 @@ its name is how everything else finds its things.
 Porelo's own settings. A `porelo task start` in a checkout no project names works in
 `default`, and the checkout's `origin` becomes where approved work goes. `default` is `guarded`,
 reaches only the agent's provider, refuses blocked connections without asking, and has no
-conversation between tasks. Its settings cannot be changed: for other settings, make a project
-repository and follow it.
+conversation between tasks: a start there says it has no room and goes on, and a conversation or a
+peer asked for `default` is refused, naming a project repository as the way. Its settings cannot be
+changed: for other settings, make a project repository and follow it.
 
 ## The gate: work leaves only after review
 

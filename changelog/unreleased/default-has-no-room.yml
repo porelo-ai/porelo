@@ -1,0 +1,2 @@
+title: "A conversation, a transport or a peer for the project `default` is refused before any transport runs, naming a project repository as the way: `porelo talk peers -p default` exits 78, and the daemon answers `SetUpMessages`, `JoinMessages`, `RemoveMessageMember`, `AdmitMachine` and `DismissMachine` for `default` with `ConversationRefused`, code 78; a start in `default` says once that it has no room, and starts"
+type: fixed

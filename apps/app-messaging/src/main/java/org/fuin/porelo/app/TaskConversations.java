@@ -77,8 +77,9 @@ final class TaskConversations {
     private @Nullable String enrolling(
             Project project, String container, @Nullable String agent, StartSteps steps) {
         // 'default' has no room as its normal case: a task there talks to nobody, whatever a file
-        // of that name says and whatever this machine has.
+        // of that name says and whatever this machine has. Said once, so nobody waits for a room.
         if (DefaultProject.is(project.name())) {
+            steps.noConversation(DefaultProject.NO_ROOM);
             return null;
         }
         for (final String scheme : project.mail().conversations()) {
@@ -338,6 +339,7 @@ final class TaskConversations {
             boolean token,
             @Nullable String display)
             throws TransportLifecycle.Refused {
+        talking(project);
         // Before setup, too: nobody else checks the person's name.
         TransportLifecycle.notAnAgent(person, display);
         TransportLifecycle.login(person);
@@ -394,6 +396,11 @@ final class TaskConversations {
      */
     Conversations.Removal part(PoreloContext context, Project project, String person)
             throws Conversations.Refused {
+        try {
+            talking(project);
+        } catch (TransportLifecycle.Refused ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
+        }
         if (!members(context, project).containsKey(person)) {
             throw new Conversations.Refused(
                     "'"
@@ -564,6 +571,7 @@ final class TaskConversations {
      *     refused.
      */
     Described setUp(Project project) throws TransportLifecycle.Refused {
+        talking(project);
         final String scheme = scheme(project);
         final TransportLifecycle.Conversation conversation =
                 lifecycle.setup(
@@ -606,6 +614,20 @@ final class TaskConversations {
 
         List<String> reaches() {
             return said.reaches();
+        }
+    }
+
+    /**
+     * Refuses a conversation for {@code default} before any transport runs, as a setting is
+     * refused: whatever a file of that name says, it talks to nobody.
+     *
+     * @param project The project a conversation is asked for.
+     * @throws TransportLifecycle.Refused For {@code default}, naming a project repository as the
+     *     way.
+     */
+    private static void talking(Project project) throws TransportLifecycle.Refused {
+        if (DefaultProject.is(project.name())) {
+            throw new TransportLifecycle.Refused(DefaultProject.NO_CONVERSATION, 78);
         }
     }
 

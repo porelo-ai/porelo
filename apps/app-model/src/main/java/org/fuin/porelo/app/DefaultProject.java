@@ -33,6 +33,21 @@ public final class DefaultProject {
     /** Its name, fixed and reserved: no other project may take it. */
     public static final String NAME = "default";
 
+    /**
+     * What a conversation, a transport or a peer for it is told, said alike by every surface and in
+     * the manner of a change to its egress.
+     */
+    public static final String NO_CONVERSATION =
+            "'"
+                    + NAME
+                    + "' talks to nobody: its tasks have no conversation, no transport and no"
+                    + " peers, and that is not changed; a project repository is the way to give work"
+                    + " a conversation: write its project.yml";
+
+    /** What a start in it says of its conversation: none, as its normal case. */
+    public static final String NO_ROOM =
+            "No conversation: '" + NAME + "' has no room, and its tasks work on their own";
+
     /** The base image a task in it runs on. */
     static final String BASE_IMAGE = "ubuntu:24.04";
 

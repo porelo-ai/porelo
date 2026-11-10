@@ -782,7 +782,7 @@ A task's mailbox. Each command names the task by its container name.
 
 | Command | What it does |
 |---|---|
-| `porelo talk peers --project=NAME` | Lists the peers a project's tasks may address. |
+| `porelo talk peers --project=NAME` | Lists the peers a project's tasks may address. For `default`, which talks to nobody, it is refused (78), naming a project repository as the way, as the daemon's `SetUpMessages`, `JoinMessages`, `RemoveMessageMember`, `AdmitMachine` and `DismissMachine` refuse it before any transport runs (`ConversationRefused`, code 78). |
 | `porelo talk held TASK` | Lists messages waiting for a person: held, refused by the filter, or unsendable. |
 | `porelo talk read TASK ID` | Shows one such message in full, with control characters written out. |
 | `porelo talk release TASK ID [--refuse] [--reason]` | Sends it on, even if the filter refused it; `--refuse` refuses it for good. The sender is told. |

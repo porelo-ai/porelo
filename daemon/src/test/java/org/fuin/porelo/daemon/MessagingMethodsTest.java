@@ -99,6 +99,44 @@ class MessagingMethodsTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"SetUpMessages", "JoinMessages", "RemoveMessageMember"})
+    void aConversationForDefaultIsRefusedNamingAProjectRepository(final String method)
+            throws Exception {
+        // Answered NoConversation, 'default' read as a project that only lacks a mail.transports.
+        final PoreloContext context = context(false);
+        final int before = runner.invocations().size();
+
+        assertThatThrownBy(
+                        () ->
+                                daemon(
+                                        context,
+                                        method,
+                                        switch (method) {
+                                            case "SetUpMessages" -> Map.of("project", "default");
+                                            case "JoinMessages" ->
+                                                    Map.of(
+                                                            "project", "default",
+                                                            "person", "alice",
+                                                            "reset", false);
+                                            default ->
+                                                    Map.of("project", "default", "person", "alice");
+                                        }))
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex -> {
+                            assertThat(ex.getErrorName())
+                                    .isEqualTo(PoreloDaemon.INTERFACE + ".ConversationRefused");
+                            assertThat(((Number) ex.getParameters().get("code")).intValue())
+                                    .isEqualTo(78);
+                            assertThat(String.valueOf(ex.getParameters().get("message")))
+                                    .contains("project repository", "project.yml");
+                        });
+        assertThat(runner.invocations().subList(before, runner.invocations().size()))
+                .as("no transport was run")
+                .isEmpty();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"Core", "runner_1"})
     void anAccountWhoseLoginNoTransportTakesIsRefusedBeforeAnyTransportRuns(final String login)
             throws Exception {

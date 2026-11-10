@@ -391,7 +391,7 @@ final class MessagingMethods {
     static Map<String, Object> setUpMessages(
             PoreloContext context, Map<String, Object> parameters) {
         final org.fuin.porelo.core.project.Project project =
-                conversational(context, text(parameters, "project"));
+                talking(context, text(parameters, "project"));
         try {
             return Map.of("messages", org.fuin.porelo.app.Conversations.setUp(context, project));
         } catch (org.fuin.porelo.app.Conversations.Refused ex) {
@@ -410,7 +410,7 @@ final class MessagingMethods {
      */
     static Map<String, Object> joinMessages(PoreloContext context, Map<String, Object> parameters) {
         final org.fuin.porelo.core.project.Project project =
-                conversational(context, text(parameters, "project"));
+                talking(context, text(parameters, "project"));
         final Map<?, ?> said;
         try {
             said =
@@ -446,7 +446,7 @@ final class MessagingMethods {
     static Map<String, Object> removeMessageMember(
             PoreloContext context, Map<String, Object> parameters) {
         final org.fuin.porelo.core.project.Project project =
-                conversational(context, text(parameters, "project"));
+                talking(context, text(parameters, "project"));
         final org.fuin.porelo.app.Conversations.Removal removed;
         try {
             removed =
@@ -473,7 +473,7 @@ final class MessagingMethods {
      */
     static Map<String, Object> admitMachine(PoreloContext context, Map<String, Object> parameters) {
         final org.fuin.porelo.core.project.Project project =
-                conversational(context, text(parameters, "project"));
+                talking(context, text(parameters, "project"));
         final Map<?, ?> said;
         try {
             said =
@@ -499,7 +499,7 @@ final class MessagingMethods {
     static Map<String, Object> dismissMachine(
             PoreloContext context, Map<String, Object> parameters) {
         final org.fuin.porelo.core.project.Project project =
-                conversational(context, text(parameters, "project"));
+                talking(context, text(parameters, "project"));
         final Map<?, ?> said;
         try {
             said =
@@ -509,6 +509,25 @@ final class MessagingMethods {
             throw refused(ex);
         }
         return Map.of("removed", list(said.get("removed")));
+    }
+
+    /**
+     * Returns the project a conversation, a member or a machine is set up for, refusing {@code
+     * default} by name before its file is read or any transport runs: it talks to nobody, and the
+     * answer names a project repository as the way, as every surface says it.
+     */
+    private static org.fuin.porelo.core.project.Project talking(
+            PoreloContext context, String name) {
+        if (org.fuin.porelo.app.DefaultProject.is(name)) {
+            throw new VarlinkException(
+                    INTERFACE + ".ConversationRefused",
+                    Map.of(
+                            "message",
+                            org.fuin.porelo.app.DefaultProject.NO_CONVERSATION,
+                            "code",
+                            78));
+        }
+        return conversational(context, name);
     }
 
     private static VarlinkException refused(org.fuin.porelo.app.Conversations.Refused ex) {

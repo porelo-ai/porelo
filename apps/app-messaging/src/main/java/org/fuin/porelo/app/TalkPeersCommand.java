@@ -93,6 +93,14 @@ public class TalkPeersCommand implements Callable<Integer>, PoreloFactory.Contex
     @Override
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
+        if (DefaultProject.is(projectName)) {
+            // Refused as a setting is: a standalone project's answer would point at a
+            // mail.transports 'default' cannot have.
+            final PrintWriter err = spec.commandLine().getErr();
+            err.println("porelo: " + DefaultProject.NO_CONVERSATION);
+            err.flush();
+            return 78;
+        }
         final Project project = GateSupport.byName(context, projectName);
         final java.util.List<Mail.Peer> peers =
                 listed(project.mail(), Conversations.members(context, project));

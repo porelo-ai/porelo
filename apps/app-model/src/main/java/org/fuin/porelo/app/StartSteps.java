@@ -12,6 +12,7 @@ public final class StartSteps implements TaskRunner.StartProgress {
     private @Nullable StartStep current;
     private @Nullable Path directory;
     private String scheme = "";
+    private String without = "";
     private String refusal = "";
 
     /**
@@ -57,7 +58,21 @@ public final class StartSteps implements TaskRunner.StartProgress {
      */
     public void conversation(String scheme) {
         this.scheme = scheme;
+        this.without = "";
         started(StartStep.Step.CONVERSATION);
+    }
+
+    /**
+     * Says once that a start takes part in no conversation, as the normal case of its project, and
+     * completes the stage: nothing failed and nothing waits.
+     *
+     * @param why The words every surface shows for the stage.
+     */
+    public void noConversation(String why) {
+        this.without = why;
+        started(StartStep.Step.CONVERSATION);
+        done(StartStep.Step.CONVERSATION);
+        this.without = "";
     }
 
     /**
@@ -218,7 +233,10 @@ public final class StartSteps implements TaskRunner.StartProgress {
                     case CHECKS -> "Checking the machine, the egress and the upstream";
                     case CREDENTIALS -> "Opening the vault and the task's credentials";
                     case WORKSPACE -> "Bringing the gate's mirror up to its upstream";
-                    case CONVERSATION -> "Joining the project's conversation on " + scheme;
+                    case CONVERSATION ->
+                            without.isEmpty()
+                                    ? "Joining the project's conversation on " + scheme
+                                    : without;
                     case IMAGE -> "Preparing and building the task's image";
                     case CONTAINER -> "Creating and starting the container";
                     case HELPERS -> "Starting the task's gate, credential proxy and helpers";

@@ -2,10 +2,17 @@ package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.Mail;
+import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import picocli.CommandLine;
 
 /** Test for {@link TalkPeersCommand}: whom a project's tasks reach, including each other. */
 class TalkPeersCommandTest {
@@ -19,6 +26,41 @@ class TalkPeersCommandTest {
         assertThat(TalkPeersCommand.tasks(new Mail(List.of(), Map.of("matrix", Map.of()))))
                 .contains("each other")
                 .contains("matrix");
+    }
+
+    @Test
+    void peersForDefaultAreRefusedNamingAProjectRepository(@TempDir Path dir) {
+        // Answered as a standalone project, 'default' was pointed at a mail.transports it cannot
+        // have.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final PoreloContext context =
+                new PoreloContext(
+                        runner,
+                        new PoreloPaths(
+                                XdgPaths.of(
+                                        name ->
+                                                switch (name) {
+                                                    case "XDG_CONFIG_HOME" ->
+                                                            dir.resolve("config").toString();
+                                                    case "XDG_DATA_HOME" ->
+                                                            dir.resolve("data").toString();
+                                                    case "XDG_STATE_HOME" ->
+                                                            dir.resolve("state").toString();
+                                                    case "XDG_RUNTIME_DIR" ->
+                                                            dir.resolve("run").toString();
+                                                    default -> null;
+                                                },
+                                        dir),
+                                dir.resolve("bin")),
+                        arguments -> 0);
+        final StringWriter err = new StringWriter();
+        final CommandLine cli = new CommandLine(new TalkCommand(), new PoreloFactory(context));
+        cli.setOut(new PrintWriter(new StringWriter()));
+        cli.setErr(new PrintWriter(err));
+
+        assertThat(cli.execute("peers", "-p", DefaultProject.NAME)).isEqualTo(78);
+        assertThat(err.toString()).contains("project repository", "project.yml");
+        assertThat(runner.invocations()).as("no transport was run").isEmpty();
     }
 
     @Test

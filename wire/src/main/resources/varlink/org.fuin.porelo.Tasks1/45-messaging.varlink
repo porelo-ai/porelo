@@ -239,7 +239,8 @@ method Moderate(
 # Sets a project's conversation up on this machine, or confirms it, without starting a task: what binding a
 # machine to a project runs, so it learns the name this machine goes by there and whether it is let in yet.
 # Run again after a person let it in, and 'admitted' turns true. Refused with ConversationRefused, carrying
-# the transport's words and code.
+# the transport's words and code; for the project 'default', which talks to nobody, with code 78 and words
+# naming a project repository as the way, before any transport runs.
 method SetUpMessages(project: string) -> (messages: ProjectMessages)
 
 # Lets a person into a project's conversation with an account made for them, or gives it a new password
