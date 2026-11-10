@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B602",
   "title": "A Task Made Before Comes Through The Upgrade",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 7,
@@ -16,7 +16,7 @@
 
 **Why this size.** one real-machine upgrade scenario and the operating notes.
 
-Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
+Implementing since 2026-11-10 (`porelo-project` ST307; the scenario first, its run after [B601](README.md#b601)). Filed 2026-11-10 in `porelo-project` ST307 from [B538](README.md#b538)'s approved plan (the operator, 2026-11-10).
 
 High priority (the operator, 2026-11-09, for [B538](README.md#b538)).
 
