@@ -46,7 +46,8 @@ class HostOrgStatusTest {
     @Test
     void anUnfollowedHostAnswersTheExactEmptyStatus() {
         assertThat(status())
-                .as("absent optional records retain Python's nulls and field order")
+                .as(
+                        "an unfollowed host answers every field in its fixed order, absent records as null")
                 .isEqualTo(new Answer(0, EMPTY, ""));
     }
 
@@ -57,7 +58,6 @@ class HostOrgStatusTest {
                 .isEqualTo(new Answer(0, "workshop: no organization; 0 persons; 0 projects\n", ""));
     }
 
-    // py: test_org_status_is_roots_alone
     @ParameterizedTest
     @ValueSource(strings = {"alice", ""})
     void sudoCannotReadRootOrganizationStatus(String sudoUser) throws Exception {
@@ -72,7 +72,6 @@ class HostOrgStatusTest {
     }
 
     @Test
-    // py: test_org_status_answers_the_applied_org_and_where_each_person_stands
     void peopleStatesMembershipsAndPurgeDatesAreSortedAndComplete() throws Exception {
         fixture.person("zoe", "member=zulu developer\n", "lock=pending\n");
         fixture.person(
@@ -107,7 +106,7 @@ class HostOrgStatusTest {
                         + "{\"project\":\"zulu\",\"state\":\"carried\",\"why\":null,\"since\":null,\"repositories\":[]}]}\n";
         assertThat(status())
                 .as(
-                        "root's entire status preserves Python's precedence, sorting and seven-day purge arithmetic")
+                        "root's whole status: one state per person by precedence, sorted, purge seven days after the lock")
                 .isEqualTo(new Answer(0, expected, ""));
     }
 
@@ -140,7 +139,6 @@ class HostOrgStatusTest {
     }
 
     @Test
-    // py: test_org_status_gives_a_reason_for_rows_kept_from_before_a_project_was_put_on_again
     void everyRepositoryStateUsesTheSignedSelectionAndTheLastCentralMeasurement() throws Exception {
         final String progress =
                 """
@@ -207,7 +205,6 @@ class HostOrgStatusTest {
                 "{\"project\":\"alpha\",\"repositories\":[{\"repository\":\"Code\",\"state\":\"cannot-say\",\"why\":null}]}",
                 "{\"project\":\"alpha\",\"repositories\":[{\"repository\":\"Code\",\"state\":\"up-to-date\",\"why\":null}]}"
             })
-    // py: test_org_status_reads_no_answer_from_a_malformed_central_state
     void aMalformedCentralMeasurementCannotVouchForTheRepository(String central) throws Exception {
         fixture.put(
                 ORG + "host-projects.json",

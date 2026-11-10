@@ -62,7 +62,8 @@ class ForgeMeasureSocketTest {
                     .as("the stand-in answered every request successfully")
                     .isEqualTo(0L);
             assertThat(result.get("connections"))
-                    .as("the same measure distinguishes current Python close from Java keep-alive")
+                    .as(
+                            "a gate that closes after each answer costs a connection per request; keep-alive serves the per-connection count on one")
                     .isEqualTo(keep ? 3L : 24L);
             listener.close();
             accepting.get(5, TimeUnit.SECONDS);

@@ -35,7 +35,6 @@ class HostFollowPeopleTest {
         f.next("b");
     }
 
-    // py: test_a_revoked_person_is_locked_on_the_next_follow
     @Test
     void aRevokedCardLosesSshSessionsAndGroupMembership() throws Exception {
         f.run();
@@ -61,7 +60,6 @@ class HostFollowPeopleTest {
         assertThat(result.output()).contains("REVOKED");
     }
 
-    // py: test_uncarry_locks_only_members_without_another_membership
     @Test
     void losingOneProjectPreservesAnotherProjectsMembership() throws Exception {
         final var beta = FollowFixture.project("beta");
@@ -81,7 +79,6 @@ class HostFollowPeopleTest {
         assertThat(Files.exists(f.path(FollowFixture.ORG + "projects/alpha.json"))).isFalse();
     }
 
-    // py: test_membership_loss_purges_on_the_first_follow_seven_days_later
     @Test
     void theSevenDayGracePeriodEndsWithAccountAndRangeRemoval() throws Exception {
         f.run();
@@ -98,7 +95,6 @@ class HostFollowPeopleTest {
         assertThat(new HostRecords(f.host).purged()).contains("bob");
     }
 
-    // py: test_readmission_within_seven_days_preserves_the_account
     @Test
     void readmissionRestoresTheSameAccountDuringTheGracePeriod() throws Exception {
         final var project = f.project();
@@ -114,7 +110,6 @@ class HostFollowPeopleTest {
         assertThat(f.linger).contains("bob");
     }
 
-    // py: test_a_listed_member_is_never_purged
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void aListedLockedMemberHasNoPurgeClock(boolean revoked) throws Exception {
@@ -132,7 +127,6 @@ class HostFollowPeopleTest {
         assertThat(f.read("/etc/porelo-host/people/bob.conf")).doesNotContain("locked_on=");
     }
 
-    // py: test_a_person_listed_again_loses_the_purge_day
     @Test
     void appearingAgainAsALockedMemberCancelsPurge() throws Exception {
         final var p = f.project();
@@ -145,7 +139,6 @@ class HostFollowPeopleTest {
         assertThat(f.read("/etc/porelo-host/people/bob.conf")).doesNotContain("locked_on=");
     }
 
-    // py: test_one_failed_lock_does_not_spare_the_next_person
     @Test
     void failureToLockOnePersonDoesNotProtectTheNext() throws Exception {
         f.run();
@@ -162,7 +155,6 @@ class HostFollowPeopleTest {
         assertThat(f.read("/etc/porelo-host/people/bob.conf")).contains("lock=pending");
     }
 
-    // py: test_a_revoked_key_stays_on_the_krl_once_the_state_no_longer_names_the_person
     @Test
     void anOmittedRevokedCardRetainsItsLastKnownKey() throws Exception {
         f.run();
@@ -179,7 +171,6 @@ class HostFollowPeopleTest {
         locked("bob");
     }
 
-    // py: test_a_replaced_card_lets_the_person_back_and_keeps_the_old_key_revoked
     @Test
     void aNewKeyCanRestoreTheLoginWithoutUnrevokingTheOldKey() throws Exception {
         f.run();
@@ -197,7 +188,6 @@ class HostFollowPeopleTest {
         locked("bob");
     }
 
-    // py: test_a_revoked_key_answered_as_not_revoked_stays_locked
     @Test
     void aBooleanCannotUnrevokeTheSameCardKey() throws Exception {
         f.run();
@@ -210,8 +200,6 @@ class HostFollowPeopleTest {
         assertThat((List<Object>) f.applied().get("revoked")).contains("bob");
     }
 
-    // py: test_revocation_keeps_the_previous_org_key_when_the_card_changes
-    // py: test_a_key_revoked_only_in_the_last_state_reaches_the_krl_before_its_replacement_is_taken
     @Test
     void thePreviousRevokedKeyIsRecordedBeforeAReplacementState() throws Exception {
         f.run();
@@ -234,7 +222,6 @@ class HostFollowPeopleTest {
         assertThat(ordered.indexOf("krl")).isLessThan(ordered.indexOf("acl"));
     }
 
-    // py: test_a_person_gone_from_the_state_comes_back_only_under_another_key
     @ParameterizedTest
     @ValueSource(ints = {2, 9})
     void aRevokedLoginReturnsOnlyWithANewKey(int number) throws Exception {
@@ -248,7 +235,6 @@ class HostFollowPeopleTest {
         assertThat(new HostRecords(f.host).read().get("bob").locked()).isEqualTo(number == 2);
     }
 
-    // py: test_a_renewed_card_moves_the_date_on_the_key_at_the_next_follow
     @Test
     void renewedCardsMoveTheSshExpiry() throws Exception {
         f.run();
@@ -258,7 +244,6 @@ class HostFollowPeopleTest {
                 .contains("expiry-time=\"20290115000000Z\"", FollowFixture.key(2));
     }
 
-    // py: test_a_card_renewed_after_its_end_lets_the_person_in_again
     @Test
     void renewalAfterExpiryRestoresMembership() throws Exception {
         f.run();
@@ -270,7 +255,7 @@ class HostFollowPeopleTest {
         assertThat(new HostRecords(f.host).read().get("bob").locked()).isFalse();
     }
 
-    // py: test_lock_preserves_the_matrix_account_for_a_person_brought_back
+    // A lock can end with readmission, so the Matrix account stays for the person brought back.
     @Test
     void membershipLocksNeverExpelTheMatrixLogin() throws Exception {
         f.run();
@@ -279,7 +264,6 @@ class HostFollowPeopleTest {
         assertThat(f.commands).noneMatch(argv -> argv.contains("expel"));
     }
 
-    // py: test_a_purge_on_a_host_with_no_homeserver_needs_no_transport
     @Test
     void purgeOnAHostWithNoHomeserverNeverStartsATransport() throws Exception {
         f.run();
@@ -291,7 +275,6 @@ class HostFollowPeopleTest {
                 .noneMatch(argv -> argv.stream().anyMatch(a -> a.contains("transport-matrix")));
     }
 
-    // py: test_follow_admits_new_accounts_and_publishes_porelos_signers
     @Test
     void aNewPersonGetsAnAccountAndTheSharedSignerPublication() throws Exception {
         Files.delete(f.path("/etc/porelo-host/people/bob.conf"));
@@ -303,7 +286,6 @@ class HostFollowPeopleTest {
         assertThat(f.read("/etc/ssh/authorized_keys/bob")).contains(FollowFixture.key(2));
     }
 
-    // py: test_admission_retry_finishes_subordinate_ids_and_linger
     @Test
     void aPartialSubordinateAllocationIsLockedThenFinishedOnRetry() throws Exception {
         Files.delete(f.path("/etc/porelo-host/people/bob.conf"));
@@ -331,7 +313,6 @@ class HostFollowPeopleTest {
                 .hasSize(1);
     }
 
-    // py: test_a_member_nobody_vouches_for_yet_gets_no_access_and_stops_nothing
     @Test
     void anUnknownMembersRoleGrantsNoAccess() throws Exception {
         final List<Object> members = new ArrayList<>((List<?>) f.project().get("members"));
@@ -342,7 +323,6 @@ class HostFollowPeopleTest {
         assertThat(f.read(FollowFixture.ORG + "projects/alpha.json")).doesNotContain("stranger");
     }
 
-    // py: test_project_file_acl_tracks_only_unlocked_members
     @Test
     void projectAclsAreReplacedForUnlockedMembersOnly() throws Exception {
         f.run();
@@ -354,7 +334,6 @@ class HostFollowPeopleTest {
         assertThat(f.readers(FollowFixture.ORG + "projects/alpha.json")).isEmpty();
     }
 
-    // py: test_each_person_reads_their_own_projects_named_and_nobody_elses
     @Test
     void eachPersonGetsTheirOwnSortedProjectList() throws Exception {
         final var beta = FollowFixture.project("beta");
@@ -370,7 +349,6 @@ class HostFollowPeopleTest {
         assertThat(Files.exists(f.path(FollowFixture.ORG + "persons/alice.json"))).isFalse();
     }
 
-    // py: test_a_persons_list_is_replaced_whole_and_goes_with_their_last_membership
     @Test
     void theLastMembershipRemovesThePersonsProjectList() throws Exception {
         f.run();
@@ -379,7 +357,6 @@ class HostFollowPeopleTest {
         assertThat(Files.exists(f.path(FollowFixture.ORG + "persons/bob.json"))).isFalse();
     }
 
-    // py: test_a_stranger_in_the_persons_directory_stops_the_publication
     @Test
     void anUnknownPersonPublicationIsNeverDeletedAsStaging() throws Exception {
         f.run();
@@ -388,7 +365,6 @@ class HostFollowPeopleTest {
         assertThat(f.read(FollowFixture.ORG + "persons/stranger.txt")).isEqualTo("keep");
     }
 
-    // py: test_a_failed_service_update_cannot_preserve_removed_member_acls
     @Test
     void oldReadersLoseAccessBeforeAFailedLockRuns() throws Exception {
         f.run();
@@ -407,8 +383,6 @@ class HostFollowPeopleTest {
         assertThatThrownBy(f::run).hasMessageContaining("next follow retries");
     }
 
-    // py: test_a_new_account_can_read_its_project_file_after_the_same_follow
-    // py: test_a_person_this_follow_admits_reads_their_project_file_at_once
     @Test
     void aNewAccountReadsItsProjectFileInTheSameFollow() throws Exception {
         Files.delete(f.path("/etc/porelo-host/people/bob.conf"));
@@ -419,7 +393,6 @@ class HostFollowPeopleTest {
                 .containsEntry("projects", List.of("alpha"));
     }
 
-    // py: test_purge_retries_matrix_expulsion_before_deleting_the_record
     @Test
     void aFailedExpulsionKeepsTheLockedRecordUntilTheNextPurge() throws Exception {
         f.accounts.put("porelo-matrix", f.accounts.get("alice"));
@@ -437,7 +410,6 @@ class HostFollowPeopleTest {
         assertThat(f.accounts).doesNotContainKey("bob");
     }
 
-    // py: test_follow_takes_the_first_organization_before_any_account_holds_it
     @Test
     void theFirstOrganizationNeedsNoAdmittedPersonsAccount() throws Exception {
         for (String login : List.of("alice", "bob", "charlie")) {
@@ -449,8 +421,6 @@ class HostFollowPeopleTest {
         assertThat(f.applied()).containsEntry("commit", "a".repeat(40));
     }
 
-    // py: test_follow_retries_token_revocation_after_recording_the_revoked_key
-    // py: test_unfinished_revocation_is_durable_and_retried
     @Test
     void unfinishedRevocationsKeepTheirAcceptedKeyAndRetryOnTheSameState() throws Exception {
         f.run();
@@ -469,7 +439,6 @@ class HostFollowPeopleTest {
         locked("bob");
     }
 
-    // py: test_retried_lock_never_executes_a_missing_program
     @Test
     void aPendingLockNeverExecutesAnUncheckedMissingProgram() throws Exception {
         f.run();
@@ -488,7 +457,6 @@ class HostFollowPeopleTest {
                                         .equals("usermod"));
     }
 
-    // py: test_failed_admission_removes_access_with_missing_revocation_dependency
     @Test
     void aFailedAdmissionStillRemovesSshWhenALockDependencyIsMissing() throws Exception {
         Files.delete(f.path("/etc/porelo-host/people/bob.conf"));

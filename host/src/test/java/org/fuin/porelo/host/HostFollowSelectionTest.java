@@ -97,7 +97,6 @@ class HostFollowSelectionTest {
                                 .orElseThrow());
     }
 
-    // py: test_a_members_push_config_is_written_as_that_member_and_goes_with_the_membership
     @Test
     void pushConfigurationsRunAsEachMemberAndAreRemovedWithMembership() throws Exception {
         f.run();
@@ -130,7 +129,6 @@ class HostFollowSelectionTest {
                                                                 "rm -f \"$HOME/.config/porelo-host/push")));
     }
 
-    // py: test_a_repository_with_no_central_address_writes_no_push_config
     @ParameterizedTest
     @ValueSource(strings = {"", "file:///local"})
     void invalidCentralUrlsNeverBecomeMemberPushConfigurations(String address) throws Exception {
@@ -139,7 +137,6 @@ class HostFollowSelectionTest {
         assertThat(f.inputs).noneMatch(text -> text.startsWith("# Written by porelo-host-person"));
     }
 
-    // py: test_a_project_taken_off_writes_no_config_and_takes_each_away
     @Test
     void aRemovedProjectDeletesEveryPreviousMembersPushConfiguration() throws Exception {
         f.run();
@@ -159,7 +156,6 @@ class HostFollowSelectionTest {
         assertThat(removals).anyMatch(a -> a.contains("bob")).anyMatch(a -> a.contains("charlie"));
     }
 
-    // py: test_a_token_gives_the_members_their_new_repositories_at_once
     @Test
     void newlyMigratedRepositoriesReachMembersPushConfigurationsImmediately() throws Exception {
         rows();
@@ -171,7 +167,6 @@ class HostFollowSelectionTest {
         assertThat(configurations.getLast()).contains("repository one ", "repository two ");
     }
 
-    // py: test_a_repository_the_card_no_longer_names_is_taken_off
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void aRepositoryNoLongerSelectedIsTakenOffWithOrWithoutAToken(boolean token) throws Exception {
@@ -195,7 +190,6 @@ class HostFollowSelectionTest {
                 .doesNotContain("repository two ");
     }
 
-    // py: test_a_repository_with_work_not_at_the_central_forge_is_held_and_tried_again
     @Test
     void unpushedWorkHoldsARepositoryAndTheNextFollowRetriesIt() throws Exception {
         rows();
@@ -210,7 +204,6 @@ class HostFollowSelectionTest {
         assertThat(f.project.repositories).doesNotContainKey("alpha/two");
     }
 
-    // py: test_the_projects_own_repository_is_never_taken_off_however_the_file_spells_it
     @Test
     void aProjectsOwnCentralNameStaysEvenWhenItsAliasIsNoLongerSelected() throws Exception {
         rows();
@@ -222,7 +215,6 @@ class HostFollowSelectionTest {
         assertThat(f.project.repositories).containsKey("alpha/code");
     }
 
-    // py: test_a_repository_another_named_row_carries_is_not_taken_off
     @Test
     void anotherSelectedAliasKeepsTheSameCentralRepository() throws Exception {
         rows();
@@ -240,7 +232,6 @@ class HostFollowSelectionTest {
         assertThat(f.project.repositories).containsKey("alpha/two");
     }
 
-    // py: test_off_says_in_the_journal_which_key_stays_at_the_central_forge
     @Test
     void takingOffWithoutATokenNamesTheDeployKeyLeftAtCentral() throws Exception {
         rows();
@@ -250,7 +241,6 @@ class HostFollowSelectionTest {
         assertThat(f.journal.toString()).contains("read-only deploy key", "stays at", "two.git");
     }
 
-    // py: test_an_unpushed_project_is_held_then_removed_after_the_push
     @Test
     void removalHoldsEveryRefUntilItsCommitsReachCentral() throws Exception {
         f.run();
@@ -265,8 +255,6 @@ class HostFollowSelectionTest {
         assertThat(Files.exists(f.path("/etc/porelo-host/projects/alpha.conf"))).isFalse();
     }
 
-    // py: test_follow_reports_an_unfinished_removal_after_revoking_the_projects_access
-    // py: test_a_removal_refused_for_another_reason_than_commits_gives_its_words_and_stays_held
     @Test
     void anUnverifiableRemovalKeepsTheProjectAndItsSafeReason() throws Exception {
         f.run();
@@ -278,7 +266,6 @@ class HostFollowSelectionTest {
         assertThat(Files.exists(f.path("/etc/porelo-host/projects/alpha.conf"))).isTrue();
     }
 
-    // py: test_a_held_project_revokes_its_room_members_before_its_forge_can_go
     @Test
     void aHeldProjectsRoomIsEmptiedBeforeItsRemovalComparison() throws Exception {
         f.write("/etc/systemd/system/porelo-matrix-gate.socket", "gate");
@@ -293,7 +280,6 @@ class HostFollowSelectionTest {
         assertThat(f.item()).containsEntry("state", "held");
     }
 
-    // py: test_a_project_put_on_again_is_migrated_though_its_record_outlived_the_removal
     @Test
     void aRetriedCarryRespectsThePhysicalForgeRecord() throws Exception {
         f.write("/etc/systemd/system/porelo-matrix-gate.socket", "gate");
@@ -315,7 +301,6 @@ class HostFollowSelectionTest {
         assertThat(f.project.repositories).containsKey("alpha/code");
     }
 
-    // py: test_a_new_forge_organization_takes_the_named_repositories_again
     @Test
     void recreatedForgeOrganizationsDiscardOldMigrationProgress() throws Exception {
         rows();
@@ -329,7 +314,6 @@ class HostFollowSelectionTest {
         assertThat(f.project.repositories).containsKeys("alpha/code", "alpha/one", "alpha/two");
     }
 
-    // py: test_org_status_names_each_repository_taken_waiting_or_with_no_central
     @Test
     void statusShowsTakenWaitingAndLocalRepositories() throws Exception {
         rows();
@@ -357,7 +341,6 @@ class HostFollowSelectionTest {
                                         .containsEntry("state", "taken"));
     }
 
-    // py: test_org_status_gives_no_why_for_a_project_whose_rest_has_no_central
     @Test
     void choosingALocalOnlyRepositoryDoesNotGiveTheProjectAFailure() throws Exception {
         f.verified.put(
@@ -366,7 +349,6 @@ class HostFollowSelectionTest {
         assertThat(status("alpha")).containsEntry("why", null);
     }
 
-    // py: test_org_status_gathers_like_reasons_of_repositories_in_the_projects_why
     @Test
     void identicalWaitingReasonsAreGroupedOnceInProjectStatus() throws Exception {
         rows();
@@ -374,7 +356,6 @@ class HostFollowSelectionTest {
         assertThat(status("alpha").get("why")).isEqualTo("one, two: waits for a central token");
     }
 
-    // py: test_org_status_says_the_projects_own_repository_is_taken
     @Test
     void ownRepositoryRowsCountAsTakenByTheProjectMigration() throws Exception {
         f.verified.put(
@@ -389,7 +370,6 @@ class HostFollowSelectionTest {
                                         .containsEntry("state", "taken"));
     }
 
-    // py: test_org_status_names_no_repository_before_a_file_was_read
     @Test
     void anUnreadProjectFileNamesNoRepositoryRows() throws Exception {
         f.verifyCode = 65;
@@ -397,7 +377,6 @@ class HostFollowSelectionTest {
         assertThat(status("alpha").get("repositories")).asList().isEmpty();
     }
 
-    // py: test_org_status_says_how_a_taken_repositorys_main_stands_against_central
     @Test
     void statusUsesThePublishedCentralMeasurement() throws Exception {
         f.verified.put(
@@ -408,7 +387,6 @@ class HostFollowSelectionTest {
         assertThat(row(row(rows.getFirst()).get("central"))).containsEntry("state", "up-to-date");
     }
 
-    // py: test_project_lock_removes_person_gate_and_agent_only_from_its_teams
     @Test
     void oneProjectsLockRemovesItsIdentitiesWithoutTouchingAnotherProject() throws Exception {
         f.run();
@@ -436,7 +414,6 @@ class HostFollowSelectionTest {
         assertThat(new HostRecords(f.host).read().get("bob").locked()).isFalse();
     }
 
-    // py: test_follow_admits_a_new_card_without_inventing_legacy_agent_accounts
     @Test
     void admissionCreatesOnlyThePersonAndTaskGateIdentities() throws Exception {
         f.write(
@@ -454,7 +431,6 @@ class HostFollowSelectionTest {
                 .doesNotContain("legacy-carol");
     }
 
-    // py: test_follow_arms_the_projects_repositories_on_its_forge
     @Test
     void armingRecordsTheExistingHistoryAfterInstallingTheJudge() throws Exception {
         f.override =

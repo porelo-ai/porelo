@@ -15,7 +15,7 @@ The native profile builds `target/porelo-host`; [porelo-host(8)](src/main/man/po
 `forge gate --web|--git|--runner --upstream <socket>` serves a systemd accepted connection; web and runner require Unix peers, and only an admitted person's web request receives a forge sign-in.
 `forge measure` measures an installed gate's activation and web keep-alive, reporting connections, failures, throughput and latency as JSON.
 `pool revert <list>` watches the pool, `pool revert --one <name>` settles one VM, `pool give-back` schedules the sudo run account's return, `pool make` imports a VM from a prepared seed, `pool address NAME [SECONDS]` waits up to 300 seconds by default for its IPv4 lease, and `pool delete NAME` removes its domain and volumes and checks that none remain.
-The pool sets the restored clock before raising a VM's link; seed construction remains with the collection's build tool.
+The pool sets the restored clock before raising a VM's link; seed construction belongs to the collection's build tool.
 
 Web admission is resolved once per accepted connection; every request still checks its host, route and credentials.
-Run `porelo-host forge measure --socket /path/to/web.sock --host host.localhost:3000 --requests 1000 --concurrency 32 --per-connection 8` against each installed gate to compare them.
+Run `porelo-host forge measure --socket /path/to/web.sock --host host.localhost:3000 --requests 1000 --concurrency 32 --per-connection 8` against an installed gate to measure it under load.

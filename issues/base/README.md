@@ -250,7 +250,6 @@ from its side, as *blocked by*.
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
-| <a id="b569"></a>[B569](B569-The-Host-Tool-Tests-Stand-Without-The-Python.md) | M | [B552](README.md#b552) | Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or "the Python" in a test, and a test that only proved the port is removed. |
 
 ## Review
 
@@ -271,6 +270,7 @@ from its side, as *blocked by*.
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](README.md#b550) | `porelo-host person purge <login> \| restore-runtime`. |
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
 | <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. |
+| <a id="b569"></a>[B569](B569-The-Host-Tool-Tests-Stand-Without-The-Python.md) | M | [B552](README.md#b552) | Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or "the Python" in a test, and a test that only proved the port is removed. |
 | <a id="b589"></a>[B589](B589-The-Forge-Knows-The-Key-That-Signed-A-Commit.md) | L | [B550](README.md#b550), [B547](README.md#b547) | Measure certified-signature support first, then register person and task signing keys on their push accounts so the host forge verifies commits. |
 | <a id="b586"></a>[B586](B586-A-Task-Name-The-Room-Cannot-Hold.md) | S | - | A long task name on a clash, and one with two hyphens in a row, still get a name in the room. |
 | <a id="b580"></a>[B580](B580-The-Gathered-Push-From-The-Window.md) | M | [B544](README.md#b544) | `PushToCentral` over the daemon: the gathered push to central with progress and typed refusals, for the window's release. |

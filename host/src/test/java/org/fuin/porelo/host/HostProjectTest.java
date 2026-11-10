@@ -30,10 +30,10 @@ class HostProjectTest {
 
     private void refused(Answer answer, int code, String message) {
         assertThat(answer.code())
-                .as("the Python sysexits code is preserved: %s", answer.err())
+                .as("the exit code is the one the man page's codes by verb give: %s", answer.err())
                 .isEqualTo(code);
         assertThat(answer.err())
-                .as("callers recognize the existing helper's refusal")
+                .as("the follow recognizes a project refusal by this prefix")
                 .startsWith("porelo-host-project: ")
                 .contains(message);
         assertThat(answer.out()).as("a refusal prints no success record").isEmpty();
@@ -72,7 +72,6 @@ class HostProjectTest {
         host.clear();
     }
 
-    // py: test_invalid_calls_change_nothing
     @ParameterizedTest
     @ValueSource(
             strings = {"../escape", "A", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "alpha-"})
@@ -83,7 +82,6 @@ class HostProjectTest {
                 .isFalse();
     }
 
-    // py: test_nonroot_is_refused_before_reading_arguments_or_files
     @Test
     void aNonrootCallerIsRefusedBeforeArgumentsOrFiles() {
         final StringWriter out = new StringWriter();
@@ -95,13 +93,12 @@ class HostProjectTest {
                                 () -> 1000,
                                 new PrintWriter(out),
                                 new PrintWriter(err)))
-                .as("the project helper refuses nonroot before parsing with its predecessor's code")
+                .as("the project verbs refuse nonroot with 69 before parsing")
                 .isEqualTo(69);
         assertThat(err.toString()).as("frame names the root boundary").contains("root");
         host.noCommands();
     }
 
-    // py: test_an_untrusted_person_record_changes_nothing
     @ParameterizedTest
     @ValueSource(strings = {"missing", "symlink", "writable", "readable", "directory", "owner"})
     void anUntrustedPersonChangesNothing(String defect) throws Exception {
@@ -144,7 +141,6 @@ class HostProjectTest {
                 defect.equals("missing") ? "no person" : "root");
     }
 
-    // py: test_a_locked_or_other_person_cannot_own_a_project
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void aLockedPersonOrOneWithoutMembershipCannotOwnAProject(boolean locked) throws Exception {
@@ -152,7 +148,6 @@ class HostProjectTest {
         cleanRefusal(add(), 65, "alice");
     }
 
-    // py: test_an_admin_purged_while_waiting_for_the_lock_owns_no_project
     @Test
     void aPurgeBeforeTheLockIsRechecked() {
         host.locking =
@@ -163,7 +158,6 @@ class HostProjectTest {
         cleanRefusal(add(), 65, "no person");
     }
 
-    // py: test_an_existing_record_is_never_overwritten
     @Test
     void anExistingRegistrationIsNeverOverwritten() throws Exception {
         host.directories("/etc/porelo-host/projects");
@@ -174,7 +168,6 @@ class HostProjectTest {
                 .isEqualTo("original\n");
     }
 
-    // py: test_forge_name_collisions_change_nothing
     @ParameterizedTest
     @ValueSource(strings = {"organization", "user", "publisher", "admin"})
     void aForgeIdentityCollisionChangesNothing(String kind) {
@@ -191,7 +184,6 @@ class HostProjectTest {
                 .noneMatch(argv -> argv.contains("create"));
     }
 
-    // py: test_add_creates_only_the_project_owner_and_package_publisher
     @Test
     void registrationCreatesOnlyItsOwnerAndPackagePublisher() throws Exception {
         final Answer answer = add();
@@ -219,13 +211,11 @@ class HostProjectTest {
                 .isEqualTo(0600);
     }
 
-    // py: test_unknown_removal_never_reaches_the_forge
     @Test
     void unknownRemovalNeverReachesTheForge() {
         cleanRefusal(host.run("remove", "unknown"), 65, "unknown");
     }
 
-    // py: test_remove_refuses_unpushed_commits_then_removes_only_the_project
     @ParameterizedTest
     @ValueSource(strings = {"refs/heads/task", "refs/tags/task"})
     void unpushedWorkOnAnyRefKeepsTheProject(String reference) throws Exception {
@@ -245,7 +235,6 @@ class HostProjectTest {
                 .doesNotContain("porelo-publisher-alpha");
     }
 
-    // py: test_remove_refuses_a_repository_without_an_original_url
     @Test
     void aRepositoryWithoutItsCentralAddressIsKept() throws Exception {
         registeredKeys();
@@ -254,7 +243,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_an_untrusted_or_unavailable_forge_changes_nothing
     @ParameterizedTest
     @ValueSource(ints = {503, 302})
     void aFailedOrRedirectedForgeChangesNothing(int status) {
@@ -263,7 +251,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_untrusted_record_directories_are_refused_before_the_forge
     @ParameterizedTest
     @ValueSource(strings = {"symlink", "writable", "readable"})
     void untrustedRecordDirectoriesAreRefusedLocally(String defect) throws Exception {
@@ -285,7 +272,6 @@ class HostProjectTest {
         cleanRefusal(add(), 69, "root");
     }
 
-    // py: test_a_corrupt_project_record_prevents_deleting_any_identity
     @ParameterizedTest
     @CsvSource({"admin,../alice", "signed_by,bad", "publisher,porelo-publisher-beta"})
     void aCorruptRegistrationDeletesNoIdentity(String field, String value) throws Exception {
@@ -309,7 +295,6 @@ class HostProjectTest {
         cleanRefusal(remove(), 65, field);
     }
 
-    // py: test_an_ambiguous_name_lookup_is_never_treated_as_a_free_name
     @ParameterizedTest
     @ValueSource(strings = {"null", "[]", "\"not an organization\""})
     void anAmbiguousSuccessfulLookupDoesNotFreeAName(String json) {
@@ -318,7 +303,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_incomplete_repository_or_package_checks_prevent_all_deletion
     @ParameterizedTest
     @ValueSource(strings = {"repeat", "shape", "name", "package", "missing-source"})
     void incompleteRepositoryOrPackageChecksPreventDeletion(String defect) throws Exception {
@@ -342,7 +326,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_a_later_repository_page_cannot_hide_unpushed_work
     @Test
     void laterRepositoryPagesCannotHideWork() throws Exception {
         registeredKeys();
@@ -359,7 +342,6 @@ class HostProjectTest {
                 .anyMatch(call -> call.path().endsWith("page=2"));
     }
 
-    // py: test_failed_registration_removes_its_own_partial_identities
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -376,7 +358,6 @@ class HostProjectTest {
                 .containsExactlyInAnyOrder("alice", "bob");
     }
 
-    // py: test_a_record_created_during_registration_cannot_be_overwritten
     @Test
     void aConcurrentRegistrationCannotReplaceThePin() throws Exception {
         host.beforeCall =
@@ -395,7 +376,6 @@ class HostProjectTest {
                 .isEqualTo("other writer\n");
     }
 
-    // py: test_failed_cli_commands_never_publish_a_record_or_credentials
     @ParameterizedTest
     @ValueSource(strings = {"create", "admin-token", "write:package", "read:package"})
     void failedAccountAndTokenCommandsNeverPublishCredentials(String failure) {
@@ -411,7 +391,6 @@ class HostProjectTest {
         assertThat(Files.exists(record())).as("failure publishes no registration").isFalse();
     }
 
-    // py: test_the_pools_run_key_is_put_only_where_the_host_has_one
     @Test
     void registrationSendsThePoolKeyOnlyWhenPresent() throws Exception {
         host.directories("/var/lib/porelo-host/pool");
@@ -422,7 +401,6 @@ class HostProjectTest {
                 .containsEntry("alpha/PORELO_POOL_SSH", "fixture run key\n");
     }
 
-    // py: test_a_run_key_others_may_read_stops_the_registration_and_undoes_it
     @Test
     void aReadableRunKeyRollsBackRegistration() throws Exception {
         host.directories("/var/lib/porelo-host/pool");
@@ -432,7 +410,6 @@ class HostProjectTest {
         assertThat(host.organizations).as("no organization survives a refused key").isEmpty();
     }
 
-    // py: test_a_failed_run_key_secret_removes_the_organization_and_the_publisher
     @Test
     void aFailedRunKeySecretRollsBackBothIdentities() throws Exception {
         host.directories("/var/lib/porelo-host/pool");
@@ -444,7 +421,6 @@ class HostProjectTest {
         assertThat(host.users).as("publisher is removed").doesNotContain("porelo-publisher-alpha");
     }
 
-    // py: test_failed_cleanup_still_attempts_both_identities_and_names_leftovers
     @Test
     void cleanupAttemptsBothIdentitiesAndNamesEveryLeftover() {
         host.replies.put(
@@ -461,7 +437,6 @@ class HostProjectTest {
                                         && call.path().endsWith("porelo-publisher-alpha"));
     }
 
-    // py: test_the_callers_umask_cannot_leave_unusable_record_directories
     @ParameterizedTest
     @ValueSource(strings = {"0777", "0000"})
     void recordDirectoriesHaveExplicitPrivateModes(String mask) throws Exception {
@@ -487,7 +462,6 @@ class HostProjectTest {
         assertThat(result.exitCode()).as(result.output()).isZero();
     }
 
-    // py: test_canonical_ed25519_signers_are_stored_exactly
     @Test
     void aCanonicalSignerIsStoredExactly() throws Exception {
         host.add();
@@ -496,7 +470,6 @@ class HostProjectTest {
                 .contains("signed_by=" + KEY + "\n");
     }
 
-    // py: test_invalid_signing_keys_never_reach_the_forge
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -510,7 +483,8 @@ class HostProjectTest {
         cleanRefusal(host.run("add", "alpha", "alice", "--signed-by", key), 64, "signing key");
     }
 
-    // py: test_comparison_failures_keep_the_contract_exit_code
+    // project remove's codes by verb: unpushed work and write failures pass through, an
+    // interrupted push check is 64, and any other failure is a dependency's.
     @ParameterizedTest
     @CsvSource({"65,65", "73,73", "75,64", "130,64", "143,64", "1,69", "69,69"})
     void gatheredPushFailuresKeepTheirContractCode(int exit, int expected) throws Exception {
@@ -522,7 +496,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_missing_or_canceled_token_input_is_an_input_refusal
     @Test
     void missingTokenInputIsAnInputRefusal() {
         host.add();
@@ -532,7 +505,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_write_failures_are_distinct_from_dependency_refusals
     @ParameterizedTest
     @ValueSource(strings = {"publish", "stdout"})
     void writeFailuresHaveTheirOwnExitCodeWithoutData(String operation) throws Exception {
@@ -586,14 +558,12 @@ class HostProjectTest {
         }
     }
 
-    // py: test_an_unreadable_http_reply_is_a_dependency_refusal
     @Test
     void anUnreadableHttpReplyIsADependencyRefusal() throws Exception {
         host.unavailable = true;
         refused(add(), 69, "did not answer");
     }
 
-    // py: test_a_piped_token_is_its_one_line_and_never_prompted
     @ParameterizedTest
     @ValueSource(strings = {"", "one\ntwo\n", "one\r\n", "one\n\n"})
     void aPipedTokenMustBeOneLine(String input) {
@@ -603,7 +573,6 @@ class HostProjectTest {
         refused(host.runInput("remove", input, "alpha"), 64, "no valid central forge token");
     }
 
-    // py: test_a_piped_token_is_its_one_line_and_never_prompted
     @Test
     void aOneLinePipedTokenReachesTheGatheredPushAndRemovalSucceeds() {
         host.add();
@@ -701,7 +670,7 @@ class HostProjectTest {
     }
 
     @Test
-    void readKeyDeletionFailureUsesThePythonDependencyRefusal() throws Exception {
+    void aFailedReadKeyDeletionIsADependencyRefusal() throws Exception {
         registeredKeys();
         host.files =
                 new ProjectFiles(
@@ -719,7 +688,6 @@ class HostProjectTest {
                 .isTrue();
     }
 
-    // py: test_add_accepts_any_unlocked_member_and_records_project_admin_in_fixed_order
     @Test
     void anyUnlockedMemberMayRegisterWithCanonicalMembershipOrder() throws Exception {
         Files.writeString(alice(), person("member=beta developer\n", false, false));
@@ -729,7 +697,6 @@ class HostProjectTest {
                 .startsWith("member=alpha project-admin\nmember=beta developer\n");
     }
 
-    // py: test_a_registered_organization_can_take_its_people_and_run_its_workflows
     @Test
     void theOrganizationHasTheExactTeamAccessAndWorkflowSettings() {
         host.add();
@@ -761,7 +728,6 @@ class HostProjectTest {
                 .containsEntry("alpha/PROJECT", "alpha");
     }
 
-    // py: test_a_locked_persons_record_survives_a_projects_removal
     @Test
     void removingAProjectPreservesALockedPersonsCard() throws Exception {
         host.add();
@@ -775,7 +741,6 @@ class HostProjectTest {
                 .isEqualTo(person("", true, false) + "reason=key\nlocked_on=2026-11-09\n");
     }
 
-    // py: test_remove_drops_only_its_memberships_and_leaves_locks_to_follow
     @Test
     void removalDropsOnlyThisProjectsMemberships() throws Exception {
         host.add();
@@ -791,7 +756,6 @@ class HostProjectTest {
                 .isEqualTo(person("member=host-admin\nmember=beta developer\n", false, false));
     }
 
-    // py: test_remove_refuses_corrupt_people_before_deleting_the_project
     @Test
     void corruptPeopleRefuseRemovalBeforeDeletingAnything() throws Exception {
         host.add();
@@ -800,7 +764,6 @@ class HostProjectTest {
         cleanRefusal(remove(), 65, "malformed");
     }
 
-    // py: test_project_admin_transport_connects_only_to_a_unix_socket
     @Test
     void localAdministrationUsesOnlyThePrivateUnixSocket() throws Exception {
         host.realSocket = true;
@@ -820,7 +783,6 @@ class HostProjectTest {
         assertThat(host.centralCalls).as("no local administrator token reaches TCP").isEmpty();
     }
 
-    // py: test_add_registers_only_a_project_the_hosts_org_names_for_its_admin
     @ParameterizedTest
     @ValueSource(strings = {"{}", "{\"projects\":[],\"revoked\":[]}", "malformed"})
     void anUnnamedOrMalformedOrganizationCannotRegisterAProject(String applied) throws Exception {
@@ -828,7 +790,6 @@ class HostProjectTest {
         cleanRefusal(add(), 65, "organization");
     }
 
-    // py: test_add_registers_no_project_for_an_admin_the_hosts_org_revoked
     @Test
     void aRevokedAdminRegistersNoProject() throws Exception {
         final Path applied = host.files.etc.resolve("organization/applied.json");
@@ -838,7 +799,6 @@ class HostProjectTest {
         cleanRefusal(add(), 65, "revoked");
     }
 
-    // py: test_remove_deletes_only_its_membership_and_signer_publications
     @Test
     void removalDeletesOnlyItsMembershipAndSignerPublications() throws Exception {
         host.add();
@@ -861,7 +821,6 @@ class HostProjectTest {
                 .isTrue();
     }
 
-    // py: test_remove_keeps_everything_when_a_projects_arrivals_are_not_roots_alone
     @Test
     void untrustedArrivalsPreventEveryDeletion() throws Exception {
         host.add();
@@ -873,7 +832,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_remove_preserves_pending_state_after_membership_removal
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void removalPreservesThePendingLockState(boolean locked) throws Exception {
@@ -887,14 +845,12 @@ class HostProjectTest {
                 .isEqualTo(person("", locked, true));
     }
 
-    // py: test_pending_admin_cannot_add_a_project
     @Test
     void aPendingAdminCannotRegister() throws Exception {
         Files.writeString(alice(), person("member=host-admin\n", false, true));
         cleanRefusal(add(), 65, "locked");
     }
 
-    // py: test_a_forge_account_without_a_usable_home_is_refused
     @ParameterizedTest
     @ValueSource(strings = {"", "/", "relative", "/home/../forge"})
     void anUnusableForgeHomeIsRefused(String home) {
@@ -902,7 +858,6 @@ class HostProjectTest {
         refused(add(), 69, "usable absolute home");
     }
 
-    // py: test_registration_uses_the_project_admin_in_the_fetched_members
     @Test
     void registrationRequiresTheFetchedProjectAdminRole() throws Exception {
         final Path applied = host.files.etc.resolve("organization/applied.json");
@@ -912,7 +867,6 @@ class HostProjectTest {
         cleanRefusal(add(), 65, "names no project");
     }
 
-    // py: test_a_follow_lends_its_existing_lock_to_registration
     @Test
     void theFollowCanLendItsExistingFlock() throws Exception {
         try (ProjectLock lock = ProjectLock.acquire(host.records.conf(), null)) {
@@ -932,7 +886,6 @@ class HostProjectTest {
         }
     }
 
-    // py: test_an_unrelated_descriptor_cannot_bypass_the_project_lock
     @Test
     void anUnrelatedDescriptorCannotBypassTheProjectLock() throws Exception {
         try (ProjectLock lock = ProjectLock.acquire(host.records.person("bob"), null)) {
@@ -950,7 +903,6 @@ class HostProjectTest {
         }
     }
 
-    // py: test_a_project_is_held_until_every_local_ref_has_reached_the_central_forge
     @Test
     void everyLocalCommitMustBeReachableAtCentral() throws Exception {
         registeredKeys();
@@ -959,7 +911,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_an_unreachable_central_forge_cannot_be_treated_as_all_work_pushed
     @Test
     void anUnreachableCentralCannotProveWorkWasPushed() throws Exception {
         registeredKeys();
@@ -968,7 +919,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_migration_uses_only_a_pipe_and_memory_for_the_central_token
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void migrationUsesOnlyStdinAndMemoryForItsToken(boolean missingPublic) throws Exception {
@@ -1030,7 +980,6 @@ class HostProjectTest {
                 .containsKey("alpha/code");
     }
 
-    // py: test_a_project_put_on_again_after_off_replaces_its_own_key_and_says_what_stayed
     @Test
     void migrationReplacesOnlyThisHostsStaleReadKey() throws Exception {
         registeredKeys();
@@ -1043,7 +992,6 @@ class HostProjectTest {
                 .contains("DELETE /api/v1/repos/acme/code/keys/1");
     }
 
-    // py: test_a_migration_leaves_a_key_of_another_host_or_of_a_person
     @ParameterizedTest
     @ValueSource(strings = {"another host", "a person"})
     void migrationLeavesUnrelatedDeployKeys(String title) {
@@ -1057,7 +1005,6 @@ class HostProjectTest {
                 .anyMatch(key -> title.equals(key.get("title")));
     }
 
-    // py: test_a_writable_key_under_the_hosts_own_title_is_refused_and_kept
     @Test
     void aWritableKeyUnderOurTitleIsKeptAndRefused() {
         host.add();
@@ -1078,7 +1025,6 @@ class HostProjectTest {
                 .noneMatch(call -> call.startsWith("DELETE"));
     }
 
-    // py: test_a_repository_cannot_overwrite_its_read_key_manifest
     @ParameterizedTest
     @ValueSource(strings = {"repositories.json", "Repositories.json.git", "repositories.json.git"})
     void aRepositoryCannotOverwriteTheManifest(String name) {
@@ -1089,7 +1035,6 @@ class HostProjectTest {
                 .isFalse();
     }
 
-    // py: test_registration_preserves_the_membership_follow_already_admitted
     @Test
     void registrationPreservesTheFollowAdmittedMembership() throws Exception {
         Files.writeString(
@@ -1105,7 +1050,6 @@ class HostProjectTest {
                                 false));
     }
 
-    // py: test_read_only_local_git_uses_the_forge_accounts_user_manager
     @Test
     void localGitUsesTheForgeAccountsUserManager() throws Exception {
         registeredKeys();
@@ -1122,7 +1066,6 @@ class HostProjectTest {
                                                 "--git-dir=/var/lib/gitea/git/repositories/alpha/code.git"));
     }
 
-    // py: test_migration_never_sends_the_token_to_another_projects_forge
     @Test
     void migrationNeverSendsTheTokenToAnotherForge() {
         host.add();
@@ -1134,7 +1077,6 @@ class HostProjectTest {
                 .isFalse();
     }
 
-    // py: test_a_read_key_cannot_be_replaced_by_a_link_when_comparing_central_commits
     @Test
     void aLinkedReadKeyCannotBeUsedToCompareCommits() throws Exception {
         registeredKeys();
@@ -1144,7 +1086,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_removal_resumes_after_the_organization_is_gone_but_its_publisher_remains
     @Test
     void removalResumesAfterOnlyTheOrganizationWasDeleted() throws Exception {
         host.add();
@@ -1160,7 +1101,6 @@ class HostProjectTest {
         assertThat(Files.exists(record())).as("completed retry removes the record").isFalse();
     }
 
-    // py: test_private_key_cleanup_resumes_without_losing_its_manifest
     @Test
     void cleanupKeepsTheManifestUntilEveryPrivateFileIsGone() throws Exception {
         registeredKeys();
@@ -1189,7 +1129,6 @@ class HostProjectTest {
                 .isFalse();
     }
 
-    // py: test_a_broken_private_key_refuses_recovery_without_disclosing_it
     @Test
     void aBrokenPrivateKeyRefusesRecoveryWithoutDisclosingBytes() throws Exception {
         registeredKeys();
@@ -1201,7 +1140,6 @@ class HostProjectTest {
                 .isEqualTo("fixture private material");
     }
 
-    // py: test_read_directory_residue_cannot_strand_or_partially_delete_a_project
     @ParameterizedTest
     @ValueSource(
             strings = {".repositories-interrupted", "notes", ".repositories", ".other-staging"})
@@ -1218,7 +1156,6 @@ class HostProjectTest {
         }
     }
 
-    // py: test_a_repositorys_main_is_told_against_the_central_forge
     @ParameterizedTest
     @CsvSource({
         "same,up-to-date",
@@ -1249,7 +1186,6 @@ class HostProjectTest {
                 .startsWith("{\"project\":\"alpha\",\"repositories\":[{\"repository\":\"code\",");
     }
 
-    // py: test_a_repository_with_no_read_key_cannot_say
     @Test
     void aRepositoryWithoutAReadKeyCannotSay() throws Exception {
         registeredKeys();
@@ -1260,7 +1196,6 @@ class HostProjectTest {
                         "{\"repository\":\"unrecorded\",\"state\":\"cannot-say\",\"why\":\"no-read-key\"}");
     }
 
-    // py: test_telling_the_state_asks_the_forge_nothing_and_leaves_it_no_token
     @Test
     void tellingCentralStateMakesNoAdminTokenOrApiCall() throws Exception {
         registeredKeys();
@@ -1271,7 +1206,6 @@ class HostProjectTest {
                 .noneMatch(argv -> argv.contains("generate-access-token"));
     }
 
-    // py: test_the_central_main_is_asked_by_the_read_key_and_bounded_in_time
     @Test
     void centralMainUsesTheReadKeyAndAThirtySecondDeadline() throws Exception {
         registeredKeys();
@@ -1292,7 +1226,6 @@ class HostProjectTest {
                         host.keyPath().toString());
     }
 
-    // py: test_one_repository_is_taken_off_with_its_read_key_and_its_deploy_key
     @Test
     void takingOffOneRepositoryDeletesItsKeysInOrder() throws Exception {
         registeredKeys();
@@ -1311,7 +1244,6 @@ class HostProjectTest {
                 .contains("alpha");
     }
 
-    // py: test_without_a_token_the_deploy_key_is_named_for_its_owner
     @Test
     void takingOffWithoutATokenNamesTheDeployKeyForItsOwner() throws Exception {
         registeredKeys();
@@ -1326,7 +1258,6 @@ class HostProjectTest {
         assertThat(host.centralCalls).as("no token means no central API call").isEmpty();
     }
 
-    // py: test_a_repository_with_unpushed_work_is_held
     @Test
     void takingOffKeepsARepositoryWithUnpushedWork() throws Exception {
         registeredKeys();
@@ -1335,7 +1266,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_a_deploy_key_still_listed_after_its_deletion_keeps_the_read_key
     @Test
     void anUnconfirmedDeployKeyDeletionKeepsTheLocalReadKey() throws Exception {
         registeredKeys();
@@ -1347,7 +1277,6 @@ class HostProjectTest {
         host.noMutation();
     }
 
-    // py: test_a_token_goes_to_no_forge_but_the_organizations
     @Test
     void takingOffSendsNoTokenToAnotherForge() throws Exception {
         registeredKeys();
@@ -1360,7 +1289,6 @@ class HostProjectTest {
                 .isEmpty();
     }
 
-    // py: test_a_renamed_repository_answered_under_the_old_name_is_not_taken_off
     @Test
     void aRenamedRepositoryIsNotTakenOffThroughItsOldName() throws Exception {
         registeredKeys();
@@ -1397,7 +1325,6 @@ class HostProjectTest {
         assertThat(wholeProject ? remove().code() : host.off(null).code()).isNotZero();
     }
 
-    // py: test_a_repository_taken_off_takes_its_arrivals_along
     @Test
     void takingOffRemovesOnlyThatRepositorysArrivals() throws Exception {
         // A removed repository must not leave published provenance for a later replacement.
@@ -1454,7 +1381,8 @@ class HostProjectTest {
                 List.of(Map.of("type", "maven", "name", "org.example:*", "version", "1.0+test")));
         assertThat(remove().code()).as("a package identity is validated before removal").isZero();
         assertThat(host.calls)
-                .as("Python quote escapes a literal star and colon as part of the package name")
+                .as(
+                        "a star, a colon and a plus in a package identity are percent-encoded in its path segment")
                 .anyMatch(
                         call ->
                                 call.method().equals("DELETE")

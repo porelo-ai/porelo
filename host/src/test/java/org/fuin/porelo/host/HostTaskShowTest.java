@@ -23,7 +23,6 @@ class HostTaskShowTest {
         fixture.person("alice", "member=alpha developer\n", "");
     }
 
-    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @Test
     void theSudoPersonReadsTheWholeTaskRecordInItsStoredOrder() throws Exception {
         final String record = task("alice", "one", FINGERPRINT);
@@ -33,7 +32,6 @@ class HostTaskShowTest {
                 .isEqualTo(new Answer(0, record + "\n", ""));
     }
 
-    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @ParameterizedTest
     @ValueSource(strings = {"developer", "project-admin"})
     void anotherMembersTaskInASharedProjectIsServed(String role) throws Exception {
@@ -100,7 +98,8 @@ class HostTaskShowTest {
     void aMalformedFingerprintIsRefusedBeforeAnyFileIsRead(String fingerprint) throws Exception {
         Files.delete(fixture.path("/etc/porelo-host/forge.conf"));
         assertThat(fixture.run(SUDO, "task", "show", fingerprint))
-                .as("fingerprints use precisely the Python argument contract")
+                .as(
+                        "task show takes a task name or SHA256: and 43 unpadded base64 characters, nothing else")
                 .isEqualTo(
                         new Answer(
                                 64,
@@ -108,7 +107,6 @@ class HostTaskShowTest {
                                 "porelo-host-person: a task must match [a-z0-9][a-z0-9._-]{0,63}, a task key's fingerprint SHA256:<43 base64>\n"));
     }
 
-    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @Test
     void rootWithoutASudoPersonReadsATaskFromAnyPersonsRecords() throws Exception {
         fixture.put(
@@ -121,7 +119,6 @@ class HostTaskShowTest {
                 .isEqualTo(new Answer(0, record + "\n", ""));
     }
 
-    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @Test
     void rootWithoutASudoPersonRefusesAnUnrecordedFingerprint() {
         assertThat(fixture.run(Map.of(), "task", "show", FINGERPRINT))
@@ -135,7 +132,6 @@ class HostTaskShowTest {
                                         + "\n"));
     }
 
-    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @ParameterizedTest
     @ValueSource(strings = {"locked=true", "lock=pending", "no-members"})
     void aPersonWithoutActiveAdmissionIsRefused(String state) throws Exception {
@@ -222,7 +218,7 @@ class HostTaskShowTest {
         fixture.put("/var/lib/porelo-host/tasks/alice/one.json", task("alice", "one", FINGERPRINT));
         final Path bad = fixture.put("/var/lib/porelo-host/tasks/alice/two.json", "{}");
         assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
-                .as("Python validates its whole task_records list before searching for a match")
+                .as("every record is validated before any is searched for a match")
                 .isEqualTo(
                         new Answer(
                                 65,
@@ -241,7 +237,7 @@ class HostTaskShowTest {
         fixture.put("/var/lib/porelo-host/tasks/alice/one.json", record);
         assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
                 .as(
-                        "Python emits ASCII JSON, keeps literal backslash-u text, and never rounds an integer")
+                        "the answer is ASCII JSON, keeps literal backslash-u text and never rounds an integer")
                 .isEqualTo(
                         new Answer(
                                 0,

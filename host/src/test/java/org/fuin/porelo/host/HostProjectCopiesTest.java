@@ -62,7 +62,6 @@ class HostProjectCopiesTest {
         assertThat(host.commands).noneMatch(argv -> argv.contains("clone"));
     }
 
-    // py: test_a_host_is_not_given_back_while_work_is_not_at_central
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -101,7 +100,6 @@ class HostProjectCopiesTest {
         host.noMutation();
     }
 
-    // py: test_a_host_whose_work_is_all_at_central_may_be_given_back
     @Test
     void allCentralAllowsReturningWithoutRemovingTheProject() {
         final Answer answer = host.run("give-back-check");
@@ -112,7 +110,6 @@ class HostProjectCopiesTest {
         assertThat(host.commands).noneMatch(argv -> argv.contains("generate-access-token"));
     }
 
-    // py: test_a_project_with_no_repository_on_the_forge_yet_may_be_given_back
     @Test
     void aMissingForgeFolderIsNotListed() {
         host.repositories.clear();
@@ -120,7 +117,6 @@ class HostProjectCopiesTest {
         assertThat(host.commands).noneMatch(argv -> argv.contains("ls"));
     }
 
-    // py: test_a_copy_of_main_belongs_to_the_forge_account_alone
     @Test
     void aCopyHasPrivateOwnershipAndAnUnlistableParent() throws Exception {
         final Answer answer = copy(ADDRESS, "-");
@@ -138,14 +134,12 @@ class HostProjectCopiesTest {
         assertThat(Files.getAttribute(path, "unix:gid")).isEqualTo(gid());
     }
 
-    // py: test_a_copy_cannot_be_read_from_a_repository_recorded_under_another_address
     @Test
     void aCopyCannotComeFromTheAddressTheProjectLeft() {
         assertThat(copy(ADDRESS.replace("/acme/", "/new/"), "-").code()).isEqualTo(65);
         noClone();
     }
 
-    // py: test_a_main_already_read_makes_no_copy_and_what_was_left_goes
     @Test
     void anAlreadyKnownMainRemovesInterruptedCopiesWithoutCloning() throws Exception {
         Files.createDirectories(copies().resolve("left/central.git"));
@@ -169,7 +163,6 @@ class HostProjectCopiesTest {
         assertThat(copies().resolve("left")).doesNotExist();
     }
 
-    // py: test_the_copy_takes_main_alone_with_the_repositorys_key
     @Test
     void aCopyReadsOnlyMainWithItsOwnKey() {
         assertThat(copy(ADDRESS, "-").code()).isZero();
@@ -186,7 +179,6 @@ class HostProjectCopiesTest {
         assertThat(host.timeouts.get(index).toSeconds()).isLessThanOrEqualTo(30);
     }
 
-    // py: test_a_copy_that_cannot_be_made_refuses_and_clones_nothing
     @ParameterizedTest
     @CsvSource({"no-read-key,69", "no-main,69", "bad-address,65"})
     void aForeignOrAbsentMainIsNoCopy(String defect, int code) {
@@ -204,14 +196,12 @@ class HostProjectCopiesTest {
         noClone();
     }
 
-    // py: test_a_known_commit_must_be_a_commit
     @Test
     void gitOptionsAreNotKnownCommits() {
         assertThat(copy(ADDRESS, "--all").code()).isEqualTo(64);
         host.noCommands();
     }
 
-    // py: test_the_advance_takes_no_other_words
     @ParameterizedTest
     @ValueSource(strings = {"commit", "name", "path", "traversal", "reach", "missing"})
     void advanceRejectsEveryForeignArgumentBeforeAnyProgram(String defect) {
@@ -235,7 +225,6 @@ class HostProjectCopiesTest {
         host.noCommands();
     }
 
-    // py: test_the_advance_is_for_a_repository_with_a_read_key
     @Test
     void advanceNeedsAnInstalledReadKey() {
         final Answer answer =

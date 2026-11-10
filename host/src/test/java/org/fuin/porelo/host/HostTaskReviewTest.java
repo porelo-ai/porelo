@@ -17,7 +17,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 class HostTaskReviewTest {
     @TempDir Path directory;
 
-    // py: directories
     @Test
     void creatingScratchKeepsThePublicRuntimeParentsTraversable() throws Exception {
         final var tree = new HostReadFixture(directory.resolve("root"));
@@ -32,7 +31,6 @@ class HostTaskReviewTest {
                 .isEqualTo(PosixFilePermissions.fromString("rwx------"));
     }
 
-    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @Test
     void bobCanReadAlicesTaskInTheirSharedProjectAndRootCanReadWithoutSudo() throws Exception {
         final var host = new HostTaskFixture(directory);
@@ -70,7 +68,8 @@ class HostTaskReviewTest {
                 .isEqualTo(unknown.err().replace("Z".repeat(43), fingerprint.substring(7)));
     }
 
-    // py: test_forge_token_is_refused_to_root_a_locked_revoked_or_unknown_person
+    // The man page's codes by verb, which the host's shell maps: an empty SUDO_USER is none (64),
+    // an unknown person or a mismatched uid a refused caller (65).
     @ParameterizedTest
     @ValueSource(strings = {"empty", "unknown", "uid"})
     void taskAndTokenVerbsKeepThePersonsRefusalCodes(String state) throws Exception {
@@ -92,7 +91,6 @@ class HostTaskReviewTest {
         assertThat(host.calls).isEmpty();
     }
 
-    // py: execute
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -102,7 +100,7 @@ class HostTaskReviewTest {
                 "forge lend-token",
                 "forge issue-token"
             })
-    void personVerbsRefuseNonrootBeforeParsingWithThePredecessorsStatus(String command) {
+    void personVerbsRefuseNonrootWith69BeforeParsing(String command) {
         final StringWriter errors = new StringWriter();
         final int code =
                 PoreloHost.run(
@@ -115,7 +113,6 @@ class HostTaskReviewTest {
         assertThat(errors.toString()).isEqualTo("porelo-host-person: runs only as root\n");
     }
 
-    // py: test_a_missing_krl_refuses_the_task_before_porelo_runs
     @Test
     void aWritableReplacementKrlIsRefusedAfterThePathWasChecked() throws Exception {
         final var host = new HostTaskFixture(directory);
@@ -140,7 +137,6 @@ class HostTaskReviewTest {
         assertThat(host.record("t1")).doesNotExist();
     }
 
-    // py: publish_task
     @Test
     void anUnwritableTaskRecordNamesTheTaskAndAnswersNoToken() throws Exception {
         final var host = new HostTaskFixture(directory);
@@ -159,7 +155,6 @@ class HostTaskReviewTest {
         }
     }
 
-    // py: command
     @Test
     void aMaintenanceTimeoutKeepsItsFailureKind() {
         final var runtime =
@@ -195,7 +190,6 @@ class HostTaskReviewTest {
         assertThat(answer.out()).isEmpty();
     }
 
-    // py: isolated_porelo
     @Test
     void aTaskCheckerTimeoutKeepsItsFailureKindWithoutPrivateDetails() throws Exception {
         final var host = new HostTaskFixture(directory);
@@ -207,7 +201,6 @@ class HostTaskReviewTest {
                 .doesNotContain("private timeout");
     }
 
-    // py: account
     @Test
     void personAccountLookupsHaveNoInventedDeadlineAndChildrenKeepTheFixedHostPath()
             throws Exception {

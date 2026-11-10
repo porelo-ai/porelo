@@ -43,7 +43,7 @@ class HostProjectCommandTest {
                                     new java.io.ByteArrayInputStream(new byte[0]),
                                     new PrintWriter(broken),
                                     new PrintWriter(new StringWriter())))
-                    .as("a failed machine-readable refusal is EX_CANTCREAT, as in Python")
+                    .as("a machine-readable refusal that cannot be written exits EX_CANTCREAT")
                     .isEqualTo(73);
         }
     }
@@ -51,7 +51,7 @@ class HostProjectCommandTest {
     @Test
     void theProjectGroupRegistersItsProjectVerbs() {
         final var project = PoreloHost.commandLine().getSubcommands().get("project");
-        assertThat(project).as("the privileged project helper has a command group").isNotNull();
+        assertThat(project).as("the privileged project verbs have a command group").isNotNull();
         assertThat(project.getSubcommands().keySet())
                 .as(
                         "the project group exposes registration, removal, migration, taking off and central state")
@@ -107,7 +107,9 @@ class HostProjectCommandTest {
                         () -> 0,
                         new PrintWriter(new StringWriter()),
                         new PrintWriter(err));
-        assertThat(code).as("Python refuses -- before consulting the host: %s", err).isEqualTo(64);
+        assertThat(code)
+                .as("-- is refused as EX_USAGE before the host is consulted: %s", err)
+                .isEqualTo(64);
     }
 
     @Test
@@ -157,7 +159,7 @@ class HostProjectCommandTest {
                         new PrintWriter(err));
         assertThat(code).as("invalid project is refused locally").isEqualTo(64);
         assertThat(err.toString())
-                .as("the whole legacy argument list reaches its validator")
+                .as("the whole argument list reaches the project verb's validator")
                 .contains("project must be");
     }
 }

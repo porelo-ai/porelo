@@ -104,12 +104,12 @@ class HostPushActivationTest {
                         () -> 0,
                         new PrintWriter(out),
                         new PrintWriter(err));
-        assertThat(code).as("the predecessor's sudo guard returns data error").isEqualTo(65);
+        assertThat(code).as("judge-push refuses SUDO_USER with 65").isEqualTo(65);
         assertThat(out.toString())
                 .as("a refused invocation cannot write a hook response")
                 .isEmpty();
         assertThat(err.toString())
-                .as("the guard retains its diagnostic")
+                .as("the refusal names the socket unit as the only caller")
                 .isEqualTo(
                         "porelo-host-person: verify-push is the forge hook's socket unit's alone\n");
     }
@@ -125,18 +125,18 @@ class HostPushActivationTest {
                         () -> 1000,
                         new PrintWriter(out),
                         new PrintWriter(err));
-        assertThat(code).as("the predecessor's root guard returns unavailable").isEqualTo(69);
+        assertThat(code).as("judge-push refuses nonroot with 69").isEqualTo(69);
         assertThat(out.toString()).as("no hook answer can precede the root boundary").isEmpty();
         assertThat(err.toString())
-                .as("the root refusal retains the predecessor's diagnostic")
+                .as("the refusal says the verb runs only as root")
                 .isEqualTo("porelo-host-person: runs only as root\n");
     }
 
     @Test
-    void anOrdinaryPipeKeepsThePredecessorsFileErrorExitCode() throws Exception {
+    void anOrdinaryPipeIsNoAcceptedSocketAndExits73() throws Exception {
         final var answer = new HostReadFixture(directory).run(Map.of(), "judge-push");
         assertThat(answer.code())
-                .as("a non-socket stdin is the predecessor's OSError, not a hook answer")
+                .as("a stdin that is no accepted Unix socket exits 73, never with a hook answer")
                 .isEqualTo(73);
         assertThat(answer.out()).as("a plain pipe cannot impersonate a socket unit").isEmpty();
         assertThat(answer.err())

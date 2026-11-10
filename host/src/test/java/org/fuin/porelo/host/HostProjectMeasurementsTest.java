@@ -107,7 +107,6 @@ class HostProjectMeasurementsTest {
         assertThat(answer()).as("a failed measurement leaves no stale success").doesNotExist();
     }
 
-    // py: test_how_main_stands_is_published_to_the_projects_unlocked_members_alone
     @Test
     void theExactFollowRecordGoesOnlyToUnlockedMembers() throws Exception {
         measure();
@@ -125,7 +124,6 @@ class HostProjectMeasurementsTest {
         assertThat(readers).containsExactly("user:1002:r--");
     }
 
-    // py: test_a_person_taken_out_loses_sight_of_the_answer_before_the_central_forge_is_asked
     @Test
     void oldReadersAreRevokedBeforeAskingCentral() throws Exception {
         measure();
@@ -161,7 +159,6 @@ class HostProjectMeasurementsTest {
                         "{\"project\": \"alpha\", \"read_at\": \"2026-11-03T00:00:00Z\", \"repositories\": []}\n");
     }
 
-    // py: test_what_a_killed_write_left_among_the_answers_stops_no_later_follow
     @Test
     void anInterruptedPublicationIsRemovedBeforePublishingAgain() throws Exception {
         measure();

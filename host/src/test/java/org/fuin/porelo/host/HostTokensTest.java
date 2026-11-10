@@ -30,7 +30,6 @@ class HostTokensTest {
         return host.run("", "forge", "lend-token");
     }
 
-    // py: test_forge_token_replaces_the_persons_one_token_and_answers_it_alone
     @Test
     void issuingReplacesThePersonsTokenAndAnswersOnlyTheNewSecret() throws Exception {
         final var first = issue();
@@ -50,7 +49,6 @@ class HostTokensTest {
         host.noSecrets(second);
     }
 
-    // py: test_a_lend_leaves_the_persons_token_valid_and_answers_its_own
     @Test
     void lendingLeavesThePersonTokenAndMakesAnIndependentOne() throws Exception {
         final var person = issue();
@@ -70,7 +68,6 @@ class HostTokensTest {
         host.noSecrets(lent);
     }
 
-    // py: test_a_second_lend_leaves_the_first
     @Test
     void concurrentCommandsKeepBothLentTokens() {
         final var first = lend();
@@ -81,7 +78,6 @@ class HostTokensTest {
                 .containsExactlyInAnyOrder(first.out(), second.out());
     }
 
-    // py: test_a_lend_a_day_old_is_deleted_by_the_next_lend_and_a_younger_one_stays
     @Test
     void lendingDeletesExpiredAndUnreadableLendsAndKeepsYoungerAndOrdinaryTokens() {
         for (String name :
@@ -94,7 +90,6 @@ class HostTokensTest {
                 .hasSize(3);
     }
 
-    // py: test_forge_token_replaces_every_token_of_the_login_but_its_lends
     @Test
     void issuingRemovesOrdinaryTokensButLeavesEveryYoungLend() {
         host.add("alice", "legacy");
@@ -106,7 +101,6 @@ class HostTokensTest {
         assertThat(host.names("alice")).doesNotContain("legacy");
     }
 
-    // py: test_forge_token_also_deletes_a_lend_a_day_old
     @Test
     void issuingAlsoDeletesExpiredLends() {
         host.add("alice", OLD);
@@ -115,7 +109,6 @@ class HostTokensTest {
         assertThat(host.names("alice")).contains(YOUNG).doesNotContain(OLD).hasSize(2);
     }
 
-    // py: test_a_wrong_lend_call_reaches_no_forge
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -130,7 +123,6 @@ class HostTokensTest {
         assertThat(host.requests).isEmpty();
     }
 
-    // py: test_forge_token_is_refused_to_root_a_locked_revoked_or_unknown_person
     @ParameterizedTest
     @ValueSource(strings = {"root", "locked", "pending", "revoked", "unknown"})
     void onlyAnUnlockedUnrevokedSudoPersonGetsTokens(String state) throws Exception {
@@ -157,7 +149,6 @@ class HostTokensTest {
         assertThat(host.requests).isEmpty();
     }
 
-    // py: test_no_caller_can_request_a_named_person_token
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void neitherRootNorAPersonCanRequestAnotherPersonsToken(boolean sudo) {

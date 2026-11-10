@@ -234,7 +234,6 @@ class HostSweepTest {
         return run(Map.of(), "task", "sweep");
     }
 
-    // py: test_the_sweep_deletes_the_tokens_of_expired_tasks_alone
     @Test
     void onlyEndedTaskTokensAreDeletedAndAnotherSweepIsEmpty() throws Exception {
         taskRecord("alice", "ended", "2030-01-02T03:04:05Z");
@@ -360,7 +359,6 @@ class HostSweepTest {
                 .allMatch(args -> args.getFirst().equals("getent"));
     }
 
-    // py: test_the_sweep_goes_on_past_one_persons_forge_failure_and_names_it
     @Test
     void onePersonsFailureDoesNotStopAnotherAndTheDiagnosticNamesBoth() throws Exception {
         for (String user : List.of("alice", "bob")) {
@@ -381,8 +379,6 @@ class HostSweepTest {
                 .isEmpty();
     }
 
-    // py: test_later_runs_retry_pending_locks
-    // py: test_a_lock_deletes_the_persons_token_and_every_lend
     @Test
     void theSweepFinishesPendingRevocationsBeforeExaminingExpiredTasks() throws Exception {
         fixture.person("bob", "member=alpha developer\n", "reason=membership\nlock=pending\n");
@@ -415,7 +411,7 @@ class HostSweepTest {
                         "PATCH porelo-bob",
                         "GET porelo-bob/tokens?limit=50&page=1");
         assertThat(machine.calls)
-                .as("all local access is revoked, in Python's order")
+                .as("group, sessions and user manager go before the account is locked and expired")
                 .containsSubsequence(
                         List.of("gpasswd", "--delete", "bob", "porelo-people"),
                         List.of("loginctl", "terminate-user", "bob"),
@@ -432,7 +428,6 @@ class HostSweepTest {
                 .isEmpty();
     }
 
-    // py: test_sweep_drops_expired_tokens_even_when_pending_lock_retry_fails
     @Test
     void expiredTaskTokensAreSweptDespiteAnUnfinishedLock() throws Exception {
         fixture.put(
@@ -463,7 +458,7 @@ class HostSweepTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"alice", "", "root"})
-    void everySetSudoUserIsRefusedWithThePredecessorsWords(String user) {
+    void everySetSudoUserIsRefusedAndReachesNoProgram(String user) {
         assertThat(run(Map.of("SUDO_USER", user), "task", "sweep"))
                 .as("root's unit verb refuses even an empty sudo marker")
                 .isEqualTo(
@@ -528,7 +523,7 @@ class HostSweepTest {
         add("porelo-alice", "porelo-task-two");
         failed.add("DELETE porelo-alice/tokens/2");
         assertThat(sweep())
-                .as("Python only adds a person's dropped names when all their deletes finish")
+                .as("a person's tasks count as swept only once all their deletes finish")
                 .isEqualTo(
                         new Answer(
                                 69,
@@ -628,7 +623,6 @@ class HostSweepTest {
                 .isEqualTo(new Answer(69, "", "porelo-host-person: " + message + "\n"));
     }
 
-    // py: test_wrong_task_and_token_calls_change_nothing
     @Test
     void extraSweepArgumentsChangeNothing() {
         final Answer answer = run(Map.of(), "task", "sweep", "now");
@@ -641,7 +635,7 @@ class HostSweepTest {
     void theConfigurationAndRecordsAreCheckedBeforeTheSudoRefusal() throws Exception {
         fixture.put("/etc/porelo-host/people/unknown", "bad");
         assertThat(run(SUDO, "task", "sweep"))
-                .as("Python reads records under the lock before checking sudo_user")
+                .as("records are read under the lock before SUDO_USER is checked")
                 .isEqualTo(
                         new Answer(
                                 65,
@@ -714,7 +708,8 @@ class HostSweepTest {
         taskRecord("alice", "ended", "2030-01-02T03:04:05Z");
         fixture.put("/etc/porelo-host/forge.conf", "account=_forge\n");
         assertThat(sweep())
-                .as("Python's endpoint account grammar is narrower than its configuration grammar")
+                .as(
+                        "an account name the configuration accepts must still be a valid forge endpoint name")
                 .isEqualTo(
                         new Answer(
                                 69, "", "porelo-host-person: forge.conf names no valid account\n"));
@@ -874,8 +869,7 @@ class HostSweepTest {
                 .as("both line encodings accepted by the reader can complete a pending lock")
                 .isEqualTo(new Answer(0, "{\"swept\":[]}\n", ""));
         assertThat(Files.readString(fixture.path("/etc/porelo-host/people/bob.conf")))
-                .as(
-                        "Python canonicalizes newlines and retains the key, expiry, reason and lock day")
+                .as("the lock writes LF lines and keeps the key, expiry, reason and lock day")
                 .isEqualTo(
                         "member=alpha developer\nlocked=true\nssh="
                                 + KEY

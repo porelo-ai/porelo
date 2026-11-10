@@ -21,7 +21,6 @@ class HostFollowReviewTest {
         f = new FollowFixture(directory);
     }
 
-    // py: test_the_matrix_transport_runs_without_its_accounts_bus
     @Test
     void aStoppedAccountNeedsNoBusForShellOrMatrixCleanup() throws Exception {
         assertThat(f.host.isSocket(f.path("/run/user/" + f.accounts.get("bob") + "/bus")))
@@ -36,7 +35,6 @@ class HostFollowReviewTest {
         assertThat(f.commands).anyMatch(a -> a.contains("expel"));
     }
 
-    // py: test_a_service_accounts_podman_without_its_session_bus_is_refused_by_name
     @Test
     void podmanStillRequiresAnExplicitLiveBus() {
         assertThatThrownBy(() -> f.context().as("bob", List.of("podman", "ps"), new byte[0]))
@@ -51,7 +49,8 @@ class HostFollowReviewTest {
         f.now = f.now.plusSeconds(7 * 86400);
     }
 
-    // py: test_vault_cleanup_restores_expiry_and_manager_on_any_exception
+    // While a purge has lifted expiry, the account can run until expiry and the manager's stop
+    // are back, so it stays recorded unlocked with its lock pending.
     @ParameterizedTest
     @ValueSource(strings = {"expire", "stop"})
     void failedSafetyRestorationNeverClaimsTheRunningAccountIsLocked(String failure)
@@ -85,7 +84,6 @@ class HostFollowReviewTest {
                 .contains("locked=false\n", "lock=pending\n");
     }
 
-    // py: test_purge_locks_first_clears_vault_then_removes_account_and_ranges
     @Test
     void purgePreservesPrivateSubordinateIdFileModes() throws Exception {
         dueForPurge();
@@ -101,7 +99,6 @@ class HostFollowReviewTest {
         }
     }
 
-    // py: test_a_members_push_config_is_written_as_that_member_and_goes_with_the_membership
     @Test
     void oneFailedPushConfigRemovalStillAttemptsEveryDepartedMember() throws Exception {
         f.migrated();
@@ -125,8 +122,6 @@ class HostFollowReviewTest {
         assertThat(removals).contains("bob", "charlie");
     }
 
-    // py: test_purge_deletes_the_persons_forge_users_after_their_tokens
-    // py: test_purge_expels_the_login_even_when_already_locked
     @Test
     void purgeWithoutAMatrixBusDeletesMatrixAndForgeIdentitiesBeforeTheOsAccount()
             throws Exception {
@@ -156,7 +151,6 @@ class HostFollowReviewTest {
         assertThat(f.accounts).doesNotContainKey("bob");
     }
 
-    // py: test_forge_admits_each_identity_once_without_making_or_delivering_tokens
     @Test
     void admissionReadsTheForgeNameWrittenByTheRole() throws Exception {
         f.forge();
@@ -173,7 +167,8 @@ class HostFollowReviewTest {
         assertThat(f.commands).anyMatch(a -> a.contains("bob@forge.example.org"));
     }
 
-    // py: test_the_central_questions_of_one_follow_stay_within_a_budget
+    // One measurement shares 120 seconds across its repositories, so a slow central bounds the
+    // follow's pass instead of stalling it.
     @Test
     void anExpiredMeasurementStartsNoFurtherChildAcrossManyRepositories() throws Exception {
         f.migrated();
@@ -227,9 +222,8 @@ class HostFollowReviewTest {
                 .isEmpty();
     }
 
-    // py: test_a_repositorys_main_is_told_against_the_central_forge
     @Test
-    void aRepositoryGitTimeoutStillPublishesThePredecessorsCannotSayRow() throws Exception {
+    void aRepositoryGitTimeoutStillPublishesACannotSayRow() throws Exception {
         f.migrated();
         f.write(
                 FollowFixture.ORG + "applied.json",

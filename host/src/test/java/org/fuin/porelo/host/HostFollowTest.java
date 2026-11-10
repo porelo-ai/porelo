@@ -157,7 +157,6 @@ class HostFollowTest {
         assertThat(snapshot()).usingRecursiveComparison().isEqualTo(before);
     }
 
-    // py: test_an_older_state_is_refused_without_changing_anything
     @Test
     void replayCannotRestoreAccessOrRollThePinBack() throws Exception {
         f.run();
@@ -171,8 +170,6 @@ class HostFollowTest {
                 .containsSequence("--since", "b".repeat(40));
     }
 
-    // py: test_follow_refuses_a_foreign_signer_or_an_older_or_forked_state_whole
-    // py: test_a_fetch_refusal_leaves_everything_untouched
     @Test
     void aFetchRefusalPrecedesEvenPendingLocks() throws Exception {
         f.run();
@@ -183,7 +180,7 @@ class HostFollowTest {
         same(before);
     }
 
-    // py: test_a_fetch_keeps_its_trust_record_across_follows
+    // The fetch may use the timer's whole 300 seconds; every other isolated operation gets 60.
     @Test
     void theFetchKeepsItsTrustRecordAndGetsTheTimerWindow() throws Exception {
         f.run();
@@ -205,7 +202,6 @@ class HostFollowTest {
                 .isLessThanOrEqualTo(Duration.ofMinutes(5));
     }
 
-    // py: test_a_refused_state_reaches_the_host_admin_and_keeps_the_state_taken
     @Test
     void aRefusalIsPrintableAndLeavesTheTakenState() throws Exception {
         f.run();
@@ -220,7 +216,6 @@ class HostFollowTest {
         assertThat(f.run()).containsEntry("refused", null);
     }
 
-    // py: test_a_fetch_that_cannot_say_is_no_refusal_for_the_host_admin
     @Test
     void anUnreachableForgeDoesNotRefuseTheOrganization() throws Exception {
         f.run();
@@ -230,7 +225,6 @@ class HostFollowTest {
         assertThat(Files.exists(f.path(FollowFixture.ORG + "refused.json"))).isFalse();
     }
 
-    // py: test_a_fetch_that_says_nothing_is_no_refusal
     @ParameterizedTest
     @ValueSource(ints = {1, 69, 124, 137})
     void aFailedUnitIsUnavailable(int code) throws Exception {
@@ -240,8 +234,6 @@ class HostFollowTest {
         assertThat(Files.exists(f.path(FollowFixture.ORG + "refused.json"))).isFalse();
     }
 
-    // py: test_follow_refuses_an_answer_of_another_shape_or_host_whole
-    // py: test_malformed_answers_change_nothing
     @ParameterizedTest
     @ValueSource(strings = {"host", "revision", "persons", "projects", "admins"})
     void malformedAnswersNeverChangeAccess(String damage) throws Exception {
@@ -255,7 +247,6 @@ class HostFollowTest {
         same(before);
     }
 
-    // py: test_follow_and_refresh_refuse_sudo
     @ParameterizedTest
     @ValueSource(strings = {"follow", "refresh"})
     void rootVerbsNeverInterpretTheSudoPerson(String verb) throws Exception {
@@ -277,7 +268,6 @@ class HostFollowTest {
         assertThat(f.commands).isEmpty();
     }
 
-    // py: test_a_renewal_is_roots_alone
     @Test
     void evenAnEmptySudoIdentityCannotRenewThePin() {
         refused(
@@ -291,7 +281,6 @@ class HostFollowTest {
                 "root's alone");
     }
 
-    // py: test_nothing_is_followed_until_the_read_key_is_added
     @Test
     void aPinAloneDoesNotStartAFetch() throws Exception {
         Files.delete(f.path(FollowFixture.ORG + "read/organization.added"));
@@ -301,7 +290,6 @@ class HostFollowTest {
         assertThat(f.commands).noneMatch(a -> a.contains("fetch"));
     }
 
-    // py: test_refresh_adds_the_read_key_with_the_token_and_keeps_none
     @Test
     void refreshAddsTheReadKeyThroughStdinAlone() throws Exception {
         Files.delete(f.path(FollowFixture.ORG + "read/organization.added"));
@@ -321,7 +309,6 @@ class HostFollowTest {
                                         .doesNotContain("private-central-token"));
     }
 
-    // py: test_a_refused_read_key_stays_waiting
     @Test
     void aRefusedReadKeyPublishesNoMarker() throws Exception {
         Files.delete(f.path(FollowFixture.ORG + "read/organization.added"));
@@ -331,7 +318,6 @@ class HostFollowTest {
         assertThat(f.commands).noneMatch(a -> a.contains("fetch"));
     }
 
-    // py: test_refresh_refuses_a_token_nobody_waits_for
     @Test
     void refreshNeverTakesAnUnneededCentralCredential() throws Exception {
         f.run();
@@ -348,8 +334,6 @@ class HostFollowTest {
         assertThat(f.commands).isEmpty();
     }
 
-    // py: test_follow_uses_the_renewed_pin_file_with_the_accepted_commit
-    // py: test_root_renews_the_pin_and_the_next_follow_keeps_it
     @Test
     void rootCanRenewThePinWithoutDiscardingTheAcceptedRevision() throws Exception {
         f.run();
@@ -368,7 +352,6 @@ class HostFollowTest {
         assertThat(f.read(FollowFixture.ORG + "pin")).isEqualTo(pin);
     }
 
-    // py: test_a_renewal_with_no_valid_key_changes_nothing
     @ParameterizedTest
     @ValueSource(strings = {"", "root KEY", "bob invalid", "bob KEY\nbob KEY", "bob KEY\n\n", "é"})
     void pinRenewalRejectsMalformedOrRepeatedKeys(String input) throws Exception {
@@ -387,7 +370,6 @@ class HostFollowTest {
         same(before);
     }
 
-    // py: test_the_pin_holds_the_organization_admins_and_root_stays_with_the_machines
     @Test
     void organizationAdminsJoinThePinWithoutGettingRootSsh() throws Exception {
         f.answer.put("organization_admins", List.of(FollowFixture.admin("owner", 7)));
@@ -398,7 +380,6 @@ class HostFollowTest {
         assertThat(f.read("/etc/ssh/authorized_keys/root")).isEqualTo(FollowFixture.key(1) + "\n");
     }
 
-    // py: test_a_list_that_arrives_on_a_server_already_set_up_is_taken_by_the_follow
     @Test
     void aNewOrganizationAdminListIsTakenOnAnExistingHost() throws Exception {
         f.run();
@@ -408,7 +389,6 @@ class HostFollowTest {
         assertThat(f.read(FollowFixture.ORG + "pin")).contains("owner ");
     }
 
-    // py: test_a_build_with_no_list_keeps_todays_pin_and_an_empty_list_is_the_same
     @Test
     void absentAndEmptyAdminListsKeepTheHostAdminPin() throws Exception {
         f.run();
@@ -418,7 +398,6 @@ class HostFollowTest {
         assertThat(f.read(FollowFixture.ORG + "pin")).isEqualTo(before);
     }
 
-    // py: test_a_person_in_both_lists_stands_in_the_pin_once_with_root
     @Test
     void aKeyInBothAdminListsIsPinnedOnce() throws Exception {
         f.answer.put("organization_admins", List.of(FollowFixture.admin("alice", 1)));
@@ -427,7 +406,6 @@ class HostFollowTest {
         assertThat(f.read("/etc/ssh/authorized_keys/root").lines()).hasSize(1);
     }
 
-    // py: test_a_machine_admin_replaced_leaves_root_and_the_pin_with_no_step_of_theirs
     @Test
     void aReplacedMachineAdminLosesRootSshAndThePin() throws Exception {
         f.run();
@@ -438,7 +416,6 @@ class HostFollowTest {
                 .doesNotContain(FollowFixture.key(1));
     }
 
-    // py: test_a_replaced_host_admin_loses_roots_login
     @Test
     void rootAuthorizationIsReplacedWhole() throws Exception {
         f.write("/etc/ssh/authorized_keys/root", FollowFixture.key(7) + "\n");
@@ -446,7 +423,6 @@ class HostFollowTest {
         assertThat(f.read("/etc/ssh/authorized_keys/root")).isEqualTo(FollowFixture.key(1) + "\n");
     }
 
-    // py: test_a_malformed_list_changes_nothing
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -483,7 +459,6 @@ class HostFollowTest {
         same(before);
     }
 
-    // py: test_a_machine_with_no_admin_left_is_refused_though_the_organization_has_admins
     @Test
     void organizationAdminsCannotStandInForAMissingMachineAdmin() throws Exception {
         f.answer.put("admins", List.of());
@@ -493,7 +468,6 @@ class HostFollowTest {
         same(before);
     }
 
-    // py: test_an_interrupted_follow_takes_the_same_state_again_with_its_new_pin
     @Test
     void aFailedApplicationKeepsTheNewPinAndCanReplayTheSameRevision() throws Exception {
         f.answer.put("organization_admins", List.of(FollowFixture.admin("owner", 7)));
@@ -511,7 +485,6 @@ class HostFollowTest {
         f.run();
     }
 
-    // py: test_a_failed_application_keeps_the_accepted_revision_for_replay_checks
     @Test
     void anAppliedRevisionSurvivesAServiceFailure() throws Exception {
         f.run();
@@ -530,7 +503,6 @@ class HostFollowTest {
         refused(f::run, 65, "older organization");
     }
 
-    // py: test_account_names_cannot_take_over_an_existing_account
     @ParameterizedTest
     @ValueSource(strings = {"root", "daemon", "bob"})
     void aForeignAccountOrKeyCannotBeTakenOver(String login) throws Exception {
@@ -545,7 +517,6 @@ class HostFollowTest {
         same(before);
     }
 
-    // py: test_a_taken_over_project_admin_can_admit_nobody
     @ParameterizedTest
     @ValueSource(strings = {"card-key", "key-holder"})
     void aLoginCannotBorrowAnotherPersonsCard(String damage) throws Exception {
@@ -565,7 +536,6 @@ class HostFollowTest {
         same(before);
     }
 
-    // py: test_follow_fetches_against_the_pin_and_records_it_root_only
     @Test
     void theFetchReadsOnlyThePinnedCredentialsAndPublishesPrivateState() throws Exception {
         f.run();
@@ -587,7 +557,6 @@ class HostFollowTest {
                 .isEqualTo(0600);
     }
 
-    // py: test_failed_krl_publication_keeps_previous_org_keys_for_retry
     @Test
     void aFailedKrlUpdateCannotDiscardThePreviousKeyOrTakeTheNewState() throws Exception {
         f.run();
@@ -603,7 +572,6 @@ class HostFollowTest {
         assertThat(f.applied()).containsEntry("commit", "b".repeat(40));
     }
 
-    // py: test_obsolete_commands_and_state_cannot_supply_host_authority
     @ParameterizedTest
     @ValueSource(strings = {"status", "pin", "bare", "--stdin", "old-state"})
     void obsoleteRegistryArgumentsAndFilesCannotSupplyAuthority(String argument) throws Exception {

@@ -37,7 +37,6 @@ class HostTaskAccountsTest {
         return host.certificate(signer, key, principals, valid, type, id);
     }
 
-    // py: test_a_certificate_signed_by_the_persons_key_is_recorded_and_its_token_answered_once
     @Test
     void aCurrentCertificateIsRecordedPrivatelyAndItsGateTokenAnsweredAlone() throws Exception {
         final String certificate = host.certificate();
@@ -68,7 +67,6 @@ class HostTaskAccountsTest {
         host.noSecrets(answer);
     }
 
-    // py: test_a_task_names_exactly_one_principal_by_its_project
     @ParameterizedTest
     @CsvSource({
         "task:default:t1,0",
@@ -99,8 +97,6 @@ class HostTaskAccountsTest {
                 .isEqualTo(code == 0);
     }
 
-    // py:
-    // test_a_certificate_the_persons_current_key_did_not_sign_for_this_task_now_is_refused_before_anything_is_written
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -197,8 +193,6 @@ class HostTaskAccountsTest {
         assertThat(host.snapshot()).isEqualTo(before);
     }
 
-    // py:
-    // test_the_same_certificate_again_replaces_its_token_and_another_for_a_recorded_task_is_refused
     @Test
     void retriesRotateTheTokenAndNeverReplaceTheRecordedCertificate() throws Exception {
         final String certificate = host.certificate();
@@ -224,7 +218,6 @@ class HostTaskAccountsTest {
                 .containsExactly(second.out());
     }
 
-    // py: test_a_task_key_recorded_for_one_task_is_refused_for_another
     @Test
     void aTaskKeyCannotBeRecordedForASecondTask() throws Exception {
         assertThat(start(host.certificate()).code()).isZero();
@@ -241,7 +234,6 @@ class HostTaskAccountsTest {
         assertThat(host.names("porelo-alice")).containsExactly("porelo-task-t1");
     }
 
-    // py: test_task_end_deletes_that_tasks_token_alone
     @Test
     void endingOneTaskLeavesItsRecordAndEveryOtherToken() throws Exception {
         assertThat(start(host.certificate()).code()).isZero();
@@ -255,7 +247,6 @@ class HostTaskAccountsTest {
         assertThat(host.run("", "task", "end", "missing").code()).isEqualTo(65);
     }
 
-    // py: test_a_task_is_recorded_without_a_token_where_the_host_runs_no_forge
     @Test
     void aForgelessHostStillRecordsATaskAndRefusesAPersonToken() throws Exception {
         host.tree.put("/etc/porelo-host/forge.conf", "host=workshop\n");
@@ -265,7 +256,6 @@ class HostTaskAccountsTest {
         assertThat(host.run("", "forge", "issue-token").code()).isEqualTo(69);
     }
 
-    // py: test_task_record_links_cannot_redirect_root_writes_or_reads
     @ParameterizedTest
     @ValueSource(strings = {"root", "person", "record"})
     void taskLinksNeverRedirectAPublicationOrRead(String part) throws Exception {
@@ -289,7 +279,6 @@ class HostTaskAccountsTest {
                 .noneMatch(call -> call.contains("generate-access-token"));
     }
 
-    // py: test_a_rotated_org_key_cannot_authorize_the_previous_keys_certificate
     @Test
     void rotatingTheOrganizationKeyInvalidatesEarlierCertificates() throws Exception {
         final String certificate = host.certificate();
@@ -300,7 +289,6 @@ class HostTaskAccountsTest {
         assertThat(host.requests).isEmpty();
     }
 
-    // py: test_porelo_judges_the_certificate_against_the_key_in_force_and_the_krl_before_any_record
     @Test
     void theIsolatedJudgeGetsOnlyTheCurrentPublicKeyKrlAndCertificateInput() throws Exception {
         final String certificate = host.certificate();
@@ -333,7 +321,6 @@ class HostTaskAccountsTest {
         }
     }
 
-    // py: test_a_certificate_porelo_refuses_or_answers_otherwise_starts_no_task
     @ParameterizedTest
     @ValueSource(strings = {"refused", "fingerprint", "signed_by", "project", "invalid", "array"})
     void noRecordOrTokenFollowsARefusedOrMismatchedJudgement(String response) throws Exception {
@@ -386,7 +373,6 @@ class HostTaskAccountsTest {
         assertThat(host.calls).noneMatch(args -> args.contains("generate-access-token"));
     }
 
-    // py: test_a_missing_krl_refuses_the_task_before_porelo_runs
     @ParameterizedTest
     @ValueSource(strings = {"missing", "link", "writable", "unreadable"})
     void anUnavailableOrUnsafeKrlStopsBeforeTheJudge(String defect) throws Exception {
@@ -408,7 +394,6 @@ class HostTaskAccountsTest {
         assertThat(host.record("t1")).doesNotExist();
     }
 
-    // py: test_a_certificate_for_a_project_the_person_is_no_member_of_is_refused_before_porelo_runs
     @ParameterizedTest
     @ValueSource(strings = {"host-admin", "beta developer", "alphabet developer"})
     void anotherMembershipCannotAuthorizeThisProject(String member) throws Exception {
@@ -417,7 +402,6 @@ class HostTaskAccountsTest {
         assertThat(host.calls).noneMatch(args -> args.getFirst().equals("systemd-run"));
     }
 
-    // py: test_a_project_admin_starts_a_task_of_their_project
     @Test
     void aProjectAdminIsAMemberForTaskAuthorization() throws Exception {
         host.tree.person("alice", "member=alpha project-admin\n", "");
@@ -425,7 +409,6 @@ class HostTaskAccountsTest {
         assertThat(host.record("t1")).exists();
     }
 
-    // py: test_no_porelo_on_the_host_refuses_the_task_as_unprepared
     @ParameterizedTest
     @ValueSource(strings = {"porelo", "systemd-run"})
     void missingJudgementProgramsRefuseBeforeInspection(String command) throws Exception {
@@ -434,7 +417,6 @@ class HostTaskAccountsTest {
         assertThat(host.calls).isEmpty();
     }
 
-    // py: test_wrong_task_and_token_calls_change_nothing
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -464,7 +446,7 @@ class HostTaskAccountsTest {
 
     @ParameterizedTest
     @CsvSource({"AA,64", "AAA,64", "AAAA=,64", "AAAA,0", "AAA=,0", "AA==,0"})
-    void certificateInputRequiresTheSameBase64PaddingAsThePredecessor(String encoded, int code) {
+    void certificateInputRequiresExactlyPaddedBase64(String encoded, int code) {
         final String line = HostCertificate.KIND + " " + encoded;
         if (code == 0) {
             assertThat(

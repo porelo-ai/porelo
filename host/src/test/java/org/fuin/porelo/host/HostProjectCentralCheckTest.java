@@ -187,7 +187,6 @@ class HostProjectCentralCheckTest {
         return new Answer(code, out.toString(), err.toString());
     }
 
-    // py: test_check_reads_original_url_as_root_and_refuses_unpushed_or_missing_url
     @Test
     void allRefsMustBeAtTheMigratedAddressAndUseCentralsAuthority() throws Exception {
         final String pending = commit(localPath, "refs/heads/task/pending", first);
@@ -225,7 +224,6 @@ class HostProjectCentralCheckTest {
         assertThat(missing.err()).contains("code", "original_url");
     }
 
-    // py: test_check_admin_token_file_defects_stop_before_git
     @ParameterizedTest
     @ValueSource(strings = {"stdin-symlink", "unreadable"})
     void aFailedTokenReadNeverGetsTheCentralCredentialOrStartsGit(String defect) throws Exception {
@@ -249,7 +247,6 @@ class HostProjectCentralCheckTest {
         assertThat(commands).noneMatch(argv -> argv.getFirst().equals("/usr/bin/git"));
     }
 
-    // py: test_socket_api_loopback_git_and_no_sudo_contract
     @Test
     void theApiUsesTheGateSocketAndGitTheLiteralLoopbackGate() {
         final var answer = check(Map.of(), "alpha", "code");
@@ -277,7 +274,6 @@ class HostProjectCentralCheckTest {
         }
     }
 
-    // py: test_check_refuses_sudo_even_when_effective_uid_is_root
     @ParameterizedTest
     @ValueSource(strings = {"SUDO_UID", "SUDO_USER"})
     void sudoNeverBypassesMembershipToReadPrivateRepositories(String key) {

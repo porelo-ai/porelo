@@ -189,7 +189,6 @@ class HostProjectAdvanceTest {
         }
     }
 
-    // py: test_the_hosts_copy_moves_to_what_was_verified
     @Test
     void theVerifiedFileMovesAndNotifiesForgejo() throws Exception {
         state("moved", second, "signed");
@@ -222,7 +221,6 @@ class HostProjectAdvanceTest {
                         FOLDER);
     }
 
-    // py: test_a_code_change_above_the_signed_file_does_not_move
     @Test
     void codeAboveTheSignedFileIsLeftBehind() throws Exception {
         final String tip = commit("build.sh", "anyone's");
@@ -230,7 +228,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(second).isNotEqualTo(tip);
     }
 
-    // py: test_a_code_change_below_the_signed_file_does_not_move
     @Test
     void codeBelowTheSignedFileHoldsMain() throws Exception {
         commit("build.sh", "anyone's");
@@ -240,7 +237,6 @@ class HostProjectAdvanceTest {
         assertThat(told).isEmpty();
     }
 
-    // py: test_the_hosts_copy_moves_to_a_file_signed_anew
     @Test
     void aNewSignatureIsTheCommitJudged() throws Exception {
         final String signed = trailer("project.yml");
@@ -248,7 +244,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(signed);
     }
 
-    // py: test_a_signing_anew_below_the_files_last_change_is_passed_over
     @Test
     void theLaterFileChangeWinsOverAnOlderSignature() throws Exception {
         trailer("project.yml");
@@ -257,7 +252,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(changed);
     }
 
-    // py: test_only_a_trailer_that_says_the_file_alone_signs_it_anew
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -281,7 +275,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(second);
     }
 
-    // py: test_a_signing_anew_above_a_code_change_does_not_move
     @Test
     void aSignatureVouchesForNoCodeBelowIt() throws Exception {
         commit("build.sh", "anyone's");
@@ -291,7 +284,6 @@ class HostProjectAdvanceTest {
         assertThat(told).isEmpty();
     }
 
-    // py: test_a_repository_no_task_works_in_follows_central_whatever_it_holds
     @Test
     void anUnusedRepositoryFollowsTheTip() throws Exception {
         commit("plan.md", "by hand");
@@ -302,7 +294,6 @@ class HostProjectAdvanceTest {
         assertThat(told).contains(tip);
     }
 
-    // py: test_a_workflow_at_central_does_not_reach_the_forge_that_would_run_it
     @ParameterizedTest
     @ValueSource(strings = {".forgejo/workflows", ".gitea/workflows", ".github/workflows"})
     void aWorkflowHoldsEvenAnUnusedRepositoryToTheFile(String folder) throws Exception {
@@ -311,7 +302,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(second).isNotEqualTo(tip);
     }
 
-    // py: test_a_workflow_taken_away_again_lets_it_follow
     @Test
     void aRemovedWorkflowAllowsFollowingAgain() throws Exception {
         commit(".forgejo/workflows/run.yml", "on: push");
@@ -321,7 +311,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(tip());
     }
 
-    // py: test_a_file_naming_a_snippet_does_not_follow_what_it_builds_from
     @Test
     void anImageSnippetNeverFollowsUnjudgedCode() throws Exception {
         final String signed = commit("project.yml", "image:\n  snippet_file: fragment\n");
@@ -330,7 +319,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(signed).isNotEqualTo(tip);
     }
 
-    // py: test_following_central_still_never_takes_commits_back
     @Test
     void followingTheTipNeverTakesLocalWorkBack() throws Exception {
         final String made = localCommit();
@@ -338,7 +326,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(made);
     }
 
-    // py: test_a_forgejo_that_was_not_told_is_said
     @Test
     void aFailedNotificationDoesNotHideTheMovedRef() throws Exception {
         hookStatus = 1;
@@ -346,7 +333,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(second);
     }
 
-    // py: test_a_copy_already_there_is_up_to_date
     @Test
     void anAlreadyPresentCopyNeedsNoNotification() throws Exception {
         localAt(second);
@@ -355,7 +341,6 @@ class HostProjectAdvanceTest {
         assertThat(told).isEmpty();
     }
 
-    // py: test_a_main_ahead_of_central_stays
     @Test
     void approvedLocalWorkAheadOfCentralStays() throws Exception {
         localAt(second);
@@ -364,7 +349,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(made);
     }
 
-    // py: test_a_main_gone_another_way_stays_and_says_so
     @Test
     void divergedLocalWorkIsKeptForAPersonToJoin() throws Exception {
         final String made = localCommit();
@@ -372,7 +356,6 @@ class HostProjectAdvanceTest {
         assertThat(main()).isEqualTo(made);
     }
 
-    // py: test_a_copy_holding_another_commit_moves_nothing
     @Test
     void aChangedCopyIsRefusedBeforeMoving() throws Exception {
         assertThat(advance("e".repeat(40), "signed").code()).isEqualTo(65);
@@ -380,7 +363,6 @@ class HostProjectAdvanceTest {
         clean();
     }
 
-    // py: test_a_git_error_is_not_read_as_diverged
     @Test
     void gitFailureIsNoDivergence() throws Exception {
         fail = "merge-base";
@@ -391,7 +373,6 @@ class HostProjectAdvanceTest {
         clean();
     }
 
-    // py: test_a_cleanup_that_failed_is_not_success
     @Test
     void aLeftoverTemporaryRefRefusesSuccess() throws Exception {
         fail = "update-ref -d";
@@ -402,7 +383,6 @@ class HostProjectAdvanceTest {
                 .isEqualTo(second);
     }
 
-    // py: test_the_advance_reads_the_copy_as_its_owner_and_hands_it_to_the_container
     @Test
     void theOwnerBundlesAndOnlyTransfersInheritStdin() throws Exception {
         state("moved", second, "signed");

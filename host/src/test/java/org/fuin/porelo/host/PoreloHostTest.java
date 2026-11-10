@@ -157,7 +157,7 @@ class PoreloHostTest {
     }
 
     @Test
-    void projectKeepsItsPredecessorsRootRefusalBeforeParsing() {
+    void projectRefusesNonrootWith69BeforeParsing() {
         assertThat(run(Map.of(), () -> 1000, "project", "project-copy")).isEqualTo(69);
         assertThat(err.toString()).isEqualTo("porelo-host-project: runs only as root\n");
     }

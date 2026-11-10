@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class HostProjectUnixTest {
-    // py: test_project_admin_transport_connects_only_to_a_unix_socket
     @Test
     void addRegistersThroughTheUnixSocketAndNeverUsesCentral(@TempDir Path root) throws Exception {
         // A short directory of its own: Linux's Unix socket path limit is 108 bytes, and the client

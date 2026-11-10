@@ -53,7 +53,6 @@ class ForgeGatePolicyTest {
                 "authorization");
     }
 
-    // py: test_browser_cannot_set_passwords_or_mint_tokens
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -72,7 +71,6 @@ class ForgeGatePolicyTest {
         status(403, "web", "POST", path);
     }
 
-    // py: test_no_caller_gets_a_forge_credential_through_any_socket
     @Test
     void noCallerGetsAForgeCredentialThroughAnySocket() {
         for (String[] route : MINTING)
@@ -82,7 +80,6 @@ class ForgeGatePolicyTest {
             }
     }
 
-    // py: test_a_path_read_differently_by_forgejo_is_refused
     @Test
     void aPathReadDifferentlyByForgejoIsRefused() {
         for (String path : UNSAFE)
@@ -90,7 +87,6 @@ class ForgeGatePolicyTest {
                 status(400, mode, "POST", path, "Authorization", "token fixture");
     }
 
-    // py: test_the_runners_own_protocol_is_the_runner_sockets_alone
     @Test
     void theRunnersOwnProtocolIsTheRunnerSocketsAlone() {
         for (String mode : List.of("web", "git"))
@@ -104,7 +100,6 @@ class ForgeGatePolicyTest {
         status(200, "runner", "POST", "/api/actions/runner.v1.RunnerService/Register");
     }
 
-    // py: test_the_browser_gets_git_and_packages_only_with_a_token
     @Test
     void theBrowserGetsGitAndPackagesOnlyWithAToken() {
         for (String path : TOKEN_ONLY) {
@@ -120,7 +115,6 @@ class ForgeGatePolicyTest {
         }
     }
 
-    // py: test_a_decoded_newline_never_ends_a_route_match
     @Test
     void aDecodedNewlineNeverEndsARouteMatch() {
         assertThat(ForgeRoutes.MINTING.matcher("/api/v1/users/alice/tokens/a\nb").matches())
@@ -138,7 +132,6 @@ class ForgeGatePolicyTest {
                     .isTrue();
     }
 
-    // py: test_pages_the_browser_shows_are_no_git_route
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -150,7 +143,6 @@ class ForgeGatePolicyTest {
         status(200, "web", "GET", path);
     }
 
-    // py: test_the_browser_socket_challenges_a_client_that_waits_for_one
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -163,7 +155,6 @@ class ForgeGatePolicyTest {
         assertThat(refusal.challenge()).as("the retry is a Basic challenge").isTrue();
     }
 
-    // py: test_no_token_is_exchanged_for_one_a_revocation_does_not_end
     @Test
     void noTokenIsExchangedForOneARevocationDoesNotEnd() {
         for (String path :
@@ -177,7 +168,6 @@ class ForgeGatePolicyTest {
             }
     }
 
-    // py: test_names_like_a_refused_route_elsewhere_still_pass
     @Test
     void namesLikeARefusedRouteElsewhereStillPass() {
         for (String path : PASSING) {
@@ -186,7 +176,6 @@ class ForgeGatePolicyTest {
         }
     }
 
-    // py: test_git_challenges_before_any_upstream_request
     @Test
     void gitChallengesBeforeAnyUpstreamRequest() {
         final var refusal =
@@ -195,13 +184,11 @@ class ForgeGatePolicyTest {
         assertThat(refusal.challenge()).as("Git retries with Basic").isTrue();
     }
 
-    // py: test_ambiguous_framing_is_refused_before_forwarding
     @Test
     void ambiguousFramingIsRefusedBeforeForwarding() {
         status(400, "web", "POST", "/", "Transfer-Encoding", "chunked", "Content-Length", "0");
     }
 
-    // py: test_connection_header_cannot_remove_git_credentials
     @Test
     void aConnectionHeaderCannotRemoveGitCredentials() {
         status(
@@ -215,7 +202,6 @@ class ForgeGatePolicyTest {
                 "Authorization");
     }
 
-    // py: test_runner_protocol_passes_without_a_token_but_nothing_else_does
     @Test
     void theRunnerProtocolPassesWithoutATokenButNothingElseDoes() {
         status(
@@ -243,7 +229,6 @@ class ForgeGatePolicyTest {
         status(403, "git", "POST", "/api/actions/ping.v1.PingService/Ping");
     }
 
-    // py: test_runner_forwards_a_jobs_bearer_token_but_git_does_not
     @Test
     void theRunnerAcceptsAJobsBearerTokenButGitDoesNot() {
         final String path = "/api/actions_pipeline/_apis/pipelines/workflows/1/artifacts";
@@ -251,7 +236,6 @@ class ForgeGatePolicyTest {
         status(401, "git", "GET", path, "Authorization", "Bearer job.fixture-token");
     }
 
-    // py: test_the_browser_socket_serves_its_own_site_alone
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -277,7 +261,6 @@ class ForgeGatePolicyTest {
                 .isEqualTo(403);
     }
 
-    // py: test_a_foreign_host_refusal_names_only_the_configured_addresses
     @Test
     void aForeignHostRefusalNamesOnlyTheConfiguredAddresses() throws Exception {
         for (String conf :
@@ -314,7 +297,6 @@ class ForgeGatePolicyTest {
         }
     }
 
-    // py: test_other_refusals_keep_their_empty_response
     @Test
     void otherRefusalsKeepTheirEmptyResponse() throws Exception {
         final List<GateHttp.Request> requests =
@@ -371,7 +353,6 @@ class ForgeGatePolicyTest {
                 .isEmpty();
     }
 
-    // py: test_an_unreadable_forge_conf_keeps_the_host_refusal_empty
     @Test
     void anUnreadableForgeConfigurationKeepsTheHostRefusalEmpty() {
         final var gate =
@@ -387,7 +368,6 @@ class ForgeGatePolicyTest {
         assertThat(refusal.body()).as("no addresses are invented").isEmpty();
     }
 
-    // py: test_the_browser_socket_serves_its_own_site_by_either_name
     @ParameterizedTest
     @ValueSource(strings = {"host.localhost:3000", "HOST.localhost:3000", "127.0.0.1:3000"})
     void theBrowserSocketServesItsOwnSiteByEitherName(String host) {
@@ -407,14 +387,12 @@ class ForgeGatePolicyTest {
                 .isNull();
     }
 
-    // py: test_a_change_from_another_site_is_refused_before_any_upstream_request
     @Test
     void aChangeFromAnotherSiteIsRefusedBeforeAnyUpstreamRequest() {
         for (String method : List.of("POST", "PUT", "PATCH", "DELETE", "OPTIONS"))
             for (String[] headers : FOREIGN) status(403, "web", method, "/", headers);
     }
 
-    // py: test_the_persons_own_browser_and_tools_still_change_things
     @Test
     void thePersonsOwnBrowserAndToolsStillChangeThings() {
         for (String method : List.of("POST", "DELETE")) {
@@ -446,7 +424,6 @@ class ForgeGatePolicyTest {
         }
     }
 
-    // py: test_a_forge_conf_that_cannot_say_the_site_refuses_every_browser_request
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -460,9 +437,8 @@ class ForgeGatePolicyTest {
         assertThat(ForgeRoutes.hosts(conf)).as("only a complete site is admitted").isEmpty();
     }
 
-    // py: test_the_git_socket_takes_any_host_as_before
     @Test
-    void theGitSocketTakesAnyHostAsBefore() {
+    void theGitSocketTakesAnyHostOrOrigin() {
         status(
                 200,
                 "git",
@@ -476,7 +452,6 @@ class ForgeGatePolicyTest {
                 "http://evil.example");
     }
 
-    // py: test_a_second_host_or_site_header_is_refused
     @Test
     void aSecondHostOrSiteHeaderIsRefused() {
         status(403, "web", "GET", "/", "Host", "evil.example:3000");
@@ -491,7 +466,6 @@ class ForgeGatePolicyTest {
                 "cross-site");
     }
 
-    // py: test_the_browsers_own_spelling_of_its_site_passes
     @Test
     void theBrowsersOwnSpellingOfItsSitePasses() {
         final var headers =
@@ -509,7 +483,6 @@ class ForgeGatePolicyTest {
                 .isNull();
     }
 
-    // py: test_a_link_from_another_site_still_opens_a_page
     @Test
     void aLinkFromAnotherSiteStillOpensAPage() {
         status(
@@ -523,7 +496,6 @@ class ForgeGatePolicyTest {
                 "http://evil.example");
     }
 
-    // py: test_a_forge_conf_not_as_the_role_writes_it_refuses_every_browser_request
     @ParameterizedTest
     @ValueSource(
             strings = {

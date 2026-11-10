@@ -7,10 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Git fixtures confined to JUnit's temporary trees; never the checkout or the source Python
- * repository.
- */
+/** Git fixtures confined to JUnit's temporary trees; never the checkout or another repository. */
 final class ProjectTestGit {
     private ProjectTestGit() {}
 

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B569",
   "title": "The Host Tool's Tests Stand Without The Python",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 13,
@@ -20,7 +20,7 @@ restate the predecessor, and the module's README.
 Filed 2026-11-09 as porelo's part of `porelo-project` ST291, by the operator's request of
 2026-11-09. Implementing since 2026-11-10, on the coordinator's order of 13:56Z (ST291 is Highest; built
 with [B552](README.md#b552) in Review, on main as it is). Built by an Antigravity sub-agent (Claude Opus 5.5)
-under Core's supervision.
+under Core's supervision; in Review since 2026-11-10, until the operator's test.
 
 **What must be true.** `host/`'s tests say what `porelo-host` does, not what the Python helpers did. No test, comment
 or assertion message names a Python test (`// py: test_...`), the predecessor scripts (`porelo-host-person`,
@@ -53,3 +53,30 @@ measurement budget, the per-connection peer lookup.
 
 **The first test that goes red:** a check in `host`'s tests (beside `NullMarkedPackagesTest`'s kind) that fails while
 any file under `host/src/test/java` contains `// py:` or the name of a predecessor script.
+
+## As built
+
+- **The check, red first:** `HostTestsNameNoPredecessorTest` reads the Java tokens of every file under
+  `host/src/test/java` and names file and line for a `// py:` comment, the language's name (as a word or inside a
+  name, not the tool `python3` or `ProjectRecords.pythonJson`), "predecessor", and a script name in a comment, a name
+  or an assertion message. It was red with 459 lines (the 422 citations and 37 other mentions), and is green now. Its
+  patterns are built from pieces; a sample file pins exactly which lines it reports.
+- **Citations:** 424 lines deleted in 25 classes, 8 lines of the behaviour's own reason in their place: the codes by
+  verb the host's shell maps (`HostProjectTest`, `HostTaskReviewTest`), the 120-second budget one pass or one
+  measurement shares (`HostFollowBudgetTest`, `HostFollowReviewTest`), the fetch's 300 seconds against 60 for every other
+  isolated operation (`HostFollowTest`), the Matrix account kept for readmission (`HostFollowPeopleTest`), why a purge
+  never records a running account as locked. The per-connection peer lookup's test name says it already.
+- **Words:** 31 assertion messages and one Javadoc say what is asserted; 11 test methods that named the predecessor are
+  renamed. No assertion is weakened.
+- **No test removed:** each shape check found is a promise of the man page (`org status --json`'s field order, `task
+  show`'s whole certificate, `pool-key`'s compact JSON) or guards data another program reads.
+- **Departures kept as plain behaviour:** `HostProjectAdvanceTest.aDeletedProjectFileCannotAdvanceMain`,
+  `ForgeGateSocketTest.aHeaderNamedByTheSecondConnectionLineIsNotForwarded`,
+  `ForgeGatePolicyTest.authorizationNamedInAnyConnectionHeaderIsRefused`,
+  `HostFollowReviewTest.failedSafetyRestorationNeverClaimsTheRunningAccountIsLocked`.
+- **README:** two sentences that read as a port now say what the module does.
+- **Left, apart from this issue:** `porelo-host` itself still prints `porelo-host-person: `, `porelo-host-project: `,
+  `porelo-host-push: ` and `porelo-forge-gate: ` as its diagnostics' prefix, and keeps the old names in paths and units
+  (`/run/porelo-host-project-copy`, `/var/lib/porelo-pool/`, `porelo-pool-give-back`) and in the person file's
+  `# Written by` header; two production comments cite the scripts. The tests assert that output in string literals,
+  which the check leaves alone. Renaming them is a change of the host's contract and its collection's.

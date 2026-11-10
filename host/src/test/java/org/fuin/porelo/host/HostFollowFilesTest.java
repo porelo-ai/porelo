@@ -43,7 +43,6 @@ class HostFollowFilesTest {
         f.write(FollowFixture.ORG + "host-projects.json", HostJson.write(entries));
     }
 
-    // py: test_each_repository_is_protected_as_the_verified_file_says
     @Test
     void signedReviewValuesSetTheLocalForgeRule() throws Exception {
         f.run();
@@ -53,7 +52,6 @@ class HostFollowFilesTest {
                 .containsEntry("apply_to_admins", true);
     }
 
-    // py: test_the_file_is_read_with_the_projects_signers_from_a_copy
     @Test
     void verificationReadsAPrivateCopyAsItsOwnerWithOnlySignersExposed() throws Exception {
         f.run();
@@ -75,7 +73,6 @@ class HostFollowFilesTest {
         }
     }
 
-    // py: test_a_changed_value_is_set_once_and_an_unchanged_follow_writes_nothing
     @Test
     void unchangedRulesAreNotRewrittenAndAChangedValueIsSetOnce() throws Exception {
         f.run();
@@ -98,7 +95,6 @@ class HostFollowFilesTest {
                 .count();
     }
 
-    // py: test_a_rule_changed_by_hand_on_the_forge_is_set_back
     @Test
     void manualRuleChangesAreRestoredFromTheSignedFile() throws Exception {
         f.run();
@@ -107,7 +103,6 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("main")).containsEntry("enable_push", false);
     }
 
-    // py: test_a_rule_renamed_in_case_is_held_to_the_signed_values_and_no_second_is_made
     @Test
     void caseVariantsUseTheRuleAlreadyInForce() throws Exception {
         f.run();
@@ -122,7 +117,6 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("MAIN")).containsEntry("enable_push", false);
     }
 
-    // py: test_a_rule_in_force_is_set_before_the_one_a_follow_added_beside_it_goes
     @Test
     void theOldestMainRuleIsRepairedBeforeAnExtraRuleIsDeleted() throws Exception {
         f.run();
@@ -146,7 +140,6 @@ class HostFollowFilesTest {
         assertThat(changes.get(1).method()).isEqualTo("DELETE");
     }
 
-    // py: test_a_rule_of_another_name_stays
     @Test
     void protectingMainNeverDeletesAnotherBranchRule() throws Exception {
         f.run();
@@ -157,7 +150,6 @@ class HostFollowFilesTest {
         assertThat(f.rules).containsKey("release");
     }
 
-    // py: test_the_same_commit_and_signers_are_not_verified_again_but_new_signers_are
     @Test
     void onlyAChangedCommitOrSignerSetRequiresReverification() throws Exception {
         f.run();
@@ -168,7 +160,6 @@ class HostFollowFilesTest {
         assertThat(f.verifyCount).isEqualTo(2);
     }
 
-    // py: test_a_file_that_cannot_be_read_keeps_the_last_values_and_says_so
     @ParameterizedTest
     @ValueSource(strings = {"verify", "central", "shape"})
     void aRefusedReadKeepsTheLastSignedReview(String reason) throws Exception {
@@ -188,7 +179,6 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("main")).containsEntry("required_approvals", 0L);
     }
 
-    // py: test_a_file_never_read_leaves_every_repository_required
     @Test
     void anUnreadableFirstFileRequiresReviewForEveryRepository() throws Exception {
         f.verifyCode = 65;
@@ -196,7 +186,6 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("main")).containsEntry("required_approvals", 1L);
     }
 
-    // py: test_a_project_with_no_admin_key_reads_no_file
     @Test
     void aProjectWithNoAdminSignerReadsNoCopy() throws Exception {
         f.project().put("signing_keys", List.of());
@@ -206,7 +195,6 @@ class HostFollowFilesTest {
         assertThat(f.item().get("file_refused")).asString().contains("no project admin's key");
     }
 
-    // py: test_only_a_project_admins_keys_that_stand_may_sign_the_file
     @Test
     void developerAndRevokedKeysNeverSignTheProjectFile() {
         final var revoked =
@@ -247,7 +235,6 @@ class HostFollowFilesTest {
                 .doesNotContain("charlie", "former");
     }
 
-    // py: test_a_project_moved_to_another_address_loses_the_values_of_the_old_one
     @Test
     void anAddressChangeDropsTheOldFileEvenWhenTheNewReadFails() throws Exception {
         f.run();
@@ -257,7 +244,6 @@ class HostFollowFilesTest {
         assertThat(f.item().get("file_refused")).isNotNull();
     }
 
-    // py: test_a_file_porelo_accepted_reaches_the_copy_a_task_reads
     @Test
     void aVerifiedFileIsAdvancedOnTheLocalForge() throws Exception {
         f.run();
@@ -269,7 +255,6 @@ class HostFollowFilesTest {
                                         && a.contains("+refs/heads/main:refs/porelo/central"));
     }
 
-    // py: test_an_unchanged_main_asks_for_no_copy_and_no_move
     @Test
     void anUnchangedAdvancedMainNeedsNoNewCopyOrVerification() throws Exception {
         f.run();
@@ -279,7 +264,6 @@ class HostFollowFilesTest {
         assertThat(f.verifyCount).isEqualTo(1);
     }
 
-    // py: test_a_refused_file_does_not_reach_the_copy
     @Test
     void aRejectedFileIsNeverAdvanced() throws Exception {
         f.verifyCode = 65;
@@ -288,7 +272,6 @@ class HostFollowFilesTest {
         assertThat(f.commands).noneMatch(a -> a.contains("+refs/heads/main:refs/porelo/central"));
     }
 
-    // py: test_a_main_ahead_of_central_is_no_complaint
     @Test
     void localMainAheadOfCentralCountsAsAdvanced() throws Exception {
         f.project.localMain = "b".repeat(40);
@@ -299,7 +282,6 @@ class HostFollowFilesTest {
                 .doesNotContainKey("advance_refused");
     }
 
-    // py: test_other_changes_at_central_say_where_they_come_by
     @Test
     void otherCentralChangesNameThePersonsPullRequest() throws Exception {
         f.project.localMain = "b".repeat(40);
@@ -310,8 +292,6 @@ class HostFollowFilesTest {
                 .contains("person's pull request from central/main");
     }
 
-    // py: test_a_copy_gone_another_way_says_so_and_asks_again
-    // py: test_a_failed_move_is_said_and_retried
     @Test
     void aFailedAdvanceIsRetriedEvenWithTheSameVerifiedCommit() throws Exception {
         f.project.localMain = "b".repeat(40);
@@ -329,7 +309,6 @@ class HostFollowFilesTest {
                 .doesNotContainKey("advance_refused");
     }
 
-    // py: test_changed_signers_with_a_failed_move_still_ask_again
     @Test
     void failedMovesDoNotCacheAChangedSignerSetAsAdvanced() throws Exception {
         f.project.localMain = "b".repeat(40);
@@ -341,7 +320,6 @@ class HostFollowFilesTest {
         assertThat(f.verifyCount).isEqualTo(3);
     }
 
-    // py: test_a_repository_named_later_waits_for_a_token_and_the_others_go_on
     @Test
     void aNewNamedRepositoryWaitsWithoutAMigrationToken() throws Exception {
         repositories(
@@ -359,7 +337,6 @@ class HostFollowFilesTest {
         assertThat(f.item()).containsEntry("state", "waiting-for-token");
     }
 
-    // py: test_a_repository_with_no_central_is_not_taken_and_a_name_gone_from_the_file_stays
     @Test
     void noCentralIsSaidWithoutAttemptingToMigrate() throws Exception {
         repositories(
@@ -371,7 +348,6 @@ class HostFollowFilesTest {
         assertThat(f.item()).containsEntry("why", null);
     }
 
-    // py: test_one_token_takes_every_named_repository_after_the_projects_own
     @Test
     void oneRefreshTokenTakesEachRepositoryNamedByTheSignedFile() throws Exception {
         repositories(
@@ -394,7 +370,6 @@ class HostFollowFilesTest {
         assertThat(f.item().get("taken")).asList().hasSize(2);
     }
 
-    // py: test_a_repository_refused_is_named_and_the_next_is_still_taken
     @Test
     void aFailedMigrationDoesNotPreventTheNextNamedRepository() throws Exception {
         repositories(
@@ -425,7 +400,6 @@ class HostFollowFilesTest {
         assertThat(row(f.item().get("repositories_why"))).hasSize(1);
     }
 
-    // py: test_a_project_that_lists_repositories_takes_no_merge_in_its_own
     @Test
     void aProjectListingOtherRepositoriesClosesItsOwnMergeTeam() throws Exception {
         repositories(
@@ -441,7 +415,6 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("main").get("merge_whitelist_teams")).asList().isEmpty();
     }
 
-    // py: test_a_project_that_lists_none_works_in_its_own
     @Test
     void aProjectWithNoRepositoryRowsKeepsItsOwnAsAPlaceOfWork() throws Exception {
         f.run();
@@ -450,7 +423,6 @@ class HostFollowFilesTest {
                 .containsExactly("Owners", "developers");
     }
 
-    // py: test_a_project_that_stops_listing_gets_its_merges_back
     @Test
     void removingTheRepositoryListRestoresMergesInTheProjectsOwn() throws Exception {
         repositories(
@@ -471,7 +443,6 @@ class HostFollowFilesTest {
                 .containsExactly("Owners", "developers");
     }
 
-    // py: test_a_row_that_is_the_project_repository_keeps_it_a_place_of_work
     @Test
     void aRowWithTheOwnCentralRepositoryKeepsOwnMerges() throws Exception {
         repositories(new LinkedHashMap<>(Map.of("own", required())));
@@ -481,7 +452,6 @@ class HostFollowFilesTest {
                 .containsExactly("Owners", "developers");
     }
 
-    // py: test_only_a_central_address_names_the_project_repository
     @ParameterizedTest
     @ValueSource(strings = {"code", "own", "different"})
     void theCentralAddressDeterminesWhetherARowIsOwn(String name) {
@@ -501,7 +471,6 @@ class HostFollowFilesTest {
         assertThat(FollowProjects.noTaskInOwn(p, file)).isEqualTo(!name.equals("own"));
     }
 
-    // py: test_a_card_naming_one_repository_takes_that_one_alone
     @Test
     void theHostCardsSelectionLimitsMigrations() throws Exception {
         f.project().put("repositories", List.of("extra"));
@@ -526,7 +495,6 @@ class HostFollowFilesTest {
                 .doesNotContainKey("alpha/third");
     }
 
-    // py: test_a_project_carried_whole_takes_every_repository_as_before
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void absentOrEmptySelectionsCarryAllRepositories(boolean empty) throws Exception {
@@ -546,7 +514,6 @@ class HostFollowFilesTest {
         assertThat(f.project.repositories).containsKey("alpha/extra");
     }
 
-    // py: test_a_name_the_project_file_does_not_list_is_said_in_the_projects_why
     @Test
     void aSelectionMissingFromTheSignedFileIsNamed() throws Exception {
         f.project().put("repositories", List.of("missing"));
@@ -556,7 +523,6 @@ class HostFollowFilesTest {
                 .contains("host's card names repositories the project file does not list: missing");
     }
 
-    // py: test_a_malformed_list_of_repositories_refuses_the_project_alone
     @ParameterizedTest
     @ValueSource(strings = {"string", "duplicate", "capital"})
     void malformedSelectionsRefuseOnlyTheirProject(String damage) throws Exception {
@@ -572,7 +538,6 @@ class HostFollowFilesTest {
         assertThat(row(f.applied().get("project_refusals"))).containsKey("alpha");
     }
 
-    // py: test_review_goes_by_the_name_the_forge_gave_the_central_repository
     @Test
     void reviewUsesTheCentralRepositoryNameRatherThanItsAlias() throws Exception {
         repositories(
@@ -584,7 +549,6 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("main")).containsEntry("required_approvals", 1L);
     }
 
-    // py: test_a_person_let_through_by_name_is_taken_off_the_rule
     @ParameterizedTest
     @ValueSource(
             strings = {
@@ -599,7 +563,6 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("main").get(field)).asList().isEmpty();
     }
 
-    // py: test_a_rule_answering_no_list_of_names_is_the_same_as_an_empty_one
     @Test
     void forgeNullAndEmptyUserListsAreEquivalent() throws Exception {
         f.run();
@@ -615,7 +578,6 @@ class HostFollowFilesTest {
         assertThat(mutations()).isEqualTo(before);
     }
 
-    // py: test_the_verify_unit_runs_as_the_account_that_owns_the_copy_with_no_network
     @Test
     void verifyRunsAsTheCopyOwnerWithNoNetwork() throws Exception {
         f.run();
@@ -631,7 +593,6 @@ class HostFollowFilesTest {
                                                 "Environment=HOME=/tmp"));
     }
 
-    // py: test_a_move_forgejo_was_not_told_of_counts_as_moved
     @Test
     void movingMainWithoutTheForgeNotificationStillCountsAsAdvanced() throws Exception {
         f.project.localMain = "b".repeat(40);
@@ -644,7 +605,6 @@ class HostFollowFilesTest {
                 .contains("main moved, and the forge's pages may show it late");
     }
 
-    // py: test_an_optional_row_after_its_migration_changes_the_rule_and_says_so_once
     @Test
     void aNewOptionalReviewChangesTheRuleAndIsSaidOnce() throws Exception {
         f.verified.put("project_review", "required");
@@ -664,7 +624,6 @@ class HostFollowFilesTest {
                 .hasSize(1);
     }
 
-    // py: test_a_protection_that_cannot_be_set_refuses_naming_the_repository_and_others_go_on
     @Test
     void aFailedProtectionNamesItsRepositoryAndDoesNotSpareTheNext() throws Exception {
         f.project.repositories.put(
@@ -691,7 +650,6 @@ class HostFollowFilesTest {
                                                 .contains("/repos/alpha/extra/branch_protections"));
     }
 
-    // py: test_one_row_opens_only_the_repository_it_names_on_the_forge
     @Test
     void anOptionalAliasOpensOnlyItsCentralRepository() throws Exception {
         f.project.repositories.put(

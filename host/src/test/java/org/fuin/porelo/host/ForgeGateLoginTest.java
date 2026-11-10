@@ -72,7 +72,6 @@ class ForgeGateLoginTest {
         assertThat(calls.get()).isOne();
     }
 
-    // py: test_unknown_peer_is_refused
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"-1", "1005", "4294967294"})
     void numericPeerNamesReceiveForbiddenInsteadOfCrashing(String peer) throws Exception {
@@ -100,7 +99,6 @@ class ForgeGateLoginTest {
                 .startsWith("HTTP/1.1 403 Forbidden\r\n");
     }
 
-    // py: test_root_service_and_unadmitted_callers_are_refused
     @Test
     void rootServiceAndUnadmittedCallersAreRefused() throws Exception {
         assertThat(login(0, "/bin/bash", true, false, true))
@@ -117,7 +115,6 @@ class ForgeGateLoginTest {
                 .isNull();
     }
 
-    // py: test_unknown_peer_is_refused
     @Test
     void anUnknownPeerIsRefused() throws Exception {
         assertThat(login(1000, "/bin/bash", true, false, false))
@@ -125,7 +122,6 @@ class ForgeGateLoginTest {
                 .isNull();
     }
 
-    // py: test_primary_group_membership_is_admitted
     @Test
     void primaryGroupMembershipIsAdmitted() throws Exception {
         assertThat(login(1000, "/bin/bash", false, true, true))

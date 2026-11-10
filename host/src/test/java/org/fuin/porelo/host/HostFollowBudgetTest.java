@@ -23,7 +23,8 @@ class HostFollowBudgetTest {
         return (Map<String, Object>) value;
     }
 
-    // py: test_the_central_questions_of_one_follow_stay_within_a_budget
+    // The central questions of one pass share 120 seconds across every project, so a slow central
+    // bounds the follow instead of stalling it.
     @Test
     void centralQuestionsShareOneBudgetAcrossProjects() throws Exception {
         f.migrated();
@@ -103,7 +104,7 @@ class HostFollowBudgetTest {
         assertThat(Files.exists(f.path(FollowFixture.ORG + "central/alpha.json"))).isFalse();
     }
 
-    // py: test_a_helper_that_cannot_say_leaves_no_repository_and_does_not_fail_the_follow
+    // A central that cannot answer leaves the follow unrefused; only its repositories go unsaid.
     @Test
     void aFailedCentralQuestionPublishesAnEmptyMeasurement() throws Exception {
         f.migrated();
@@ -120,7 +121,6 @@ class HostFollowBudgetTest {
         assertThat(f.run()).containsEntry("refused", null);
     }
 
-    // py: test_reading_files_shares_one_budget_and_comes_after_members_are_taken_away
     @Test
     void projectFileChildrenUseOneMinuteAfterMembershipRemoval() throws Exception {
         f.migrated();
@@ -142,7 +142,6 @@ class HostFollowBudgetTest {
         assertThat(f.item().get("file_refused")).isNotNull();
     }
 
-    // py: test_the_root_project_child_inherits_the_lock_and_receives_the_token_only_on_stdin
     @Test
     void inProcessProjectCallsKeepTheOuterFlockHeldWithoutLaunchingAHelper() throws Exception {
         f.migrated();
@@ -244,7 +243,6 @@ class HostFollowBudgetTest {
                                         .isLessThanOrEqualTo(Duration.ofSeconds(20)));
     }
 
-    // py: test_a_repository_named_in_capitals_keeps_its_answer
     @Test
     void centralMeasurementKeepsTheForgesRepositorySpelling() throws Exception {
         f.migrated();

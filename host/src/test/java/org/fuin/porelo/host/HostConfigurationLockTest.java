@@ -37,7 +37,7 @@ class HostConfigurationLockTest {
     }
 
     @Test
-    void aSharedLockAllowsReadersAndExcludesPythonCompatibleWriters() throws Exception {
+    void aSharedLockAllowsFlockReadersAndExcludesFlockWriters() throws Exception {
         final Path file = Files.writeString(directory.resolve("forge.conf"), "host=workshop\n");
         try (var lock = HostConfigurationLock.acquire(file, true)) {
             assertThat(tryFlock(file, true))
@@ -55,7 +55,7 @@ class HostConfigurationLockTest {
         final Path file = Files.writeString(directory.resolve("forge.conf"), "host=workshop\n");
         try (var lock = HostConfigurationLock.acquire(file, false)) {
             assertThat(tryFlock(file, true))
-                    .as("task show retains Python's exclusive locking")
+                    .as("an exclusive holder such as task show keeps every flock reader out")
                     .isEqualTo(1);
             assertThat(tryFlock(file, false)).as("another writer waits too").isEqualTo(1);
         }

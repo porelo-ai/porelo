@@ -202,7 +202,6 @@ class HostPoolTest {
         assertThat(pool.calls).containsExactly("domstate other_domain");
     }
 
-    // py: test_a_reverted_vm_cannot_be_reached_until_its_clock_is_the_hosts
     @Test
     void aRevertedVmCannotBeReachedUntilItsClockIsTheHosts() throws Exception {
         final Pool pool = new Pool();
@@ -216,7 +215,6 @@ class HostPoolTest {
                 .contains("reverted pool-1 to its base snapshot");
     }
 
-    // py: test_a_clock_that_stays_late_a_moment_is_asked_again
     @Test
     void aClockThatStaysLateAMomentIsAskedAgain() throws Exception {
         final Pool pool = new Pool();
@@ -231,7 +229,6 @@ class HostPoolTest {
                 .doesNotContain("destroy pool-1");
     }
 
-    // py: test_a_clock_that_cannot_be_set_says_so_and_the_vm_is_not_handed_out
     @Test
     void aClockThatCannotBeSetSaysSoAndTheVmIsNotHandedOut() throws Exception {
         final Pool pool = new Pool();
@@ -247,7 +244,6 @@ class HostPoolTest {
         assertThat(pool.clockAttempts).as("the retry budget is bounded").isEqualTo(20);
     }
 
-    // py: test_a_vm_that_cannot_be_stopped_either_says_its_link_stays_down
     @Test
     void aVmThatCannotBeStoppedEitherSaysItsLinkStaysDown() throws Exception {
         final Pool pool = new Pool();
@@ -264,7 +260,6 @@ class HostPoolTest {
                 .isTrue();
     }
 
-    // py: test_a_link_that_cannot_go_down_gives_no_vm_reachable_with_the_old_clock
     @Test
     void aLinkThatCannotGoDownGivesNoVmReachableWithTheOldClock() throws Exception {
         final Pool pool = new Pool();
@@ -276,7 +271,6 @@ class HostPoolTest {
                 .doesNotContain("resume pool-1");
     }
 
-    // py: test_a_vm_whose_clock_cannot_be_set_is_not_reverted_over_and_over
     @Test
     void aVmWhoseClockCannotBeSetIsNotRevertedOverAndOver() throws Exception {
         final Pool pool = new Pool();
@@ -288,7 +282,6 @@ class HostPoolTest {
                 .hasSize(1);
     }
 
-    // py: test_a_restarted_service_tries_a_vm_left_off_again
     @Test
     void aRestartedServiceTriesAVmLeftOffAgain() throws Exception {
         final Pool pool = new Pool();
@@ -300,7 +293,6 @@ class HostPoolTest {
                 .hasSize(2);
     }
 
-    // py: test_a_stopped_vm_is_reverted_when_the_watch_says_so
     @Test
     void aStoppedVmIsRevertedWhenTheWatchSaysSo() throws Exception {
         final Pool pool = new Pool();
@@ -314,7 +306,6 @@ class HostPoolTest {
         assertThat(pool.rounds).as("one live watch is used").isOne();
     }
 
-    // py: test_a_retry_clears_the_old_failure_before_its_link_comes_up
     @Test
     void aRetryClearsTheOldFailureBeforeItsLinkComesUp() throws Exception {
         final Pool pool = new Pool();
@@ -327,7 +318,6 @@ class HostPoolTest {
         assertThat(pool.off()).as("successful retry clears the old failure").isFalse();
     }
 
-    // py: test_a_failed_revert_still_says_so_and_asks_no_clock
     @Test
     void aFailedRevertStillSaysSoAndAsksNoClock() throws Exception {
         final Pool pool = new Pool();
@@ -342,7 +332,6 @@ class HostPoolTest {
                 .isTrue();
     }
 
-    // py: test_a_revert_left_midway_by_a_stopped_service_is_done_again
     @Test
     void aRevertLeftMidwayByAStoppedServiceIsDoneAgain() throws Exception {
         final Pool pool = new Pool();
@@ -355,7 +344,6 @@ class HostPoolTest {
                 .containsSubsequence("destroy pool-1", REVERT, UP);
     }
 
-    // py: test_a_paused_vm_left_by_a_stopped_service_is_done_again
     @Test
     void aPausedVmLeftByAStoppedServiceIsDoneAgain() throws Exception {
         final Pool pool = new Pool();
@@ -367,7 +355,6 @@ class HostPoolTest {
                 .containsSubsequence("destroy pool-1", REVERT);
     }
 
-    // py: test_a_paused_vm_no_revert_left_is_not_destroyed
     @Test
     void aPausedVmNoRevertLeftIsNotDestroyed() throws Exception {
         final Pool pool = new Pool();
@@ -378,7 +365,6 @@ class HostPoolTest {
                 .doesNotContain("destroy pool-1", REVERT);
     }
 
-    // py: test_a_vm_with_its_link_down_no_revert_left_is_not_destroyed
     @Test
     void aVmWithItsLinkDownNoRevertLeftIsNotDestroyed() throws Exception {
         final Pool pool = new Pool();
@@ -390,7 +376,6 @@ class HostPoolTest {
                 .doesNotContain("destroy pool-1");
     }
 
-    // py: test_a_running_vm_with_its_link_up_is_left_alone
     @Test
     void aRunningVmWithItsLinkUpIsLeftAlone() throws Exception {
         final Pool pool = new Pool();
@@ -403,7 +388,6 @@ class HostPoolTest {
         assertThat(pool.midwayExists()).as("the stale note is cleared").isFalse();
     }
 
-    // py: test_a_revert_that_cannot_record_itself_does_not_begin
     @Test
     void aRevertThatCannotRecordItselfDoesNotBegin() throws Exception {
         final Pool pool = new Pool();
@@ -417,7 +401,6 @@ class HostPoolTest {
                 .contains("could not note the revert of pool-1");
     }
 
-    // py: test_a_link_that_cannot_be_read_keeps_the_note_of_a_revert_left_midway
     @Test
     void aLinkThatCannotBeReadKeepsTheNoteOfARevertLeftMidway() throws Exception {
         final Pool pool = new Pool();
@@ -436,7 +419,6 @@ class HostPoolTest {
                 .contains("could not read how pool-1 stands");
     }
 
-    // py: test_a_nic_that_cannot_be_read_keeps_the_note_of_a_revert_left_midway
     @Test
     void aNicThatCannotBeReadKeepsTheNoteOfARevertLeftMidway() throws Exception {
         final Pool pool = new Pool();
@@ -447,7 +429,6 @@ class HostPoolTest {
         assertThat(pool.midwayExists()).as("the next pass still owns recovery").isTrue();
     }
 
-    // py: test_a_revert_that_failed_but_left_the_vm_paused_is_done_again
     @Test
     void aRevertThatFailedButLeftTheVmPausedIsDoneAgain() throws Exception {
         final Pool pool = new Pool();
@@ -460,7 +441,6 @@ class HostPoolTest {
                 .containsSubsequence(REVERT, "destroy pool-1", REVERT, UP);
     }
 
-    // py: test_a_state_read_that_fails_once_keeps_the_note_of_a_revert_left_midway
     @Test
     void aStateReadThatFailsOnceKeepsTheNoteOfARevertLeftMidway() throws Exception {
         final Pool pool = new Pool();
@@ -476,7 +456,6 @@ class HostPoolTest {
                 .doesNotContain("destroy pool-1");
     }
 
-    // py: test_a_state_that_cannot_be_read_fails_up
     @Test
     void aStateThatCannotBeReadFailsUp() throws Exception {
         final Pool pool = new Pool();
@@ -487,7 +466,6 @@ class HostPoolTest {
                 .contains("could not read the state of pool-1");
     }
 
-    // py: test_a_lock_held_too_long_is_said_and_fails_up
     @Test
     void aLockHeldTooLongIsSaidAndFailsUp() throws Exception {
         final Pool pool = new Pool();
@@ -501,7 +479,6 @@ class HostPoolTest {
                 .contains("another revert", "pool-1 waits");
     }
 
-    // py: test_a_stop_the_watch_missed_is_found_by_its_next_round
     @Test
     void aStopTheWatchMissedIsFoundByItsNextRound() throws Exception {
         final Pool pool = new Pool();
@@ -520,7 +497,6 @@ class HostPoolTest {
                 .contains("virsh event ended");
     }
 
-    // py: test_a_watch_that_fails_ends_the_service
     @Test
     void aWatchThatFailsEndsTheService() throws Exception {
         final Pool pool = new Pool();
@@ -528,7 +504,6 @@ class HostPoolTest {
         assertThat(pool.rounds).as("a dead watch never spins").isOne();
     }
 
-    // py: test_an_agent_that_never_answers_does_not_hold_up_the_pool
     @Test
     void anAgentThatNeverAnswersDoesNotHoldUpThePool() throws Exception {
         final Pool pool = new Pool();
@@ -542,7 +517,6 @@ class HostPoolTest {
                 .contains("could not set the clock of pool-1");
     }
 
-    // py: test_two_reverts_of_the_pool_take_turns
     @Test
     void twoRevertsOfThePoolTakeTurns() throws Exception {
         final Pool pool = new Pool();
@@ -571,7 +545,6 @@ class HostPoolTest {
         assertThat(pool.calls).as("the revert eventually runs").contains(REVERT);
     }
 
-    // py: test_one_vm_for_up_fails_loud_and_watches_nothing
     @Test
     void oneVmForUpFailsLoudAndWatchesNothing() throws Exception {
         final Pool pool = new Pool();
@@ -583,7 +556,6 @@ class HostPoolTest {
         assertThat(pool.rounds).as("--one never starts a watch").isZero();
     }
 
-    // py: test_one_vm_for_up_does_again_what_a_stopped_service_left_midway
     @Test
     void oneVmForUpDoesAgainWhatAStoppedServiceLeftMidway() throws Exception {
         final Pool pool = new Pool();
@@ -595,7 +567,6 @@ class HostPoolTest {
                 .containsSubsequence("destroy pool-1", REVERT);
     }
 
-    // py: test_one_vm_for_up_leaves_a_running_vm_alone
     @Test
     void oneVmForUpLeavesARunningVmAlone() throws Exception {
         final Pool pool = new Pool();
@@ -607,7 +578,6 @@ class HostPoolTest {
                 .doesNotContain("reverted");
     }
 
-    // py: test_one_vm_for_up_tries_a_vm_left_off_again_and_clears_it
     @Test
     void oneVmForUpTriesAVmLeftOffAgainAndClearsIt() throws Exception {
         final Pool pool = new Pool();

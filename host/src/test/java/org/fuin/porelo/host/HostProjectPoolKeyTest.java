@@ -20,7 +20,6 @@ class HostProjectPoolKeyTest {
     private static final String RUN_KEY = "/var/lib/porelo-host/pool/run-key";
     @TempDir Path root;
 
-    // py: test_a_pool_that_comes_later_gives_its_key_to_every_project_there
     @Test
     void aLaterPoolSendsItsKeyToEveryRegisteredProjectInOrder() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -41,7 +40,7 @@ class HostProjectPoolKeyTest {
                             "/api/v1/orgs/beta/actions/secrets/" + SECRET);
             final Path sent = host.files.at(RUN_KEY + ".sent");
             assertThat(Files.readString(sent))
-                    .as("the marker is the Python SHA-256 plus newline")
+                    .as("the marker is the key's hex SHA-256 plus newline")
                     .isEqualTo(
                             HexFormat.of()
                                             .formatHex(
@@ -58,7 +57,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_a_second_up_sends_no_key_and_reports_no_change
     @Test
     void aSecondSendReportsNoChangeAndMakesNoUpload() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -73,7 +71,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_a_project_added_with_the_key_is_not_sent_it_again
     @Test
     void registrationSuppliesTheSameSecretThatTheNextSendRecognizes() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -88,7 +85,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_a_new_run_key_goes_to_every_project_again
     @Test
     void aRotatedKeyIsUploadedToEveryProjectAgain() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -104,7 +100,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_a_key_others_may_read_is_not_sent_to_any_project
     @Test
     void anExposedKeyIsRefusedBeforeAnyUpload() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -119,7 +114,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_a_refused_key_stops_with_nothing_marked_sent
     @Test
     void aFailedUploadLeavesNoMarkerAndCanBeRetried() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -141,7 +135,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_down_takes_the_key_from_every_project_and_only_that_secret
     @Test
     void withdrawalRemovesOnlyThePoolKeyAndItsRetryReportsNoChange() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -158,7 +151,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_down_stopping_a_forge_that_does_not_answer_is_no_failure_and_makes_no_token
     @Test
     void aStoppedForgeNeedsNoAdminTokenToWithdraw() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -173,7 +165,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_down_after_the_forge_settings_went_is_no_failure
     @Test
     void missingForgeSettingsMakeWithdrawalAnEmptySuccess() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -184,7 +175,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_a_forge_that_refuses_the_delete_stops_down
     @Test
     void aRefusedDeleteFailsAndKeepsTheKey() throws Exception {
         try (var host = new ProjectFixture(root)) {
@@ -200,7 +190,6 @@ class HostProjectPoolKeyTest {
         }
     }
 
-    // py: test_the_key_command_takes_only_its_two_directions
     @ParameterizedTest
     @ValueSource(strings = {"", "show", "SEND", "withdraw alpha"})
     void onlyTheTwoDirectionsAreAccepted(String direction) throws Exception {
@@ -298,7 +287,7 @@ class HostProjectPoolKeyTest {
     }
 
     @Test
-    void universalNewlinesAreNormalizedAsInThePythonTextReader() throws Exception {
+    void universalNewlinesInTheRunKeyAreReadAsLineFeeds() throws Exception {
         try (var host = new ProjectFixture(root)) {
             key(host);
             host.write(RUN_KEY, "private run key\r\n");
@@ -335,7 +324,7 @@ class HostProjectPoolKeyTest {
         assertThat(answer.code()).as("pool-key succeeds: %s", answer.err()).isZero();
         assertThat(answer.err()).as("success has no diagnostic").isEmpty();
         assertThat(answer.out())
-                .as("the Python reply is byte for byte compact JSON plus newline")
+                .as("the reply is compact JSON plus newline, byte for byte")
                 .isEqualTo(
                         ProjectRecords.pythonJson(Map.of("changed", List.of(names)), true) + "\n");
         assertThat(answer.out() + answer.err())

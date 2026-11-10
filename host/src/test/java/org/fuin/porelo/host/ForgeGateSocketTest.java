@@ -124,7 +124,6 @@ class ForgeGateSocketTest {
         }
     }
 
-    // py: test_caller_identity_headers_never_reach_upstream
     @ParameterizedTest
     @ValueSource(strings = {"web", "git"})
     void callerIdentityHeadersNeverReachUpstream(String mode) throws Exception {
@@ -149,7 +148,6 @@ class ForgeGateSocketTest {
                         h -> h.name().toLowerCase(java.util.Locale.ROOT).startsWith("x-webauth-"));
     }
 
-    // py: test_browser_gets_only_the_peer_login
     @Test
     void theBrowserGetsOnlyThePeerLogin() throws Exception {
         final var answer = request("web", "GET", "/", "", "X-WEBAUTH-USER", "intruder");
@@ -161,7 +159,6 @@ class ForgeGateSocketTest {
                 .isEqualTo("localhost");
     }
 
-    // py: test_git_forwards_credentials_and_body_but_no_cookie
     @ParameterizedTest
     @ValueSource(strings = {"Basic cGVyc29uOmZpeHR1cmU=", "token fixture"})
     void gitForwardsCredentialsAndBodyButNoCookie(String credential) throws Exception {
@@ -186,7 +183,6 @@ class ForgeGateSocketTest {
                 .isEmpty();
     }
 
-    // py: test_git_accepts_chunked_push_without_buffering_the_pack
     @Test
     void gitAcceptsAChunkedPushWithoutBufferingThePack() throws Exception {
         final var answer =
@@ -207,7 +203,6 @@ class ForgeGateSocketTest {
                 .isEqualTo("chunked");
     }
 
-    // py: test_incomplete_or_ambiguous_chunked_requests_fail_closed
     @ParameterizedTest
     @ValueSource(
             strings = {"3\r\ngitXX0\r\n\r\n", "3\r\ngit\r\n0\r\nTrailer: no\r\n\r\n", "3\r\ngi"})
@@ -227,7 +222,6 @@ class ForgeGateSocketTest {
                 .startsWith("HTTP/1.1 502");
     }
 
-    // py: test_runner_forwards_job_tokens_as_git_does
     @Test
     void theRunnerForwardsJobTokensAsGitDoes() throws Exception {
         final var answer =
@@ -268,7 +262,6 @@ class ForgeGateSocketTest {
                 .isEmpty();
     }
 
-    // py: test_git_on_loopback_tcp_challenges_without_reading_a_peer
     @Test
     void gitOnLoopbackTcpChallengesWithoutReadingAPeer() throws Exception {
         try (var listener = ServerSocketChannel.open()) {
@@ -318,7 +311,6 @@ class ForgeGateSocketTest {
         }
     }
 
-    // py: test_peer_checked_modes_refuse_a_tcp_connection
     @ParameterizedTest
     @ValueSource(strings = {"web", "runner"})
     void peerCheckedModesRefuseATcpConnection(String mode) throws Exception {

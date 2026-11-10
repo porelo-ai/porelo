@@ -220,7 +220,7 @@ class HostProgramsTest {
     }
 
     @Test
-    void aCommandWithoutAPythonDeadlineCanFinishNormally() throws Exception {
+    void aCommandWithoutADeadlineCanFinishNormally() throws Exception {
         assertThat(runner(Duration.ZERO, 65536).run(List.of("sh", "-c", "sleep 0.1; printf done")))
                 .isEqualTo(new HostPrograms.Result(0, "done"));
     }

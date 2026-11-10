@@ -26,7 +26,7 @@ class GateHttpParsingTest {
         final var refused = ForgeGatePolicyTest.gate("web").refusal(parsed, "person");
         assertThat(refused)
                 .as(
-                        "a Host or length the predecessor refused must not be normalized into admission")
+                        "a Host or length with trailing whitespace is refused, never trimmed into admission")
                 .isNotNull();
         assertThat(refused.status()).as("Host is forbidden, framing is malformed").isIn(400, 403);
     }
@@ -42,7 +42,7 @@ class GateHttpParsingTest {
                                         new ByteArrayOutputStream(),
                                         true,
                                         false))
-                .as("the gate cannot normalize framing the predecessor refused")
+                .as("a chunk size line ended by a bare LF is refused, never normalized")
                 .isInstanceOf(IOException.class);
     }
 }

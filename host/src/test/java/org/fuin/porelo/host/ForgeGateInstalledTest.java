@@ -28,7 +28,6 @@ class ForgeGateInstalledTest {
         return files;
     }
 
-    // py: test_a_forge_conf_not_as_the_role_writes_it_refuses_every_browser_request
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void installedConfigurationIsReadAsStrictUtf8BeforeAdmittingTheBrowser(boolean valid)
@@ -51,7 +50,6 @@ class ForgeGateInstalledTest {
                 .startsWith(valid ? "HTTP/1.1 502 Bad Gateway\r\n" : "HTTP/1.1 403 Forbidden\r\n");
     }
 
-    // py: test_unknown_peer_is_refused
     @Test
     void theInstalledGateReadsTheUnixPeersCredentialsAndRefusesAnUnknownAccount() throws Exception {
         final var files = files();
