@@ -51,6 +51,7 @@ public final class TaskState {
                     TaskInventory.PARAMETERS_FILE,
                     TaskInventory.GRANTS_FILE,
                     TaskHelpers.FILE,
+                    TaskBuilds.READER_FILE,
                     UnhandedWork.FILE,
                     "dns.conf",
                     TaskRunner.HAND_IN_LIMIT_FILE,

@@ -864,14 +864,20 @@ public final class TaskControl {
         }
 
         new TaskDone(context.paths()).clear(container);
+        final List<String> problems = new java.util.ArrayList<>();
+        try {
+            recorded = deferredBuilds(recorded, container);
+        } catch (IOException ex) {
+            problems.add("could not prepare the deferred builds reader: " + ex.getMessage());
+        }
         if (recorded.helpers().isEmpty()) {
             context.podman().start(container);
             context.tasks().trustCertificates(container);
-            return new Resumed(Outcome.NO_HELPERS_RECORDED, 0, 0, null, logs, List.of(), restored);
+            return new Resumed(
+                    Outcome.NO_HELPERS_RECORDED, 0, 0, null, logs, List.copyOf(problems), restored);
         }
 
         final String drift = imageDrift(container);
-        final List<String> problems = new java.util.ArrayList<>();
 
         // The proxy's socket is mounted into the container, and a mount is bound to the file that
         // existed when the container started. Starting the container first therefore binds it to
@@ -920,6 +926,34 @@ public final class TaskControl {
                 List.copyOf(problems),
                 restored,
                 brought);
+    }
+
+    /** A stored token enables the reader a previous start could only defer. */
+    private TaskHelpers deferredBuilds(final TaskHelpers recorded, final String container)
+            throws IOException {
+        if (recorded.helpers().stream()
+                .anyMatch(helper -> TaskBuilds.HELPER.equals(helper.name()))) {
+            return recorded;
+        }
+        final TaskBuilds builds = new TaskBuilds(context.paths().tasks());
+        final MissingCredential missing = builds.view(container).credential();
+        final List<String> command = builds.deferred(container);
+        if (missing == null
+                || !"builds".equals(missing.purpose())
+                || command.isEmpty()
+                || context.readableCredentials()
+                        .filter(entries -> entries.containsKey(missing.credential()))
+                        .isEmpty()) {
+            return recorded;
+        }
+        final List<TaskHelpers.Helper> helpers = new ArrayList<>(recorded.helpers());
+        helpers.add(
+                new TaskHelpers.Helper(
+                        TaskBuilds.HELPER, command, java.util.Map.of(), TaskHelpers.AFTER));
+        final TaskHelpers updated = new TaskHelpers(List.copyOf(helpers));
+        updated.writeTo(context.paths().tasks().containerState(container));
+        new TaskState(context).save(container);
+        return updated;
     }
 
     /**

@@ -239,13 +239,25 @@ public final class TaskBuilds {
      * @param builds Each push's newest verdict, the newest push first.
      * @param pullRequest Where the pull request from the task's branch is; "" while none is known.
      * @param pullRequestProblem Why none is open; "" while one is, or before the first push.
+     * @param credential The missing entry that prevented following builds, or {@code null}.
      */
     public record View(
             String reader,
             String problem,
             List<Seen> builds,
             String pullRequest,
-            String pullRequestProblem) {
+            String pullRequestProblem,
+            @Nullable MissingCredential credential) {
+
+        /** Creates a view recorded without a typed missing credential. */
+        public View(
+                final String reader,
+                final String problem,
+                final List<Seen> builds,
+                final String pullRequest,
+                final String pullRequestProblem) {
+            this(reader, problem, builds, pullRequest, pullRequestProblem, null);
+        }
 
         /**
          * Constructor for a view without a pull request.
@@ -443,10 +455,51 @@ public final class TaskBuilds {
      */
     public void reader(final String container, final String reader, final String problem)
             throws IOException {
+        reader(container, reader, problem, null);
+    }
+
+    /** Records why a start follows no builds, keeping its typed remedy beside the sentence. */
+    public void reader(
+            final String container,
+            final String reader,
+            final String problem,
+            final @Nullable MissingCredential credential)
+            throws IOException {
+        reader(container, reader, problem, credential, List.of());
+    }
+
+    /** Records a deferred reader command without starting it while its credential is missing. */
+    public void reader(
+            final String container,
+            final String reader,
+            final String problem,
+            final @Nullable MissingCredential credential,
+            final List<String> deferred)
+            throws IOException {
         final Map<String, Object> said = said(container);
+        if (deferred.isEmpty()) {
+            said.remove("deferred");
+        } else {
+            said.put("deferred", List.copyOf(deferred));
+        }
         said.put("reader", reader);
         said.put("problem", problem);
+        if (credential == null) {
+            said.remove("credential");
+        } else {
+            said.put("credential", credential.asMap());
+        }
         write(container, said);
+    }
+
+    /** Returns the reader command a start deferred, empty for an older or unreadable record. */
+    public List<String> deferred(final String container) {
+        final Object value = said(container).get("deferred");
+        if (value instanceof List<?> command
+                && command.stream().allMatch(String.class::isInstance)) {
+            return command.stream().map(String.class::cast).toList();
+        }
+        return List.of();
     }
 
     /**
@@ -507,7 +560,8 @@ public final class TaskBuilds {
                         text(said.get("problem")),
                         current(container),
                         text(said.get("pull_request")),
-                        text(said.get("pull_request_problem")));
+                        text(said.get("pull_request_problem")),
+                        MissingCredential.read(said.get("credential")));
             }
         } catch (IOException | RuntimeException ex) {
             // Unreadable, it says nothing follows them rather than failing the listing it is a part

@@ -1,6 +1,6 @@
 # [B539](README.md#b539) — A Missing Host Forge Token Answered On The Wire
 
-**Status:** Implementing, since 2026-11-10; Backlog by the operator 2026-11-10. Filed 2026-11-09 for porelo-frontend's forge token on a host, made by the host when a
+**Status:** Review; Backlog by the operator 2026-11-10. Filed 2026-11-09 for porelo-frontend's forge token on a host, made by the host when a
 start needs it, which the operator accepted with priority High; this is porelo's part. Not built before the
 operator's word.
 **Priority:** high (the operator, 2026-11-09, with the window's forge token on a host).
@@ -63,6 +63,22 @@ task runs (its builds). The answer names the vault key and what to run on that m
   vault key is shown as given, never composed.
 - No field on `Build`: the window never runs `porelo build status`.
 
-## To be checked
+## As built
 
-- Whether `builds.credential` can be other than `host-builds` on a host (then the field names what the project says).
+- The agreed `MissingCredential` type is carried by `CanStart.missing` and the task's optional
+  `buildsCredential`. A missing host builds entry leaves `CanStart` ready, with `afterStore: "ask-again"`;
+  a shut vault still answers `VAULT_LOCKED`, and no project, no gate or no host produces no missing entry.
+- The task's existing builds record now keeps the typed reason beside its unchanged sentence. Listings read that
+  record without reaching the vault. The task retains `afterStore: "restart"` after the entry is stored, and the
+  next reader outcome clears the reason. An older sentence is never parsed to invent a credential.
+- The read-only review found that a task restart previously replayed only helpers that had already started.
+  A behavior test reproduced the missing reader after storing the token. The existing builds record now keeps
+  the deferred command, including the settled branch and guarded policy; resume records and starts it only once
+  the configured entry is readable. The builds record is saved with durable task state too.
+- The command's name changed since this proposal: it is now `porelo host forge-token`, carried as
+  `["porelo", "host", "forge-token"]`. The diagnostic and the structured field take it from one value.
+- The host file's validated `builds.credential` is not restricted to `host-builds`; it can name another vault key.
+  Both answers preserve that name, tested with `forge.person`. The project file's own builds still take precedence.
+- A person's host build query gives the same sentence in an unknown verdict's `detail`, with no structured field.
+- Behavior tests were seen red before the implementation. The build report records the selected class runs,
+  contract check, document checks and any environment limitations; the supervisor runs the whole suite.

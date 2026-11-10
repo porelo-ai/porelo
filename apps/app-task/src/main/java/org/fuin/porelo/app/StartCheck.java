@@ -206,6 +206,7 @@ public final class StartCheck {
      *     "".
      * @param commit With {@link Outcome#SETTINGS_UNSIGNED}, the commit that changed it unsigned,
      *     else "".
+     * @param missing Entries missing for optional services beside the agent.
      */
     public record Result(
             Outcome outcome,
@@ -221,7 +222,42 @@ public final class StartCheck {
             java.util.List<Map<String, Object>> settingsToAllow,
             String settingsHash,
             String file,
-            String commit) {
+            String commit,
+            java.util.List<MissingCredential> missing) {
+
+        /** Creates an answer before optional services have been checked. */
+        public Result(
+                Outcome outcome,
+                String agent,
+                String provider,
+                String credential,
+                String detail,
+                String host,
+                String agentSource,
+                String agentFoundIn,
+                java.util.List<String> signedIn,
+                java.util.List<String> importCommand,
+                java.util.List<Map<String, Object>> settingsToAllow,
+                String settingsHash,
+                String file,
+                String commit) {
+            this(
+                    outcome,
+                    agent,
+                    provider,
+                    credential,
+                    detail,
+                    host,
+                    agentSource,
+                    agentFoundIn,
+                    signedIn,
+                    importCommand,
+                    settingsToAllow,
+                    settingsHash,
+                    file,
+                    commit,
+                    java.util.List.of());
+        }
 
         /**
          * Constructor for an answer that names no repository file.
@@ -441,6 +477,7 @@ public final class StartCheck {
             map.put("settingsHash", settingsHash);
             map.put("file", file);
             map.put("commit", commit);
+            map.put("missing", missing.stream().map(MissingCredential::asMap).toList());
             return map;
         }
     }
@@ -683,13 +720,82 @@ public final class StartCheck {
                                 needsRepository),
                         projectFile,
                         repository);
-        return needsRepository
-                ? withUpstream(
-                        context,
-                        withHost(context, chosen, projectFile, repository),
-                        projectFile,
-                        repository)
-                : withoutAGate(chosen, projectFile, repository);
+        final Result answer =
+                needsRepository
+                        ? withUpstream(
+                                context,
+                                withHost(context, chosen, projectFile, repository),
+                                projectFile,
+                                repository)
+                        : withoutAGate(chosen, projectFile, repository);
+        return withBuilds(
+                context,
+                answer,
+                projectFile,
+                needsRepository,
+                new HostPerson(context).present(),
+                OrganizationProjects.of(context));
+    }
+
+    /**
+     * Checks optional builds after the start's required choices are settled.
+     *
+     * @param context Where the vault is.
+     * @param rest What the required checks answered.
+     * @param projectFile The project, or {@code null} when none was chosen.
+     * @param needsRepository Whether the task would have a branch whose builds it follows.
+     * @param onHost Whether this machine is a host.
+     * @param projects The host's current project files.
+     * @return The answer with any missing builds credential; a shut vault stays VAULT_LOCKED.
+     */
+    public static Result withBuilds(
+            final PoreloContext context,
+            final Result rest,
+            final @Nullable Path projectFile,
+            final boolean needsRepository,
+            final boolean onHost,
+            final OrganizationProjects projects) {
+        if (!rest.ready() || projectFile == null || !needsRepository || !onHost) {
+            return rest;
+        }
+        final org.fuin.porelo.core.project.Builds builds;
+        try {
+            final var project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            builds = BuildsWiring.hostBuilds(project, onHost, projects);
+        } catch (java.io.IOException | RuntimeException ex) {
+            return refused(Outcome.NO_PROJECT_FILE, String.valueOf(ex.getMessage()));
+        }
+        if (builds == null) {
+            return rest;
+        }
+        if (context.readableCredentials().isEmpty()) {
+            return new Result(
+                    Outcome.VAULT_LOCKED,
+                    rest.agent(),
+                    rest.provider(),
+                    "",
+                    "the vault is shut; run 'porelo vault unlock', then ask again");
+        }
+        final MissingCredential missing = BuildsWiring.missing(context, builds, "ask-again");
+        if (missing == null) {
+            return rest;
+        }
+        return new Result(
+                rest.outcome(),
+                rest.agent(),
+                rest.provider(),
+                rest.credential(),
+                rest.detail(),
+                rest.host(),
+                rest.agentSource(),
+                rest.agentFoundIn(),
+                rest.signedIn(),
+                rest.importCommand(),
+                rest.settingsToAllow(),
+                rest.settingsHash(),
+                rest.file(),
+                rest.commit(),
+                java.util.List.of(missing));
     }
 
     /**

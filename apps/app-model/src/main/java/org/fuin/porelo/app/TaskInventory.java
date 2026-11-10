@@ -1082,6 +1082,9 @@ public final class TaskInventory {
             map.put("buildReader", builds.reader());
             // Why a named reader does not follow them; "" while it does.
             map.put("buildProblem", builds.problem());
+            if (builds.credential() != null) {
+                map.put("buildsCredential", builds.credential().asMap());
+            }
 
             map.put("phase", phase);
             return map;

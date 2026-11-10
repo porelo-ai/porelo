@@ -95,7 +95,11 @@ class BuildStatusCommandTest {
 
     @AfterEach
     void forgetPassphrase() {
-        PoreloContext.forgetAsked();
+        try {
+            PoreloContext.forgetAsked();
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
     }
 
     private void project(boolean builds) throws Exception {
@@ -206,6 +210,32 @@ class BuildStatusCommandTest {
                                 "",
                                 org.fuin.porelo.core.project.Builds.ALL)));
         return host;
+    }
+
+    @Test
+    void aHostBuildQueryNamesTheSameMissingTokenRemedyAsTheTask() throws Exception {
+        // A person querying builds must get the host remedy before any reader receives a request.
+        project(false);
+        context.vault().write(Map.of(), "test passphrase".toCharArray());
+        final BuildStatus answer =
+                BuildStatus.read(
+                        context,
+                        new BuildStatus.Request("acme", null, "main", null, "failure"),
+                        (machine, forge, socket) -> {
+                            throw new AssertionError("a missing token must reach no reader");
+                        },
+                        new PrintWriter(err),
+                        onAHost(),
+                        hostNamingBuilds());
+        assertThat(answer.verdict())
+                .as("no build can be read without the token")
+                .isEqualTo("unknown");
+        assertThat(answer.detail())
+                .as("the query gives the host's actionable sentence")
+                .contains("forge-token", "porelo host forge-token", "start the task again");
+        assertThat(answer.json())
+                .as("only tasks carry a structured missing credential")
+                .doesNotContainKeys("missing", "buildsCredential");
     }
 
     @Test

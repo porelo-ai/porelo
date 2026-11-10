@@ -118,21 +118,6 @@ public record BuildStatus(
                 OrganizationProjects.of(context));
     }
 
-    /**
-     * The builds a host's file names, as a task's start takes them where the project names none:
-     * only on a host, and never for an offline project.
-     */
-    private static org.fuin.porelo.core.project.@Nullable Builds hostBuilds(
-            final @Nullable OrganizationProjects projects, final Project project)
-            throws IOException {
-        if (projects == null
-                || project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE) {
-            return null;
-        }
-        final OrganizationProjects.Placed hosted = projects.host(project.name());
-        return hosted == null ? null : hosted.builds();
-    }
-
     static BuildStatus read(
             final PoreloContext context,
             final Request request,
@@ -142,7 +127,6 @@ public record BuildStatus(
             final OrganizationProjects hosted)
             throws IOException {
         // Only a host's file may add builds, as at a task's start.
-        final @Nullable OrganizationProjects projects = host.present() ? hosted : null;
         if (request.commit() != null
                 && !request.commit().matches("(?i)([0-9a-f]{40}|[0-9a-f]{64})")) {
             throw new Refused(
@@ -170,7 +154,9 @@ public record BuildStatus(
                             + ". Use -p <project> from 'porelo project list'.");
         }
         final var builds =
-                project.builds() == null ? hostBuilds(projects, project) : project.builds();
+                project.builds() == null
+                        ? BuildsWiring.hostBuilds(project, host.present(), hosted)
+                        : project.builds();
         if (builds == null) {
             throw noBuilds(project.name());
         }
@@ -183,6 +169,19 @@ public record BuildStatus(
         }
         final Build.Logs logs = Build.Logs.of(request.logs());
         context.openIfShut(true, true, err);
+        final MissingCredential missing =
+                project.builds() == null ? BuildsWiring.missing(context, builds, "restart") : null;
+        if (missing != null) {
+            return new BuildStatus(
+                    project.name(),
+                    repository.name(),
+                    request.branch(),
+                    request.commit() == null ? "" : request.commit(),
+                    Build.UNKNOWN,
+                    BuildsWiring.problem(project, missing),
+                    List.of(),
+                    List.of());
+        }
         final Target target;
         try {
             target = BuildTarget.of(context, upstream, builds.api(), builds.credential());

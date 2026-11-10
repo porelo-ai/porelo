@@ -307,7 +307,10 @@ type Task (
   # build protocol, the task's launch stopped before the helper that follows them, or that helper ended while the
   # task runs. "" while it follows them, and when buildReader is "". What goes wrong while it follows - a
   # rate limit, a refused credential, the vault shut - is each Build's detail instead.
-  buildProblem: string
+  buildProblem: string,
+  # Set when this start follows no builds because the host's configured vault entry is absent.
+  # The sentence remains in buildProblem; afterStore is "restart", even once the entry is stored.
+  buildsCredential: ?MissingCredential
 )
 
 # The build of one commit the task pushed, as Porelo handed it into the task: build-<first 12 of commit>.txt in
@@ -933,6 +936,18 @@ type RemovedSetting (
   by: string
 )
 
+# A credential this machine's vault lacks for something beside the agent: what it is for, the vault key,
+# and what to run ON THAT MACHINE to make it. storeCommand reads nothing on standard input.
+type MissingCredential (
+  # "builds" for now; show an unknown one as it comes.
+  for: string,
+  credential: string,
+  storeCommand: []string,
+  # What it takes after storeCommand ran: "ask-again" (CanStart answers anew) or "restart" (a running task
+  # follows its builds only from its next start). Show an unknown one as it comes.
+  afterStore: string
+)
+
 # Whether work could start here, asked before anything is created.
 #
 # This exists because the only other way to find out was to start a task and read an exit code and
@@ -977,6 +992,10 @@ method CanStart(
   # but never infer the ACTION from this alone: three different things somebody has to do all
   # arrive as false.
   ready: bool,
+  # Credentials missing for optional services beside the agent; these do not hold the start back.
+  # Empty off a host, with no project, or before the check gets this far. A shut vault answers
+  # VAULT_LOCKED with missing empty. Each entry here has afterStore "ask-again".
+  missing: []MissingCredential,
   outcome: StartOutcome,
   # The agent this was answered for. "" when none was settled.
   agent: string,

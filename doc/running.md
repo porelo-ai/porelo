@@ -410,6 +410,21 @@ builds:
   `/usr/libexec/porelo/builds/github`. A machine that holds the old `porelo-build-github` takes it off first, with
   `sudo apt purge porelo-build-github` or `sudo dnf remove porelo-build-github`. Writing one is in [writing a build reader](build-readers.md).
 
+On a host, a project without its own `builds` declaration can use the builds named in the host's current
+project file. This applies to `guarded` and `online` tasks with an upstream branch. If this account's vault lacks
+the configured credential, work can still start without a build reader. The daemon's `CanStart` keeps
+`ready: true` and returns one entry in `missing`, with `for: "builds"`, the configured vault key in `credential`,
+`storeCommand: ["porelo", "host", "forge-token"]`, and `afterStore: "ask-again"`. Run that command on the host,
+then ask `CanStart` again. The list is empty when the entry is present, off a host, or when no project is chosen;
+a shut vault answers `VAULT_LOCKED` with `missing` empty. Show unknown `for` and `afterStore` values as they come.
+
+A task that started without that credential carries the same fields in its optional `buildsCredential`, with
+`afterStore: "restart"`. Storing the credential alone does not start its build reader: restart the task.
+`buildProblem` keeps the sentence for clients that show text. These fields describe the recorded start and do not
+read the vault again during a task listing. Older task records with only a sentence carry no typed credential.
+A person's `porelo build status` query on the host gives the same sentence in its unknown verdict's `detail`,
+without a structured credential field.
+
 ## Asking what a branch or a commit built
 
 Ask the same forge reader without starting a task:

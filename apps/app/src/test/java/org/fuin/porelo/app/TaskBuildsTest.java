@@ -46,6 +46,39 @@ class TaskBuildsTest {
     }
 
     @Test
+    void aNewReaderOutcomeClearsAnEarlierMissingCredential() throws IOException {
+        // A restarted reader must not keep offering token rotation for an earlier start's problem.
+        Files.writeString(
+                paths.containerState(TASK).resolve(TaskBuilds.READER_FILE),
+                Json.write(
+                        Map.of(
+                                "reader",
+                                "host-forge",
+                                "problem",
+                                "missing before restart",
+                                "credential",
+                                Map.of(
+                                        "for",
+                                        "builds",
+                                        "credential",
+                                        "host-builds",
+                                        "storeCommand",
+                                        List.of("porelo", "host", "forge-token"),
+                                        "afterStore",
+                                        "restart"))));
+        builds.pullRequest(TASK, "https://forge.example/pull/1", "");
+        assertThat(builds.view(TASK).credential())
+                .as("a pull request update keeps the start's reason")
+                .isNotNull();
+
+        builds.reader(TASK, "host-forge", "");
+
+        assertThat(builds.view(TASK).credential())
+                .as("the next reader outcome replaces the reason")
+                .isNull();
+    }
+
+    @Test
     void recordsWhatWasDeliveredAndReadsItBackWithTheLogsSizeAndHashButNotItsText()
             throws IOException {
         final TaskBuilds.Seen seen =

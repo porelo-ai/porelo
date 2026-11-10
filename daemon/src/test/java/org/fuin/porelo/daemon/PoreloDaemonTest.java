@@ -3709,6 +3709,173 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void canStartNamesTheMissingHostBuildsCredentialWithoutHoldingTheStart(@TempDir Path dir)
+            throws Exception {
+        // A client must offer the host's remedy without blocking work or parsing a diagnostic.
+        final Map<String, Object> reply = hostBuildsCheck(dir, true, false, "host-builds");
+        assertThat(reply).containsEntry("ready", true).containsEntry("outcome", "READY");
+        assertThat(reply.get("missing"))
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "for",
+                                        "builds",
+                                        "credential",
+                                        "host-builds",
+                                        "storeCommand",
+                                        List.of("porelo", "host", "forge-token"),
+                                        "afterStore",
+                                        "ask-again")));
+    }
+
+    @Test
+    void canStartStopsAskingOnceTheHostBuildsEntryIsPresent(@TempDir Path dir) throws Exception {
+        // A stale missing answer would rotate a token the task could already use.
+        assertThat(hostBuildsCheck(dir, true, true, "host-builds"))
+                .containsEntry("ready", true)
+                .containsEntry("missing", List.of());
+    }
+
+    @Test
+    void canStartOffersNoHostTokenOffAHost(@TempDir Path dir) throws Exception {
+        // A stray host file must not send somebody to a command unavailable on their machine.
+        assertThat(hostBuildsCheck(dir, false, false, "host-builds"))
+                .containsEntry("ready", true)
+                .containsEntry("missing", List.of());
+    }
+
+    @Test
+    void canStartPreservesTheConfiguredBuildsCredentialName(@TempDir Path dir) throws Exception {
+        // Inventing the default vault key would ask for a token under the wrong name.
+        assertThat(hostBuildsCheck(dir, true, false, "forge.person").get("missing"))
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "for",
+                                        "builds",
+                                        "credential",
+                                        "forge.person",
+                                        "storeCommand",
+                                        List.of("porelo", "host", "forge-token"),
+                                        "afterStore",
+                                        "ask-again")));
+    }
+
+    @Test
+    void canStartDoesNotMistakeAShutVaultForAMissingHostToken(@TempDir Path dir) throws Exception {
+        // Rotating a token cannot fix a vault the daemon cannot read.
+        final PoreloContext context = context(dir);
+        context.vault().write(Map.of(), VAULT_PASSPHRASE);
+        final Path hosted = Files.createDirectories(dir.resolve("hosted"));
+        Files.writeString(
+                hosted.resolve("uc.json"),
+                org.fuin.porelo.wire.Json.write(
+                        Map.of(
+                                "project",
+                                "uc",
+                                "revision",
+                                "host-revision",
+                                "address",
+                                "https://forge.example/uc.git",
+                                "signing_keys",
+                                List.of(),
+                                "host",
+                                "build",
+                                "builds",
+                                Map.of("forge", "host-forge", "credential", "host-builds"))));
+        final Map<String, Object> reply =
+                org.fuin.porelo.app.StartCheck.withBuilds(
+                                context,
+                                new org.fuin.porelo.app.StartCheck.Result(
+                                        org.fuin.porelo.app.StartCheck.Outcome.READY,
+                                        "",
+                                        "",
+                                        "",
+                                        ""),
+                                projectFile(dir),
+                                true,
+                                true,
+                                new org.fuin.porelo.app.OrganizationProjects(
+                                        context.paths().projects().organizationProjects(), hosted))
+                        .asMap();
+        assertThat(reply)
+                .as("unlocking is the only useful action")
+                .containsEntry("outcome", "VAULT_LOCKED")
+                .containsEntry("ready", false)
+                .containsEntry("missing", List.of());
+    }
+
+    @Test
+    void canStartAsksForNoHostTokenWithoutAProjectOrGate(@TempDir Path dir) throws Exception {
+        // Asking for a token that no build reader could use would rotate it needlessly.
+        final PoreloContext context = context(dir);
+        final var projects =
+                new org.fuin.porelo.app.OrganizationProjects(
+                        context.paths().projects().organizationProjects(), dir.resolve("hosted"));
+        final var ready =
+                new org.fuin.porelo.app.StartCheck.Result(
+                        org.fuin.porelo.app.StartCheck.Outcome.READY, "", "", "", "");
+        assertThat(
+                        org.fuin.porelo.app.StartCheck.withBuilds(
+                                        context, ready, null, true, true, projects)
+                                .asMap())
+                .containsEntry("missing", List.of());
+        assertThat(
+                        org.fuin.porelo.app.StartCheck.withBuilds(
+                                        context, ready, projectFile(dir), false, true, projects)
+                                .asMap())
+                .containsEntry("missing", List.of());
+    }
+
+    private Map<String, Object> hostBuildsCheck(
+            Path dir, boolean onHost, boolean stored, String credential) throws Exception {
+        final PoreloContext context = context(dir).asking(shown -> VAULT_PASSPHRASE.clone());
+        if (stored) {
+            context.vault()
+                    .write(
+                            Map.of(
+                                    credential,
+                                    new org.fuin.porelo.vault.VaultEntry(
+                                            "fixture-build-token", "api-key")),
+                            VAULT_PASSPHRASE);
+            assertThat(context.openerAsking(false, new java.io.PrintWriter(System.err)))
+                    .isPresent();
+        }
+        try {
+            final Path project = projectFile(dir);
+            final Path hosted = Files.createDirectories(dir.resolve("hosted"));
+            Files.writeString(
+                    hosted.resolve("uc.json"),
+                    org.fuin.porelo.wire.Json.write(
+                            Map.of(
+                                    "project",
+                                    "uc",
+                                    "revision",
+                                    "host-revision",
+                                    "address",
+                                    "https://forge.example/uc.git",
+                                    "signing_keys",
+                                    List.of(),
+                                    "host",
+                                    "build",
+                                    "builds",
+                                    Map.of("forge", "host-forge", "credential", credential))));
+            return org.fuin.porelo.app.StartCheck.withBuilds(
+                            context,
+                            new org.fuin.porelo.app.StartCheck.Result(
+                                    org.fuin.porelo.app.StartCheck.Outcome.READY, "", "", "", ""),
+                            project,
+                            true,
+                            onHost,
+                            new org.fuin.porelo.app.OrganizationProjects(
+                                    context.paths().projects().organizationProjects(), hosted))
+                    .asMap();
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
+    @Test
     void canStartNamesTheProjectItDoesNotHave(@TempDir Path dir) throws Exception {
 
         serving(

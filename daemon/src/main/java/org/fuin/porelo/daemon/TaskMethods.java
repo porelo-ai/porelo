@@ -1269,6 +1269,7 @@ final class TaskMethods {
         all.put("settingsHash", "");
         all.put("file", "");
         all.put("commit", "");
+        all.put("missing", java.util.List.of());
         return all;
     }
 }

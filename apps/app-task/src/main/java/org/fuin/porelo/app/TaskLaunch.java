@@ -2966,7 +2966,7 @@ public final class TaskLaunch {
                             repository,
                             container,
                             forgeBranch,
-                            hostBuilds(project),
+                            BuildsWiring.hostBuilds(project, host.present(), projects),
                             out,
                             err);
             writeResumeRecord(container, err);
@@ -3426,18 +3426,6 @@ public final class TaskLaunch {
         return gated
                 && project.securityClass() != org.fuin.porelo.core.project.SecurityClass.OFFLINE
                 && (repository.upstream() != null || request.upstream() != null);
-    }
-
-    /** Only a host's current file may add builds when the project names none. */
-    private org.fuin.porelo.core.project.@Nullable Builds hostBuilds(final Project project)
-            throws java.io.IOException {
-        if (!host.present()
-                || project.builds() != null
-                || project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE) {
-            return null;
-        }
-        final OrganizationProjects.Placed hosted = projects.host(project.name());
-        return hosted == null ? null : hosted.builds();
     }
 
     /**

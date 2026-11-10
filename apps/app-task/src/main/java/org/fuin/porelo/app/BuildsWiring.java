@@ -123,21 +123,19 @@ final class BuildsWiring {
             err.flush();
             return;
         }
+        final List<String> command =
+                new ArrayList<>(command(context, container, branch, upstream, builds));
+        if (project.securityClass() == SecurityClass.GUARDED) {
+            command.add("--builds-only");
+        }
         // Said only where a token would help: a task without a branch is told no builds anyway.
-        if (own == null
-                && context.readableCredentials()
-                        .filter(entries -> !entries.containsKey(selected.credential()))
-                        .isPresent()) {
-            final String problem =
-                    "the builds of "
-                            + project.name()
-                            + " on this host are read with '"
-                            + selected.credential()
-                            + "', which your vault does not hold; run porelo host forge-token on this host,"
-                            + " then start the task again to be told its builds";
+        final MissingCredential missing =
+                own == null ? missing(context, selected, "restart") : null;
+        if (missing != null) {
+            final String problem = problem(project, missing);
             err.println("porelo: " + problem);
             err.flush();
-            said(container, selected.forge(), problem);
+            said(container, selected.forge(), problem, missing, command);
             return;
         }
         try {
@@ -155,11 +153,6 @@ final class BuildsWiring {
             return;
         }
         final Path state = context.paths().tasks().containerState(container);
-        final List<String> command =
-                new ArrayList<>(command(context, container, branch, upstream, builds));
-        if (project.securityClass() == SecurityClass.GUARDED) {
-            command.add("--builds-only");
-        }
         try {
             new ProcessBuilder(
                             org.fuin.porelo.core.process.Scope.around(
@@ -199,13 +192,56 @@ final class BuildsWiring {
         err.flush();
     }
 
+    /** Only a host's current file adds builds when the project names none. */
+    static @Nullable Builds hostBuilds(
+            final Project project, final boolean onHost, final OrganizationProjects projects)
+            throws java.io.IOException {
+        if (!onHost
+                || project.builds() != null
+                || project.securityClass() == SecurityClass.OFFLINE) {
+            return null;
+        }
+        final OrganizationProjects.Placed hosted = projects.host(project.name());
+        return hosted == null ? null : hosted.builds();
+    }
+
+    /** A shut vault cannot establish that an entry is missing. */
+    static @Nullable MissingCredential missing(
+            final PoreloContext context, final Builds builds, final String afterStore) {
+        return context.readableCredentials()
+                .filter(entries -> !entries.containsKey(builds.credential()))
+                .map(entries -> MissingCredential.hostBuilds(builds.credential(), afterStore))
+                .orElse(null);
+    }
+
+    /** The sentence and the structured remedy take their command from the same value. */
+    static String problem(final Project project, final MissingCredential missing) {
+        return "the builds of "
+                + project.name()
+                + " on this host are read with '"
+                + missing.credential()
+                + "', which your vault does not hold; run "
+                + String.join(" ", missing.storeCommand())
+                + " on this host, then start the task again to be told its builds";
+    }
+
     /**
      * Writes down for the task's view which reader follows its builds; a failure here only costs
      * that view.
      */
     private void said(final String container, final String forge, final String problem) {
+        said(container, forge, problem, null, List.of());
+    }
+
+    private void said(
+            final String container,
+            final String forge,
+            final String problem,
+            final @Nullable MissingCredential credential,
+            final List<String> deferred) {
         try {
-            new TaskBuilds(context.paths().tasks()).reader(container, forge, problem);
+            new TaskBuilds(context.paths().tasks())
+                    .reader(container, forge, problem, credential, deferred);
         } catch (java.io.IOException ex) {
             // The helper still works; a person sees nothing about builds until it writes the view
             // itself.

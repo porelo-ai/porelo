@@ -38,6 +38,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 class InterfaceDescriptionTest {
 
     @Test
+    void missingBuildsCredentialsAreDeclaredForTheStartAndTask() {
+        // Clients must learn the remedy and restart requirement from typed fields, never prose.
+        final String description = PoreloDaemon.description();
+        final Matcher missing =
+                Pattern.compile("(?ms)^type MissingCredential \\(\\n(.*?)^\\)")
+                        .matcher(description);
+        assertThat(missing.find()).as("the missing credential type is declared").isTrue();
+        assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), missing.group(1)))
+                .containsExactlyInAnyOrder("for", "credential", "storeCommand", "afterStore");
+        assertThat(description)
+                .contains("missing: []MissingCredential", "buildsCredential: ?MissingCredential");
+    }
+
+    @Test
     void arrivalsDistinguishAnUnavailablePublicationFromAnEmptyHistory() {
         // A client must not hide judged work when the host cannot supply its publication.
         assertThat(PoreloDaemon.description())
