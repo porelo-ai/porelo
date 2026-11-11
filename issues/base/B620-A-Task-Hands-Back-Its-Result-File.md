@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B620",
   "title": "A Task Hands Back Its Result File",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 2,

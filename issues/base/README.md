@@ -20,9 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
-| <a id="b623"></a>[B623](B623-A-Task-Image-Build-Goes-On-When-Its-Mirror-Fails.md) | S | - | A task image's apt steps try the next mirror only when the first fails outright, never side by side, and keep downloaded packages in a build cache across a host's image builds. |
-| <a id="b618"></a>[B618](B618-The-Musl-Toolchain-Comes-From-The-Build-Cache.md) | S | - | The build's musl job takes the musl toolchain and zlib from the Actions cache, keyed by their pinned digests, and the build keeps only the newest entry of each of its caches. |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |
 | <a id="b516"></a>[B516](B516-Task-Records-Exported-Over-OTLP.md) | M | [B514](README.md#b514) | [B514](#b514)'s records exported as OpenTelemetry logs to a collector the organization names, off by default, chosen per kind, by the CLI only. |
@@ -51,7 +48,6 @@ from its side, as *blocked by*.
 | <a id="b408"></a>[B408](B408-One-Step-To-Recover-From-A-Lost-Key.md) | L | [B407](README.md#b407) | After 0.7: an owner recovers a lost key in one step, with a listing of what it signed, a confirm that can leave a point out, and resuming by id |
 | <a id="b407"></a>[B407](B407-An-Owners-Signature-Counts-For-A-Projects-Files.md) | M | - | After 0.7: an owner's signature counts for a project's `repository.yml`, `members.yml` and `project.yml`, host files kept out |
 | <a id="b406"></a>[B406](B406-A-Revoked-Person-Comes-Back-Only-When-Agreed.md) | M | - | After a revoke, a person comes back only when an owner or admin agrees; a new key at the forge and *Add me* alone do not bring them back |
-| <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
 | <a id="b405"></a>[B405](B405-A-Host-That-Says-Why-A-Project-Has-No-Address.md) | - | - | A host carrying a project with no address says why: nobody opened it, or the file for its address stands refused |
 | <a id="b403"></a>[B403](B403-A-Start-Judged-On-A-Real-Machine.md) | - | - | The acceptance suite walks a start of an organization's project through the judgment on a real machine, signed, unsigned, wrong role and revoked |
 | <a id="b404"></a>[B404](B404-A-List-With-The-Organization-Never-Read.md) | - | - | `project list` still shows a machine's own projects when its organization was never read and is out of reach |
@@ -110,6 +106,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b616"></a>[B616](B616-A-Task-That-Ends-Without-A-Stop-Leaves-Its-Room.md) | M | [B615](README.md#b615) | A task whose container ends without `task stop` (it exits, crashes, or the machine was off) leaves its room on a central homeserver as a stopped task does: `porelod` finds every enrolled task that is not running, at its start, while it runs and when the vault opens, and has it leave. |
+| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 | <a id="b570"></a>[B570](B570-Porelos-Tests-Follow-The-Pyramid.md) | XL | - | Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite. |
 | <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | S | - | A unit test holds what only a host check held: `porelod`'s host forge rule and the gate's refusal of another upstream; a removal with the vault shut says the task's forge token stays until the host's sweep. |
 | <a id="b424"></a>[B424](B424-A-Persons-Forge-Token-Replaced-At-Each-Command.md) | S | - | `porelod`'s measuring asks the host's forge for one lent token per round, not one per repository; the host tool's lending switch already keeps a lend from taking the person's or another lend's token. |
@@ -126,6 +123,7 @@ from its side, as *blocked by*.
 | <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
 | <a id="b223"></a>[B223](B223-The-Image-Build-Reads-A-Private-Package-Repository.md) | - | [B219](README.md#b219) | An image's `snippet` fetches from a declared private repository during the build, the credential in no layer. |
 | <a id="b610"></a>[B610](B610-A-Removed-Tasks-Kept-Mail-Record-Frees-Its-Name.md) | S | - | `task remove` takes the task's mailbox with it, its signed recorded mail moved to an archive first, so the task can be started again under its name. |
+| <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
 | <a id="b608"></a>[B608](B608-A-Reattached-New-Task-Window-Names-Its-Task.md) | XS | - | `task start` going back into an existing task made under the new container names labels its window `<project>/<task>`, not `<project>/`. |
 | <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. |
 
@@ -220,9 +218,10 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b617"></a>[B617](B617-An-Undecided-Organization-Read-Says-What-It-Waits-For.md) | M | - | A walk the identity source cannot decide keeps its words: `stale_why` `incomplete` names the commit that waits and what it waits for (the forge's key list, the founder's ownership, a card not vouched for) in `said` and a warning. |
+| <a id="b623"></a>[B623](B623-A-Task-Image-Build-Goes-On-When-Its-Mirror-Fails.md) | S | - | A task image's apt steps try the next mirror only when the first fails outright, never side by side, and keep downloaded packages in a build cache across a host's image builds. |
 | <a id="b606"></a>[B606](B606-The-Packages-Carry-The-Third-Party-Notices.md) | S | - | The `.deb` and `.rpm` carry a generated THIRD-PARTY-NOTICES with the full texts of all code compiled into the executables. |
+| <a id="b618"></a>[B618](B618-The-Musl-Toolchain-Comes-From-The-Build-Cache.md) | S | - | The build's musl job takes the musl toolchain and zlib from the Actions cache, keyed by their pinned digests, and the build keeps only the newest entry of each of its caches. |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | - | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
 | <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
 | <a id="b568"></a>[B568](B568-A-Coordinator-While-Agents-Work.md) | M | - | The project's coordinator started with the first work task, told of each new story, stopped after the last. |
@@ -244,6 +243,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. |

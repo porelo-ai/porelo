@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B622",
   "title": "A Task's Own Record Answers What Planning Measures",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "M",
   "priority": "High",
   "rank": 20,

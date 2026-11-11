@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B623",
   "title": "A Task Image Build Goes On When Its Mirror Fails",
-  "state": "Idea",
+  "state": "Backlog",
   "size": "S",
   "priority": "High",
   "rank": 20,
