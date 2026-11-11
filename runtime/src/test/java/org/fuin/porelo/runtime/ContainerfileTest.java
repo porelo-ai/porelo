@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.fuin.porelo.core.project.Egress;
 import org.fuin.porelo.core.project.Limits;
 import org.fuin.porelo.core.project.Project;
@@ -169,6 +171,228 @@ class ContainerfileTest {
                         ubuntuSources()
                                 .replaceAll(
                                         "(?m)^URIs:.*", "URIs: http://cache.example.test:3142/"));
+    }
+
+    @Test
+    void aProjectsSourcesGiveEachStanzaOneMirrorAndKeepTheRestInReserve(@TempDir Path directory)
+            throws Exception {
+
+        // apt spreads its requests over every URI of a line, so a second one beside the first is a
+        // tax on every update; it waits for the first to fail instead.
+        final Project project =
+                projectWithSources(
+                        List.of(
+                                "http://first.example.test/ubuntu/",
+                                "http://second.example.test/ubuntu/"));
+        final Path ubuntu = Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+
+        rewriteSources(project, directory);
+
+        assertThat(Files.readString(ubuntu))
+                .isEqualTo(
+                        ubuntuSources()
+                                .replace(
+                                        "http://archive.ubuntu.com/ubuntu/",
+                                        "http://first.example.test/ubuntu/")
+                                .replace(
+                                        "http://security.ubuntu.com/ubuntu/",
+                                        "http://first.example.test/ubuntu/"));
+    }
+
+    @Test
+    void aMirrorThatFailsGivesWayToTheNextOneAtATime(@TempDir Path directory) throws Exception {
+
+        // A host's task image build ended when azure's mirror failed (2026-11-11): one mirror is
+        // the default on purpose, but one that fails outright must not end the build.
+        final Project project = projectWithSources(List.of("http://127.0.0.1:9/ubuntu/"));
+        Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+        rewriteSources(project, directory);
+
+        final Run run = runAptStep(project, directory, "127.0.0.1:9", false);
+
+        assertThat(run.code()).as("the build goes on: %s", run.output()).isZero();
+        assertThat(run.updates())
+                .as("one mirror per update, the project's first, then the defaults in order")
+                .containsExactly(
+                        "http://127.0.0.1:9/ubuntu/", Project.DEFAULT_PACKAGE_SOURCES.getFirst());
+        assertThat(run.output())
+                .as("each switch is said in the build's output")
+                .contains(
+                        "apt-get update failed; trying the next mirror, "
+                                + Project.DEFAULT_PACKAGE_SOURCES.getFirst());
+        assertThat(run.log()).contains("install -y --no-install-recommends curl");
+    }
+
+    @Test
+    void theBuildFailsOnlyWhenEveryMirrorHasFailed(@TempDir Path directory) throws Exception {
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+        Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+        rewriteSources(project, directory);
+
+        final Run run = runAptStep(project, directory, "http", true);
+
+        assertThat(run.code()).as("every mirror failed: %s", run.output()).isNotZero();
+        assertThat(run.updates())
+                .containsExactly(
+                        Project.DEFAULT_PACKAGE_SOURCES.getFirst(),
+                        "http://archive.ubuntu.com/ubuntu/",
+                        Containerfile.OUTAGE_MIRROR);
+        assertThat(run.output()).contains("porelo: apt-get update failed on every mirror");
+        assertThat(run.log()).doesNotContain("install");
+    }
+
+    @Test
+    void whenEveryMirrorOnlyWarnsTheInstallRunsOnTheFirstOnesLists(@TempDir Path directory)
+            throws Exception {
+
+        // A warning still moves on to the next mirror, but a mirror that answered with some lists
+        // is not a reason to stop: the old recipe installed from them, and the install's own error
+        // is the honest answer when they are not enough.
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+        final Path ubuntu = Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+        rewriteSources(project, directory);
+        final String first = Files.readString(ubuntu);
+
+        final Run run = runAptStep(project, directory, "http", false);
+
+        assertThat(run.code()).as("the step goes on: %s", run.output()).isZero();
+        assertThat(run.updates())
+                .as("each mirror once, then the first that warned again for its lists")
+                .containsExactly(
+                        Project.DEFAULT_PACKAGE_SOURCES.getFirst(),
+                        "http://archive.ubuntu.com/ubuntu/",
+                        Containerfile.OUTAGE_MIRROR,
+                        Project.DEFAULT_PACKAGE_SOURCES.getFirst());
+        assertThat(Files.readString(ubuntu))
+                .as("the first mirror's sources are back")
+                .isEqualTo(first);
+        assertThat(run.output()).doesNotContain("failed on every mirror");
+        assertThat(run.log()).contains("install -y --no-install-recommends curl");
+        assertThat(directory.resolve("var/tmp")).as("nothing is left behind").isEmptyDirectory();
+    }
+
+    @Test
+    void aMirrorThatWouldChangeNothingIsNotTriedAgain(@TempDir Path directory) throws Exception {
+
+        // A Debian base under the Ubuntu defaults: no Ubuntu mirror serves it, and deb.debian.org
+        // is the one it already has, so a failed update is not repeated against the same host.
+        final Project project =
+                new Project("uc", "", SecurityClass.GUARDED, "python:3.13-slim", null);
+        Files.writeString(directory.resolve("debian.sources"), debianSources());
+        rewriteSources(project, directory);
+
+        final Run run = runAptStep(project, directory, "http", true);
+
+        assertThat(run.code()).isNotZero();
+        assertThat(run.updates()).containsExactly("http://deb.debian.org/debian");
+    }
+
+    @Test
+    void aDebianMirrorFallsBackToDebiansOwn(@TempDir Path directory) throws Exception {
+        final Project project = projectWithSources(List.of("http://127.0.0.1:9/debian/"));
+        Files.writeString(directory.resolve("debian.sources"), debianSources());
+        rewriteSources(project, directory);
+
+        final Run run = runAptStep(project, directory, "127.0.0.1:9", false);
+
+        assertThat(run.code()).as(run.output()).isZero();
+        assertThat(run.updates())
+                .containsExactly("http://127.0.0.1:9/debian/", "http://deb.debian.org/debian");
+    }
+
+    @Test
+    void downloadedPackagesStayInABuildCacheAndTheListsDoNot() {
+
+        // A rebuild fetches only what changed; the lists are fetched each time, so an image
+        // installs against today's archive.
+        final String rendered =
+                Containerfile.render(
+                        new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null));
+        final String mount =
+                "RUN --mount=type=cache,id=porelo-apt-ubuntu-24.04,"
+                        + "target=/var/cache/apt/archives,sharing=locked set -eux; \\";
+        assertThat(rendered.lines().filter(mount::equals)).as("both apt steps").hasSize(2);
+        assertThat(rendered)
+                .contains("'Binary::apt::APT::Keep-Downloaded-Packages \"true\";'")
+                .contains("rm -f /etc/apt/apt.conf.d/docker-clean;")
+                .doesNotContain("target=/var/lib/apt/lists");
+        assertThat(rendered.lines().filter(line -> line.contains("rm -rf /var/lib/apt/lists/*")))
+                .hasSize(2);
+        assertThat(rendered.lines().filter(line -> line.strip().equals("porelo_update \\")))
+                .as("both apt steps go on to the next mirror")
+                .hasSize(2);
+    }
+
+    private record Run(int code, String output, String log, List<String> updates) {}
+
+    /**
+     * Runs the image's first apt step against the sources in the directory, with a stand-in apt-get
+     * whose update fails while a URIs line contains the given text: with apt's warning and exit 0,
+     * as apt answers a refusing mirror, and with exit 100 too where it refuses.
+     */
+    private static Run runAptStep(Project project, Path directory, String failing, boolean refuses)
+            throws Exception {
+        final String rendered = Containerfile.render(project);
+        final int tools = rendered.indexOf("command -v tmux >/dev/null 2>&1; then :;");
+        final int start = rendered.indexOf("    elif command -v apt-get", tools);
+        final String step =
+                rendered.substring(start, rendered.indexOf("    elif command -v apk", start));
+        final Path bin = Files.createDirectories(directory.resolve("bin"));
+        Files.writeString(
+                bin.resolve("apt-get"),
+                """
+                #!/bin/sh
+                echo "$*" >> "$PWD/apt.log"
+                if [ "$1" = update ]; then
+                    sed -n 's/^URIs: //p' ./*.sources | head -1 >> "$PWD/updates.log"
+                    if grep -q '^URIs:.*%s' ./*.sources; then
+                        # What apt does for a mirror that refuses: a warning, and success.
+                        echo 'W: Some index files failed to download. They have been ignored, or old ones used instead.'
+                        %s
+                    fi
+                fi
+                exit 0
+                """
+                        .formatted(failing, refuses ? "exit 100" : ":"));
+        bin.resolve("apt-get").toFile().setExecutable(true);
+        final Path script =
+                Files.writeString(
+                        directory.resolve("step.sh"),
+                        "set -eux;\nif false; then :; \\\n"
+                                + step.replace("/etc/apt/sources.list.d/", "./")
+                                        .replace("/var/", "./var/")
+                                + "fi\n");
+        final ProcessBuilder builder =
+                new ProcessBuilder("/bin/sh", script.toAbsolutePath().toString())
+                        .directory(directory.toFile())
+                        .redirectErrorStream(true);
+        builder.environment().put("PATH", bin + ":" + System.getenv("PATH"));
+        final Process process = builder.start();
+        final String output =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        final int code = process.waitFor();
+        final Path log = directory.resolve("apt.log");
+        final Path updates = directory.resolve("updates.log");
+        return new Run(
+                code,
+                output,
+                Files.exists(log) ? Files.readString(log) : "",
+                Files.exists(updates) ? Files.readAllLines(updates) : List.of());
+    }
+
+    private static final Pattern URIS = Pattern.compile("(?m)^URIs: (.*)$");
+
+    @Test
+    void neverTwoMirrorsSideBySide(@TempDir Path directory) throws Exception {
+        final Project project =
+                projectWithSources(
+                        List.of("http://a.example.test/ubuntu/", "http://b.example.test/ubuntu/"));
+        final Path ubuntu = Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+        rewriteSources(project, directory);
+        final Matcher matcher = URIS.matcher(Files.readString(ubuntu));
+        while (matcher.find()) {
+            assertThat(matcher.group(1)).as("one URI per line").doesNotContain(" ");
+        }
     }
 
     private static Project projectWithSources(List<String> sources) {

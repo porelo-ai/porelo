@@ -1,0 +1,2 @@
+title: "A task image build whose package mirror fails, including one apt only warns about, goes on to the next mirror, one at a time, and says so; the packages it downloads stay in a build cache for the host's next build; during Canonical's outage a public Ubuntu mirror outside Canonical's hosts is the last Ubuntu mirror tried, with every signature still checked, temporary"
+type: fixed

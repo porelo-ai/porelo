@@ -687,9 +687,10 @@ public record Project(
      * Where Ubuntu archives fetch from when a project names nothing; other archives keep their
      * URIs.
      *
-     * <p>One entry, not a list with a fallback. Measured on 2026-09-11 from a rented machine of the
-     * kind the build actually runs on, pulling a 19 MB package index while Ubuntu's archive was
-     * disrupted:
+     * <p>One entry, not a list: the image build's fallback mirrors wait until an update fails
+     * outright, one at a time (the runtime's {@code Containerfile}). Measured on 2026-09-11 from a
+     * rented machine of the kind the build actually runs on, pulling a 19 MB package index while
+     * Ubuntu's archive was disrupted:
      *
      * <pre>
      * azure.archive.ubuntu.com   19.3 MB in  0.08s   230 MB/s
@@ -697,7 +698,7 @@ public record Project(
      * archive.ubuntu.com          2.2 MB in 60.00s    37 kB/s   (timed out)
      * </pre>
      *
-     * <strong>Why no fallback.</strong> apt spreads its requests over the URIs it is given rather
+     * <strong>Why no second URI.</strong> apt spreads its requests over the URIs it is given rather
      * than holding the second in reserve, so a slow mirror beside a fast one drags the whole update
      * down to its speed. Measured on the same machine, same minute:
      *

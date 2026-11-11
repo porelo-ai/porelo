@@ -25,7 +25,11 @@ USER root
 # instead of keeping the second in reserve, so a crawling mirror beside a fast one
 # costs every build. With both, apt-get update took 4m03s for 65 MB of indices and
 # the build hit Porelo's ten-minute cap. Somebody whose network prefers another
-# mirror names it with build.package_sources.
+# mirror names it with build.package_sources. The others wait: an apt step whose
+# update fails goes on to the next, one at a time, and says so.
+#
+# Downloaded packages are kept, in a build cache the apt steps mount; the lists
+# are not, so an image installs against today's archive.
 #
 # http, not https: Ubuntu's mirrors serve no TLS, and apt takes its integrity from
 # the signed Release file rather than from the transport.
@@ -34,6 +38,9 @@ RUN set -eux; \
         printf '%s\n' 'Acquire::http::Timeout "20";' \
             'Acquire::https::Timeout "20";' 'Acquire::Retries "2";' \
             > /etc/apt/apt.conf.d/99-porelo-timeouts; \
+        printf '%s\n' 'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+            > /etc/apt/apt.conf.d/99-porelo-keep-packages; \
+        rm -f /etc/apt/apt.conf.d/docker-clean; \
         for f in /etc/apt/sources.list.d/*.sources; do \
             [ -e "$f" ] || continue; \
             sed -E -i 's|^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$|URIs: http://azure.archive.ubuntu.com/ubuntu/|' "$f"; \
@@ -42,12 +49,34 @@ RUN set -eux; \
         echo 'this project names build.package_sources, and ubuntu:24.04 has no apt to apply them to' >&2; exit 1; \
     fi
 
-RUN set -eux; \
+RUN --mount=type=cache,id=porelo-apt-ubuntu-24.04,target=/var/cache/apt/archives,sharing=locked set -eux; \
     if command -v curl >/dev/null 2>&1 && command -v git >/dev/null 2>&1 \
         && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then :; \
     elif command -v apt-get >/dev/null 2>&1; then \
-        apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux \
-        && rm -rf /var/lib/apt/lists/*; \
+        porelo_update() { code=0; out=$(apt-get update 2>&1) || code=$?; printf '%s\n' "$out"; \
+            [ "$code" = 0 ] || return 1; \
+            printf '%s\n' "$out" | grep -q 'index files failed to download' || return 0; \
+            [ -d /var/tmp/porelo-apt-warned ] || { mkdir -p /var/tmp/porelo-apt-warned; \
+                cp /etc/apt/sources.list.d/*.sources /var/tmp/porelo-apt-warned/ 2>/dev/null || :; }; \
+            return 1; }; \
+        porelo_next() { before=$(cat /etc/apt/sources.list.d/*.sources 2>/dev/null | cksum); \
+            for f in /etc/apt/sources.list.d/*.sources; do [ -e "$f" ] || continue; \
+                sed -E -i "s|$2|URIs: $1|" "$f"; done; \
+            [ "$(cat /etc/apt/sources.list.d/*.sources 2>/dev/null | cksum)" != "$before" ] || return 1; \
+            echo "porelo: apt-get update failed; trying the next mirror, $1" >&2; porelo_update; }; \
+        porelo_warned() { [ -d /var/tmp/porelo-apt-warned ] \
+            || { echo 'porelo: apt-get update failed on every mirror' >&2; return 1; }; \
+            echo 'porelo: every mirror warned; installing with the lists of the first that answered' >&2; \
+            cp /var/tmp/porelo-apt-warned/*.sources /etc/apt/sources.list.d/ 2>/dev/null || :; apt-get update || :; }; \
+        porelo_update \
+            || porelo_next 'http://azure.archive.ubuntu.com/ubuntu/' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$' \
+            || porelo_next 'http://archive.ubuntu.com/ubuntu/' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$' \
+            || porelo_next 'http://mirrors.edge.kernel.org/ubuntu/' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$' \
+            || porelo_next 'http://deb.debian.org/debian' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(debian)/*([[:space:]].*)?$' \
+            || porelo_warned; \
+        rm -rf /var/tmp/porelo-apt-warned; \
+        apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux \
+        && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \
     elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux; \
     elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux && dnf clean all; \
     else echo 'no curl/git/ssh/tmux and no known package manager in ubuntu:24.04' >&2; exit 1; \
@@ -55,10 +84,33 @@ RUN set -eux; \
 
 # Python 3 for the agents that evaluate it, added where the image has a package manager. Not one of
 # the tools above that a task needs: an image without it, and without a way to add it, still builds.
-RUN set -eux; \
+RUN --mount=type=cache,id=porelo-apt-ubuntu-24.04,target=/var/cache/apt/archives,sharing=locked set -eux; \
     if command -v python3 >/dev/null 2>&1; then :; \
     elif command -v apt-get >/dev/null 2>&1; then \
-        apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*; \
+        porelo_update() { code=0; out=$(apt-get update 2>&1) || code=$?; printf '%s\n' "$out"; \
+            [ "$code" = 0 ] || return 1; \
+            printf '%s\n' "$out" | grep -q 'index files failed to download' || return 0; \
+            [ -d /var/tmp/porelo-apt-warned ] || { mkdir -p /var/tmp/porelo-apt-warned; \
+                cp /etc/apt/sources.list.d/*.sources /var/tmp/porelo-apt-warned/ 2>/dev/null || :; }; \
+            return 1; }; \
+        porelo_next() { before=$(cat /etc/apt/sources.list.d/*.sources 2>/dev/null | cksum); \
+            for f in /etc/apt/sources.list.d/*.sources; do [ -e "$f" ] || continue; \
+                sed -E -i "s|$2|URIs: $1|" "$f"; done; \
+            [ "$(cat /etc/apt/sources.list.d/*.sources 2>/dev/null | cksum)" != "$before" ] || return 1; \
+            echo "porelo: apt-get update failed; trying the next mirror, $1" >&2; porelo_update; }; \
+        porelo_warned() { [ -d /var/tmp/porelo-apt-warned ] \
+            || { echo 'porelo: apt-get update failed on every mirror' >&2; return 1; }; \
+            echo 'porelo: every mirror warned; installing with the lists of the first that answered' >&2; \
+            cp /var/tmp/porelo-apt-warned/*.sources /etc/apt/sources.list.d/ 2>/dev/null || :; apt-get update || :; }; \
+        porelo_update \
+            || porelo_next 'http://azure.archive.ubuntu.com/ubuntu/' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$' \
+            || porelo_next 'http://archive.ubuntu.com/ubuntu/' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$' \
+            || porelo_next 'http://mirrors.edge.kernel.org/ubuntu/' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$' \
+            || porelo_next 'http://deb.debian.org/debian' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(debian)/*([[:space:]].*)?$' \
+            || porelo_warned; \
+        rm -rf /var/tmp/porelo-apt-warned; \
+        apt-get install -y --no-install-recommends python3 \
+        && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \
     elif command -v apk >/dev/null 2>&1; then apk add --no-cache python3; \
     elif command -v dnf >/dev/null 2>&1; then dnf install -y python3 && dnf clean all; \
     else echo 'no python3 in ubuntu:24.04 and no package manager to add it' >&2; \
@@ -158,6 +210,6 @@ ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="80f4dff5dcdfa42a"
+LABEL org.fuin.porelo.recipe="bf50633f0887b085"
 LABEL org.fuin.porelo.security-class="guarded"
 LABEL org.fuin.porelo.settings=""

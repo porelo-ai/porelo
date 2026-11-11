@@ -10,11 +10,12 @@
   "priority": "Medium",
   "rank": 40,
   "blockedBy": [],
-  "covers": "The temporary non-Canonical Ubuntu mirror the package check and the channel line check fall back on during Canonical's outage of 2026-11-11 is removed once Canonical's archive serves again."
+  "covers": "The temporary non-Canonical Ubuntu mirror the package check, the channel line check and a task image's apt steps fall back on during Canonical's outage of 2026-11-11 is removed once Canonical's archive serves again."
 }
 ```
 
-**Why this size.** one constant and its use in `Install`, one block in `ChannelLine`'s script, their tests.
+**Why this size.** one constant and its use in `Install`, one in `Containerfile`, one block in `ChannelLine`'s script,
+their tests.
 
 Filed 2026-11-11 with the change it removes.
 
@@ -27,13 +28,17 @@ mirror outside Canonical's hosts as the last fallback of every apt step in porel
 - `Install.OUTAGE_MIRROR` is the fourth entry of `checkUbuntu`'s mirrors, after azure, archive and azure again, tried
   when an attempt timed out, a fetch was refused, or `apt-get update` failed with no cached lists to stand in.
 - `ChannelLine.script` rewrites an Ubuntu image's `ubuntu.sources` to it when its first `apt-get update` fails.
+- `Containerfile.OUTAGE_MIRROR` is the last Ubuntu entry of a task image's fallback mirrors
+  (`FALLBACK_PACKAGE_SOURCES`), after azure's and Canonical's own, before Debian's.
 - Signatures are checked as always: no `trusted=yes`, no `--allow-unauthenticated`.
 
 ## Plan
 
-- Remove `OUTAGE_MIRROR` and its entry, and the block in `ChannelLine.script`; keep `UPDATE_FAILED` (an update that
+- Remove `Install.OUTAGE_MIRROR` and its entry, `Containerfile.OUTAGE_MIRROR` and its entry, and the block in
+  `ChannelLine.script`; keep `UPDATE_FAILED` (an update that
   failed on a Canonical mirror goes on to the other), unless the operator wants the old behaviour back.
-- `InstallTest` and `ChannelLineTest` back to three attempts and no rewrite.
+- `InstallTest` and `ChannelLineTest` back to three attempts and no rewrite; `ContainerfileTest` and its golden file
+  without the mirror.
 
 ## Acceptance
 

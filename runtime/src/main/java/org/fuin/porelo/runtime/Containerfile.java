@@ -100,9 +100,37 @@ public final class Containerfile {
      */
     public static final String LAYER_EPOCH = "PORELO_LAYER_EPOCH";
 
+    /**
+     * TEMPORARY, for Canonical's outage of 2026-11-11 (its archive and DNS down): a public Ubuntu
+     * mirror outside Canonical's hosts, the last Ubuntu mirror tried. apt still checks every
+     * signature. Removed by the issue that names this constant.
+     */
+    static final String OUTAGE_MIRROR = "http://mirrors.edge.kernel.org/ubuntu/";
+
     /** What the image's own package steps ask for, as the Debian family names it. */
     static final List<String> TOOLS =
             List.of("curl", "ca-certificates", "git", "openssh-client", "tmux", "python3");
+
+    /**
+     * The mirrors an apt step goes on to, in order, after a project's own sources, when an update
+     * fails: azure's first, as the default, then Canonical's own, then {@link #OUTAGE_MIRROR}, then
+     * Debian's. Each is tried only where it serves the archive a stanza names and would change it.
+     */
+    static final List<String> FALLBACK_PACKAGE_SOURCES =
+            List.of(
+                    "http://azure.archive.ubuntu.com/ubuntu/",
+                    "http://archive.ubuntu.com/ubuntu/",
+                    OUTAGE_MIRROR,
+                    "http://deb.debian.org/debian");
+
+    /** Where the sources step's per-source commands go, replaced once the lines are listed. */
+    private static final String POINTING = "\u0000pointing";
+
+    /** Where an apt step keeps the sources of the first mirror that only warned. */
+    private static final String WARNED = "/var/tmp/porelo-apt-warned";
+
+    /** Where an apt step's update goes, replaced once the lines are listed. */
+    private static final String UPDATE = "\u0000update";
 
     private Containerfile() {
         throw new UnsupportedOperationException("Utility class");
@@ -242,11 +270,99 @@ public final class Containerfile {
                 .replace("|", "\\|");
     }
 
+    /** The sed command that points every stanza serving a source's archive at that source alone. */
+    private static String pointAt(String source) {
+        return "sed -E -i 's|"
+                + packageSourcePattern(List.of(source))
+                + "|URIs: "
+                + source
+                + "|' \"$f\"; \\";
+    }
+
+    /** The mirrors an update goes on to, the project's own first, each once. */
+    private static List<String> mirrors(Project project) {
+        final java.util.LinkedHashSet<String> mirrors =
+                new java.util.LinkedHashSet<>(project.effectivePackageSources());
+        mirrors.addAll(FALLBACK_PACKAGE_SOURCES);
+        return List.copyOf(mirrors);
+    }
+
+    /**
+     * The first line of an apt step: downloaded packages kept in a build cache shared by the host's
+     * builds of the same base image, locked so two builds do not write it at once.
+     */
+    private static String aptRun(Project project) {
+        return "RUN --mount=type=cache,id=porelo-apt-"
+                + project.baseImage().replaceAll("[^A-Za-z0-9._-]", "-")
+                + ",target=/var/cache/apt/archives,sharing=locked set -eux; \\";
+    }
+
+    /**
+     * An apt-get update that goes on to the next mirror when one fails, one at a time.
+     *
+     * <p>apt answers a mirror that refuses with a warning and exit 0 (measured with podman 5.7 on
+     * debian:trixie-slim, 2026-11-11), so the output is read too, and a warning moves on as a
+     * failure does. A mirror that would change no stanza is skipped rather than asked again.
+     *
+     * <p>When every mirror only warned, the step does not fail: it points the sources back at the
+     * first that warned, updates again for its lists, and installs, as the recipe did before the
+     * fallback. That mirror's lists are the most complete, and the install's own error is the
+     * honest answer where they are not enough. Only when every mirror failed outright does the step
+     * fail.
+     */
+    private static List<String> aptUpdate(Project project) {
+        final List<String> lines = new ArrayList<>();
+        lines.add(
+                "        porelo_update() { code=0; out=$(apt-get update 2>&1) || code=$?; printf '%s\\n' \"$out\"; \\");
+        lines.add("            [ \"$code\" = 0 ] || return 1; \\");
+        lines.add(
+                "            printf '%s\\n' \"$out\" | grep -q 'index files failed to download' || return 0; \\");
+        lines.add("            [ -d " + WARNED + " ] || { mkdir -p " + WARNED + "; \\");
+        lines.add(
+                "                cp /etc/apt/sources.list.d/*.sources "
+                        + WARNED
+                        + "/ 2>/dev/null || :; }; \\");
+        lines.add("            return 1; }; \\");
+        lines.add(
+                "        porelo_next() { before=$(cat /etc/apt/sources.list.d/*.sources 2>/dev/null | cksum); \\");
+        lines.add(
+                "            for f in /etc/apt/sources.list.d/*.sources; do [ -e \"$f\" ] || continue; \\");
+        lines.add("                sed -E -i \"s|$2|URIs: $1|\" \"$f\"; done; \\");
+        lines.add(
+                "            [ \"$(cat /etc/apt/sources.list.d/*.sources 2>/dev/null | cksum)\" != \"$before\" ] || return 1; \\");
+        lines.add(
+                "            echo \"porelo: apt-get update failed; trying the next mirror, $1\" >&2; porelo_update; }; \\");
+        lines.add("        porelo_warned() { [ -d " + WARNED + " ] \\");
+        lines.add(
+                "            || { echo 'porelo: apt-get update failed on every mirror' >&2; return 1; }; \\");
+        lines.add(
+                "            echo 'porelo: every mirror warned; installing with the lists of the first that answered' >&2; \\");
+        lines.add(
+                "            cp "
+                        + WARNED
+                        + "/*.sources /etc/apt/sources.list.d/ 2>/dev/null || :; apt-get update || :; }; \\");
+        lines.add("        porelo_update \\");
+        for (final String mirror : mirrors(project)) {
+            lines.add(
+                    "            || porelo_next '"
+                            + mirror
+                            + "' '"
+                            + packageSourcePattern(List.of(mirror))
+                            + "' \\");
+        }
+        lines.add("            || porelo_warned; \\");
+        lines.add("        rm -rf " + WARNED + "; \\");
+        return lines;
+    }
+
     private static String body(Project project, ImageLayers layers) {
 
-        // One URIs line, space separated, which is what deb822 takes and what apt walks in order.
-        final String sources = String.join(" ", project.effectivePackageSources());
-        final String sourcePattern = packageSourcePattern(project.effectivePackageSources());
+        // One URI a line: the first source that serves a stanza's archive, the rest kept in reserve
+        // for an update that fails. Applied last to first, so the first one is what stays.
+        final List<String> pointing = new ArrayList<>();
+        for (final String source : project.effectivePackageSources().reversed()) {
+            pointing.add("            " + pointAt(source));
+        }
         // Only a project that ASKED for sources is refused on a base with no apt. One that asked
         // for nothing gets the default and must still work on fedora and alpine, which is most of
         // them - refusing there would break every non-Debian base for a key nobody wrote.
@@ -282,7 +398,11 @@ public final class Containerfile {
                                 "# instead of keeping the second in reserve, so a crawling mirror beside a fast one",
                                 "# costs every build. With both, apt-get update took 4m03s for 65 MB of indices and",
                                 "# the build hit Porelo's ten-minute cap. Somebody whose network prefers another",
-                                "# mirror names it with build.package_sources.",
+                                "# mirror names it with build.package_sources. The others wait: an apt step whose",
+                                "# update fails goes on to the next, one at a time, and says so.",
+                                "#",
+                                "# Downloaded packages are kept, in a build cache the apt steps mount; the lists",
+                                "# are not, so an image installs against today's archive.",
                                 "#",
                                 "# http, not https: Ubuntu's mirrors serve no TLS, and apt takes its integrity from",
                                 "# the signed Release file rather than from the transport.",
@@ -291,13 +411,12 @@ public final class Containerfile {
                                 "        printf '%s\\n' 'Acquire::http::Timeout \"20\";' \\",
                                 "            'Acquire::https::Timeout \"20\";' 'Acquire::Retries \"2\";' \\",
                                 "            > /etc/apt/apt.conf.d/99-porelo-timeouts; \\",
+                                "        printf '%s\\n' 'Binary::apt::APT::Keep-Downloaded-Packages \"true\";' \\",
+                                "            > /etc/apt/apt.conf.d/99-porelo-keep-packages; \\",
+                                "        rm -f /etc/apt/apt.conf.d/docker-clean; \\",
                                 "        for f in /etc/apt/sources.list.d/*.sources; do \\",
                                 "            [ -e \"$f\" ] || continue; \\",
-                                "            sed -E -i 's|"
-                                        + sourcePattern
-                                        + "|URIs: "
-                                        + sources
-                                        + "|' \"$f\"; \\",
+                                POINTING,
                                 "        done; \\",
                                 "    elif " + refusal + "; then \\",
                                 "        echo 'this project names build.package_sources, and "
@@ -305,12 +424,13 @@ public final class Containerfile {
                                         + " has no apt to apply them to' >&2; exit 1; \\",
                                 "    fi",
                                 "",
-                                "RUN set -eux; \\",
+                                aptRun(project),
                                 "    if command -v curl >/dev/null 2>&1 && command -v git >/dev/null 2>&1 \\",
                                 "        && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then :; \\",
                                 "    elif command -v apt-get >/dev/null 2>&1; then \\",
-                                "        apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux \\",
-                                "        && rm -rf /var/lib/apt/lists/*; \\",
+                                UPDATE,
+                                "        apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux \\",
+                                "        && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \\",
                                 "    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux; \\",
                                 "    elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux && dnf clean all; \\",
                                 "    else echo 'no curl/git/ssh/tmux and no known package manager in "
@@ -320,10 +440,12 @@ public final class Containerfile {
                                 "",
                                 "# Python 3 for the agents that evaluate it, added where the image has a package manager. Not one of",
                                 "# the tools above that a task needs: an image without it, and without a way to add it, still builds.",
-                                "RUN set -eux; \\",
+                                aptRun(project),
                                 "    if command -v python3 >/dev/null 2>&1; then :; \\",
                                 "    elif command -v apt-get >/dev/null 2>&1; then \\",
-                                "        apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*; \\",
+                                UPDATE,
+                                "        apt-get install -y --no-install-recommends python3 \\",
+                                "        && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \\",
                                 "    elif command -v apk >/dev/null 2>&1; then apk add --no-cache python3; \\",
                                 "    elif command -v dnf >/dev/null 2>&1; then dnf install -y python3 && dnf clean all; \\",
                                 "    else echo 'no python3 in "
@@ -435,6 +557,13 @@ public final class Containerfile {
         //
         // It is declared even when no agent contributes anything, so the seam is in the image
         // rather than appearing only when something happens to sit below it.
+        final int at = lines.indexOf(POINTING);
+        lines.remove(at);
+        lines.addAll(at, pointing);
+        for (int index = lines.indexOf(UPDATE); index >= 0; index = lines.indexOf(UPDATE)) {
+            lines.remove(index);
+            lines.addAll(index, aptUpdate(project));
+        }
         lines.add("");
         // Keep the packages cached when the CPU limit changes; ARG reaches RUN, not Config.Env.
         lines.add("ARG OMP_NUM_THREADS");
