@@ -39,6 +39,25 @@ How it is today, read in the workflows:
   the same prefix and another digest), for the musl, GraalVM, shfmt, wrapper and Maven caches.
 - `check-actions` passes; a run after the first shows the musl step restored, not fetched.
 
+## Follow-up: the package check's apt and dnf
+
+Today's publish of 77ed2c9e9 failed in the package check (`dist/package-check`, `exec:java@package-check`), not in
+the musl job: "Ubuntu 26.04 ended at its limit on azure.archive.ubuntu.com during apt-get update". The plan above does
+not reach it, since the check runs `apt-get update` and `apt-get install` (Ubuntu, Debian) and `dnf install` (Fedora,
+RHEL-likes) inside its containers against the live archives on every run.
+
+- The check mounts one cache directory per image into its container: apt's lists and archives
+  (`/var/lib/apt/lists`, `/var/cache/apt/archives`, with `Binary::apt::APT::Keep-Downloaded-Packages "true"`) and
+  dnf's cache (`keepcache=1`). The build restores and saves that directory with `actions/cache`, keyed by the image's
+  pinned digest and the UTC date.
+- `apt-get update` still runs, so the check installs against today's archive. Where it fails and the restored lists
+  are from a successful update of the same image digest, the check goes on with those lists and says so in its log;
+  without restored lists it fails as today. dnf the same with `--cacheonly` on a failed metadata refresh.
+- Retention: only the newest entry per image is kept. After saving, the build deletes that image's older entries
+  (`gh cache delete`), as for the musl, GraalVM, shfmt, wrapper and Maven caches above.
+- Red first: a `package-check` unit test whose stand-in `apt-get update` fails, with restored lists present, answers
+  "using the cached lists" and goes on; with none, it fails with "apt-get update" as today.
+
 ## Open questions
 
 - Where the digest key comes from: the installer and its pins live in porelo-machines, so the key is read from
