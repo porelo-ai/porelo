@@ -284,6 +284,27 @@ class UpstreamWatchTest {
     }
 
     @Test
+    void theProjectsOwnRepositoryMeasuredByTheHostDoesNotRefuseTheAnswer(@TempDir Path dir)
+            throws Exception {
+        // A migrated project's own repository has a read key on the host, which measures it
+        // beside the others; refused whole, every carried row's answer is lost.
+        final UpstreamWatch watch = watch(dir, true);
+        answering(
+                withBackend(
+                        "{\"repository\":\"backend\",\"state\":\"ahead\",\"commits\":3},"
+                                + "{\"repository\":\"quad\",\"state\":\"up-to-date\"}"));
+
+        watch.measureOnce();
+
+        assertThat(records(dir).get("quad.backend").central().state())
+                .as("the carried rows keep their answers")
+                .isEqualTo("ahead");
+        assertThat(records(dir).get("quad").central())
+                .as("nothing recorded of central for the project's own repository")
+                .isNull();
+    }
+
+    @Test
     void anAnswerNamingACopyThisHostNoLongerCarriesIsNotRefused(@TempDir Path dir)
             throws Exception {
         // The host's forge keeps a copy a while after its file stops naming it; refused whole, the

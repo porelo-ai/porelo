@@ -141,4 +141,32 @@ class HostCentralTest {
                         .ask("alpha", Map.of("app", "app"));
         assertThat(answer.get("app").why()).contains("unmatched or ambiguous alpha");
     }
+
+    // A row passed over says nothing of the carried ones, so with nothing else the host said
+    // nothing of them: not that it could not reach central for them.
+    @Test
+    void anAnswerOfOnlyRowsPassedOverSaysNothingOfTheCarried() throws Exception {
+        final var answer =
+                reader(
+                                """
+                {"project":"alpha","read_at":"2026-11-09T10:00:00Z",
+                 "repositories":[{"repository":"alpha","state":"cannot-say","why":"no-read-key"}]}
+                """)
+                        .ask("alpha", Map.of("app", "app"));
+        assertThat(answer.get("app").state()).isEqualTo("cannot-say");
+        assertThat(answer.get("app").why()).isNull();
+    }
+
+    // Passing over is for a row no carried repository matches; one matching two stays refused.
+    @Test
+    void anUnsureRowMatchingTwoCarriedRepositoriesIsStillRefused() throws Exception {
+        final var answer =
+                reader(
+                                """
+                {"project":"alpha","read_at":"2026-11-09T10:00:00Z",
+                 "repositories":[{"repository":"app","state":"cannot-say","why":"no-read-key"}]}
+                """)
+                        .ask("alpha", Map.of("app", "app", "App", "APP"));
+        assertThat(answer.get("app").why()).contains("ambiguous app");
+    }
 }

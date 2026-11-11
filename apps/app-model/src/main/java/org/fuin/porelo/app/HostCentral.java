@@ -320,7 +320,7 @@ final class HostCentral {
                 all.put(row.getKey(), new Answer("no-central", null, readAt, null, false));
             } else if (said != null) {
                 all.put(row.getKey(), said);
-            } else if (publication.rows().isEmpty()) {
+            } else if (found.isEmpty()) {
                 // The host could not say of any of them.
                 all.put(row.getKey(), new Answer("cannot-say", null, readAt, null, false));
             } else {

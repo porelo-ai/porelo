@@ -161,9 +161,11 @@ public final class UpstreamWatch implements AutoCloseable {
         }
         // Every row with a central address, so an answer naming a copy the host's forge still
         // keeps after its file stopped naming it is no answer of a stranger; only the carried are
-        // recorded. Not the project's own repository: it is no row with a central address.
+        // recorded. The project's own repository too, under a name no row can have: a host that
+        // migrated it measures it beside the others, and it is never recorded.
         final java.util.Map<String, @org.jspecify.annotations.Nullable String> rows =
                 new java.util.LinkedHashMap<>();
+        rows.put("", HostCentral.copyName(project.name(), host.address()));
         final java.util.Set<String> carried = new java.util.HashSet<>();
         for (final org.fuin.porelo.core.project.Repository row : project.repositories()) {
             rows.put(row.name(), HostCentral.copyName(project.name(), row.central()));
