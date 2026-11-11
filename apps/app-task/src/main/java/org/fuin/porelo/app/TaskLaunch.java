@@ -3666,6 +3666,7 @@ public final class TaskLaunch {
                             model.model()));
 
         } catch (HostPerson.Refused ex) {
+            hostRefusal = ex.getMessage();
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return cleanUp(
@@ -4823,6 +4824,8 @@ public final class TaskLaunch {
     public record CredentialRefusal(String agent, boolean locked, @Nullable String running) {}
 
     private @Nullable CredentialRefusal credentialRefusal;
+
+    private @Nullable String hostRefusal;
     private @Nullable AgentSignInRuns signIns;
     private boolean waitForSignIn;
 
@@ -4831,6 +4834,14 @@ public final class TaskLaunch {
         signIns = runs;
         waitForSignIn = wait;
         return this;
+    }
+
+    /**
+     * Returns the host's refusal of the start in its own words, or null when the host refused
+     * nothing.
+     */
+    public @Nullable String hostRefusal() {
+        return hostRefusal;
     }
 
     /** Returns the credential refusal, or null when the start was not refused for it. */

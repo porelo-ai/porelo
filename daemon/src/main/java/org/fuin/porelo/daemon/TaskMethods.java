@@ -1154,7 +1154,12 @@ final class TaskMethods {
                     // caller only.
                     final String container =
                             java.util.Objects.requireNonNullElse(started.get(), "");
-                    System.out.println(startLine(text(parameters, "task"), container, code));
+                    System.out.println(
+                            startLine(
+                                    text(parameters, "task"),
+                                    container,
+                                    code,
+                                    launch.hostRefusal()));
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("container", container);
                     reply.put("exitCode", code);

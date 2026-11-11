@@ -206,6 +206,9 @@ public final class TaskControl {
 
     private final PoreloContext context;
 
+    /** The host a removal tells; another one only in a test. */
+    java.util.function.Function<PoreloContext, HostPerson> hosts = HostPerson::new;
+
     /**
      * Constructor with the context to act through.
      *
@@ -581,21 +584,30 @@ public final class TaskControl {
             // name, where both halves may hold hyphens.
             final String project = identity == null ? null : identity.project();
             final TaskSecrets secrets = new TaskSecrets(context);
-            final boolean signed = secrets.signing(container).isPresent();
             secrets.forget(container);
             deleteTree(state);
             new TaskSession(context).forget(container);
             new TaskState(context).forget(container);
             // A vault that is locked keeps them until the next task started prunes them: a removal
             // is not refused for want of a passphrase.
-            // The host is told only when its start reached it, which the task's key in the vault
-            // says. A host that cannot be told now drops the token when its certificate expires.
-            final HostPerson host = new HostPerson(context);
-            if (host.present() && signed && identity != null) {
+            // The host is told whether or not its start reached it: the task's key in the vault
+            // cannot say so while the vault is locked, and a record left behind refuses the next
+            // start of the same name. A task the host never recorded is answered as such.
+            final HostPerson host = hosts.apply(context);
+            if (host.present() && identity != null) {
                 try {
                     host.end(identity.task());
                 } catch (final HostPerson.Refused ex) {
-                    // Nothing more to do here: the removal goes on.
+                    // The removal goes on; a host that cannot be told now drops the token when the
+                    // certificate expires, and its words say what the next start of the name meets.
+                    final String words = String.valueOf(ex.getMessage());
+                    if (ex.code() != 65 || !words.contains(" is not recorded for ")) {
+                        System.err.println(
+                                "porelo: the host still records task "
+                                        + identity.task()
+                                        + ": "
+                                        + words);
+                    }
                 }
             }
             // Out of its project's conversations: its account there ends with it.

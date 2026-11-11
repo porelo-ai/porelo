@@ -667,6 +667,29 @@ public final class PoreloDaemon {
         return "start " + name + ": exit " + code;
     }
 
+    /**
+     * Returns the log line one Start leaves behind, with the host's refusal in its own words.
+     *
+     * <p>Only the host's words are added: porelo-host's diagnostics are safe by its contract and
+     * hold no part of the request, and without them a refusal said only its exit code.
+     *
+     * @param task The task name asked for, or empty for the default.
+     * @param container The container it produced or found, or empty when there is none.
+     * @param code The exit code the caller was given.
+     * @param why The host's refusal, or {@code null} when the host refused nothing.
+     * @return One line.
+     */
+    static String startLine(
+            String task,
+            String container,
+            int code,
+            @org.jspecify.annotations.Nullable String why) {
+        final String line = startLine(task, container, code);
+        return why == null || why.isBlank()
+                ? line
+                : line + "; " + why.strip().replaceAll("\\p{Cntrl}", "?");
+    }
+
     /** How often the talk stream looks for new record lines. */
     static final java.time.Duration TALK_INTERVAL = java.time.Duration.ofSeconds(2);
 

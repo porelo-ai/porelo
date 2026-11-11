@@ -50,6 +50,24 @@ class TaskStopSurvivorsTest {
         return context;
     }
 
+    @Test
+    void aRemovalEndsTheHostsRecordWithoutTheVault(@TempDir Path dir) throws IOException {
+        // A record left on the host refuses the next start of the same name with exit 65; a
+        // removal with no unlocked vault cannot read the task's key, and must tell the host anyway.
+        final PoreloContext context = context(dir);
+        final Path program = Files.writeString(dir.resolve("porelo-host"), "");
+        runner.answering("task end", "{\"task\":\"shell-1\",\"ended\":true}\n");
+        final TaskControl control = new TaskControl(context);
+        control.hosts = machine -> new HostPerson(machine, program, dir.resolve("no-host-config"));
+
+        final TaskControl.Stopped result = control.remove(CONTAINER, false, true);
+
+        assertThat(result.removed()).as("the task is removed").isTrue();
+        assertThat(runner.lines())
+                .as("the host is told the task ended")
+                .anyMatch(line -> line.contains(program + " task end shell-1"));
+    }
+
     @ParameterizedTest
     @CsvSource({"false,false", "false,true", "true,false", "true,true"})
     void aStopIsCleanOnlyWhenTheRuntimeConfirmsIt(boolean purge, boolean fails, @TempDir Path dir)

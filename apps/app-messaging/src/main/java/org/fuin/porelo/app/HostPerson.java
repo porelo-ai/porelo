@@ -99,7 +99,8 @@ final class HostPerson {
             return Json.parse(ended.standardOutput().strip()) instanceof Map<?, ?> answer
                     && task.equals(answer.get("task"))
                     && Boolean.TRUE.equals(answer.get("ended"));
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException | org.fuin.porelo.wire.JsonException ex) {
+            // No answer, or one that does not read, says no task ended; it ends no removal.
             return false;
         }
     }

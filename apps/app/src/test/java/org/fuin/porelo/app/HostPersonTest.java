@@ -85,6 +85,10 @@ class HostPersonTest {
         assertThat(host.end("fix")).isTrue();
         runner.answering("task end other", "{\"task\":\"fix\",\"ended\":true}\n");
         assertThat(host.end("other")).as("an answer about another task").isFalse();
+        runner.answering("task end empty", "");
+        assertThat(host.end("empty")).as("no answer at all, which ends no removal").isFalse();
+        runner.answering("task end broken", "{\"task\":");
+        assertThat(host.end("broken")).as("an answer that does not read").isFalse();
     }
 
     @Test

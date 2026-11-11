@@ -1,0 +1,2 @@
+title: "Removing a task tells its host the task ended even while the vault is locked, so the host's record goes with it and a later start of the same name is no longer refused with exit 65; an empty or unreadable answer from the host no longer ends the removal with an error, and porelod's journal line for a start the host refused carries the host's own words"
+type: fixed

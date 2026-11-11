@@ -760,6 +760,27 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void logsTheHostsRefusalOfAStartInItsOwnWords() {
+        // Without them the journal said only "exit 65", and a record the host kept from an earlier
+        // start of the same name could not be told from any other refusal.
+        assertThat(
+                        PoreloDaemon.startLine(
+                                "foo-2",
+                                "",
+                                65,
+                                "the host refused (exit 65): porelo-host: task foo-2 is recorded"
+                                        + " already, with another certificate"))
+                .isEqualTo(
+                        "start foo-2: exit 65; the host refused (exit 65): porelo-host: task foo-2"
+                                + " is recorded already, with another certificate");
+        assertThat(PoreloDaemon.startLine("foo-2", "", 65, "line one\nline two"))
+                .as("one journal line, however many the host wrote")
+                .isEqualTo("start foo-2: exit 65; line one?line two");
+        assertThat(PoreloDaemon.startLine("foo-2", "porelo-p_foo-2", 0, null))
+                .isEqualTo("start porelo-p_foo-2: exit 0");
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void listsTheContainersNamedLikeTasksThatAreNotTasks(@TempDir Path dir) throws Exception {
 
