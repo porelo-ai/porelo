@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B614",
   "title": "A Task Joins Its Room Under The Contract's Name",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 10,

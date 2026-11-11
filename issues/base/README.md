@@ -215,7 +215,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b614"></a>[B614](B614-A-Task-Joins-Its-Room-Under-The-Contracts-Name.md) | S | - | A task made under the new container name is enrolled and retired on its transport as `porelo-<project>-<task>`, the transport contract's task name, so the room's member list counts it as the project's task again. |
 | <a id="b606"></a>[B606](B606-The-Packages-Carry-The-Third-Party-Notices.md) | S | - | The `.deb` and `.rpm` carry a generated THIRD-PARTY-NOTICES with the full texts of all code compiled into the executables. |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | - | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
 | <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
@@ -240,6 +239,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b614"></a>[B614](B614-A-Task-Joins-Its-Room-Under-The-Contracts-Name.md) | S | - | A task made under the new container name is enrolled and retired on its transport as `porelo-<project>-<task>`, the transport contract's task name, so the room's member list counts it as the project's task again. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. |
