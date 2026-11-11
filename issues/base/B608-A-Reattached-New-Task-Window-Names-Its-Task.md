@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B608",
   "title": "A Reattached New Task's Window Names Its Task",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "XS",
   "priority": "Low",
   "rank": 30,

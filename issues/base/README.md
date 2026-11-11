@@ -101,12 +101,12 @@ from its side, as *blocked by*.
 | <a id="b257"></a>[B257](B257-A-Direct-Peer-Reached-Without-A-Conversation.md) | - | - | A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it |
 | <a id="b333"></a>[B333](B333-Porelod-Prunes-Once-A-Day.md) | - | - | `porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays |
 | <a id="b476"></a>[B476](B476-Porelos-Own-Commits-Carry-The-Accounts-Noreply-Address.md) | S | - | Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority. |
-| <a id="b608"></a>[B608](B608-A-Reattached-New-Task-Window-Names-Its-Task.md) | XS | - | `task start` going back into an existing task made under the new container names labels its window `<project>/<task>`, not `<project>/`. |
 
 ## Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b608"></a>[B608](B608-A-Reattached-New-Task-Window-Names-Its-Task.md) | XS | - | `task start` going back into an existing task made under the new container names labels its window `<project>/<task>`, not `<project>/`. |
 | <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. |
 | <a id="b570"></a>[B570](B570-Porelos-Tests-Follow-The-Pyramid.md) | XL | - | Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite. |
 | <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | S | - | A unit test holds what only a host check held: `porelod`'s host forge rule and the gate's refusal of another upstream; a removal with the vault shut says the task's forge token stays until the host's sweep. |
