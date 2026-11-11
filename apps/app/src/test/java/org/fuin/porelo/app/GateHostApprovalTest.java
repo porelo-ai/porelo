@@ -83,7 +83,8 @@ class GateHostApprovalTest {
                                             "lend-token");
                             assertThat(command.input()).isEmpty();
                             assertThat(command.binaryInput()).isNull();
-                            assertThat(command.environment()).isEmpty();
+                            assertThat(command.environment())
+                                    .isEqualTo(HostForgeLending.HOST_ENVIRONMENT);
                             return new CommandResult(command, 0, LENT_TOKEN + "\n", "");
                         },
                         new PoreloPaths(xdg, dir.resolve("bin")),

@@ -75,6 +75,9 @@ class HostForgeLendingTest {
         assertThat(runner.lines())
                 .as("a token of its own for this command, which leaves the person's other tokens")
                 .containsExactly("sudo -n " + HostPerson.PROGRAM + " forge lend-token");
+        assertThat(runner.only("lend-token").inheritsEnvironment())
+                .as("the session's own variables, which the host refuses")
+                .isFalse();
         assertThat(lease.environment())
                 .containsEntry("GIT_CONFIG_KEY_0", "http.http://127.0.0.1:3001/.extraHeader")
                 .containsEntry(

@@ -1,0 +1,2 @@
+title: "Every call of porelo-host by a person (a task's start and end, its certificate record, a lent forge token) gives it only its path and locale, so a desktop or ssh session's own variables such as DBUS_SESSION_BUS_ADDRESS no longer make porelo-host refuse it as a broken host environment"
+type: fixed

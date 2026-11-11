@@ -26,6 +26,14 @@ final class HostForgeLending implements GitCredentials {
     /** Where a host installs the helper; sudo allows it by this path alone. */
     static final Path PROGRAM = Path.of("/usr/sbin/porelo-host");
 
+    /**
+     * All of the environment a call of the host program is given: the caller's own session (a
+     * desktop's bus address, a terminal's variables) is no part of it, as the host program refuses
+     * any variable it does not know.
+     */
+    static final Map<String, String> HOST_ENVIRONMENT =
+            Map.of("PATH", "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL", "C");
+
     private static final Pattern ONE_TOKEN = Pattern.compile("\\S+");
 
     private final PoreloContext context;
@@ -115,6 +123,22 @@ final class HostForgeLending implements GitCredentials {
                 && Pattern.matches("http://127\\.0\\.0\\.1:" + port + "/[^\\s@?#]*", url.strip());
     }
 
+    /**
+     * A call of the host program through sudo, in the root directory and its chosen environment.
+     *
+     * @param program The host program.
+     * @param arguments Its arguments.
+     * @return The command.
+     */
+    static Command onHost(final Path program, final String... arguments) {
+        final String[] line = new String[arguments.length + 3];
+        line[0] = "sudo";
+        line[1] = "-n";
+        line[2] = program.toString();
+        System.arraycopy(arguments, 0, line, 3, arguments.length);
+        return Command.of(line).in(Path.of("/")).withChosenEnvironment(HOST_ENVIRONMENT);
+    }
+
     private @Nullable String token() {
         if (!installed.getAsBoolean()) {
             throw new org.fuin.porelo.gate.GateException(
@@ -127,13 +151,7 @@ final class HostForgeLending implements GitCredentials {
                             .run(
                                     // A token of its own for this command: a plain forge-token
                                     // replaces every token of the login, a running task's too.
-                                    Command.of(
-                                                    "sudo",
-                                                    "-n",
-                                                    PROGRAM.toString(),
-                                                    "forge",
-                                                    "lend-token")
-                                            .withInput(""));
+                                    onHost(PROGRAM, "forge", "lend-token").withInput(""));
         } catch (final CommandException ex) {
             return null;
         }

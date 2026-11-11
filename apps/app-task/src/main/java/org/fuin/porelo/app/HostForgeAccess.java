@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.organization.OrganizationQuestions;
@@ -113,14 +112,10 @@ final class HostForgeAccess implements FetchAccess {
             asked =
                     context.runner()
                             .run(
-                                    Command.of(
-                                                    "sudo",
-                                                    "-n",
-                                                    HostPerson.PROGRAM.toString(),
-                                                    // Lent for this command, beside the tokens
-                                                    // a running task holds.
-                                                    "forge",
-                                                    "lend-token")
+                                    // Lent for this command, beside the tokens a running task
+                                    // holds.
+                                    HostForgeLending.onHost(
+                                                    HostPerson.PROGRAM, "forge", "lend-token")
                                             .withInput(""));
         } catch (final CommandException ex) {
             requireInstalled();

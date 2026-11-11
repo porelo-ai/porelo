@@ -71,6 +71,11 @@ class HostForgeAccessTest {
                                             "forge",
                                             "lend-token");
                             assertThat(command.input()).isEmpty();
+                            assertThat(command.inheritsEnvironment())
+                                    .as("the session's own variables, which the host refuses")
+                                    .isFalse();
+                            assertThat(command.environment())
+                                    .isEqualTo(HostForgeLending.HOST_ENVIRONMENT);
                         });
     }
 

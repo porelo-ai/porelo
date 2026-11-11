@@ -82,6 +82,30 @@ class HostPersonTest {
         assertThat(host.end("other")).as("an answer about another task").isFalse();
     }
 
+    @Test
+    void everyCallOfTheHostIsGivenNoneOfTheSessionsEnvironment() {
+        // A desktop session's bus address, passed on, is refused by the host program.
+        runner.answering("task start fix", "token");
+        runner.answering("task end fix", "{\"task\":\"fix\",\"ended\":true}\n");
+        runner.answering("task show", "");
+        final HostPerson host =
+                new HostPerson(context(), dir.resolve("helper"), dir.resolve("absent-host"));
+
+        host.start("fix", "cert");
+        host.end("fix");
+        host.show("SHA256:" + "A".repeat(43));
+
+        assertThat(runner.invocations())
+                .hasSize(3)
+                .allSatisfy(
+                        call -> {
+                            assertThat(call.inheritsEnvironment()).isFalse();
+                            assertThat(call.environment())
+                                    .isEqualTo(HostForgeLending.HOST_ENVIRONMENT)
+                                    .doesNotContainKey("DBUS_SESSION_BUS_ADDRESS");
+                        });
+    }
+
     @org.junit.jupiter.api.BeforeEach
     void installedHelper() throws Exception {
         Files.writeString(dir.resolve("helper"), "fixture");

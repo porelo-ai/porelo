@@ -79,7 +79,7 @@ final class HostPerson {
     String start(String task, String certificate) {
         final CommandResult started =
                 run(
-                        Command.of("sudo", "-n", program.toString(), "task", "start", task)
+                        HostForgeLending.onHost(program, "task", "start", task)
                                 .withInput(certificate + "\n"));
         final String token = started.standardOutput();
         // One line end a helper may print after the token is no part of it.
@@ -94,8 +94,7 @@ final class HostPerson {
      * @throws Refused If the host refused it, or could not be asked.
      */
     boolean end(String task) {
-        final CommandResult ended =
-                run(Command.of("sudo", "-n", program.toString(), "task", "end", task));
+        final CommandResult ended = run(HostForgeLending.onHost(program, "task", "end", task));
         try {
             return Json.parse(ended.standardOutput().strip()) instanceof Map<?, ?> answer
                     && task.equals(answer.get("task"))
@@ -123,14 +122,7 @@ final class HostPerson {
             // The records are root's: sudo, which allows any admitted person.
             shown =
                     context.runner()
-                            .run(
-                                    Command.of(
-                                            "sudo",
-                                            "-n",
-                                            program.toString(),
-                                            "task",
-                                            "show",
-                                            fingerprint));
+                            .run(HostForgeLending.onHost(program, "task", "show", fingerprint));
         } catch (CommandException ex) {
             return null;
         }

@@ -123,7 +123,7 @@ class ProjectTakingTest {
                 .containsExactly("sudo", "-n", "/usr/sbin/porelo-host", "forge", "lend-token");
         assertThat(command.input()).isEmpty();
         assertThat(command.binaryInput()).isNull();
-        assertThat(command.environment()).isEmpty();
+        assertThat(command.environment()).isEqualTo(HostForgeLending.HOST_ENVIRONMENT);
         asked.add(List.copyOf(command.arguments()));
         final CommandResult answer = helper.poll();
         assertThat(answer).as("what the helper answers the call %s", asked.size()).isNotNull();
