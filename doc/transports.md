@@ -120,7 +120,8 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
 - **Every map of secrets is complete** for the verbs that use it: a project's are what `poll` reads and what
   `send` uses for Porelo's own helper answers, a task's are what its `send`, `read` and `receipt` read, and the
   account's go only to lifecycle verbs, including `join` and `part`, never to `poll` or `send`.
-- **`setup` is run again and again** and keeps what exists. A server whose first account exists while Porelo holds
+- **`setup` is run again and again** and keeps what exists. Porelo runs one `setup` of a transport's account at a
+  time, reading the account's secrets inside, so starts at once give the transport the secret the first one kept. A server whose first account exists while Porelo holds
   no account secrets is refused (78), not guessed around.
 - **`reaches`** is every host the project's messages reach; Porelo lets the transport reach those and nothing else.
   For an offline project Porelo adds `--loopback-only` to `setup`, `enroll`, `join`, `part` and `members`, and the transport refuses

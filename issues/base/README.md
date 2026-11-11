@@ -238,7 +238,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b612"></a>[B612](B612-Starts-At-Once-Make-One-Transport-Account.md) | S | - | Several tasks of one person started at once, before the person has an account on the project's transport, all join the conversation: one start makes the account and keeps its secret, the others take it. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. |
@@ -250,6 +249,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b612"></a>[B612](B612-Starts-At-Once-Make-One-Transport-Account.md) | S | - | Several tasks of one person started at once, before the person has an account on the project's transport, all join the conversation: one start makes the account and keeps its secret, the others take it. |
 | <a id="b614"></a>[B614](B614-A-Task-Joins-Its-Room-Under-The-Contracts-Name.md) | S | - | A task made under the new container name is enrolled and retired on its transport as `porelo-<project>-<task>`, the transport contract's task name, so the room's member list counts it as the project's task again. |
 | <a id="b613"></a>[B613](B613-A-Stale-Organization-Read-Says-Why.md) | M | - | `org` and `project show` answer `stale_why` beside `stale`: a named cause and git's own words; a project's repositories in `cannot-say` carry a `why`. |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. |

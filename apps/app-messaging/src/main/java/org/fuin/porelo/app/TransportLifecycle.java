@@ -233,6 +233,49 @@ final class TransportLifecycle {
             throws Refused {
         lendable(scheme, "setup");
         writable(scheme);
+        // One setup of the account at a time, its secrets read inside: a start that gives the
+        // transport none has it make an account of its own, and starts at once each did.
+        final Conversation[] found = new Conversation[1];
+        final Refused[] refused = new Refused[1];
+        try {
+            FileLocks.holding(
+                    lockOf(accountFile(scheme)),
+                    () -> {
+                        try {
+                            found[0] = setupHeld(scheme, project, settings, loopbackOnly);
+                        } catch (Refused ex) {
+                            refused[0] = ex;
+                        }
+                        return Boolean.TRUE;
+                    });
+        } catch (IOException ex) {
+            throw new Refused(
+                    "the "
+                            + scheme
+                            + " transport's account could not be set up alone: "
+                            + ex.getMessage(),
+                    0);
+        }
+        if (refused[0] != null) {
+            throw refused[0];
+        }
+        return java.util.Objects.requireNonNull(found[0], "a setup that was not refused answers");
+    }
+
+    /** Where the account's lock lies, beside the transport's state. */
+    private Path accountFile(String scheme) {
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve("account");
+    }
+
+    /** Runs the transport's setup and keeps what it said; under the account's lock. */
+    private Conversation setupHeld(
+            String scheme, String project, Map<String, Object> settings, boolean loopbackOnly)
+            throws Refused {
         // The account's and the project's, as they were printed: so it keeps what it made - the
         // project's relay
         // - rather than making it again (asked on 2026-09-30).

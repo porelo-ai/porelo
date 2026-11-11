@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B612",
   "title": "Starts At Once Make One Transport Account",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 20,
@@ -52,8 +52,9 @@ keep, so Porelo makes the first `setup` of an account happen once.
 - The unit test above, seen red before the lock and green after.
 - On a host, three tasks of one new person started at once all join the conversation.
 
-## To be checked
+## As built
 
-- Whether a verb other than `setup` (`join`, `enroll`) can make the account too, and so needs the same lock.
-- Whether the lock is per person's account or per transport alone. The vault is the person's, so a lock in the
-  person's own state directory is per person already.
+- Only `setup` keeps the account's secrets, so it alone takes the lock: `transport/<scheme>/.account.lock` in the
+  person's state directory, which makes it one lock per person and transport, across processes and threads.
+- Built as a fix during an operator test: its unit test seen red with the rental's own refusal, then green; the reading
+  by another model follows.

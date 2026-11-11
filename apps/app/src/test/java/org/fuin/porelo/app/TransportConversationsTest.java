@@ -604,6 +604,91 @@ class TransportConversationsTest {
     }
 
     @Test
+    void startsAtOnceMakeOneAccountAndEachTakesIt() throws Exception {
+        // Each start that gives the transport no account secret has it make one of its own: the
+        // first registers the person's account, the next finds it under another password and the
+        // task never joins.
+        final java.util.concurrent.atomic.AtomicInteger registered =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.CountDownLatch inside =
+                new java.util.concurrent.CountDownLatch(1);
+        final org.fuin.porelo.core.process.CommandRunner transport =
+                command -> {
+                    final List<String> arguments = command.arguments();
+                    if (arguments.contains("describe")) {
+                        return new org.fuin.porelo.core.process.CommandResult(
+                                command,
+                                0,
+                                "{\"scheme\":\"room\",\"poll\":true,"
+                                        + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\"]}",
+                                "");
+                    }
+                    if (!arguments.contains("setup")) {
+                        return new org.fuin.porelo.core.process.CommandResult(command, 0, "{}", "");
+                    }
+                    String secret = command.environment().get("ADMIN");
+                    if (secret == null) {
+                        if (registered.incrementAndGet() > 1) {
+                            return new org.fuin.porelo.core.process.CommandResult(
+                                    command, 78, "", "the account exists with another password");
+                        }
+                        secret = "a-" + registered.get();
+                        inside.countDown();
+                        try {
+                            Thread.sleep(1500);
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                    return new org.fuin.porelo.core.process.CommandResult(
+                            command,
+                            0,
+                            "{\"account\":{\"ADMIN\":\""
+                                    + secret
+                                    + "\"},\"secrets\":{\"POLLER\":\"p-1\"},"
+                                    + "\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}",
+                            "");
+                };
+        final PoreloContext context = context(transport).asking(prompt -> PASSPHRASE.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        emptyVault(context);
+        assertThat(
+                        context.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("the fixture opens its vault without a kernel keyring")
+                .isPresent();
+        final java.util.concurrent.ExecutorService other =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            final java.util.concurrent.Future<?> first =
+                    other.submit(
+                            () -> {
+                                new TransportLifecycle(
+                                                context,
+                                                context.paths().messaging().transportDirectory())
+                                        .setup("room", "p", Map.of());
+                                return null;
+                            });
+            assertThat(inside.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("the first start is making the account")
+                    .isTrue();
+            final TransportLifecycle second =
+                    new TransportLifecycle(
+                            context, context.paths().messaging().transportDirectory());
+
+            second.setup("room", "p", Map.of());
+            first.get(10, java.util.concurrent.TimeUnit.SECONDS);
+
+            assertThat(registered.get()).as("one account is made").isEqualTo(1);
+            assertThat(second.secrets("room", "account"))
+                    .as("both keep the one account's secret")
+                    .containsEntry("ADMIN", "a-1");
+        } finally {
+            other.shutdownNow();
+        }
+    }
+
+    @Test
     void aTaskIsShownInTheRoomByItsOwnNameWhateverAgentRunsIt() throws Exception {
         // Shown by its agent's name, a line headed "Agent Fix-Login:" reaches nobody and the
         // person cannot tell two tasks of one agent apart.
