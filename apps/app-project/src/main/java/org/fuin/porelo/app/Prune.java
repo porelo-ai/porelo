@@ -401,6 +401,7 @@ public final class Prune {
                             deleteTree(context.paths().tasks().containerState(container));
                             mailbox.delete();
                             new TaskGuide(context.paths(), container).delete();
+                            new TaskRepositories(context.paths(), container).delete();
                             reservations.retire(container);
                             return Boolean.TRUE;
                         });

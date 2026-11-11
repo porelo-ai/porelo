@@ -126,11 +126,16 @@ public final class UnhandedWork {
      * <p>A git that fails is no count. Counted through a pipe, a failing {@code git status} - a
      * config it cannot parse, an ownership it refuses - counted zero lines, and the task read as
      * holding nothing, which lets it be removed without being asked.
+     *
+     * <p>A workspace nothing can write holds nothing, and is said to: a task that reads its whole
+     * project has its repositories mounted read only there, no repository at its top, and nothing
+     * it could hand on.
      */
     static final String CENSUS =
             "cd "
                     + WORKSPACE
                     + " 2>/dev/null || exit 0;"
+                    + " [ -w . ] || { printf '0 0'; exit 0; };"
                     + " changed=$(git status --porcelain 2>/dev/null) || exit 3;"
                     + " commits=$(git log --oneline --branches --not --remotes 2>/dev/null)"
                     + " || exit 3;"

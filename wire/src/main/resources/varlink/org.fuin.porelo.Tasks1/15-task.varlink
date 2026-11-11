@@ -587,6 +587,15 @@ method Start(
   # Runs with no workspace and no git gate: the agent gets an empty directory and can commit
   # nowhere.
   noGate: ?bool,
+  # Gives the task every repository of the project to read, the project's own among them, instead
+  # of one to work on: each at its main as this machine takes it, under /workspace/<repository>/,
+  # read only and without .git, and never what tasks pushed for review. No gate and no push target;
+  # its end removes the container whatever it holds, rm or not. Its agent, image and egress are the
+  # project's own repository's, which is the task's 'repository'. A repository that cannot be read
+  # is named among the output lines and left out; none readable refuses the start (exitCode 69).
+  # Refused with exitCode 64 beside repository, branch, from, noGate or upstream. Unnamed, the task
+  # is named "all", or the next free one. Not offered through a task's MCP start.
+  allRepositories: ?bool,
   # Does everything up to starting the container, then stops and reports. Nothing is created.
   dryRun: ?bool,
   # What to do with a blocked connection: prompt, allow, deny or off. Default: "prompt".
@@ -924,6 +933,9 @@ type StartOutcome (
   # reaches at the gate's address. 'detail' names them. Start refuses the same case before anything is
   # created.
   HOST_SERVICES_NEED_A_GATE,
+  # allRepositories was asked beside an option that names one repository or its gate: repository,
+  # branch or noGate. 'detail' names them, in the words Start refuses with (exitCode 64).
+  ALL_REPOSITORIES_REFUSED,
   # project.yml's limits.subagents, or the repository's, asks the agent for more subagents at the same
   # time than its definition says it can enforce. 'detail' names the agent and where the number came
   # from, in the words Start refuses with (exitCode 64).
@@ -1003,6 +1015,12 @@ method CanStart(
   repository: ?string,
   # Whether the run would have no workspace and no git gate, as Start takes it.
   noGate: ?bool,
+  # Whether the run would read every repository of the project, as Start takes it. Answered from the
+  # options alone: beside repository, noGate or branch it is ALL_REPOSITORIES_REFUSED; otherwise no
+  # repository needs naming, and the rest is answered as for a run without a gate. Whether each
+  # repository can be read is not asked here, since that reaches every upstream: Start names each one
+  # it cannot read, and refuses when it can read none.
+  allRepositories: ?bool,
   # The task name Start would be given. Omitted, no name is checked. The length rule needs the
   # project, so without one only the characters are.
   task: ?string,

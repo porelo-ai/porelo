@@ -156,6 +156,12 @@ public final class StartCheck {
         HOST_SERVICES_NEED_A_GATE,
 
         /**
+         * A start that reads every repository was asked beside an option that names one repository
+         * or its gate. {@code detail} names them, in the words Start refuses with.
+         */
+        ALL_REPOSITORIES_REFUSED,
+
+        /**
          * The project file asks the task's agent for more subagents at the same time than its
          * definition says it can enforce. {@code detail} names the agent and where the number came
          * from, in the words Start refuses with.
@@ -699,6 +705,87 @@ public final class StartCheck {
                 parameters,
                 branch,
                 null);
+    }
+
+    /**
+     * Settles everything a start would, a start that reads every repository among them.
+     *
+     * @param context Where the machine's state comes from.
+     * @param projectFile The project file, or {@code null}.
+     * @param taskName The task's name, or {@code null}.
+     * @param agentName Agent to run, or {@code null} for the only one installed.
+     * @param providerName Provider to route through, or {@code null}.
+     * @param credentialType Overrides the stored credential kind, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @param needsRepository Whether this run would have a gate at all: {@code false} for {@code
+     *     noGate}.
+     * @param credentials The credentials the run adds.
+     * @param parameters The values the start hands in, each with where it came from.
+     * @param branch The branch named outright, or {@code null} for the one the scheme makes.
+     * @param shortName The optional container spelling, or {@code null}.
+     * @param allRepositories Whether the task would read every repository of the project.
+     * @return What was found.
+     */
+    public static Result check(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch,
+            @Nullable String shortName,
+            boolean allRepositories) {
+        if (!allRepositories) {
+            return check(
+                    context,
+                    projectFile,
+                    taskName,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    repository,
+                    needsRepository,
+                    credentials,
+                    parameters,
+                    branch,
+                    shortName);
+        }
+        // From the options alone, as Start refuses them. Whether each repository can be read is
+        // not asked: that reaches every upstream, and Start names each one it cannot read.
+        final java.util.List<String> named = new java.util.ArrayList<>();
+        if (repository != null && !repository.isBlank()) {
+            named.add("--repository");
+        }
+        if (branch != null) {
+            named.add("--branch");
+        }
+        if (!needsRepository) {
+            named.add("--no-gate");
+        }
+        if (!named.isEmpty()) {
+            return refused(
+                    Outcome.ALL_REPOSITORIES_REFUSED, TaskLaunch.allRepositoriesBeside(named));
+        }
+        // Otherwise as a start without a gate: on the project's own repository's agent, image
+        // and egress, with no repository to name and none behind a gate.
+        return check(
+                context,
+                projectFile,
+                taskName,
+                agentName,
+                providerName,
+                credentialType,
+                null,
+                false,
+                credentials,
+                parameters,
+                null,
+                shortName);
     }
 
     /** Preflights the same optional container spelling that the shared start records. */

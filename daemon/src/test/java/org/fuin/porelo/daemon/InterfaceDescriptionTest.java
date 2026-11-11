@@ -52,6 +52,23 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void bothStartMethodsAskForEveryRepositoryAndCanStartNamesItsRefusal() {
+        // A client preflights a start that reads every repository as it starts it.
+        for (String method : List.of("Start", "CanStart")) {
+            final Matcher declaration =
+                    Pattern.compile("(?ms)^method " + method + "\\(\\n(.*?)^\\)")
+                            .matcher(PoreloDaemon.description());
+            assertThat(declaration.find()).as("the method is declared").isTrue();
+            assertThat(declaration.group(1)).contains("allRepositories: ?bool");
+        }
+        final Matcher outcomes =
+                Pattern.compile("(?ms)^type StartOutcome \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(outcomes.find()).isTrue();
+        assertThat(outcomes.group(1)).contains("ALL_REPOSITORIES_REFUSED,");
+    }
+
+    @Test
     void aTakenContainerCarriesTheRequestedAndOptionalProvenOwner() {
         assertThat(PoreloDaemon.description())
                 .contains(

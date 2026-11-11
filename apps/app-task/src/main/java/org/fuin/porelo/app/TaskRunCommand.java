@@ -228,6 +228,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean noGate;
 
     @Option(
+            names = "--all-repositories",
+            description =
+                    "Gives the task every repository of the project, its own among them, each at its"
+                            + " main as this machine takes it, under /workspace/<repository>/, read"
+                            + " only. No gate, nothing pushed, and the task is removed at its end.")
+    private boolean allRepositories;
+
+    @Option(
             names = "--clearance",
             paramLabel = "<mode>",
             description =
@@ -599,6 +607,22 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
 
+        if (allRepositories) {
+            // Before anything is asked or read: each of these names one repository or its gate,
+            // and a task that reads them all has neither.
+            final java.util.List<String> named = new java.util.ArrayList<>();
+            if (repository != null && !repository.isBlank()) named.add("--repository");
+            if (branch != null) named.add("--branch");
+            if (from != null) named.add("--from");
+            if (noGate) named.add("--no-gate");
+            if (upstream != null) named.add("--upstream");
+            if (!named.isEmpty()) {
+                err.println("porelo: " + TaskLaunch.allRepositoriesBeside(named));
+                err.flush();
+                return 64;
+            }
+        }
+
         // Before --restarted: a start meant for a host never restarts this machine's tasks.
         if (host != null) {
             return onHost(out, err);
@@ -664,7 +688,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     final WorkOrigin.Choice choice =
                             first != null ? first : WorkOrigin.withoutApproved(context, standing);
                     projectName = choice.project();
-                    if (repository == null) {
+                    // A task that reads them all takes the checkout's project, not its repository.
+                    if (repository == null && !allRepositories) {
                         repository = choice.repository();
                     }
                     spec.commandLine().getOut().println("project        " + choice.said());
@@ -683,7 +708,20 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 return ex.code();
             }
             projectFile = ProjectSource.require(context, projectName);
+            if (allRepositories && !spec.commandLine().getParseResult().hasMatchedPositional(0)) {
+                // Named for what it reads, or the next free name: never a task on one of them.
+                task =
+                        TaskNames.fromRepository(
+                                context, projectName, TaskLaunch.ALL_REPOSITORIES_TASK);
+                spec.commandLine()
+                        .getOut()
+                        .println(
+                                "task           "
+                                        + task
+                                        + " - reads every repository; give a name to choose another");
+            }
             if ((repository == null || repository.isBlank())
+                    && !allRepositories
                     && !noGate
                     && !dryRun
                     && !noInput
@@ -830,7 +868,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                         || nameGiven
                                                 ? task
                                                 : null,
-                                        shortName),
+                                        shortName,
+                                        allRepositories),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.

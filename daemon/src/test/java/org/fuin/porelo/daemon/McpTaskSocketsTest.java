@@ -551,6 +551,25 @@ class McpTaskSocketsTest {
     }
 
     @Test
+    void aStartThatReadsEveryRepositoryIsAskedForItAndNamedForIt() throws IOException {
+        final PoreloContext context = context(HEAD + SECTION);
+
+        final org.fuin.porelo.app.TaskLaunch.Request reading =
+                PoreloDaemon.request(Map.of("project", "uc", "allRepositories", true), context);
+        assertThat(reading.allRepositories()).isTrue();
+        assertThat(reading.repository()).as("it names none").isNull();
+        assertThat(reading.task())
+                .as("unnamed, after what it reads, as at the command line")
+                .isEqualTo(org.fuin.porelo.app.TaskLaunch.ALL_REPOSITORIES_TASK);
+        assertThat(
+                        PoreloDaemon.request(
+                                        Map.of("project", "uc", "task", "x", "repository", "uc"),
+                                        context)
+                                .allRepositories())
+                .isFalse();
+    }
+
+    @Test
     void aNameTheEndpointPicksIsRecordedAsNoNameTheStartWasGiven() throws IOException {
         // Recorded as given, a picked name would show a child as named by somebody.
         final PoreloContext context = context(HEAD + SECTION);

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B619",
   "title": "A Task Reads Every Repository Of Its Project",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 1,
@@ -55,3 +55,36 @@ How it is today, read in the code:
 - The tests above, seen red first.
 - On a host and on a person's machine, a task started with `--all-repositories` lists every repository of its
   project under `/workspace`, fails to write there, and is gone after its end.
+
+## As built
+
+`--all-repositories` on `porelo task start` and `allRepositories` on `Start` and `CanStart` set
+`TaskLaunch.Request.allRepositories`. Beside `--repository`, `--branch`, `--from`, `--no-gate` or `--upstream` it is a
+usage error (exit 64), refused by the command line before anything is asked and by the launch in the same words
+(`TaskLaunch.allRepositoriesBeside`). Unnamed, the task is `all`, or the next free name. The task's agent, image and
+egress are the project's own repository's, as for a start without a gate, so its `repository` row is the project's
+own. A task's MCP start does not offer it.
+
+`WorkspaceSetup.readAll` opens each repository's gate as a workspace does (`GateSupport.gate`, `initialize`,
+`refresh`; an offline project's mirror is not fetched) and `GitGate.readMain` writes `refs/heads/main`, else the
+branch the mirror's HEAD names, with `git archive` into a file and `tar --extract --exclude=.git`, git run without the
+system's or the account's configuration. The incoming refs are never read. A repository that cannot be read is named
+in the start's output and left out; none readable refuses the start with exit 69, after it joined its conversations,
+so it is ended as every refused start is.
+
+Differs from the plan:
+
+- **The trees are in the account's state directory, `repositories/<container>/`** (`TaskPaths.repositories`), not
+  the container's state directory: that is the runtime directory, which is memory and is cleared by a reboot, while
+  the container mounts this one. `TaskRunner` mounts it read only at `/workspace` when it exists, and every removal
+  takes it: `task remove`, a prune, and a start that failed before its container existed.
+- **`CanStart` answers from the options alone**, with a new `StartOutcome` `ALL_REPOSITORIES_REFUSED` for
+  `repository`, `branch` or `noGate` beside it. Whether a repository can be read is not asked there, since that reaches
+  every upstream; there is no `NoRepositoryReadable`.
+- **What is not read is named in the start's output**, not in a log of its own; the agent's guide lists the
+  directories it has and says that a repository missing there could not be read.
+- **The census of unhanded work answers nothing held for a workspace that cannot be written**, which is how a
+  running reading task answers, and the start notes that it holds nothing, so a stopped or killed one is removed
+  without `--force`. Its end removes the container also when the run failed. `task stop` still only stops it.
+- A reading task needs no task certificate on a host: it has no gate and signs nothing.
+- The end's test is in `TaskRunCommandTest`, which drives the launch.

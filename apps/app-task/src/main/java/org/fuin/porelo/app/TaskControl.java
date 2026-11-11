@@ -257,6 +257,7 @@ public final class TaskControl {
                         new TaskSecrets(context).forget(container);
                         new Mailbox(context.paths().messaging().mailbox(container)).delete();
                         new TaskGuide(context.paths(), container).delete();
+                        new TaskRepositories(context.paths(), container).delete();
                         reservations.retire(container);
                         return new Stopped(
                                 Outcome.STOPPED, null, null, true, 0, List.of(), null, null, 0);
@@ -603,6 +604,7 @@ public final class TaskControl {
             try {
                 new Mailbox(context.paths().messaging().mailbox(container)).delete();
                 new TaskGuide(context.paths(), container).delete();
+                new TaskRepositories(context.paths(), container).delete();
             } catch (final java.io.IOException e) {
                 throw new java.io.UncheckedIOException(
                         "Removed the task but could not delete its mailbox: " + container, e);

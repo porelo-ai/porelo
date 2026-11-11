@@ -37,6 +37,46 @@ public final class TaskGuideText {
     }
 
     /**
+     * Returns the guide of a task that reads its whole project: what every task is told, then that
+     * its workspace is every repository, read only, and that nothing there goes anywhere.
+     *
+     * <p>Last, after the values, so what every task shares stays the beginning a provider caches;
+     * and needed, since what every task shares tells it to push.
+     *
+     * @param mailbox Whether the task has a mailbox, whose guide then follows.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading The repositories it reads, by name, or {@code null} for a task on one.
+     * @return Markdown.
+     */
+    public static String text(
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final java.util.@org.jspecify.annotations.Nullable List<String> reading) {
+        final String shared = text(mailbox, values);
+        if (reading == null) {
+            return shared;
+        }
+        final StringBuilder part =
+                new StringBuilder(
+                        """
+
+                        # This task reads its whole project
+
+                        `/workspace` holds every repository of this project, one directory each, as its main
+                        stood when the task started. It is read only: nothing in it can be changed. A repository
+                        of the project that is not there could not be read on this machine.
+
+                        **Nothing in `/workspace` is pushed**, and this task has no gate: what is said above about
+                        pushing does not apply here. The task is removed when it ends, with whatever it holds.
+
+                        """);
+        for (final String name : reading) {
+            part.append("- `/workspace/").append(name).append("/`\n");
+        }
+        return shared + part;
+    }
+
+    /**
      * Returns the guide with the values this task was started with, in a part after everything
      * every task shares, so a provider's cache of the shared beginning still holds.
      *
@@ -150,13 +190,32 @@ public final class TaskGuideText {
             final boolean mailbox,
             final java.util.Map<String, java.util.Map.Entry<String, String>> values)
             throws IOException {
+        write(guide, mailbox, values, null);
+    }
+
+    /**
+     * Writes the guide of a task, the repositories it reads among it, into its directory, made when
+     * missing, and only when it changed.
+     *
+     * @param guide Where it goes.
+     * @param mailbox Whether the task has a mailbox.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading The repositories it reads, or {@code null} for a task on one.
+     * @throws IOException Writing failed.
+     */
+    public static void write(
+            final TaskGuide guide,
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final java.util.@org.jspecify.annotations.Nullable List<String> reading)
+            throws IOException {
         final Path directory = guide.directory();
         if (Files.isSymbolicLink(directory)) {
             throw new IOException(directory + " is a link; the guide is not written through it");
         }
         Directories.create(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
-        final String text = text(mailbox, values);
+        final String text = text(mailbox, values, reading);
         final Path file = guide.file();
         if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 && Files.readString(file, StandardCharsets.UTF_8).equals(text)) {

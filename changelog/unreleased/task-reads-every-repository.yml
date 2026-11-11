@@ -1,0 +1,2 @@
+title: "A task started with --all-repositories reads every repository of its project, each main read only under /workspace, pushes nothing and is removed at its end"
+type: added

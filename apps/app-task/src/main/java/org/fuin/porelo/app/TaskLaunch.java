@@ -66,6 +66,8 @@ public final class TaskLaunch {
      * @param shortName Optional container spelling, fixed when the task is created.
      * @param named The task name as the caller gave it, or {@code null} when the start took it from
      *     the repository or numbered it; recorded so a client shows the name a person chose.
+     * @param allRepositories Whether the task reads every repository of its project, read only and
+     *     with no gate, instead of working on one; refused beside an option that names one.
      */
     public record Request(
             String task,
@@ -92,7 +94,97 @@ public final class TaskLaunch {
             @Nullable TaskBase base,
             @Nullable String parent,
             @Nullable String named,
-            @Nullable String shortName) {
+            @Nullable String shortName,
+            boolean allRepositories) {
+
+        /** Constructor for a start on one repository, or on none. */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch,
+                @Nullable Integer subagents,
+                @Nullable TaskBase base,
+                @Nullable String parent,
+                @Nullable String named,
+                @Nullable String shortName) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    subagents,
+                    base,
+                    parent,
+                    named,
+                    shortName,
+                    false);
+        }
+
+        /**
+         * Says why this request cannot read every repository as it asks, or {@code null}.
+         *
+         * <p>Each option refused names one repository or what its gate does with it, and a task
+         * that reads them all has neither: taking one silently would start a task other than the
+         * one asked for.
+         *
+         * @return The refusal, a usage error; {@code null} when the request reads one repository or
+         *     reads them all as it may.
+         */
+        public @Nullable String allRepositoriesRefusal() {
+            if (!allRepositories) {
+                return null;
+            }
+            final java.util.List<String> named = new java.util.ArrayList<>();
+            if (repository != null && !repository.isBlank()) {
+                named.add("--repository");
+            }
+            if (branch != null) {
+                named.add("--branch");
+            }
+            if (base != null && "FROM".equals(base.source())) {
+                named.add("--from");
+            }
+            if (noGate) {
+                named.add("--no-gate");
+            }
+            if (upstream != null) {
+                named.add("--upstream");
+            }
+            return named.isEmpty() ? null : allRepositoriesBeside(named);
+        }
 
         /** Constructor for a start without a task short spelling. */
         public Request(
@@ -719,7 +811,8 @@ public final class TaskLaunch {
                     parent,
                     // The same task by its other name: a person who named it named it so.
                     named == null ? null : name,
-                    shortName);
+                    shortName,
+                    allRepositories);
         }
     }
 
@@ -779,6 +872,22 @@ public final class TaskLaunch {
 
     /** How long an unattended agent may run when nothing says otherwise. */
     public static final int DEFAULT_MINUTES = 30;
+
+    /** What a task that reads every repository of its project is named when nobody names it. */
+    public static final String ALL_REPOSITORIES_TASK = "all";
+
+    /**
+     * Returns the refusal of {@code --all-repositories} beside options that name one repository or
+     * its gate, in the words every interface says it with.
+     *
+     * @param named The options given beside it.
+     * @return The sentence.
+     */
+    public static String allRepositoriesBeside(final java.util.List<String> named) {
+        return "--all-repositories reads every repository of the project, read only and with no"
+                + " gate, so it takes no "
+                + String.join(", ", named);
+    }
 
     /**
      * What {@link #runAgent} answers when there is no agent to run.
@@ -1275,8 +1384,9 @@ public final class TaskLaunch {
                 return false;
             }
         }
+        final boolean ungated = request.noGate() || request.allRepositories();
         final String refused =
-                request.noGate()
+                ungated
                         ? StartCheck.hostServicesWithoutAGate(project)
                         : settleForgeBranch(project, repository);
         if (refused == null) {
@@ -1284,9 +1394,13 @@ public final class TaskLaunch {
         }
         err.println(
                 "porelo: "
-                        + (request.noGate() ? "--no-gate: " : "")
+                        + (request.allRepositories()
+                                ? "--all-repositories: "
+                                : request.noGate() ? "--no-gate: " : "")
                         + refused
-                        + (request.noGate() ? "; start it with its gate" : ""));
+                        + (request.allRepositories()
+                                ? "; a task that reads them all has none"
+                                : request.noGate() ? "; start it with its gate" : ""));
         err.println("porelo: nothing was created");
         err.flush();
         return false;
@@ -1395,9 +1509,11 @@ public final class TaskLaunch {
     private @Nullable Existing startExistingSteps(PrintWriter out, PrintWriter err, boolean goingIn)
             throws java.io.IOException {
 
-        if (request.dryRun()) {
+        if (request.dryRun() || request.allRepositoriesRefusal() != null) {
             // A dry run must touch nothing, and asking the runtime what exists is touching it. The
             // launch says what it would do; the listing's startAction says which case applies.
+            // A start refused for what it asks is refused by the launch, before it touches
+            // anything.
             return null;
         }
         final Project project;
@@ -1808,7 +1924,8 @@ public final class TaskLaunch {
                             request.base(),
                             request.parent(),
                             request.named(),
-                            request.shortName());
+                            request.shortName(),
+                            request.allRepositories());
         }
         return null;
     }
@@ -2318,6 +2435,12 @@ public final class TaskLaunch {
             err.flush();
             return 64;
         }
+        final String readingRefused = request.allRepositoriesRefusal();
+        if (readingRefused != null) {
+            err.println("porelo: " + readingRefused);
+            err.flush();
+            return 64;
+        }
         // Even remembering the project would leave state for a task this machine cannot create.
         if (!request.dryRun()) {
             final java.util.Optional<String> missingInit = TaskInit.missing(context);
@@ -2426,7 +2549,8 @@ public final class TaskLaunch {
         // Chosen per repository, one source taken whole and named with where it came from: the
         // image
         // is built as root outside the task's firewall, so which file said what is not a detail.
-        final boolean gated = !request.noGate() && !request.dryRun();
+        // A task that reads every repository has none open behind a gate: it pushes nothing.
+        final boolean gated = !request.noGate() && !request.allRepositories() && !request.dryRun();
         // A repository's own files in 'default' add to the project, the image aside: what they ask
         // of this machine is allowed once, as CanStart answers, before anything is built.
         final Project settled;
@@ -2508,7 +2632,7 @@ public final class TaskLaunch {
         if (!settleSubagents(project, out, err)) {
             return 64;
         }
-        if (!request.noGate()) {
+        if (!request.noGate() && !request.allRepositories()) {
             // Settled here, before anything exists, and kept with the task: a resume and a later
             // change to the project file leave it as it is.
             final String refused = settleForgeBranch(project, repository);
@@ -2525,7 +2649,14 @@ public final class TaskLaunch {
         } else {
             final String refused = StartCheck.hostServicesWithoutAGate(project);
             if (refused != null) {
-                err.println("porelo: --no-gate: " + refused + "; start it with its gate");
+                err.println(
+                        "porelo: "
+                                + (request.allRepositories() ? "--all-repositories" : "--no-gate")
+                                + ": "
+                                + refused
+                                + (request.allRepositories()
+                                        ? "; a task that reads them all has none"
+                                        : "; start it with its gate"));
                 err.println("porelo: nothing was created");
                 err.flush();
                 return 64;
@@ -2717,7 +2848,7 @@ public final class TaskLaunch {
             // The upstream read as the gate's clone will read it, before anything is made: a
             // refused key surfaced from the clone as "no git gate for this task", after the task
             // was half made (found on 2026-10-13).
-            if (!request.noGate() && !request.dryRun()) {
+            if (gated) {
                 UpstreamProbe.Finding finding = upstreamFinding(project);
                 if (finding != null && finding.refuses()) {
                     finding = storeRefusedKey(finding, project, err);
@@ -3098,6 +3229,22 @@ public final class TaskLaunch {
                 startingBranch.writeForGate(workspace.gate().mirror(), request.task());
             }
             steps.recordIn(state);
+            if (request.allRepositories()) {
+                // Written by the host before the container exists, which mounts it read only: once
+                // enrolled, so a start refused here is ended as every other refused start is.
+                steps.started(StartStep.Step.WORKSPACE);
+                final TaskRepositories reading = new TaskRepositories(context.paths(), container);
+                if (workspace().readAll(project, reading.directory(), out, err).isEmpty()) {
+                    err.println(
+                            "porelo: no repository of '"
+                                    + project.name()
+                                    + "' could be read here, so this task would have nothing to"
+                                    + " read; fix what is said above and start again");
+                    err.println("porelo: nothing was created");
+                    err.flush();
+                    return cleanUp(runner, container, 69, false, out, err);
+                }
+            }
             steps.started(StartStep.Step.IMAGE);
 
             // The mailbox, which is not in the state directory and does not go with it: a
@@ -3289,6 +3436,11 @@ public final class TaskLaunch {
                     steps,
                     request.task(),
                     request.shortName());
+            if (request.allRepositories()) {
+                // What it reads cannot be written, so it holds nothing to hand on: said from the
+                // start, so a task killed before any stop asked it is still removed without asking.
+                heldNothing(container);
+            }
 
             // Once the container is up, and only one the broker gave a token for: a credential the
             // vault lacks, or one the broker never came up for, was given to nobody. Names only,
@@ -5133,7 +5285,9 @@ public final class TaskLaunch {
      */
     private org.fuin.porelo.core.project.Repository chosenRepository(Project project) {
         if (request.repository() == null || request.repository().isBlank()) {
-            if (request.noGate() || request.dryRun()) {
+            // A task that reads them all takes its agent, image and egress from the project's own,
+            // as one without a gate does: it works in none of them.
+            if (request.noGate() || request.allRepositories() || request.dryRun()) {
                 // A dry run starts nothing, so there is no task to start on a guessed repository -
                 // which is the only thing the refusal below protects. What it reports without one
                 // is the project's own repository, and that is not a pick: its egress and limits
@@ -5397,6 +5551,11 @@ public final class TaskLaunch {
         } catch (java.io.IOException ex) {
             err.println("porelo: could not delete the mailbox of " + container + ": " + ex);
         }
+        try {
+            new TaskRepositories(context.paths(), container).delete();
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not delete what " + container + " was to read: " + ex);
+        }
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
         if (java.nio.file.Files.isDirectory(state)) {
             try (java.util.stream.Stream<java.nio.file.Path> paths =
@@ -5428,8 +5587,12 @@ public final class TaskLaunch {
                         && context.podman().stateOf(recorded)
                                 != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT;
         boolean unmade = false;
+        // A task that read its whole project wrote nothing anybody can take back, and what it read
+        // is its project's main: its end removes it, kept or failed, so nothing staged survives.
+        final boolean reading = request.allRepositories();
+        final boolean kept = keep && !reading;
 
-        if (code != 0 && exists && !keep) {
+        if (code != 0 && exists && !kept && !reading) {
             if (!handedOver) {
                 // Kept to be started again, which brings back what is recorded: a start that failed
                 // had recorded none of what it started for it, and it came back without them.
@@ -5452,14 +5615,15 @@ public final class TaskLaunch {
             out.println("          - which offers to start it again -");
             out.println("          discard with 'porelo task remove " + container + "'");
             out.flush();
-        } else if (!keep) {
+        } else if (!kept) {
             // The same question 'task remove' asks before it removes anything. A workspace is in
             // the container's own writable layer, so this remove destroys it - and asking there but
             // not here was the difference between refusing to discard unreviewed work and
             // discarding it because somebody typed 'exit'. Only answerable while the container
-            // runs, which it still is: the shell was an exec beside 'sleep infinity'.
+            // runs, which it still is: the shell was an exec beside 'sleep infinity'. Not asked of
+            // a task that only read: whatever it wrote is nothing it can hand on.
             final String held =
-                    exists && context.podman().pidOf(container).orElse(0L) > 0
+                    !reading && exists && context.podman().pidOf(container).orElse(0L) > 0
                             ? new TaskControl(context).heldBy(container).phrase()
                             : null;
             if (held == null) {
@@ -5557,7 +5721,10 @@ public final class TaskLaunch {
                                 new java.util.AbstractMap.SimpleImmutableEntry<>(
                                         value, declared == null ? null : declared.env()));
                     });
-            TaskGuideText.write(guide, mailbox.exists(), told);
+            // What it reads is what its directory holds, so a task brought back is told the same.
+            final TaskRepositories reading = new TaskRepositories(context.paths(), container);
+            TaskGuideText.write(
+                    guide, mailbox.exists(), told, reading.exists() ? reading.names() : null);
         }
         if (!mailbox.exists()) {
             return;

@@ -80,6 +80,22 @@ class TaskGuideTest {
     }
 
     @Test
+    void aTaskThatReadsItsWholeProjectIsToldItPushesNothing() {
+        final String text =
+                TaskGuideText.text(true, java.util.Map.of(), List.of("back", "front", "shop"));
+
+        assertThat(text)
+                .as("after what every task shares, so a provider's cache of it still holds")
+                .startsWith(TaskGuideText.text(true))
+                .contains("`/workspace/back/`", "`/workspace/front/`", "`/workspace/shop/`")
+                .contains("read only")
+                .contains("Nothing in `/workspace` is pushed");
+        assertThat(TaskGuideText.text(true, java.util.Map.of(), null))
+                .as("a task on one repository is told nothing of it")
+                .isEqualTo(TaskGuideText.text(true));
+    }
+
+    @Test
     void isWrittenWhereTheTaskReadsItAndGivenToTheAgentFromThere() throws IOException {
         final TaskGuide guide = new TaskGuide(paths(), TASK);
         assertThat(guide.instructing(CLAUDE, List.of("claude")))

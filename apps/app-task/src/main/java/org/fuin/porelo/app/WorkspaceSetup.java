@@ -246,6 +246,96 @@ final class WorkspaceSetup {
     }
 
     /**
+     * Writes every repository of the project, its own among them, into a directory each under
+     * {@code into}, as its main stands once its gate brought it up to the upstream; {@code into} is
+     * made anew.
+     *
+     * <p>Each through its gate as a task's workspace is, so a repository is taken wherever this
+     * machine takes it and with the credentials it has for it, and an offline project's only from
+     * its mirror. A repository that cannot be read is named and left out: the others are still
+     * worth reading, and the start refuses only when none could be.
+     *
+     * @param project The project.
+     * @param into The directory to write them in; what it held is removed first.
+     * @param out Where each repository read is said.
+     * @param err Where each one that could not be is said, with why.
+     * @return The repositories written, by name, in the project's order.
+     */
+    java.util.List<String> readAll(
+            Project project, java.nio.file.Path into, PrintWriter out, PrintWriter err) {
+        // Whatever an earlier start of this name left is no reading of today's mains; the name is
+        // free by now, so nothing of it is in use.
+        removePartial(into, err);
+        try {
+            org.fuin.porelo.wire.Directories.create(into);
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not make " + into + ": " + ex.getMessage());
+            err.flush();
+            return java.util.List.of();
+        }
+        final java.util.List<String> read = new java.util.ArrayList<>();
+        final java.util.Set<String> seen = new java.util.HashSet<>();
+        for (final Repository each : project.allRepositories()) {
+            if (!seen.add(each.name())) {
+                continue;
+            }
+            // A name is a directory here: one that is not a plain name would be a path elsewhere.
+            if (!each.name().matches("[A-Za-z0-9][A-Za-z0-9._-]*")) {
+                err.println(
+                        "porelo: repository '"
+                                + each.name()
+                                + "' is not read: its name is no directory name");
+                continue;
+            }
+            try {
+                final org.fuin.porelo.gate.GitGate gate =
+                        GateSupport.gate(context, project, each, null, seed(project, each, out));
+                gate.initialize();
+                final String behind = gate.refresh();
+                if (!behind.isEmpty()) {
+                    err.println("porelo: " + each.name() + ": " + behind);
+                }
+                final String commit = gate.readMain(into.resolve(each.name()));
+                out.println(
+                        "read      "
+                                + each.name()
+                                + " at "
+                                + commit.substring(0, 12)
+                                + " into "
+                                + TaskRepositories.MOUNT
+                                + "/"
+                                + each.name());
+                read.add(each.name());
+            } catch (RuntimeException ex) {
+                err.println(
+                        "porelo: repository '"
+                                + each.name()
+                                + "' is not read, and the task starts without it: "
+                                + ex.getMessage());
+                removePartial(into.resolve(each.name()), err);
+            }
+        }
+        out.flush();
+        err.flush();
+        return java.util.List.copyOf(read);
+    }
+
+    /** Takes away what a failed read left half written, so the task never sees half a tree. */
+    private static void removePartial(java.nio.file.Path partial, PrintWriter err) {
+        if (!java.nio.file.Files.exists(partial, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        try (java.util.stream.Stream<java.nio.file.Path> tree = java.nio.file.Files.walk(partial)) {
+            for (final java.nio.file.Path path :
+                    tree.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                java.nio.file.Files.deleteIfExists(path);
+            }
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not remove " + partial + ": " + ex.getMessage());
+        }
+    }
+
+    /**
      * Returns the repository an empty mirror should be seeded from.
      *
      * <p>Only reached when neither {@code --upstream} nor the project names one. Standing in a

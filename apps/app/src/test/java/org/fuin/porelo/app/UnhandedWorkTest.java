@@ -50,6 +50,25 @@ class UnhandedWorkTest {
     }
 
     @Test
+    void aWorkspaceNothingCanWriteHoldsNothing(@TempDir Path workspace) throws IOException {
+
+        // A task that reads its whole project: its repositories, read only, no repository on top.
+        Files.createDirectories(workspace.resolve("front"));
+        Files.writeString(workspace.resolve("front").resolve("index.html"), "read\n");
+        Files.setPosixFilePermissions(
+                workspace, java.nio.file.attribute.PosixFilePermissions.fromString("r-xr-xr-x"));
+        try {
+            assertThat(asked(workspace))
+                    .as("nothing it could hand on, which is not 'nobody could look'")
+                    .isEqualTo(new UnhandedWork.Held(true, 0, 0, null));
+        } finally {
+            Files.setPosixFilePermissions(
+                    workspace,
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    @Test
     void aWorkspaceGitCannotReadIsNotAWorkspaceThatHoldsNothing(@TempDir Path workspace)
             throws IOException, InterruptedException {
 

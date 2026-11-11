@@ -227,6 +227,12 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 - `--branch NAME` names the task's branch at the forge outright, instead of the one the project's
   [`branch` block](project-file.md#branch) makes; it must match its pattern too. The start shows the branch, and
   `task status` keeps showing it as `forge`.
+- `--all-repositories` gives the task every repository of the project, its own among them, to read: each at its main
+  as this machine takes it (from the host's forge, from central, or your own mirror; an offline project's from its
+  mirror alone), under `/workspace/<repository>/`, read only and without `.git`. Nothing your project's tasks pushed
+  for review is in it. The task has no gate and pushes nothing, and its end removes it, `--rm` or not, whatever it
+  holds. A repository that cannot be read is named and left out; when none can be, the start is refused (exit 69).
+  It takes no `-r`, `--branch`, `--from`, `--no-gate` or `--upstream` (exit 64). Unnamed, the task is called `all`.
 - **A running task is gone into**, as `attach` does: at a terminal, `start` on it starts its agent again where the
   session is gone, continuing its conversation. An option that takes effect only when a task is created or brought
   up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and the like) is refused, naming each, since it

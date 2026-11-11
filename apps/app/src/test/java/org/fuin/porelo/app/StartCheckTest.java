@@ -83,6 +83,66 @@ class StartCheckTest {
         assertThat(result.detail()).contains("[feature, bugfix]");
     }
 
+    private static StartCheck.Result reading(
+            PoreloContext context, Path project, String repository, boolean noGate, String branch) {
+        return StartCheck.check(
+                context,
+                project,
+                null,
+                null,
+                null,
+                null,
+                repository,
+                !noGate,
+                java.util.Map.of(),
+                java.util.Map.of(),
+                branch,
+                null,
+                true);
+    }
+
+    @Test
+    void readingEveryRepositoryIsRefusedBesideWhatNamesOne(@TempDir Path dir) throws Exception {
+        // Answered from the options alone, as Start refuses them before it reads anything.
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
+                        + "repositories:\n  backend:\n");
+
+        final StartCheck.Result named = reading(context(dir), project, "backend", false, null);
+        assertThat(named.outcome()).isEqualTo(StartCheck.Outcome.ALL_REPOSITORIES_REFUSED);
+        assertThat(named.detail())
+                .isEqualTo(TaskLaunch.allRepositoriesBeside(java.util.List.of("--repository")));
+        assertThat(reading(context(dir), project, null, true, "porelo/reading").detail())
+                .isEqualTo(
+                        TaskLaunch.allRepositoriesBeside(
+                                java.util.List.of("--branch", "--no-gate")));
+
+        final StartCheck.Result alone = reading(context(dir), project, null, false, null);
+        assertThat(alone.outcome())
+                .as("it names no repository, and needs none named")
+                .isNotIn(
+                        StartCheck.Outcome.ALL_REPOSITORIES_REFUSED,
+                        StartCheck.Outcome.NO_REPOSITORY_CHOSEN);
+    }
+
+    @Test
+    void readingEveryRepositoryHasNoGateForHostServices(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
+                        + "egress:\n  host_services: [\"forge.internal.example\"]\n");
+
+        assertThat(reading(context(dir), project, null, false, null).outcome())
+                .isEqualTo(StartCheck.Outcome.HOST_SERVICES_NEED_A_GATE);
+    }
+
     @Test
     void aStartWithoutAGateIsRefusedForHostServicesAsTheStartRefusesIt(@TempDir Path dir)
             throws Exception {

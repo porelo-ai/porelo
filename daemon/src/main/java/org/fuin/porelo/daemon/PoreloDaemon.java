@@ -803,14 +803,20 @@ public final class PoreloDaemon {
         final String task = text(parameters, "task");
         final Path projectFile = projectFile(parameters, context);
         final String repository = key(projectFile, text(parameters, "repository"));
+        final boolean allRepositories = flag(parameters, "allRepositories");
         return new TaskLaunch.Request(
-                // Unnamed: after its repository, as at the command line.
+                // Unnamed: after its repository, or after reading them all, as at the command line.
                 !task.isEmpty()
                         ? task
-                        : repository.isEmpty()
-                                ? "shell"
-                                : org.fuin.porelo.app.TaskNames.fromRepository(
-                                        context, text(parameters, "project"), repository),
+                        : allRepositories && repository.isEmpty()
+                                ? org.fuin.porelo.app.TaskNames.fromRepository(
+                                        context,
+                                        text(parameters, "project"),
+                                        TaskLaunch.ALL_REPOSITORIES_TASK)
+                                : repository.isEmpty()
+                                        ? "shell"
+                                        : org.fuin.porelo.app.TaskNames.fromRepository(
+                                                context, text(parameters, "project"), repository),
                 // A name, resolved here rather than taken as a path. The machine prefers the file
                 // it verified; a client has no filesystem here to point at one.
                 projectFile,
@@ -858,7 +864,8 @@ public final class PoreloDaemon {
                 McpTaskSockets.caller(),
                 // The caller's own word only: a name the MCP endpoint settled for it is none.
                 task.isEmpty() || flag(parameters, UNNAMED) ? null : task,
-                shortName(parameters));
+                shortName(parameters),
+                allRepositories);
     }
 
     /**

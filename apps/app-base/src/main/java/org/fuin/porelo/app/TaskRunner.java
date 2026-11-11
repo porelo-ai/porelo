@@ -526,6 +526,12 @@ public class TaskRunner {
             // launch before this.
             specification.volume(guide.directory(), TaskGuide.MOUNT);
         }
+        final TaskRepositories reading = new TaskRepositories(paths, container);
+        if (reading.exists()) {
+            // A task that reads its whole project: every repository's main, assembled by the launch
+            // before this, and read only, so nothing the agent does there can be kept or pushed.
+            specification.volumeReadOnly(reading.directory(), TaskRepositories.MOUNT);
+        }
         // The id podman gives back is what makes it Porelo's task, never its name: recorded before
         // it first starts, so every act on it after this, and its hooks, go to this container and
         // no other of the same name.

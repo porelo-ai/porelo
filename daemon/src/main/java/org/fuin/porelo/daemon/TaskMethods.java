@@ -164,7 +164,8 @@ final class TaskMethods {
                 credentials(parameters),
                 values(parameters),
                 empty(parameters, "branch"),
-                PoreloDaemon.shortName(parameters));
+                PoreloDaemon.shortName(parameters),
+                flag(parameters, "allRepositories"));
     }
 
     /**

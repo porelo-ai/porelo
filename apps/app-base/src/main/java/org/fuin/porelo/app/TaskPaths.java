@@ -128,6 +128,21 @@ public record TaskPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory holding the repositories a task that reads its whole project is given,
+     * mounted read only into the task.
+     *
+     * <p>Under the state directory, like the guide: what a container mounts has to be there when it
+     * starts again after a reboot, and a whole project's trees do not belong in the runtime
+     * directory, which is memory. Deleted when the task is removed.
+     *
+     * @param container Container name.
+     * @return The directory.
+     */
+    public Path repositories(String container) {
+        return paths.xdg().state().resolve("repositories").resolve(container);
+    }
+
+    /**
      * Returns the file holding one task's clearance decisions.
      *
      * <p>Under the state directory, not beside the rest of the task's files. Everything else a task

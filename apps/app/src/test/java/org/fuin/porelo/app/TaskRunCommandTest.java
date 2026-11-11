@@ -1387,7 +1387,9 @@ class TaskRunCommandTest {
                 && "task".equals(all.get(0))
                 && "start".equals(all.get(1))
                 && !all.contains("--repository")
-                && !all.contains("-r")) {
+                && !all.contains("-r")
+                // A task that reads every repository names none.
+                && !all.contains("--all-repositories")) {
             all.add("--repository");
             all.add("uc");
         }
@@ -6506,6 +6508,114 @@ class TaskRunCommandTest {
                 .contains("kept")
                 .contains("never reached the gate")
                 .contains("--rescue");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "--repository=uc",
+                "--branch=porelo/reading",
+                "--from=main",
+                "--no-gate",
+                "--upstream=https://forge.example/acme/shop.git"
+            })
+    void readingEveryRepositoryRefusesWhatNamesOne(String option, @TempDir Path dir)
+            throws IOException {
+
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "--all-repositories",
+                        option,
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("--all-repositories reads every repository of the project")
+                .contains(option.split("=")[0]);
+        assertThat(runner.lines())
+                .as("refused before anything is made")
+                .noneMatch(line -> line.contains(" create "));
+    }
+
+    @Test
+    void aTaskThatReadsItsWholeProjectIsRemovedAtItsEndWhateverItHolds(@TempDir Path dir)
+            throws Exception {
+
+        final PoreloContext prepared = context(dir, true);
+        // The project's own repository, with a main for the reader to be given.
+        final String project = projectFile(dir, MINIMAL);
+        final Path upstream = Files.createDirectories(dir.resolve("upstream"));
+        final java.util.Map<String, String> git =
+                java.util.Map.of("GIT_CONFIG_GLOBAL", "/dev/null", "GIT_CONFIG_NOSYSTEM", "1");
+        final var real = new org.fuin.porelo.core.process.ProcessCommandRunner();
+        real.runOrFail(
+                org.fuin.porelo.core.process.Command.of(
+                                "git", "init", "-q", "-b", "main", upstream.toString())
+                        .withEnvironment(git));
+        Files.writeString(upstream.resolve("README.md"), "the project\n");
+        real.runOrFail(
+                org.fuin.porelo.core.process.Command.of(
+                                "git",
+                                "-C",
+                                upstream.toString(),
+                                "-c",
+                                "user.name=T",
+                                "-c",
+                                "user.email=t@example.com",
+                                "commit",
+                                "-q",
+                                "--allow-empty",
+                                "-m",
+                                "initial")
+                        .withEnvironment(git));
+        final Path mirror =
+                GateSupport.mirror(
+                        prepared,
+                        org.fuin.porelo.core.project.ProjectReader.read(dir.resolve("project.yml")),
+                        org.fuin.porelo.core.project.ProjectReader.read(dir.resolve("project.yml"))
+                                .ownRepository());
+        real.runOrFail(
+                org.fuin.porelo.core.process.Command.of(
+                                "git",
+                                "clone",
+                                "-q",
+                                "--bare",
+                                upstream.toString(),
+                                mirror.toString())
+                        .withEnvironment(git));
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        // What the census says of a workspace holding work: a task that only read holds none.
+        runner.answering("exec", "1 2\n");
+
+        execute(
+                prepared,
+                "task",
+                "start",
+                "--all-repositories",
+                "--attach",
+                "shell",
+                "-p",
+                project);
+
+        assertThat(runner.lines())
+                .as("its repositories are its workspace, read only: %s", err)
+                .anyMatch(line -> line.contains(":/workspace:ro,Z"));
+        assertThat(runner.lines())
+                .as("removed at its end, though nobody asked for --rm: %s", out)
+                .anyMatch(line -> line.contains("rm --force"));
+        assertThat(out.toString()).doesNotContain("never reached the gate");
+        final Path read = prepared.paths().tasks().repositories("any").getParent();
+        assertThat(read).as("it was given what it read").exists();
+        try (java.util.stream.Stream<Path> left = Files.list(read)) {
+            assertThat(left.toList()).as("what it read goes with it").isEmpty();
+        }
     }
 
     @Test
