@@ -241,7 +241,9 @@ class PublishWorkflowTest {
                         "github.ref",
                         ref,
                         "steps.channel.outputs.channel",
-                        ref.startsWith("refs/tags/") ? "releases" : "snapshots"));
+                        ref.startsWith("refs/tags/") ? "releases" : "snapshots",
+                        "steps.packages-cache.outputs.cache-hit",
+                        ""));
     }
 
     private static Map<String, String> qualifiedInputs(final String publish) {
@@ -306,7 +308,7 @@ class PublishWorkflowTest {
      */
     private static final class Condition {
         private static final Pattern TOKEN =
-                Pattern.compile("\\s*('[^']*'|&&|\\|\\||==|!=|[!(),]|[A-Za-z_][A-Za-z_0-9.]*)");
+                Pattern.compile("\\s*('[^']*'|&&|\\|\\||==|!=|[!(),]|[A-Za-z_][A-Za-z_0-9.-]*)");
         private final List<String> tokens = new ArrayList<>();
         private final Map<String, String> inputs;
         private int position;
