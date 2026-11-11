@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B505",
   "title": "Where Delivered Content Came From, In Review",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 7,

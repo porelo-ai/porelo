@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B591",
   "title": "The Room Receives A Person's Chosen Name",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
@@ -16,7 +16,7 @@
 
 **Why this size.** include names in the organization fetch result and carry admitted persons' names through the host follow to the transport input.
 
-Implementing since 2026-11-10. Filed 2026-11-10 under ST290, from the fourth move.
+Filed 2026-11-10 under ST290, from the fourth move.
 
 **What must be true.** The host passes each admitted person's chosen name from their organization card to the
 project room, so a person without a name there is shown under it from their first message. A name they later set in

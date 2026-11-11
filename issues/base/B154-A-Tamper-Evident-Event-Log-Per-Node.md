@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B154",
   "title": "A Tamper-Evident Event Log Per Node",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "L",
   "priority": "Medium",
   "rank": 11,
