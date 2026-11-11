@@ -297,6 +297,61 @@ class RemoteStartTest {
     }
 
     /** A stand-in for ssh: asks once, keeps the answer, then says it started. */
+    @Test
+    void anotherKeyThanTheOrganizationPinsIsRefusedNamingItsAdmins() throws Exception {
+        final Path ssh = dir.resolve("mismatch.sh");
+        Files.writeString(
+                ssh,
+                "#!/bin/sh\n"
+                        + "echo '@@@@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @@@@' >&2\n"
+                        + "echo 'Host key verification failed.' >&2\n"
+                        + "exit 255\n");
+        ssh.toFile().setExecutable(true);
+        final StringWriter err = new StringWriter();
+
+        final int code =
+                new RemoteStart(
+                                List.of(ssh.toString()),
+                                socket,
+                                new OrganizationHostPin.Pin(
+                                        "build",
+                                        "build.example.org",
+                                        22,
+                                        "ssh-ed25519 AAAA",
+                                        List.of("ada", "bea")))
+                        .run(
+                                List.of("task", "run", "fix"),
+                                "uc",
+                                "fix",
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(err));
+
+        assertThat(code).as("its own exit").isEqualTo(RemoteStart.PIN_MISMATCH);
+        assertThat(err.toString())
+                .contains("build")
+                .contains("another ssh host key")
+                .contains("ada, bea")
+                .doesNotContain("trust-host");
+    }
+
+    @Test
+    void anUnpinnedHostsVerificationFailureStaysSshsOwn() throws Exception {
+        final Path ssh = dir.resolve("unknown.sh");
+        Files.writeString(ssh, "#!/bin/sh\necho 'Host key verification failed.' >&2\nexit 255\n");
+        ssh.toFile().setExecutable(true);
+
+        final int code =
+                new RemoteStart(List.of(ssh.toString()), socket)
+                        .run(
+                                List.of("task", "run", "fix"),
+                                "uc",
+                                "fix",
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(new StringWriter()));
+
+        assertThat(code).as("today's answer").isEqualTo(255);
+    }
+
     private Path host(String request) throws Exception {
         final Path script = dir.resolve("host.sh");
         Files.writeString(

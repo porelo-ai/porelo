@@ -237,7 +237,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b611"></a>[B611](B611-A-Start-On-An-Organizations-Host-Trusts-Its-Pinned-Key.md) | M | - | `task start --host` on a host the organization's signed card lists connects with the card's `ssh_host_key` alone, no `trust-host` first; a key that does not match is refused in words; hosts the organization does not list keep `trust-host`. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. |
@@ -287,6 +286,7 @@ from its side, as *blocked by*.
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
 | <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. |
+| <a id="b611"></a>[B611](B611-A-Start-On-An-Organizations-Host-Trusts-Its-Pinned-Key.md) | M | - | `task start --host` on a host the organization's signed card lists connects with the card's `ssh_host_key` alone, no `trust-host` first; a key that does not match is refused in words; hosts the organization does not list keep `trust-host`. |
 | <a id="b612"></a>[B612](B612-Starts-At-Once-Make-One-Transport-Account.md) | S | - | Several tasks of one person started at once, before the person has an account on the project's transport, all join the conversation: one start makes the account and keeps its secret, the others take it. |
 | <a id="b571"></a>[B571](B571-A-Task-Container-Finds-Its-Init.md) | XS | - | porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made. |
 | <a id="b584"></a>[B584](B584-A-Hosts-Open-Pull-Requests-Over-The-Daemon.md) | M | - | A host forge's open pull requests per project, with makers, read and watched over the daemon until each merges or closes. |

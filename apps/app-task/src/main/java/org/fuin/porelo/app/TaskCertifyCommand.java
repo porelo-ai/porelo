@@ -100,9 +100,23 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                 err.flush();
                 return 64;
             }
-            final List<String> connection = RemoteStart.connection(context, host);
+            final OrganizationHostPin.@Nullable Pin pin;
             try {
-                return new RemoteStart(connection, agent)
+                pin =
+                        OrganizationHostPin.choose(
+                                host, OrganizationHostPin.ORGANIZATION.read(context));
+            } catch (OrganizationHostPin.Refused ex) {
+                err.println("porelo: " + ex.getMessage());
+                err.flush();
+                return ex.code();
+            } catch (java.io.IOException ex) {
+                err.println(
+                        "porelo: your organization could not be read; check it with porelo org --json");
+                err.flush();
+                return 69;
+            }
+            try (RemoteStart.Connection connection = RemoteStart.connection(context, host, pin)) {
+                return new RemoteStart(connection.command(), agent, pin)
                         .run(
                                 List.of(
                                         "task",

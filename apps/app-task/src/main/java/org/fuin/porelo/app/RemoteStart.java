@@ -7,7 +7,9 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -87,9 +89,100 @@ final class RemoteStart {
 
     private static final String REQUEST = "{\"" + StdinCertifier.REQUEST + "\":";
 
+    /** The one name a pinned connection's known-hosts file holds its key under. */
+    static final String PINNED_ALIAS = "porelo-pinned-host";
+
+    /** The exit when a host showed another key than the organization's card pins. */
+    static final int PIN_MISMATCH = 77;
+
+    /**
+     * A connection to a host, and the file that pins its key while the connection is used.
+     *
+     * @param command The command that reaches the host, the remote command left out.
+     * @param pin The known-hosts file holding the organization's pin, or {@code null}.
+     */
+    record Connection(List<String> command, @Nullable Path pin) implements AutoCloseable {
+
+        /** Compact constructor: the command is copied. */
+        Connection {
+            command = List.copyOf(command);
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (pin != null) {
+                Files.deleteIfExists(pin);
+            }
+        }
+    }
+
+    /**
+     * Opens a connection to a host: one the organization pins trusts its card's key alone, any
+     * other as {@link #connection(PoreloContext, String)} does.
+     *
+     * <p>Options on ssh's command line win over the person's own ssh configuration: their keys and
+     * jumps still apply, but no known-hosts file or command of theirs can make another key good.
+     *
+     * @param context The machine.
+     * @param host The host, as {@code --host} names it.
+     * @param pin The organization's pin of it, or {@code null}.
+     * @return The connection, to be closed when the start ends.
+     * @throws IOException If the pin cannot be written.
+     */
+    static Connection connection(
+            final PoreloContext context,
+            final String host,
+            final OrganizationHostPin.@Nullable Pin pin)
+            throws IOException {
+        if (pin == null) {
+            return new Connection(connection(context, host), null);
+        }
+        final Path file =
+                Files.createTempFile(
+                        "porelo-host-",
+                        ".known-hosts",
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rw-------")));
+        try {
+            Files.writeString(file, PINNED_ALIAS + " " + pin.key() + "\n");
+            final String path = file.toString();
+            if (path.contains("\"") || path.contains("\n") || path.contains("\r")) {
+                throw new IOException("the temporary directory's path holds a quote or a newline");
+            }
+            final List<String> connection = new ArrayList<>(SSH);
+            connection.addAll(
+                    List.of(
+                            "-o",
+                            "UserKnownHostsFile=\"" + path + "\"",
+                            "-o",
+                            "GlobalKnownHostsFile=/dev/null",
+                            "-o",
+                            "KnownHostsCommand=none",
+                            "-o",
+                            "HostKeyAlias=" + PINNED_ALIAS,
+                            "-o",
+                            "HostKeyAlgorithms=" + pin.algorithms(),
+                            "-o",
+                            "UpdateHostKeys=no",
+                            "-o",
+                            "VerifyHostKeyDNS=no",
+                            "-o",
+                            "CheckHostIP=no",
+                            "-p",
+                            Integer.toString(pin.port()),
+                            host.substring(0, host.lastIndexOf('@')) + "@" + pin.address()));
+            return new Connection(connection, file);
+        } catch (IOException | RuntimeException ex) {
+            Files.deleteIfExists(file);
+            throw ex;
+        }
+    }
+
     private final List<String> connection;
 
     private final Path agent;
+
+    private final OrganizationHostPin.@Nullable Pin pin;
 
     /**
      * Constructor.
@@ -98,8 +191,21 @@ final class RemoteStart {
      * @param agent The person's agent.
      */
     RemoteStart(List<String> connection, Path agent) {
+        this(connection, agent, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param connection The command that reaches the host, the remote command left out.
+     * @param agent The person's agent.
+     * @param pin The organization's pin of the host, or {@code null}: a verification failure on a
+     *     pinned connection is the host showing another key.
+     */
+    RemoteStart(List<String> connection, Path agent, OrganizationHostPin.@Nullable Pin pin) {
         this.connection = List.copyOf(connection);
         this.agent = agent;
+        this.pin = pin;
     }
 
     /**
@@ -117,7 +223,12 @@ final class RemoteStart {
             throws IOException {
         final List<String> command = new ArrayList<>(connection);
         command.add(remoteCommand(arguments));
-        final Process process = new ProcessBuilder(command).start();
+        final ProcessBuilder builder = new ProcessBuilder(command);
+        // A desktop never asks: a start's ssh takes the agent's keys or none.
+        builder.environment().put("SSH_ASKPASS_REQUIRE", "never");
+        final Process process = builder.start();
+        final java.util.concurrent.atomic.AtomicBoolean verificationFailed =
+                new java.util.concurrent.atomic.AtomicBoolean();
         final Thread errors =
                 Thread.ofVirtual()
                         .start(
@@ -129,6 +240,9 @@ final class RemoteStart {
                                                             StandardCharsets.UTF_8))) {
                                         String line;
                                         while ((line = line(said)) != null) {
+                                            if (line.startsWith("Host key verification failed")) {
+                                                verificationFailed.set(true);
+                                            }
                                             synchronized (err) {
                                                 err.println(printable(line));
                                                 err.flush();
@@ -182,6 +296,19 @@ final class RemoteStart {
         try {
             final int code = process.waitFor();
             errors.join();
+            if (pin != null && code == 255 && verificationFailed.get()) {
+                synchronized (err) {
+                    err.println(
+                            "porelo: "
+                                    + pin.host()
+                                    + " showed another ssh host key than the one your"
+                                    + " organization's card of it pins; nothing was trusted and"
+                                    + " nothing started. Tell its admins: "
+                                    + String.join(", ", pin.admins()));
+                    err.flush();
+                }
+                return PIN_MISMATCH;
+            }
             return refused ? 65 : code;
         } catch (InterruptedException ex) {
             process.destroy();

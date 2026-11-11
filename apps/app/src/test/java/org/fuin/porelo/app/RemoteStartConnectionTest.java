@@ -50,4 +50,41 @@ class RemoteStartConnectionTest {
                 .contains(FollowCredential.knownHostsFile(machine).toString())
                 .contains(".ssh/known_hosts");
     }
+
+    @Test
+    void aPinnedHostIsCheckedAgainstTheCardsKeyAloneOnItsPort() throws Exception {
+        final PoreloContext machine = context(dir);
+        final String key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHostKeyPinnedByTheCard";
+        final Path pin;
+        final String understood;
+        try (RemoteStart.Connection connection =
+                RemoteStart.connection(
+                        machine,
+                        "person@build",
+                        new OrganizationHostPin.Pin(
+                                "build", "build.example.org", 2201, key, List.of("ada")))) {
+            pin = java.util.Objects.requireNonNull(connection.pin());
+            assertThat(Files.readString(pin))
+                    .as("the card's key alone, under the alias ssh looks it up by")
+                    .isEqualTo(RemoteStart.PINNED_ALIAS + " " + key + "\n");
+            final List<String> asking = new ArrayList<>(List.of("ssh", "-G"));
+            asking.addAll(connection.command().subList(1, connection.command().size()));
+            final Process ssh = new ProcessBuilder(asking).redirectErrorStream(true).start();
+            understood = new String(ssh.getInputStream().readAllBytes());
+            ssh.waitFor();
+        }
+
+        assertThat(understood.lines())
+                .as("no file of the person's can trust another key")
+                .contains(
+                        "userknownhostsfile " + pin,
+                        "globalknownhostsfile /dev/null",
+                        "hostkeyalias " + RemoteStart.PINNED_ALIAS,
+                        "stricthostkeychecking true",
+                        "hostkeyalgorithms ssh-ed25519",
+                        "port 2201",
+                        "hostname build.example.org",
+                        "user person");
+        assertThat(pin).as("the pin lives as long as the connection").doesNotExist();
+    }
 }

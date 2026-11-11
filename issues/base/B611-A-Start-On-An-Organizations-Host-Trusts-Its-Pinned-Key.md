@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B611",
   "title": "A Start On An Organization's Host Trusts Its Pinned Key",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 20,
@@ -37,22 +37,50 @@ Filed 2026-11-11 from the operator's decision on Agent Machines' VM proof run 5.
 
 ## Plan
 
-- Red first: a `RemoteStartConnectionTest` case that a listed host's connection trusts only a known-hosts file
-  holding the card's key, and one that an unlisted host keeps today's two files.
-- Look the host up in the organization's last verified state (`GitTreeOffline`'s host rows, which `app-task`
-  already depends on). Match `<host>` against the card's `host` and `address`. On a match, connect to `address` on
-  `ssh_port` through `PinnedHostSsh`'s trust options (one temporary known-hosts file, `StrictHostKeyChecking=yes`).
-  The person's agent and their own ssh login still apply.
-- In `RemoteStart.run`, turn ssh's "Host key verification failed" on a pinned connection into the mismatch refusal
-  with its own exit code. Grep the features for today's wording of an unreachable host before changing it.
-- `TaskRunCommand.onHost` and `TaskCertifyCommand` use the same connection.
-- A scenario on a real machine: an organization whose card pins the host's key starts without `trust-host`, and
-  with a wrong key on the card is refused.
-- `doc/` where `--host` and `trust-host` are explained: what an organization's host needs, and what it does not.
+- `OrganizationHostPin` in `app-task` decides the pin. It reads the organization with `IdentityOrganization.read`.
+  No organization on this machine: no pin, today's path. A read that cannot be had at all is refused (69): whether
+  the organization pins the host cannot be said.
+- `<host>` (lowercased, a trailing dot and brackets taken off) is matched against each host's name and its card's
+  `address`, read the same way. No match: no pin, today's path.
+- A match in a stale or incomplete read is refused (69): the pin may have changed since. More than one host matching
+  is refused (65): the organization contradicts itself.
+- One match whose card is missing, has no `ssh_host_key`, or is signed by no current admin of that host (a backup key
+  is no admin, a revoked person is no longer listed) gives no pin, and the start takes today's path.
+- A card whose address, port or key ssh would not take is refused (65), naming whom to tell.
+- On a pin, `RemoteStart.connection` opens a closeable connection: today's options, then one temporary known-hosts file
+  holding only the card's key under a fixed `HostKeyAlias`. Beside it go `GlobalKnownHostsFile=/dev/null`,
+  `KnownHostsCommand=none`, `UpdateHostKeys=no`, `VerifyHostKeyDNS=no`, `CheckHostIP=no`, the key's
+  `HostKeyAlgorithms`, `-p <ssh_port>` and `<login>@<address>`. Options on ssh's command line win over the person's
+  own ssh configuration, so their keys and jumps still apply but no file of theirs can trust another key. The
+  temporary file lives until the start ends.
+- `RemoteStart.run` sets `SSH_ASKPASS_REQUIRE=never`. On a pinned connection, ssh ending with 255 after "Host key
+  verification failed" is refused with 77: the host showed another key than the organization's card pins, nothing
+  was trusted, and the host's admins are named.
+- `TaskRunCommand.onHost` and `TaskCertifyCommand` both reach the host this way.
+- Red first: `OrganizationHostPinTest` covers each rule above. `RemoteStartConnectionTest` asks `ssh -G` how it reads
+  a pinned line (the known-hosts file, alias, port and address). `RemoteStartTest` checks that a pinned connection's
+  verification failure answers 77 with the admins named.
+- `doc/commands.md` for `--host` and `trust-host`; changelog under *Added*.
 
-## To be checked
+Left out, for the Coordinator: whether a host must carry the start's `--project` before its pin counts. The plan
+reading raised it. Today a host the organization lists is pinned whatever the project.
 
-- Whether a card's `ssh_port` other than 22 is used for `--host`. Today `--host` has no port and ssh's own
-  configuration may give one.
-- Whether a person's own ssh configuration alias for the host still resolves to the card's address, or the card's
-  address replaces it.
+## Settled
+
+- The card's `ssh_port` is used: `-p` from the card.
+- A person's own ssh alias for the host is not matched against the organization: it takes today's path. A name or
+  address the organization lists is pinned whatever the person's configuration says.
+
+## Acceptance
+
+- The unit tests above, each seen red first.
+- On a host the organization's card lists, `task start --host` without `trust-host` starts, and with another key on
+  the card is refused with 77.
+
+## As built
+
+- The pin is decided in `OrganizationHostPin`; `RemoteStart.Connection` holds the temporary known-hosts file and
+  deletes it when the start or certification ends.
+- The plan reading's findings not taken here: a host carrying the start's `--project` (left to the Coordinator, above),
+  and `PinnedHostSsh.open` refusing IPv6 addresses, which this connection does not use.
+- The scenario on a real machine is the acceptance's host run; it is not in the unit build.

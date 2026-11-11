@@ -436,10 +436,25 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
         final java.util.List<String> arguments = hostArguments(spec);
-        final java.util.List<String> connection =
-                RemoteStart.connection(context, java.util.Objects.requireNonNull(host));
+        final String destination = java.util.Objects.requireNonNull(host);
+        final OrganizationHostPin.@Nullable Pin pin;
         try {
-            return new RemoteStart(connection, agent)
+            pin =
+                    OrganizationHostPin.choose(
+                            destination, OrganizationHostPin.ORGANIZATION.read(context));
+        } catch (OrganizationHostPin.Refused ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return ex.code();
+        } catch (java.io.IOException ex) {
+            err.println(
+                    "porelo: your organization could not be read; check it with porelo org --json");
+            err.flush();
+            return 69;
+        }
+        try (RemoteStart.Connection connection =
+                RemoteStart.connection(context, destination, pin)) {
+            return new RemoteStart(connection.command(), agent, pin)
                     .run(arguments, java.util.Objects.requireNonNull(projectName), task, out, err);
         } catch (java.io.IOException ex) {
             err.println("porelo: could not reach " + host + ": " + ex.getMessage());
