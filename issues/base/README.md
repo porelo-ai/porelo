@@ -38,7 +38,6 @@ from its side, as *blocked by*.
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |
 | <a id="b423"></a>[B423](B423-Small-Words-Found-In-A-Host-Rehearsal.md) | - | - | Five small wrong words noted in a rehearsal on a host: a lambda in a passphrase refusal, a probe's words, a missing `--json`, a `.tmp` warning, four characters of a token in `gate.log`. |
 | <a id="b422"></a>[B422](B422-A-Guarded-Project-On-A-Host.md) | - | - | A guarded project on a host has a way to hand its work to the host's forge, or is refused before a task starts: `gate approve` pushes to a protected `main` today. |
-| <a id="b610"></a>[B610](B610-A-Removed-Tasks-Kept-Mail-Record-Frees-Its-Name.md) | S | - | After `task remove`, a task whose mail was recorded can be started again under its name, or the refusal says what holds the name and how to free it. |
 | <a id="b416"></a>[B416](B416-A-Forge-That-Refuses-A-Hosts-Read-Key-Says-Why.md) | - | - | A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it |
 | <a id="b415"></a>[B415](B415-A-Project-Admin-Told-How-To-Open-Without-The-Right.md) | - | - | `project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again |
 | <a id="b414"></a>[B414](B414-A-Developer-Reads-An-Organization-At-GitHub.md) | S | - | At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's |
@@ -106,6 +105,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b610"></a>[B610](B610-A-Removed-Tasks-Kept-Mail-Record-Frees-Its-Name.md) | S | - | `task remove` takes the task's mailbox with it, its signed recorded mail moved to an archive first, so the task can be started again under its name. |
 | <a id="b608"></a>[B608](B608-A-Reattached-New-Task-Window-Names-Its-Task.md) | XS | - | `task start` going back into an existing task made under the new container names labels its window `<project>/<task>`, not `<project>/`. |
 | <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. |
 | <a id="b570"></a>[B570](B570-Porelos-Tests-Follow-The-Pyramid.md) | XL | - | Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite. |
