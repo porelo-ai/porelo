@@ -474,6 +474,8 @@ class InstallTest {
                         + "apt_get() { printf 'archive output\\n'; printf 'archive error\\n' >&2; return "
                         + exit
                         + "; }\n"
+                        // The cache's steps with no cache: nothing restored, nothing kept.
+                        + "bounded=\"\"\ncache=/nonexistent\nkeep_lists() { :; }\n"
                         + script.substring(
                                 script.indexOf("echo \"STEP: apt-get update\""),
                                 script.indexOf("echo \"STEP: porelo --version\""));
@@ -485,7 +487,10 @@ class InstallTest {
                                 "-c",
                                 steps.replace("/tmp/step.", logs.resolve("step.").toString())
                                         .replace("\napt-get ", "\napt_get ")
-                                        .replace("\nlogged apt-get ", "\nlogged apt_get ")));
+                                        .replace("\nlogged apt-get ", "\nlogged apt_get ")
+                                        .replace(
+                                                "logged $bounded apt-get ",
+                                                "logged $bounded apt_get ")));
 
         assertThat(result.output())
                 .as("apt stdout reaches merged output with a per-line timestamp")
@@ -686,7 +691,7 @@ class InstallTest {
                 List.of(
                         "export DEBIAN_FRONTEND",
                         "printf '%s",
-                        "logged apt-get update",
+                        "if logged $bounded apt-get update",
                         "logged apt-get install -y -qq --no-install-recommends /deb/",
                         "logged apt-get install -y -qq --no-install-recommends /agent/",
                         "porelo --version >/dev/null",
@@ -768,7 +773,7 @@ class InstallTest {
         final String debian = install.debian();
         assertThat(debian.substring(0, debian.indexOf("echo \"STEP: porelo --version\"")))
                 .as("apt failures retain the command output")
-                .contains("|| failed \"apt-get update\"")
+                .contains("else\n    failed \"apt-get update\"")
                 .contains("|| failed \"installing porelo\"")
                 .contains("|| failed \"installing porelo-host\"")
                 .doesNotContain(">/dev/null 2>&1\n");

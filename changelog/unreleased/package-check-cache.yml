@@ -1,0 +1,2 @@
+title: "The build's package check keeps each image's package lists and packages between runs and, when a mirror fails its apt-get update or dnf install, installs from those of the last update that worked, so one failing mirror no longer stops a Publish"
+type: changed

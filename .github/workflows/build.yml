@@ -361,11 +361,40 @@ jobs:
               run: ./mvnw -B -s settings.xml -Pdist verify -DskipTests -pl agents/stub,dist/dist-deb,dist/dist-rpm,dist/dist-check
                   -Dporelo.snapshot.run=${{ github.run_number }}
 
+            # The package lists of each image's last update that worked, and the packages its last install fetched:
+            # an update a mirror fails installs from them (2026-11-11, two Publish runs ended on one Ubuntu mirror).
+            # One entry a day. An older one is no longer read once a newer one exists, and GitHub drops it seven
+            # days after its last read, so the cache never grows past a week of entries.
+            - name: The day the package check's cache is kept for
+              id: packages-day
+              if: vars.PORELO_PUBLISH != 'false'
+              run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: packages-cache
+              if: vars.PORELO_PUBLISH != 'false'
+              with:
+                  path: ${{ runner.temp }}/package-check-cache
+                  key: package-check-${{ runner.os }}-${{ steps.packages-day.outputs.day }}
+                  restore-keys: package-check-${{ runner.os }}-
+
             # Checks the two packages against each other and installs both in a clean Debian and a clean Fedora.
             # The check is a module of this tree, so the places it reads move with the modules that write them.
             - name: Check the packages
               if: vars.PORELO_PUBLISH != 'false'
+              env:
+                  PORELO_PACKAGE_CHECK_CACHE: ${{ runner.temp }}/package-check-cache
               run: ./mvnw -B -q -U -s settings.xml -pl dist/package-check compile exec:java@package-check
+
+            # Saved whatever the check found: what it keeps is only what worked. Once a day; a later run of the day
+            # starts from it and updates against the live mirror as before.
+            - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              if: >-
+                  !cancelled() && vars.PORELO_PUBLISH != 'false'
+                  && steps.packages-cache.outputs.cache-hit != 'true'
+              with:
+                  path: ${{ runner.temp }}/package-check-cache
+                  key: package-check-${{ runner.os }}-${{ steps.packages-day.outputs.day }}
 
             # Both halves, after the checks and as close together as the job can put them. They still
             # cannot be made atomic: measured on 2026-09-11, the deb followed the jars by 15m42s, and a

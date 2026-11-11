@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Installs the packages in a clean container and asks the installed binary about itself.
@@ -23,15 +24,33 @@ import java.util.function.BiFunction;
  * @param rpm the porelo rpm
  * @param agentDeb the agent deb; the agent rpm is found beside it
  * @param run the command runner, keeping both output streams
+ * @param cache where each image's package lists and packages are kept between checks, or {@code
+ *     null} for none
  */
 record Install(
         Path deb,
         Path rpm,
         Path agentDeb,
-        BiFunction<List<String>, Duration, Commands.Result> run) {
+        BiFunction<List<String>, Duration, Commands.Result> run,
+        @Nullable Path cache) {
+
+    /** Names the directory a build keeps between its runs, as the build's cache restores it. */
+    static final String CACHE_VARIABLE = "PORELO_PACKAGE_CHECK_CACHE";
 
     Install(Path deb, Path rpm, Path agentDeb) {
-        this(deb, rpm, agentDeb, Commands::runMerged);
+        this(deb, rpm, agentDeb, Commands::runMerged, cacheFrom(System.getenv(CACHE_VARIABLE)));
+    }
+
+    Install(
+            Path deb,
+            Path rpm,
+            Path agentDeb,
+            BiFunction<List<String>, Duration, Commands.Result> run) {
+        this(deb, rpm, agentDeb, run, null);
+    }
+
+    static @Nullable Path cacheFrom(final @Nullable String named) {
+        return named == null || named.isBlank() ? null : Path.of(named).toAbsolutePath();
     }
 
     // Bound a trickling mirror before trying the independent archive in a fresh container.
@@ -171,7 +190,7 @@ record Install(
         report.section("installs on " + label);
         final List<String> mirrors = List.of(AZURE, ARCHIVE, AZURE);
         String mirror = mirrors.getFirst();
-        Commands.Result result = runIn(Main.UBUNTU, ubuntu(mirror), report);
+        Commands.Result result = runIn(Main.UBUNTU, ubuntu(mirror), slug(label, mirror), report);
         for (int next = 1; next < mirrors.size() && mirrorFailed(result); next++) {
             final String host = " on " + URI.create(mirror).getHost();
             report.info(
@@ -182,7 +201,7 @@ record Install(
                             + URI.create(mirrors.get(next)).getHost());
             lastOutput(result.output(), report);
             mirror = mirrors.get(next);
-            result = runIn(Main.UBUNTU, ubuntu(mirror), report);
+            result = runIn(Main.UBUNTU, ubuntu(mirror), slug(label, mirror), report);
         }
         checked(label, " on " + URI.create(mirror).getHost(), result, version, report);
     }
@@ -199,6 +218,71 @@ record Install(
     String debian() {
         return apt("");
     }
+
+    /**
+     * What a check's cache holds: the package lists of the last update that worked and the packages
+     * the last install fetched, per image and mirror, in a directory mounted at {@code /cache}.
+     * Copied in and out rather than used in place, so what apt writes as its own user never lands
+     * there, and a failed update never leaves half a set of lists behind.
+     */
+    static final String CACHE = "/cache";
+
+    /**
+     * What a cached update is given before its lists are used instead: the rest is the install's.
+     */
+    static final Duration CACHED_UPDATE_LIMIT = Duration.ofSeconds(90);
+
+    /** Said when the lists of the last update that worked stand in for one that failed. */
+    static final String CACHED = "CACHED:";
+
+    /**
+     * Restores the cache before the update. With lists to fall back on, the update is bounded, so a
+     * mirror that hangs leaves time to install from them; without, it runs as before and a mirror
+     * that hangs is tried again elsewhere at the container's limit.
+     */
+    private static final String APT_CACHE_IN =
+            """
+            cache=%s
+            lists=/var/lib/apt/lists
+            archives=/var/cache/apt/archives
+            bounded=""
+            echo "STEP: restoring the cached package lists"
+            if [ -d "$cache/lists" ] && [ -n "$(ls -A "$cache/lists" 2>/dev/null)" ]; then
+                cp -R "$cache/lists/." "$lists/" && bounded="timeout %d"
+            fi
+            if [ -d "$cache/archives" ]; then
+                cp "$cache/archives/"*.deb "$archives/" 2>/dev/null || true
+            fi
+            # Docker's images delete each package after its install; the cache keeps them.
+            rm -f /etc/apt/apt.conf.d/docker-clean
+            printf '%%s\n' 'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+                > /etc/apt/apt.conf.d/99-porelo-keep
+            keep_lists() {
+                [ -d "$cache" ] || return 0
+                rm -rf "$cache/lists.new" && mkdir "$cache/lists.new" \
+                    && cp -R "$lists/." "$cache/lists.new/" \
+                    && rm -rf "$cache/lists.new/partial" "$cache/lists.new/lock" \
+                    && rm -rf "$cache/lists" && mv "$cache/lists.new" "$cache/lists"
+            }
+            reuse_lists() {
+                echo "CACHED: apt-get update failed; installing from the package lists of the last update that worked"
+                rm -rf "$lists/"* && cp -R "$cache/lists/." "$lists/"
+            }
+            """
+                    .formatted(CACHE, CACHED_UPDATE_LIMIT.toSeconds());
+
+    /** Keeps what this install fetched, and nothing older: only the newest set stays. */
+    private static final String APT_CACHE_OUT =
+            """
+            echo "STEP: keeping the fetched packages"
+            if [ -d "$cache" ]; then
+                # Only what the lists still name: an older version is dropped, so the set never grows.
+                apt-get autoclean -qq >/dev/null 2>&1 || true
+                rm -rf "$cache/archives.new" && mkdir "$cache/archives.new" \
+                    && { cp "$archives/"*.deb "$cache/archives.new/" 2>/dev/null || true; } \
+                    && rm -rf "$cache/archives" && mv "$cache/archives.new" "$cache/archives"
+            fi
+            """;
 
     private static String apt(final String sources) {
         return FAILED
@@ -217,9 +301,16 @@ record Install(
                     > /etc/apt/apt.conf.d/99-porelo-timeouts
                 """
                 + sources
+                + APT_CACHE_IN
                 + """
                 echo "STEP: apt-get update"
-                logged apt-get update -qq --error-on=any || failed "apt-get update"
+                if logged $bounded apt-get update -qq --error-on=any; then
+                    keep_lists
+                elif [ -n "$bounded" ]; then
+                    reuse_lists
+                else
+                    failed "apt-get update"
+                fi
                 echo "STEP: installing porelo"
                 logged apt-get install -y -qq --no-install-recommends /deb/porelo_*.deb || failed "installing porelo"
                 echo "STEP: installing porelo-host"
@@ -228,9 +319,39 @@ record Install(
                 logged apt-get install -y -qq --no-install-recommends /agent/porelo-agent-stub_*.deb && echo AGENT-OK \
                     || failed "installing the agent"
                 """
+                + APT_CACHE_OUT
                 + COMMON
                 + HOST;
     }
+
+    /**
+     * dnf's metadata and packages kept in the cache directory itself, which dnf writes as root. An
+     * install that fails online is tried once more from the cache alone, where there is one; and
+     * only the packages installed now are kept.
+     */
+    private static final String DNF_CACHE =
+            """
+            cache=%s
+            cached=""
+            if [ -d "$cache" ]; then
+                mkdir -p "$cache/dnf"
+                cached="--setopt=cachedir=$cache/dnf --setopt=keepcache=True"
+            fi
+            dnf_install() {
+                dnf install -y -q $cached "$@" >/tmp/step.log 2>&1 && return 0
+                [ -n "$cached" ] && [ -n "$(ls -A "$cache/dnf" 2>/dev/null)" ] || return 1
+                echo "CACHED: dnf could not install online; installing from the metadata and packages of the last install that worked"
+                dnf install -y -q -C $cached "$@" >/tmp/step.log 2>&1
+            }
+            dnf_keep() {
+                [ -n "$cached" ] || return 0
+                rpm -qa --qf '%%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm\n' > /tmp/installed.list
+                find "$cache/dnf" -name '*.rpm' | while IFS= read -r kept; do
+                    grep -qxF "${kept##*/}" /tmp/installed.list || rm -f "$kept"
+                done
+            }
+            """
+                    .formatted(CACHE);
 
     /**
      * The install on Fedora's side.
@@ -240,11 +361,16 @@ record Install(
     String fedora() {
         return FAILED
                 + """
+                """
+                + DNF_CACHE
+                + """
                 echo "STEP: installing porelo"
-                dnf install -y -q /rpm/porelo-0*.rpm >/tmp/step.log 2>&1 || failed "installing porelo"
+                dnf_install /rpm/porelo-0*.rpm || failed "installing porelo"
                 echo "STEP: installing the agent"
-                dnf install -y -q /agent/porelo-agent-stub-*.rpm >/tmp/step.log 2>&1 && echo AGENT-OK \
+                dnf_install /agent/porelo-agent-stub-*.rpm && echo AGENT-OK \
                     || failed "installing the agent"
+                echo "STEP: keeping the fetched packages"
+                dnf_keep
                 """
                 + COMMON;
     }
@@ -260,17 +386,45 @@ record Install(
      */
     void check(String label, String image, String script, String version, Report report) {
         report.section("installs on " + label);
-        checked(label, "", runIn(image, script, report), version, report);
+        checked(label, "", runIn(image, script, slug(label, ""), report), version, report);
     }
 
-    private Commands.Result runIn(String image, String script, Report report) {
+    /**
+     * The name of an image's cache: its label, and the mirror an Ubuntu attempt takes, since the
+     * lists apt keeps are named after the mirror they came from.
+     */
+    static String slug(final String label, final String mirror) {
+        final String host = mirror.isEmpty() ? "" : "-" + URI.create(mirror).getHost();
+        return (label + host).toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9.]+", "-");
+    }
+
+    /** Mounts an image's own cache directory at {@link #CACHE}, made when it is missing. */
+    private List<String> cacheMount(final String slug, final Report report) {
+        if (cache == null) {
+            return List.of();
+        }
+        final Path own = cache.resolve(slug);
+        try {
+            java.nio.file.Files.createDirectories(own);
+        } catch (java.io.IOException ex) {
+            report.info(
+                    "the cache "
+                            + own
+                            + " cannot be made, so this check runs without it: "
+                            + ex.getMessage());
+            return List.of();
+        }
+        return List.of("-v", own + ":" + CACHE + ":Z");
+    }
+
+    private Commands.Result runIn(String image, String script, String slug, Report report) {
         final String name = "porelo-package-check-" + UUID.randomUUID();
         final Duration limit =
                 image.equals(Main.UBUNTU)
                         ? UBUNTU_LIMIT
                         : image.equals(Main.DEBIAN) ? DEBIAN_LIMIT : Commands.LIMIT;
-        final Commands.Result result =
-                run.apply(
+        final List<String> command =
+                new java.util.ArrayList<>(
                         List.of(
                                 "podman",
                                 "run",
@@ -282,12 +436,10 @@ record Install(
                                 "-v",
                                 rpm.getParent() + ":/rpm:ro,Z",
                                 "-v",
-                                agentDeb.getParent() + ":/agent:ro,Z",
-                                image,
-                                "sh",
-                                "-c",
-                                script),
-                        limit);
+                                agentDeb.getParent() + ":/agent:ro,Z"));
+        command.addAll(cacheMount(slug, report));
+        command.addAll(List.of(image, "sh", "-c", script));
+        final Commands.Result result = run.apply(List.copyOf(command), limit);
         if (result.exit() == Commands.TIMED_OUT) {
             remove(name, report);
         }
@@ -348,6 +500,8 @@ record Install(
         final List<String> lines = output.lines().filter(line -> !line.startsWith(STEP)).toList();
         // Why comes first and once: every check after a failed install fails for the same reason.
         lines.stream().filter(line -> line.startsWith(WHY)).forEach(report::info);
+        // Passed from what the cache kept: said, so a mirror that keeps failing is seen.
+        lines.stream().filter(line -> line.startsWith(CACHED)).forEach(report::info);
         final Map<String, String> expected = new LinkedHashMap<>(MARKERS);
         if (label.startsWith("Debian") || label.startsWith("Ubuntu")) {
             expected.putAll(HOST_MARKERS);
