@@ -132,7 +132,14 @@ final class ChannelLine {
         return """
                 set -e
                 export DEBIAN_FRONTEND=noninteractive
-                apt-get update -qq
+                # TEMPORARY, for Canonical's outage of 2026-11-11: an Ubuntu image whose update
+                # fails tries once on a public mirror outside Canonical's hosts; signatures stay
+                # checked.
+                apt-get update -qq --error-on=any || {
+                    [ -f /etc/apt/sources.list.d/ubuntu.sources ] || exit 1
+                    sed -i 's|^URIs:.*|URIs: %s|' /etc/apt/sources.list.d/ubuntu.sources
+                    apt-get update -qq --error-on=any
+                }
                 apt-get install -y -qq ca-certificates curl gnupg >/dev/null
                 curl -fsSL %s -o /tmp/porelo.asc
                 gpg --show-keys --with-colons /tmp/porelo.asc | grep -q '^fpr:::::::::%s:'
@@ -143,7 +150,7 @@ final class ChannelLine {
                 echo %s
                 apt-get -s install 'porelo*' keepassxc
                 """
-                .formatted(KEY, FINGERPRINT, REPOSITORY, channel, ASKED);
+                .formatted(Install.OUTAGE_MIRROR, KEY, FINGERPRINT, REPOSITORY, channel, ASKED);
     }
 
     /**

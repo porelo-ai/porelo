@@ -1,0 +1,2 @@
+title: "During Canonical's outage the package check and the channel line check try one public Ubuntu mirror outside Canonical's hosts after Canonical's own, with every signature still checked, and an apt-get update that fails with no cached lists counts as the mirror's failure; temporary"
+type: fixed

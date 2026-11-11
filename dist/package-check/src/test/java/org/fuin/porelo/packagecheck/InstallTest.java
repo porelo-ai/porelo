@@ -47,6 +47,7 @@ class InstallTest {
 
     private static final String AZURE = "http://azure.archive.ubuntu.com/ubuntu/";
     private static final String ARCHIVE = "http://archive.ubuntu.com/ubuntu/";
+    private static final String KERNEL = "http://mirrors.edge.kernel.org/ubuntu/";
 
     // A missing privileged-binary check must fail Debian installs without failing Fedora,
     // where this repository ships no host package.
@@ -161,12 +162,15 @@ class InstallTest {
                 .as("both exhausted mirrors retain their own step")
                 .contains("on azure.archive.ubuntu.com during apt-get update")
                 .contains("on archive.ubuntu.com during installing porelo");
-        assertThat(attempts).as("there are exactly three bounded attempts").hasSize(3);
+        assertThat(attempts)
+                .as("three bounded attempts on Canonical's mirrors, then the temporary one")
+                .hasSize(4);
         assertThat(attempts.get(2).getLast())
                 .as("the third goes back to the first mirror, in a fresh container")
                 .contains("URIs: " + AZURE);
-        assertThat(commands).as("each exhausted container is removed").hasSize(6);
-        for (final int attempt : List.of(0, 2, 4)) {
+        assertThat(attempts.get(3).getLast()).contains("URIs: " + KERNEL);
+        assertThat(commands).as("each exhausted container is removed").hasSize(8);
+        for (final int attempt : List.of(0, 2, 4, 6)) {
             final List<String> command = commands.get(attempt);
             assertThat(command).as("each exhausted install has a name").contains("--name");
             assertThat(commands.get(attempt + 1))
@@ -260,6 +264,42 @@ class InstallTest {
                 .as("the report names the mirror that missed the file")
                 .contains("on azure.archive.ubuntu.com could not fetch")
                 .contains("tried again on archive.ubuntu.com");
+    }
+
+    /**
+     * Canonical's archive and its DNS were down on 2026-11-11: an update failed on each of them.
+     */
+    @Test
+    void anUpdateNoCanonicalMirrorAnsweredIsTriedOnceOnTheTemporaryMirror() {
+        final var attempts = new java.util.ArrayList<List<String>>();
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"),
+                        Path.of("/r/porelo.rpm"),
+                        Path.of("/a/stub.deb"),
+                        (command, limit) -> {
+                            if (command.get(1).equals("rm")) {
+                                return new Commands.Result(0, "");
+                            }
+                            attempts.add(command);
+                            return command.getLast().contains("URIs: " + KERNEL)
+                                    ? new Commands.Result(1, "FAILED: installing porelo\n")
+                                    : new Commands.Result(
+                                            1,
+                                            "FAILED: apt-get update\nFAILED:   Temporary failure"
+                                                    + " resolving 'azure.archive.ubuntu.com'\n");
+                        });
+
+        install.checkUbuntu("Ubuntu 26.04", VERSION, out.report);
+
+        assertThat(attempts).as("Canonical's three attempts, then one on the temporary").hasSize(4);
+        assertThat(attempts.getLast().getLast())
+                .as("the sources point at the temporary mirror; nothing turns signatures off")
+                .contains("URIs: " + KERNEL)
+                .doesNotContain("trusted=yes")
+                .doesNotContain("allow-unauthenticated");
+        assertThat(out.text()).contains("tried again on mirrors.edge.kernel.org");
+        assertThat(out.report.failures()).as("its own failure stays red").isPositive();
     }
 
     @Test
@@ -455,8 +495,8 @@ class InstallTest {
 
         assertThat(limits)
                 .as("update and install share a three minute budget per attempt")
-                .containsExactly(
-                        Duration.ofMinutes(3), Duration.ofMinutes(3), Duration.ofMinutes(3));
+                .hasSize(4)
+                .containsOnly(Duration.ofMinutes(3));
     }
 
     @ParameterizedTest

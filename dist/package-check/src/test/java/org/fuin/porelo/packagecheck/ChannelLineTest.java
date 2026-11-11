@@ -98,6 +98,21 @@ class ChannelLineTest {
     }
 
     @Test
+    void anUpdateCanonicalCannotAnswerIsTriedOnceOnTheTemporaryMirror() {
+        final String script = ChannelLine.script("snapshots");
+        assertThat(script)
+                .as(
+                        "a failed fetch fails the first update, which then goes to the temporary mirror")
+                .contains("apt-get update -qq --error-on=any ||")
+                .contains("URIs: http://mirrors.edge.kernel.org/ubuntu/")
+                .doesNotContain("trusted=yes")
+                .doesNotContain("allow-unauthenticated");
+        assertThat(script.indexOf("mirrors.edge.kernel.org"))
+                .as("before the page's own steps go on")
+                .isLessThan(script.indexOf("apt-get install -y -qq ca-certificates"));
+    }
+
+    @Test
     void theScriptTypesTheLineAndChecksTheKeyAsThePageDoes() {
         assertThat(ChannelLine.script("snapshots"))
                 .as("the line itself, simulated, and the fingerprint before the key is used")

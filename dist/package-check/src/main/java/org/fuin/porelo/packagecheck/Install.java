@@ -63,6 +63,13 @@ record Install(
 
     private static final String ARCHIVE = "http://archive.ubuntu.com/ubuntu/";
 
+    /**
+     * TEMPORARY, for Canonical's outage of 2026-11-11 (its archive and DNS down): a public mirror
+     * outside Canonical's hosts, tried once after Canonical's own. apt still checks every
+     * signature. Removed by the issue that names this constant.
+     */
+    static final String OUTAGE_MIRROR = "http://mirrors.edge.kernel.org/ubuntu/";
+
     private static final String STEP = "STEP: ";
 
     /** What the container prints for each step that worked, and what that step proves. */
@@ -188,7 +195,7 @@ record Install(
      */
     void checkUbuntu(String label, String version, Report report) {
         report.section("installs on " + label);
-        final List<String> mirrors = List.of(AZURE, ARCHIVE, AZURE);
+        final List<String> mirrors = List.of(AZURE, ARCHIVE, AZURE, OUTAGE_MIRROR);
         String mirror = mirrors.getFirst();
         Commands.Result result = runIn(Main.UBUNTU, ubuntu(mirror), slug(label, mirror), report);
         for (int next = 1; next < mirrors.size() && mirrorFailed(result); next++) {
@@ -207,8 +214,17 @@ record Install(
     }
 
     private static boolean mirrorFailed(Commands.Result result) {
-        return result.exit() == Commands.TIMED_OUT || MIRROR_MISSED.matcher(result.output()).find();
+        return result.exit() == Commands.TIMED_OUT
+                || MIRROR_MISSED.matcher(result.output()).find()
+                || UPDATE_FAILED.matcher(result.output()).find();
     }
+
+    /**
+     * An update that failed with no cached lists to stand in: it asks only the mirror, so the
+     * mirror failed it - unreachable, or its name not resolved.
+     */
+    private static final java.util.regex.Pattern UPDATE_FAILED =
+            java.util.regex.Pattern.compile("(?m)^FAILED: apt-get update$");
 
     /**
      * The install on Debian, from its own mirrors: Ubuntu's would serve it the wrong release.
