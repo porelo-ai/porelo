@@ -40,7 +40,19 @@ public final class ContainerName {
      * @return Container name.
      */
     public static String of(Project project, String task) {
-        return PREFIX + project.name() + "-" + task;
+        return contract(project.name(), task);
+    }
+
+    /**
+     * Returns a task's name in a transport's contract, {@code porelo-<project>-<task>}: the form a
+     * room reads a task's account by, whatever its container is named now.
+     *
+     * @param project The project's name.
+     * @param task The task's own name.
+     * @return The name.
+     */
+    public static String contract(String project, String task) {
+        return PREFIX + project + "-" + task;
     }
 
     /** Encodes a new task, refusing a spelling whose sockets cannot fit for this uid. */

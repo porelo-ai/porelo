@@ -524,6 +524,85 @@ class TransportConversationsTest {
         Files.writeString(file, org.fuin.porelo.wire.Json.write(names));
     }
 
+    /** Records a task made under the new container name, with its own task name. */
+    private void recorded(final PoreloContext context, final String container, final String task)
+            throws IOException {
+        LegacyTaskFixture.record(context, container, "p", "b".repeat(64));
+        final Path sidecar = context.paths().tasks().taskRecord(container).resolve("sidecar.json");
+        Files.writeString(
+                sidecar, Files.readString(sidecar).replace("{", "{\"task\":\"" + task + "\","));
+    }
+
+    /** The task name each call of a verb so far handed the transport, in order. */
+    private List<String> tasksGiven(final String verb) {
+        return runner.invocations().stream()
+                .map(org.fuin.porelo.core.process.Command::arguments)
+                .filter(arguments -> arguments.contains(verb) && arguments.contains("--task"))
+                .map(arguments -> arguments.get(arguments.indexOf("--task") + 1))
+                .toList();
+    }
+
+    @Test
+    void aTaskMadeUnderTheNewNameJoinsAndLeavesUnderTheContractsName() throws Exception {
+        // Joined as porelo-p_unit, the room's members read it as nobody's task, and a person or a
+        // rehearsal waiting on the project's running tasks finds none.
+        final TransportLifecycle lifecycle = room();
+        recorded(context(), "porelo-p_unit", "unit");
+
+        lifecycle.enroll("room", "p", "porelo-p_unit", "scout", Map.of(), false);
+        lifecycle.retire("room", "p", "porelo-p_unit", Map.of());
+
+        assertThat(tasksGiven("enroll"))
+                .as("enrolled under the transport contract's name")
+                .containsExactly("porelo-p-unit");
+        assertThat(tasksGiven("retire"))
+                .as("retired under the name it was enrolled by")
+                .containsExactly("porelo-p-unit");
+    }
+
+    @Test
+    void aTaskMadeBeforeKeepsItsName() throws Exception {
+        // Its account exists under the name it has: another would be a second account.
+        final TransportLifecycle lifecycle = room();
+
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+
+        assertThat(tasksGiven("enroll"))
+                .as("a task made before is enrolled as it was")
+                .containsExactly("porelo-p-unit");
+    }
+
+    @Test
+    void aMemberNamedByTheContractsNameIsItsTasksContainer() throws Exception {
+        // Read back by the contract's name alone, the member is no recorded container and the
+        // whole member list is refused.
+        final TransportLifecycle lifecycle = room();
+        recorded(context(), "porelo-p_unit", "unit");
+        lifecycle.enroll("room", "p", "porelo-p_unit", "scout", Map.of(), false);
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"display\":true,\"secrets\":\"input\","
+                        + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\",\"members\"]}");
+        runner.answering(
+                " members ",
+                "{\"room\":\"!room-p\",\"members\":[{\"id\":\"@porelo-p-unit.me:x\","
+                        + "\"shown\":\"Agent Unit\",\"state\":\"join\",\"kind\":\"task\","
+                        + "\"task\":\"porelo-p-unit\"}]}");
+        // The task runs: podman lists it with the id its record holds.
+        runner.answering(
+                " ps ",
+                "porelo-p_unit\tUp 1 minute\t\t\tp\tguarded\t\t\t" + "b".repeat(64) + "\tunit\n");
+        final TransportLifecycle asked =
+                new TransportLifecycle(
+                        context().asking(prompt -> PASSPHRASE.clone()),
+                        context().paths().messaging().transportDirectory());
+
+        assertThat(asked.members("room", "p", Map.of(), false).members())
+                .as("the member is the task's container")
+                .extracting(RoomMembers.Member::task)
+                .containsExactly("porelo-p_unit");
+    }
+
     @Test
     void aTaskIsShownInTheRoomByItsOwnNameWhateverAgentRunsIt() throws Exception {
         // Shown by its agent's name, a line headed "Agent Fix-Login:" reaches nobody and the

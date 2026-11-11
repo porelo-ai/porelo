@@ -398,8 +398,9 @@ final class TransportLifecycle {
                                 agent,
                                 heldWithEarlier(project, held, file))
                         : null;
+        final String named = contractName(project, task);
         final List<String> verb =
-                new java.util.ArrayList<>(List.of("enroll", "--project", project, "--task", task));
+                new java.util.ArrayList<>(List.of("enroll", "--project", project, "--task", named));
         if (shown != null) {
             verb.add("--display");
             verb.add(shown);
@@ -410,6 +411,14 @@ final class TransportLifecycle {
             keep(scheme, "task/" + task, secrets);
         }
         Directories.create(file.getParent());
+        final Path enrolledFile = enrolledFile(scheme, project);
+        final Map<String, String> enrolledAs = new LinkedHashMap<>(names(enrolledFile));
+        if (!named.equals(task) && !named.equals(enrolledAs.get(task))) {
+            // Retire must give the transport the name the account was made under.
+            Directories.create(enrolledFile.getParent());
+            enrolledAs.put(task, named);
+            whole(enrolledFile, Json.write(enrolledAs));
+        }
         if (shown != null && !shown.equals(held.get(task))) {
             Directories.create(shownFile.getParent());
             held.put(task, shown);
@@ -427,6 +436,16 @@ final class TransportLifecycle {
                 // The task takes part all the same; only whether it read something cannot be asked.
             }
         }
+    }
+
+    /**
+     * Returns the name a task has in a transport's contract: {@code porelo-<project>-<task>} from
+     * its own name, so a room reads it as the project's task; the container itself where its own
+     * name cannot be found, as a task made before is named so already.
+     */
+    private String contractName(String project, String container) throws IOException {
+        final String own = enrollmentTask(project, container);
+        return own == null ? container : ContainerName.contract(project, own);
     }
 
     private @Nullable String enrollmentTask(String project, String container) throws IOException {
@@ -814,6 +833,17 @@ final class TransportLifecycle {
                 .resolve(project + ".json");
     }
 
+    /** Each task's container and the name it was enrolled under, where the two differ. */
+    private Path enrolledFile(String scheme, String project) {
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve("enrolled")
+                .resolve(project + ".json");
+    }
+
     private Path addressesFile(String scheme, String project) {
         return context.paths()
                 .xdg()
@@ -858,7 +888,8 @@ final class TransportLifecycle {
         if (!own.isEmpty()) {
             final Map<String, String> given = given(scheme, project);
             given.putAll(own);
-            run(scheme, settings, given, false, "retire", "--project", project, "--task", task);
+            final String named = names(enrolledFile(scheme, project)).getOrDefault(task, task);
+            run(scheme, settings, given, false, "retire", "--project", project, "--task", named);
             forget(scheme, "task/" + task);
         }
         // Only once its account is gone: until then a head of its name still reaches it.
@@ -868,7 +899,9 @@ final class TransportLifecycle {
     /** Frees the name a retired task held in the room, under the addresses file's lock. */
     private void release(String scheme, String project, String task) {
         final Path shown = displaysFile(scheme, project);
-        if (!Files.isRegularFile(shown) && !Files.isRegularFile(addressesFile(scheme, project))) {
+        if (!Files.isRegularFile(shown)
+                && !Files.isRegularFile(addressesFile(scheme, project))
+                && !Files.isRegularFile(enrolledFile(scheme, project))) {
             return;
         }
         try {
@@ -884,6 +917,11 @@ final class TransportLifecycle {
                         final Map<String, String> addresses = new LinkedHashMap<>(names(file));
                         if (addresses.remove(task) != null) {
                             whole(file, Json.write(addresses));
+                        }
+                        final Path enrolled = enrolledFile(scheme, project);
+                        final Map<String, String> named = new LinkedHashMap<>(names(enrolled));
+                        if (named.remove(task) != null) {
+                            whole(enrolled, Json.write(named));
                         }
                         return Boolean.TRUE;
                     });
@@ -1178,10 +1216,19 @@ final class TransportLifecycle {
                         "members",
                         "--project",
                         project);
-        return judgedMembers(said, project, described.takes(LOGIN));
+        return judgedMembers(said, project, described.takes(LOGIN), containersOf(scheme, project));
     }
 
-    private RoomMembers judgedMembers(Map<?, ?> said, String project, boolean takesLogin)
+    /** Each name a task was enrolled under, to the container it is. */
+    private Map<String, String> containersOf(String scheme, String project) {
+        final Map<String, String> containers = new LinkedHashMap<>();
+        names(enrolledFile(scheme, project))
+                .forEach((container, named) -> containers.put(named, container));
+        return containers;
+    }
+
+    private RoomMembers judgedMembers(
+            Map<?, ?> said, String project, boolean takesLogin, Map<String, String> enrolledAs)
             throws Refused {
         if (!(said.get("members") instanceof List<?> listed) || listed.size() > MOST_MEMBERS) {
             throw badMembers("members must be a list of at most " + MOST_MEMBERS);
@@ -1220,7 +1267,8 @@ final class TransportLifecycle {
                 members.add(new RoomMembers.Member(id, shown, state, kind, null));
                 continue;
             }
-            final String task = memberText(row, "task", ContainerName.MAX_LENGTH, false);
+            final String named = memberText(row, "task", ContainerName.MAX_LENGTH, false);
+            final String task = enrolledAs.getOrDefault(named, named);
             if (takesLogin) {
                 final String owner = memberText(row, LOGIN, 32, false);
                 if (!LOGIN_NAME.matcher(owner).matches()) {

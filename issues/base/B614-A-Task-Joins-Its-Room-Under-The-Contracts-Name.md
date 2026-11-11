@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B614",
   "title": "A Task Joins Its Room Under The Contract's Name",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 10,
@@ -42,6 +42,9 @@ before keeps its name, which is already the contract's.
 - The unit test above, seen red first.
 - On a host, a rehearsal that counts the project's running tasks in the room counts the new ones.
 
-## To be checked
+## As built
 
-- Whether the addresses file and the display names file are keyed by container today, and stay so.
+- The name enrolled under is kept per container in `$XDG_STATE_HOME/porelo/transport/<scheme>/enrolled/<project>.json`
+  only where it differs from the container; `retire` takes it from there, and `members` reads a task's name back to its
+  container through it. The addresses and display names files stay keyed by container.
+- Built as a fix during an operator test: its unit tests seen red, then green; the reading by another model follows.

@@ -1,0 +1,2 @@
+title: "A task made under the new container name joins its project's room under `porelo-<project>-<task>`, the name the transport reads a task by, so the room counts it as the project's task again"
+type: fixed

@@ -107,7 +107,7 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
 | Verb | When Porelo runs it | Given | Prints |
 |---|---|---|---|
 | `setup --project P` | before the first task of the project starts, and whenever its secrets are missing | the account's secrets | `secrets` (the project's), `account` (the account's), `conversation`, `reaches`, and on a shared server `login`, `address`, `room`, `admitted` |
-| `enroll --project P --task T` | when a task starts, before its container exists | account and project secrets | `secrets` (the task's), `address` |
+| `enroll --project P --task T` | when a task starts, before its container exists; `T` is `porelo-<P>-<task>`, the task's own name, whatever its container is called, and `retire` gets the same | account and project secrets | `secrets` (the task's), `address` |
 | `retire --project P --task T` | when the task is removed | account, project and task secrets | `{}` |
 | `join --project P --person N [--reset] [--token] [--display NAME]` | on `porelo talk join` | account and project secrets | `login` (for an interface, answered once), `shown` (for the command line); with `--token`, `secrets` holding the person's access token as its one entry and no password anywhere, which `talk join --into-vault` keeps, and `login.room`, the room's id, which it prints; `--display` is the name the room shows, checked by the transport |
 | `part --project P --person N` | on `porelo talk remove`; `N`, as `join`'s, is always a login, `[a-z][a-z0-9-]{0,31}` | account and project secrets | `{"removed":"<account>"}`, `{"kept":"<account>","why":"<words>"}`, or `{}` when nothing remains |
