@@ -237,7 +237,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b615"></a>[B615](B615-A-Stopped-Task-Leaves-Its-Room.md) | S | - | `porelo task stop` on a project whose conversation is on a central homeserver runs the transport's `retire` for the task, so its account leaves the room; the next start's `enroll` brings it back, so the room lists the tasks that run. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. |
@@ -259,6 +258,7 @@ from its side, as *blocked by*.
 | <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. |
 | <a id="b613"></a>[B613](B613-A-Stale-Organization-Read-Says-Why.md) | M | - | `org` and `project show` answer `stale_why` beside `stale`: a named cause and git's own words; a project's repositories in `cannot-say` carry a `why`. |
 | <a id="b614"></a>[B614](B614-A-Task-Joins-Its-Room-Under-The-Contracts-Name.md) | S | - | A task made under the new container name is enrolled and retired on its transport as `porelo-<project>-<task>`, the transport contract's task name, so the room's member list counts it as the project's task again. |
+| <a id="b615"></a>[B615](B615-A-Stopped-Task-Leaves-Its-Room.md) | S | - | `porelo task stop` on a project whose conversation is on a central homeserver runs the transport's `retire` for the task, so its account leaves the room; the next start's `enroll` brings it back, so the room lists the tasks that run. |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |
 | <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. |

@@ -1,0 +1,2 @@
+title: "A task stopped with `task stop` leaves its project's room on a central homeserver, and its next start brings it back, so the room lists the tasks that run"
+type: fixed

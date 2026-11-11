@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B615",
   "title": "A Stopped Task Leaves Its Room",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 10,
@@ -56,3 +56,12 @@ made before stayed in the room when stopped, as now.
 - A task that ends without a stop (its container exits, the machine restarts) runs nothing. Whether the daemon's watch
   of a task's end runs it too is the operator's decision; until then a rehearsal that counts running tasks takes them
   from Porelo, not from the room alone.
+
+## As built
+
+- `TransportLifecycle.leave` reads `PORELO_MATRIX_LOGIN` from the task's kept secrets, else the project's, and runs
+  `retire` only when it is non-empty; `TaskConversations.leave` runs it for each of the project's transports.
+- `TaskControl` runs it after a confirmed stop that removes nothing, so `task stop`, the daemon's `Stop`, and the stops
+  before a removal or a clear all take it. A bulk stop (`panic`) asks no transport. A locked vault reads no secret,
+  so such a stop leaves the task in the room.
+- Built as a fix during an operator test: its unit tests seen red, then green; the reading by another model follows.

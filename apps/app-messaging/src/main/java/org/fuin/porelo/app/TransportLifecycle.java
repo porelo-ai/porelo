@@ -930,6 +930,35 @@ final class TransportLifecycle {
      * @param settings What the project says to this transport.
      * @throws Refused If the transport refused; its secrets are then kept, so it can be retried.
      */
+    /**
+     * The secret by which the matrix transport marks an account on a central homeserver: set there,
+     * empty or absent on the account's own, where a retire deactivates the account for good.
+     */
+    static final String CENTRAL_LOGIN = "PORELO_MATRIX_LOGIN";
+
+    /**
+     * Takes a stopped task out of its room where its next enroll brings it back: on a central
+     * homeserver, by the transport's retire. Elsewhere nothing is asked, since a retire there ends
+     * the account for good.
+     *
+     * @param scheme The transport.
+     * @param project The task's project.
+     * @param task The task.
+     * @param settings The transport's settings in the project.
+     * @return Whether the task left.
+     * @throws Refused When the transport refused.
+     */
+    boolean leave(String scheme, String project, String task, Map<String, Object> settings)
+            throws Refused {
+        final String own = secrets(scheme, "task/" + task).get(CENTRAL_LOGIN);
+        final String login = own != null ? own : given(scheme, project).get(CENTRAL_LOGIN);
+        if (login == null || login.isBlank()) {
+            return false;
+        }
+        retire(scheme, project, task, settings);
+        return true;
+    }
+
     void retire(String scheme, String project, String task, Map<String, Object> settings)
             throws Refused {
         lendable(scheme, "retire");

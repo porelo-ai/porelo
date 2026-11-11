@@ -558,6 +558,19 @@ public final class TaskControl {
                 new TaskState(context).save(container);
             }
         }
+        // Out of its rooms where its next start brings it back, or a room counts it as running. Not
+        // in a bulk stop: a panic asks no transport anything.
+        if (!purge
+                && before == null
+                && identity != null
+                && (gone || observed == ContainerState.TERMINAL)) {
+            new TaskConversations(context)
+                    .leave(
+                            context,
+                            container,
+                            identity.project(),
+                            new java.io.PrintWriter(System.err, true));
+        }
         final boolean removed = purge && gone;
         if (removed) {
             closeJournal(container);

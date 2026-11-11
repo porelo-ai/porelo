@@ -222,6 +222,36 @@ final class TaskConversations {
     }
 
     /**
+     * Takes a stopped task out of its project's rooms where its next start brings it back. Never
+     * stops the stop: what cannot be done is said.
+     *
+     * @param context Where the projects are.
+     * @param container The task.
+     * @param project The task's project as its records name it, or {@code null} when they do not.
+     * @param err Where a failure is said.
+     */
+    void leave(PoreloContext context, String container, @Nullable String project, PrintWriter err) {
+        final Project found = projectOf(context, container, project);
+        if (found == null) {
+            return;
+        }
+        for (final String scheme : found.mail().conversations()) {
+            try {
+                lifecycle.leave(scheme, found.name(), container, settings(found, scheme));
+            } catch (TransportLifecycle.Refused ex) {
+                err.println(
+                        "porelo: "
+                                + container
+                                + " is stopped, and is still in the "
+                                + scheme
+                                + " conversation: "
+                                + ex.getMessage());
+                err.flush();
+            }
+        }
+    }
+
+    /**
      * Takes a task a resume brought back into its project's rooms, where one holds no name for it
      * yet; a task every room has a name for is left as it is, and no transport is asked.
      *

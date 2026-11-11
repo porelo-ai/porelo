@@ -479,6 +479,11 @@ class TransportConversationsTest {
 
     /** A room whose transport shows the name it is given for each task, set up for project p. */
     private TransportLifecycle room() throws Exception {
+        return room("{\"TASK\":\"t-1\"}");
+    }
+
+    /** The stand-in transport, its enroll printing these task secrets. */
+    private TransportLifecycle room(final String taskSecrets) throws Exception {
         runner.answering(
                 "describe",
                 "{\"scheme\":\"room\",\"poll\":true,\"display\":true,"
@@ -486,7 +491,7 @@ class TransportConversationsTest {
         runner.answering(
                 "setup",
                 "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
-        runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+        runner.answering("enroll", "{\"secrets\":" + taskSecrets + "}");
         runner.answering(" retire ", "{}");
         final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
         Files.createDirectories(context.vault().path().getParent());
@@ -558,6 +563,41 @@ class TransportConversationsTest {
         assertThat(tasksGiven("retire"))
                 .as("retired under the name it was enrolled by")
                 .containsExactly("porelo-p-unit");
+    }
+
+    @Test
+    void aStoppedTaskOnACentralHomeserverLeavesItsRoomAndItsNextStartBringsItBack()
+            throws Exception {
+        // Left in the room, a stopped task is counted among the project's running tasks.
+        final TransportLifecycle lifecycle =
+                room("{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}");
+        recorded(context(), "porelo-p_unit", "unit");
+        lifecycle.enroll("room", "p", "porelo-p_unit", "scout", Map.of(), false);
+
+        final boolean left = lifecycle.leave("room", "p", "porelo-p_unit", Map.of());
+        lifecycle.enroll("room", "p", "porelo-p_unit", "scout", Map.of(), false);
+
+        assertThat(left).as("it left").isTrue();
+        assertThat(tasksGiven("retire"))
+                .as("retired at the stop, under the name it was enrolled by")
+                .containsExactly("porelo-p-unit");
+        assertThat(tasksGiven("enroll"))
+                .as("enrolled again at the next start")
+                .containsExactly("porelo-p-unit", "porelo-p-unit");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"\"}", "{\"TASK\":\"t-1\"}"})
+    void aStoppedTaskOnItsOwnHomeserverStaysInItsRoom(final String secrets) throws Exception {
+        // There retire deactivates the account for good: a stop must never ask for it.
+        final TransportLifecycle lifecycle = room(secrets);
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+
+        assertThat(lifecycle.leave("room", "p", "porelo-p-unit", Map.of()))
+                .as("nothing left")
+                .isFalse();
+        assertThat(tasksGiven("retire")).as("no retire").isEmpty();
     }
 
     @Test
