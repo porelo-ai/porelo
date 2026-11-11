@@ -204,7 +204,6 @@ from its side, as *blocked by*.
 | <a id="b63"></a>[B63](B63-A-Share-That-Is-Not-Stored-At-All.md) | XL | - | A share not stored at all; splits into a token measurement (S), FIDO2 enrolment (L), TPM2 (L), and proving what protected an unlock, an unproven slot shown as USER_SCOPED (L). |
 | <a id="b164"></a>[B164](B164-Rollback-Points-Inside-A-Task.md) | L | - | A helper keeps a host-side bundle of the files at each turn's end, the last 20 by default; `task rewind` restores files and, where declared, the session, offering to restart it. |
 | <a id="b167"></a>[B167](B167-An-MCP-Gateway-On-The-Host.md) | L | - | An MCP gateway on the broker for servers over HTTP only: `kind: mcp`, JSON-RPC `tools/list` and `tools/call` read, tool lists compared per tool, `mcp.log`, a project `mcp:` list. |
-| <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
 | <a id="b168"></a>[B168](B168-A-Recording-Of-Each-Session.md) | M | - | A session recording by a read-only tmux control-mode client run from the host, a `.cast` outside the task (an unattended run's `task.log`), kept 30 days, at most 64 MiB, `task replay`. |
 | <a id="b169"></a>[B169](B169-Containers-Inside-A-Task.md) | L | - | The nested-container assessment first, measured on both legs; then an opt-in `image.nested_containers`, never for `guarded`, and only on a task's own kernel if the assessment says so. |
 | <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | M | - | `TaskCommits` and `TaskDiff`: a running task's commits no remote holds and their diff, cut at a file boundary; a stopped task's list from its note. |
@@ -239,6 +238,7 @@ from its side, as *blocked by*.
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 | <a id="b518"></a>[B518](B518-A-Person-Leaves-An-Organization.md) | S | - | `porelo org leave`: a person withdraws their own card and roles and forgets the organization on this machine, refused where it would leave no owner; the window's *Leave…* runs it. |
 | <a id="b517"></a>[B517](B517-A-Card-Proposed-And-Accepted-By-An-Owner.md) | M | - | A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it. |
+| <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
 
 ## Implementing
 
