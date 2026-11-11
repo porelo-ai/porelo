@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B615",
   "title": "A Stopped Task Leaves Its Room",
-  "state": "Idea",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 10,
@@ -18,6 +18,7 @@
 over a stand-in transport.
 
 Filed 2026-11-11 from the VM proof's busy-room run on 0.5.1~snapshot.484.
+Accepted by the operator 2026-11-11.
 
 **What must be true.** A task stopped with `porelo task stop` is no longer a member of the project's room, and the next
 start of the task brings it back. Today the transport contract has `enroll` at a start and `retire` at a removal, and
