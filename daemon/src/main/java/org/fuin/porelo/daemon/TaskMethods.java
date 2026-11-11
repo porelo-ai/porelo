@@ -198,6 +198,30 @@ final class TaskMethods {
                                     new org.fuin.porelo.app.TaskUsage(context).read(task).asMap()));
                 });
 
+        // The same answer as 'porelo task records', from the same code; never the files.
+        server.method(
+                "Records",
+                (parameters, replies) -> {
+                    final String project = text(parameters, "project");
+                    final java.time.Instant since =
+                            org.fuin.porelo.app.TaskWorkRecords.parseSince(
+                                    text(parameters, "since"));
+                    if (project.isEmpty() || since == null) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", project.isEmpty() ? "project" : "since"));
+                    }
+                    try {
+                        replies.last(
+                                Map.of(
+                                        "records",
+                                        new org.fuin.porelo.app.TaskWorkRecords(context)
+                                                .since(project, since)));
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                });
+
         server.method(
                 "List",
                 (parameters, replies) -> {

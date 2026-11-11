@@ -82,6 +82,21 @@ public interface Agent {
     }
 
     /**
+     * Reads one line of this agent's output for the tool calls it starts or ends.
+     *
+     * <p>Per line and without state: Porelo joins a start to its end by the event's id, and a
+     * background job's start and end by its job id. A tool this agent does not know is {@link
+     * ToolEvent.Kind#OTHER}, never left out, and a shell call's command line is passed as the
+     * stream gives it, since Porelo masks it before anything is stored.
+     *
+     * @param line One line of the agent's raw output.
+     * @return The line's tool events in their order; the default reads none.
+     */
+    default List<ToolEvent> toolEvents(String line) {
+        return List.of();
+    }
+
+    /**
      * Returns the container-build fragments this agent contributes, in order.
      *
      * @return Image layer.

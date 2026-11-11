@@ -3874,6 +3874,39 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartedTasksRecordSaysItsWorkItsModelAndHowItsRunEnded(@TempDir Path dir)
+            throws IOException {
+
+        // The record is the start's, not a test's own: started, run and ended by the command.
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code =
+                echoingStart(
+                        context,
+                        dir,
+                        WITH_MODEL,
+                        "--model",
+                        "model-b",
+                        "--work",
+                        "B622:Implementing"); // not-a-citation
+
+        assertThat(code).as("started and run: %s", err).isZero();
+        final List<java.util.Map<String, Object>> records =
+                new TaskWorkRecords(context).since("uc", java.time.Instant.EPOCH);
+        assertThat(records).as("one record of the task").hasSize(1);
+        assertThat(records.getFirst())
+                .containsEntry(
+                        "work",
+                        java.util.Map.of(
+                                "issue", "B622", "phase", "Implementing")) // not-a-citation
+                .containsEntry("model", "model-b")
+                .containsEntry("modelFrom", "start")
+                .containsEntry("end", TaskWorkRecords.DONE);
+        assertThat(records.getFirst().get("startedAt")).isNotNull();
+        assertThat(records.getFirst().get("endedAt")).isNotNull();
+    }
+
+    @Test
     void anAttendedStartHandsItsAgentTheProjectsModel(@TempDir Path dir) throws IOException {
 
         // Attended, the agent is started by the session: without the model it ran on its default.

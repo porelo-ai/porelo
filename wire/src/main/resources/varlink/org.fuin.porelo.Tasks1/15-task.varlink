@@ -653,7 +653,11 @@ method Start(
   # A start in default on a machine that is no host asks nothing, as nothing there needs a certificate.
   certify: ?bool,
   # Streams each step as its own reply, carrying step and no line. Default false: the stream is lines only, as before.
-  steps: ?bool
+  steps: ?bool,
+  # The issue and the phase of the project's own workflow this task works on, kept in its record as given: each one
+  # line of 1 to 64 characters, else refused with exitCode 64. Porelo does not know the phases. A task brought back
+  # keeps the work it was made with.
+  work: ?(issue: string, phase: string)
 ) -> (
   # One line of output. Set on every continuing reply unless steps: true was requested.
   line: ?string,
@@ -1483,6 +1487,68 @@ type Usage (
 
 # Reads current usage or the last retained record of a removed task, without network access.
 method Usage(task: string) -> (usage: Usage)
+
+# One tool call of a task's unattended run, in Porelo's own format: each agent maps its stream into it, and porelod
+# keeps no provider's shape.
+type ToolCall (
+  # The task's container name.
+  task: string,
+  # The agent's own name for the tool.
+  tool: string,
+  # shell, edit, read, search, web, sub-agent, mcp or other; a kind the agent cannot tell is other. A later release
+  # may add one; show an unknown one by its text.
+  kind: string,
+  # ISO-8601, and where it came from: stream (the agent's own time), duration (the other end's time less or plus
+  # the duration the end gave) or arrival (when porelod read the line).
+  start: string,
+  startFrom: string,
+  # Absent for a call the run never ended. A call in the background ends when its job ends, joined by the job's id.
+  end: ?string,
+  endFrom: ?string,
+  # A shell call's whole command line, masked by porelod before it was stored: a token, password or key given as an
+  # option's value, an Authorization header's value, an environment value whose name ends in _TOKEN, _KEY, _SECRET
+  # or _PASSWORD, a URL's user information, a string shaped like a known credential (also inside a longer word) and
+  # every non-blank value of the vault read as ***, the rest of the line kept. Every command line is *** whole when
+  # the vault could not be read. Absent for any other kind.
+  command: ?string,
+  background: bool,
+  # The issue whose id names the sub-agent the call ran under, followed up through nested sub-agents, as the agent
+  # named it; absent outside any sub-agent so named.
+  issue: ?string
+)
+
+# What one task worked on, from when to when, and with what: written when the task is made, completed at each run's
+# end, at a stop and at its removal, and kept past the removal as its usage record is.
+type TaskRecord (
+  # The task's container name.
+  task: string,
+  project: string,
+  repository: ?string,
+  # As Start's work gave it, or absent.
+  work: ?(issue: string, phase: string),
+  agent: ?string,
+  # Absent for the agent's default; modelFrom as Task.modelFrom.
+  model: ?string,
+  modelFrom: string,
+  # The reasoning effort; absent until Start has an effort setting.
+  effort: ?string,
+  # ISO-8601. endedAt and end are absent while it works.
+  startedAt: string,
+  endedAt: ?string,
+  # done or failed for a run's exit code, else stopped or removed, whichever came first since its last run.
+  end: ?string,
+  # The usage record's totals, as Usage answers them: live while the task is there, as kept at its removal after.
+  totals: UsageTotals,
+  # ASKED when its agent read its runs' tool calls, CANNOT_SAY when it could not (never read as no tool having run),
+  # DID_NOT_ASK when no unattended run was read: an attended session is not measured.
+  toolCallsAsked: Asked,
+  toolCalls: []ToolCall
+)
+
+# Answers a project's task records whose task ended at since or later, or works still, removed tasks' among them,
+# oldest start first. since is ISO-8601: a time with its offset, or a date in the machine's zone. An empty project
+# or a since that is no time answers InvalidParameter. Read as the person, never from a task's socket.
+method Records(project: string, since: string) -> (records: []TaskRecord)
 
 # A package, a tool or another setting a first start found, and the file it was read from. Where
 # something is set and could not be read without running something, value starts with "unknown: " and

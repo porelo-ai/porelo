@@ -24,7 +24,7 @@ public final class AgentProtocol {
      *
      * <p>Raised with every addition, so that an agent says how much of the contract it knows.
      */
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;
 
     /**
      * The lowest version this Porelo needs.
@@ -60,6 +60,12 @@ public final class AgentProtocol {
      * its end.
      */
     public static final String ENDED = INTERFACE + ".Ended";
+
+    /**
+     * Reads lines of the agent's output for the tool calls they start or end, each event naming the
+     * index of its line in the batch. Answered by an agent built at version 5 or later.
+     */
+    public static final String TOOL_EVENTS = INTERFACE + ".ToolEvents";
 
     private AgentProtocol() {
         throw new UnsupportedOperationException("Utility class");

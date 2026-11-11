@@ -74,9 +74,18 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
   5 adds `ToolEvents(lines: []string) -> (events: []ToolEvent)`, a batch like `FormatLog`, each event naming the index
   of the line it came from. `LOWEST` stays 3: an adapter without the method answers `MethodNotFound`, and porelod
   records "this agent cannot say", never an empty list as if no tool ran.
-- `ToolEvent(line, id, phase: START|END, tool, kind, command: ?string, background: bool, jobId: ?string, at: ?string)`.
-  The mapping is per line and holds no state; porelod joins a START to its END by `id`, and a background job's start
-  and end by `jobId`. In the Java API, `Agent#toolEvents(String line)` with a default that reads nothing.
+- `ToolEvent(line, id, phase: START|END, tool, kind, command: ?string, background: bool, jobId: ?string, at: ?string,
+  name: ?string, parent: ?string, durationMs: ?int)`. The mapping is per line and holds no state; porelod joins a START to its END by
+  `id`, and a background job's start and end by `jobId`. In the Java API, `Agent#toolEvents(String line)` with a
+  default that reads nothing.
+- `name` is, for a `sub-agent` START, the name the sub-agent was given; `parent` is the id of the sub-agent call a call
+  ran under (in one adapter's stream, `parent_tool_use_id`). Inside a task each issue goes to a sub-agent named by the
+  issue's id (the operator's decision, 2026-11-11), so porelod gives every entry the `issue` of the sub-agent it ran
+  under, following `parent` up through nested ones; a call outside any sub-agent has `issue` null.
+- `durationMs` is, on an END, how long the call took as the stream says (agreed with Agent Smith, 2026-11-11). porelod
+  takes an end from the stream's `at`, else the START's time plus `durationMs`, else the line's arrival; a start from
+  the stream's `at`, else, where the END has `durationMs` and the START no stream time, the END's time minus it, else
+  the arrival. Each entry says the source of its start and of its end: `stream`, `duration` or `arrival`.
 - `kind` is a closed set in the contract: `shell`, `edit`, `read`, `search`, `web`, `sub-agent`, `mcp`, `other`; a
   tool the adapter does not know is `other`.
 - `command` is a shell call's whole command line as the stream gives it; the adapter does not mask it. porelod masks it
@@ -93,6 +102,10 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
   `_TOKEN`, `_KEY`, `_SECRET` or `_PASSWORD`, the user information of a URL, a string shaped like a known credential
   (provider keys, forge tokens, private key blocks), and every value of the vault porelod knows for the task.
 - A masked value is replaced by `***`, its name and the rest of the line kept, so the line still says what ran.
+- A credential shape is masked inside a longer word of a command line too, so a base64 run that holds `sk-` by chance
+  loses that run; over-masking in a command line is accepted, and only command lines are masked, never the stream's
+  other text (the operator's decision, 2026-11-11).
+- Every non-blank value of the vault is masked, however short (the operator's decision, 2026-11-11).
 - Red first: a unit test over lines with each kind of secret, the vault's own value among them, expects none of them
   in the stored entry.
 
@@ -104,3 +117,48 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
 - Minutes are wall time, from the task's start to its end. Busy time (from the request times) may be an extra field;
   the velocity does not use it.
 - The planner reads `Records(project, since)` on the daemon's socket, as the person, and no file.
+
+## As built
+
+- Agent1 version 5 (`LOWEST` 3) adds `ToolEvents(lines)` and `ToolEvent` in `porelo-agent-api`, with `name`, `parent`
+  and `durationMs` added on the way; `InstalledAgent.toolEvents` answers an adapter without the method as empty,
+  which the record says as `CANNOT_SAY`.
+- `CommandMask` in the task area is the one place a command line is masked: the vault's values (every non-blank one)
+  and the run's own, then key blocks, credential shapes (inside a longer word too), a URL's user information,
+  `Authorization:`, environment names ending in `_TOKEN`, `_KEY`, `_SECRET` or `_PASSWORD`, password, token, secret
+  and key options, `-p` of the MySQL tools and `sshpass`, and `curl -u`'s password. A vault that cannot be read masks
+  every command line whole.
+- An agent may name a call's job only on a later line: a second START for a known call id that carries a `jobId`
+  registers the job for that call, and its `background: true` marks the call as background; nothing else of it
+  counts. The job's END then ends the call, after a call's early result too. A job's first END is its call's end; a
+  repeated END of the same job, as an agent's progress lines give it, changes nothing.
+- `ToolCalls` joins a START to its END by id and a background job by `jobId`, takes each time from the stream, else
+  from the other end and `durationMs`, else the line's arrival, and gives an entry the `issue` of the sub-agent it ran
+  under, the name matched as an issue's id (uppercase letters and digits).
+- The run's log is always followed while a prompt runs, so tool events are read as lines arrive; lines are shown only
+  to a caller that follows.
+- `TaskWorkRecords` keeps the record at `work/<container>.json` in the state directory, written at creation,
+  completed at each run's end, at a stop and at removal (from `TaskUsage.archive`, before the usage record is kept),
+  and renamed `<container>.removed-<time>.json`. `Records` answers live totals for a task still there.
+- `effort` is null until Start has an effort setting. `Records` is a method a task's endpoint never carries.
+- `porelo keep` does not yet copy the work records; `CanStart` does not take `work`.
+- Red first: `CommandMaskTest` (19 of 23, then the glued-credential cases), `ToolCallsTest` (4 of 4, then the two
+  duration cases, then the three job cases), `ToolEventsTest`, `TaskUsageTest`'s record case and `TaskRecordsMethodTest`.
+- After agy's read-only review (gemini-4-argon-high), each finding checked against the code:
+  - A call given a job on a later START ends with the job alone, whatever the START says of the background: its
+    early return, before or after that line, is no longer its end, and a run that ends first leaves it open.
+  - A job id used again belongs to the call that took it last.
+  - A foreground call's first END is its end.
+  - `curl -u "user:pw"` is masked as `curl -u 'user:pw'` was. An `Authorization:` header with a scheme other than
+    Bearer, Basic, Token or Digest is masked with its scheme.
+  - A later run in the same container is masked by the values the task was started with too
+    (`TaskLaunch.startValues`, from its `parameters.json`).
+  - The record is written once nothing can refuse the start any more, after the host's forge token. A start the host
+    refuses leaves no record.
+  - The records are written under a file lock in `work/`, across processes: porelod and a `porelo task stop` both end
+    one. `Records` reads under it, and a record gone meanwhile is left out.
+  - `TaskRunCommandTest.aStartedTasksRecordSaysItsWorkItsModelAndHowItsRunEnded` runs the whole start. It fails with
+    the start's `recordStart` taken out.
+  - Rejected: `_KEY` assignments are masked already. A start time taken from a duration is right. A run in an
+    existing task replaces the record's end, as one record per task says.
+  - Left for later: `--work` given to a task that exists already is not taken.

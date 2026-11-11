@@ -95,7 +95,66 @@ public final class TaskLaunch {
             @Nullable String parent,
             @Nullable String named,
             @Nullable String shortName,
-            boolean allRepositories) {
+            boolean allRepositories,
+            @Nullable TaskWork work) {
+
+        /** Constructor for a start whose work nobody named. */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch,
+                @Nullable Integer subagents,
+                @Nullable TaskBase base,
+                @Nullable String parent,
+                @Nullable String named,
+                @Nullable String shortName,
+                boolean allRepositories) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    subagents,
+                    base,
+                    parent,
+                    named,
+                    shortName,
+                    allRepositories,
+                    null);
+        }
 
         /** Constructor for a start on one repository, or on none. */
         public Request(
@@ -812,7 +871,8 @@ public final class TaskLaunch {
                     // The same task by its other name: a person who named it named it so.
                     named == null ? null : name,
                     shortName,
-                    allRepositories);
+                    allRepositories,
+                    work);
         }
     }
 
@@ -1961,7 +2021,8 @@ public final class TaskLaunch {
                             request.parent(),
                             request.named(),
                             request.shortName(),
-                            request.allRepositories());
+                            request.allRepositories(),
+                            request.work());
         }
         return null;
     }
@@ -2468,6 +2529,13 @@ public final class TaskLaunch {
                 org.fuin.porelo.core.project.ShortName.refusal(request.shortName());
         if (badShort.isPresent()) {
             err.println("porelo: --short: " + badShort.orElseThrow());
+            err.flush();
+            return 64;
+        }
+        final TaskWork work = request.work();
+        final String workRefused = work == null ? null : work.refusal();
+        if (workRefused != null) {
+            err.println("porelo: --work: " + workRefused);
             err.flush();
             return 64;
         }
@@ -3575,7 +3643,6 @@ public final class TaskLaunch {
                             out,
                             err);
             writeResumeRecord(container, err);
-            recordParentStart(container, project.name());
             // What brings it back after a reboot: its description and records saved where a reboot
             // does not reach, and its two tokens in the vault. A task that cannot keep them runs,
             // and says so.
@@ -3647,6 +3714,9 @@ public final class TaskLaunch {
             // or simply say so - is the caller's, and it happens inside this scope on purpose: the
             // installed agents are a resource this owns, and the paths that follow a start use
             // them.
+            // Only now that nothing can refuse the start: a record or an event of a start that then
+            // failed would claim work that never ran.
+            recordStart(container, project.name(), selected, err);
             steps.done(StartStep.Step.HELPERS);
             handedOver = true;
             releaseReservation();
@@ -3838,11 +3908,37 @@ public final class TaskLaunch {
         out.flush();
 
         final java.util.function.Consumer<String> following = runLines;
+        final TaskWorkRecords records = new TaskWorkRecords(context);
+        try {
+            records.runStarted(container);
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not mark this task's work record: " + ex.getMessage());
+            err.flush();
+        }
+        final ToolCalls calls = new ToolCalls(container, commandMask(container, environment));
+        // Always followed, to read the run's tool calls as its lines arrive; shown only to a
+        // caller that follows.
         final RunFollower follower =
-                following == null
-                        ? null
-                        : RunFollower.start(
-                                log, selected::format, following, java.time.Duration.ofMillis(250));
+                RunFollower.start(
+                        log,
+                        lines -> {
+                            try {
+                                calls.read(selected.toolEvents(lines), java.time.Instant.now());
+                            } catch (RuntimeException ex) {
+                                // The lines are still shown; the record says the agent could not
+                                // say, never that no tool ran.
+                                calls.read(java.util.Optional.empty(), java.time.Instant.now());
+                            }
+                            if (following == null) {
+                                final java.util.List<@Nullable String> hidden =
+                                        new java.util.ArrayList<>();
+                                lines.forEach(line -> hidden.add(null));
+                                return hidden;
+                            }
+                            return selected.format(lines);
+                        },
+                        following == null ? line -> {} : following,
+                        java.time.Duration.ofMillis(250));
         try {
             int code;
             org.fuin.porelo.runtime.ContainerException killed = null;
@@ -3861,10 +3957,17 @@ public final class TaskLaunch {
             } finally {
                 // Before anything else is written to the caller: while it runs, the follower is
                 // the only one writing there.
-                if (follower != null) {
-                    follower.close();
+                follower.close();
+                if (following != null) {
                     runLinesDropped = follower.dropped();
                 }
+            }
+            try {
+                records.runEnded(container, calls, code);
+            } catch (java.io.IOException ex) {
+                err.println(
+                        "porelo: could not complete this task's work record: " + ex.getMessage());
+                err.flush();
             }
             if (killed != null) {
                 // Whatever the agent managed to say before it was killed is the most useful thing
@@ -3979,12 +4082,33 @@ public final class TaskLaunch {
     }
 
     /**
-     * Writes the event log's {@code started} event for a task another task started, once it runs.
+     * Starts the task's work record and writes the event log's {@code started} event for a task
+     * another task started, once it runs.
      *
      * @param container Container name.
      * @param projectName Its project.
+     * @param selected The agent, or {@code null} when the task has none.
+     * @param err Where a failure to record is reported.
      */
-    private void recordParentStart(String container, String projectName) {
+    private void recordStart(
+            String container,
+            String projectName,
+            @Nullable InstalledAgent selected,
+            PrintWriter err) {
+        try {
+            new TaskWorkRecords(context)
+                    .started(
+                            container,
+                            projectName,
+                            workedOn == null ? null : workedOn.name(),
+                            request.work(),
+                            selected == null ? null : selected.definition().name(),
+                            model.model(),
+                            model.from());
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not start this task's work record: " + ex.getMessage());
+            err.flush();
+        }
         final String parent = request.parent();
         if (parent != null) {
             // Who started what, where a person reads the log: a task its parent stops is one the
@@ -4332,6 +4456,52 @@ public final class TaskLaunch {
      * only needs a shell needs no credential, and failing here would make the common case depend on
      * the uncommon one.
      */
+    /**
+     * Returns the values a task was started with, as its record keeps them: a later run in the same
+     * container is not given them again, and its command lines may hold them.
+     *
+     * @param paths Where the task's record is.
+     * @param container The task.
+     * @return The values; empty when the record holds none.
+     */
+    static java.util.List<String> startValues(PoreloPaths paths, String container) {
+        return TaskInventory.parametersGiven(paths.tasks().containerState(container))
+                .values()
+                .stream()
+                .map(given -> given.get("value"))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    /**
+     * Returns how this task's tool calls are masked: by every value of the vault this machine
+     * holds, every value the run was given and every value the task was started with, which a later
+     * run in the same container is not given again; a vault that cannot be read masks every command
+     * line whole, since its values cannot be looked for.
+     *
+     * @param container The task.
+     * @param environment What the run was given.
+     * @return The mask.
+     */
+    private CommandMask commandMask(String container, java.util.Map<String, String> environment) {
+        final org.fuin.porelo.vault.VaultFile vault = context.vault();
+        final java.util.List<String> values = new java.util.ArrayList<>(environment.values());
+        values.addAll(startValues(context.paths(), container));
+        if (!vault.exists()) {
+            return new CommandMask(values);
+        }
+        final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opener = context.opener();
+        if (opener.isEmpty()) {
+            return CommandMask.whole();
+        }
+        try {
+            vault.read(opener.get()).values().forEach(entry -> values.add(entry.value()));
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            return CommandMask.whole();
+        }
+        return new CommandMask(values);
+    }
+
     private java.util.Map<String, String> environment(
             org.fuin.porelo.agent.api.InstalledAgents agents, PrintWriter out, PrintWriter err) {
 

@@ -177,6 +177,15 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable Integer maxTurns;
 
     @Option(
+            names = "--work",
+            paramLabel = "<issue>:<phase>",
+            description =
+                    "The issue and the phase of the project's workflow this task works on, such as"
+                            + " ISSUE-1:Implementing; each one line of at most 64 characters, kept"
+                            + " in the task's record as given.")
+    private @Nullable String work;
+
+    @Option(
             names = "--subagents",
             paramLabel = "<n>",
             description =
@@ -881,7 +890,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                 ? task
                                                 : null,
                                         shortName,
-                                        allRepositories),
+                                        allRepositories,
+                                        work == null ? null : TaskWork.parse(work)),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.

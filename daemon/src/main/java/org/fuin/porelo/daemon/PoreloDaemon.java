@@ -888,7 +888,8 @@ public final class PoreloDaemon {
                 // The caller's own word only: a name the MCP endpoint settled for it is none.
                 task.isEmpty() || flag(parameters, UNNAMED) ? null : task,
                 shortName(parameters),
-                allRepositories);
+                allRepositories,
+                org.fuin.porelo.app.TaskWork.of(parameters.get("work")));
     }
 
     /**

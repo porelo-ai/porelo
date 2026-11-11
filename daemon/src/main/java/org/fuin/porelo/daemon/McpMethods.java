@@ -95,6 +95,9 @@ final class McpMethods {
      */
     static final Set<String> NEVER =
             Set.of(
+                    // Every task's command lines, a project's whole: the person's planner reads
+                    // them.
+                    "Records",
                     "PushToCentral",
                     "PullRequests",
                     "WatchPullRequests",

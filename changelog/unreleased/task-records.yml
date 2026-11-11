@@ -1,0 +1,2 @@
+title: "porelod keeps one record per task, past its removal: its project, repository, issue and phase (`porelo task start --work ISSUE:PHASE`, Start's `work`), agent, model, start, end and token totals, and one entry per tool call of its unattended runs, a shell call's command line masked; `porelo task records --project P --since T --json` and Tasks1 `Records(project, since)` answer a project's records, and Agent1 version 5 adds `ToolEvents(lines)`, through which each agent maps its stream into the common format"
+type: added

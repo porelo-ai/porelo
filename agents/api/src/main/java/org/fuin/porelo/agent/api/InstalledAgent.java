@@ -698,6 +698,35 @@ public class InstalledAgent implements AutoCloseable {
                 : null;
     }
 
+    /**
+     * Asks the agent which tool calls lines of its output start or end.
+     *
+     * @param lines Lines of its raw output, in their order.
+     * @return The events, each naming the index of its line; empty when the agent has no such
+     *     method, which is "this agent cannot say" and never "no tool ran".
+     */
+    public Optional<List<ToolEvent>> toolEvents(final List<String> lines) {
+        return toolEvents(client, lines);
+    }
+
+    static Optional<List<ToolEvent>> toolEvents(
+            final VarlinkClient client, final List<String> lines) {
+        if (!(optional(client, AgentProtocol.TOOL_EVENTS, Map.of("lines", lines))
+                instanceof Answer.Answered(Map<String, Object> reply))) {
+            return Optional.empty();
+        }
+        final List<ToolEvent> events = new ArrayList<>();
+        if (reply.get("events") instanceof List<?> raw) {
+            for (final Object entry : raw) {
+                final ToolEvent event = entry instanceof Map<?, ?> map ? ToolEvent.of(map) : null;
+                if (event != null && event.line() < lines.size()) {
+                    events.add(event);
+                }
+            }
+        }
+        return Optional.of(List.copyOf(events));
+    }
+
     private static Map<String, String> attributes(@Nullable Object value) {
         if (!(value instanceof Map<?, ?> source)) {
             return Map.of();

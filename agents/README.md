@@ -365,6 +365,7 @@ Override a method on `Agent`, **in your own module**:
 | `credentialExtractor()` | finds nothing | the login credential is not a dotenv variable or a JSON field |
 | `logFormatter()` | passes lines through | the agent emits a structured stream worth rendering |
 | `ended(String line)` | finds no end | the agent's output says how its run ended (finished, or an error and whose), so `task status` can say it |
+| `toolEvents(String line)` | reads no tool calls | the agent's output shows its tool calls, so a task's record can hold them |
 | `imageLayer()` | the `install:` block | the build needs more than fragments |
 | `headlessCommand(RunRequest)` | the shared builder | the command line is genuinely a different shape |
 
@@ -373,6 +374,21 @@ credential layouts. Reach for an override only when they do not.
 
 Porelo asks `ended` line by line from the end of the task's log, once the log has been quiet for a while; the first
 line answered for is how the run ended.
+
+`ToolEvents(lines)` (protocol version 5) answers, for a batch of lines of an unattended run's output, one
+`ToolEvent` per moment of a tool call: `line` (the line's index in the batch, set by the server), `id`, `phase`
+(`START` or `END`), `tool` (the agent's own name), `kind`, `command`, `background`, `jobId`, `at`, `name`,
+`parent` and `durationMs`. `kind` is the
+closed set `shell`, `edit`, `read`, `search`, `web`, `sub-agent`, `mcp` and `other`; a tool the agent does not know is
+`other`, never left out. The mapping is per line and holds no state: Porelo joins a start to its end by `id`, and a
+background job's start and end by `jobId`, its end then the job's end. `command` is a shell call's whole command line
+as the stream gives it, never masked by the agent, since Porelo masks it before anything is stored. `at` is the
+stream's own time where it has one; without it Porelo stamps the line's arrival. `name` is, for a `sub-agent`
+start, the name the sub-agent was given, such as the id of the issue it works on; `parent` is the id of the
+sub-agent call a call ran under (in Claude Code's stream, `parent_tool_use_id`), absent outside any sub-agent. `durationMs` is, on an `END`, how long the
+call took in milliseconds as the stream says; Porelo takes a time the stream does not give from it before it stamps
+a line's arrival, so a burst of lines read together still spans the call's true time. An agent built before version 5
+answers `MethodNotFound`, and Porelo records that it cannot say, never that no tool ran.
 
 **Never** add a branch outside your module that tests an agent's name. That is
 the failure this structure exists to prevent: the next agent falls into the

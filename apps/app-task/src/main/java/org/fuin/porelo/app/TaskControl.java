@@ -560,6 +560,16 @@ public final class TaskControl {
                 if (held.readable()) UnhandedWork.note(state, held);
                 else forgetNote(state);
                 new TaskState(context).save(container);
+                try {
+                    new TaskWorkRecords(context).stopped(container);
+                } catch (java.io.IOException ex) {
+                    // Not what the stop left running: said, and the stop stands.
+                    System.err.println(
+                            "porelo: "
+                                    + container
+                                    + "'s work record was not completed: "
+                                    + ex.getMessage());
+                }
             }
         }
         // Out of its rooms where its next start brings it back, or a room counts it as running. Not

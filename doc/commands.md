@@ -165,6 +165,7 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task start [TASK]` | Creates a task, or brings back a stopped one with its workspace. |
 | `porelo task list` | Lists the tasks, with how long each has been in its state. |
 | `porelo task status TASK [--json]` | Everything known about one task, including unpushed work; `--json` answers a program, `absent` for none. |
+| `porelo task records --project PROJECT --since TIME [--json]` | A project's task records whose task ended at `TIME` or later, or works still, removed tasks' among them, oldest first: what each worked on, from when to when, and its tool calls. |
 | `porelo task logs TASK [LOG]` | Shows what the task's helpers on this machine wrote. |
 | `porelo task logs TASK --zip [FILE] [--with-agent-output]` | Keeps the task's logs, its status, files and talk log in one archive readable by you only, with `SHA256SUMS`. |
 | `porelo task attach TASK` | Opens a running task's session. Ctrl+b then d leaves it without ending it. |
@@ -183,6 +184,9 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task check-certificate --task TASK --login LOGIN --keys FILE [--krl FILE] [--json]` | Run by a host's helper, not by hand: checks the task certificate on standard input before the host records it, and writes nothing ([the host's contract](hosts.md#a-task-certificate-judged-for-the-host)). |
 
 **`task start`**
+- `--work ISSUE:PHASE`: names the issue and the phase of the project's own workflow (such as `Implementing`) the
+  task works on, kept in its record as given; each one line of 1 to 64 characters, else exit code 64. Over the
+  daemon, Start's `work: (issue, phase)`.
 - `--short NAME`: records an optional container spelling for the task: `[a-z][a-z0-9-]*`, at most 16 characters,
   no underscore and no `porelo-` prefix. It stays fixed with the project's short spelling when the task is created.
   Container creation currently keeps the legacy name.
@@ -424,6 +428,27 @@ Hours include their UTC offset. `--json` adds, where a record exists, the same s
 A removed task's latest retained usage remains readable by its full task name; `task status` prints it
 and still exits 69, since there is no such task. A killed broker's half line costs one request's counts,
 not the record's. `List` and `Watch` keep their existing task shape and do not read usage records.
+
+**A task's record.** porelod keeps one record per task under the state directory, written when the task is made,
+completed at the end of each unattended run, at a stop and at its removal, and kept past the removal as the usage
+record is. `porelo task records --project PROJECT --since TIME --json` and the daemon's `Records(project, since)`
+answer a project's records, oldest first: `task`, `project`, `repository`, `work` (`issue`, `phase`), `agent`,
+`model`, `modelFrom`, `effort` (null until a start has an effort setting), `startedAt`, `endedAt`, `end` (`done` or
+`failed` by a run's exit code, else `stopped` or `removed`, whichever came first since its last run), `totals` as
+`Usage` answers them, `toolCallsAsked` (`ASKED`, `CANNOT_SAY` for an agent that cannot say, never read as no tool
+having run, `DID_NOT_ASK` where no unattended run was read) and `toolCalls`. `TIME` is ISO-8601, a time with its
+offset or a date in the machine's zone; a record whose task ended before it is left out.
+
+Each tool call is one entry in Porelo's own format, which each agent maps its stream into (`ToolEvents` of the
+[agent protocol](https://github.com/porelo-ai/porelo/blob/main/agents/README.md#when-yaml-is-not-enough)): `task`, `tool` (the agent's own name), `kind`
+(`shell`, `edit`, `read`, `search`, `web`, `sub-agent`, `mcp` or `other`), `start` and `startFrom`, `end` and
+`endFrom` (`stream`, `duration` or `arrival`: the agent's own time, the other end's time and the call's duration, or
+when the line was read), `command`, `background` and `issue`. A call in the background ends when its job ends. A call
+under a sub-agent named by an issue's id carries that `issue`, through nested sub-agents. `command` is a shell
+call's whole command line, masked before it is stored: an option's token, password or key, an `Authorization:`
+value, an environment value whose name ends in `_TOKEN`, `_KEY`, `_SECRET` or `_PASSWORD`, a URL's user information,
+a string shaped like a known credential (inside a longer word too) and every non-blank value of the vault read
+`***`, the rest of the line kept; with the vault unreadable the whole line is `***`. Only an unattended run is read.
 
 **What a task's image was built with.** Every image a start or a prepare builds records its settings in the
 label `org.fuin.porelo.settings`, and the daemon's `ImageSettings(task)` answers them for the image that task's

@@ -96,7 +96,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "maxTurns",
                     "parameters",
                     "dryRun",
-                    "steps");
+                    "steps",
+                    "work");
 
     /** The methods a task's endpoint may carry beside the reading ones. */
     private static final Set<String> WRITING = Set.of("Start", "Stop", "Done");

@@ -82,6 +82,28 @@ public record TaskPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory holding the tasks' work records.
+     *
+     * <p>Under the state directory and kept after a task is removed, as the usage records are: what
+     * a task worked on, from when to when and with which tool calls is what planning measures.
+     *
+     * @return The directory.
+     */
+    public Path workRecords() {
+        return paths.xdg().state().resolve("work");
+    }
+
+    /**
+     * Returns the work record of one task, renamed when the task is removed.
+     *
+     * @param container Container name.
+     * @return The file.
+     */
+    public Path workRecord(String container) {
+        return workRecords().resolve(container + ".json");
+    }
+
+    /**
      * Returns the file holding the session a task's agent was running.
      *
      * <p>Under the state directory, like the mailbox and for the same reason: it is the task's, and

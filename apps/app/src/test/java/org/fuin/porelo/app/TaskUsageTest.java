@@ -290,4 +290,118 @@ class TaskUsageTest {
 
         assertThat(usage.models().stream().map(UsageSums.Group::name)).containsExactly("~v/m");
     }
+
+    /** The issue a task works on, as a planner names it. */
+    private static final String WORK = "B622:Implementing"; // not-a-citation
+
+    @Test
+    void aTasksRecordHoldsItsWorkTimesTotalsAndToolCallsAndOutlivesItsRemoval(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final TaskWorkRecords records = new TaskWorkRecords(context);
+        final TaskWork work = TaskWork.parse(WORK);
+        assertThat(work.refusal()).as("one line of at most 64 characters each").isNull();
+
+        records.started(TASK, "uc", "work", work, "worker-one", "model-a", "start");
+        records.runStarted(TASK);
+        record(context);
+        // A stand-in adapter's stream: one shell call in the background, joined by its job's id.
+        final org.fuin.porelo.agent.api.Agent adapter =
+                new org.fuin.porelo.agent.api.Agent() {
+                    @Override
+                    public org.fuin.porelo.agent.api.AgentDefinition definition() {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public java.util.List<org.fuin.porelo.agent.api.ToolEvent> toolEvents(
+                            final String line) {
+                        final org.fuin.porelo.agent.api.ToolEvent.Phase phase =
+                                line.startsWith("started")
+                                        ? org.fuin.porelo.agent.api.ToolEvent.Phase.START
+                                        : org.fuin.porelo.agent.api.ToolEvent.Phase.END;
+                        return java.util.List.of(
+                                new org.fuin.porelo.agent.api.ToolEvent(
+                                        0,
+                                        line.startsWith("started") ? "call-1" : "call-9",
+                                        phase,
+                                        "Bash",
+                                        org.fuin.porelo.agent.api.ToolEvent.Kind.SHELL,
+                                        line.startsWith("started")
+                                                ? "GH_TOKEN=fake-token-1 ./mvnw verify"
+                                                : null,
+                                        true,
+                                        "job-1",
+                                        line.substring(line.indexOf(' ') + 1)));
+                    }
+                };
+        final ToolCalls calls = new ToolCalls(TASK, new CommandMask(java.util.List.of()));
+        for (final String line :
+                java.util.List.of("started 2026-01-01T22:00:00Z", "ended 2026-01-01T22:10:00Z")) {
+            calls.read(java.util.Optional.of(adapter.toolEvents(line)), java.time.Instant.now());
+        }
+        records.runEnded(TASK, calls, 0);
+        new TaskUsage(context).archive(TASK);
+
+        final StringWriter text = new StringWriter();
+        final var cli = PoreloCli.commandLine(context);
+        cli.setOut(new PrintWriter(text));
+        assertThat(
+                        cli.execute(
+                                "task",
+                                "records",
+                                "--project",
+                                "uc",
+                                "--since",
+                                "2026-01-01T00:00:00Z",
+                                "--json"))
+                .as("a removed task's record is answered")
+                .isZero();
+        final var answered = (java.util.List<?>) Json.parseExact(text.toString());
+        assertThat(answered).hasSize(1);
+        final Map<String, Object> record = fields(answered.getFirst());
+        assertThat(record)
+                .containsEntry("task", TASK)
+                .containsEntry("project", "uc")
+                .containsEntry("repository", "work")
+                .containsEntry("work", Map.of("issue", work.issue(), "phase", "Implementing"))
+                .containsEntry("agent", "worker-one")
+                .containsEntry("model", "model-a")
+                .containsEntry("end", "done")
+                .containsEntry("toolCallsAsked", "ASKED")
+                .containsKeys("startedAt", "endedAt", "effort");
+        assertThat(record.get("effort")).as("Start has no effort setting yet").isNull();
+        assertThat(((Map<?, ?>) record.get("totals")).get("requests"))
+                .as("the usage record's totals, kept at removal")
+                .isEqualTo(3L);
+        final Map<String, Object> call =
+                fields(((java.util.List<?>) record.get("toolCalls")).getFirst());
+        assertThat(call)
+                .containsEntry("kind", "shell")
+                .containsEntry("background", true)
+                .containsEntry("start", "2026-01-01T22:00:00Z")
+                .containsEntry("end", "2026-01-01T22:10:00Z")
+                .containsEntry("command", "GH_TOKEN=*** ./mvnw verify");
+
+        text.getBuffer().setLength(0);
+        assertThat(
+                        cli.execute(
+                                "task",
+                                "records",
+                                "--project",
+                                "uc",
+                                "--since",
+                                "2099-01-01",
+                                "--json"))
+                .isZero();
+        assertThat((java.util.List<?>) Json.parse(text.toString()))
+                .as("a record that ended before the time asked is left out")
+                .isEmpty();
+    }
+
+    private static Map<String, Object> fields(final Object parsed) {
+        final Map<String, Object> fields = new java.util.LinkedHashMap<>();
+        ((Map<?, ?>) parsed).forEach((key, value) -> fields.put(String.valueOf(key), value));
+        return fields;
+    }
 }

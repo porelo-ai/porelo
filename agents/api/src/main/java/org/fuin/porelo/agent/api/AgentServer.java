@@ -13,8 +13,8 @@ import org.jspecify.annotations.Nullable;
  * Serves one agent over varlink.
  *
  * <p>Linked into the agent's own binary, not into Porelo. An agent's {@code main} is therefore
- * three lines, and every agent answers the same four calls in the same way - the differences live
- * in the {@link Agent} it was given, which is where they belong.
+ * three lines, and every agent answers the same calls in the same way - the differences live in the
+ * {@link Agent} it was given, which is where they belong.
  */
 public class AgentServer implements AutoCloseable {
 
@@ -154,6 +154,24 @@ public class AgentServer implements AutoCloseable {
                                     ? agent.ended(line)
                                     : null;
                     replies.last(ended == null ? Map.of() : Map.of("ended", ended.asMap()));
+                });
+
+        server.method(
+                "ToolEvents",
+                (parameters, replies) -> {
+                    // A batch, line by line: each event names the index of its line, which the
+                    // agent's own mapping cannot know.
+                    final List<Map<String, Object>> events = new ArrayList<>();
+                    if (parameters.get("lines") instanceof List<?> lines) {
+                        for (int i = 0; i < lines.size(); i++) {
+                            if (lines.get(i) instanceof String line) {
+                                for (final ToolEvent event : agent.toolEvents(line)) {
+                                    events.add(event.atLine(i).asMap());
+                                }
+                            }
+                        }
+                    }
+                    replies.last(Map.of("events", events));
                 });
 
         server.method(

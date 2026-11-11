@@ -49,6 +49,12 @@ public record TaskUsage(PoreloContext context) {
      */
     public void archive(String task) {
         if (!validTask(task)) return;
+        try {
+            // First, while the usage it totals is still the task's own.
+            new TaskWorkRecords(context).removed(task);
+        } catch (IOException | RuntimeException ex) {
+            // Kept where it is, completed or not: nothing is lost, and the removal goes on.
+        }
         final Path file = context.paths().tasks().usageRecord(task);
         try {
             long at = System.currentTimeMillis();
