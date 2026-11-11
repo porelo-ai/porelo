@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 | <a id="b618"></a>[B618](B618-The-Musl-Toolchain-Comes-From-The-Build-Cache.md) | S | - | The build's musl job takes the musl toolchain and zlib from the Actions cache, keyed by their pinned digests, and the build keeps only the newest entry of each of its caches. |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |
@@ -49,6 +50,7 @@ from its side, as *blocked by*.
 | <a id="b408"></a>[B408](B408-One-Step-To-Recover-From-A-Lost-Key.md) | L | [B407](README.md#b407) | After 0.7: an owner recovers a lost key in one step, with a listing of what it signed, a confirm that can leave a point out, and resuming by id |
 | <a id="b407"></a>[B407](B407-An-Owners-Signature-Counts-For-A-Projects-Files.md) | M | - | After 0.7: an owner's signature counts for a project's `repository.yml`, `members.yml` and `project.yml`, host files kept out |
 | <a id="b406"></a>[B406](B406-A-Revoked-Person-Comes-Back-Only-When-Agreed.md) | M | - | After a revoke, a person comes back only when an owner or admin agrees; a new key at the forge and *Add me* alone do not bring them back |
+| <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
 | <a id="b405"></a>[B405](B405-A-Host-That-Says-Why-A-Project-Has-No-Address.md) | - | - | A host carrying a project with no address says why: nobody opened it, or the file for its address stands refused |
 | <a id="b403"></a>[B403](B403-A-Start-Judged-On-A-Real-Machine.md) | - | - | The acceptance suite walks a start of an organization's project through the judgment on a real machine, signed, unsigned, wrong role and revoked |
 | <a id="b404"></a>[B404](B404-A-List-With-The-Organization-Never-Read.md) | - | - | `project list` still shows a machine's own projects when its organization was never read and is out of reach |
