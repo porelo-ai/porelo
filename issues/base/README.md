@@ -105,6 +105,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b616"></a>[B616](B616-A-Task-That-Ends-Without-A-Stop-Leaves-Its-Room.md) | M | [B615](README.md#b615) | A task whose container ends without `task stop` (it exits, crashes, or the machine was off) leaves its room on a central homeserver as a stopped task does: `porelod` finds every enrolled task that is not running, at its start, while it runs and when the vault opens, and has it leave. |
 | <a id="b570"></a>[B570](B570-Porelos-Tests-Follow-The-Pyramid.md) | XL | - | Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite. |
 | <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | S | - | A unit test holds what only a host check held: `porelod`'s host forge rule and the gate's refusal of another upstream; a removal with the vault shut says the task's forge token stays until the host's sweep. |
 | <a id="b424"></a>[B424](B424-A-Persons-Forge-Token-Replaced-At-Each-Command.md) | S | - | `porelod`'s measuring asks the host's forge for one lent token per round, not one per repository; the host tool's lending switch already keeps a lend from taking the person's or another lend's token. |
