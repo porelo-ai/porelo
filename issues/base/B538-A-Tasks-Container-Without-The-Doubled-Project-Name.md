@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B538",
   "title": "A Task's Container Without The Doubled Project Name",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "L",
   "priority": "High",
   "rank": 4,
