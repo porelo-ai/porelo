@@ -90,7 +90,7 @@ public class OrgRefreshCommand extends OrgReading {
                                             .equals(after)) {
                                 return outcome("refreshed");
                             }
-                            final Path receipt = state.resolve("refresh.json");
+                            final Path receipt = state.resolve(OrgAccess.REFRESH_RECEIPT);
                             if (recent(receipt)) return outcome("joined");
                             try {
                                 final Optional<OrganizationQuestions> refreshed =
@@ -105,13 +105,20 @@ public class OrgRefreshCommand extends OrgReading {
                                 if (refreshed.isEmpty()) return outcome("superseded");
                                 final OrganizationQuestions read = refreshed.orElseThrow();
                                 final String result = read.whole() ? "refreshed" : "incomplete";
-                                receipt(receipt, result);
+                                receipt(
+                                        receipt,
+                                        result,
+                                        read.whole() ? null : OrgAccess.StaleWhy.incomplete());
                                 if (!read.whole()) throw failed();
                                 return outcome(result);
+                            } catch (GitTreeStore.Unreachable ex) {
+                                // Git's own lines only: what the forge said is left out of them.
+                                receipt(receipt, "failed", OrgAccess.StaleWhy.of(ex));
+                                throw failed();
                             } catch (IOException | RuntimeException ex) {
                                 // Remote diagnostics can quote credentials; the helper keeps only a
                                 // safe outcome.
-                                receipt(receipt, "failed");
+                                receipt(receipt, "failed", OrgAccess.StaleWhy.failed());
                                 throw failed();
                             }
                         })
@@ -133,7 +140,8 @@ public class OrgRefreshCommand extends OrgReading {
         }
     }
 
-    private void receipt(Path file, String result) throws IOException {
+    private void receipt(Path file, String result, OrgAccess.@Nullable StaleWhy why)
+            throws IOException {
         final Path staged =
                 Files.createTempFile(
                         file.getParent(),
@@ -142,18 +150,16 @@ public class OrgRefreshCommand extends OrgReading {
                         PosixFilePermissions.asFileAttribute(
                                 PosixFilePermissions.fromString("rw-------")));
         try {
-            Files.writeString(
-                    staged,
-                    Json.write(
-                            Map.of(
-                                    "repository",
-                                    repository,
-                                    "after",
-                                    after,
-                                    "attempted_at",
-                                    Instant.now().toString(),
-                                    "outcome",
-                                    result)));
+            final Map<String, @Nullable Object> written = new java.util.LinkedHashMap<>();
+            written.put("repository", repository);
+            written.put("after", after);
+            written.put("attempted_at", why == null ? Instant.now().toString() : why.at());
+            written.put("outcome", result);
+            if (why != null) {
+                written.put("cause", why.cause());
+                written.put("said", why.said());
+            }
+            Files.writeString(staged, Json.write(written));
             Files.move(
                     staged,
                     file,

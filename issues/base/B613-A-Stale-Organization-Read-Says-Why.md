@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B613",
   "title": "A Stale Organization Read Says Why",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 10,
@@ -63,3 +63,8 @@ How it is today, read in the code:
 
 - The tests above, each seen red first.
 - On the laptop, with the organization's forge out of reach, `porelo org --json --refresh` names why.
+
+## As built
+
+- Built as a fix during an operator test: its unit tests seen red, then green; the reading by another model follows.
+- `stale_why` is also answered by a cached refusal, through the same `age` that writes `checked_at`.

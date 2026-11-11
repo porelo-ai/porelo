@@ -95,7 +95,15 @@ final class OrgAccess {
     record Reading(
             OrganizationQuestions answers,
             @Nullable IdentitySource identities,
-            @Nullable Instant checkedAt) {
+            @Nullable Instant checkedAt,
+            @Nullable StaleWhy why) {
+
+        Reading(
+                OrganizationQuestions answers,
+                @Nullable IdentitySource identities,
+                @Nullable Instant checkedAt) {
+            this(answers, identities, checkedAt, null);
+        }
 
         Reading(OrganizationQuestions answers, @Nullable IdentitySource identities) {
             this(answers, identities, identities != null && answers.whole() ? Instant.now() : null);
@@ -112,8 +120,84 @@ final class OrgAccess {
                     checkedAt == null
                             ? null
                             : Math.max(0, Duration.between(checkedAt, Instant.now()).getSeconds()));
+            answer.put("stale_why", stale() ? (why == null ? StaleWhy.KEPT : why).answer() : null);
         }
     }
+
+    /**
+     * Why an answer is the last state trusted rather than one checked now: a named cause, git's own
+     * words where it wrote any, and when it was tried.
+     *
+     * @param cause {@code kept}, {@code incomplete}, {@code failed}, or a {@link
+     *     GitTreeStore.Unreachable.Cause}'s word.
+     * @param said Git's own lines, never the forge's, or {@code null}.
+     * @param at When the check was tried, or {@code null}.
+     */
+    record StaleWhy(String cause, @Nullable String said, @Nullable String at) {
+
+        /** The kept state was shown, and a check runs after the answer. */
+        static final StaleWhy KEPT = new StaleWhy("kept", null, null);
+
+        /** The check could not judge everything new. */
+        static StaleWhy incomplete() {
+            return new StaleWhy("incomplete", null, Instant.now().toString());
+        }
+
+        /**
+         * The check failed for a reason whose words are not shown, since they may quote a secret.
+         */
+        static StaleWhy failed() {
+            return new StaleWhy("failed", null, Instant.now().toString());
+        }
+
+        static StaleWhy of(final GitTreeStore.Unreachable unreachable) {
+            return new StaleWhy(
+                    unreachable.cause().word(), unreachable.said(), Instant.now().toString());
+        }
+
+        Map<String, @Nullable Object> answer() {
+            final Map<String, @Nullable Object> answer = new java.util.LinkedHashMap<>();
+            answer.put("cause", cause);
+            answer.put("said", said);
+            answer.put("at", at);
+            return answer;
+        }
+
+        /**
+         * Reads why the last display refresh failed, from its receipt; {@link #KEPT} unless it is
+         * this organization's and tried after the kept check.
+         */
+        static StaleWhy lastRefresh(
+                final PoreloContext context,
+                final String repository,
+                final @Nullable Instant checkedAt) {
+            final Path receipt = state(context).resolve(REFRESH_RECEIPT);
+            try {
+                if (!Files.isRegularFile(receipt, LinkOption.NOFOLLOW_LINKS)
+                        || Files.size(receipt) > 16384) {
+                    return KEPT;
+                }
+                final Object parsed = org.fuin.porelo.wire.Json.parse(Files.readString(receipt));
+                if (parsed instanceof Map<?, ?> held
+                        && repository.equals(held.get("repository"))
+                        && (checkedAt == null ? "" : checkedAt.toString()).equals(held.get("after"))
+                        && ("failed".equals(held.get("outcome"))
+                                || "incomplete".equals(held.get("outcome")))
+                        && held.get("cause") instanceof String cause) {
+                    return new StaleWhy(
+                            cause,
+                            held.get("said") instanceof String said ? said : null,
+                            held.get("attempted_at") instanceof String at ? at : null);
+                }
+                return KEPT;
+            } catch (IOException | RuntimeException ex) {
+                return KEPT;
+            }
+        }
+    }
+
+    /** The display refresh's receipt in the organization's state directory. */
+    static final String REFRESH_RECEIPT = "refresh.json";
 
     /** Reads only for display; nothing authorizing an action may use this answer. */
     static Reading show(final PoreloContext context, final Opener opener) throws IOException {
@@ -127,7 +211,11 @@ final class OrgAccess {
             return fetched(context, repository.orElseThrow(), opened, true);
         }
         final GitTreeStore.Checked kept = last.orElseThrow();
-        return new Reading(kept.answers(), null, kept.checkedAt());
+        return new Reading(
+                kept.answers(),
+                null,
+                kept.checkedAt(),
+                StaleWhy.lastRefresh(context, repository.orElseThrow(), kept.checkedAt()));
     }
 
     /**
@@ -198,7 +286,7 @@ final class OrgAccess {
                                                     ex,
                                                     "the organization cannot be reached, and nothing is known of it yet",
                                                     repository));
-            return new Reading(last.answers(), null, last.checkedAt());
+            return new Reading(last.answers(), null, last.checkedAt(), StaleWhy.of(ex));
         } catch (OrganizationException | CommandException ex) {
             throw new Refused(Refused.REFUSED_STATE, String.valueOf(ex.getMessage()), null);
         }

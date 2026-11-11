@@ -29,9 +29,6 @@ import org.jspecify.annotations.Nullable;
  */
 final class TreeRepository implements AutoCloseable {
 
-    /** What ssh says of a host it does not trust, which has its own way out. */
-    private static final String HOST_KEY_FAILED = "Host key verification failed";
-
     /**
      * What git, and the forges behind it, say of a repository that is not there. Anything else that
      * fails is unreachable: never read as no.
@@ -308,7 +305,8 @@ final class TreeRepository implements AutoCloseable {
             arguments.addAll(List.of("ls-remote", "--", address, BRANCH));
             final CommandResult asked = git(lease.environment(), arguments.toArray(String[]::new));
             if (!asked.successful()) {
-                throw new GitTreeStore.Unreachable("the repository cannot be reached");
+                throw GitTreeStore.Unreachable.fromGit(
+                        "the repository cannot be reached", asked.standardError());
             }
             return asked.standardOutput()
                     .lines()
@@ -442,11 +440,8 @@ final class TreeRepository implements AutoCloseable {
                             null);
                 }
                 if (!asked.successful()) {
-                    throw new GitTreeStore.Unreachable(
-                            asked.standardError().contains(HOST_KEY_FAILED)
-                                    ? "cannot read the organization's repository: "
-                                            + HOST_KEY_FAILED
-                                    : "cannot read the organization's repository");
+                    throw GitTreeStore.Unreachable.fromGit(
+                            "cannot read the organization's repository", asked.standardError());
                 }
                 if (!asked.standardOutput().isBlank()) {
                     clone.close();
@@ -486,9 +481,8 @@ final class TreeRepository implements AutoCloseable {
                 throw new GitTreeStore.Empty("the organization's repository holds nothing yet");
             }
             if (!fetched.successful()) {
-                throw new GitTreeStore.Unreachable(
-                        "cannot read the organization's repository: "
-                                + RegistryText.printable(gitsOwnWords(fetched.standardError())));
+                throw GitTreeStore.Unreachable.fromGit(
+                        "cannot read the organization's repository", fetched.standardError());
             }
         }
     }

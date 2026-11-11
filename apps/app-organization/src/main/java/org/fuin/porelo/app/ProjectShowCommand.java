@@ -167,7 +167,17 @@ public class ProjectShowCommand extends OrgReading {
         }
         // Keys read earlier may be of someone removed since: they judge nothing fresh.
         if (reading.stale()) {
-            answer.put("repositories", repositories("cannot-say", List.of()));
+            final Map<String, @Nullable Object> unread = repositories("cannot-say", List.of());
+            unread.put(
+                    "why",
+                    "the organization's state is the last one kept here ("
+                            + (answer.get("stale_why") instanceof Map<?, ?> why
+                                    ? because(why)
+                                    : "kept")
+                            + "); 'porelo project show "
+                            + project
+                            + " --refresh' reads the repositories");
+            answer.put("repositories", unread);
             answer.put("matrix_registration_entry", null);
             return answer;
         }

@@ -49,7 +49,14 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
         OrgAccess.Reading reading =
                 refresh ? OrgAccess.refresh(machine, opener) : OrgAccess.show(machine, opener);
         if (!reading.answers().whole()) {
-            reading = new OrgAccess.Reading(reading.answers(), null, null);
+            reading =
+                    new OrgAccess.Reading(
+                            reading.answers(),
+                            null,
+                            null,
+                            reading.stale() && reading.why() != null
+                                    ? reading.why()
+                                    : OrgAccess.StaleWhy.incomplete());
         }
         displayed = reading;
         refreshAfter = !refresh && reading.stale();
@@ -159,6 +166,9 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
     final void staleness(final Map<String, @Nullable Object> answer) {
         if (Boolean.TRUE.equals(answer.get("stale"))) {
             line("Stale: this is the last state trusted here; refresh checks it again");
+            if (answer.get("stale_why") instanceof Map<?, ?> why) {
+                line("Stale because: " + because(why));
+            }
         }
         if (answer.get("checked_at") != null) {
             line(
@@ -170,6 +180,33 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
         } else if (Boolean.TRUE.equals(answer.get("stale")) && answer.containsKey("checked_at")) {
             line("Checked: unknown");
         }
+    }
+
+    /**
+     * Says why an answer is stale, in a person's words.
+     *
+     * @param why The answer's {@code stale_why}.
+     * @return The sentence.
+     */
+    static String because(final Map<?, ?> why) {
+        final Object cause = why.get("cause");
+        final String said =
+                why.get("said") instanceof String words && !words.isBlank() ? ": " + words : "";
+        final String at = why.get("at") instanceof String when ? " (tried " + when + ")" : "";
+        final String meaning =
+                switch (String.valueOf(cause)) {
+                    case "kept" -> "the state kept here is shown, and a check runs after it";
+                    case "host-key" -> "the forge's ssh host key is not trusted on this machine";
+                    case "key-refused" ->
+                            "the forge refused the key offered; is the ssh agent reachable and"
+                                    + " holding the key the forge lists?";
+                    case "no-network" -> "the forge could not be reached over the network";
+                    case "timeout" -> "the forge did not answer in time";
+                    case "incomplete" -> "the check could not judge everything new";
+                    case "failed" -> "the check failed";
+                    default -> "the forge could not be reached";
+                };
+        return cause + ", " + meaning + said + at;
     }
 
     /**

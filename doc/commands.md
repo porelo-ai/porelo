@@ -750,6 +750,12 @@ Their `checked_at` is the last complete check's UTC timestamp and `age_seconds` 
 for an older record with no check time. With no usable kept state they fetch and check before answering. Add
 `--refresh` to wait for a freshly checked replacement answer; an incomplete or failed check stays stale. An interface
 can render the first answer and then replace it with the `--refresh` answer, using `stale` until that completes.
+`stale_why` says why an answer is stale, `null` when it is not: `{"cause", "said", "at"}`, `cause` one of `kept` (the
+state kept here, a check runs after the answer), `host-key` (the forge's ssh host key is not trusted here), `key-refused`
+(the forge refused the key or credential offered), `no-network`, `timeout`, `unreachable`, `incomplete` (the check
+could not judge everything new) or `failed`; `said` is git's own lines, never what the forge said through it, or
+`null`; `at` is when the check was tried. A kept answer gives the cause of the last display refresh that failed after
+its check. A stale `project show` answers its repositories `cannot-say` with a `why`.
 A cached project answer uses no old signing key to judge newly fetched project content: use `project show PROJECT
 --refresh` for its repository details. Refresh failures are recorded in `$XDG_STATE_HOME/porelo/organization/refresh.log`;
 `porelo org --refresh` asks again in the foreground. Other reads that cannot reach the store answer the last state trusted, with

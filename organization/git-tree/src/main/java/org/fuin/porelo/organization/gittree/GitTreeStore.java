@@ -37,8 +37,120 @@ public final class GitTreeStore {
 
         private static final long serialVersionUID = 1L;
 
+        /** Why it was not reached, as a named value a person's display renders. */
+        public enum Cause {
+            /** Ssh did not trust the forge's host key. */
+            HOST_KEY("host-key"),
+            /** The forge refused the key or the credential offered. */
+            KEY_REFUSED("key-refused"),
+            /** The forge's name was not resolved, or no connection came about. */
+            NO_NETWORK("no-network"),
+            /** Git did not end in time. */
+            TIMEOUT("timeout"),
+            /** Anything else. */
+            UNREACHABLE("unreachable");
+
+            private final String word;
+
+            Cause(final String word) {
+                this.word = word;
+            }
+
+            /**
+             * Returns its name in an answer.
+             *
+             * @return The word.
+             */
+            public String word() {
+                return word;
+            }
+        }
+
+        private final Cause cause;
+
+        private final @Nullable String said;
+
+        /**
+         * Creates one with no word of git's.
+         *
+         * @param message What a person reads.
+         */
         public Unreachable(final String message) {
+            this(message, Cause.UNREACHABLE, null);
+        }
+
+        /**
+         * Creates one with its cause and git's own lines.
+         *
+         * @param message What a person reads.
+         * @param cause Why.
+         * @param said Git's own lines, cleaned, or {@code null}.
+         */
+        public Unreachable(final String message, final Cause cause, final @Nullable String said) {
             super(message);
+            this.cause = cause;
+            this.said = said;
+        }
+
+        /**
+         * Creates one from what git wrote on its standard error, keeping only git's own lines.
+         *
+         * @param lead What a person reads before git's words.
+         * @param standardError What git wrote.
+         * @return It.
+         */
+        public static Unreachable fromGit(final String lead, final String standardError) {
+            final String own =
+                    org.fuin.porelo.vault.RegistryText.printable(
+                            TreeRepository.gitsOwnWords(standardError));
+            if (own.isEmpty()) {
+                return new Unreachable(lead);
+            }
+            final String said = own.length() > SAID ? own.substring(0, SAID) : own;
+            return new Unreachable(lead + ": " + said, causeOf(said), said);
+        }
+
+        private static final int SAID = 400;
+
+        private static Cause causeOf(final String said) {
+            if (said.contains("Host key verification failed")
+                    || said.contains("REMOTE HOST IDENTIFICATION HAS CHANGED")) {
+                return Cause.HOST_KEY;
+            }
+            if (said.contains("Permission denied")
+                    || said.contains("Authentication failed")
+                    || said.contains("could not read Username")
+                    || said.contains("The requested URL returned error: 401")
+                    || said.contains("The requested URL returned error: 403")) {
+                return Cause.KEY_REFUSED;
+            }
+            if (said.contains("Could not resolve host")
+                    || said.contains("Network is unreachable")
+                    || said.contains("No route to host")
+                    || said.contains("Connection refused")
+                    || said.contains("Connection timed out")
+                    || said.contains("Failed to connect")) {
+                return Cause.NO_NETWORK;
+            }
+            return Cause.UNREACHABLE;
+        }
+
+        /**
+         * Returns why.
+         *
+         * @return The cause.
+         */
+        public Cause cause() {
+            return cause;
+        }
+
+        /**
+         * Returns git's own lines, never the forge's.
+         *
+         * @return Them, or {@code null} when there are none.
+         */
+        public @Nullable String said() {
+            return said;
         }
     }
 
@@ -361,7 +473,10 @@ public final class GitTreeStore {
             return answers(walked, warnings, whole);
         } catch (CommandException ex) {
             // Git did not end in time: a forge that hangs says nothing of the state.
-            throw new Unreachable("the organization's repository did not answer in time");
+            throw new Unreachable(
+                    "the organization's repository did not answer in time",
+                    Unreachable.Cause.TIMEOUT,
+                    null);
         } catch (CardException ex) {
             throw new OrganizationException(ex.getMessage(), ex);
         }
@@ -439,7 +554,10 @@ public final class GitTreeStore {
             return answers(walked, warnings);
         } catch (CommandException ex) {
             // Git did not end in time: a forge that hangs says nothing of the state.
-            throw new Unreachable("the organization's repository did not answer in time");
+            throw new Unreachable(
+                    "the organization's repository did not answer in time",
+                    Unreachable.Cause.TIMEOUT,
+                    null);
         } catch (CardException ex) {
             throw new OrganizationException(ex.getMessage(), ex);
         }

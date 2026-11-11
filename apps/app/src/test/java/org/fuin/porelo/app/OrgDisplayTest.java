@@ -34,6 +34,7 @@ class OrgDisplayTest {
     private GitTreeStore store;
     private final AtomicInteger fetches = new AtomicInteger();
     private boolean unreachable;
+    private String unreachableSays = "fixture unavailable";
     private boolean captureRefresh;
     private boolean failScheduling;
     private int refreshRequests;
@@ -67,7 +68,7 @@ class OrgDisplayTest {
                                 fetches.incrementAndGet();
                                 if (blockedFetch != null) return blockedFetch.run(command);
                                 if (unreachable)
-                                    return new CommandResult(command, 1, "", "fixture unavailable");
+                                    return new CommandResult(command, 1, "", unreachableSays);
                             }
                             return machine.runner.run(
                                     new Command(
@@ -582,6 +583,120 @@ class OrgDisplayTest {
         assertThat(run("org", "--json")).as("a first read answers").isZero();
         assertThat(fetches.get()).as("a first read fetches").isEqualTo(1);
         assertThat(answer().get("stale")).as("the first answer was checked").isEqualTo(false);
+    }
+
+    // A person shown only "could not be read" cannot tell a refused key from a forge out of reach.
+    @Test
+    void aRefreshThatCannotReachSaysWhyInGitsOwnWords() throws Exception {
+        keep();
+        unreachable = true;
+        unreachableSays =
+                "remote: token ghx_secret_value is not valid\n"
+                        + "git@forge.example.org: Permission denied (publickey).\n"
+                        + "fatal: Could not read from remote repository.\n";
+        assertThat(run("org", "--json", "--refresh")).as("the last state answers").isZero();
+        assertThat(answer().get("stale")).as("it is the last state").isEqualTo(true);
+        final Map<?, ?> why = (Map<?, ?>) answer().get("stale_why");
+        assertThat(why).as("why it is stale is said").isNotNull();
+        assertThat(why.get("cause")).as("the refused key is named").isEqualTo("key-refused");
+        assertThat((String) why.get("said"))
+                .as("git's own words")
+                .contains("Permission denied (publickey)")
+                .doesNotContain("ghx_secret_value");
+        assertThat(out.toString() + err)
+                .as("nothing the forge said is shown")
+                .doesNotContain("ghx_secret_value");
+    }
+
+    // A page that showed the kept state must say why the check after it failed, not only stale.
+    @Test
+    void aKeptDisplayAfterAFailedRefreshSaysItsCause() throws Exception {
+        keep();
+        final Map<?, ?> record =
+                (Map<?, ?>)
+                        Json.parse(
+                                Files.readString(
+                                        machine.paths
+                                                .xdg()
+                                                .state()
+                                                .resolve("organization/trust-record.json")));
+        final String after =
+                record.get("checked_at") == null ? "" : String.valueOf(record.get("checked_at"));
+        unreachable = true;
+        unreachableSays =
+                "ssh: Could not resolve hostname forge.example.org: Temporary failure in name"
+                        + " resolution\nfatal: Could not read from remote repository.\n";
+        assertThat(
+                        run(
+                                "org",
+                                "refresh-view",
+                                "--repository",
+                                TestOrganization.ADDRESS,
+                                "--after",
+                                after,
+                                "--json"))
+                .as("the refresh fails")
+                .isNotZero();
+        captureRefresh = true;
+        assertThat(run("org", "--json")).as("the kept page answers").isZero();
+        final Map<?, ?> why = (Map<?, ?>) answer().get("stale_why");
+        assertThat(why).as("the failed refresh is said").isNotNull();
+        assertThat(why.get("cause")).as("its cause").isEqualTo("no-network");
+        assertThat((String) why.get("said"))
+                .as("git's own words")
+                .contains("Could not resolve hostname");
+        assertThat(why.get("at")).as("when it was tried").isInstanceOf(String.class);
+        assertThat(run("org")).as("the text answers").isZero();
+        assertThat(out.toString())
+                .as("a person reads the cause")
+                .contains("Could not resolve hostname");
+    }
+
+    // A kept page with no failed check must not read as a failure, nor as checked now.
+    @Test
+    void aKeptDisplaySaysItIsTheKeptState() throws Exception {
+        keep();
+        captureRefresh = true;
+        assertThat(run("org", "--json")).as("the kept page answers").isZero();
+        final Map<?, ?> why = (Map<?, ?>) answer().get("stale_why");
+        assertThat(why).as("why it is stale is said").isNotNull();
+        assertThat(why.get("cause")).as("only kept").isEqualTo("kept");
+        assertThat(why.get("said")).as("no words of git's").isNull();
+        assertThat(run("org", "--json", "--refresh")).as("a check answers").isZero();
+        assertThat(answer().get("stale_why")).as("a checked state is not stale").isNull();
+    }
+
+    // "Its repositories could not be read" with no reason leaves a person nothing to do.
+    @Test
+    void aStaleProjectSaysWhyItsRepositoriesCannotBeRead() throws Exception {
+        final Path demo = Files.createDirectories(organization.repo.resolve("projects/demo"));
+        Files.writeString(
+                demo.resolve("repository.yml"), "address: git@forge.example.org:acme/demo.git\n");
+        organization.git("add", "projects/demo/repository.yml");
+        organization.git(
+                "-c",
+                "user.signingkey=" + machine.keyFiles.get("michael"),
+                "commit",
+                "-q",
+                "-S",
+                "-m",
+                "open demo");
+        keep();
+        unreachable = true;
+        unreachableSays = "Host key verification failed.\nfatal: Could not read from remote.\n";
+        assertThat(run("project", "show", "demo", "--json", "--refresh"))
+                .as("the last state answers: %s", err)
+                .isZero();
+        assertThat(answer().get("opened")).as("the project is opened").isEqualTo(true);
+        final Map<?, ?> repositories = (Map<?, ?>) answer().get("repositories");
+        assertThat(repositories.get("state")).as("unread").isEqualTo("cannot-say");
+        assertThat((String) repositories.get("why"))
+                .as("why, and how to read them")
+                .contains("host-key")
+                .contains("--refresh");
+        assertThat(((Map<?, ?>) answer().get("stale_why")).get("cause"))
+                .as("the project names the cause too")
+                .isEqualTo("host-key");
     }
 
     // A damaged or publicly writable record must not lend unproven permissions to a page.
