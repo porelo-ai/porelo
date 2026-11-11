@@ -215,6 +215,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b613"></a>[B613](B613-A-Stale-Organization-Read-Says-Why.md) | M | - | `org` and `project show` answer `stale_why` beside `stale`: a named cause and git's own words; a project's repositories in `cannot-say` carry a `why`. |
 | <a id="b606"></a>[B606](B606-The-Packages-Carry-The-Third-Party-Notices.md) | S | - | The `.deb` and `.rpm` carry a generated THIRD-PARTY-NOTICES with the full texts of all code compiled into the executables. |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | - | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
 | <a id="b587"></a>[B587](B587-One-Reader-Of-The-Hosts-Forge-Settings.md) | S | - | porelo reads the host's forge.conf in one place; `porelo host push \| pull` and `forge-token` share it. |
