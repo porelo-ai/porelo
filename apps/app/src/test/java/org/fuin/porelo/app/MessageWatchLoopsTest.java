@@ -213,6 +213,38 @@ class MessageWatchLoopsTest {
     }
 
     @Test
+    void aDirectPollTheStopOfItsTaskCutShortIsNoFailureAndEndsItsLoop() throws Exception {
+        // The task's token goes with its stop; the one poll already waiting comes back refused
+        // (window on a rented host, 2026-11-11: "401 M_UNKNOWN_TOKEN" once per stopped task).
+        machine("porelo-p-ends\tUp 4 minutes\t1700000000\t0\tp\tguarded\n", SHORT_REST);
+        task("porelo-p-ends", true);
+        final java.io.ByteArrayOutputStream said = new java.io.ByteArrayOutputStream();
+        final java.io.PrintStream before = System.err;
+        System.setErr(new java.io.PrintStream(said, true, java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            watch.passOnce();
+            assertThat(loops("porelo-direct-porelo-p-ends")).hasSize(1);
+
+            runner.answering(
+                    "podman ps",
+                    LegacyTaskFixture.listed(
+                            "porelo-p-ends\tExited (0) 1 second ago\t1700000000\t1700000100\tp"
+                                    + "\tguarded\n",
+                            "a1b2c3d4e5f6"));
+            runner.failing("--direct", 77, "401 M_UNKNOWN_TOKEN: Unknown access token\n");
+
+            assertThat(ended("porelo-direct-porelo-p-ends"))
+                    .as("the loop of a task that stopped ends at its refused poll")
+                    .isTrue();
+        } finally {
+            System.setErr(before);
+        }
+        assertThat(said.toString(java.nio.charset.StandardCharsets.UTF_8))
+                .as("a refusal that only says the task stopped is said to no one")
+                .doesNotContain("M_UNKNOWN_TOKEN");
+    }
+
+    @Test
     void theLoopOfATaskWhoseAccountCannotBeReadAnyLongerEnds() throws Exception {
         machine("porelo-p-shut\tUp 4 minutes\t1700000000\t0\tp\tguarded\n", SHORT_REST);
         task("porelo-p-shut", true);

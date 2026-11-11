@@ -797,6 +797,16 @@ public final class MessageWatch implements AutoCloseable {
         return keys;
     }
 
+    /** Whether the runtime says a task's container runs; when it cannot say, it is taken to. */
+    private boolean runs(final String container) {
+        try {
+            return context.podman().poreloTasks().stream()
+                    .anyMatch(task -> task.name().equals(container) && task.running());
+        } catch (final RuntimeException ex) {
+            return true;
+        }
+    }
+
     /**
      * Tells whether a task can be asked with an account of its own here now: none in the vault, or
      * the vault shut, and its wait came back at once with nothing.
@@ -873,6 +883,12 @@ public final class MessageWatch implements AutoCloseable {
                                         new TransportConversations(context, transports);
                                 final TransportConversations.Outcome got =
                                         conversations.waitDirect(member);
+                                if (!got.failures().isEmpty() && !runs(member.container())) {
+                                    // Its task stopped while the poll waited, and the account's
+                                    // token went with the stop: the refusal says nothing of the
+                                    // transport. The timed pass delivers to the stopped task.
+                                    break;
+                                }
                                 say(got.failures());
                                 if (!got.handed().isEmpty() && running) {
                                     // Delivered now, then marked read: no conversation step stands

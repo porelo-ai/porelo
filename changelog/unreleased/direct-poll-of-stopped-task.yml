@@ -1,0 +1,2 @@
+title: "Stopping a task no longer makes porelod report \"401 M_UNKNOWN_TOKEN\" for the poll of its direct chats that was waiting at the stop; that poll's loop ends, and the timed pass delivers to the stopped task as before"
+type: fixed
