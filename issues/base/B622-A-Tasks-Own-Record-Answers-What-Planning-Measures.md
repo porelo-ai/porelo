@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B622",
   "title": "A Task's Own Record Answers What Planning Measures",
-  "state": "Accepted",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 20,
@@ -48,8 +48,8 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
   `end` (done, stopped, removed, failed), and the totals of [B148](README.md#b148)'s usage record. It is kept past removal as the
   usage record is.
 - The record also holds one entry per tool call: `task`, `tool` (the agent's own name for it), `kind` (`shell`,
-  `edit`, `read`, `sub-agent`, `search`, `web`, `other`), `start` and `end`, for a shell call the `program` it started
-  (its first word, no arguments), and `background` for one that ran in the background, whose start and end are then
+  `edit`, `read`, `sub-agent`, `search`, `web`, `other`), `start` and `end`, for a shell call its `command`, the whole
+  command line masked by porelod before it is stored, and `background` for one that ran in the background, whose start and end are then
   joined by the job's `id`. porelod defines this common format in the Tasks1 contract; each provider adapter (Agent
   Smith's five repositories) maps its own stream into it, and the planner reads it through `Records`.
 - Tasks1 `Records(project: string, since: string) -> (records: []TaskRecord)` and `porelo task records --project <p>
@@ -74,15 +74,27 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
   5 adds `ToolEvents(lines: []string) -> (events: []ToolEvent)`, a batch like `FormatLog`, each event naming the index
   of the line it came from. `LOWEST` stays 3: an adapter without the method answers `MethodNotFound`, and porelod
   records "this agent cannot say", never an empty list as if no tool ran.
-- `ToolEvent(line, id, phase: START|END, tool, kind, program: ?string, background: bool, jobId: ?string, at: ?string)`.
+- `ToolEvent(line, id, phase: START|END, tool, kind, command: ?string, background: bool, jobId: ?string, at: ?string)`.
   The mapping is per line and holds no state; porelod joins a START to its END by `id`, and a background job's start
   and end by `jobId`. In the Java API, `Agent#toolEvents(String line)` with a default that reads nothing.
 - `kind` is a closed set in the contract: `shell`, `edit`, `read`, `search`, `web`, `sub-agent`, `mcp`, `other`; a
   tool the adapter does not know is `other`.
-- `program` is the first word of a shell call's command line only, never the line: a command line can carry a secret.
+- `command` is a shell call's whole command line as the stream gives it; the adapter does not mask it. porelod masks it
+  before anything is stored (see below).
 - `at` is the stream's own time when it has one; else porelod stamps the line's arrival.
-- Only an unattended run's output is read. An attended session has no stream; covering it is a question for the
-  operator.
+- Only an unattended run's output is read. An attended (tmux) session is not measured; the operator decides that later.
+
+## The command line, masked (the operator's decision, 2026-11-11)
+
+- The whole command line is kept, not only its program, and never carries a secret: porelod masks it once, in one
+  place, before it is written, whatever the adapter. An adapter passes the line as its stream gives it.
+- Masked: a token, password or key given as an option's value (`--password=…`, `--token …`, `-p…` where the tool
+  takes a password so), an `Authorization:` header's value, the value of an environment assignment whose name ends in
+  `_TOKEN`, `_KEY`, `_SECRET` or `_PASSWORD`, the user information of a URL, a string shaped like a known credential
+  (provider keys, forge tokens, private key blocks), and every value of the vault porelod knows for the task.
+- A masked value is replaced by `***`, its name and the rest of the line kept, so the line still says what ran.
+- Red first: a unit test over lines with each kind of secret, the vault's own value among them, expects none of them
+  in the stored entry.
 
 ## Settled with Agent Planner (PL61)
 
