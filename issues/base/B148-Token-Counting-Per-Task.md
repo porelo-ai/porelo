@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B148",
   "title": "Token Counting Per Task",
-  "state": "Review",
+  "state": "Finishing",
   "size": "L",
   "priority": "Medium",
   "rank": 125,

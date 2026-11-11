@@ -105,9 +105,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b610"></a>[B610](B610-A-Removed-Tasks-Kept-Mail-Record-Frees-Its-Name.md) | S | - | `task remove` takes the task's mailbox with it, its signed recorded mail moved to an archive first, so the task can be started again under its name. |
-| <a id="b608"></a>[B608](B608-A-Reattached-New-Task-Window-Names-Its-Task.md) | XS | - | `task start` going back into an existing task made under the new container names labels its window `<project>/<task>`, not `<project>/`. |
-| <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. |
 | <a id="b570"></a>[B570](B570-Porelos-Tests-Follow-The-Pyramid.md) | XL | - | Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite. |
 | <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | S | - | A unit test holds what only a host check held: `porelod`'s host forge rule and the gate's refusal of another upstream; a removal with the vault shut says the task's forge token stays until the host's sweep. |
 | <a id="b424"></a>[B424](B424-A-Persons-Forge-Token-Replaced-At-Each-Command.md) | S | - | `porelod`'s measuring asks the host's forge for one lent token per round, not one per repository; the host tool's lending switch already keeps a lend from taking the person's or another lend's token. |
@@ -123,6 +120,9 @@ from its side, as *blocked by*.
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | Teams, settings and locks as new paths in the organization's signed tree pass settings down to projects; `fixed` and `narrow-only` locks nothing below can undo, `project show --resolved`; an organisation's allowed providers are one locked setting of it. |
 | <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
 | <a id="b223"></a>[B223](B223-The-Image-Build-Reads-A-Private-Package-Repository.md) | - | [B219](README.md#b219) | An image's `snippet` fetches from a declared private repository during the build, the credential in no layer. |
+| <a id="b610"></a>[B610](B610-A-Removed-Tasks-Kept-Mail-Record-Frees-Its-Name.md) | S | - | `task remove` takes the task's mailbox with it, its signed recorded mail moved to an archive first, so the task can be started again under its name. |
+| <a id="b608"></a>[B608](B608-A-Reattached-New-Task-Window-Names-Its-Task.md) | XS | - | `task start` going back into an existing task made under the new container names labels its window `<project>/<task>`, not `<project>/`. |
+| <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. |
 
 ## Analyzed
 
@@ -249,9 +249,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b612"></a>[B612](B612-Starts-At-Once-Make-One-Transport-Account.md) | S | - | Several tasks of one person started at once, before the person has an account on the project's transport, all join the conversation: one start makes the account and keeps its secret, the others take it. |
-| <a id="b614"></a>[B614](B614-A-Task-Joins-Its-Room-Under-The-Contracts-Name.md) | S | - | A task made under the new container name is enrolled and retired on its transport as `porelo-<project>-<task>`, the transport contract's task name, so the room's member list counts it as the project's task again. |
-| <a id="b613"></a>[B613](B613-A-Stale-Organization-Read-Says-Why.md) | M | - | `org` and `project show` answer `stale_why` beside `stale`: a named cause and git's own words; a project's repositories in `cannot-say` carry a `why`. |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. |
 | <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
 | <a id="b598"></a>[B598](B598-A-Container-Name-Reserved-Before-Anything-Is-Made.md) | M | [B596](README.md#b596) | Starts reserve their container name first; a taken name is refused by its owner. |
@@ -260,6 +257,8 @@ from its side, as *blocked by*.
 | <a id="b600"></a>[B600](B600-A-Tasks-Mail-And-Sockets-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Mail, watches and sockets are reached through a task's identity. |
 | <a id="b601"></a>[B601](B601-New-Tasks-Get-The-Short-Container-Name.md) | S | [B597](README.md#b597), [B598](README.md#b598), [B599](README.md#b599), [B600](README.md#b600) | New tasks are created under the new container names. |
 | <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. |
+| <a id="b613"></a>[B613](B613-A-Stale-Organization-Read-Says-Why.md) | M | - | `org` and `project show` answer `stale_why` beside `stale`: a named cause and git's own words; a project's repositories in `cannot-say` carry a `why`. |
+| <a id="b614"></a>[B614](B614-A-Task-Joins-Its-Room-Under-The-Contracts-Name.md) | S | - | A task made under the new container name is enrolled and retired on its transport as `porelo-<project>-<task>`, the transport contract's task name, so the room's member list counts it as the project's task again. |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. |
 | <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. |
@@ -288,6 +287,7 @@ from its side, as *blocked by*.
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
 | <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. |
+| <a id="b612"></a>[B612](B612-Starts-At-Once-Make-One-Transport-Account.md) | S | - | Several tasks of one person started at once, before the person has an account on the project's transport, all join the conversation: one start makes the account and keeps its secret, the others take it. |
 | <a id="b571"></a>[B571](B571-A-Task-Container-Finds-Its-Init.md) | XS | - | porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made. |
 | <a id="b584"></a>[B584](B584-A-Hosts-Open-Pull-Requests-Over-The-Daemon.md) | M | - | A host forge's open pull requests per project, with makers, read and watched over the daemon until each merges or closes. |
 | <a id="b574"></a>[B574](B574-A-Hosts-Waiting-Project-Is-Never-Shown-As-Carried.md) | L | [B543](README.md#b543) | A project the host reports waiting (`waiting-for-token`) is never listed as carried; the host's state and why reach the window. |
@@ -392,8 +392,13 @@ from its side, as *blocked by*.
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | M | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 | <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start |
-| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. |
+
+## Finishing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
 
 ## Finished
 
