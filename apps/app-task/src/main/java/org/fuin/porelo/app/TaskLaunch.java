@@ -68,6 +68,8 @@ public final class TaskLaunch {
      *     the repository or numbered it; recorded so a client shows the name a person chose.
      * @param allRepositories Whether the task reads every repository of its project, read only and
      *     with no gate, instead of working on one; refused beside an option that names one.
+     * @param result The name of the one file the task hands back at its end, or {@code null} for
+     *     none; fixed when the task is made.
      */
     public record Request(
             String task,
@@ -96,9 +98,10 @@ public final class TaskLaunch {
             @Nullable String named,
             @Nullable String shortName,
             boolean allRepositories,
-            @Nullable TaskWork work) {
+            @Nullable TaskWork work,
+            @Nullable String result) {
 
-        /** Constructor for a start whose work nobody named. */
+        /** Constructor for a start whose work nobody named and that names no file to hand back. */
         public Request(
                 String task,
                 Path projectFile,
@@ -153,7 +156,18 @@ public final class TaskLaunch {
                     named,
                     shortName,
                     allRepositories,
+                    null,
                     null);
+        }
+
+        /**
+         * Says why the file this request names to hand back cannot be one, or {@code null}.
+         *
+         * @return The refusal, a usage error; {@code null} when it names none or a file's name.
+         */
+        public @Nullable String resultRefusal() {
+            final String refused = TaskResult.refusal(result);
+            return refused == null ? null : "--result: " + refused;
         }
 
         /** Constructor for a start on one repository, or on none. */
@@ -872,7 +886,8 @@ public final class TaskLaunch {
                     named == null ? null : name,
                     shortName,
                     allRepositories,
-                    work);
+                    work,
+                    result);
         }
     }
 
@@ -1599,7 +1614,9 @@ public final class TaskLaunch {
     private @Nullable Existing startExistingSteps(PrintWriter out, PrintWriter err, boolean goingIn)
             throws java.io.IOException {
 
-        if (request.dryRun() || request.allRepositoriesRefusal() != null) {
+        if (request.dryRun()
+                || request.allRepositoriesRefusal() != null
+                || request.resultRefusal() != null) {
             // A dry run must touch nothing, and asking the runtime what exists is touching it. The
             // launch says what it would do; the listing's startAction says which case applies.
             // A start refused for what it asks is refused by the launch, before it touches
@@ -1690,6 +1707,22 @@ public final class TaskLaunch {
                             + " a new task");
             err.flush();
             return new Existing(container, project.name(), 64);
+        }
+        // Its box was mounted when it was made, under the name it was made with.
+        if (request.result() != null) {
+            final String keptResult = new TaskResult(context.paths()).name(container);
+            if (!request.result().equals(keptResult)) {
+                err.println(
+                        "porelo: "
+                                + container
+                                + (keptResult == null
+                                        ? " was started without --result"
+                                        : " was started with --result " + keptResult)
+                                + ", which stays as it was; start it again without --result, or"
+                                + " remove it and start a new task");
+                err.flush();
+                return new Existing(container, project.name(), 64);
+            }
         }
         if (request.model() != null) {
             final org.fuin.porelo.wire.TaskProfile profile = keptProfile(container);
@@ -2022,7 +2055,8 @@ public final class TaskLaunch {
                             request.named(),
                             request.shortName(),
                             request.allRepositories(),
-                            request.work());
+                            request.work(),
+                            request.result());
         }
         return null;
     }
@@ -2542,6 +2576,12 @@ public final class TaskLaunch {
         final String readingRefused = request.allRepositoriesRefusal();
         if (readingRefused != null) {
             err.println("porelo: " + readingRefused);
+            err.flush();
+            return 64;
+        }
+        final String resultRefused = request.resultRefusal();
+        if (resultRefused != null) {
+            err.println("porelo: " + resultRefused);
             err.flush();
             return 64;
         }
@@ -3987,6 +4027,16 @@ public final class TaskLaunch {
             final org.fuin.porelo.agent.api.SessionIds ids = selected.definition().sessionIds();
             if (ids != null && selected.definition().supportsResume()) {
                 TaskSession.fromRun(log, ids).ifPresent(id -> sessions.record(container, id));
+            }
+            // The run is the task's end as far as it goes: its file is taken now, before whatever
+            // follows removes the container.
+            try {
+                new TaskResult(context.paths()).take(container);
+            } catch (java.io.IOException ex) {
+                err.println(
+                        "porelo: the file this task hands back could not be kept: "
+                                + ex.getMessage());
+                err.flush();
             }
         }
     }
@@ -5785,6 +5835,7 @@ public final class TaskLaunch {
         try {
             new Mailbox(context.paths().messaging().mailbox(container)).delete();
             new TaskGuide(context.paths(), container).delete();
+            new TaskResult(context.paths()).forget(container);
         } catch (java.io.IOException ex) {
             err.println("porelo: could not delete the mailbox of " + container + ": " + ex);
         }
@@ -5966,6 +6017,14 @@ public final class TaskLaunch {
             throws java.io.IOException {
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
         final TaskGuide guide = new TaskGuide(context.paths(), container);
+        final TaskResult result = new TaskResult(context.paths());
+        if (created) {
+            // What an earlier task of this name handed back goes with this one's making.
+            result.forget(container);
+            if (request.result() != null) {
+                result.prepare(container, request.result());
+            }
+        }
         if (created || guide.exists()) {
             // A task brought back has no values in hand; its record has the ones it was made with,
             // so the guide says the same after a resume.
@@ -5989,7 +6048,11 @@ public final class TaskLaunch {
             // What it reads is what its directory holds, so a task brought back is told the same.
             final TaskRepositories reading = new TaskRepositories(context.paths(), container);
             TaskGuideText.write(
-                    guide, mailbox.exists(), told, reading.exists() ? reading.names() : null);
+                    guide,
+                    mailbox.exists(),
+                    told,
+                    reading.exists() ? reading.names() : null,
+                    result.hasBox(container) ? result.name(container) : null);
         }
         if (!mailbox.exists()) {
             return;

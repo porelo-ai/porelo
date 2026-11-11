@@ -77,6 +77,39 @@ public final class TaskGuideText {
     }
 
     /**
+     * Returns the guide of a task, with the file it hands back last, after everything every task
+     * shares, so a provider's cache of the shared beginning still holds.
+     *
+     * @param mailbox Whether the task has a mailbox, whose guide then follows.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading The repositories it reads, by name, or {@code null} for a task on one.
+     * @param result The name of the file it hands back, or {@code null} for none.
+     * @return Markdown.
+     */
+    public static String text(
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final java.util.@org.jspecify.annotations.Nullable List<String> reading,
+            final @org.jspecify.annotations.Nullable String result) {
+        final String before = text(mailbox, values, reading);
+        if (result == null) {
+            return before;
+        }
+        return before
+                + """
+
+                # The file this task hands back
+
+                When this task ends, Porelo takes **`@FILE@`** from `@BOX@/` and hands it to whoever
+                started the task: when you declare your work done, and when your run ends. Write it there,
+                whole, as UTF-8 text of at most 1 MiB, readable by others (mode 644). A link, a directory,
+                anything larger or anything that is not text is not taken. Only this one file is.
+                """
+                        .replace("@FILE@", result)
+                        .replace("@BOX@", TaskResult.MOUNT);
+    }
+
+    /**
      * Returns the guide with the values this task was started with, in a part after everything
      * every task shares, so a provider's cache of the shared beginning still holds.
      *
@@ -209,13 +242,34 @@ public final class TaskGuideText {
             final java.util.Map<String, java.util.Map.Entry<String, String>> values,
             final java.util.@org.jspecify.annotations.Nullable List<String> reading)
             throws IOException {
+        write(guide, mailbox, values, reading, null);
+    }
+
+    /**
+     * Writes the guide of a task, the file it hands back among it, into its directory, made when
+     * missing, and only when it changed.
+     *
+     * @param guide Where it goes.
+     * @param mailbox Whether the task has a mailbox.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading The repositories it reads, or {@code null} for a task on one.
+     * @param result The name of the file it hands back, or {@code null} for none.
+     * @throws IOException Writing failed.
+     */
+    public static void write(
+            final TaskGuide guide,
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final java.util.@org.jspecify.annotations.Nullable List<String> reading,
+            final @org.jspecify.annotations.Nullable String result)
+            throws IOException {
         final Path directory = guide.directory();
         if (Files.isSymbolicLink(directory)) {
             throw new IOException(directory + " is a link; the guide is not written through it");
         }
         Directories.create(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
-        final String text = text(mailbox, values, reading);
+        final String text = text(mailbox, values, reading, result);
         final Path file = guide.file();
         if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 && Files.readString(file, StandardCharsets.UTF_8).equals(text)) {

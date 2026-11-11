@@ -241,6 +241,10 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   `task start all` or `task attach all`. It comes back only as it was made: `--all-repositories` for a task on one
   repository, and `-r` or `--no-gate` for one that reads them all, are refused (exit 64). An agent's setup file meant
   for the workspace is not written, and the start says so.
+- `--result NAME` names the one file the task hands back at its end: its agent writes it into
+  `/run/porelo/result/`, and the host keeps it, at most 1 MiB of UTF-8 text, until the next start of the task.
+  A name with a directory part, `.`, `..`, a control character or more than 255 bytes is refused (exit 64), and so
+  is another name for a task brought back. See [a file the task hands back](running.md#a-file-the-task-hands-back).
 - **A running task is gone into**, as `attach` does: at a terminal, `start` on it starts its agent again where the
   session is gone, continuing its conversation. An option that takes effect only when a task is created or brought
   up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and the like) is refused, naming each, since it
@@ -411,6 +415,12 @@ when its run ended unfinished, else absent. A finished run alone declares no com
 `done` mark reads as DONE with `why` `""` and the mark's modification time. The reason reaches only
 the task's reader, never another agent's prompt; task endpoints without Logs or Tail receive no
 `ended` in `List` or `Watch`. This data field is separate from the CLI's `ended` line about the agent's run.
+
+A task started with `--result` carries `result`, with `name`, `state` and `bytes`, on its row of `List` and `Watch`
+and in `agentEnded`, once the host took the file. The daemon's `Result(task)` answers the same three and, when
+`state` is `handed`, `content`, the file's text, from this machine's files alone: also after the container is
+gone and the task removed, until the next start of its name. Before anything was taken it answers `missing`. A
+task started without `--result` answers `NoResultNamed`, a name no task holds `NoSuchTask`.
 
 `task status --json` adds, after `name`, `state`, `running`, `project`, `repository` and `parameters` in that
 order, `task` for the short name, `container` for the full container name, and `model`, `modelLabel` and

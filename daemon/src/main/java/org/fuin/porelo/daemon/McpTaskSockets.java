@@ -639,8 +639,11 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "Peers",
                     "MessageMembers");
 
-    /** What a listed task carries of what its run said, which Logs and Tail read. */
-    static final Set<String> WHAT_IT_SAID = Set.of("lastMessage", "agentEnded", "ended");
+    /**
+     * What a listed task carries of what its run said, which Logs and Tail read: the file it handed
+     * back among it.
+     */
+    static final Set<String> WHAT_IT_SAID = Set.of("lastMessage", "agentEnded", "ended", "result");
 
     private static Object withoutWhatItSaid(final Object task) {
         final Map<Object, Object> kept = new LinkedHashMap<>((Map<?, ?>) task);

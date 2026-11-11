@@ -441,6 +441,18 @@ public final class Reach {
                         Kind.CONTROL),
                 new Row(
                         Part.PRODUCE,
+                        "The file a task hands back",
+                        "Only for a task started with `--result`, and only the one file of that name in"
+                                + " `/run/porelo/result/`: moved out of the agent's reach before it is looked"
+                                + " at, never through a link, and kept only when it is a regular file of at"
+                                + " most "
+                                + TaskResult.MOST
+                                + " bytes of UTF-8 text. The host keeps it, owner-only and outside every task"
+                                + " mount, until the next start of the task's name, and answers it only over"
+                                + " the person's socket",
+                        Kind.CONTROL),
+                new Row(
+                        Part.PRODUCE,
                         "`gate protect`'s hook",
                         "Fires on a first, an ordinary and a force push. Four things go round it:"
                                 + " `--no-verify`, a `core.hooksPath` pointing elsewhere, a fresh"

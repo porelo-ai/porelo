@@ -86,6 +86,26 @@ final class TaskMethods {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", "why"));
         }
+        // Declared done is the task's end: the file it hands back is taken now, whatever follows.
+        new org.fuin.porelo.app.TaskResult(context.paths()).take(task);
+    }
+
+    /** Answers the file a task handed back, or why there is none; from the host's files alone. */
+    static Map<String, Object> result(final PoreloContext context, final String task) {
+        // A task's name and nothing else: one with a directory part would read beside the results.
+        if (!org.fuin.porelo.app.TaskResult.named(task)) {
+            throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
+        }
+        final org.fuin.porelo.app.TaskResult.Answer answer =
+                new org.fuin.porelo.app.TaskResult(context.paths()).answer(task);
+        if (answer != null) {
+            return answer.asMap();
+        }
+        if (new org.fuin.porelo.app.TaskIdentities(context).lookup(task, null)
+                instanceof org.fuin.porelo.app.TaskIdentities.Found) {
+            throw new VarlinkException(INTERFACE + ".NoResultNamed", Map.of("task", task));
+        }
+        throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
     }
 
     static org.fuin.porelo.app.FirstStart firstStart(final PoreloContext context) {
@@ -233,6 +253,12 @@ final class TaskMethods {
                 (parameters, replies) -> {
                     done(context, parameters);
                     replies.last(Map.of());
+                });
+
+        server.method(
+                "Result",
+                (parameters, replies) -> {
+                    replies.last(result(context, text(parameters, "task")));
                 });
 
         server.method(
@@ -1012,7 +1038,9 @@ final class TaskMethods {
                     // Options that cannot go together are refused by the launch, first, as at the
                     // command line: no host is looked up and no credential checked for a start
                     // that was never going to be made.
-                    if (existing == null && asked.allRepositoriesRefusal() == null) {
+                    if (existing == null
+                            && asked.allRepositoriesRefusal() == null
+                            && asked.resultRefusal() == null) {
                         // Refused as itself before anything is launched, the credentials too: a
                         // destination nobody declared is a typed answer an interface can show, not
                         // a

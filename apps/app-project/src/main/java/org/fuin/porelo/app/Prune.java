@@ -322,6 +322,7 @@ public final class Prune {
                         directoryOf(context.paths().tasks().taskRecord("x")),
                         directoryOf(context.paths().messaging().mailbox("x")),
                         directoryOf(context.paths().tasks().sessionRecord("x")),
+                        directoryOf(context.paths().tasks().result("x")),
                         directoryOf(context.paths().tasks().containerState("x")))) {
             for (final String name : names(directory)) {
                 if (ContainerName.isTask(name) && !containers.contains(name)) {
@@ -346,6 +347,7 @@ public final class Prune {
                         context.paths().tasks().taskRecord(container),
                         context.paths().messaging().mailbox(container),
                         context.paths().tasks().sessionRecord(container),
+                        context.paths().tasks().result(container),
                         context.paths().tasks().containerState(container))) {
             if (!Files.exists(path)) {
                 continue;
@@ -385,6 +387,9 @@ public final class Prune {
         if (Files.isDirectory(context.paths().tasks().containerState(container))) {
             what.add("its runtime directory");
         }
+        if (Files.isDirectory(context.paths().tasks().result(container))) {
+            what.add("the file it handed back");
+        }
         final String held = mailbox.exists() ? mailWork(mailbox) : "";
         if (!held.isEmpty() && !includingWork) {
             return new Item("TASK", container, what, held);
@@ -402,6 +407,7 @@ public final class Prune {
                             mailbox.delete();
                             new TaskGuide(context.paths(), container).delete();
                             new TaskRepositories(context.paths(), container).delete();
+                            new TaskResult(context.paths()).forget(container);
                             reservations.retire(container);
                             return Boolean.TRUE;
                         });

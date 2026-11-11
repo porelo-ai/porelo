@@ -449,6 +449,35 @@ push to the task's branch, and hands in what it did:
 **After you push, read `build-<commit>.txt` until its verdict is final, before you call the work
 done.** On `failure`, read the log each failed `job` line names, fix the cause, and push again.
 
+## A file the task hands back
+
+A task started with `--result NAME` (the daemon's `Start` takes `result`) finds `/run/porelo/result/` writable, and
+its guide ends with a part naming the file:
+
+```
+# The file this task hands back
+
+When this task ends, Porelo takes **`NAME`** from `/run/porelo/result/` and hands it to whoever
+started the task: when you declare your work done, and when your run ends. Write it there,
+whole, as UTF-8 text of at most 1 MiB, readable by others (mode 644). A link, a directory,
+anything larger or anything that is not text is not taken. Only this one file is.
+```
+
+The name is one file's: no directory part, not `.` or `..`, no control character, at most 255 bytes of UTF-8;
+anything else is refused before anything is made (exit 64). A task brought back keeps the name it was made with.
+
+The host takes the file at the task's end: when the task declares `Done`, when a prompt run ends, when a listing
+finds its agent ended or its container stopped, and when the task is removed. It moves the file out of the agent's
+reach before it looks at it, so a link or a pipe is never followed or opened, and puts it back afterwards. What it
+took is kept on this machine, owner-only and outside every task mount, as one of four states: `handed` (with its
+text), `missing`, `too-large` (with the size the file's attributes give) or `unreadable` (a link, a directory, a file
+the host may not read, or one that is not UTF-8 text or holds a control character other than tab, line feed and
+carriage return). A file handed back is kept as it was; another state is taken again at the next end.
+
+What was taken outlives the container and the task's removal, so a person or an interface on another computer
+reads it through the daemon's `Result` afterwards. The next start of the task forgets it, and so does the next
+creation of its name; `porelo prune` removes one a removed task left.
+
 ## Adding your own tooling to a task
 
 Two things are called "the agent", and they live in different places:

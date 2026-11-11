@@ -245,6 +245,15 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean allRepositories;
 
     @Option(
+            names = "--result",
+            paramLabel = "<file>",
+            description =
+                    "Names the one file the task hands back at its end: its agent writes it into"
+                            + " /run/porelo/result/, and the host keeps it, at most 1 MiB of text,"
+                            + " until the next start of the task. A name, no directory.")
+    private @Nullable String result;
+
+    @Option(
             names = "--clearance",
             paramLabel = "<mode>",
             description =
@@ -615,6 +624,12 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.flush();
             return 64;
         }
+        final String badResult = TaskResult.refusal(result);
+        if (badResult != null) {
+            err.println("porelo: --result: " + badResult);
+            err.flush();
+            return 64;
+        }
 
         if (allRepositories) {
             // Before anything is asked or read: each of these names one repository or its gate,
@@ -891,7 +906,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                 : null,
                                         shortName,
                                         allRepositories,
-                                        work == null ? null : TaskWork.parse(work)),
+                                        work == null ? null : TaskWork.parse(work),
+                                        result),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.

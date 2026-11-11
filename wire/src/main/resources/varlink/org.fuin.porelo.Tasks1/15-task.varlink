@@ -48,7 +48,10 @@ type AgentEnded (
   # 16 KiB of its UTF-8 and starting at a whole character, since a work order asks for its last line.
   answer: string,
   # Whether the answer was longer and only its end is kept.
-  answerCut: bool
+  answerCut: bool,
+  # What was taken of the file the task hands back, once its end took it. Absent for a task started
+  # without Start's result, and while nothing was taken.
+  result: ?TaskResult
 )
 
 # How the work ended. FAILED is derived, never declared by a task.
@@ -60,6 +63,21 @@ type TaskEnded (
   why: string,
   # When the task declared it, or agentEnded.at for a derived FAILED, ISO-8601.
   at: string
+)
+
+# What the host took of the one file a task hands back, named by Start's result.
+type TaskResult (
+  # The file's name, as Start was given it.
+  name: string,
+  # "handed": taken whole, its text answered by Result. "missing": no file of that name was there.
+  # "too-large": larger than 1 MiB (1048576 bytes). "unreadable": a link, a directory or anything but
+  # a regular file, one the host may not read, or one that is not UTF-8 text or holds a control
+  # character other than tab, line feed and carriage return. A client shows a word it does not know
+  # by itself; this list may grow.
+  state: string,
+  # What was read; for "too-large" the size the file's attributes give. 0 for "missing", and for
+  # "unreadable" where nothing could be read.
+  bytes: int
 )
 
 # How a person is meant to be involved in a task.
@@ -208,6 +226,10 @@ type Task (
   # A declaration from before outcomes reads as DONE with why "" and the mark's modification time.
   # This does not change activity: only a declared DONE can give stopped or IDLE work activity DONE.
   ended: ?TaskEnded,
+  # What was taken of the file it hands back, the same as agentEnded.result, and also for a task
+  # whose agent did not end on its own: after Done, a stop or a prompt run. Absent for a task started
+  # without Start's result, and while nothing was taken.
+  result: ?TaskResult,
   # What it is waiting to be told: a clearance question, or review while its work is on the
   # gate's waiting list. A passed online push supplies no review reason. "" for a stopped task.
   waitingFor: string,
@@ -480,6 +502,16 @@ method List() -> (tasks: []Task, unrecognized: []string)
 # This replaces no completion message to the room, and neither stops nor removes the container.
 method Done(task: string, outcome: ?(DONE, BLOCKED), why: ?string) -> ()
 
+# The file a task hands back, as the host took it, read from this machine's files alone: also after
+# its container is gone and after the task was removed, until the next start of its name, which
+# forgets it. The host takes the file at the task's end: at Done, at the end of a prompt run, when a
+# listing finds its agent ended or its container stopped, and at its removal. A file handed back once
+# is kept as it was; another state is taken again at the next end. content is the file's UTF-8 text,
+# only when state is "handed". Before anything was taken this answers state "missing" with bytes 0.
+# NoResultNamed for a task started without Start's result; NoSuchTask for a name no task holds and
+# nothing was kept for.
+method Result(task: string) -> (name: string, state: string, bytes: int, content: ?string)
+
 # The same answer, again whenever it changes.
 #
 # Called without "more" this answers once, exactly as List does, so a client that cannot
@@ -599,6 +631,14 @@ method Start(
   # repository or noGate for one that reads them all, is refused with exitCode 64. A prompt run
   # removes it at its end too, whatever its exit.
   allRepositories: ?bool,
+  # The name of the one file the task hands back at its end: a file name, no directory, at most 255
+  # bytes of UTF-8, no control character, never "." or "..". The task finds /run/porelo/result/
+  # writable, and is told the name in its guide. At its end the host takes the file from there, at
+  # most 1 MiB of UTF-8 text, and keeps it on this machine until the next start of the name; Result
+  # answers it, and Task.result and AgentEnded.result say what was taken. A name that is no file's
+  # is refused with exitCode 64 before anything is made. A task brought back keeps the name it was
+  # made with: another is refused with exitCode 64.
+  result: ?string,
   # Does everything up to starting the container, then stops and reports. Nothing is created.
   dryRun: ?bool,
   # What to do with a blocked connection: prompt, allow, deny or off. Default: "prompt".
@@ -1410,6 +1450,9 @@ error ContainerNameTaken(container: string, project: string, task: string, owner
 
 
 error NoSuchTask(task: string)
+
+# Result for a task that was started without Start's result: it hands nothing back.
+error NoResultNamed(task: string)
 
 # The refusals of a task's MCP socket, the per-task socket porelod serves a task's porelo-mcp on
 # when its project's file has an 'mcp' section. Over that socket the caller is the socket's task, never

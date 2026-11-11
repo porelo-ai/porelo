@@ -103,6 +103,8 @@ final class McpMethods {
                     "WatchPullRequests",
                     // A host-credentialed query returns unfiltered server names for the operator.
                     "RoomMembers",
+                    // What any task handed back, another project's too, for the person to read.
+                    "Result",
                     "Panic",
                     "ReadHeld",
                     "WriteDestination",

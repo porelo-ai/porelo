@@ -1,0 +1,2 @@
+title: "A task started with '--result NAME' (the daemon's Start takes 'result') finds /run/porelo/result/ writable and hands that one file back at its end, at most 1 MiB of UTF-8 text, kept on the machine after the task is removed until the next start of its name; the daemon's new Result method answers its content, or why there is none ('missing', 'too-large' with its size, 'unreadable'), and List, Watch and agentEnded carry what was taken"
+type: added

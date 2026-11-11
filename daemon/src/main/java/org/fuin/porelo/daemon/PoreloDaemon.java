@@ -889,7 +889,19 @@ public final class PoreloDaemon {
                 task.isEmpty() || flag(parameters, UNNAMED) ? null : task,
                 shortName(parameters),
                 allRepositories,
-                org.fuin.porelo.app.TaskWork.of(parameters.get("work")));
+                org.fuin.porelo.app.TaskWork.of(parameters.get("work")),
+                // Refused by the launch with exitCode 64 when it is no file's name.
+                resultName(parameters));
+    }
+
+    /** The name of the file a start hands back: a string or nothing, never another value. */
+    static @Nullable String resultName(Map<String, Object> parameters) {
+        final Object value = parameters.get("result");
+        if (value == null || value instanceof String) {
+            return (String) value;
+        }
+        throw new VarlinkException(
+                "org.varlink.service.InvalidParameter", Map.of("parameter", "result"));
     }
 
     /**

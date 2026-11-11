@@ -1230,6 +1230,8 @@ class McpTaskSocketsTest {
                                         "the child's answer",
                                         "agentEnded",
                                         Map.of("error", "what it printed"),
+                                        "result",
+                                        Map.of("name", "idea.json", "state", "handed", "bytes", 9L),
                                         "ended",
                                         Map.of(
                                                 "outcome",

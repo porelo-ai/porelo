@@ -612,6 +612,22 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void refusesAResultFileOutsideItsBoxBeforeMakingTaskState(@TempDir Path dir) throws Exception {
+        // A directory part in the name would have the host take a file from outside the box.
+        final PoreloContext context = context(dir, true);
+        assertThat(execute(context, "task", "start", "shell", "--result", "../idea.json"))
+                .as("a name that is no single file's is a usage refusal")
+                .isEqualTo(64);
+        assertThat(err.toString()).as("the refusal names the option").contains("--result");
+        assertThat(Files.exists(context.paths().tasks().containerState("porelo-uc-shell")))
+                .as("the refused start makes no task")
+                .isFalse();
+        assertThat(context.paths().tasks().result("porelo-uc-shell"))
+                .as("and no box")
+                .doesNotExist();
+    }
+
+    @Test
     void aHostRefusesAnUncertifiableStartBeforeStartingItsBroker(@TempDir Path dir)
             throws IOException {
         // A broker started for a task that cannot be certified needlessly holds a real credential.

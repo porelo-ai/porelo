@@ -137,6 +137,30 @@ public record TaskPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory holding the file a task hands back: its name, the box its agent writes
+     * it into, and what the host took from there.
+     *
+     * <p>Under the state directory and outside the task's record: what was taken is answered after
+     * the task is removed, until the next start of its name. Only the box inside it is mounted.
+     *
+     * @param container Container name.
+     * @return The directory.
+     */
+    public Path result(String container) {
+        return paths.xdg().state().resolve("results").resolve(container);
+    }
+
+    /**
+     * Returns the box a task's agent writes the file it hands back into, mounted into the task.
+     *
+     * @param container Container name.
+     * @return The directory.
+     */
+    public Path resultBox(String container) {
+        return result(container).resolve("box");
+    }
+
+    /**
      * Returns the directory holding the guide a task's agent is given, mounted into the task.
      *
      * <p>Under the state directory, like the mailbox: what a container mounts has to be there when

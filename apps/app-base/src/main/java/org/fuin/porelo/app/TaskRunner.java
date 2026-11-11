@@ -526,6 +526,12 @@ public class TaskRunner {
             // launch before this.
             specification.volume(guide.directory(), TaskGuide.MOUNT);
         }
+        final TaskResult result = new TaskResult(paths);
+        if (result.hasBox(container)) {
+            // The one file the task hands back, written there by its agent and taken by the host
+            // at its end; nothing else of the result's directory is mounted.
+            specification.volume(result.box(container), TaskResult.MOUNT);
+        }
         final TaskRepositories reading = new TaskRepositories(paths, container);
         if (reading.exists()) {
             // A task that reads its whole project: every repository's main, assembled by the launch
@@ -540,6 +546,7 @@ public class TaskRunner {
 
         // If the nft hook fails, this is where it stops: the container never reaches running.
         new TaskDone(paths).clear(container);
+        result.clear(container);
         podman.start(container);
         if (authority != null) {
             trustCertificates(container);

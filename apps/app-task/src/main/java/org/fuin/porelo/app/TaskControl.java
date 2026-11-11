@@ -261,6 +261,7 @@ public final class TaskControl {
                         new Mailbox(context.paths().messaging().mailbox(container)).delete();
                         new TaskGuide(context.paths(), container).delete();
                         new TaskRepositories(context.paths(), container).delete();
+                        new TaskResult(context.paths()).forget(container);
                         reservations.retire(container);
                         return new Stopped(
                                 Outcome.STOPPED, null, null, true, 0, List.of(), null, null, 0);
@@ -622,6 +623,17 @@ public final class TaskControl {
             }
             // Out of its project's conversations: its account there ends with it.
             new TaskConversations(context).retire(context, container, project);
+            // Taken once more, and kept past the removal for whoever reads it; its next start ends
+            // it.
+            try {
+                new TaskResult(context.paths()).ended(container);
+            } catch (final java.io.IOException ex) {
+                System.err.println(
+                        "porelo: the file "
+                                + container
+                                + " hands back could not be kept: "
+                                + ex.getMessage());
+            }
             // The mailbox outlives the container on purpose, so this is the one place it ends.
             try {
                 new Mailbox(context.paths().messaging().mailbox(container)).delete();
@@ -973,6 +985,7 @@ public final class TaskControl {
         }
 
         new TaskDone(context.paths()).clear(container);
+        new TaskResult(context.paths()).clear(container);
         final List<String> problems = new java.util.ArrayList<>();
         try {
             recorded = deferredBuilds(recorded, container);

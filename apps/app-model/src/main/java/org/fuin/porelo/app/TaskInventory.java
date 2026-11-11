@@ -97,6 +97,7 @@ public final class TaskInventory {
      * @param logicalTask Logical task for display, empty when unknown or contradictory, or {@code
      *     null} for a legacy snapshot.
      * @param ended How the work ended, or {@code null} when nothing declared or derived it.
+     * @param result What was taken of the file it hands back, or {@code null} when nothing was.
      */
     public record Task(
             String name,
@@ -138,7 +139,94 @@ public final class TaskInventory {
             String modelFrom,
             @Nullable String named,
             @Nullable String logicalTask,
-            @Nullable Ended ended) {
+            @Nullable Ended ended,
+            TaskResult.@Nullable Taken result) {
+
+        /** A snapshot made before the file a task hands back was carried. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters,
+                String phase,
+                String lastWrote,
+                int inboxWaiting,
+                @Nullable String forgeBranch,
+                boolean certified,
+                String certifiedUntil,
+                String model,
+                String modelLabel,
+                String modelFrom,
+                @Nullable String named,
+                @Nullable String logicalTask,
+                @Nullable Ended ended) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    phase,
+                    lastWrote,
+                    inboxWaiting,
+                    forgeBranch,
+                    certified,
+                    certifiedUntil,
+                    model,
+                    modelLabel,
+                    modelFrom,
+                    named,
+                    logicalTask,
+                    ended,
+                    null);
+        }
 
         /** A snapshot made before declared outcomes were carried. */
         public Task(
@@ -1104,10 +1192,17 @@ public final class TaskInventory {
             map.put("lastWrote", lastWrote);
             map.put("inboxWaiting", inboxWaiting);
             if (agentEnded != null) {
-                map.put("agentEnded", agentEnded.asMap());
+                final Map<String, Object> run = new LinkedHashMap<>(agentEnded.asMap());
+                if (result != null) {
+                    run.put("result", result.asMap());
+                }
+                map.put("agentEnded", run);
             }
             if (ended != null) {
                 map.put("ended", ended.asMap());
+            }
+            if (result != null) {
+                map.put("result", result.asMap());
             }
             map.put("waitingFor", waitingFor == null ? "" : waitingFor);
             map.put("clearance", clearance == null ? "" : clearance);
@@ -1649,7 +1744,29 @@ public final class TaskInventory {
                 profile == null ? "" : profile.modelFrom(),
                 profile == null ? null : profile.named(),
                 logicalTask(summary),
-                ended(declared, ended));
+                ended(declared, ended),
+                resultOf(summary.name(), ended != null || !summary.running()));
+    }
+
+    /**
+     * Returns what was taken of the file a task hands back, taking it once when its agent ended or
+     * its container stopped and nothing was taken yet.
+     *
+     * @param container The task.
+     * @param over Whether its agent ended or its container stopped.
+     * @return What was taken, or {@code null}.
+     */
+    private TaskResult.@Nullable Taken resultOf(final String container, final boolean over) {
+        final TaskResult result = new TaskResult(context.paths());
+        if (!over) {
+            return result.taken(container);
+        }
+        try {
+            return result.takeOnce(container);
+        } catch (java.io.IOException ex) {
+            // Taken at the next listing, or at the task's removal; nothing is said that is not so.
+            return result.taken(container);
+        }
     }
 
     private static @Nullable Ended ended(
