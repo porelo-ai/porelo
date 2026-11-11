@@ -1,0 +1,2 @@
+title: "A removed task leaves no directory of its direct chats in the transport's state"
+type: fixed

@@ -974,6 +974,33 @@ final class TransportLifecycle {
         }
         // Only once its account is gone: until then a head of its name still reaches it.
         release(scheme, project, task);
+        // What its direct chats were polled into ends with its account, held secrets or not.
+        final Path direct =
+                context.paths()
+                        .xdg()
+                        .state()
+                        .resolve("transport")
+                        .resolve(scheme)
+                        .resolve("direct")
+                        .resolve(task);
+        try {
+            if (Files.exists(direct, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                // Not following links: a link in it is removed, never what it points to.
+                try (var walk = Files.walk(direct)) {
+                    for (final Path path :
+                            walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                        Files.deleteIfExists(path);
+                    }
+                }
+            }
+        } catch (IOException | java.io.UncheckedIOException ex) {
+            throw new Refused(
+                    "what its direct chats left, "
+                            + direct
+                            + ", could not be removed: "
+                            + ex.getMessage(),
+                    0);
+        }
     }
 
     /** Frees the name a retired task held in the room, under the addresses file's lock. */

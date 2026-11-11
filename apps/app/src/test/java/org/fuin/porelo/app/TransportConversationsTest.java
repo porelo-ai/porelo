@@ -795,6 +795,21 @@ class TransportConversationsTest {
     }
 
     @Test
+    void aRetiredTaskLeavesNoDirectChatsBehind() throws Exception {
+        // Its direct chats were polled into a directory of its own; kept, its removal leaves it.
+        final TransportLifecycle lifecycle = room();
+        final Path direct =
+                context().paths().xdg().state().resolve("transport/room/direct/porelo-p-all");
+        Files.createDirectories(direct);
+        Files.writeString(direct.resolve("said.json"), "{}");
+
+        lifecycle.retire("room", "p", "porelo-p-all", Map.of());
+
+        assertThat(direct).as("its direct chats go with it").doesNotExist();
+        assertThat(direct.getParent()).as("the other tasks' stay").isDirectory();
+    }
+
+    @Test
     void aTaskEnrolledBeforeNamesWereKeptHoldsTheNameItWasShownByUntilItIsRetired()
             throws Exception {
         // Its room still shows it as "Agent Scout": a task outside the project's form, shown by
