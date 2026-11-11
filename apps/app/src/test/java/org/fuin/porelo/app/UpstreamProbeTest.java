@@ -32,7 +32,9 @@ class UpstreamProbeTest {
                             return new org.fuin.porelo.core.process.CommandResult(
                                     command,
                                     0,
-                                    command.program().equals("sudo") ? "lent-token" : "",
+                                    command.program().equals(HostForgeLending.SUDO.toString())
+                                            ? "lent-token"
+                                            : "",
                                     "");
                         },
                         context(dir).paths(),

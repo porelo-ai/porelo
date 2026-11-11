@@ -27,6 +27,12 @@ final class HostForgeLending implements GitCredentials {
     static final Path PROGRAM = Path.of("/usr/sbin/porelo-host");
 
     /**
+     * The system's sudo, by its path: a bare name is looked up in the caller's own {@code PATH},
+     * where a directory of the person's could hold another, not in the environment chosen below.
+     */
+    static final Path SUDO = Path.of("/usr/bin/sudo");
+
+    /**
      * All of the environment a call of the host program is given: the caller's own session (a
      * desktop's bus address, a terminal's variables) is no part of it, as the host program refuses
      * any variable it does not know.
@@ -124,7 +130,8 @@ final class HostForgeLending implements GitCredentials {
     }
 
     /**
-     * A call of the host program through sudo, in the root directory and its chosen environment.
+     * A call of the host program through the system's sudo, in the root directory and its chosen
+     * environment.
      *
      * @param program The host program.
      * @param arguments Its arguments.
@@ -132,7 +139,7 @@ final class HostForgeLending implements GitCredentials {
      */
     static Command onHost(final Path program, final String... arguments) {
         final String[] line = new String[arguments.length + 3];
-        line[0] = "sudo";
+        line[0] = SUDO.toString();
         line[1] = "-n";
         line[2] = program.toString();
         System.arraycopy(arguments, 0, line, 3, arguments.length);

@@ -65,7 +65,7 @@ class HostForgeAccessTest {
                         command -> {
                             assertThat(command.arguments())
                                     .containsExactly(
-                                            "sudo",
+                                            HostForgeLending.SUDO.toString(),
                                             "-n",
                                             HostPerson.PROGRAM.toString(),
                                             "forge",

@@ -127,6 +127,19 @@ class ProcessCommandRunnerTest {
     private final CommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(20));
 
     @Test
+    void aChosenEnvironmentIsAllTheProgramIsGiven() {
+        // A root helper refuses any variable it does not know, so nothing of this process may pass.
+        final CommandResult shown =
+                runner.run(
+                        Command.of("/usr/bin/env")
+                                .withChosenEnvironment(
+                                        java.util.Map.of("PATH", "/usr/bin:/bin", "LC_ALL", "C")));
+
+        assertThat(shown.standardOutput().lines().sorted().toList())
+                .containsExactly("LC_ALL=C", "PATH=/usr/bin:/bin");
+    }
+
+    @Test
     void capturesStandardOutput() {
 
         final CommandResult result = runner.run(Command.of("echo", "hello"));

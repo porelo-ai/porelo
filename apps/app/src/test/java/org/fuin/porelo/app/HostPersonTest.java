@@ -48,7 +48,12 @@ class HostPersonTest {
         final var call = runner.invocations().getLast();
         assertThat(call.arguments())
                 .containsExactly(
-                        "sudo", "-n", dir.resolve("helper").toString(), "task", "start", "fix");
+                        HostForgeLending.SUDO.toString(),
+                        "-n",
+                        dir.resolve("helper").toString(),
+                        "task",
+                        "start",
+                        "fix");
         assertThat(call.input()).isEqualTo("ssh-ed25519-cert-v01@openssh.com AAAA\n");
         assertThat(call.describe()).doesNotContain("AAAA");
     }
@@ -100,6 +105,7 @@ class HostPersonTest {
                 .allSatisfy(
                         call -> {
                             assertThat(call.inheritsEnvironment()).isFalse();
+                            assertThat(call.workingDirectory()).isEqualTo(Path.of("/"));
                             assertThat(call.environment())
                                     .isEqualTo(HostForgeLending.HOST_ENVIRONMENT)
                                     .doesNotContainKey("DBUS_SESSION_BUS_ADDRESS");

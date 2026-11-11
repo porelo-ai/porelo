@@ -58,7 +58,13 @@ class TaskCertificateCommandTest {
         assertThat(out.toString()).contains("\"task\":\"fix\"");
         assertThat(runner.invocations().getLast().arguments())
                 .as("the host's records, read through sudo")
-                .startsWith("sudo", "-n", helper.toString(), "task", "show", fingerprint);
+                .startsWith(
+                        HostForgeLending.SUDO.toString(),
+                        "-n",
+                        helper.toString(),
+                        "task",
+                        "show",
+                        fingerprint);
 
         final String other = "SHA256:" + "C".repeat(43);
         out.getBuffer().setLength(0);

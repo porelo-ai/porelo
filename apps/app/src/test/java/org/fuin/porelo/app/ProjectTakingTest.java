@@ -115,14 +115,20 @@ class ProjectTakingTest {
     }
 
     private boolean isTheHostsHelper(final Command command) {
-        return "sudo".equals(command.arguments().getFirst());
+        return HostForgeLending.SUDO.toString().equals(command.arguments().getFirst());
     }
 
     private CommandResult helperAnswers(final Command command) {
         assertThat(command.arguments())
-                .containsExactly("sudo", "-n", "/usr/sbin/porelo-host", "forge", "lend-token");
+                .containsExactly(
+                        HostForgeLending.SUDO.toString(),
+                        "-n",
+                        "/usr/sbin/porelo-host",
+                        "forge",
+                        "lend-token");
         assertThat(command.input()).isEmpty();
         assertThat(command.binaryInput()).isNull();
+        assertThat(command.inheritsEnvironment()).isFalse();
         assertThat(command.environment()).isEqualTo(HostForgeLending.HOST_ENVIRONMENT);
         asked.add(List.copyOf(command.arguments()));
         final CommandResult answer = helper.poll();
@@ -659,7 +665,12 @@ class ProjectTakingTest {
         assertThat(asked)
                 .as("through sudo, for each fetch")
                 .containsOnly(
-                        List.of("sudo", "-n", "/usr/sbin/porelo-host", "forge", "lend-token"));
+                        List.of(
+                                HostForgeLending.SUDO.toString(),
+                                "-n",
+                                "/usr/sbin/porelo-host",
+                                "forge",
+                                "lend-token"));
         assertThat(
                         Files.readString(
                                 context.paths()

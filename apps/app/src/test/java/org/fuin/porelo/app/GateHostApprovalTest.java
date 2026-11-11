@@ -76,13 +76,14 @@ class GateHostApprovalTest {
                         command -> {
                             assertThat(command.arguments())
                                     .containsExactly(
-                                            "sudo",
+                                            HostForgeLending.SUDO.toString(),
                                             "-n",
                                             "/usr/sbin/porelo-host",
                                             "forge",
                                             "lend-token");
                             assertThat(command.input()).isEmpty();
                             assertThat(command.binaryInput()).isNull();
+                            assertThat(command.inheritsEnvironment()).isFalse();
                             assertThat(command.environment())
                                     .isEqualTo(HostForgeLending.HOST_ENVIRONMENT);
                             return new CommandResult(command, 0, LENT_TOKEN + "\n", "");

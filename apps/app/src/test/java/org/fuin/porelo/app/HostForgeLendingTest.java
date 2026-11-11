@@ -74,10 +74,14 @@ class HostForgeLendingTest {
         assertThat(lease.arguments()).isEmpty();
         assertThat(runner.lines())
                 .as("a token of its own for this command, which leaves the person's other tokens")
-                .containsExactly("sudo -n " + HostPerson.PROGRAM + " forge lend-token");
-        assertThat(runner.only("lend-token").inheritsEnvironment())
+                .containsExactly(
+                        HostForgeLending.SUDO + " -n " + HostPerson.PROGRAM + " forge lend-token");
+        final var asked = runner.only("lend-token");
+        assertThat(asked.inheritsEnvironment())
                 .as("the session's own variables, which the host refuses")
                 .isFalse();
+        assertThat(asked.environment()).isEqualTo(HostForgeLending.HOST_ENVIRONMENT);
+        assertThat(asked.workingDirectory()).isEqualTo(Path.of("/"));
         assertThat(lease.environment())
                 .containsEntry("GIT_CONFIG_KEY_0", "http.http://127.0.0.1:3001/.extraHeader")
                 .containsEntry(
