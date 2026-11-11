@@ -68,6 +68,22 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
 - Each provider adapter maps its own stream into the format; a kind it cannot tell is `other`, never left out.
 - The size may no longer be M once analysed: the format, the adapters' part and its tests are new work.
 
+## The adapters' seam, settled with Agent Smith
+
+- An adapter is its own executable behind `org.fuin.porelo.Agent1`, so the seam is a method of that contract: version
+  5 adds `ToolEvents(lines: []string) -> (events: []ToolEvent)`, a batch like `FormatLog`, each event naming the index
+  of the line it came from. `LOWEST` stays 3: an adapter without the method answers `MethodNotFound`, and porelod
+  records "this agent cannot say", never an empty list as if no tool ran.
+- `ToolEvent(line, id, phase: START|END, tool, kind, program: ?string, background: bool, jobId: ?string, at: ?string)`.
+  The mapping is per line and holds no state; porelod joins a START to its END by `id`, and a background job's start
+  and end by `jobId`. In the Java API, `Agent#toolEvents(String line)` with a default that reads nothing.
+- `kind` is a closed set in the contract: `shell`, `edit`, `read`, `search`, `web`, `sub-agent`, `mcp`, `other`; a
+  tool the adapter does not know is `other`.
+- `program` is the first word of a shell call's command line only, never the line: a command line can carry a secret.
+- `at` is the stream's own time when it has one; else porelod stamps the line's arrival.
+- Only an unattended run's output is read. An attended session has no stream; covering it is a question for the
+  operator.
+
 ## Settled with Agent Planner (PL61)
 
 - The phase is a working state of the project's own workflow (`stories/workflow.yml`, kind WORKING), such as
