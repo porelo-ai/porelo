@@ -224,9 +224,28 @@ jobs:
             - name: The pinned GraalVM
               uses: ./.github/actions/pinned-jdk
 
-            # The hooks link statically against musl, which the pom expects under ~/.local/opt.
+            # The musl toolchain and its zlib, kept by the digests porelo-machines' installer pins for the two downloads
+            # (musl.cc's toolchain, then zlib.net's zlib): without the cache every run fetched both. The digests are
+            # written here a second time, since the installer does not name them yet; a moved pin in porelo-machines
+            # is taken up when they are moved here too. A moved key leaves the old entry unread, and GitHub drops
+            # it seven days after its last read.
+            - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: musl-cache
+              with:
+                  path: ~/.local/opt/x86_64-linux-musl-native
+                  key: musl-${{ runner.os }}-eb1db6f0f3c2bdbdbfb993d7ef7e2eeef82ac1259f6a6e1757c33a97dbcef3ad-9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
+
+            # The hooks link statically against musl, which the pom expects under ~/.local/opt. Only on a miss.
             - name: The musl toolchain
+              if: steps.musl-cache.outputs.cache-hit != 'true'
               run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="musl"
+
+            # Only a whole install: the step above failing ends the job before this.
+            - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              if: steps.musl-cache.outputs.cache-hit != 'true'
+              with:
+                  path: ~/.local/opt/x86_64-linux-musl-native
+                  key: musl-${{ runner.os }}-eb1db6f0f3c2bdbdbfb993d7ef7e2eeef82ac1259f6a6e1757c33a97dbcef3ad-9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
 
             - name: Build the native binaries
               run: sh ci/leg-build.sh ${{ github.run_number }}

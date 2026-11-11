@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B618",
   "title": "The Musl Toolchain Comes From The Build Cache",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 1,
@@ -62,6 +62,38 @@ RHEL-likes) inside its containers against the live archives on every run.
 
 - Where the digest key comes from: the installer and its pins live in porelo-machines, so the key is read from
   `machines musl --pins` (a new option there) or pinned twice. Asked of Machines.
+
+## As built
+
+The package check's apt and dnf were built first (the follow-up above); then the musl part and the retention.
+
+- **The musl job restores `x86_64-linux-musl-native`** in the build user's local `opt` folder, where the pom's
+  `musl.home` looks, with `actions/cache/restore`, keyed by the runner's OS and the two digests the installer pins
+  (the musl.cc toolchain, then the zlib.net zlib). `machines musl` runs only on a miss, and the prefix is saved right
+  after it, so a failed install is never saved. The installer resolved today (porelo-machines 0.5.2-SNAPSHOT) carries
+  the same two digests.
+- **The digests are written in the workflow a second time.** `machines musl` takes no option and names no digest, so
+  there is nothing to read them from; a moved pin in porelo-machines is taken up only when the workflow's key moves
+  with it, and until then the restored toolchain is the old one. Reading the key from the installer
+  (`machines musl --pins` or the like) waits on Machines and is not asked of it here.
+- **Retention is by key, not by deletion.** Every cache the build keeps names what it holds: the musl, GraalVM and shfmt
+  entries their digests, the wrapper its properties' hash, the Maven repository the poms' hash, the package check a
+  day. A moved pin saves under a new key and the old entry is no longer read; the two with `restore-keys` (Maven,
+  package check) read the newest entry under the prefix. GitHub drops an entry seven days after its last read, so no
+  `gh cache delete` step and no `actions: write` was needed.
+- **`BuildCachesTest`** holds the musl steps' order, condition, key and path, and that every cache step in the build and
+  in `pinned-jdk` keys by a digest, a hash or a step's output, with `restore-keys` only as the key's own prefix.
+
+Not run: a build on GitHub, so "a second run fetches nothing" is seen on the first two runs after the push.
+
+## After the code reading
+
+agy (gemini) read the change. Fixed: `BuildCachesTest` is tagged `documents`, so the shared rules check runs it on a
+change to `.github/` alone, which starts no build; its assertions each state their reason; the changelog no longer says
+a moved digest is fetched by itself. Left as said: the digests stand in the workflow a second time, so a moved pin in
+porelo-machines is taken up only with the workflow's key, and a miss in between saves the newer install under the old
+key; both installs are checked against the installer's own pins, so nothing unchecked is restored. The test's patterns
+compiled inline stay, as they run once per test.
 
 ## Acceptance
 
