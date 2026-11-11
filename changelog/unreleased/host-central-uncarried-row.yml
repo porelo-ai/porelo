@@ -1,0 +1,2 @@
+title: "A host's answer of how a project's repositories stand is no longer refused whole when it also lists a repository no one carries as one it cannot say of, such as the project's own repository on the host's forge; that row is passed over, and the carried repositories show their state again instead of `cannot say: host-answer-refused`"
+type: fixed

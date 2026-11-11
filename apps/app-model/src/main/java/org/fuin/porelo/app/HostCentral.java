@@ -299,8 +299,13 @@ final class HostCentral {
         final Map<String, Answer> found = new LinkedHashMap<>();
         for (final Measurement each : publication.rows()) {
             final List<String> matching = matching(carried, each.name());
-            // None carried, or two rows for one entry, or two entries for one row: no repository
-            // can be named for it.
+            if (matching.isEmpty() && "cannot-say".equals(each.answer().state())) {
+                // A repository the host's forge keeps and no one carries here, such as the
+                // project's own, listed as one it has no read key for: it says nothing of the
+                // carried ones. A state measured for it would be one no host may give.
+                continue;
+            }
+            // Two rows for one entry, or two entries for one row: no repository can be named.
             if (matching.size() != 1 || found.containsKey(matching.getFirst())) {
                 throw new RefusedAnswer(
                         "repositories.repository: unmatched or ambiguous " + each.name());

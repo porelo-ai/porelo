@@ -98,4 +98,47 @@ class HostCentralTest {
         assertThat(answer.get("app").state()).isEqualTo("ahead");
         assertThat(answer.get("app").ahead()).isEqualTo(3);
     }
+
+    // A host's forge also keeps the project's own repository, which no person carries, and lists
+    // it as one it holds no read key for; that row must not withhold the carried ones' answers.
+    @Test
+    void aRowForARepositoryNotCarriedIsPassedOver() throws Exception {
+        final var answer =
+                reader(
+                                """
+                {"project":"alpha","read_at":"2026-11-09T10:00:00Z",
+                 "repositories":[{"repository":"app","state":"up-to-date"},
+                 {"repository":"alpha","state":"cannot-say","why":"no-read-key"}]}
+                """)
+                        .ask("alpha", Map.of("app", "app"));
+        assertThat(answer).containsOnlyKeys("app");
+        assertThat(answer.get("app").state()).isEqualTo("up-to-date");
+    }
+
+    // Two carried repositories whose copies share one name cannot be told apart by a row.
+    @Test
+    void aRowMatchingTwoCarriedRepositoriesIsStillRefused() throws Exception {
+        final var answer =
+                reader(
+                                """
+                {"project":"alpha","read_at":"2026-11-09T10:00:00Z",
+                 "repositories":[{"repository":"app","state":"up-to-date"}]}
+                """)
+                        .ask("alpha", Map.of("app", "app", "App", "APP"));
+        assertThat(answer.get("app").why()).contains("ambiguous app");
+    }
+
+    // A state measured for a repository no one carries is one no host may give.
+    @Test
+    void aMeasuredRowForARepositoryNotCarriedIsStillRefused() throws Exception {
+        final var answer =
+                reader(
+                                """
+                {"project":"alpha","read_at":"2026-11-09T10:00:00Z",
+                 "repositories":[{"repository":"app","state":"up-to-date"},
+                 {"repository":"alpha","state":"up-to-date"}]}
+                """)
+                        .ask("alpha", Map.of("app", "app"));
+        assertThat(answer.get("app").why()).contains("unmatched or ambiguous alpha");
+    }
 }
