@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B619",
   "title": "A Task Reads Every Repository Of Its Project",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 1,
