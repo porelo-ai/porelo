@@ -9,7 +9,7 @@
   "size": "L",
   "priority": "Medium",
   "rank": 18,
-  "blockedBy": ["B148"],
+  "blockedBy": [],
   "covers": "Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `porelo usage` and `Cost`."
 }
 ```

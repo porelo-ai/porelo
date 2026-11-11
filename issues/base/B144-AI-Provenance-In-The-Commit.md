@@ -9,7 +9,7 @@
   "size": "L",
   "priority": "Medium",
   "rank": 9,
-  "blockedBy": ["B148"],
+  "blockedBy": [],
   "covers": "A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them."
 }
 ```

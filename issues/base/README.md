@@ -145,7 +145,7 @@ from its side, as *blocked by*.
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 0 |
 | <a id="b122"></a>[B122](B122-No-Direct-Chat-Between-Tasks.md) | M | - | Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send. | - |
 | <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `porelo talk verify`, its rows and scenario, and update the docs and the decision. | - |
-| <a id="b191"></a>[B191](B191-What-A-Task-Cost-At-List-Prices.md) | L | [B148](README.md#b148) | Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `porelo usage` and `Cost`. | - |
+| <a id="b191"></a>[B191](B191-What-A-Task-Cost-At-List-Prices.md) | L | - | Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `porelo usage` and `Cost`. | - |
 | <a id="b108"></a>[B108](B108-The-Narrowed-Message-Schema-Enforced.md) | M | - | One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again. | - |
 | <a id="b119"></a>[B119](B119-A-Loop-Seen-In-An-Unattended-Tasks-Log.md) | S | - | The kit's `LoopWatch` also counts a declared failure marker in each task's `task.log`, from a per-step baseline. | - |
 | <a id="b10"></a>[B10](B10-What-An-Egress-Set-Can-Express.md) | L | - | Egress addresses in `project.yml`, refused lookups shown, set fingerprints, `complete: false` for sets; four commits, and `Sets()` grows. | - |
@@ -177,10 +177,10 @@ from its side, as *blocked by*.
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
 | <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `porelo-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. |
 | <a id="b15"></a>[B15](B15-Handing-Artifacts-Between-Tasks.md) | XL | - | Artifacts over the message transport; splits into the design redone, a gate blob threshold, transport verbs, a drop directory, delivery by hand-in, withdrawal. |
-| <a id="b138"></a>[B138](B138-A-Token-Ceiling-Per-Task.md) | M | [B148](README.md#b148) | A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it. |
+| <a id="b138"></a>[B138](B138-A-Token-Ceiling-Per-Task.md) | M | - | A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it. |
 | <a id="b139"></a>[B139](B139-An-Alert-On-What-Looks-Wrong.md) | L | - | Baselines first, then alerts on body size, clearance attempts and odd DNS names, to the desktop and `Watch`; per project alert only or stop with the token revoked. |
 | <a id="b140"></a>[B140](B140-A-Secret-Scan-Of-The-Workspace-At-Start.md) | M | - | A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write. |
-| <a id="b144"></a>[B144](B144-AI-Provenance-In-The-Commit.md) | L | [B148](README.md#b148) | A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them. |
+| <a id="b144"></a>[B144](B144-AI-Provenance-In-The-Commit.md) | L | - | A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them. |
 | <a id="b149"></a>[B149](B149-A-Local-Provider-Template.md) | M | - | http only for loopback upstreams, a broker route with no credential, and two templates: `providers/local.yaml` on `127.0.0.1` and `providers/organisation.yaml` over https; the task reaches the host port through the broker. |
 | <a id="b98"></a>[B98](B98-The-Image-A-Signature-Names.md) | M | - | A warning on a tag-only `base_image`, a tag-only organization project refused until allowed once, the base digest as an image label, a changed digest noted at start, an optional per-project signature policy, the default project pinned. |
 | <a id="b99"></a>[B99](B99-Packages-Signed-And-Checked.md) | L | - | RPMs and the setup script signed in CI with the Debian repository's key, one shared `check-signed` in the release tools, a version pointer, `gpgcheck=1` everywhere from the next joint release. |
@@ -195,7 +195,7 @@ from its side, as *blocked by*.
 | <a id="b147"></a>[B147](B147-A-Wall-Clock-Limit-For-Unattended-Runs.md) | M | - | `limits.minutes` in the project file, which `--minutes` may only shorten; a deadline inside the container plus a real `task stop`, held back while a person is attached and taken when they detach; the reason in status; measurement first. |
 | <a id="b153"></a>[B153](B153-Unused-Slots-And-Keys-Reported.md) | M | - | Doctor reports left deploy keys, and device slots and lent credentials unused for 45 days (a setting in a new account-wide `config.yml`); last use recorded where credentials are lent; only what Porelo lends or opens with locked, where the settings ask. |
 | <a id="b155"></a>[B155](B155-The-Logs-Checked-And-Documented.md) | M | - | A `doc/logs.md` page for every log; tests show the broker and gate logs hold no secret and every log file is `rw-------`; `task.log` cut after 30 days (a setting). |
-| <a id="b156"></a>[B156](B156-porelo-inventory.md) | M | [B148](README.md#b148) | `porelo inventory` (text, `--json`, a daemon method) lists the account, agents, providers, credentials with the projects they serve, slots, deploy keys, last use and models. |
+| <a id="b156"></a>[B156](B156-porelo-inventory.md) | M | - | `porelo inventory` (text, `--json`, a daemon method) lists the account, agents, providers, credentials with the projects they serve, slots, deploy keys, last use and models. |
 | <a id="b112"></a>[B112](B112-A-Nickname-For-Each-Agent.md) | M | - | The label becomes a one-word nickname, unique in its project: `@label`, `you` in the card, `--display` and `rename`. |
 | <a id="b41"></a>[B41](B41-What-A-Packaged-Agent-Installs.md) | M | - | `--supply-chain` and the daemon's `Agent` list what a package ships, read from `/usr/share/porelo/sbom/<package>.cdx.json` by one shared reader. |
 | <a id="b59"></a>[B59](B59-A-Kernel-Of-Its-Own-For-A-Task.md) | XL | - | A kernel of its own for a task; splits into a krun/KVM experiment (M) that also measures snapshot and restore, a doctor probe (S), and an opt-in adoption (L) decided on the measurements and only if the ruleset fails closed. |
@@ -394,16 +394,11 @@ from its side, as *blocked by*.
 | <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. |
 
-## Finishing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
-
 ## Finished
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b148"></a>B148 | Token Counting Per Task | The broker reads the four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after the task is removed, with agent, provider, models, five counts (`null` when not reported), tools, how it ended and a reported cost, and `task status` and `Usage` give the sums. |
 | <a id="b429"></a>B429 | One Line Installs Everything | The test agent left the package channels for a place of its own by version (5d46d02cc), `package-check`'s `ChannelLine` checks that `apt install 'porelo*'` resolves on `releases` and `snapshots` (run by hand, in no workflow yet), and `doc/running.md` names `porelo-adapter-github`; the getting-started page does not yet state the line. |
 | <a id="b494"></a>B494 | Build Status Reads The Builds A Host Names | On a host, `porelo build status` answers from the builds the host's file names for a project whose `project.yml` names none, as a task's builds watch does; a project file's own `builds:` still wins (aa8aedc94). |
 | <a id="b495"></a>B495 | A Start Says Which Image It Runs And Where --host Runs | A start's protocol says the base image before the fetch is replaced when the fetched settings name another, what the changed settings keep, and that `--host` runs on the person's own computer where their card's key is in their agent (a06125fca). |

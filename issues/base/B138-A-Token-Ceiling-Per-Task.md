@@ -9,7 +9,7 @@
   "size": "M",
   "priority": "Medium",
   "rank": 6,
-  "blockedBy": ["B148"],
+  "blockedBy": [],
   "covers": "A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it."
 }
 ```
