@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B613",
   "title": "A Stale Organization Read Says Why",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 10,
