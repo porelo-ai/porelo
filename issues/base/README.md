@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b629"></a>[B629](B629-Each-Side-Log-Line-Carries-Its-Time.md) | S | - | Each line a task's side process writes to gate.log, vault.log, relay.log or clearance.log starts with the time it was written, and Tasks1 `Tail` answers that time beside each line, null for a line without one, for the window's one timeline of a piece of work. |
 | <a id="b626"></a>[B626](B626-A-Start-Step-Fails-When-The-Start-Ends.md) | - | - | The acceptance kit's step that waits for an agent's session fails as soon as the terminal's `porelo task start` has ended without one, naming the start's exit and output, instead of waiting out its 900 seconds. |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |
