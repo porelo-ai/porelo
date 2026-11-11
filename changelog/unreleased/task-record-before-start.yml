@@ -1,0 +1,2 @@
+title: "A task's record, with its model, is written before its container starts, so a listing during a start never shows a running task on the agent's default model"
+type: fixed

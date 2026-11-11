@@ -23,6 +23,13 @@ final class StoppingCommandRunner extends FakeCommandRunner {
         initialState = state;
     }
 
+    private java.util.function.Consumer<Command> beforeStart = command -> {};
+
+    /** Runs {@code seeing} as each container start is asked, before it is answered. */
+    void beforeStart(java.util.function.Consumer<Command> seeing) {
+        beforeStart = seeing;
+    }
+
     private final java.util.Map<String, String> names = new java.util.HashMap<>();
 
     private final Set<String> stopped = new HashSet<>();
@@ -70,6 +77,7 @@ final class StoppingCommandRunner extends FakeCommandRunner {
 
     @Override
     public CommandResult run(Command command) {
+        if (command.describe().startsWith("podman start ")) beforeStart.accept(command);
         final CommandResult result = super.run(command);
         final String line = command.describe();
         if (line.startsWith("podman stop ")) attemptedStop = true;

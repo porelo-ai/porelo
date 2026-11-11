@@ -3460,6 +3460,10 @@ public final class TaskLaunch {
                     project, origins, refusals, project.egress().hostServices(), out);
             runner.refusing(java.util.List.copyOf(refusals.keySet()));
 
+            // What only this start knows: which agent, how somebody is meant to be involved, what
+            // it was asked to do, its model and which ref its work goes to. Written before the
+            // container runs, so a listing never reads a running task without it.
+            writeProfile(container, selected, environmentCache.get("PORELO_TASK_REF"), err);
             // The port is decided before this, so the firewall rule can name it; the gate itself
             // starts afterwards, because its log lives in the state directory that start() creates.
             // Starting it first silently failed to spawn at all.
@@ -3571,15 +3575,7 @@ public final class TaskLaunch {
                             out,
                             err);
             writeResumeRecord(container, err);
-            // What only this moment knows: which agent, how somebody is meant to be involved, what
-            // it was asked to do, and which ref its work goes to. None of it can be recovered from
-            // a running container afterwards.
-            writeProfile(
-                    container,
-                    project.name(),
-                    selected,
-                    environmentCache.get("PORELO_TASK_REF"),
-                    err);
+            recordParentStart(container, project.name());
             // What brings it back after a reboot: its description and records saved where a reboot
             // does not reach, and its two tokens in the vault. A task that cannot keep them runs,
             // and says so.
@@ -3944,18 +3940,15 @@ public final class TaskLaunch {
      * <p>Never fails the run. A task that cannot describe itself is worse than one that can, and
      * far better than one that did not start.
      *
-     * <p>A task another task started records its parent, and the event log a {@code started} event
-     * naming it.
+     * <p>A task another task started records its parent.
      *
      * @param container Container name.
-     * @param projectName Its project, for the event log.
      * @param selected The agent, or {@code null} when the task has none.
      * @param branch Ref the work goes to, or {@code null}.
      * @param err Where a failure to record is reported.
      */
     private void writeProfile(
             String container,
-            String projectName,
             @Nullable InstalledAgent selected,
             @Nullable String branch,
             PrintWriter err) {
@@ -3983,6 +3976,15 @@ public final class TaskLaunch {
             err.println("porelo: could not record what this task is: " + ex.getMessage());
             err.flush();
         }
+    }
+
+    /**
+     * Writes the event log's {@code started} event for a task another task started, once it runs.
+     *
+     * @param container Container name.
+     * @param projectName Its project.
+     */
+    private void recordParentStart(String container, String projectName) {
         final String parent = request.parent();
         if (parent != null) {
             // Who started what, where a person reads the log: a task its parent stops is one the

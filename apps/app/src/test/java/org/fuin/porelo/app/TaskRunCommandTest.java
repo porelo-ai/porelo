@@ -3847,6 +3847,33 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aTaskIsDescribedBeforeItsContainerRuns(@TempDir Path dir) throws IOException {
+
+        // A listing asked while the start was still placing files read a running task with no
+        // record and said it ran on the agent's own default model, though the start had chosen one.
+        final PoreloContext context = modelContext(dir, true);
+        final List<org.fuin.porelo.wire.TaskProfile> atStart = new ArrayList<>();
+        ((StoppingCommandRunner) runner)
+                .beforeStart(
+                        command ->
+                                atStart.add(
+                                        org.fuin.porelo.wire.TaskProfile.readFrom(
+                                                shellState(context))));
+
+        final int code = echoingStart(context, dir, WITH_MODEL, "--model", "model-b");
+
+        assertThat(code).as("started and run: %s", err).isZero();
+        assertThat(atStart).as("the container was started").isNotEmpty();
+        assertThat(atStart.getFirst())
+                .as("what the task is stands recorded when its container starts")
+                .isNotNull();
+        assertThat(atStart.getFirst().model())
+                .as("a listing then reads the model the start chose")
+                .isEqualTo("model-b");
+        assertThat(atStart.getFirst().modelFrom()).isEqualTo("start");
+    }
+
+    @Test
     void anAttendedStartHandsItsAgentTheProjectsModel(@TempDir Path dir) throws IOException {
 
         // Attended, the agent is started by the session: without the model it ran on its default.

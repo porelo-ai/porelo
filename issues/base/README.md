@@ -257,6 +257,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b627"></a>[B627](B627-A-Running-Task-Is-Listed-With-Its-Model.md) | XS | - | A task's record - agent, mode, prompt, model and where it came from, branch, name - is written before its container starts, so `Tasks1.List` never shows a running task on the agent's own default model while its start is still placing files. |
 | <a id="b619"></a>[B619](B619-A-Task-Reads-Every-Repository-Of-Its-Project.md) | M | - | A task started to read its whole project sees every repository's main as a directory under /workspace, read only, taken wherever this machine takes each repository; it pushes nothing and leaves nothing behind. |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. |
 | <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. |
