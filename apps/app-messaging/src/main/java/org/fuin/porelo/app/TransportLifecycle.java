@@ -487,6 +487,12 @@ final class TransportLifecycle {
      * name cannot be found, as a task made before is named so already.
      */
     private String contractName(String project, String container) throws IOException {
+        // A task made before is named in the contract's form already: no lookup in podman, which
+        // a start would otherwise wait on at every enroll.
+        if (!project.equals("porelo")
+                && container.startsWith(ContainerName.contract(project, ""))) {
+            return container;
+        }
         final String own = enrollmentTask(project, container);
         return own == null ? container : ContainerName.contract(project, own);
     }
