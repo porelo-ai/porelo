@@ -21,6 +21,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
+| <a id="b623"></a>[B623](B623-A-Task-Image-Build-Goes-On-When-Its-Mirror-Fails.md) | S | - | A task image's apt steps try the next mirror only when the first fails outright, never side by side, and keep downloaded packages in a build cache across a host's image builds. |
 | <a id="b618"></a>[B618](B618-The-Musl-Toolchain-Comes-From-The-Build-Cache.md) | S | - | The build's musl job takes the musl toolchain and zlib from the Actions cache, keyed by their pinned digests, and the build keeps only the newest entry of each of its caches. |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |

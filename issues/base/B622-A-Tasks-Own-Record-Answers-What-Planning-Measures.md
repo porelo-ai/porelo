@@ -38,8 +38,8 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
 
 ## Plan
 
-- Start takes `work: ?(issue: string, phase: string)` (Tasks1) and `--work <issue>:<phase>` (CLI), checked as an
-  issue id and one of the planner's phases, kept with the task.
+- Start takes `work: ?(issue: string, phase: string)` (Tasks1) and `--work <issue>:<phase>` (CLI), the phase a
+  state name of one line and at most 64 characters, kept with the task as given.
 - porelod writes one task record at start and completes it at the end and at removal: `task`, `project`,
   `repository`, `work` (issue, phase or null), `agent`, `model`, `modelFrom`, `effort`, `startedAt`, `endedAt`,
   `end` (done, stopped, removed, failed), and the totals of [B148](README.md#b148)'s usage record. It is kept past removal as the
@@ -47,12 +47,15 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
 - Tasks1 `Records(project: string, since: string) -> (records: []TaskRecord)` and `porelo task records --project <p>
   --since <time> --json` answer them, oldest first. The planner reads them through the daemon's socket or the
   command; never the files.
-- Red first: a `TaskUsageTest` case starts, works and removes a task with `--work B622:implement` and expects its
+- Red first: a `TaskUsageTest` case starts, works and removes a task with `--work B622:Implementing` and expects its
   record with start, end, work, effort and totals; `Records` answers it after the removal.
 - Changelog entry under *Added*; `doc/commands.md` and the Tasks1 contract name the fields.
 
-## Open questions
+## Settled with Agent Planner (PL61)
 
-- The phase names: the planner's stages (`plan`, `implement`, `test`, `review`, `rework`, `handover`) or a free word
-  the planner checks. Asked of Agent Planner (PL61).
-- Whether a task's minutes are its wall time or the time its agent was busy ([B148](README.md#b148)'s request times give the latter).
+- The phase is a working state of the project's own workflow (`stories/workflow.yml`, kind WORKING), such as
+  `Implementing`, `Reading` or `Reworking`, named by the planner at Start beside the issue. Porelo keeps it as given and
+  does not know the set: one line, at most 64 characters.
+- Minutes are wall time, from the task's start to its end. Busy time (from the request times) may be an extra field;
+  the velocity does not use it.
+- The planner reads `Records(project, since)` on the daemon's socket, as the person, and no file.
