@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B611",
   "title": "A Start On An Organization's Host Trusts Its Pinned Key",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 20,
