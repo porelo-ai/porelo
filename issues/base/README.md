@@ -257,6 +257,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b628"></a>[B628](B628-A-Removed-Task-Leaves-No-Direct-Chats.md) | XS | - | Retiring a task from a conversation removes what its direct chats were polled into, `transport/<scheme>/direct/<container>`, so a removed task leaves nothing of itself in the machine's state. |
 | <a id="b627"></a>[B627](B627-A-Running-Task-Is-Listed-With-Its-Model.md) | XS | - | A task's record - agent, mode, prompt, model and where it came from, branch, name - is written before its container starts, so `Tasks1.List` never shows a running task on the agent's own default model while its start is still placing files. |
 | <a id="b619"></a>[B619](B619-A-Task-Reads-Every-Repository-Of-Its-Project.md) | M | - | A task started to read its whole project sees every repository's main as a directory under /workspace, read only, taken wherever this machine takes each repository; it pushes nothing and leaves nothing behind. |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. |
