@@ -88,3 +88,21 @@ Differs from the plan:
   without `--force`. Its end removes the container also when the run failed. `task stop` still only stops it.
 - A reading task needs no task certificate on a host: it has no gate and signs nothing.
 - The end's test is in `TaskRunCommandTest`, which drives the launch.
+- From the reading by another model: `GitGate.readMain` streams `git archive` into `tar` through `sh -c` with its
+  paths and commit as arguments, so no `.tar` lies beside a copy in what is mounted; the main read is the branch the
+  mirror's HEAD names when that is a branch and no task's, else `refs/heads/main`, so an upstream that moved to
+  `trunk` is not read at its stale `main`; an existing task comes back only as the kind it was made (exit 64 for
+  `--all-repositories` on a gated one, and for `--repository` or `--no-gate` on a reading one, whose name alone brings
+  it back without the checkout's repository); `--all-repositories` is refused on a running task as every option for
+  a start is; a prompt run removes a reading task at its end, from the command line and the daemon, whatever its exit,
+  and so does leaving a session gone into again (`task start all`, `task attach all`); the attached start says the
+  container is removed when you leave; an agent's files for `/workspace` are skipped and said once; the daemon's
+  Start refuses the option combination before any host or credential is asked; neither the daemon nor the launch
+  asks the project's own upstream's host alone, and `readAll` names the trust-host way on per repository; a task's
+  socket strips `allRepositories` from the description as it does `waitForSignIn`; `CanStart` checks the project's
+  own repository's settings as Start does. No shipped agent (Claude Code, Pi, omp, Codex, Antigravity, the stub)
+  declares a file under `/workspace` today.
+- Not taken: three, each noted for a change of its own. `--host` with `--all-repositories` still needs an ssh agent and
+  a task name, since that is the path every start on a host takes, not this option's; the project's own `porelo.yml`
+  settings are read before `readAll` refreshes its mirror, the order every start reads them in; and the trees' size is
+  not bounded, which needs a limit a project would set.

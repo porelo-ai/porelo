@@ -6611,11 +6611,294 @@ class TaskRunCommandTest {
                 .as("removed at its end, though nobody asked for --rm: %s", out)
                 .anyMatch(line -> line.contains("rm --force"));
         assertThat(out.toString()).doesNotContain("never reached the gate");
+        assertThat(out.toString())
+                .as("told so when it is attached")
+                .contains("Leaving the shell removes the container, since it only reads")
+                .doesNotContain("The container is kept when you leave");
         final Path read = prepared.paths().tasks().repositories("any").getParent();
         assertThat(read).as("it was given what it read").exists();
         try (java.util.stream.Stream<Path> left = Files.list(read)) {
             assertThat(left.toList()).as("what it read goes with it").isEmpty();
         }
+    }
+
+    /** Gives the project's own repository a mirror whose main a reading task is given. */
+    private static void ownMain(PoreloContext context, Path dir) throws IOException {
+        final Path upstream = Files.createDirectories(dir.resolve("upstream"));
+        git(upstream, "init", "-q", "-b", "main");
+        Files.writeString(upstream.resolve("README.md"), "the project\n");
+        git(upstream, "add", "README.md");
+        git(
+                upstream,
+                "-c",
+                "user.name=T",
+                "-c",
+                "user.email=t@example.com",
+                "commit",
+                "-q",
+                "-m",
+                "initial");
+        final var project =
+                org.fuin.porelo.core.project.ProjectReader.read(dir.resolve("project.yml"));
+        final Path mirror = GateSupport.mirror(context, project, project.ownRepository());
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", upstream.toString(), mirror.toString());
+    }
+
+    /** Starts at a terminal or not, naming no repository, as a person brings a task back. */
+    private int startNamingNoRepository(PoreloContext context, boolean terminal, String... args) {
+        recordedTasks(context);
+        final CommandLine cmd = PoreloCli.commandLine(context);
+        cmd.setOut(new PrintWriter(out));
+        cmd.setErr(new PrintWriter(err));
+        ((TaskRunCommand)
+                                cmd.getSubcommands()
+                                        .get("task")
+                                        .getSubcommands()
+                                        .get("start")
+                                        .getCommand())
+                        .terminal =
+                () -> terminal;
+        final List<String> all = new ArrayList<>(List.of("task", "start", "shell"));
+        all.addAll(List.of(args));
+        return cmd.execute(all.toArray(new String[0]));
+    }
+
+    private static final String STOPPED_SHELL =
+            RUNNING_SHELL.replace("Up 4 minutes", "Exited (0) 4 minutes ago");
+
+    @Test
+    void aTaskOnOneRepositoryIsNotBroughtBackToReadThemAll(@TempDir Path dir) throws IOException {
+        // Brought back, it would read with its gate, its token and its certificate still in it.
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", STOPPED_SHELL);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "--all-repositories",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("porelo-uc-shell was made to work on one repository and stays so");
+        assertThat(runner.lines())
+                .as("nothing is brought back or made")
+                .noneMatch(line -> line.contains("podman start") || line.contains("podman create"));
+    }
+
+    @Test
+    void aTaskThatReadsItsProjectIsNotBroughtBackForOneRepository(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        Files.createDirectories(
+                context.paths().tasks().repositories("porelo-uc-shell").resolve("uc"));
+        runner.answering("ps", STOPPED_SHELL);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "--repository",
+                        "uc",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("porelo-uc-shell was made to read every repository and stays so")
+                .contains("without --repository");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman start") || line.contains("podman create"));
+    }
+
+    @Test
+    void aRunningTaskThatReadsItsProjectIsNotGoneIntoWithTheOptionThatMadeIt(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        Files.createDirectories(
+                context.paths().tasks().repositories("porelo-uc-shell").resolve("uc"));
+        runner.answering("ps", RUNNING_SHELL);
+
+        assertThat(
+                        startNamingNoRepository(
+                                context,
+                                true,
+                                "--all-repositories",
+                                "-p",
+                                projectFile(dir, MINIMAL)))
+                .as("said: %s", err)
+                .isEqualTo(64);
+        assertThat(err.toString())
+                .contains(
+                        "porelo-uc-shell is already running; --all-repositories takes effect only");
+        assertThat(execCalls).as("nothing gone into").isEmpty();
+    }
+
+    @Test
+    void aTaskThatReadsItsProjectGoneIntoAgainIsRemovedWhenThePersonLeaves(@TempDir Path dir)
+            throws IOException {
+        // Made to keep nothing, it went on running after its second session ended, holding a
+        // whole project's trees until somebody removed it by hand.
+        final PoreloContext context = context(dir, true);
+        Files.createDirectories(
+                context.paths().tasks().repositories("porelo-uc-shell").resolve("uc"));
+        runner.answering("ps", RUNNING_SHELL);
+        runner.answering("{{.State.Pid}}", "4711\n");
+
+        final int code = startNamingNoRepository(context, true, "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as("said: %s / %s", err, out).isZero();
+        assertThat(execCalls).as("gone into").hasSize(1);
+        assertThat(runner.lines())
+                .as("removed once its session ended: %s", err)
+                .anyMatch(line -> line.contains("rm --force"));
+        assertThat(out.toString()).contains("removed   porelo-uc-shell");
+        assertThat(context.paths().tasks().repositories("porelo-uc-shell"))
+                .as("what it read goes with it")
+                .doesNotExist();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 3})
+    void aTaskThatReadsItsProjectIsRemovedAtTheEndOfItsPromptRunHoweverItEnded(
+            int exit, @TempDir Path dir) throws IOException {
+        // A prompt run never reached the end that removes a task, so a reader's container and its
+        // trees stayed after every unattended run.
+        final PoreloContext context = modelContext(dir, false);
+        final String project = projectFile(dir, MINIMAL);
+        ownMain(context, dir);
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\nexit " + exit + "\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int code;
+        try {
+            code =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "--all-repositories",
+                            "--agent",
+                            "preview",
+                            "--prompt",
+                            "read it",
+                            "-p",
+                            project);
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(code).as("the run's own verdict: %s", err).isEqualTo(exit == 0 ? 0 : 70);
+        assertThat(runner.lines())
+                .as("removed at the end of its run: %s", out)
+                .anyMatch(line -> line.contains("rm --force"));
+        final Path read = context.paths().tasks().repositories("any").getParent();
+        try (java.util.stream.Stream<Path> left = Files.list(read)) {
+            assertThat(left.toList()).as("what it read goes with it").isEmpty();
+        }
+    }
+
+    @Test
+    void anAgentsFileForTheWorkspaceIsNotWrittenIntoWhatATaskReads(@TempDir Path dir)
+            throws IOException {
+        // Copied into a workspace mounted read only, it failed, and an attended agent's start
+        // with it.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(context.paths().xdg().data().resolve("agents/preview.yaml.places"), "");
+        final String project = projectFile(dir, MINIMAL);
+        ownMain(context, dir);
+        final Path said = dir.resolve("podman.said");
+        final Path podman = dir.resolve("logging-podman");
+        Files.writeString(
+                podman,
+                "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + shellArgument(said.toString()) + "\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final Path helpers = dir.resolve("helpers-porelo");
+        Files.writeString(helpers, "#!/bin/sh\nexit 0\n");
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
+        final int started;
+        try {
+            started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "--all-repositories",
+                            "--attach",
+                            "agent",
+                            "-p",
+                            project,
+                            "--agent",
+                            "preview");
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+        }
+
+        assertThat(started).as("started: %s", err).isZero();
+        assertThat(out.toString())
+                .as("said once")
+                .containsOnlyOnce("skipped   1 file(s) the agent wants in /workspace");
+        final List<String> lines = Files.exists(said) ? Files.readAllLines(said) : List.of();
+        assertThat(indexOf(lines, "tee " + TaskWorkspace.MOUNT + "/.preview/settings.json"))
+                .as("nothing is written into what it reads: %s", lines)
+                .isNegative();
+        assertThat(indexOf(lines, "tee /home/agent/.preview.json"))
+                .as("the agent's own file still is: %s", lines)
+                .isNotNegative();
+    }
+
+    @Test
+    void aStartThatReadsItsProjectIsCheckedForItsOwnRepositorysSettingsAsItsStartIs(
+            @TempDir Path dir) throws Exception {
+        // Asked with no repository, the check skipped what the start then refused.
+        final String file =
+                unallowedRepositoryImage(
+                        dir, "image:\n  from: ubuntu:24.04\n  run: RUN echo upstream-line\n");
+        final PoreloContext context = previewContext(dir, true);
+        previewAgent(context, "preview");
+        final Path projectFile = ProjectSource.resolve(context, file).file();
+
+        final StartCheck.Result asked =
+                StartCheck.check(
+                        context,
+                        projectFile,
+                        "all",
+                        "preview",
+                        null,
+                        null,
+                        null,
+                        true,
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        null,
+                        null,
+                        true);
+
+        assertThat(asked.outcome())
+                .as("CanStart refuses it as Start does: %s", asked.detail())
+                .isEqualTo(StartCheck.Outcome.SETTINGS_NOT_ALLOWED);
+        assertThat(asked.settingsToAllow())
+                .extracting(each -> each.get("key") + " = " + each.get("value"))
+                .contains("image.run[1] = RUN echo upstream-line");
     }
 
     @Test

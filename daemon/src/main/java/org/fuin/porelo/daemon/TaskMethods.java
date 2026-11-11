@@ -955,10 +955,11 @@ final class TaskMethods {
                     // lacks - and there is because the name comes back as a value.
                     final java.util.concurrent.atomic.AtomicReference<String> started =
                             new java.util.concurrent.atomic.AtomicReference<>("");
+                    final TaskLaunch.Request asked = request(parameters, context);
                     final TaskLaunch launch =
                             new TaskLaunch(
                                             context,
-                                            request(parameters, context),
+                                            asked,
                                             new org.fuin.porelo.app.StartSteps(progress, sink))
                                     .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"));
                     if (replies.streaming()) {
@@ -984,19 +985,26 @@ final class TaskMethods {
                     // the CLI makes first, so a stopped task answers the same over the socket as at
                     // a terminal.
                     final TaskLaunch.Existing existing = launch.startExisting(sink, sink);
-                    if (existing == null) {
+                    // Options that cannot go together are refused by the launch, first, as at the
+                    // command line: no host is looked up and no credential checked for a start
+                    // that was never going to be made.
+                    if (existing == null && asked.allRepositoriesRefusal() == null) {
                         // Refused as itself before anything is launched, the credentials too: a
                         // destination nobody declared is a typed answer an interface can show, not
                         // a
                         // launch line among others. A host never met is a typed refusal, before
                         // anything is made. The host the start will fetch from: the upstream it was
                         // given, as the launch asks it.
+                        // Not for a task that reads every repository: each one's gate names a host
+                        // it never met, and only that repository is left out.
                         final String unmet =
-                                org.fuin.porelo.app.StartCheck.unknownHost(
-                                        context,
-                                        projectFile(parameters, context),
-                                        empty(parameters, "repository"),
-                                        address(parameters, "upstream"));
+                                asked.allRepositories()
+                                        ? null
+                                        : org.fuin.porelo.app.StartCheck.unknownHost(
+                                                context,
+                                                projectFile(parameters, context),
+                                                empty(parameters, "repository"),
+                                                address(parameters, "upstream"));
                         if (unmet != null) {
                             throw new VarlinkException(
                                     INTERFACE + ".UnknownHostKey",
@@ -1077,13 +1085,20 @@ final class TaskMethods {
                                             if (empty(parameters, "prompt") == null) {
                                                 return 0;
                                             }
-                                            return launch.runAgent(
-                                                    running.runner(),
-                                                    running.selected(),
-                                                    running.container(),
-                                                    running.environment(),
-                                                    sink,
-                                                    sink);
+                                            final int ran =
+                                                    launch.runAgent(
+                                                            running.runner(),
+                                                            running.selected(),
+                                                            running.container(),
+                                                            running.environment(),
+                                                            sink,
+                                                            sink);
+                                            // A task that reads its project goes with its run,
+                                            // as at a terminal.
+                                            final int ended =
+                                                    launch.promptEnded(
+                                                            running.container(), ran, sink, sink);
+                                            return ran == TaskLaunch.NO_AGENT ? ran : ended;
                                         });
                     }
                     sink.flush();

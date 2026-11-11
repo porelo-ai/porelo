@@ -219,30 +219,42 @@ final class WorkspaceSetup {
             err.println("porelo: no git gate for this task: " + ex.getMessage());
             final String said = String.valueOf(ex.getMessage());
             if (HostKeys.refusedTheHost(said)) {
-                // Answered as the question it is, as a follow answers it: git's own words name no
-                // way on, and a person new to Porelo met them on the first task in 'default'
-                // (2026-10-01).
-                final String host =
-                        HostKeys.nameOf(
-                                String.valueOf(
-                                        GateSupport.repository(project, repository).upstream()));
-                err.println(
-                        "porelo: "
-                                + (HostKeys.changed(said)
-                                        ? host
-                                                + " answered with a different key from the one this machine remembers - nothing was"
-                                                + " fetched; find out why before trusting it again"
-                                        : "this machine has never met "
-                                                + host
-                                                + ", so it stopped rather than deciding for you. See"
-                                                + " what it offers with 'porelo credentials trust-host "
-                                                + host
-                                                + "', confirm one"
-                                                + " against what its owner publishes, and start again."));
+                hostKeyHint(said, GateSupport.repository(project, repository), err);
             }
             err.flush();
             return null;
         }
+    }
+
+    /**
+     * Says how to go on when ssh refused a repository's host: never met, or met with another key.
+     *
+     * <p>Answered as the question it is, as a follow answers it: git's own words name no way on,
+     * and a person new to Porelo met them on the first task in 'default' (2026-10-01).
+     *
+     * @param said What the gate's failure said.
+     * @param repository The repository whose upstream was asked.
+     * @param err Where the way on is said, when ssh refused the host.
+     */
+    private static void hostKeyHint(
+            final String said, final Repository repository, PrintWriter err) {
+        if (!HostKeys.refusedTheHost(said)) {
+            return;
+        }
+        final String host = HostKeys.nameOf(String.valueOf(repository.upstream()));
+        err.println(
+                "porelo: "
+                        + (HostKeys.changed(said)
+                                ? host
+                                        + " answered with a different key from the one this machine remembers - nothing was"
+                                        + " fetched; find out why before trusting it again"
+                                : "this machine has never met "
+                                        + host
+                                        + ", so it stopped rather than deciding for you. See"
+                                        + " what it offers with 'porelo credentials trust-host "
+                                        + host
+                                        + "', confirm one"
+                                        + " against what its owner publishes, and start again."));
     }
 
     /**
@@ -312,6 +324,8 @@ final class WorkspaceSetup {
                                 + each.name()
                                 + "' is not read, and the task starts without it: "
                                 + ex.getMessage());
+                // Each repository's host for itself: the others may be at hosts this machine met.
+                hostKeyHint(String.valueOf(ex.getMessage()), each, err);
                 removePartial(into.resolve(each.name()), err);
             }
         }

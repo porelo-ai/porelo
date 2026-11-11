@@ -27,6 +27,9 @@ class WorkspaceSetupTest {
 
     private final ProcessCommandRunner runner = new ProcessCommandRunner();
 
+    /** A host ssh refuses, as one this machine never met. */
+    private static final String UNMET = "unmet.example.org";
+
     /** Without the machine's own configuration, as every git a test runs. */
     private static final Map<String, String> GIT =
             Map.of("GIT_CONFIG_GLOBAL", "/dev/null", "GIT_CONFIG_NOSYSTEM", "1");
@@ -46,9 +49,16 @@ class WorkspaceSetupTest {
         final var other = new org.fuin.porelo.testing.FakeCommandRunner();
         return new PoreloContext(
                 command ->
-                        command.program().equals("git") || command.program().equals("tar")
-                                ? runner.run(command.withEnvironment(GIT))
-                                : other.run(command),
+                        command.arguments().stream().anyMatch(each -> each.contains(UNMET))
+                                ? new org.fuin.porelo.core.process.CommandResult(
+                                        command,
+                                        128,
+                                        "",
+                                        "Host key verification failed.\nfatal: Could not read"
+                                                + " from remote repository.")
+                                : List.of("git", "tar", "sh").contains(command.program())
+                                        ? runner.run(command.withEnvironment(GIT))
+                                        : other.run(command),
                 new PoreloPaths(xdg, dir.resolve("bin")),
                 args -> 0);
     }
@@ -146,6 +156,39 @@ class WorkspaceSetupTest {
                 .as("the project's own repository has nothing yet, and is named as not read")
                 .contains("repository 'shop' is not read");
         assertThat(into.resolve("shop")).doesNotExist();
+    }
+
+    @Test
+    void aRepositoryAtAHostThisMachineNeverMetIsNamedWithHowToTrustIt() throws Exception {
+        // Every other repository is read; only this one is left out, and the way on is said for
+        // it as a task on it alone says it.
+        final Path front = upstream("front", "index.html");
+        final PoreloContext context = context();
+        final Project project =
+                project(front, front)
+                        .withRepositories(
+                                List.of(
+                                        new Repository("front", front.toString()),
+                                        new Repository("back", "git@" + UNMET + ":shop/back.git")));
+        final Path into = dir.resolve("state").resolve("repositories").resolve("porelo-shop-all");
+        final StringWriter err = new StringWriter();
+
+        final List<String> read =
+                new WorkspaceSetup(context, "all", null)
+                        .readAll(
+                                project,
+                                into,
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(err));
+
+        assertThat(read).containsExactly("front");
+        assertThat(err.toString())
+                .contains("repository 'back' is not read")
+                .contains(
+                        "this machine has never met "
+                                + UNMET
+                                + ", so it stopped rather than deciding for you")
+                .contains("'porelo credentials trust-host " + UNMET + "'");
     }
 
     @Test

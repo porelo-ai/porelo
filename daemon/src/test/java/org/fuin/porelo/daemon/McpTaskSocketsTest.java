@@ -460,6 +460,21 @@ class McpTaskSocketsTest {
         assertThat(cut).doesNotContain("Stops every running task");
     }
 
+    @Test
+    void theDescriptionATaskReadsOffersNoStartOptionItsStartRefuses() {
+        // Offered there, an agent would be told of a start it is then refused.
+        final String cut = McpTaskSockets.cut(PoreloDaemon.description(), Set.of("Start"));
+
+        assertThat(PoreloDaemon.description())
+                .contains("  allRepositories: ?bool,")
+                .contains("  waitForSignIn: ?bool,");
+        assertThat(cut)
+                .doesNotContain("  allRepositories: ?bool,")
+                .doesNotContain("Gives the task every repository of the project")
+                .doesNotContain("  waitForSignIn: ?bool,")
+                .contains("  noGate: ?bool,");
+    }
+
     private static Set<String> names(final String kind, final String idl) {
         final Set<String> names = new TreeSet<>();
         final Matcher matcher =

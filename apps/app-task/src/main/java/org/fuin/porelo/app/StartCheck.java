@@ -773,19 +773,39 @@ public final class StartCheck {
         }
         // Otherwise as a start without a gate: on the project's own repository's agent, image
         // and egress, with no repository to name and none behind a gate.
-        return check(
-                context,
-                projectFile,
-                taskName,
-                agentName,
-                providerName,
-                credentialType,
-                null,
-                false,
-                credentials,
-                parameters,
-                null,
-                shortName);
+        final Result ungated =
+                check(
+                        context,
+                        projectFile,
+                        taskName,
+                        agentName,
+                        providerName,
+                        credentialType,
+                        null,
+                        false,
+                        credentials,
+                        parameters,
+                        null,
+                        shortName);
+        // Its settings are its own repository's, as Start takes them: asked with none named, the
+        // signature and the image this machine has not allowed were never asked about.
+        return withSettings(context, ungated, projectFile, ownRepositoryName(projectFile));
+    }
+
+    /**
+     * Returns the name of the project's own repository, or {@code null} without a readable file.
+     */
+    private static @Nullable String ownRepositoryName(@Nullable Path projectFile) {
+        if (projectFile == null) {
+            return null;
+        }
+        try {
+            return org.fuin.porelo.core.project.ProjectReader.read(projectFile)
+                    .ownRepository()
+                    .name();
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     /** Preflights the same optional container spelling that the shared start records. */

@@ -1506,6 +1506,36 @@ public final class TaskLaunch {
         }
     }
 
+    /**
+     * Says why an existing task cannot be brought back as this start asks, when it was made the
+     * other kind: one that reads its whole project, or one with a gate on one repository.
+     *
+     * <p>Its kind was fixed when it was made, by what its container mounts: a gated task brought
+     * back for reading would still hold its gate, its token and its certificate, and a reading task
+     * brought back for one repository still has none of them. Read from the directory of what it
+     * reads, which is there from before its container until its removal.
+     *
+     * @param container The existing task.
+     * @return The refusal, a usage error, or {@code null} when the start asks for its own kind.
+     */
+    private @Nullable String otherKind(final String container) {
+        final boolean reads = new TaskRepositories(context.paths(), container).exists();
+        if (request.allRepositories() && !reads) {
+            return container
+                    + " was made to work on one repository and stays so; start a new task with"
+                    + " --all-repositories under another name to read every repository";
+        }
+        final boolean namesOne =
+                request.repository() != null && !request.repository().isBlank() || request.noGate();
+        if (reads && namesOne) {
+            return container
+                    + " was made to read every repository and stays so; start it again without "
+                    + (request.noGate() ? "--no-gate" : "--repository")
+                    + ", or start a new task under another name";
+        }
+        return null;
+    }
+
     private @Nullable Existing startExistingSteps(PrintWriter out, PrintWriter err, boolean goingIn)
             throws java.io.IOException {
 
@@ -1647,6 +1677,12 @@ public final class TaskLaunch {
                             + "', not '"
                             + named
                             + "'. A task's repository is fixed when the task is created.");
+            err.flush();
+            return new Existing(container, project.name(), 64);
+        }
+        final String otherKind = otherKind(container);
+        if (otherKind != null) {
+            err.println("porelo: " + otherKind);
             err.flush();
             return new Existing(container, project.name(), 64);
         }
@@ -2820,12 +2856,16 @@ public final class TaskLaunch {
             // It went ahead before, ssh refused the workspace's fetch, and the task ran without a
             // gate. The address the gate will use: '--upstream' when given, which the project file
             // does not name.
+            // Not for a task that reads every repository: each is fetched by its own gate, which
+            // names a host it has never met per repository and leaves only that one out.
             final String unmet =
-                    StartCheck.unknownHost(
-                            context,
-                            request.projectFile(),
-                            request.repository(),
-                            request.upstream());
+                    request.allRepositories()
+                            ? null
+                            : StartCheck.unknownHost(
+                                    context,
+                                    request.projectFile(),
+                                    request.repository(),
+                                    request.upstream());
             if (unmet != null && trustUnmet(unmet, err)) {
                 out.println("trusted   " + unmet);
                 out.flush();
@@ -3892,7 +3932,8 @@ public final class TaskLaunch {
             if (code != NO_AGENT && rendered != null && selected != null) {
                 rendered.accept(selected, container);
             }
-            return code;
+            final int ended = promptEnded(container, code, out, err);
+            return code == NO_AGENT ? code : ended;
         }
     }
 
@@ -4420,6 +4461,19 @@ public final class TaskLaunch {
             PrintWriter out,
             PrintWriter err) {
         if (agent == null || files.isEmpty()) {
+            return true;
+        }
+        if (request.allRepositories()) {
+            // Its workspace is mounted read only, so a copy into it fails and, attended, refused
+            // the start; the agent asks what these would have answered, which is said once here.
+            out.println(
+                    "skipped   "
+                            + files.size()
+                            + " file(s) the agent wants in "
+                            + TaskRepositories.MOUNT
+                            + ", which a task that reads its project cannot write; it may ask"
+                            + " what they answer");
+            out.flush();
             return true;
         }
         try {
@@ -5571,6 +5625,33 @@ public final class TaskLaunch {
         err.flush();
     }
 
+    /** Whether the task reads its whole project: asked for now, or made so. */
+    private boolean reads(final String container) {
+        return request.allRepositories()
+                || new TaskRepositories(context.paths(), container).exists();
+    }
+
+    /**
+     * Ends a run with a prompt: removes the task when it reads its whole project, whatever the
+     * run's exit, as an attached session's end does; any other task is left as the run left it.
+     *
+     * <p>Called by whoever runs the prompt, after it showed the run: the removal takes the task's
+     * logs with it.
+     *
+     * @param container The task.
+     * @param code The run's exit code.
+     * @param out Where the removal is said.
+     * @param err Where what survived it is said.
+     * @return The run's code, or 70 when a run that succeeded could not be removed.
+     */
+    public int promptEnded(
+            final String container, final int code, final PrintWriter out, final PrintWriter err) {
+        if (!reads(container)) {
+            return code;
+        }
+        return cleanUp(context.tasks(), container, code, false, out, err);
+    }
+
     private int cleanUpOrFail(
             TaskRunner runner,
             String container,
@@ -5589,7 +5670,8 @@ public final class TaskLaunch {
         boolean unmade = false;
         // A task that read its whole project wrote nothing anybody can take back, and what it read
         // is its project's main: its end removes it, kept or failed, so nothing staged survives.
-        final boolean reading = request.allRepositories();
+        // Asked of the task too: one brought back by its name alone was made to read all the same.
+        final boolean reading = reads(container);
         final boolean kept = keep && !reading;
 
         if (code != 0 && exists && !kept && !reading) {

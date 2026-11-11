@@ -4588,6 +4588,87 @@ class PoreloDaemonTest {
                                         || line.startsWith("podman build"));
     }
 
+    private void unmetProject(final Path dir) throws IOException {
+        record(
+                dir,
+                Files.writeString(
+                        dir.resolve("project.yml"),
+                        """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                  upstream: "git@project-host.example.org:uc/uc.git"
+                image:
+                  from: "ubuntu:24.04"
+                """));
+    }
+
+    @Test
+    void aStartReadingEveryRepositoryBesideAnUpstreamIsRefusedBeforeAnyHostIsAsked(
+            @TempDir Path dir) throws Exception {
+
+        // As at the command line: the options cannot go together, so no host is looked up for a
+        // start that was never going to be made, and nobody is sent to trust one for it.
+        unmetProject(dir);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "t",
+                                                "allRepositories",
+                                                true,
+                                                "upstream",
+                                                "git@given-host.example.org:uc/uc.git"));
+
+                        assertThat(((Number) reply.get("exitCode")).intValue()).isEqualTo(64);
+                        assertThat(String.join("\n", (List<String>) reply.get("output")))
+                                .contains("--all-repositories reads every repository")
+                                .contains("--upstream");
+                    }
+                });
+    }
+
+    @Test
+    void aStartReadingEveryRepositoryIsNotRefusedForItsOwnRepositorysHostAlone(@TempDir Path dir)
+            throws Exception {
+
+        // Each repository is fetched by its own gate, which leaves out one at a host never met
+        // and names it; refusing the whole start for the project's own host left none read.
+        unmetProject(dir);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        try {
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".Start",
+                                    Map.of(
+                                            "project",
+                                            PROJECT,
+                                            "task",
+                                            "t",
+                                            "allRepositories",
+                                            true,
+                                            "dryRun",
+                                            true));
+                        } catch (final VarlinkException refused) {
+                            assertThat(refused.getErrorName())
+                                    .as("refused for another reason: %s", refused.getParameters())
+                                    .isNotEqualTo(PoreloDaemon.INTERFACE + ".UnknownHostKey");
+                        }
+                    }
+                });
+    }
+
     @Test
     void aStartRefusedBeforeAnythingExistsAnswersItsOwnRefusal(@TempDir Path dir) throws Exception {
 

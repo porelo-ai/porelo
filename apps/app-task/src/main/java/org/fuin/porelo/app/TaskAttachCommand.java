@@ -251,19 +251,69 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
         // An agent task whose session is gone starts its agent again, continuing where it can;
         // otherwise the session that is there, or a shell.
         final String agent = new TaskSession(context).attachedAgent(container, out);
-        if (agent != null) {
-            return TerminalAttach.run(
-                    context,
-                    context.tasks().attachCommand(container, "/bin/bash", agent, null),
-                    terminal,
-                    out,
-                    err);
+        final int left =
+                agent != null
+                        ? TerminalAttach.run(
+                                context,
+                                context.tasks().attachCommand(container, "/bin/bash", agent, null),
+                                terminal,
+                                out,
+                                err)
+                        : TerminalAttach.run(
+                                context,
+                                podman.attachArguments(
+                                        container, sessionCommand(), podman.terminalFor(container)),
+                                terminal,
+                                out,
+                                err);
+        return leftAReader(context, container, left, out, err);
+    }
+
+    /**
+     * Removes a task that reads its whole project once the person left its session, as the start
+     * that made it does; a task of any other kind, or a session only detached from, is left as it
+     * is.
+     *
+     * <p>Only when the session's own shell said it ended: a container that cannot be asked has not
+     * said so, and is kept running, as a detach is.
+     *
+     * @param context The machine.
+     * @param container The task gone into.
+     * @param code The session's exit code.
+     * @param out Where the removal is said.
+     * @param err Where what survived it is said.
+     * @return The session's code, or 70 when a session that ended well left the task behind.
+     */
+    static int leftAReader(
+            final PoreloContext context,
+            final String container,
+            final int code,
+            final PrintWriter out,
+            final PrintWriter err) {
+        if (!new TaskRepositories(context.paths(), container).exists()
+                || !context.tasks().sessionEnded(container)) {
+            return code;
         }
-        return TerminalAttach.run(
-                context,
-                podman.attachArguments(container, sessionCommand(), podman.terminalFor(container)),
-                terminal,
-                out,
-                err);
+        final TaskControl.Stopped removed = new TaskControl(context).remove(container, false, true);
+        for (final String alive : removed.surviving()) {
+            err.println("porelo: still running: " + alive);
+        }
+        if (!removed.removed()) {
+            err.println(
+                    "porelo: "
+                            + container
+                            + " was not removed ("
+                            + removed.outcome()
+                            + "); remove it with 'porelo task remove "
+                            + container
+                            + " --force'");
+        }
+        err.flush();
+        if (!removed.removed() || !removed.clean()) {
+            return code == 0 ? 70 : code;
+        }
+        out.println("removed   " + container + " - it read its project, and holds nothing to keep");
+        out.flush();
+        return code;
     }
 }

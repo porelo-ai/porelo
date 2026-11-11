@@ -720,8 +720,20 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         + task
                                         + " - reads every repository; give a name to choose another");
             }
+            // A task made to read its whole project is brought back as it was made: the
+            // checkout's repository names nothing for it, and none is asked for; only one given
+            // outright is a start of the other kind, which the launch refuses.
+            final boolean bringsBackAReader =
+                    !allRepositories
+                            && spec.commandLine().getParseResult().hasMatchedPositional(0)
+                            && !spec.commandLine().getParseResult().hasMatchedOption("--repository")
+                            && reads(ProjectReader.read(projectFile));
+            if (bringsBackAReader) {
+                repository = null;
+            }
             if ((repository == null || repository.isBlank())
                     && !allRepositories
+                    && !bringsBackAReader
                     && !noGate
                     && !dryRun
                     && !noInput
@@ -913,21 +925,24 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 return existing.code();
             }
             // An agent task whose session is gone starts its agent again, continuing where it can.
-            return TerminalAttach.run(
-                    context,
-                    context.tasks()
-                            .attachCommand(
-                                    existing.container(),
-                                    shell,
-                                    new TaskSession(context)
-                                            .attachedAgent(existing.container(), out),
-                                    existing.project()
-                                            + "/"
-                                            + org.fuin.porelo.runtime.ContainerName.taskIn(
-                                                    existing.project(), existing.container())),
-                    terminal.getAsBoolean(),
-                    out,
-                    err);
+            final int left =
+                    TerminalAttach.run(
+                            context,
+                            context.tasks()
+                                    .attachCommand(
+                                            existing.container(),
+                                            shell,
+                                            new TaskSession(context)
+                                                    .attachedAgent(existing.container(), out),
+                                            existing.project()
+                                                    + "/"
+                                                    + org.fuin.porelo.runtime.ContainerName.taskIn(
+                                                            existing.project(),
+                                                            existing.container())),
+                            terminal.getAsBoolean(),
+                            out,
+                            err);
+            return TaskAttachCommand.leftAReader(context, existing.container(), left, out, err);
         }
 
         return retried(
@@ -952,10 +967,15 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                 if (code == TaskLaunch.NO_AGENT) {
                                     // A refusal, not a failed run: there is no log to render and
                                     // nothing to say beyond what was already said.
+                                    launch.promptEnded(running.container(), code, out, err);
                                     return code;
                                 }
                                 render(running.selected(), running.container(), out, err);
-                                return code == 0 ? 0 : 70;
+                                // After it is shown: a task that reads its project goes with its
+                                // run, and its log with it.
+                                final int ended =
+                                        launch.promptEnded(running.container(), code, out, err);
+                                return ended == 0 ? 0 : 70;
                             }
 
                             if (detach) {
@@ -987,13 +1007,16 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                                                             .model())))
                                             : null;
                             out.println(
-                                    rm
-                                            ? "Attaching. Leaving the shell removes the container; Ctrl-C stops it and"
-                                                    + " keeps it, because an interrupted run may hold work."
-                                            : "Attaching. The container is kept when you leave; remove it with"
-                                                    + " 'porelo task remove "
-                                                    + running.container()
-                                                    + "'.");
+                                    allRepositories
+                                            ? "Attaching. Leaving the shell removes the container, since it only"
+                                                    + " reads its project and holds nothing to keep."
+                                            : rm
+                                                    ? "Attaching. Leaving the shell removes the container; Ctrl-C stops it and"
+                                                            + " keeps it, because an interrupted run may hold work."
+                                                    : "Attaching. The container is kept when you leave; remove it with"
+                                                            + " 'porelo task remove "
+                                                            + running.container()
+                                                            + "'.");
                             if (startWith != null) {
                                 out.println(
                                         "Starting "
@@ -1456,6 +1479,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--minutes",
                     "--upstream",
                     "--no-gate",
+                    "--all-repositories",
                     "--clearance",
                     "--raw",
                     "--detach",
@@ -1483,6 +1507,31 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
         return TaskAttachCommand.goInto(context, container, terminal.getAsBoolean(), out, err);
+    }
+
+    /**
+     * Tells whether the task exists and was made to read its whole project.
+     *
+     * @param project The task's project.
+     * @return {@code true} for an existing task with the directory of what it reads.
+     */
+    private boolean reads(final org.fuin.porelo.core.project.Project project) {
+        if (!exists(project)) {
+            return false;
+        }
+        final TaskIdentities.Result found =
+                new TaskIdentities(context).lookup(task, project.name());
+        final String container;
+        if (found instanceof TaskIdentities.Found identity) {
+            container = identity.identity().container();
+        } else {
+            try {
+                container = context.tasks().containerName(project, task);
+            } catch (IllegalArgumentException tooLong) {
+                return false;
+            }
+        }
+        return new TaskRepositories(context.paths(), container).exists();
     }
 
     /**

@@ -2449,4 +2449,75 @@ class GitGateTest {
         gate.approve("task-1", "main", full);
         assertThat(gate.pending()).isEmpty();
     }
+
+    /** A bare mirror whose stale main and whose default, trunk, hold different files. */
+    private Path mirrorWithTrunkAndAStaleMain() throws IOException {
+        final Path upstream = upstreamWithMain();
+        final Path seed = root.resolve("seed");
+        git(seed, "checkout", "-q", "-b", "trunk");
+        Files.writeString(seed.resolve("current.txt"), "on trunk\n");
+        git(seed, "add", "current.txt");
+        git(seed, "commit", "-m", "trunk moved on");
+        git(seed, "push", upstream.toString(), "HEAD:refs/heads/trunk");
+        git(upstream, "symbolic-ref", "HEAD", "refs/heads/trunk");
+        git(root, "clone", "--quiet", "--bare", upstream.toString(), mirror.toString());
+        return mirror;
+    }
+
+    private static List<String> tree(Path root) throws IOException {
+        try (var each = Files.walk(root)) {
+            return each.map(path -> root.relativize(path).toString()).sorted().toList();
+        }
+    }
+
+    @Test
+    void aReadingCopyIsTheBranchTheMirrorsHeadNamesNotAStaleMain() throws IOException {
+        // An upstream that moved its default to trunk keeps an old main the mirror still holds.
+        mirrorWithTrunkAndAStaleMain();
+        final Path into = root.resolve("read").resolve("shop");
+
+        new GitGate(runner, mirror, GateMode.GATEKEEPING, null).readMain(into);
+
+        assertThat(tree(into)).containsExactly("", "current.txt", "project.yml");
+    }
+
+    @Test
+    void aReadingCopyIsMainWhenTheMirrorsHeadNamesATasksBranch() throws IOException {
+        mirrorWithTrunkAndAStaleMain();
+        git(mirror, "branch", "porelo/some-task", "refs/heads/trunk");
+        git(mirror, "symbolic-ref", "HEAD", "refs/heads/porelo/some-task");
+        final Path into = root.resolve("read").resolve("shop");
+
+        new GitGate(runner, mirror, GateMode.GATEKEEPING, null).readMain(into);
+
+        assertThat(tree(into)).as("never what a task pushed").containsExactly("", "project.yml");
+    }
+
+    @Test
+    void aReadingCopyIsStreamedAndLeavesNothingBesideIt() throws IOException {
+        // A repository named like the archive a copy once wrote beside itself, already read.
+        upstreamWithMain();
+        git(
+                root,
+                "clone",
+                "--quiet",
+                "--bare",
+                root.resolve("upstream.git").toString(),
+                mirror.toString());
+        final Path read = Files.createDirectories(root.resolve("read"));
+        Files.createDirectories(read.resolve("shop.tar").resolve("src"));
+        Files.writeString(read.resolve("shop.tar").resolve("src").resolve("kept"), "mine\n");
+
+        new GitGate(runner, mirror, GateMode.GATEKEEPING, null).readMain(read.resolve("shop"));
+
+        assertThat(tree(read))
+                .as("the other repository untouched, and no file of the copy beside it")
+                .containsExactly(
+                        "",
+                        "shop",
+                        "shop.tar",
+                        "shop.tar/src",
+                        "shop.tar/src/kept",
+                        "shop/project.yml");
+    }
 }

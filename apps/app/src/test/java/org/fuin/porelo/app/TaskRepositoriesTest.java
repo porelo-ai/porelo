@@ -60,6 +60,8 @@ class TaskRepositoriesTest {
         final TaskRepositories reading = new TaskRepositories(paths(), TASK);
         Files.createDirectories(reading.directory().resolve("front"));
         Files.createDirectories(reading.directory().resolve("back"));
+        // Nothing but a repository's directory is one of them, whatever lies beside them.
+        Files.writeString(reading.directory().resolve("back.tar"), "");
 
         start();
 

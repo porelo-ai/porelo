@@ -594,7 +594,10 @@ method Start(
   # project's own repository's, which is the task's 'repository'. A repository that cannot be read
   # is named among the output lines and left out; none readable refuses the start (exitCode 69).
   # Refused with exitCode 64 beside repository, branch, from, noGate or upstream. Unnamed, the task
-  # is named "all", or the next free one. Not offered through a task's MCP start.
+  # is named "all", or the next free one. Not offered through a task's MCP start. An existing task
+  # is brought back only as the kind it was made: allRepositories for a task on one repository, or
+  # repository or noGate for one that reads them all, is refused with exitCode 64. A prompt run
+  # removes it at its end too, whatever its exit.
   allRepositories: ?bool,
   # Does everything up to starting the container, then stops and reports. Nothing is created.
   dryRun: ?bool,

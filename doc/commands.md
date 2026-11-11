@@ -233,6 +233,10 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   for review is in it. The task has no gate and pushes nothing, and its end removes it, `--rm` or not, whatever it
   holds. A repository that cannot be read is named and left out; when none can be, the start is refused (exit 69).
   It takes no `-r`, `--branch`, `--from`, `--no-gate` or `--upstream` (exit 64). Unnamed, the task is called `all`.
+  A prompt run removes it at its end too, and so does leaving its session when you went back into it with
+  `task start all` or `task attach all`. It comes back only as it was made: `--all-repositories` for a task on one
+  repository, and `-r` or `--no-gate` for one that reads them all, are refused (exit 64). An agent's setup file meant
+  for the workspace is not written, and the start says so.
 - **A running task is gone into**, as `attach` does: at a terminal, `start` on it starts its agent again where the
   session is gone, continuing its conversation. An option that takes effect only when a task is created or brought
   up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and the like) is refused, naming each, since it

@@ -1260,13 +1260,17 @@ public class GitGate {
     /**
      * Writes the tree of the mirror's main into a new directory, as files and nothing else.
      *
-     * <p>For a task that reads its project: what it is given is what was reviewed, so only {@code
-     * refs/heads/main} - or the branch the mirror's HEAD names, for a repository without one, as a
-     * task's clone chooses - and never what tasks pushed under {@link #INCOMING}. A tree, not a
-     * clone: without a {@code .git} nothing in it is a repository git would run hooks or config of.
+     * <p>For a task that reads its project: what it is given is what was reviewed, so only the
+     * branch the mirror's HEAD names - the upstream's default, as a task's clone chooses - or
+     * {@code refs/heads/main} when HEAD names none or a task's, and never what tasks pushed under
+     * {@link #INCOMING}. A tree, not a clone: without a {@code .git} nothing in it is a repository
+     * git would run hooks or config of.
      *
-     * <p>Run without the system's or the account's git configuration, so no filter or attribute
-     * file of this machine's changes what is written.
+     * <p>Streamed from {@code git archive} into {@code tar}, never through a file: the directory
+     * written into is the one a task is given, so a file beside a copy would double what it takes
+     * on disk, clash with a repository of that name, and stay where the task sees it whenever its
+     * deletion failed. Run without the system's or the account's git configuration, so no filter or
+     * attribute file of this machine's changes what is written.
      *
      * @param into Directory to create. Must not exist.
      * @return The commit written.
@@ -1277,75 +1281,81 @@ public class GitGate {
             throw new GateException(into + " already exists; a reading copy is written new");
         }
         final String commit = mainCommit();
-        final Path archive = into.resolveSibling(into.getFileName() + ".tar");
         try {
             Directories.create(into);
-            final List<String> all =
-                    new ArrayList<>(List.of("git", "--git-dir", mirror.toString()));
-            all.addAll(List.of("archive", "--format=tar", "--output", archive.toString(), commit));
-            runner.runOrFail(Command.of(all).withEnvironment(OWN_CONFIGURATION_ONLY));
-            // A tree git holds never names '.git'; refused here too, so a crafted one cannot
-            // put a repository where the host might run git.
+            // The paths and the commit are the script's arguments, never part of its text, so no
+            // name can be read as shell. A pipeline answers for its last command alone, and dash
+            // has no pipefail: git's own status comes back on descriptor 3. A tree git holds never
+            // names '.git'; refused here too, so a crafted one cannot put a repository where the
+            // host might run git.
             runner.runOrFail(
                     Command.of(
-                            "tar",
-                            "--extract",
-                            "--no-same-owner",
-                            "--exclude=.git",
-                            "--file",
-                            archive.toString(),
-                            "--directory",
-                            into.toString()));
+                                    "sh",
+                                    "-c",
+                                    READ_MAIN,
+                                    "porelo-read-main",
+                                    mirror.toString(),
+                                    commit,
+                                    into.toString())
+                            .withEnvironment(OWN_CONFIGURATION_ONLY));
             return commit;
         } catch (java.io.IOException ex) {
             throw new GateException("Cannot make " + into, ex);
         } catch (CommandException ex) {
             throw new GateException(ex.getMessage() == null ? "git failed" : ex.getMessage(), ex);
-        } finally {
-            try {
-                Files.deleteIfExists(archive);
-            } catch (java.io.IOException ex) {
-                // Beside the copy and the task's; its removal takes the directory, not this file.
-            }
         }
     }
+
+    /** Streams a commit's tree from a mirror ($1, $2) into a directory ($3): no file between. */
+    static final String READ_MAIN =
+            "archived=$( { { git --git-dir \"$1\" archive --format=tar \"$2\";"
+                    + " printf '%s' \"$?\" >&3; }"
+                    + " | tar --extract --no-same-owner --exclude=.git --directory \"$3\" >&2; }"
+                    + " 3>&1 ) || exit $?;"
+                    + " [ \"$archived\" = 0 ] || exit \"$archived\"";
 
     /** What git reads besides the mirror's own configuration: nothing. */
     private static final Map<String, String> OWN_CONFIGURATION_ONLY =
             Map.of("GIT_CONFIG_NOSYSTEM", "1", "GIT_CONFIG_GLOBAL", "/dev/null");
 
     /**
-     * Returns the commit of the mirror's main: {@code refs/heads/main}, else the branch its HEAD
-     * names when that is no task's.
+     * Returns the commit of the mirror's main: the branch its HEAD names, when that is a branch, no
+     * task's, and holds a commit; else {@code refs/heads/main}.
+     *
+     * <p>HEAD first: it follows the upstream's default on every refresh, while a {@code main} the
+     * upstream left behind on moving to another default stays in the mirror and is stale.
      */
     private String mainCommit() {
-        String branch = "refs/heads/main";
-        if (!runner.run(
+        final CommandResult head =
+                runner.run(
                         Command.of(
                                 "git",
                                 "--git-dir",
                                 mirror.toString(),
-                                "rev-parse",
-                                "--verify",
+                                "symbolic-ref",
                                 "--quiet",
-                                "--end-of-options",
-                                branch + "^{commit}"))
-                .successful()) {
-            final CommandResult head =
-                    runner.run(
-                            Command.of(
-                                    "git",
-                                    "--git-dir",
-                                    mirror.toString(),
-                                    "symbolic-ref",
-                                    "--quiet",
-                                    "HEAD"));
-            final String named = head.successful() ? head.standardOutput().strip() : "";
-            if (!named.startsWith("refs/heads/") || taskBranch(named)) {
-                throw new GateException("the mirror has no main branch");
+                                "HEAD"));
+        final String named = head.successful() ? head.standardOutput().strip() : "";
+        if (named.startsWith("refs/heads/") && !taskBranch(named)) {
+            final String hash = commitOf(named);
+            if (hash != null) {
+                return hash;
             }
-            branch = named;
         }
+        final String hash = commitOf("refs/heads/main");
+        if (hash == null) {
+            throw new GateException(
+                    named.startsWith("refs/heads/") && !taskBranch(named)
+                            ? "the mirror's "
+                                    + named.substring("refs/heads/".length())
+                                    + " holds no commit yet, and it has no main"
+                            : "the mirror has no main branch");
+        }
+        return hash;
+    }
+
+    /** Returns the commit a branch holds, or {@code null} when it holds none. */
+    private @Nullable String commitOf(final String branch) {
         final CommandResult commit =
                 runner.run(
                         Command.of(
@@ -1358,13 +1368,7 @@ public class GitGate {
                                 "--end-of-options",
                                 branch + "^{commit}"));
         final String hash = commit.successful() ? commit.standardOutput().strip() : "";
-        if (!hash.matches("[0-9a-f]{40,64}")) {
-            throw new GateException(
-                    "the mirror's "
-                            + branch.substring("refs/heads/".length())
-                            + " holds no commit yet");
-        }
-        return hash;
+        return hash.matches("[0-9a-f]{40,64}") ? hash : null;
     }
 
     private CommandResult gitAt(String directory, String... arguments) {
