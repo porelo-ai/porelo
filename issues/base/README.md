@@ -217,6 +217,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b619"></a>[B619](B619-A-Task-Reads-Every-Repository-Of-Its-Project.md) | M | - | A task started to read its whole project sees every repository's main as a directory under /workspace, read only, taken wherever this machine takes each repository; it pushes nothing and leaves nothing behind. |
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b617"></a>[B617](B617-An-Undecided-Organization-Read-Says-What-It-Waits-For.md) | M | - | A walk the identity source cannot decide keeps its words: `stale_why` `incomplete` names the commit that waits and what it waits for (the forge's key list, the founder's ownership, a card not vouched for) in `said` and a warning. |
 | <a id="b606"></a>[B606](B606-The-Packages-Carry-The-Third-Party-Notices.md) | S | - | The `.deb` and `.rpm` carry a generated THIRD-PARTY-NOTICES with the full texts of all code compiled into the executables. |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | - | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. |
