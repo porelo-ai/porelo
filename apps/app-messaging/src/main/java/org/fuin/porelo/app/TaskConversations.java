@@ -247,6 +247,16 @@ final class TaskConversations {
                                 + " conversation: "
                                 + ex.getMessage());
                 err.flush();
+            } catch (RuntimeException ex) {
+                // The container has stopped: no failure of the transport undoes that. Its words are
+                // not shown, since a process's output may quote what it was lent.
+                err.println(
+                        "porelo: "
+                                + container
+                                + " is stopped, and is still in the "
+                                + scheme
+                                + " conversation: the transport could not be run");
+                err.flush();
             }
         }
     }

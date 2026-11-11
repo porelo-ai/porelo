@@ -938,8 +938,8 @@ final class TransportLifecycle {
 
     /**
      * Takes a stopped task out of its room where its next enroll brings it back: on a central
-     * homeserver, by the transport's retire. Elsewhere nothing is asked, since a retire there ends
-     * the account for good.
+     * homeserver, as the task's own kept secrets say, by the transport's retire. Elsewhere nothing
+     * is asked, since a retire there ends the account for good.
      *
      * @param scheme The transport.
      * @param project The task's project.
@@ -950,8 +950,10 @@ final class TransportLifecycle {
      */
     boolean leave(String scheme, String project, String task, Map<String, Object> settings)
             throws Refused {
-        final String own = secrets(scheme, "task/" + task).get(CENTRAL_LOGIN);
-        final String login = own != null ? own : given(scheme, project).get(CENTRAL_LOGIN);
+        // The task's own secrets alone: the account's or the project's may hold a login from
+        // another
+        // setup, and a retire read from them would end an account on its own homeserver for good.
+        final String login = secrets(scheme, "task/" + task).get(CENTRAL_LOGIN);
         if (login == null || login.isBlank()) {
             return false;
         }

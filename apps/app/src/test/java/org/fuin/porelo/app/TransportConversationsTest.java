@@ -484,13 +484,21 @@ class TransportConversationsTest {
 
     /** The stand-in transport, its enroll printing these task secrets. */
     private TransportLifecycle room(final String taskSecrets) throws Exception {
+        return room(taskSecrets, "{\"POLLER\":\"p-1\"}");
+    }
+
+    /** The stand-in transport, its setup printing these project secrets, its enroll these. */
+    private TransportLifecycle room(final String taskSecrets, final String projectSecrets)
+            throws Exception {
         runner.answering(
                 "describe",
                 "{\"scheme\":\"room\",\"poll\":true,\"display\":true,"
                         + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\"]}");
         runner.answering(
                 "setup",
-                "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
+                "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":"
+                        + projectSecrets
+                        + ",\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
         runner.answering("enroll", "{\"secrets\":" + taskSecrets + "}");
         runner.answering(" retire ", "{}");
         final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
@@ -592,6 +600,20 @@ class TransportConversationsTest {
     void aStoppedTaskOnItsOwnHomeserverStaysInItsRoom(final String secrets) throws Exception {
         // There retire deactivates the account for good: a stop must never ask for it.
         final TransportLifecycle lifecycle = room(secrets);
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+
+        assertThat(lifecycle.leave("room", "p", "porelo-p-unit", Map.of()))
+                .as("nothing left")
+                .isFalse();
+        assertThat(tasksGiven("retire")).as("no retire").isEmpty();
+    }
+
+    @Test
+    void onlyTheTasksOwnSecretsSayItsRoomIsOnACentralHomeserver() throws Exception {
+        // The project's or the account's secrets may hold a login from another setup; a retire
+        // read from them would end an account on its own homeserver for good.
+        final TransportLifecycle lifecycle =
+                room("{\"TASK\":\"t-1\"}", "{\"POLLER\":\"p-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}");
         lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
 
         assertThat(lifecycle.leave("room", "p", "porelo-p-unit", Map.of()))
