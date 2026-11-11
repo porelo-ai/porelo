@@ -280,6 +280,10 @@ final class WorkspaceSetup {
         removePartial(into, err);
         try {
             org.fuin.porelo.wire.Directories.create(into);
+            // The task's /workspace: its agent is another uid than the person, who made it under
+            // the daemon's umask. Read-only all the same, by its mount.
+            java.nio.file.Files.setPosixFilePermissions(
+                    into, java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not make " + into + ": " + ex.getMessage());
             err.flush();

@@ -156,6 +156,18 @@ class WorkspaceSetupTest {
                 .as("the project's own repository has nothing yet, and is named as not read")
                 .contains("repository 'shop' is not read");
         assertThat(into.resolve("shop")).doesNotExist();
+        // Written as the person, root in the container; the agent there is another uid. Whatever
+        // umask the daemon runs with, every directory is entered and every file read by it.
+        try (var each = Files.walk(into)) {
+            for (final Path path : each.toList()) {
+                assertThat(
+                                java.nio.file.attribute.PosixFilePermissions.toString(
+                                                Files.getPosixFilePermissions(path))
+                                        .substring(6))
+                        .as("%s for the agent's uid", path)
+                        .isEqualTo(Files.isDirectory(path) ? "r-x" : "r--");
+            }
+        }
     }
 
     @Test

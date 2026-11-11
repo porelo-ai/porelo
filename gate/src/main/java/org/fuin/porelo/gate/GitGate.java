@@ -1306,13 +1306,19 @@ public class GitGate {
         }
     }
 
-    /** Streams a commit's tree from a mirror ($1, $2) into a directory ($3): no file between. */
+    /**
+     * Streams a commit's tree from a mirror ($1, $2) into a directory ($3): no file between, and
+     * readable by every uid.
+     */
     static final String READ_MAIN =
             "archived=$( { { git --git-dir \"$1\" archive --format=tar \"$2\";"
                     + " printf '%s' \"$?\" >&3; }"
                     + " | tar --extract --no-same-owner --exclude=.git --directory \"$3\" >&2; }"
                     + " 3>&1 ) || exit $?;"
-                    + " [ \"$archived\" = 0 ] || exit \"$archived\"";
+                    + " [ \"$archived\" = 0 ] || exit \"$archived\";"
+                    // Written as the person, root in a task's container, whose agent is another
+                    // uid: it reads every file and enters every directory, whatever the umask.
+                    + " chmod -R a+rX -- \"$3\"";
 
     /** What git reads besides the mirror's own configuration: nothing. */
     private static final Map<String, String> OWN_CONFIGURATION_ONLY =

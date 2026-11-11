@@ -2520,4 +2520,53 @@ class GitGateTest {
                         "shop.tar/src/kept",
                         "shop/project.yml");
     }
+
+    @Test
+    void aReadingCopyIsReadableByEveryoneWhateverTheUmaskOfItsMaker() throws IOException {
+        // porelod runs with umask 077; the copy is written as the person, who is root in the
+        // container, and the agent there is another uid that must read all of it.
+        upstreamWithMain();
+        git(
+                root,
+                "clone",
+                "--quiet",
+                "--bare",
+                root.resolve("upstream.git").toString(),
+                mirror.toString());
+        final CommandRunner strict =
+                command -> {
+                    final List<String> wrapped = new java.util.ArrayList<>();
+                    wrapped.addAll(List.of("sh", "-c", "umask 077; exec \"$@\"", "strict"));
+                    wrapped.addAll(command.arguments());
+                    return runner.run(
+                            new Command(
+                                    wrapped,
+                                    command.workingDirectory(),
+                                    command.environment(),
+                                    command.input(),
+                                    command.inheritsEnvironment(),
+                                    command.binaryInput()));
+                };
+        final Path into = root.resolve("read").resolve("shop");
+
+        new GitGate(strict, mirror, GateMode.GATEKEEPING, null).readMain(into);
+
+        try (var each = Files.walk(into)) {
+            for (final Path path : each.toList()) {
+                final var modes = Files.getPosixFilePermissions(path);
+                assertThat(modes)
+                        .as("%s is read by the agent's uid, which is no owner", path)
+                        .contains(
+                                java.nio.file.attribute.PosixFilePermission.OTHERS_READ,
+                                java.nio.file.attribute.PosixFilePermission.GROUP_READ);
+                if (Files.isDirectory(path)) {
+                    assertThat(modes)
+                            .as("%s is entered by the agent's uid", path)
+                            .contains(
+                                    java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE,
+                                    java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE);
+                }
+            }
+        }
+    }
 }

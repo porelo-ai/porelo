@@ -106,3 +106,7 @@ Differs from the plan:
   a task name, since that is the path every start on a host takes, not this option's; the project's own `porelo.yml`
   settings are read before `readAll` refreshes its mirror, the order every start reads them in; and the trees' size is
   not bounded, which needs a limit a project would set.
+- From HO170 on a host: the trees came out `0700`/`0600`, since porelod runs with umask 077 and the copy is written as
+  the person, root in the container, whose agent is another uid that could read none of it. The copy now ends with
+  `chmod -R a+rX` on each tree and `/workspace` is made `0755`; it stays read-only by its mount. Seen red in `GitGateTest`
+  under umask 077 and in `WorkspaceSetupTest` run under umask 077.
