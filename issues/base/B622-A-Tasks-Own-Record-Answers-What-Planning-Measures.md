@@ -10,7 +10,7 @@
   "priority": "High",
   "rank": 20,
   "blockedBy": [],
-  "covers": "porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time."
+  "covers": "porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time."
 }
 ```
 
@@ -33,6 +33,9 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
 - **What the task worked on.** Nothing names the issue and the phase a task was started for (PJ38: one task, one
   issue, one phase). A start's parameters are the project's own declarations, not this.
 - **Effort.** The reasoning effort the agent was started with is not recorded.
+- **What the agent did.** Nothing records the agent's tool calls: which tool, of which kind, from when to when, and
+  for a shell call the program it started and whether it ran in the background. A provider's own stream shows them,
+  each in its own shape, and is gone with the task.
 - **A project's records at once.** `Usage` takes one task by name, and a removed task's record can only be named by
   its container; planning needs every task of a project since a time, removed or not.
 
@@ -44,12 +47,26 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
   `repository`, `work` (issue, phase or null), `agent`, `model`, `modelFrom`, `effort`, `startedAt`, `endedAt`,
   `end` (done, stopped, removed, failed), and the totals of [B148](README.md#b148)'s usage record. It is kept past removal as the
   usage record is.
+- The record also holds one entry per tool call: `task`, `tool` (the agent's own name for it), `kind` (`shell`,
+  `edit`, `read`, `sub-agent`, `search`, `web`, `other`), `start` and `end`, for a shell call the `program` it started
+  (its first word, no arguments), and `background` for one that ran in the background, whose start and end are then
+  joined by the job's `id`. porelod defines this common format in the Tasks1 contract; each provider adapter (Agent
+  Smith's five repositories) maps its own stream into it, and the planner reads it through `Records`.
 - Tasks1 `Records(project: string, since: string) -> (records: []TaskRecord)` and `porelo task records --project <p>
   --since <time> --json` answer them, oldest first. The planner reads them through the daemon's socket or the
   command; never the files.
 - Red first: a `TaskUsageTest` case starts, works and removes a task with `--work B622:Implementing` and expects its
-  record with start, end, work, effort and totals; `Records` answers it after the removal.
+  record with start, end, work, effort and totals, and its tool calls from a stand-in adapter's stream, one shell call
+  in the background joined by its id; `Records` answers it after the removal.
 - Changelog entry under *Added*; `doc/commands.md` and the Tasks1 contract name the fields.
+
+## Tool calls, as the operator added them (2026-11-11)
+
+- One entry per tool call, in porelod's common format; porelod keeps no provider's own shape.
+- A call that ran in the background has two moments: its start, and the end of its job, joined by the job's id. Its
+  `end` is the job's end, not the moment the call returned.
+- Each provider adapter maps its own stream into the format; a kind it cannot tell is `other`, never left out.
+- The size may no longer be M once analysed: the format, the adapters' part and its tests are new work.
 
 ## Settled with Agent Planner (PL61)
 
