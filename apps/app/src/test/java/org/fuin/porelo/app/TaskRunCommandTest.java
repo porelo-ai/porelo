@@ -3810,6 +3810,64 @@ class TaskRunCommandTest {
                 .contains("go on subagents=2");
     }
 
+    @Test
+    void aRunInAnExistingTaskNamesItsContainerOnTheAgentStep(@TempDir Path dir) throws IOException {
+
+        // A client that takes the task as started at the agent's step and stops reading the start
+        // must still be able to follow the task; without the container it waited for a reply that
+        // comes only when the run ends.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: count\n");
+        recordSubagents(context, "preview", 2);
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final List<StartStep> steps = new java.util.ArrayList<>();
+        try {
+            new TaskLaunch(
+                            context,
+                            new TaskLaunch.Request(
+                                    "shell",
+                                    dir.resolve("project.yml"),
+                                    null,
+                                    null,
+                                    null,
+                                    8,
+                                    null,
+                                    true,
+                                    false,
+                                    "deny",
+                                    true,
+                                    org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                                    "go on",
+                                    null,
+                                    null,
+                                    1,
+                                    "uc",
+                                    java.util.Map.of(),
+                                    java.util.Map.of(),
+                                    null,
+                                    null),
+                            new StartSteps(steps::add, new PrintWriter(err)))
+                    .runAgentInExisting(
+                            "porelo-uc-shell", null, new PrintWriter(out), new PrintWriter(err));
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(steps)
+                .as("the agent's step names the task's container: %s", err)
+                .filteredOn(step -> step.step() == StartStep.Step.AGENT)
+                .isNotEmpty()
+                .allSatisfy(
+                        step ->
+                                assertThat(step.asMap())
+                                        .containsEntry("container", "porelo-uc-shell"));
+    }
+
     /** The minimal project, naming the model its preview provider's tasks run on. */
     private static final String WITH_MODEL =
             MINIMAL + "providers:\n  preview:\n    model: \"model-a\"\n    label: \"Model A\"\n";

@@ -524,6 +524,28 @@ class StartProgressReviewTest {
     }
 
     @Test
+    void aResumedTasksHelperStepsNameItsContainer() throws Exception {
+        // A client that stops reading a resume once its helpers start must still know which task
+        // came back.
+        final PoreloContext context = context(stoppedMachine());
+        LegacyTaskFixture.record(context, "porelo-p-work", "p", "0123456789abcdef");
+        installHooks(context);
+        Files.createDirectories(context.paths().tasks().containerState("porelo-p-work"));
+        final List<StartStep> events = new ArrayList<>();
+        new TaskLaunch(context, request(projectFile(false)), new StartSteps(events::add))
+                .startExisting(
+                        new PrintWriter(new StringWriter()), new PrintWriter(new StringWriter()));
+        assertThat(events)
+                .as("every helper step of a resume names the container brought back")
+                .filteredOn(event -> event.step() == StartStep.Step.HELPERS)
+                .isNotEmpty()
+                .allSatisfy(
+                        event ->
+                                assertThat(event.asMap())
+                                        .containsEntry("container", "porelo-p-work"));
+    }
+
+    @Test
     void aStartWithoutAGateDoesNotClaimToPrepareAWorkspace() throws Exception {
         // Reporting work that never happens sends a stalled-start investigation to the wrong stage.
         final FakeCommandRunner machine =

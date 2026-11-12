@@ -42,3 +42,12 @@ Watch as for any task.
 
 - The AGENT STARTED step of a Start names the task's container; a step before the container exists does not. Seen red
   first (`StartStepsTest`).
+
+## Read by a second model (2026-11-12)
+
+- Red: the test covered `StartSteps` alone, not a start. Two launch-level tests now pin the field: every HELPERS
+  step of a resume names the container brought back, and every AGENT step of a run in an existing task names it.
+  Both were seen red with the three `steps.at(container)` calls removed.
+- Not changed: CONVERSATION steps on a resume and a CONTAINER step that failed after create carry no container.
+  The contract is the field from HELPERS on, where the container is known to be the task's.
+- Not changed: `StartSteps.clear()` keeps the container; no `StartSteps` is used for a second start.
