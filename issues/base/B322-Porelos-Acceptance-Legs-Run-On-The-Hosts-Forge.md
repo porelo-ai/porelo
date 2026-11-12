@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B322",
   "title": "Porelo's Acceptance Legs Run On The Host's Forge",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 42,
+  "rank": 48,
   "blockedBy": [],
   "covers": "porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool; only GitHub publishes",
   "openQuestions": 0

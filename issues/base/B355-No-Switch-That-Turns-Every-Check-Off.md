@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B355",
   "title": "No Switch That Turns Every Check Off",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 41,
+  "rank": 46,
   "blockedBy": [],
   "covers": "No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so",
   "openQuestions": 0

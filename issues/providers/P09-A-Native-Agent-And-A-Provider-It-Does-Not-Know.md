@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "P09",
   "title": "A Native Agent And A Provider It Does Not Know",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 1,
+  "rank": 40,
   "blockedBy": [],
   "covers": "A native agent is paired with every provider today and fails inside the task: `provider.knows` in the agent API and an `UNKNOWN_TO_AGENT` refusal."
 }

@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B219",
   "title": "A Private Package Repository Through The Broker",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "L",
   "priority": "Medium",
-  "rank": 36,
+  "rank": 50,
   "blockedBy": [],
   "covers": "A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task."
 }

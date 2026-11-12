@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B33",
   "title": "A Task's Own Fetches",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 23,
+  "rank": 47,
   "blockedBy": [],
   "covers": "The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios.",
   "openQuestions": 0

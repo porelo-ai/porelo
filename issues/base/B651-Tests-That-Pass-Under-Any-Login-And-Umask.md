@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B651",
   "title": "Tests That Pass Under Any Login And Umask",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 76,
+  "rank": 42,
   "blockedBy": [],
   "covers": "The transport tests pass under a login such as Alex or runner_1, the directory tests show their fault under umask 002, and a tagged VM test shows a peer of another account",
   "openQuestions": 0

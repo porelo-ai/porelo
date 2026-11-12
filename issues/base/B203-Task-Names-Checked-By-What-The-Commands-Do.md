@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B203",
   "title": "Task Names Checked By What The Commands Do",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 45,
+  "rank": 51,
   "blockedBy": [],
   "covers": "The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text.",
   "openQuestions": 0

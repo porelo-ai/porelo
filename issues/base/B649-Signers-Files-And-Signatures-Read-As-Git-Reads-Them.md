@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B649",
   "title": "Signers Files And Signatures Read As Git Reads Them",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 74,
+  "rank": 44,
   "blockedBy": [],
   "covers": "An allowed-signers file and a signature are read as ssh-keygen and git read them: a lone CR, a line it cannot parse, a Unicode space before a comment; no backup key certifies; a task signs only under its own certificate",
   "openQuestions": 0

@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B316",
   "title": "A Warning Only Where Something Is Wrong",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 1,
+  "rank": 49,
   "blockedBy": [],
   "covers": "Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings"
 }

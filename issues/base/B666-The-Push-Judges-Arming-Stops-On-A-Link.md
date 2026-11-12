@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B666",
   "title": "The Push Judge's Arming Stops On A Link",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 77,
+  "rank": 41,
   "blockedBy": [
     "B549"
   ],
