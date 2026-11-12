@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B646",
   "title": "A Reader Is Handed The Work It Reads",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Highest",
   "rank": 1,
