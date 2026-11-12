@@ -11,9 +11,8 @@ import org.fuin.porelo.forge.github.model.ReposCreateInOrgRequest;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 
 /**
- * Makes a project's repository on the forge, the one place Porelo depends on the forge clients. It
- * is made private and empty: the first signed commit is Porelo's, and an {@code auto_init} commit
- * nobody signed would stand before it.
+ * Makes a project's repository through the forge clients. It is made private and empty: the first
+ * signed commit is Porelo's, and an {@code auto_init} commit nobody signed would stand before it.
  */
 final class ForgeRepositoryMaker {
 

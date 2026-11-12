@@ -12,6 +12,12 @@
   ],
   "reflection": [
     {
+      "type": "org.fuin.porelo.forge.forgejo.model.CreatePullRequestOption",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
       "type": "org.fuin.porelo.forge.forgejo.model.CreateRepoOption",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
@@ -48,13 +54,37 @@
       "allDeclaredConstructors": true
     },
     {
+      "type": "org.fuin.porelo.forge.forgejo.model.Label",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.forgejo.model.Milestone",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
       "type": "org.fuin.porelo.forge.forgejo.model.Organization",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
       "allDeclaredConstructors": true
     },
     {
+      "type": "org.fuin.porelo.forge.forgejo.model.PRBranchInfo",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
       "type": "org.fuin.porelo.forge.forgejo.model.Permission",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.forgejo.model.PullRequest",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
       "allDeclaredConstructors": true
@@ -91,6 +121,24 @@
     },
     {
       "type": "org.fuin.porelo.forge.forgejo.model.User",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.AuthorAssociation",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.AutoMerge",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.AutoMerge$MergeMethodEnum",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
       "allDeclaredConstructors": true
@@ -139,6 +187,90 @@
     },
     {
       "type": "org.fuin.porelo.forge.github.model.LicenseSimple",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.Link",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.Milestone",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.Milestone$StateEnum",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequest",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequest$StateEnum",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestBase",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestSimple",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestSimpleBase",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestSimpleHead",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestSimpleLabelsInner",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestSimpleLinks",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestStack",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullRequestStackBase",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.PullsCreateRequest",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
       "allDeclaredConstructors": true
@@ -307,6 +439,42 @@
     },
     {
       "type": "org.fuin.porelo.forge.github.model.SimpleUser",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.Team",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.Team$AccessSourceEnum",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.Team$TypeEnum",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.TeamPermissions",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.TeamSimple",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.fuin.porelo.forge.github.model.TeamSimple$TypeEnum",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
       "allDeclaredConstructors": true

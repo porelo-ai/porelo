@@ -243,6 +243,31 @@ final class IdentityOrganization {
      * @throws IdentityChange.Refused With the contract's code and reason.
      */
     static OrganizationWrites.Written filed(final Filing filing) throws IdentityChange.Refused {
+        return filed(filing, null);
+    }
+
+    /** Keeps a first card as the person's own, once the repository has refused its push. */
+    @FunctionalInterface
+    interface Keeping {
+        /**
+         * Keeps the card.
+         *
+         * @throws IOException If it cannot be kept.
+         */
+        void keep() throws IOException;
+    }
+
+    /**
+     * Files a change as {@link #filed(Filing)} does. A first card the repository refuses to take is
+     * kept then, and only then, so the person can propose it with {@code porelo org join}.
+     *
+     * @param filing The change.
+     * @param keeping Keeps a first card, or {@code null} for any other change.
+     * @return What it made.
+     * @throws IdentityChange.Refused With the contract's code and reason.
+     */
+    static OrganizationWrites.Written filed(final Filing filing, final @Nullable Keeping keeping)
+            throws IdentityChange.Refused {
         try {
             return filing.file();
         } catch (OrganizationQuestions.Refused ex) {
@@ -264,7 +289,11 @@ final class IdentityOrganization {
                             69,
                             OrganizationQuestions.Refused.CANNOT_SAY,
                             ex instanceof GitTreeStore.NotTaken
-                                    ? ex.getMessage() + ", so ask again with the same id"
+                                    ? ex.getMessage()
+                                            + (keptForJoin(keeping)
+                                                    ? "; your card is kept: run porelo org join to"
+                                                            + " propose it, or ask again with the same id"
+                                                    : ", so ask again with the same id")
                                     : "the organization cannot be reached; the change may have been"
                                             + " made, so ask again with the same id");
             throw String.valueOf(ex.getMessage()).startsWith(UNFETCHED)
@@ -277,6 +306,17 @@ final class IdentityOrganization {
                     String.valueOf(ex.getMessage()));
         } catch (IOException ex) {
             throw new IdentityChange.Refused(ex);
+        }
+    }
+
+    private static boolean keptForJoin(final @Nullable Keeping keeping) {
+        if (keeping == null) return false;
+        try {
+            keeping.keep();
+            return true;
+        } catch (IOException ex) {
+            // Unkept, the card cannot be proposed; the same id asked again still files it.
+            return false;
         }
     }
 

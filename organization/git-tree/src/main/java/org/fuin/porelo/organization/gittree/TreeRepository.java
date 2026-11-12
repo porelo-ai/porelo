@@ -966,6 +966,90 @@ final class TreeRepository implements AutoCloseable {
         }
     }
 
+    /** Fetches an organization's pull ref, never a URL supplied by a pull request. */
+    String proposal(final String address, final long number, final FetchAccess access)
+            throws IOException {
+        if (number < 1) throw new IllegalArgumentException("expected a pull request number");
+        try (FetchAccess.Lease lease = access.lend(address)) {
+            final List<String> arguments = new ArrayList<>(lease.arguments());
+            arguments.addAll(
+                    List.of(
+                            "fetch",
+                            "-q",
+                            "--no-tags",
+                            "--",
+                            address,
+                            "+refs/pull/" + number + "/head:refs/porelo/proposal"));
+            if (!git(lease.environment(), arguments.toArray(String[]::new)).successful()) {
+                throw new GitTreeStore.Unreachable("the proposal's commit cannot be fetched");
+            }
+        }
+        return tip("refs/porelo/proposal");
+    }
+
+    /** The full set of parents, so a merge can never masquerade as a person's single commit. */
+    List<String> parents(final String commit) {
+        final String text =
+                require("show", "-s", "--format=%P", "--end-of-options", commit, "--").strip();
+        return text.isEmpty() ? List.of() : List.of(text.split(" "));
+    }
+
+    /** Counts every commit the proposed head adds to main, including second-parent history. */
+    long commitsBeyond(final String commit, final String main) {
+        return Long.parseLong(
+                require("rev-list", "--count", "--end-of-options", commit, "^" + main, "--")
+                        .strip());
+    }
+
+    /** Points only this owned scratch clone at the commit a reader must judge. */
+    void pointAt(final String commit) {
+        require("update-ref", branch, commit);
+    }
+
+    /**
+     * Reads a remote branch before a conditional update; absence and an unreachable forge differ.
+     */
+    String remoteTip(final String address, final String ref, final FetchAccess access)
+            throws IOException {
+        try (FetchAccess.Lease lease = access.lend(address)) {
+            final List<String> arguments = new ArrayList<>(lease.arguments());
+            arguments.addAll(List.of("ls-remote", "--", address, ref));
+            final CommandResult result = git(lease.environment(), arguments.toArray(String[]::new));
+            if (!result.successful())
+                throw new GitTreeStore.Unreachable("the remote branch cannot be read");
+            return result.standardOutput()
+                    .lines()
+                    .map(line -> line.split("\t", 2)[0])
+                    .findFirst()
+                    .orElse("");
+        }
+    }
+
+    /**
+     * Pushes the exact object only while the target still names the judged object (or is absent).
+     */
+    boolean pushLeased(
+            final String address,
+            final String commit,
+            final String ref,
+            final String expected,
+            final FetchAccess access)
+            throws IOException {
+        try (FetchAccess.Lease lease = access.lend(address)) {
+            final List<String> arguments = new ArrayList<>(lease.arguments());
+            arguments.addAll(
+                    List.of(
+                            "push",
+                            "-q",
+                            "--no-verify",
+                            "--force-with-lease=" + ref + ":" + expected,
+                            "--",
+                            address,
+                            commit + ":" + ref));
+            return git(lease.environment(), arguments.toArray(String[]::new)).successful();
+        }
+    }
+
     /**
      * Returns the branch's tip.
      *

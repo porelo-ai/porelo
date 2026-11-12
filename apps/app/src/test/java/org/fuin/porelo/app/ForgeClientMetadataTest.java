@@ -54,6 +54,24 @@ class ForgeClientMetadataTest {
                 .isEmpty();
     }
 
+    @Test
+    void everyTypeOfProposingACardIsDeclaredToTheNativeImage() throws IOException {
+        String metadata = Files.readString(METADATA, StandardCharsets.UTF_8);
+        var missing =
+                reachable(
+                                org.fuin.porelo.forge.github.model.PullsCreateRequest.class,
+                                org.fuin.porelo.forge.github.model.PullRequest.class,
+                                org.fuin.porelo.forge.github.model.PullRequestSimple.class,
+                                org.fuin.porelo.forge.forgejo.model.CreatePullRequestOption.class,
+                                org.fuin.porelo.forge.forgejo.model.PullRequest.class)
+                        .stream()
+                        .filter(type -> !metadata.contains('"' + type + '"'))
+                        .toList();
+        assertThat(missing)
+                .as("proposal forge types must be available to Jackson in the native image")
+                .isEmpty();
+    }
+
     private static Set<String> reachable(final Class<?>... roots) {
         final Set<String> seen = new TreeSet<>();
         final Deque<Type> open = new ArrayDeque<>(List.of(roots));

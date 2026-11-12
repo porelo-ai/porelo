@@ -25,8 +25,9 @@ import picocli.CommandLine.Spec;
 
 /**
  * Makes the person's first card for a key their agent already serves, signed through the agent, and
- * files it through the organization's store when this machine names one. With none it is kept here,
- * for a later run or for founding one. Porelo never sees, reads or writes the private key.
+ * keeps it before filing through the organization's store when this machine names one. With none it
+ * is kept here for a later run or for founding one. Porelo never sees, reads or writes the private
+ * key.
  */
 @Command(
         name = "create",

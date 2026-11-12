@@ -90,6 +90,7 @@ would change the answer.
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
 | A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
 | An organization is judged path by path, and a first card by the forge's public key list | each path by the signers its rule names, never the commit's signer alone; a first card trusted from `<forge>/<login>.keys`, not the forge's API; written by plain signed Git | [entry](#an-organization-is-judged-path-by-path-and-a-first-card-by-the-forges-public-key-list) |
+| Accept a proposed card by fast-forwarding the person's own commit | the person's signature stays unchanged; an authenticated admin leases the judged main tip; no new reader rule | [entry](#accept-a-proposed-card-by-fast-forwarding-the-persons-own-commit) |
 | The organization adapter is an executable of its own | asked across a process boundary through `organization/api`; trusting it is the user's choice, and Porelo vouches for its Git implementation | [entry](#the-organization-adapter-is-an-executable-of-its-own) |
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | An organization's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#an-organizations-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
@@ -1557,3 +1558,20 @@ hosts by its repositories. Whether a named repository exists is not knowable fro
 project's repositories are in its own `project.yml`: the host's follow refuses an unknown one. Each read key at the
 central forge is deleted by whoever made it, by the id it kept: the host its per-repository keys, Porelo the
 organization's (`org remove-read-key`).
+
+## Accept a proposed card by fast-forwarding the person's own commit
+
+A person without write access to an organization's main can propose their first card through a forge pull
+request. Its branch and forge author must both name that login, and the commit adds only that person's
+previously absent card. The proposal grants nothing while it is outside main. It is judged in a scratch
+clone with TreeWalk, including the forge's key binding and revocations, with additional first-card, unique-key
+and current-day checks.
+
+Acceptance is an organization admin's authenticated decision, or an owner's before the admin list exists.
+Fetched main must contain the revision already trusted on this machine. Acceptance fast-forwards main to
+the person's signed commit unchanged, with a lease on the exact tip judged.
+TreeWalk already reads a person's card from their own key, so this needs no new reader rule and works for
+older readers. A merge, squash or rebase would change the signed commit or put the admin's signature on the
+card's path. Neither is acceptance. The cost is that moving main makes a proposal stale, including when
+another proposal is accepted; its person signs again by running join. A forge that does not mark the plain
+push as merged gets a close with a comment instead. No forge merge API decides what reaches main.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B517",
   "title": "A Card Proposed, And Accepted By An Owner",
-  "state": "Implementing",
+  "state": "Review",
   "size": "L",
   "priority": "Medium",
   "rank": 26,
@@ -116,9 +116,46 @@ agy (gemini) read the plan against the code; the build takes these answers:
   reads it, and signs the commit through the agent as `OrgWriting` does; with no kept card it says to run
   `porelo identity create` first. `identity create`, refused at the push, names `porelo org join`.
 
+## As built
+
+- `CardProposals` (git-tree) judges a proposal as the plan says: the person's commit is fetched from the organization's
+  own pull ref onto a scratch clone of `main`, walked with `TreeWalk`, and pushed unchanged as a fast-forward of the
+  judged tip, with a lease. A proposal is taken only from the person's own fork or the organization's repository,
+  from branch `porelo-card-<login>` opened by `<login>`.
+- `ForgeCardProposals` (app-organization) makes the fork, open, list, read and close calls for GitHub and Forgejo over
+  `HttpClient` and `Json`. The token goes only into the `Authorization` header of its own forge, redirects are not
+  followed, and errors name only the status. `OrgProposalAccess` lends the token to git through the credential
+  helper, and only for the organization's own repository.
+- `porelo org join` (with `--withdraw`), `porelo org person proposals`, `accept <login>` and `decline <login>`.
+  Accepting closes the pull request with a comment when the forge did not mark the plain push merged.
+- `identity create` keeps a first card once the repository refuses its push, not before, and then names
+  `porelo org join`. A refusal before any push still keeps nothing.
+- A proposal command that cannot reach or read the organization's repository answers `cannot-say` (69), as every
+  other organization command does.
+
+## After the code reading
+
+Read by agy (gemini-4-argon-high). Each finding was checked against the code; each one taken has a test seen red.
+
+- Taken (red): `identity create` kept the card before filing it. A refusal before any push then left the card on
+  disk, and a local write failing after the push came before filing. Three existing `IdentityCreateCommandTest`
+  cases failed. The card is now kept at the refused push alone; `IdentityJoinTest` checks that.
+- Taken (red): a pull request from a third account's fork, or from a fork the forge no longer names, was listed and
+  could be accepted. The commit is still judged in full, but a proposal now comes only from the person's own fork or
+  the organization's repository.
+- Taken (yellow): `GitTreeStore.Unreachable` escaped the proposal commands as `failed` (70); it is now `cannot-say`
+  (69).
+- Taken (yellow): the fork's address was found by replacing the first `/<organization>/`, which rewrote a host that
+  bears the organization's name. Now only the owner segment before the repository changes.
+- Not taken: `list` reads every open pull request once more before filtering by branch. Proposals are few, and a
+  pull request read afresh is what is judged.
+- Not taken here: a `CREATE` operation left pending by a refused push stays pending after the card is accepted
+  through a proposal. `identity renew` and `rotate` then refuse and name going on with that id. Named under To be
+  checked.
+
 ## To be checked
 
-- That a forge's "merged" mark after a plain push to `main` holds on both forges, or the pull request is closed with
-  a comment instead.
+- An operation `identity create` left pending at a refused push, once its card is accepted through a proposal:
+  `identity show`, `renew` and `rotate` should take the accepted card as that operation's end.
 - A private organization repository: the person must be able to read it to fork; one who cannot is told so, and no
   other way in is built.

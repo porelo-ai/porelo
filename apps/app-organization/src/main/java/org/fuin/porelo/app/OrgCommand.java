@@ -23,6 +23,7 @@ import picocli.CommandLine.Option;
         exitCodeOnInvalidInput = 64,
         description = "Answers the organization: its people, projects and hosts.",
         subcommands = {
+            OrgJoinCommand.class,
             OrgCardCommand.class,
             OrgHostCardCommand.class,
             OrgFetchCommand.class,

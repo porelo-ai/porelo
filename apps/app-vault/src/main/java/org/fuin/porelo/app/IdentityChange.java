@@ -584,9 +584,10 @@ final class IdentityChange {
 
     /**
      * Files an operation's card through the store, signed through the agent, and only then keeps it
-     * as the person's own. The record says a push may be tried before one is. An answer that says
-     * nothing was pushed takes that back, unless an earlier run may have pushed: then this answer
-     * cannot say. Such a record stays, whatever the store says.
+     * as the person's own; a first card the repository refuses to take is kept at that refusal, so
+     * it can be proposed with an organization join. The record says a push may be tried before one
+     * is. An answer that says nothing was pushed takes that back, unless an earlier run may have
+     * pushed: then this answer cannot say. Such a record stays, whatever the store says.
      *
      * @param organization What the organization says.
      * @param operation The operation.
@@ -621,7 +622,10 @@ final class IdentityChange {
                             () ->
                                     operation.action().equals(IdentityOperation.CREATE)
                                             ? writes.addCard(change, operation.card())
-                                            : writes.changeCard(change, operation.card()));
+                                            : writes.changeCard(change, operation.card()),
+                            operation.action().equals(IdentityOperation.CREATE)
+                                    ? () -> new IdentityStore(context).keep(operation.card())
+                                    : null);
         } catch (Refused ex) {
             if (ex.nothingPushed() && !operation.pushTried()) {
                 if (ex.mayHaveBeenMade()) {
@@ -675,7 +679,8 @@ final class IdentityChange {
 
     /**
      * Keeps a new operation, under the id given or the first free one made. Its card is kept as the
-     * person's own by what files it, once filed, or at once when nothing files it.
+     * person's own by what files it, once filed or refused its push, or at once when nothing files
+     * it.
      *
      * @param id The id given, or {@code null} to make one.
      * @param made The operation, its id aside.

@@ -26,6 +26,27 @@ machine admin or project admin may also change that level's admins, and an owner
 the founder, and `porelo org admin add` files it in an organization from before. Once it stands only the file counts, and it cannot be
 removed. See [why](decisions.md#the-roles-start-with-their-list).
 
+## Joining with a proposed card
+
+`porelo org join` uses the card kept by `porelo identity create` and signs its commit through that person's
+ssh-agent. A person who may push main files it directly. Otherwise Porelo tries `porelo-card-<login>` in the
+organization's repository, and forks into the person's forge account only if that branch push is refused.
+The person must be able to read the organization; a private repository gives no other way in.
+
+A proposal is one commit adding only `people/<login>.card`, from branch `porelo-card-<login>` and opened by
+forge user `<login>`. It grants no person, role, project or host: readers walk main alone.
+`porelo org person proposals` judges it through the same TreeWalk as an ordinary write. The card must be a
+first card, valid today, with no predecessor and no key held by another login. Both its own signature and
+the commit's signature must hold, and the forge must vouch for its key.
+
+An organization admin accepts or declines; an owner does this while `organization-admins.yml` is absent.
+Both commands check the role and the acting login's trusted, unrevoked agent key on a fresh read, before
+pushing or closing anything. Acceptance fast-forwards main to the person's unchanged commit, conditioned on
+the exact main tip judged. It adds no reader rule. A proposal whose parent is no longer main's tip is stale;
+its person runs `porelo org join` again to sign on the new tip. Every acceptance makes other open proposals
+stale. Declining or withdrawing closes the pull request with a comment. Acceptance also closes it with a
+comment if the forge has not marked it merged.
+
 ## The files
 
 Each path is judged alone. A path not listed here is never read.
