@@ -104,6 +104,7 @@ from its side, as *blocked by*.
 | <a id="b642"></a>[B642](B642-A-Task-Removed-By-Hand-Does-Not-Block-A-Clear.md) | - | - | A task removed with porelo task remove leaves no claim that porelo project clear reads as an unfinished start, so the project can be cleared after it. |
 | <a id="b643"></a>[B643](B643-A-Clear-Passes-Deploy-Keys-Whose-Vault-Is-Gone.md) | - | - | porelo project clear does not stop at 'the vault is locked' for deploy keys that lived in a vault which no longer exists; it says what it could not read and clears the rest. |
 | <a id="b644"></a>[B644](B644-An-Agents-Own-Telemetry-Kept-With-Its-Run.md) | - | [B514](README.md#b514) | porelo receives an agent's own OTLP export on a local receiver and keeps it in the task's journal under its run, vendor ids mapped and sources marked, tokens and costs never counted twice; nothing is forwarded unless the OTLP export chooses it. |
+| <a id="b645"></a>[B645](B645-A-Shut-Vault-Login-Stores-Within-Its-Wait.md) | - | - | The acceptance scenario of a login asked for while the vault is shut says 'Signed in - the credential is stored' within the time it waits on every leg, or the wait is measured and set as its sibling's is. |
 | <a id="b476"></a>[B476](B476-Porelos-Own-Commits-Carry-The-Accounts-Noreply-Address.md) | S | - | Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority. |
 
 ## Accepted
