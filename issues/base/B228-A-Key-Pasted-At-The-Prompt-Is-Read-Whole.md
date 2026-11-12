@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B228",
   "title": "A Key Pasted At The Prompt Is Read Whole",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
   "rank": 35,
@@ -55,3 +55,7 @@ Read in the code on 2026-10-20 (`apps/app-vault`, `vault`).
 - A key pasted at the prompt - Ed25519, and an OpenSSH-wrapped RSA key, converted as `--from-file` converts it - is
   stored as `--from-file` stores the same file, measured on the ubuntu VM in a real terminal.
 - A truncated paste is refused as incomplete, and nothing is stored.
+
+## Decided by the operator (2026-11-12)
+
+- To Backlog, priority unchanged.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B179",
   "title": "A Code Beside Why A Release Cannot Go",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 38,
@@ -56,3 +56,7 @@ keys, as `PoreloDaemonTest` does for `ImportCredential` (`:2890`) - no daemon te
 
 - Every `NOT_DELIVERABLE` reply carries one of the six codes, and no other outcome carries one.
 - A client that does not read `code` sees no change.
+
+## Decided by the operator (2026-11-12)
+
+- To Backlog, priority unchanged.

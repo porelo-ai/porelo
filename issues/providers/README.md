@@ -13,12 +13,6 @@ a release.
 Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. [P09](README.md#p09) concerns
 providers as a class, the others one provider each.
 
-## Analyzed
-
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | [P09](README.md#p09) | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider. | 0 |
-
 ## Estimated
 
 | # | Size | Blocked by | What it covers |
@@ -26,6 +20,12 @@ providers as a class, the others one provider each.
 | <a id="p09"></a>[P09](P09-A-Native-Agent-And-A-Provider-It-Does-Not-Know.md) | M | - | A native agent is paired with every provider today and fails inside the task: `provider.knows` in the agent API and an `UNKNOWN_TO_AGENT` refusal. |
 | <a id="p07"></a>[P07](P07-Provider-xAI.md) | S | - | `providers/xai.yaml` (`api.x.ai`, `openai` under `/v1`, Bearer), the subscription kept unbrokerable; a test, a doc row, a live scenario. |
 | <a id="p08"></a>[P08](P08-Provider-Zhipu.md) | S | - | Two provider files, `zhipu` and `zai`: the upstream belongs to the provider file, so no upstream per credential is needed. |
+
+## Backlog
+
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | [P09](README.md#p09) | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider. | 0 |
 
 ## Finished
 

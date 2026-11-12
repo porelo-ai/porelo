@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B222",
   "title": "A Task's Tool Settings Written At Its Start",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 34,
@@ -61,3 +61,7 @@ placed.
 ## To be checked
 
 - The files survive with the existing container after `saved.restore`; tool-settings placement remains unbuilt.
+
+## Decided by the operator (2026-11-12)
+
+- To Backlog, priority unchanged.

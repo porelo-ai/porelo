@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "P10",
   "title": "A Native Agent Reaching A Provider It Does Not Know",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 1,
@@ -100,3 +100,7 @@ the dialects the agent registers.
   `refreshModels` or omp's `openai-models-list` discovery would ask), or must be told the model the run names. If the
   latter, `SetupContext` also carries `model` (empty for a run that names none), in this same change, so the API moves
   once.
+
+## Decided by the operator (2026-11-12)
+
+- To Backlog, priority unchanged.

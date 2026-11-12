@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B230",
   "title": "The Package Provides The Lowest Agent Protocol",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 39,
@@ -49,3 +49,7 @@ today it checks no `Provides` at all.
   `porelo-agent-protocol-<LOWEST>`.
 - On the ubuntu VM, an agent package depending on `porelo-agent-protocol-3 | porelo-agent-protocol-4` installs beside
   this package, and one depending only on a number below `LOWEST` is refused by `apt`.
+
+## Decided by the operator (2026-11-12)
+
+- To Backlog, priority unchanged.

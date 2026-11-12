@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B201",
   "title": "A Start Now, Built Or Removed",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
   "rank": 36,
@@ -52,3 +52,7 @@ nothing. The daemon's behavior does not change, so it gets no new test.
 ## Acceptance
 
 - No option or parameter a person or a client can give does nothing; the docs promise nothing about it.
+
+## Decided by the operator (2026-11-12)
+
+- To Backlog, priority unchanged.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B200",
   "title": "A Varlink Call Has A Read Deadline",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 37,
@@ -66,3 +66,7 @@ Read in the code on 2026-10-20 (`wire`, `agents/api`, `builds/api`, `apps`, `dae
   the method; a stream without one keeps waiting.
 - An agent that hangs in `ContainerSetup` fails the task's start after the deadline, named, instead of holding it.
 - No varlink interface changes.
+
+## Decided by the operator (2026-11-12)
+
+- To Backlog, priority unchanged.
