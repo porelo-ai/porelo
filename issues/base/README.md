@@ -220,7 +220,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b674"></a>[B674](B674-A-Forced-Removal-Takes-Over-A-Start-That-Never-Ends.md) | S | - | `task remove --force` ends the name's claim even while a start in another process still holds it, so `project remove --force` and `project clear` are no longer refused by an unfinished start of a task already removed. | - |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
 | <a id="b717"></a>[B717](B717-A-Task-Started-Without-A-Certificate-On-A-Host-In-Test-Mode.md) | M | - | On a host whose root switched on `start-uncertified`, `porelo task start` starts a task without a certificate after a clear warning and a yes, `--yes` answering it for scripts, and the host accepts such a start only while that switch is on. | 0 |
 | <a id="b617"></a>[B617](B617-An-Undecided-Organization-Read-Says-What-It-Waits-For.md) | M | - | A walk the identity source cannot decide keeps its words: `stale_why` `incomplete` names the commit that waits and what it waits for (the forge's key list, the founder's ownership, a card not vouched for) in `said` and a warning. | - |
@@ -308,6 +307,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b674"></a>[B674](B674-A-Forced-Removal-Takes-Over-A-Start-That-Never-Ends.md) | S | - | A task's removal retires its name's claim even when the daemon writes into its mailbox while the mailbox is deleted, so `project remove --force` and `project clear` are no longer refused by an unfinished start of a task already removed. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 
 ## Review

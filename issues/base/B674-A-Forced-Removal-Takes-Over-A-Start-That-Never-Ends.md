@@ -1,20 +1,20 @@
-# B674 — A Forced Removal Takes Over A Start That Never Ends
+# B674 — A Removal Retires Its Name Though The Daemon Writes Its Mailbox
 
 ```json
 {
   "$schema": "issue-1.json",
   "id": "B674",
-  "title": "A Forced Removal Takes Over A Start That Never Ends",
-  "state": "Backlog",
+  "title": "A Removal Retires Its Name Though The Daemon Writes Its Mailbox",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 2,
   "blockedBy": [],
-  "covers": "`task remove --force` ends the name's claim even while a start in another process still holds it, so `project remove --force` and `project clear` are no longer refused by an unfinished start of a task already removed."
+  "covers": "A task's removal retires its name's claim even when the daemon writes into its mailbox while the mailbox is deleted, so `project remove --force` and `project clear` are no longer refused by an unfinished start of a task already removed."
 }
 ```
 
-**Why this size.** one rule in `TaskReservations` and its call in `TaskControl.remove`, with tests; no contract.
+**Why this size.** a staged write that cleans up after itself, a watcher that leaves a removed task's mailbox alone, a delete that tolerates a late write, and a retire that a failed delete cannot skip; with tests, no contract.
 
 Filed 2026-11-12 from an agent repository's acceptance run, straight into the backlog as the bug rule says.
 
@@ -23,35 +23,50 @@ Filed 2026-11-12 from an agent repository's acceptance run, straight into the ba
 remove that task first" (exit 70). The project could not be removed although its only task had been asked away by
 force, and the refusal's way out, removing the task, had already been taken.
 
-**Found, read in the code.**
-- A start claims its name in `TaskReservations` with the pid and start instant of the process that runs it
-  (`ProcessHandle.current()`), and drops the pid only when the start finishes (`held(0, "")`). A start run by porelod
-  is held by porelod's pid; an unattended run's Start finishes only when its run ends, so while the agent runs, the
-  claim reads `live()` for as long as porelod runs.
-- `TaskReservations.retire` throws `taken` when the claim is `live()` and its attempt is not this process's. That is
-  the last step of `TaskControl.remove` (`removeExistingTask`), after the container, its state and its secrets are
-  gone. So a forced removal from the command line deletes everything and leaves the claim as it was.
-- `TaskReservations.projectBusy` then finds that claim live, or its container absent, and refuses the project.
+**Found, from the run's own failure log (2026-11-12, Agent Smith on the VM).** The reading this issue was filed with
+(a start in porelod holding the claim) does not hold: `TaskLaunch` gives the claim back (pid 0) before the agent
+runs. The account's `failures.log` holds the removal's own failure:
 
-**What must be true.** A forced removal of a task ends its claim whoever held it, once the container is gone; the
-start that held it, if it still runs, fails on its next step as for any removed container, and its own last write
-cannot bring the claim back. A removal without `--force` keeps refusing a live start, naming it.
+    porelo task remove
+    UncheckedIOException: Removed the task but could not delete its mailbox: porelo-busy_busy
+      at TaskControl.stopClaimed ... <- TaskRemoveCommand.removeTask
+    Caused by: DirectoryNotEmptyException: <state>/mail/porelo-busy_busy
+      at Mailbox.delete <- TaskControl.stopClaimed
+
+- `TaskControl.stopClaimed` deletes the mailbox, the guide and the repositories file, and only then retires the claim
+  (`TaskReservations.retire`). A failed delete throws past the retire, so the claim stays CREATED with its container
+  gone, which `TaskReservations.projectBusy` reports as an unfinished start; a later start of the name is refused as
+  the name of another task.
+- What filled the directory: the daemon's message pass (`MessageWatch`, about once a minute) writes each mailbox's
+  guide and card (`MailboxGuide.put`) through a temp file `.guide<n>.tmp` in the mailbox's root, then moves it into
+  place. One pass ran during the delete: its temp file landed after the delete's walk and before its rmdir. Its move
+  failed, and `put` leaves the temp file behind. Every later pass did the same for the removed task, so 284 temp files
+  piled up.
+
+**What must be true.** A removal of a task retires its name's claim, whether or not something writes into its
+mailbox at the same time. The daemon writes no guide into a removed task's mailbox, and a failed guide write leaves
+no temp file behind. `project remove` and `project clear` then find no unfinished start of a task already removed.
 
 ## Plan
 
-- `TaskReservations`: `retire(container, force)`; with force, write RETIRED over a live claim of another attempt, and
-  have the holder's `publish`/release refuse to write over a RETIRED claim (it re-reads under the lock already).
-- `TaskControl.remove(..., force)`: pass force to `retire`, on both the made and the unmade path.
-- Red first: a claim held by another live process (a `sleep` the test starts, with its pid and start instant), a
-  forced removal, then `projectBusy` answers null and the claim reads RETIRED; without force the removal is refused
-  as today.
+1. **Red first** (unit level, no VM):
+   - a mailbox whose delete meets a file written between its walk and its rmdir: the removal still retires the
+     claim, and `projectBusy` answers null;
+   - `MailboxGuide.put` whose move fails leaves no `.guide*.tmp`;
+   - the message pass over a mailbox whose task is retired or gone writes nothing into it.
+2. `MailboxGuide.put`: delete the staged file when the write, the permissions or the move fail.
+3. `MessageWatch`: skip a mailbox whose task's claim is retired, or that is being removed. Use the name lock the
+   removal already holds (`TaskReservations.mutate`) or the claim's stage, whichever the pass already reads.
+4. `Mailbox.delete`: after the walk, retry a directory that is not empty a bounded number of times. A late temp file
+   of the guide writer is removed with it.
+5. `TaskControl.stopClaimed` (and the unmade path in `remove`): retire the claim even when deleting the mailbox, the
+   guide or the repositories fails. Report the failed delete as now, after the retire, and do not throw past it.
+   Keep what a later removal or clean-up needs to finish the leftover.
+6. `LooseFiles` already names stray `.guide*.tmp` files; check that a leftover mailbox of a retired task is offered
+   for clean-up.
 
 ## Acceptance
 
-- A project whose task was removed by force while its start still held the name is removed by `project remove
-  --force`; a test fails while `retire` refuses the forced case.
-
-## To be checked
-
-- That the run's own log shows the removal ended at `retire` (`Cannot retire task identity` or the `taken` refusal),
-  as read; the agent repository's run log holds it.
+- A task removed while the daemon writes its mailbox leaves its claim retired, and `project remove --force` of its
+  project answers 0; a test fails while the delete's failure skips the retire.
+- No `.guide*.tmp` is left in a mailbox after a failed guide write.
