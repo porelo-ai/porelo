@@ -300,7 +300,15 @@ public final class ProjectFileCheck {
                                 + "'");
                 continue;
             }
-            if (!ToolRepository.isLoopback(host) && !reached(host, file.egress())) {
+            if (!ToolRepository.isLoopback(host) && refusedBy(host, file.egress())) {
+                fault(
+                        path + ".url",
+                        "'"
+                                + path
+                                + ".url' reaches '"
+                                + shown(host)
+                                + "', which 'egress.refused' names; take it out of one of them");
+            } else if (!ToolRepository.isLoopback(host) && !reached(host, file.egress())) {
                 fault(
                         path + ".url",
                         "'"
@@ -320,8 +328,17 @@ public final class ProjectFileCheck {
             return false;
         }
         return egress.hostServices().contains(host)
-                || egress.domains().stream()
-                        .anyMatch(domain -> host.equals(domain) || host.endsWith("." + domain));
+                || egress.domains().stream().anyMatch(domain -> under(host, domain));
+    }
+
+    /** Whether the egress refuses a host, as a domain or under one. */
+    private static boolean refusedBy(final String host, final @Nullable Egress egress) {
+        return egress != null && egress.refused().stream().anyMatch(domain -> under(host, domain));
+    }
+
+    /** Whether a host is a domain or under it; both are lower case, as the file is checked. */
+    private static boolean under(final String host, final String domain) {
+        return host.equals(domain) || host.endsWith("." + domain);
     }
 
     /**

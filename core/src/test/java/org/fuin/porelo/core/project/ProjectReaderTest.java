@@ -886,6 +886,23 @@ class ProjectReaderTest {
                                 "domains: [\"other.example.org\"]"),
                         "add \"repo.example.org\" to 'egress.domains'"),
                 org.junit.jupiter.params.provider.Arguments.of(
+                        "a lookalike of the domain the egress names",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "https://repo.example.org", "https://evilrepo.example.org"),
+                        "add \"evilrepo.example.org\" to 'egress.domains'"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "user information in the address",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "https://repo.example.org",
+                                "https://alice:secret@repo.example.org"),
+                        "without user information"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a host the egress refuses",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "domains: [\"repo.example.org\"]",
+                                "domains: [\"example.org\"]\n  refused: [\"repo.example.org\"]"),
+                        "which 'egress.refused' names"),
+                org.junit.jupiter.params.provider.Arguments.of(
                         "a block that is no mapping",
                         WITH_TOOL_REPOSITORY.replace(
                                 "  maven:\n    mirrorOf:\n      corp: \"*\"\n",

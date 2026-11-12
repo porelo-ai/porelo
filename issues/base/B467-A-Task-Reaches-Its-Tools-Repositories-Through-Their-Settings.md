@@ -98,3 +98,16 @@ image itself carries settings, a build in the task asks the tool's default hosts
 - How a repository that wants a username and a password is served: the broker sends one stored value after a prefix,
   so today such a credential is stored as the Base64 of `username:password` behind `Basic `; whether the broker should
   compose the two itself.
+
+## Read by a second model (2026-11-12)
+
+- Yellow, fixed: a tool repository's host that `egress.refused` names was taken as reached; it is now refused, naming
+  both. A lookalike of the named domain and an address with user information were refused already; tests now pin
+  all three.
+- Not changed: the egress's domains are lower case as the file is checked, so a case difference cannot arise. A host
+  that only an egress set names gets the fault that names `egress.domains`; the sets are resolved on the machine,
+  not in the file.
+- Not changed: an adapter may name a file Porelo places later; Porelo's own files are placed after the adapters'
+  and win. An adapter is installed by the person, as trusted as their other tools.
+- Not changed: the launch-level paths for an adapter that is missing, fails or times out stop the start with the
+  same refusal the unit tests pin.
