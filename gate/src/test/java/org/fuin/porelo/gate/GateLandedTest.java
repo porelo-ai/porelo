@@ -2,6 +2,13 @@ package org.fuin.porelo.gate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -125,19 +132,106 @@ class GateLandedTest {
     }
 
     @Test
-    void aReaderCannotWriteToTheWorkItReads() {
-        // receive-pack takes only the task's own incoming ref; the landed ref is hidden from it.
-        final List<String> command = new ArrayList<>(List.of("git"));
-        command.addAll(
-                GitHttpServer.hidingOthers(
-                        GitGate.INCOMING + "reader",
-                        "receive-pack",
-                        "--stateless-rpc",
-                        "--advertise-refs",
-                        mirror.toString()));
-        assertThat(runner.runOrFail(Command.of(command)).standardOutput())
-                .as("a ref not advertised for push is no ref the reader can update")
-                .doesNotContain(GitGate.LANDED);
+    void forgettingWhereATaskLandedKeepsItsWaitingWorkAndEveryOtherTasks() {
+        // A new task of an earlier one's name: in a guarded project the earlier one's ref may hold
+        // work nobody reviewed yet, and only where it landed is no longer the name's.
+        waiting("foo-1", held);
+        gate().recordLanded("foo-10", "porelo/foo-10", landed);
+
+        gate().forgetLanded("foo-1");
+
+        assertThat(GitGate.landedIn(mirror, "foo-1"))
+                .as("the new task of the name has landed nothing")
+                .isEmpty();
+        assertThat(gate().resolves(GitGate.INCOMING + "foo-1"))
+                .as("work waiting at the gate under the name is never lost")
+                .isTrue();
+        assertThat(GitGate.landedIn(mirror, "foo-10"))
+                .as("foo-1 is not foo-10")
+                .containsExactly(new GitGate.Landed("porelo/foo-10", landed));
+    }
+
+    @Test
+    void aReadersPushThatCreatesUpdatesOrDeletesTheWorkItReadsIsRefused() throws Exception {
+        // A reader rewriting what a person reviewed would hand every later reader other work.
+        final String landedRef = GitGate.LANDED + "foo-1/porelo/foo-1";
+        // Its work landed on a second branch too, so the delete does not hang on the update.
+        final String secondRef = GitGate.LANDED + "foo-1/second";
+        gate().recordLanded("foo-1", "second", landed);
+        final TaskToken token = TaskToken.mint();
+        final GitHttpServer server =
+                new GitHttpServer(
+                                new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                                mirror,
+                                token,
+                                new GitSubprocess(),
+                                GitGate.INCOMING + "reader")
+                        .reading(List.of("foo-1"));
+        server.start();
+        try (server) {
+            final String url =
+                    "http://"
+                            + InetAddress.getLoopbackAddress().getHostAddress()
+                            + ":"
+                            + server.port()
+                            + "/mirror.git";
+            git(work, "config", "http.extraHeader", "Authorization: " + token.basicAuthorization());
+            git(work, "commit", "--allow-empty", "-q", "-m", "the reader's rewrite");
+
+            final org.assertj.core.api.SoftAssertions softly =
+                    new org.assertj.core.api.SoftAssertions();
+            softly.assertThatThrownBy(
+                            () ->
+                                    git(
+                                            work,
+                                            "push",
+                                            url,
+                                            "HEAD:" + GitGate.LANDED + "foo-1/porelo/other"))
+                    .as("a new ref beside the work it reads, pushed by git")
+                    .hasMessageContaining("rejected");
+            // git sends no update or delete of a ref its push was not shown, so these are sent as
+            // a client that knows the ref would send them; the new commit is one the mirror holds.
+            softly.assertThat(receive(url, token, landed, held, landedRef))
+                    .as("the work it reads, replaced")
+                    .contains("ng " + landedRef);
+            softly.assertThat(receive(url, token, landed, "0".repeat(40), secondRef))
+                    .as("the work it reads, deleted")
+                    .contains("ng " + secondRef);
+            softly.assertAll();
+        }
+
+        assertThat(GitGate.landedIn(mirror, "foo-1"))
+                .as("what the reader reads is what was reviewed, and nothing beside it")
+                .containsExactly(
+                        new GitGate.Landed("porelo/foo-1", landed),
+                        new GitGate.Landed("second", landed));
+    }
+
+    /** Sends one receive-pack command as git would, with an empty pack unless it deletes. */
+    private static String receive(String url, TaskToken token, String old, String now, String ref)
+            throws Exception {
+        final java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
+        body.writeBytes(
+                (pkt(old + " " + now + " " + ref + "\0report-status delete-refs\n") + "0000")
+                        .getBytes(StandardCharsets.UTF_8));
+        if (!now.equals("0".repeat(40))) {
+            final byte[] header = {'P', 'A', 'C', 'K', 0, 0, 0, 2, 0, 0, 0, 0};
+            body.writeBytes(header);
+            body.writeBytes(java.security.MessageDigest.getInstance("SHA-1").digest(header));
+        }
+        return HttpClient.newHttpClient()
+                .send(
+                        HttpRequest.newBuilder(URI.create(url + "/git-receive-pack"))
+                                .header("Authorization", token.basicAuthorization())
+                                .header("Content-Type", "application/x-git-receive-pack-request")
+                                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString())
+                .body();
+    }
+
+    private static String pkt(final String payload) {
+        return String.format("%04x", payload.getBytes(StandardCharsets.UTF_8).length + 4) + payload;
     }
 
     private Map<String, String> advertised(String task, List<String> reads) {

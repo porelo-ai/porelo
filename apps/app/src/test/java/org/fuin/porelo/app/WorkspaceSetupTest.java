@@ -249,4 +249,73 @@ class WorkspaceSetupTest {
         assertThat(read).containsExactly("front", "back");
         assertThat(tree(into.resolve("front"))).containsExactly("", "index.html");
     }
+
+    @Test
+    void aNewTaskInAGuardedProjectInheritsNoLandedWorkOfAnEarlierTaskOfItsName() throws Exception {
+        // Its row and a reader naming it would hand on a removed task's work as the new one's.
+        final Path front = upstream("front", "index.html");
+        final PoreloContext context = context();
+        final Project project = project(front, upstream("back", "server.go"));
+        final Repository frontRow = java.util.Objects.requireNonNull(project.repository("front"));
+        final org.fuin.porelo.gate.GitGate gate =
+                GateSupport.gate(context, project, frontRow, null, null);
+        gate.initialize();
+        final String commit = git(front, "rev-parse", "HEAD");
+        gate.recordLanded("foo-1", "porelo/foo-1", commit);
+        gate.recordLanded("foo-10", "porelo/foo-10", commit);
+        final Path mirror = GateSupport.mirror(context, project, frontRow);
+
+        final TaskWorkspace workspace =
+                new WorkspaceSetup(context, "foo-1", null, "front")
+                        .openWorkspace(
+                                project,
+                                true,
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(new StringWriter()));
+
+        assertThat(workspace).as("the new task starts").isNotNull();
+        assertThat(org.fuin.porelo.gate.GitGate.landedIn(mirror, "foo-1"))
+                .as("the new task of the name has landed nothing")
+                .isEmpty();
+        assertThat(org.fuin.porelo.gate.GitGate.landedIn(mirror, "foo-10"))
+                .as("another task's work stays where it landed")
+                .containsExactly(new org.fuin.porelo.gate.GitGate.Landed("porelo/foo-10", commit));
+    }
+
+    @Test
+    void aGuardedStartRefusedForEarlierWorkKeepsThatWorkAndWhereItsNameLanded() throws Exception {
+        // In a guarded project the earlier task's ref may hold work nobody reviewed yet.
+        final Path front = upstream("front", "index.html");
+        final PoreloContext context = context();
+        final Project project = project(front, upstream("back", "server.go"));
+        final Repository frontRow = java.util.Objects.requireNonNull(project.repository("front"));
+        final org.fuin.porelo.gate.GitGate gate =
+                GateSupport.gate(context, project, frontRow, null, null);
+        gate.initialize();
+        final String commit = git(front, "rev-parse", "HEAD");
+        gate.recordLanded("foo-1", "porelo/foo-1", commit);
+        final Path mirror = GateSupport.mirror(context, project, frontRow);
+        final Path work = dir.resolve("agent-work");
+        git(dir, "clone", "-q", front.toString(), work.toString());
+        git(work, "commit", "--allow-empty", "-q", "-m", "unreviewed");
+        git(work, "push", "-q", mirror.toString(), "HEAD:refs/porelo/incoming/foo-1");
+        final String unreviewed = git(work, "rev-parse", "HEAD");
+
+        final WorkspaceSetup setup = new WorkspaceSetup(context, "foo-1", null, "front");
+        final TaskWorkspace workspace =
+                setup.openWorkspace(
+                        project,
+                        true,
+                        new PrintWriter(new StringWriter()),
+                        new PrintWriter(new StringWriter()));
+
+        assertThat(workspace).as("refused for the earlier work").isNull();
+        assertThat(setup.refusal()).isNotNull();
+        assertThat(git(mirror, "rev-parse", "refs/porelo/incoming/foo-1"))
+                .as("the earlier task's unreviewed work is never lost")
+                .isEqualTo(unreviewed);
+        assertThat(org.fuin.porelo.gate.GitGate.landedIn(mirror, "foo-1"))
+                .as("a start that does not happen changes nothing")
+                .containsExactly(new org.fuin.porelo.gate.GitGate.Landed("porelo/foo-1", commit));
+    }
 }

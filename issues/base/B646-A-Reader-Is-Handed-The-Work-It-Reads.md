@@ -99,6 +99,10 @@ start settled. A person may name another branch at approval, so the branch the w
   name the order gives, so no client builds it (asked by Agent Frontend, 16:30Z).
 - The records stay after approval, as the forwarded records do. They are removed where the gate forgets a task's
   name: when an online task is removed, and when a new online task of the same name starts.
+- The reading found that a new guarded task inherited the landed records of an earlier task of its name, and that
+  no test pushed to a landed ref.
+- Fixed: every new task's start drops only its name's landed records, never its waiting work, in every class; a
+  test pushes a create, an update and a delete there and sees each refused.
 
 ## Answered in the analysis
 
@@ -116,3 +120,13 @@ start settled. A person may name another branch at approval, so the branch the w
 ## Decided by the operator (2026-11-12)
 
 - Accepted, priority Highest, with Estimated and Backlog given in advance for its analysis (ST314, run 26).
+
+## Read by a second model (2026-11-12)
+
+- Yellow, fixed: a new guarded task of an earlier one's name inherited where that one landed. Every new task now
+  drops only its name's landed records at its start; a guarded name's waiting work stays.
+- Red, fixed: the test that a reader cannot write what it reads did not push. It now pushes through a real
+  `GitHttpServer` with the reader's ref: create, update and delete of a landed ref are each refused, and the refs stay.
+  Two layers refuse: `mayUpdate` and git's receive-pack, which `transfer.hideRefs` covers too.
+- Not changed: a task name holding `..` is refused where a task is named, before it reaches a ref; `gate serve --reads`
+  without `--ref` serves nothing more than the reader's own gate.

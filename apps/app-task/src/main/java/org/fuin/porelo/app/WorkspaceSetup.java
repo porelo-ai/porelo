@@ -206,6 +206,10 @@ final class WorkspaceSetup {
                     return null;
                 }
             }
+            // A new task of an earlier one's name has landed nothing, in every class: its row and
+            // a reader naming it would take that work for its own. Only where it landed: in a
+            // guarded project the earlier task's own ref may hold work nobody reviewed yet.
+            gate.forgetLanded(task);
             final TaskWorkspace opened =
                     TaskWorkspace.gated(chosen, gate, TaskWorkspace.containerVisibleHost());
             if (!opened.refreshed().isEmpty()) {

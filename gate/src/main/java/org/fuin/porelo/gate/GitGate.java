@@ -1584,19 +1584,6 @@ public class GitGate {
     }
 
     /**
-     * Forgets the ref a task left at its gate: for an {@code online} task, whose push went on and
-     * so waits for nobody, when it is removed or a new task of its name starts. Its rescue stays:
-     * that work never went on, and waits. A new task of the same name otherwise met the old ref,
-     * its plain push was refused with git's "fetch first", and an agent that followed the hint
-     * pulled a removed task's work into its own.
-     *
-     * <p>What a host's pass-on last pushed for the name goes with it: a new task of the name would
-     * otherwise lease its first push on the removed task's commit, refused as stale for good once
-     * the forge's branch was deleted.
-     *
-     * @param name The task's name, without the namespace prefix.
-     */
-    /**
      * Records that a task's work landed on a branch.
      *
      * @param task The task's name.
@@ -1676,14 +1663,38 @@ public class GitGate {
                 .toList();
     }
 
+    /**
+     * Forgets where an earlier task of this name landed its work, and nothing else of it: a new
+     * task of the name has landed nothing, and its row and a reader naming it would otherwise take
+     * the earlier task's work for its own. The task's own ref stays, which in a guarded project may
+     * hold work nobody reviewed yet.
+     *
+     * @param name The task's name, without the namespace prefix.
+     */
+    public void forgetLanded(String name) {
+        for (final Landed landed : landedIn(mirror, name)) {
+            gitIn("update-ref", "-d", LANDED + name + "/" + landed.branch());
+        }
+    }
+
+    /**
+     * Forgets the ref a task left at its gate: for an {@code online} task, whose push went on and
+     * so waits for nobody, when it is removed or a new task of its name starts. Its rescue stays:
+     * that work never went on, and waits. A new task of the same name otherwise met the old ref,
+     * its plain push was refused with git's "fetch first", and an agent that followed the hint
+     * pulled a removed task's work into its own.
+     *
+     * <p>What a host's pass-on last pushed for the name goes with it: a new task of the name would
+     * otherwise lease its first push on the removed task's commit, refused as stale for good once
+     * the forge's branch was deleted. So does where it landed ({@link #forgetLanded}).
+     *
+     * @param name The task's name, without the namespace prefix.
+     */
     public void forget(String name) {
         if (resolves(INCOMING + name)) {
             gitIn("update-ref", "-d", INCOMING + name);
         }
-        // Where an earlier task of this name landed is not the new one's: its row would say so.
-        for (final Landed landed : landedIn(mirror, name)) {
-            gitIn("update-ref", "-d", LANDED + name + "/" + landed.branch());
-        }
+        forgetLanded(name);
         final Path pushed = mirror.resolve(HOST_PUSHED);
         final Path record = pushed.resolve(name).normalize();
         if (!pushed.normalize().equals(record.getParent())) {
