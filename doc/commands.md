@@ -587,6 +587,7 @@ Credentials, and the broker that lets a task use one without holding it. See
 | `porelo vault clear [--yes] [--dry-run] [--force] [--json]` | Removes the vault, its backup and lock, the daemon-owned share and what the keyring caches of it, with what the transports keep in it. Lists it first; `--yes` clears it. |
 | `porelo vault serve` | The credential proxy a task's requests go through. Started per task. |
 | `porelo vault relay` | Forwards a port in a task's namespace to the proxy's socket. Started per task. |
+| `porelo vault repositories` | The broker a task reads its project's package repositories with a credential through: `GET` and `HEAD` under each declared prefix, the vault's credential added. Started per task. |
 | `porelo vault agent` | An ssh-agent that signs with a key from the vault, for a command on the host. No task is given one. |
 | `porelo vault credential` | git's credential helper. Run by git. |
 

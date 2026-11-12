@@ -613,10 +613,21 @@ final class ProjectSchema {
                             "tool_repositories[]",
                             "url",
                             "Its https URL, as a task reaches it; plain http only on 127.0.0.1 or"
-                                    + " [::1].",
+                                    + " [::1]. With a credential, the prefix the task's repository"
+                                    + " broker reads under: https, no query, no fragment.",
                             "string",
                             "",
                             true),
+                    key(
+                            "tool_repositories[]",
+                            "credential",
+                            "The vault entry the task's repository broker adds to each GET and"
+                                    + " HEAD under the URL; the task reaches the repository only"
+                                    + " through the broker, and holds no credential. Its host needs"
+                                    + " no egress line.",
+                            "string",
+                            "",
+                            false),
                     key(
                             "",
                             "extensions",

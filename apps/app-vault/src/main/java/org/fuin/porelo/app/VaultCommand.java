@@ -15,6 +15,7 @@ import picocli.CommandLine.Command;
             VaultRemoveCommand.class,
             VaultServeCommand.class,
             VaultRelayCommand.class,
+            VaultRepositoriesCommand.class,
             VaultAgentCommand.class,
             VaultCredentialCommand.class,
             VaultUnlockCommand.class,

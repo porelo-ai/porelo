@@ -140,6 +140,7 @@ final class FileYaml {
             put(each, "ecosystem", entry.ecosystem());
             put(each, "name", entry.name());
             put(each, "url", entry.url());
+            put(each, "credential", entry.credential());
             toolRepositories.add(each);
         }
         put(top, "tool_repositories", toolRepositories);

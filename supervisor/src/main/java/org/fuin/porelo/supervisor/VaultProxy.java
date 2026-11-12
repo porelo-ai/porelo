@@ -91,7 +91,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
      * library sets for itself. Forwarding these produces a request that contradicts the connection
      * actually being used.
      */
-    private static final Set<String> HOP_BY_HOP =
+    static final Set<String> HOP_BY_HOP =
             Set.of(
                     "connection",
                     "keep-alive",
@@ -467,11 +467,24 @@ public class VaultProxy implements AutoCloseable, Runnable {
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .build();
 
+        server = bind(socket, "credential proxy", "vault socket");
+    }
+
+    /**
+     * Binds a broker's socket: never over a live one, its directory owner-only before the socket
+     * exists, the socket itself open to the container's subordinate uid. See the class comment.
+     *
+     * @param socket Path to bind.
+     * @param serving What serves it, for a refusal to take over a live one.
+     * @param named What the socket is, for a failure.
+     * @return The bound server socket.
+     */
+    static ServerSocketChannel bind(Path socket, String serving, String named) {
         try {
             // Never over a live one. This socket answers with a credential; replacing it on the
             // strength of a pathname would orphan whoever was serving and leave two processes
             // disagreeing about which of them the container is talking to.
-            org.fuin.porelo.wire.LiveSocket.refuseToStealFrom(socket, "credential proxy");
+            org.fuin.porelo.wire.LiveSocket.refuseToStealFrom(socket, serving);
             Files.deleteIfExists(socket);
             Directories.create(socket.getParent());
             // Locked down BEFORE the socket exists, because this is what keeps other host users
@@ -483,7 +496,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
                             PosixFilePermission.OWNER_WRITE,
                             PosixFilePermission.OWNER_EXECUTE));
             // Labelled as it is created: SELinux checks connectto against the socket, not the file.
-            server = SocketContext.openUnixSocket();
+            final ServerSocketChannel server = SocketContext.openUnixSocket();
             server.bind(UnixDomainSocketAddress.of(socket));
             // Deliberately permissive; see the class comment. The container's agent user is a
             // subordinate uid and cannot open an owner-only socket.
@@ -493,8 +506,9 @@ public class VaultProxy implements AutoCloseable, Runnable {
                             PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE,
                             PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_WRITE,
                             PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_WRITE));
+            return server;
         } catch (IOException ex) {
-            throw new SupervisorException("Could not bind the vault socket " + socket, ex);
+            throw new SupervisorException("Could not bind the " + named + " " + socket, ex);
         }
     }
 

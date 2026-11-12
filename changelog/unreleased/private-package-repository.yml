@@ -1,0 +1,2 @@
+title: A task reads a package repository that wants a credential through a broker of its own, by a tool_repositories entry with a credential; GET and HEAD under the declared prefix, the vault's credential added on the host, and nothing credential-shaped in the task
+type: added

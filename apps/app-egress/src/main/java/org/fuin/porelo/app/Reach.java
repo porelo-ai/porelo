@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.fuin.porelo.core.project.Limits;
 import org.fuin.porelo.gate.GitHttpServer;
 import org.fuin.porelo.shield.NftRuleset;
+import org.fuin.porelo.supervisor.RepositoryProxy;
 import org.fuin.porelo.supervisor.VaultProxy;
 import org.fuin.porelo.wire.GrantedNames;
 import org.jspecify.annotations.Nullable;
@@ -347,6 +348,40 @@ public final class Reach {
                                 + " gzip, deflate or zstd - and a body coded otherwise, coded"
                                 + " twice, beyond the limit or not decoding is refused rather than"
                                 + " forwarded unread",
+                        Kind.CONTROL),
+                new Row(
+                        Part.HOLD,
+                        "A package repository's credential",
+                        "Never in the container, nor any token for it: the task's repository"
+                                + " broker adds it on the host to each request, and the task reads"
+                                + " the repository at `127.0.0.1:"
+                                + TaskWiring.REPOSITORY_PORT
+                                + "/<name>/`",
+                        Kind.CONTROL),
+                new Row(
+                        Part.HOLD,
+                        "A request to a package repository",
+                        and(
+                                        RepositoryProxy.METHODS.stream()
+                                                .sorted()
+                                                .map(method -> "`" + method + "`")
+                                                .toList())
+                                + " only, under the prefix `tool_repositories` declares: a path"
+                                + " with a `.` or `..` segment, plain or encoded, an encoded"
+                                + " slash, backslash or percent, or an empty segment is refused"
+                                + " before the repository; a redirect is followed while it stays"
+                                + " under the prefix, at most "
+                                + RepositoryProxy.REDIRECTS
+                                + " times, and answered `502` otherwise; every request is logged"
+                                + " without its headers",
+                        Kind.CONTROL),
+                new Row(
+                        Part.HOLD,
+                        "A package repository's answer",
+                        "Text is examined as it streams for the credential, as stored and"
+                                + " Base64-encoded, and cut off before it; text the repository"
+                                + " compresses is withheld. A binary answer, such as a jar, passes"
+                                + " unread: the prefix the person declares is the bound",
                         Kind.CONTROL),
                 new Row(
                         Part.HOLD,

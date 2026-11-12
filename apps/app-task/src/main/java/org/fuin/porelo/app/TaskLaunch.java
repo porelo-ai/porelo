@@ -3658,6 +3658,13 @@ public final class TaskLaunch {
                 }
                 GrantRecord.record(context, container, project.name(), this.extras.keySet(), err);
             }
+            // The project's package repositories with a credential: read through a broker of their
+            // own, which hands the task no token, only an address.
+            final CredentialWiring.RepositoryPlumbing repositories =
+                    wiring().startRepositories(project.toolRepositories(), container, out, err);
+            if (repositories != null) {
+                environmentCache.putAll(repositories.environment());
+            }
             // The agent's URL endpoint, or any other credential: those are always reached over the
             // URL.
             final boolean needsRelay =
@@ -3799,6 +3806,9 @@ public final class TaskLaunch {
             steps.started(StartStep.Step.HELPERS);
             if (needsRelay && plumbing != null) {
                 wiring().startRelay(runner, container, plumbing.socket(), out, err);
+            }
+            if (repositories != null) {
+                wiring().startRepositoryRelay(runner, container, repositories.socket(), out, err);
             }
 
             if (workspace != null) {

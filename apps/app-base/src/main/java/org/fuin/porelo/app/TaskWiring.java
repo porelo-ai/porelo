@@ -54,6 +54,25 @@ public record TaskWiring(
     public static final int VAULT_PORT = 9419;
 
     /**
+     * The port the task's repository broker is relayed to in the task's own namespace. Not 9420,
+     * which a sign-in's redirect takes on the host ({@code CodeGrant}).
+     */
+    public static final int REPOSITORY_PORT = 9421;
+
+    /** Base URL of the task's repository broker; a repository is read under {@code /<name>/}. */
+    public static final String REPOSITORY_URL = "http://127.0.0.1:" + REPOSITORY_PORT;
+
+    /**
+     * Returns the address a task reads a repository with a credential at, through its broker.
+     *
+     * @param name The repository's name.
+     * @return {@code http://127.0.0.1:9421/<name>/}.
+     */
+    public static String repositoryUrl(String name) {
+        return REPOSITORY_URL + "/" + name + "/";
+    }
+
+    /**
      * Returns wiring for a task with nothing attached.
      *
      * @return Empty wiring.

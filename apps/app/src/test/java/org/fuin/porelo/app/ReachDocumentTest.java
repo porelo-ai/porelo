@@ -13,6 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.fuin.porelo.shield.NftRuleset;
+import org.fuin.porelo.supervisor.RepositoryProxy;
 import org.fuin.porelo.supervisor.VaultProxy;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -75,6 +76,18 @@ class ReachDocumentTest {
         assertThat(page())
                 .as("the declared host-service port must agree with the firewall")
                 .contains("loopback on TCP " + NftRuleset.HOST_SERVICE_PORT + " only");
+    }
+
+    @Test
+    void statesWhatTheRepositoryBrokerPassesAndWhereTheTaskReachesIt() throws IOException {
+        final String page = page();
+        assertThat(page)
+                .contains("`127.0.0.1:" + TaskWiring.REPOSITORY_PORT + "/<name>/`")
+                .contains("at most " + RepositoryProxy.REDIRECTS + " times")
+                .contains("A binary answer, such as a jar, passes unread");
+        for (final String method : RepositoryProxy.METHODS) {
+            assertThat(page).as(method).contains("`" + method + "`");
+        }
     }
 
     @Test
@@ -216,7 +229,7 @@ class ReachDocumentTest {
         final List<PageRow> page = tableRows(page());
         assertThat(page)
                 .as("the reference is every table row of reach, hold, spend and produce")
-                .hasSize(29)
+                .hasSize(32)
                 .extracting(PageRow::part)
                 .containsOnly(Reach.Part.values());
         assertThat(

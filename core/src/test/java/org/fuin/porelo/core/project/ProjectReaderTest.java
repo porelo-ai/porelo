@@ -844,6 +844,80 @@ class ProjectReaderTest {
                 .containsExactly("http://127.0.0.1:8081/maven/");
     }
 
+    private static final String WITH_PRIVATE_REPOSITORY =
+            """
+            project:
+              name: "uc"
+              security_class: "guarded"
+            image:
+              from: "ubuntu:24.04"
+            tool_repositories:
+              - ecosystem: maven
+                name: corp
+                url: "https://nexus.corp.example/repository/maven-releases/"
+                credential: repository/corp-nexus
+            """;
+
+    @Test
+    void aRepositoryWithACredentialIsReadThroughTheBrokerAndNeedsNoEgressLine() {
+
+        final Project project = read(WITH_PRIVATE_REPOSITORY);
+
+        assertThat(project.toolRepositories())
+                .as("its prefix and the vault entry the broker adds; the task never reaches it")
+                .containsExactly(
+                        new ToolRepository(
+                                "maven",
+                                "corp",
+                                "https://nexus.corp.example/repository/maven-releases/",
+                                "repository/corp-nexus"));
+        assertThat(read(WITH_TOOL_REPOSITORY).toolRepositories().getFirst().credential())
+                .as("an entry without one is as before")
+                .isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.MethodSource("badPrivateRepositories")
+    void refusesARepositoryWithACredentialTheBrokerCannotHoldToItsPrefix(
+            final String why, final String yaml, final String said) {
+
+        assertThatThrownBy(() -> read(yaml))
+                .as(why)
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining(said);
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments>
+            badPrivateRepositories() {
+        return java.util.stream.Stream.of(
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "plain http, even on loopback: the credential would go out in the clear",
+                        WITH_PRIVATE_REPOSITORY.replace(
+                                "https://nexus.corp.example", "http://127.0.0.1:8081"),
+                        "'tool_repositories[1].url' of a repository with a credential must be"
+                                + " https"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a query, which is no prefix",
+                        WITH_PRIVATE_REPOSITORY.replace(
+                                "maven-releases/\"", "maven-releases/?x=1\""),
+                        "with no query and no fragment"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a fragment, which is no prefix",
+                        WITH_PRIVATE_REPOSITORY.replace(
+                                "maven-releases/\"", "maven-releases/#top\""),
+                        "with no query and no fragment"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a credential that is no vault entry's name",
+                        WITH_PRIVATE_REPOSITORY.replace(
+                                "credential: repository/corp-nexus", "credential: \"Corp Nexus\""),
+                        "'tool_repositories[1].credential' names no vault entry"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a path that walks out of itself",
+                        WITH_PRIVATE_REPOSITORY.replace(
+                                "repository/maven-releases/", "repository/../admin/"),
+                        "with no query and no fragment"));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
     @org.junit.jupiter.params.provider.MethodSource("badToolRepositories")
     void refusesAToolRepositoryOrBlockATaskCannotTake(

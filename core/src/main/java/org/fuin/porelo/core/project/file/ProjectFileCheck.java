@@ -287,6 +287,34 @@ public final class ProjectFileCheck {
                 fault(path + ".url", "'" + path + ".url' is required");
                 continue;
             }
+            final String credential = entry.credential();
+            if (credential != null) {
+                // Read through the task's repository broker, from the host: the task never reaches
+                // it, so its host needs no egress line, and the broker holds requests to the
+                // prefix.
+                if (!credential.matches(ToolRepository.CREDENTIAL_PATTERN)) {
+                    fault(
+                            path + ".credential",
+                            "'"
+                                    + path
+                                    + ".credential' names no vault entry: lower-case letters,"
+                                    + " digits, '_' and '-', or two such names joined by '/', not '"
+                                    + shown(credential)
+                                    + "'");
+                }
+                if (!ToolRepository.isPrefix(url)) {
+                    fault(
+                            path + ".url",
+                            "'"
+                                    + path
+                                    + ".url' of a repository with a credential must be https,"
+                                    + " without user information, with no query and no fragment,"
+                                    + " and with no '.' or '..' in its path, not '"
+                                    + shown(url)
+                                    + "'");
+                }
+                continue;
+            }
             final String host = ToolRepository.host(url);
             if (host == null) {
                 fault(

@@ -74,7 +74,8 @@ final class FileBinder {
                         new ToolRepositoryEntry(
                                 b.word(s.get("ecosystem"), path + ".ecosystem"),
                                 b.text(s.get("name"), path + ".name"),
-                                b.text(s.get("url"), path + ".url")));
+                                b.text(s.get("url"), path + ".url"),
+                                b.text(s.get("credential"), path + ".credential")));
             }
         }
         final Map<String, Object> extensions = new LinkedHashMap<>();

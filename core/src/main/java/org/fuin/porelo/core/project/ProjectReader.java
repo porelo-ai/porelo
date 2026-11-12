@@ -294,7 +294,8 @@ public final class ProjectReader {
                                         Objects.requireNonNull(
                                                 entry.ecosystem(), "checked: ecosystem"),
                                         Objects.requireNonNull(entry.name(), "checked: name"),
-                                        Objects.requireNonNull(entry.url(), "checked: url")))
+                                        Objects.requireNonNull(entry.url(), "checked: url"),
+                                        entry.credential()))
                 .toList();
     }
 

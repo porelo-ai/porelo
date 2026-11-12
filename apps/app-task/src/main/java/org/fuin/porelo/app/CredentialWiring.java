@@ -85,10 +85,6 @@ final class CredentialWiring {
     /**
      * Starts the relay that gives a URL agent something to dial inside its own namespace.
      *
-     * <p>Only the listening end moves: the broker keeps the host's resolver, the host's egress and
-     * the credential. Binding the broker itself in the namespace was tried and fails - it reads the
-     * host's {@code /etc/resolv.conf} and then cannot resolve anything at all.
-     *
      * @param runner Runs containers.
      * @param container Container name.
      * @param socket Broker socket to forward to.
@@ -101,12 +97,147 @@ final class CredentialWiring {
             java.nio.file.Path socket,
             PrintWriter out,
             PrintWriter err) {
+        relay(runner, container, socket, TaskWiring.VAULT_PORT, "relay", out, err);
+    }
+
+    /** The helper that serves the task's package repositories, as it is recorded. */
+    static final String REPOSITORY_BROKER = "repository";
+
+    /** The relay that gives the repository broker its port in the task's namespace. */
+    static final String REPOSITORY_RELAY = "repository-relay";
+
+    /**
+     * Starts the task's repository broker for the repositories its project declares with a
+     * credential: GET and HEAD under each one's prefix, the vault's credential added on the host.
+     * Nothing credential-shaped enters the task, not even a token; the task is known by the socket.
+     *
+     * <p>A repository whose credential the vault cannot give is said and left out, as another
+     * credential of the task is: its build then meets the repository's own refusal.
+     *
+     * @param declared The project's tool repositories.
+     * @param container The container.
+     * @param out Where progress is reported.
+     * @param err Where problems are reported.
+     * @return The broker's socket and each repository's address for the environment, or {@code
+     *     null} when the project declares none with a credential, or none could be served.
+     */
+    @Nullable RepositoryPlumbing startRepositories(
+            java.util.List<org.fuin.porelo.core.project.ToolRepository> declared,
+            String container,
+            PrintWriter out,
+            PrintWriter err) {
+        final java.nio.file.Path state = context.paths().tasks().containerState(container);
+        final java.nio.file.Path socket = state.resolve("repository.sock");
+        final java.util.List<String> command =
+                new java.util.ArrayList<>(
+                        java.util.List.of(
+                                PoreloBinary.path(),
+                                "vault",
+                                "repositories",
+                                "--socket",
+                                socket.toString(),
+                                "--pid-file",
+                                state.resolve(REPOSITORY_BROKER + ".pid").toString()));
+        final java.util.Map<String, String> environment = new java.util.LinkedHashMap<>();
+        for (final org.fuin.porelo.core.project.ToolRepository each : declared) {
+            final String credential = each.credential();
+            if (credential == null) {
+                continue;
+            }
+            final String missing =
+                    reason(
+                            credentialUnavailable(context.readableCredentials(), credential),
+                            credential);
+            if (missing != null) {
+                out.println("repository " + each.name() + " none - " + missing);
+                continue;
+            }
+            command.add("--repository");
+            command.add(each.name() + "=" + credential + "|" + each.url());
+            environment.put(
+                    "PORELO_REPOSITORY_" + variableSuffix(each.name()) + "_URL",
+                    TaskWiring.repositoryUrl(each.name()));
+        }
+        if (environment.isEmpty()) {
+            out.flush();
+            return null;
+        }
+        try {
+            new ProcessBuilder(
+                            org.fuin.porelo.core.process.Scope.around(
+                                    "porelo " + container + " " + REPOSITORY_BROKER, command))
+                    .redirectErrorStream(true)
+                    .redirectOutput(state.resolve(REPOSITORY_BROKER + ".log").toFile())
+                    .start();
+            record(REPOSITORY_BROKER, command, java.util.Map.of(), TaskHelpers.BEFORE);
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not start the repository broker: " + ex.getMessage());
+            err.flush();
+            return null;
+        }
+        if (!awaitSocket(socket)) {
+            err.println(
+                    "porelo: the repository broker did not come up, see "
+                            + state.resolve(REPOSITORY_BROKER + ".log"));
+            err.flush();
+            return null;
+        }
+        environment.forEach(
+                (variable, url) -> out.println("repository " + url + " as " + variable));
+        out.flush();
+        return new RepositoryPlumbing(socket, java.util.Map.copyOf(environment));
+    }
+
+    /**
+     * What the repository broker gives a task.
+     *
+     * @param socket The broker's socket on the host, which its relay dials.
+     * @param environment Each repository's address, as {@code PORELO_REPOSITORY_<NAME>_URL}.
+     */
+    record RepositoryPlumbing(
+            java.nio.file.Path socket, java.util.Map<String, String> environment) {}
+
+    /**
+     * Starts the relay that gives the repository broker its port in the task's namespace, as {@link
+     * #startRelay} gives the credential broker its own.
+     *
+     * @param runner Runs containers.
+     * @param container Container name.
+     * @param socket The repository broker's socket.
+     * @param out Where progress is reported.
+     * @param err Where failures are reported.
+     */
+    void startRepositoryRelay(
+            TaskRunner runner,
+            String container,
+            java.nio.file.Path socket,
+            PrintWriter out,
+            PrintWriter err) {
+        relay(runner, container, socket, TaskWiring.REPOSITORY_PORT, REPOSITORY_RELAY, out, err);
+    }
+
+    /**
+     * Starts a relay that gives a broker something to dial inside the task's own namespace.
+     *
+     * <p>Only the listening end moves: the broker keeps the host's resolver, the host's egress and
+     * the credential. Binding the broker itself in the namespace was tried and fails - it reads the
+     * host's {@code /etc/resolv.conf} and then cannot resolve anything at all.
+     */
+    private void relay(
+            TaskRunner runner,
+            String container,
+            java.nio.file.Path socket,
+            int port,
+            String helper,
+            PrintWriter out,
+            PrintWriter err) {
 
         final java.util.Optional<Long> pid = runner.containerPid(container);
         if (pid.isEmpty()) {
             err.println(
                     "porelo: the container reports no process, so nothing can listen in its"
-                            + " namespace and the agent has no endpoint");
+                            + " namespace and the task has no endpoint on port "
+                            + port);
             err.flush();
             return;
         }
@@ -119,25 +250,41 @@ final class CredentialWiring {
                                 "vault",
                                 "relay",
                                 "--listen",
-                                String.valueOf(TaskWiring.VAULT_PORT),
+                                String.valueOf(port),
                                 "--socket",
                                 socket.toString(),
                                 "--pid-file",
-                                state.resolve("relay.pid").toString()));
+                                state.resolve(helper + ".pid").toString()));
         try {
             new ProcessBuilder(
                             org.fuin.porelo.core.process.Scope.around(
-                                    "porelo " + container + " relay", command))
+                                    "porelo " + container + " " + helper, command))
                     .redirectErrorStream(true)
-                    .redirectOutput(state.resolve("relay.log").toFile())
+                    .redirectOutput(state.resolve(helper + ".log").toFile())
                     .start();
-            record("relay", command, java.util.Map.of(), TaskHelpers.AFTER);
-            out.println("endpoint  " + TaskWiring.VAULT_URL + " in the task's namespace");
+            record(helper, command, java.util.Map.of(), TaskHelpers.AFTER);
+            out.println("endpoint  http://127.0.0.1:" + port + " in the task's namespace");
             out.flush();
         } catch (java.io.IOException ex) {
             err.println("porelo: could not start the endpoint relay: " + ex.getMessage());
             err.flush();
         }
+    }
+
+    private static boolean awaitSocket(java.nio.file.Path socket) {
+        final long deadline = System.nanoTime() + java.time.Duration.ofSeconds(20).toNanos();
+        while (System.nanoTime() < deadline) {
+            if (java.nio.file.Files.exists(socket)) {
+                return true;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
     }
 
     /**

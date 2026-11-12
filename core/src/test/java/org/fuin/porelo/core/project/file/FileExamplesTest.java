@@ -152,10 +152,13 @@ class FileExamplesTest {
                 .isEqualTo("matrix:");
         assertThat(file.branch().pattern()).as("the documented branch pattern").isNotNull();
         assertThat(file.toolRepositories())
-                .as("the documented tool repository")
-                .singleElement()
-                .satisfies(
-                        entry -> assertThat(entry.url()).startsWith("https://maven.corp.example/"));
+                .as("the documented tool repositories: one the task reaches, one read for it")
+                .satisfiesExactly(
+                        entry -> {
+                            assertThat(entry.url()).startsWith("https://maven.corp.example/");
+                            assertThat(entry.credential()).isNull();
+                        },
+                        entry -> assertThat(entry.credential()).isEqualTo("repository/corp-nexus"));
         assertThat(file.extensions())
                 .as("the block documented for its adapter")
                 .containsOnlyKeys("maven");

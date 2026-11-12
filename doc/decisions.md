@@ -70,6 +70,7 @@ would change the answer.
 | The project declares credentials, and the run adds | a run adds but never withdraws or redirects; never in an agent's definition | [entry](#the-project-declares-credentials-and-the-run-adds) |
 | The route is picked by the token | one broker, a route per credential; the token, not the path, decides where a key goes | [entry](#the-route-is-picked-by-the-token) |
 | Where a key goes is declared, never inferred | `auth_header` or `auth_query` per service; only a consumer whose endpoint can be configured; no TLS interception | [entry](#where-a-key-goes-is-declared-never-inferred) |
+| A package repository's binary answer passes unread | accepted: a jar or a tarball is streamed as it comes; text is scanned for the credential and cut off before it, and the declared prefix bounds what is read | [entry](#a-package-repositorys-binary-answer-passes-unread) |
 | A subscription's own backend is served as a provider | accepted: `chatgpt` reaches an undocumented route that can change; a request carries the account beside the token, from the stored sign-in | [entry](#a-subscriptions-own-backend-is-served-as-a-provider) |
 | A Google sign-in is served from the sign-in's own backend | accepted: `google-sign-in` reaches an undocumented route, and Google's terms call third-party use of the sign-in a breach that may suspend the account; the client's secret is read from the installed CLI, never published | [entry](#a-google-sign-in-is-served-from-the-sign-ins-own-backend) |
 | A sign-in passes through plaintext on its way to the vault | accepted: the login container's layer and the host's copy may reach disk or swap, for the moment of a login; tasks stay phantom-only | [entry](#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault) |
@@ -471,6 +472,16 @@ wrong. A consumer is supported only when its endpoint can be configured, so it c
 with its host compiled in is not, because reaching it would mean intercepting TLS with a certificate authority in the
 image, which Porelo does not do. A key carried in the request body is not rewritten.
 
+
+## A package repository's binary answer passes unread
+
+A task reads a package repository that wants a credential through its repository broker, which adds the vault's
+credential on the host and passes `GET` and `HEAD` under the declared prefix alone. A text answer is scanned as it streams for the credential, as stored and
+Base64-encoded, and cut off before it; text that comes compressed is withheld. **The exposure:** a binary answer
+under the prefix, a jar or a tarball, is streamed unread, so a repository that put its credential into one would hand
+it to the task. **Why it stays:** a compressed archive cannot be scanned, and refusing binary answers breaks every
+build; the prefix is the bound, and the person chooses it. **What would change the answer:** a repository found to
+put its credential into a binary answer under a usual prefix.
 ## A subscription's own backend is served as a provider
 
 The provider `chatgpt` serves a person's ChatGPT sign-in at `chatgpt.com/backend-api/codex`, the subscription's own

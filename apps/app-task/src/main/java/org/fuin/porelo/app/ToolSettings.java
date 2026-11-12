@@ -67,7 +67,14 @@ final class ToolSettings {
         for (final ToolRepository each : project.toolRepositories()) {
             byAdapter
                     .computeIfAbsent(each.ecosystem(), unused -> new ArrayList<>())
-                    .add(new Repository(each.name(), each.url()));
+                    // One with a credential is read through the task's repository broker: the
+                    // adapter is given the broker's address, and the task never learns where it is.
+                    .add(
+                            new Repository(
+                                    each.name(),
+                                    each.credential() == null
+                                            ? each.url()
+                                            : TaskWiring.repositoryUrl(each.name())));
         }
         final List<InstalledEcosystems.Description> installed;
         try {

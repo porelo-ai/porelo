@@ -111,6 +111,58 @@ class ToolSettingsTest {
     }
 
     @Test
+    void anAdapterIsGivenTheBrokersAddressForARepositoryWithACredential() throws IOException {
+        installed("maven");
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project: {name: uc, security_class: guarded}
+                                image: {from: 'ubuntu:24.04'}
+                                egress: {domains: [repo.example.org]}
+                                tool_repositories:
+                                  - ecosystem: maven
+                                    name: public
+                                    url: "https://repo.example.org/maven/"
+                                  - ecosystem: maven
+                                    name: corp-nexus
+                                    url: "https://nexus.corp.example/repository/maven/"
+                                    credential: repository/corp-nexus
+                                """),
+                        "test.yml");
+        final List<Repository> asked = new java.util.ArrayList<>();
+        final EcosystemDetector recording =
+                new EcosystemDetector() {
+                    @Override
+                    public Detection detect(
+                            final InstalledEcosystems.Description plugin,
+                            final Path checkout,
+                            final Path home) {
+                        throw new AssertionError("a start detects nothing");
+                    }
+
+                    @Override
+                    public List<File> configure(
+                            final InstalledEcosystems.Description plugin,
+                            final List<Repository> repositories,
+                            final Extension extension) {
+                        asked.addAll(repositories);
+                        return List.of();
+                    }
+                };
+
+        ToolSettings.ask(project, List.of(dir), recording);
+
+        assertThat(asked)
+                .as(
+                        "the task reads the private one through its broker, by its name, and never"
+                                + " learns where it is")
+                .containsExactly(
+                        new Repository("public", "https://repo.example.org/maven/"),
+                        new Repository("corp-nexus", "http://127.0.0.1:9421/corp-nexus/"));
+    }
+
+    @Test
     void aProjectThatDeclaresNoneAsksNoAdapter() {
         final Project project =
                 ProjectReader.read(

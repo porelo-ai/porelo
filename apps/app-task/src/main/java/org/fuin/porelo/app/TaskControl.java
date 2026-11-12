@@ -1224,7 +1224,9 @@ public final class TaskControl {
             if ("watcher".equals(helper.name()) && pid > 0) {
                 command = withPid(command, "--pid", pid);
             }
-            if ("relay".equals(helper.name()) && pid > 0) {
+            if (("relay".equals(helper.name())
+                            || CredentialWiring.REPOSITORY_RELAY.equals(helper.name()))
+                    && pid > 0) {
                 command = withPid(command, "--target", pid);
             }
             if ("vault".equals(helper.name())) {

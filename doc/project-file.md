@@ -270,6 +270,10 @@ tool_repositories:
   - ecosystem: maven               # the adapter, as 'porelo ecosystems' lists it
     name: corp                     # letters, digits, '_' and '-'; each name once
     url: "https://maven.corp.example/repository/maven-public/"   # https, or http on 127.0.0.1
+  - ecosystem: maven
+    name: private
+    url: "https://nexus.corp.example/repository/maven-releases/" # the prefix the broker reads under
+    credential: repository/corp-nexus   # optional: a vault entry; the task reads through its broker
 
 # Optional. Settings for one adapter alone, by its name, passed to it unread at the start.
 extensions:
@@ -303,8 +307,16 @@ and nothing is created.
 
 **What a task reaches follows from `name` and `url` alone**: the egress names each host, and a URL whose host it
 does not name is refused when the file is read, naming the line to add. A block under `extensions` widens
-nothing; it is at most 16384 bytes as JSON and 8 levels deep. Porelo serves no credential for these repositories
-yet: one that wants a password keeps to what its own settings say.
+nothing; it is at most 16384 bytes as JSON and 8 levels deep.
+
+**A repository that wants a credential is read through the task's repository broker.** An entry with
+`credential` names a vault entry, stored with `porelo vault put <name> --type basic` (the value is
+`user:password`), `--type bearer`, or `--type header --setting header=<name>` (such as `X-JFrog-Art-Api`). Its
+`url` is the prefix the broker reads under: https, with no query, no fragment and no `.` or `..` in its path. The
+task never reaches it, so its host needs no egress line. The adapter is given the broker's address in the task,
+`http://127.0.0.1:9421/<name>/`, and the task's environment carries it as `PORELO_REPOSITORY_<NAME>_URL`. The
+broker passes GET and HEAD under the prefix and nothing else, drops every credential header the task sent, adds the
+vault's, and logs each request; see [reach](reach.md). The task holds no credential, not even a token.
 
 **A first start writes both sections** from what an adapter found: a repository it keys `repository.<name>`,
 with its host in `egress`, and a setting it keys `extension.<key>` under `extensions.<adapter>`.

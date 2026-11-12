@@ -118,7 +118,7 @@ final class Sections {
         keys.put("branch", List.of("template", "pattern"));
         keys.put(MCP, List.of("methods", "agents", "tasks", "minutes"));
         keys.put("providers.<name>", List.of("model", "label"));
-        keys.put(TOOL_REPOSITORY, List.of("ecosystem", "name", "url"));
+        keys.put(TOOL_REPOSITORY, List.of("ecosystem", "name", "url", "credential"));
     }
 
     /**
