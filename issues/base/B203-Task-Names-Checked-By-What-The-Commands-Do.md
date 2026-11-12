@@ -5,14 +5,18 @@
   "$schema": "issue-1.json",
   "id": "B203",
   "title": "Task Names Checked By What The Commands Do",
-  "state": "Accepted",
-  "size": "-",
+  "state": "Analyzed",
+  "size": "M",
   "priority": "Medium",
-  "rank": 11,
+  "rank": 45,
   "blockedBy": [],
-  "covers": "The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text."
+  "covers": "The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text.",
+  "openQuestions": 0
 }
 ```
+
+**Size.** M: one test across every `task` and `talk` command that takes a task, each run against a context, plus one
+annotation on a command. Analyzed 2026-11-12 (ST56).
 
 **What must be true.** Every `task` and `talk` command that takes a task finds it by its own name and by its
 container's name. A test proves this by running the commands, not by reading their source.
@@ -41,6 +45,26 @@ through it, either.
   the command itself, such as being hidden, not by its file's name.
 - [ ] The test does not depend on how the source is formatted. Reformatting a command's annotations changes nothing.
 - [ ] `TaskNamesBothWaysTest` is removed once the new test covers every command it checked.
+
+## Plan
+
+Read in the code on 2026-11-12. `TaskNamesBothWaysTest` (`apps/app`, 57 lines) matches `(Task|Talk)*Command.java` by
+file name, skips `TaskWatchBuildsCommand.java` by name, and needs more than 20 hits. `TaskTarget.resolve` and
+`resolveRead` (`TaskTarget.java:205`, `:256`) are the resolution. `task watch-builds` is not hidden today.
+1. **Red first.** `TaskNamesBothWaysCommandsTest` builds porelo's real `CommandLine` from `PoreloFactory`. It walks the
+   `task` and `talk` subcommands, takes each whose first positional parameter's `paramLabel` is `<task>`, and runs it
+   against a context holding one stopped task, once by the task's own name and once by its container's name. A
+   command that answers 66 (`TaskTarget.NONE`) for either spelling fails with its name. Seen red by turning one
+   command's resolution back to the container name alone.
+2. `TaskWatchBuildsCommand` gets `hidden = true` on its `@Command`, and the walk skips hidden commands.
+3. A command that needs a running container or the daemon to answer is run with `FakeCommandRunner`. Where even that
+   cannot reach its resolution, the test asserts on the found task through a seam the command already passes to
+   `TaskTarget`, never on its source.
+4. `TaskNamesBothWaysTest` is deleted once the new test's set holds every command the old one found.
+
+## Open questions
+
+- None: the acceptance criteria settle it.
 
 **To be checked.** Whether every such command can run against a fake context without a daemon or a container, or
 whether some need only their task resolution called.

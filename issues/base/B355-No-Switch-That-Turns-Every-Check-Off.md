@@ -10,7 +10,8 @@
   "priority": "Medium",
   "rank": 41,
   "blockedBy": [],
-  "covers": "No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so"
+  "covers": "No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so",
+  "openQuestions": 3
 }
 ```
 

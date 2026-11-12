@@ -5,16 +5,19 @@
   "$schema": "issue-1.json",
   "id": "B380",
   "title": "Small Edge Cases Left By Readings And Fixes",
-  "state": "Accepted",
-  "size": "-",
+  "state": "Analyzed",
+  "size": "L",
   "priority": "Medium",
-  "rank": 40,
+  "rank": 44,
   "blockedBy": [],
-  "covers": "The small edge cases readings and fixes left, gathered to be placed; test SSH-agent cleanup done"
+  "covers": "The small edge cases readings and fixes left, gathered to be placed; test SSH-agent cleanup done",
+  "openQuestions": 2
 }
 ```
 
-**Why this size.** not yet placed: one gathering issue for the small edge cases that readings and fixes left, since
+**Why this size.** L, analyzed 2026-11-12 (ST56): about a dozen S fixes across app-model, app-task, app-messaging,
+app-organization and the tests, each with its own red test. They are built as three issues of M at most (below). Before:
+one gathering issue for the small edge cases that readings and fixes left, since
 none of them reaches another person's key, card, socket, mailbox or container, shows or lends a credential, trusts a
 key wrongly or loses data. Each one placed is split out with its own size.
 
@@ -68,3 +71,22 @@ key wrongly or loses data. Each one placed is split out with its own size.
 - Done, for the tests only: tests in `apps/app` left their `ssh-agent -D` processes running after a failure or
   an interrupt; 43 were found on the host, the oldest 21 hours old. One shared helper now stops each test's
   agents and their descendants in `afterEach` or `close`, with a JVM shutdown hook as the last resort.
+
+## Plan
+
+Triaged 2026-11-12. Each point is built in one of three groups, or dropped once the operator agrees.
+
+| Group | Points | Size | First red test |
+|---|---|---|---|
+| A: signers and signatures | lone `\r` in an allowed-signers file; `U+2000` before `#`; a line ssh-keygen cannot parse refuses the whole file; a backup key in `ProjectMembers.certifiers`; a task's key signing under another task's certificate | M | `AllowedSignerTest`: `alice\rssh-ed25519 K` reads as one line, as ssh-keygen does |
+| B: task names and starts | an unrecorded `podman create`; the `--no-gate` census; a project name of 55+ characters; the lowercased suggestion that another rule refuses; two refusals at once (64 against 2); the builds entry when the vault is locked on a host | M | `TaskRunCommandTest`: a failed record after create removes the container it made |
+| C: tests only | `TransportConversationsTest` and `MachineTransportsTest` under a login like `Alex`; `DirectoriesTest` under umask 002; `SocketPeerTest` with a second uid (tagged, VM) | S | the two transport tests run under a login named `Alex` |
+| Drop, with why | the scp address `host:a@b:c` (cannot be told from `user:password@host:path` by the address; documented instead); a name joined before the rule (the transport never made such an account); the three open commit-signature cases (each refuses what git accepts and accepts nothing git refuses: fail closed); `Directories.create` with `..` (every caller passes a clean path); `forgeToken` with an unset variable (asks with no token: it fails, it lends nothing) | - | - |
+
+The done point (`ssh-agent -D` processes) is deleted from the list.
+
+## Open questions
+
+1. **The drops.** Should the five points under *Drop* be decided not worth it, as this issue's rule allows?
+2. **Split or one.** Should groups A, B and C be filed as their own issues and this gathering issue closed, or stay one
+   issue built in that order?

@@ -10,7 +10,8 @@
   "priority": "Medium",
   "rank": 40,
   "blockedBy": [],
-  "covers": "Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite."
+  "covers": "Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite.",
+  "openQuestions": 5
 }
 ```
 

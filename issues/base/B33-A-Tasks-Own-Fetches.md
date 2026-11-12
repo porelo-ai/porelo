@@ -10,7 +10,8 @@
   "priority": "Medium",
   "rank": 23,
   "blockedBy": [],
-  "covers": "The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios."
+  "covers": "The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios.",
+  "openQuestions": 4
 }
 ```
 
