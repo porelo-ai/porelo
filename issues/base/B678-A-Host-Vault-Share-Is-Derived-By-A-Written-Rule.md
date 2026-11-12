@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B678",
   "title": "A Host Vault Share Is Derived By A Written Rule",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 4,

@@ -213,7 +213,8 @@ key against that fingerprint and pins it for a fresh SSH connection. The host na
 and login are explicit inputs; a host card is not read. A changed host key or login derives another share.
 
 The agent signs `host=<fingerprint> account=<login>` in the `porelo-vault` namespace; HKDF-SHA256 derives the
-32-byte share from that SSHSIG blob. Only the share travels over SSH's standard input, with no terminal or agent
+32-byte share from that SSHSIG blob; [How a host share is derived](#how-a-host-share-is-derived) writes the rule
+out with a test vector. Only the share travels over SSH's standard input, with no terminal or agent
 forwarding; the signature stays local. The remote command is `porelo` by default; `--remote-porelo <path>`
 selects an account installation. The remote unlock answers exit 66 with `{"vault":"absent"}` when there is no vault,
 so `host unlock` sends the share to `vault init --share-stdin` instead. An existing vault takes `vault unlock --share-stdin`.
@@ -696,3 +697,49 @@ Remove one with: porelo vault revoke <id>
 ```
 
 A locked vault makes every flow on this page answer "not yet" rather than "missing".
+
+### How a host share is derived
+
+A client that opens a host vault without `porelo` on its own machine derives the same 32 bytes by this rule, from
+the person's Ed25519 key in an SSH agent, the host's verified Ed25519 key fingerprint and the login:
+
+1. The text signed is `host=<fingerprint> account=<login>` in UTF-8, with one space, for example
+   `host=SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s account=builder`. The fingerprint is `SHA256:` and 43
+   unpadded base64 characters; the login is a lowercase account name.
+2. It is signed as SSHSIG in the namespace `porelo-vault`. The key signs the bytes `SSHSIG`, then, each as an ssh
+   string (a 4-byte big-endian length and the bytes), the namespace, an empty reserved string, `sha512`, and the
+   SHA-512 of the text. An agent asked for this signature signs with plain `ssh-ed25519`.
+3. The signature blob is the binary SSHSIG, not its armored text: the bytes `SSHSIG`, the 4-byte version 1, then as
+   ssh strings the key's public blob, the namespace, the empty reserved string, `sha512`, and the agent's
+   signature (itself the ssh string `ssh-ed25519` followed by the 64-byte signature as an ssh string).
+4. The blob is verified against the key; then the share is HKDF-SHA256 with that whole blob as input key material,
+   an empty salt and the info `porelo-vault-share-v1`, 32 bytes long.
+
+Ed25519 signs deterministically, so a fixed key gives fixed bytes at every step. Porelo's own test pins this vector,
+in hex; its key was made for the vector alone and is nobody's:
+
+```
+key seed       000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+public blob    0000000b7373682d656432353531390000002003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8
+host           SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s
+login          builder
+signed data    5353485349470000000c706f72656c6f2d7661756c7400000000000000067368613531320000004036cf1f788a6a3b380949fa3701cee14fd226413ff3e67937acc3ef65b730ea44a8ded47c8f49cbc18bd770cc0ec615d8bd73bacd56a92cc96faf2602671a7d95
+signature blob 53534853494700000001000000330000000b7373682d656432353531390000002003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b80000000c706f72656c6f2d7661756c740000000000000006736861353132000000530000000b7373682d65643235353139000000404727d4497aa83f483deec835366b10e242bb4cf6a83f47e1a6fde736bedfb8a2477fc0ace6b453af545df15b2d9ecc1d302b2c018d5756ac61acb27cad5fa80a
+share          f894c8fd19308ab206813eb64af1b821653623f006e6a4b95e3bd3d5d8843828
+```
+
+The host steps run over the client's own SSH connection to the login, after it has checked the host key against
+the fingerprint it derived the share for. The share goes on standard input with no terminal, and nothing else
+follows it; each command prints one line `{"vault":"<answer>"}` whose exit status agrees:
+
+| Step | Command on the host | Standard input | Answers |
+|---|---|---|---|
+| Open | `porelo vault unlock --share-stdin --json` | exactly 32 bytes, the share | `open` 0, `absent` 66, `other-key` 77, `not-a-host-vault` 65 |
+| Create, on `absent` | `porelo vault init --share-stdin --json` | exactly 32 bytes, the share | `open` 0 |
+| Clear, on `other-key` and only on the person's yes | `porelo vault clear --yes --force --json` | nothing | exit 0 with `{"items":[...],"refused":false,"kept":""}`, then create |
+| Change the key | `porelo vault rekey --share-stdin --json` | exactly 64 bytes, the old share then the new | `open` 0, `absent` 66, `other-key` 77, `not-a-host-vault` 65 |
+
+A wrong length or a terminal on standard input exits 64; an unreadable or damaged vault, or any other failure,
+exits 70. Any other answer, or an exit that disagrees with the line, ends the client's steps: it sends no
+more shares or commands. `not-a-host-vault` is never cleared, and `other-key` alone never clears a vault without
+the person's yes, since a damaged vault can answer it too.
