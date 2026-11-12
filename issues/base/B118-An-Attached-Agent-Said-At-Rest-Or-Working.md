@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B118",
   "title": "An Attached Agent Said At Rest Or Working",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 16,
