@@ -3221,6 +3221,44 @@ class TaskRunCommandTest {
                 .isEqualTo("offer-17");
     }
 
+    @Test
+    void aTaskKeptStoppedWhenItsContainerNeverRanCarriesTheCallersKeyAfterAReboot(@TempDir Path dir)
+            throws IOException {
+
+        // Made, but podman could not start it: the task is kept, stopped, and a caller that comes
+        // back after the machine restarted must still find it by its key, or it starts another.
+        final PoreloContext context = countingContext(dir);
+        runner.failing("podman start ", 125, "Error: unable to start container: crun failed");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "--caller-key",
+                        "offer-17");
+
+        assertThat(started).as("failed: %s", err).isNotZero();
+        assertThat(out.toString()).as("kept: %s", out).contains("kept      porelo-uc_shell");
+        // The reboot empties the runtime directory.
+        try (java.util.stream.Stream<Path> paths =
+                Files.walk(context.paths().tasks().containerState("porelo-uc_shell"))) {
+            for (final Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
+        runner.answering("ps", "porelo-uc_shell\tCreated\t1788500000\t0\tuc\tguarded\tuc\t\t\n");
+        final TaskInventory inventory = new TaskInventory(context, null);
+        assertThat(inventory.rows(inventory.tasks()))
+                .singleElement()
+                .satisfies(row -> assertThat(row).containsEntry("callerKey", "offer-17"));
+    }
+
     @ParameterizedTest(name = "{0} characters")
     @ValueSource(ints = {201, 3})
     void aCallerKeyTooLongOrWithAControlCharacterIsRefusedBeforeAnythingIsMade(

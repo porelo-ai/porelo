@@ -77,6 +77,17 @@ class TaskCallerKeyTest {
     }
 
     @Test
+    void aRuntimeDirectoryWithoutTheKeyLeavesItToTheRecord() throws IOException {
+        // Made again after a reboot before anything was put back into it: what it lacks is not
+        // "no key", and the caller would take the task for one it never started.
+        profile(context.paths().tasks().taskRecord(TASK), "offer-17");
+        Files.createDirectories(context.paths().tasks().containerState(TASK));
+        runner.answering("ps", row(false));
+
+        assertThat(rows().getFirst()).containsEntry("callerKey", "offer-17");
+    }
+
+    @Test
     void aStartThatFailedBeforeItsProfileWasWrittenStillCarriesItsKey() throws IOException {
         // Kept beside the starting branch, before anything else of the start can fail.
         final Path state = Files.createDirectories(context.paths().tasks().containerState(TASK));

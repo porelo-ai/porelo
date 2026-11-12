@@ -1544,8 +1544,11 @@ public final class TaskInventory {
      */
     String callerKey(final String container) {
         final Path runtime = context.paths().tasks().containerState(container);
+        // A runtime directory that holds neither says nothing of the key: made again after a
+        // reboot before its records were put back, it answered "none" for a keyed task.
         final Path state =
-                Files.isDirectory(runtime)
+                Files.isRegularFile(runtime.resolve(org.fuin.porelo.wire.TaskProfile.FILE))
+                                || Files.isRegularFile(runtime.resolve(CALLER_KEY_FILE))
                         ? runtime
                         : context.paths().tasks().taskRecord(container);
         final org.fuin.porelo.wire.TaskProfile profile =

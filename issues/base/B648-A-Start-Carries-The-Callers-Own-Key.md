@@ -60,6 +60,14 @@ written. `Label` changes the profile afterwards (`TaskControl.label`). List and 
   podman made the container leaves no task: its state is removed and nothing is listed, so a caller that
   restarts finds no task with its key, which is true. A start that fails once its container exists keeps the
   task, stopped, and its row carries the key. The Start reply was not changed.
+- A second reading found two gaps. A task kept after its container was made but never ran saved nothing to its
+  record, so a reboot lost its key; and a runtime directory without the key hid the key the record held.
+- Fixed: a start that fails keeps its task's record saved before it stops it, and List reads the key from the
+  record when the runtime directory holds neither the profile nor the early key file.
+- Read a third time (Sonnet): no Red. Kept as Yellow: a failed start under `--keep`, one that only read, or one
+  handed over is not saved at that point. Such a container that never ran keeps its key only in the runtime
+  directory, so a reboot before it runs loses the key; rare, and left for a later issue. `TaskState.save` drops a durable copy the runtime directory lacks; on this path the record is new, so nothing
+  of an older one is lost.
 
 ## Acceptance
 

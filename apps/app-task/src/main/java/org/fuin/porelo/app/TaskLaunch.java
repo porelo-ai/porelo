@@ -6119,6 +6119,10 @@ public final class TaskLaunch {
                 // Kept to be started again, which brings back what is recorded: a start that failed
                 // had recorded none of what it started for it, and it came back without them.
                 writeResumeRecord(container, err);
+                // Saved before the stop, which saves only a container that ran: one podman made
+                // but never started, or that ended at once, kept its profile and its caller's key
+                // in the runtime directory alone, and a reboot lost the key its caller finds it by.
+                new TaskState(context).save(container);
             }
             final TaskControl.Stopped held = new TaskControl(context).stop(container);
             if (!reportStop(held, err)) return code == 0 ? 70 : code;
