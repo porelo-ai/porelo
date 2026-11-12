@@ -437,7 +437,12 @@ jobs:
                   fi
                   [ -n "$PORELO_DEPLOY_PROFILE" ] \
                       || { echo "::error::PORELO_DEPLOY_PROFILE is empty; set the deploy profile"; exit 1; }
-                  ./mvnw -B deploy -P"$PORELO_DEPLOY_PROFILE" -s settings.xml -DskipTests
+                  # Central's snapshot repository answers 429 to a burst of uploads: fewer at once, and each
+                  # throttled request tried again after a pause rather than failing the publish.
+                  ./mvnw -B deploy -P"$PORELO_DEPLOY_PROFILE" -s settings.xml -DskipTests \
+                      -Daether.connector.http.retryHandler.count=8 \
+                      -Daether.connector.http.retryHandler.interval=15000 \
+                      -Daether.connector.basic.threads=2
 
             # Into the channel this run publishes to. A release that is already there is refused: a published release
             # is never replaced, as on Central.
