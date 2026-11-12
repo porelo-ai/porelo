@@ -247,6 +247,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b634"></a>[B634](B634-A-Task-That-Read-Its-Project-Ends-As-Any-Task-Ends.md) | S | - | A task that read its whole project is kept at its end as any task is, stopped and with its Result, unless its start asked for --rm, so a discussion's idea can be handed in after it ends; only the question about unhanded work stays unasked. |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 
