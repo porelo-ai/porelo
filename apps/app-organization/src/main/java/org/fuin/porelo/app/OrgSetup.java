@@ -77,7 +77,17 @@ public final class OrgSetup {
      * @throws IOException When something unexpected happened.
      */
     public int run(final PoreloContext machine, final CommandSpec spec) throws IOException {
+        return FileLocks.holding(OrgAccess.settingsLock(machine), () -> configure(machine, spec));
+    }
+
+    private int configure(final PoreloContext machine, final CommandSpec spec) throws IOException {
         try {
+            if (OrgDeparture.read(machine) != null) {
+                throw new Refused(
+                        Refused.EXISTS,
+                        "a leave is unfinished: run porelo org leave again before setup",
+                        null);
+            }
             final Map<String, @Nullable Object> answer =
                     address == null ? new LinkedHashMap<>() : answer(machine, spec);
             final Map<String, String> checkouts = checkouts(machine);

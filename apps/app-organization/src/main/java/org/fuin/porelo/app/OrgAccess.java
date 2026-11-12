@@ -357,6 +357,11 @@ final class OrgAccess {
         return context.paths().xdg().state().resolve("organization");
     }
 
+    /** Setup and leave must not replace or forget each other's settings while changing identity. */
+    static Path settingsLock(final PoreloContext context) {
+        return context.paths().xdg().config().resolve("organization.lock");
+    }
+
     /**
      * Where this machine remembers what it accepted of projects' own files.
      *

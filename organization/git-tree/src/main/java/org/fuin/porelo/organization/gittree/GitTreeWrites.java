@@ -54,7 +54,7 @@ public final class GitTreeWrites implements OrganizationWrites {
     /** An edit that must also know what the walk refused, which the model no longer shows. */
     @FunctionalInterface
     private interface RecordEdit {
-        List<Step> steps(TreeRecord before);
+        List<Step> steps(TreeRecord before) throws IOException;
     }
 
     /**
@@ -77,6 +77,10 @@ public final class GitTreeWrites implements OrganizationWrites {
 
     private final CommitSigning signing;
 
+    private final @Nullable List<RecordEdit> collecting;
+
+    private final @Nullable Change batchChange;
+
     /**
      * Prepares the changes of one person on one organization.
      *
@@ -94,12 +98,75 @@ public final class GitTreeWrites implements OrganizationWrites {
             final FetchAccess access,
             final IdentitySource identities,
             final CommitSigning signing) {
+        this(runner, address, organisation, access, identities, signing, null, null);
+    }
+
+    private GitTreeWrites(
+            final CommandRunner runner,
+            final String address,
+            final String organisation,
+            final FetchAccess access,
+            final IdentitySource identities,
+            final CommitSigning signing,
+            final @Nullable List<RecordEdit> collecting,
+            final @Nullable Change batchChange) {
         this.runner = runner;
         this.address = address;
         this.organisation = organisation;
         this.access = access;
         this.identities = identities;
         this.signing = signing;
+        this.collecting = collecting;
+        this.batchChange = batchChange;
+    }
+
+    @Override
+    public Written together(final Change change, final String purpose, final Batch batch)
+            throws IOException {
+        outsideBatch();
+        return changeOn(
+                change,
+                TreeRepository.asked(purpose, change.acting().login()),
+                before -> {
+                    final List<RecordEdit> edits = new ArrayList<>();
+                    final GitTreeWrites collector =
+                            new GitTreeWrites(
+                                    runner,
+                                    address,
+                                    organisation,
+                                    access,
+                                    identities,
+                                    signing,
+                                    edits,
+                                    change);
+                    batch.edit(collector);
+                    final List<Step> steps = new ArrayList<>();
+                    final Set<String> paths = new HashSet<>();
+                    for (final RecordEdit edit : edits) {
+                        final List<Step> prepared = edit.steps(before);
+                        for (final Step step : prepared) {
+                            for (final String path : step.files().keySet()) {
+                                if (!paths.add(path)) {
+                                    throw new Refused(
+                                            Refused.USAGE,
+                                            "edits submitted together must change distinct paths",
+                                            null);
+                                }
+                            }
+                            steps.add(step);
+                        }
+                    }
+                    if (steps.isEmpty()) {
+                        throw new Refused(Refused.USAGE, "no edits were submitted together", null);
+                    }
+                    return steps;
+                });
+    }
+
+    private void outsideBatch() {
+        if (collecting != null) {
+            throw new Refused(Refused.USAGE, "this operation cannot run inside a batch", null);
+        }
     }
 
     /**
@@ -331,6 +398,7 @@ public final class GitTreeWrites implements OrganizationWrites {
 
     @Override
     public Written createOrganization(final Change change, final String card) throws IOException {
+        outsideBatch();
         final Filed filed = cardOf(change.acting().login(), card);
         if (!filed.fingerprint.equals(PersonCard.fingerprint(change.acting().key()))) {
             throw new Refused(Refused.USAGE, "the card is not of the key that acts", null);
@@ -1195,6 +1263,14 @@ public final class GitTreeWrites implements OrganizationWrites {
 
     private Written changeOn(final Change change, final String subject, final RecordEdit edit)
             throws IOException {
+        final List<RecordEdit> pending = collecting;
+        if (pending != null) {
+            if (!change.equals(batchChange)) {
+                throw new Refused(Refused.USAGE, "every edit must use the enclosing change", null);
+            }
+            pending.add(edit);
+            return new Written(String.valueOf(change.base()), change.id(), false);
+        }
         final String fingerprint = PersonCard.fingerprint(change.acting().key());
         try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
             final TreeRecord before = walk(clone);
@@ -1245,7 +1321,7 @@ public final class GitTreeWrites implements OrganizationWrites {
                         tip);
             }
             judged(clone, commits, tip, before.model(), change.acting().login());
-            if (!clone.push(address, access)) {
+            if (!clone.push(address, access, tip)) {
                 return afterRefusedPush(change, commit, tip);
             }
             return new Written(commit, change.id(), false);

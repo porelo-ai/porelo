@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B518",
   "title": "A Person Leaves An Organization",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 25,
@@ -66,7 +66,37 @@ answer names each one, so an organization admin can tidy it.
 
 All tests are unit tests over a local organization repository, as `OrgPersonCommand`'s are.
 
-## To be checked
+## As built
 
-- Whether `OrgWriting`'s session can push several commits at once, or `leave` needs that added.
-- Which other files porelo keeps per organization on a machine (a cached tree, a pin); each is forgotten with it.
+- `porelo org leave` writes its changes through `OrganizationWrites.together`, a new batch of the store's own edits:
+  the organization-admin entry (only for an owner), the owner entry, then the person's own card, as consecutive
+  commits signed with the person's key, judged by `TreeWalk` and pushed once with a lease on the base read. A
+  concurrent change refuses the whole leave. Single writes now push with the same lease.
+- Only an owner entry of the signing key is taken out. An entry of an older key stays and is answered in
+  `stillListed`, as are host, project and (for an admin who is no owner) organization-admin entries.
+- The last owner is refused (`last-of-its-kind`, 65) before anything is written, counting only another owner whose
+  card is trusted, unrevoked and of the key the entry names. The refusal names the organization admins, else every
+  person holding a trusted card.
+- A receipt under the state directory is written before the push. A retry carries the same base and id, and the
+  machine forgets the organization only once the receipt says the push stands: `organization.yml`, `checkouts.yml`,
+  the kept card, `card.id` and `key.pub`, and porelo's per-organization state (`organization`, `organization-host`,
+  `organization-projects`, `identity`). The checkouts themselves stay.
+- `--json` answers `{organization, login, left, stillListed: [{file, role}], forgotten}`.
+
+## After the code reading
+
+Read by agy (gemini-4-argon-high). Each finding was checked against the code; each one taken has a test seen red.
+
+- Taken (red): a retry that found main moved on kept its receipt, so every later `leave` was pinned to the old base
+  and refused again, and `setup --replace` was refused too. `moved-on` is answered only once the store has seen the
+  change is not on main, so it now drops the receipt on a retry too.
+- Taken (red): the last-owner check counted every owner entry, even one whose card is revoked or untrusted, so the
+  last owner who could still act could leave. Now only another owner who can act counts.
+- Taken (yellow): an owner was found by login, but the readers judge the signing key. A person whose card an admin
+  replaced was taken for an owner and refused at the push; that entry is now named in `stillListed`.
+- Taken (yellow): removing an unfinished receipt listed the directory through a link. The directory is now judged
+  as porelo's own first.
+- Not taken: the lease that single writes now push with refuses a remote rewound under a write as `moved-on`,
+  where a plain push went on over the rewind. It is the safer answer.
+- Not taken: the lost push reply is tested by failing `together` itself. It stands for a reply lost after the push
+  landed, which the runner seam cannot express.

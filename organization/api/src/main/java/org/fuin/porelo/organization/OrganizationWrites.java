@@ -56,6 +56,38 @@ public interface OrganizationWrites {
      */
     record Written(String revision, String id, boolean again) {}
 
+    /** Consecutive edits of distinct paths, submitted as one change. */
+    @FunctionalInterface
+    interface Batch {
+
+        /**
+         * Collects edits, using the enclosing change for each; their intermediate answers are not
+         * receipts.
+         *
+         * @param writes The collector, which never pushes an individual edit.
+         * @throws IOException When an edit cannot be prepared.
+         */
+        void edit(OrganizationWrites writes) throws IOException;
+    }
+
+    /**
+     * Signs edits in order and pushes them together against one base, or publishes none of them.
+     * Every edit is prepared from the original accepted state; overlapping paths are refused.
+     * Founding and nested batches are unavailable inside a batch.
+     *
+     * @param change Who acts, against which state, under which id.
+     * @param purpose The stable name of the operation, also checked when its id is replayed.
+     * @param batch The edits; not called when this id already made this operation.
+     * @return The final commit's receipt.
+     * @throws IOException When the result cannot be obtained; retry the same id.
+     */
+    default Written together(Change change, String purpose, Batch batch) throws IOException {
+        throw new OrganizationQuestions.Refused(
+                OrganizationQuestions.Refused.CANNOT_SAY,
+                "this organization store cannot submit edits together",
+                null);
+    }
+
     /**
      * Fills the organization's empty repository: the acting person becomes its only owner.
      *

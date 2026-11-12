@@ -161,6 +161,20 @@ public abstract class OrgWriting extends OrgReading {
         return id;
     }
 
+    /** Resumes an interrupted operation without changing the revision or id it first used. */
+    final void resume(final String revision, final String named) {
+        if ((base != null && !base.equals(revision)) || (id != null && !id.equals(named))) {
+            throw new Refused(
+                    Refused.USAGE,
+                    "a leave is unfinished: ask again with --id "
+                            + named
+                            + " and its original base",
+                    null);
+        }
+        base = revision;
+        id = named;
+    }
+
     @Override
     void text(final Map<String, @Nullable Object> answer) {
         line(

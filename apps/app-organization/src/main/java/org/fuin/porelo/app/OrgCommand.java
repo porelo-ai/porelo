@@ -35,6 +35,7 @@ import picocli.CommandLine.Option;
             OrgOwnerCommand.class,
             OrgAdminCommand.class,
             OrgPersonCommand.class,
+            OrgLeaveCommand.class,
             OrgProjectCommand.class,
             OrgHostCommand.class
         })

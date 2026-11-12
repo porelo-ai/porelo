@@ -958,10 +958,19 @@ final class TreeRepository implements AutoCloseable {
      * @throws IOException When the access cannot be lent.
      */
     boolean push(final String address, final FetchAccess access) throws IOException {
+        return push(address, access, null);
+    }
+
+    /** Pushes only while the remote still stands at the base read, including across a rewind. */
+    boolean push(final String address, final FetchAccess access, final @Nullable String base)
+            throws IOException {
         try (FetchAccess.Lease lease = access.lend(address)) {
             final List<String> arguments = new ArrayList<>(lease.arguments());
-            arguments.addAll(
-                    List.of("push", "-q", "--no-verify", "--", address, branch + ":" + branch));
+            arguments.addAll(List.of("push", "-q", "--no-verify"));
+            if (base != null) {
+                arguments.add("--force-with-lease=" + branch + ":" + base);
+            }
+            arguments.addAll(List.of("--", address, branch + ":" + branch));
             return git(lease.environment(), arguments.toArray(String[]::new)).successful();
         }
     }

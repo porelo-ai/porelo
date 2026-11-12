@@ -94,5 +94,22 @@ A project's task is certified by the key of one of the project's members, a deve
 
 ## The commands
 
+`porelo org leave` withdraws your own card and revokes its key. An owner also removes their own owner entry and,
+when listed, their Organization Admin entry. The admin removal is signed while the person is still an owner,
+and the card is removed last; all commits land in one push against the state read, or none do. The last owner
+cannot leave: the refusal names other Organization Admins as possible successors, else people holding trusted cards.
+
+Leave does not rewrite host admins or project members, whose admin entries belong to an Organization Admin's work.
+An Organization Admin who is not an owner cannot remove their own organization-admin entry either. These entries
+stay written and grant nothing once the card's key is revoked. The answer names each remaining entry's file and role
+under `stillListed`, so an Organization Admin can remove it.
+
+After the push stands, leave forgets the organization's address, the kept own card, public key and card id, and the
+checkout settings. It also forgets the organization's trust record, refresh files, project-file and repository-settings
+trust memories, cached project clones and records, host-reader cache, and identity operation receipts. The local leave
+receipt survives an interruption and is removed when forgetting finishes; setup refuses changes until then.
+Checkouts the person keeps themselves,
+account-wide credentials and revocations, and the host service's own configuration stay where they are.
+
 [The commands](commands.md) name, for each write, whose it is. They act on these files, and every one of them signs with your own key
 through your agent, so a command that is not yours is refused by the rule above even if the command let it through.
