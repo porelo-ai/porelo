@@ -111,3 +111,8 @@ image itself carries settings, a build in the task asks the tool's default hosts
   and win. An adapter is installed by the person, as trusted as their other tools.
 - Not changed: the launch-level paths for an adapter that is missing, fails or times out stop the start with the
   same refusal the unit tests pin.
+- A third reading found one Red, fixed: the refusal of an address that is not https, or that holds user information,
+  repeated the whole address, so a password written into it reached the message. It now names the entry and not the
+  address; a test that fails at the old message pins it.
+- Not changed: the reading asked about a host an agent refuses. An agent declares only names it needs; refusing is
+  the project's `egress.refused`, which this check reads, and it wins over any agent's allowance (`Egress`).

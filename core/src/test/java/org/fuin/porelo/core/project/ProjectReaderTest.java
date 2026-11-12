@@ -855,6 +855,23 @@ class ProjectReaderTest {
                 .hasMessageContaining(said);
     }
 
+    @Test
+    void aRefusedAddressWithUserInformationIsNeverRepeated() {
+
+        // The refusal reaches logs and the room: the password in the address must not.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        WITH_TOOL_REPOSITORY.replace(
+                                                "https://repo.example.org",
+                                                "https://alice:pw-4711@repo.example.org")))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("without user information")
+                .message()
+                .doesNotContain("pw-4711")
+                .doesNotContain("alice");
+    }
+
     static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments>
             badToolRepositories() {
         final String entry =

@@ -294,10 +294,8 @@ public final class ProjectFileCheck {
                         "'"
                                 + path
                                 + ".url' must be an https:// address, or http:// on a literal"
-                                + " loopback address (127.0.0.1, [::1]), without user information,"
-                                + " not '"
-                                + shown(url)
-                                + "'");
+                                + " loopback address (127.0.0.1, [::1]), without user information;"
+                                + " the address is not repeated, as it may hold a secret");
                 continue;
             }
             if (!ToolRepository.isLoopback(host) && refusedBy(host, file.egress())) {
