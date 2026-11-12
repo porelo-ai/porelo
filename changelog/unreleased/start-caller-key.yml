@@ -1,0 +1,2 @@
+title: "`Tasks1.Start` and `porelo task start --caller-key` take a key of the caller's own, kept with the task through restarts and given back by `List` and `Watch`"
+type: added

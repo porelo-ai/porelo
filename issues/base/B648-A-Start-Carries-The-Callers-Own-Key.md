@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B648",
   "title": "A Start Carries The Caller's Own Key",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Highest",
   "rank": 3,
@@ -42,6 +42,24 @@ written. `Label` changes the profile afterwards (`TaskControl.label`). List and 
 3. **Kept apart from the label.** `Label` never changes it, and nothing a person types changes it. A resume keeps it.
 4. **The row.** List's and Watch's row carries `callerKey` ("" when none).
 5. **Docs.** The Tasks1 reference names it as the caller's own, opaque to porelo.
+
+## Built (2026-11-12)
+
+- Tasks1 Start takes `callerKey`, and `task start --caller-key` gives the same. A key over 200 characters or with
+  a control character is refused: `InvalidParameter` over the socket, exit 64 at the command line, before
+  anything is made.
+- The start writes the key into the task's state directory first, beside the starting branch. The profile
+  (`task.json`, version 11) then carries it. Both are among the durable files that `TaskState` saves under
+  the state directory, which a reboot does not reach, so the key survives a restart of the caller, the
+  daemon and the machine.
+- List's and Watch's row carries `callerKey`, "" when none. It is read from the profile, else from the early
+  file, where the task runs or else from its saved record.
+- `Label` keeps the key, and a resume never writes the profile, so it keeps it too. A start that brings back
+  an existing task keeps the key that task was created with.
+- Found for "To be checked": a task is listed only when its container exists. A start that fails before
+  podman made the container leaves no task: its state is removed and nothing is listed, so a caller that
+  restarts finds no task with its key, which is true. A start that fails once its container exists keeps the
+  task, stopped, and its row carries the key. The Start reply was not changed.
 
 ## Acceptance
 

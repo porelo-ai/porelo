@@ -3174,6 +3174,82 @@ class TaskRunCommandTest {
                 .isNotEqualTo(TaskControl.Outcome.NOTHING_KNOWS);
     }
 
+    @Test
+    void aStartThatFailedAfterItsStateWasMadeStillListsItsTaskWithTheCallersKey(@TempDir Path dir)
+            throws IOException {
+
+        // The caller that started it may die before it keeps what it started: listed again, the
+        // task carries the key it was given, failed or not, and so does the copy a reboot reads.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(
+                context.paths().xdg().data().resolve("agents/preview.yaml.setup-fails"), "");
+        runner.answering("{{.State.Pid}}", "4242");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "--caller-key",
+                        "offer-17");
+
+        assertThat(started).as("failed: %s", err).isEqualTo(70);
+        runner.answering(
+                "ps",
+                "porelo-uc_shell\tExited (0) 1 minute ago\t1788500000\t0\tuc\tguarded\tuc\t\t\n");
+        final TaskInventory inventory = new TaskInventory(context, null);
+        assertThat(inventory.rows(inventory.tasks()))
+                .singleElement()
+                .satisfies(row -> assertThat(row).containsEntry("callerKey", "offer-17"));
+        assertThat(
+                        (java.util.Map<?, ?>)
+                                org.fuin.porelo.wire.Json.parse(
+                                        Files.readString(
+                                                context.paths()
+                                                        .tasks()
+                                                        .taskRecord("porelo-uc_shell")
+                                                        .resolve(
+                                                                org.fuin.porelo.wire.TaskProfile
+                                                                        .FILE))))
+                .as("saved where a reboot does not reach")
+                .extracting(document -> document.get("callerKey"))
+                .isEqualTo("offer-17");
+    }
+
+    @ParameterizedTest(name = "{0} characters")
+    @ValueSource(ints = {201, 3})
+    void aCallerKeyTooLongOrWithAControlCharacterIsRefusedBeforeAnythingIsMade(
+            int length, @TempDir Path dir) throws IOException {
+
+        // 3 stands for a short key with a line break in it, which no listing can show as one line.
+        final PoreloContext context = countingContext(dir);
+        final String key = length == 3 ? "a\nb" : "k".repeat(length);
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "--caller-key",
+                        key);
+
+        assertThat(started).as("refused: %s", err).isEqualTo(64);
+        assertThat(err.toString()).contains("--caller-key");
+        assertThat(runner.lines())
+                .as("nothing was made")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest(name = "with --rm: {0}")
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void aStartThatFailsBeforeItsContainerLeavesItsConversationAndRecords(

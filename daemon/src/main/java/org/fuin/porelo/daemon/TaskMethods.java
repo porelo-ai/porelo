@@ -1016,6 +1016,7 @@ final class TaskMethods {
                     final java.util.concurrent.atomic.AtomicReference<String> started =
                             new java.util.concurrent.atomic.AtomicReference<>("");
                     final java.util.List<String> reads = reads(parameters);
+                    final String callerKey = callerKey(parameters);
                     final TaskLaunch.Request asked = request(parameters, context);
                     final TaskLaunch launch =
                             new TaskLaunch(
@@ -1023,7 +1024,8 @@ final class TaskMethods {
                                             asked,
                                             new org.fuin.porelo.app.StartSteps(progress, sink))
                                     .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"))
-                                    .reading(reads);
+                                    .reading(reads)
+                                    .keyedBy(callerKey);
                     if (replies.streaming()) {
                         // The run's own lines as it writes them, apart from Porelo's.
                         launch.followRun(line -> progress.stream().send(Map.of("runLine", line)));
@@ -1409,6 +1411,22 @@ final class TaskMethods {
         }
         throw new VarlinkException(
                 "org.varlink.service.InvalidParameter", Map.of("parameter", "reads"));
+    }
+
+    /**
+     * The key a start's caller gives it, taken as given: none when not given, refused when no
+     * listing could give it back as it was given.
+     */
+    static @Nullable String callerKey(final Map<String, Object> parameters) {
+        final Object given = parameters.get("callerKey");
+        if (given == null) {
+            return null;
+        }
+        if (given instanceof String key && TaskLaunch.callerKeyRefusal(key) == null) {
+            return key;
+        }
+        throw new VarlinkException(
+                "org.varlink.service.InvalidParameter", Map.of("parameter", "callerKey"));
     }
 
     /** Who calls: the account the daemon runs as, which is the only one its socket lets in. */

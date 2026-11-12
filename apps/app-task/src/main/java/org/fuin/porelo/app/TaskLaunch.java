@@ -2190,6 +2190,54 @@ public final class TaskLaunch {
         return this;
     }
 
+    /** The key the program starting this task gave it, or {@code null} when it gave none. */
+    private @Nullable String callerKey;
+
+    /** The most characters a caller's key may have. */
+    public static final int CALLER_KEY_MOST = 200;
+
+    /**
+     * Says why a caller's key cannot be kept, or {@code null} when it can.
+     *
+     * <p>The key is the caller's own and opaque to Porelo, so nothing else of it is judged: only
+     * what a listing could not give back as it was given.
+     *
+     * @param key The key, as given.
+     * @return The reason, or {@code null}.
+     */
+    public static @Nullable String callerKeyRefusal(final String key) {
+        if (key.codePointCount(0, key.length()) > CALLER_KEY_MOST) {
+            return "is longer than " + CALLER_KEY_MOST + " characters";
+        }
+        if (key.codePoints().anyMatch(Character::isISOControl)) {
+            return "holds a control character";
+        }
+        return null;
+    }
+
+    /**
+     * Starts this task with a key of its caller's own, which List and Watch give back on its row
+     * from then on: after a restart of the caller, of the daemon or of the machine, and after a
+     * start that failed once its container was made. A label never changes it, and a resume keeps
+     * it.
+     *
+     * @param key The key, or {@code null} or {@code ""} for none.
+     * @return This launch.
+     * @throws IllegalArgumentException When the key cannot be kept.
+     */
+    public TaskLaunch keyedBy(final @Nullable String key) {
+        if (key == null || key.isEmpty()) {
+            this.callerKey = null;
+            return this;
+        }
+        final String refused = callerKeyRefusal(key);
+        if (refused != null) {
+            throw new IllegalArgumentException("the caller's key " + refused);
+        }
+        this.callerKey = key;
+        return this;
+    }
+
     /** Who is asked whether to take the repository out of {@code default}; nobody by default. */
     private Offer leavingDefault = Offer.NOBODY;
 
@@ -3460,6 +3508,8 @@ public final class TaskLaunch {
             // pid there, and it has to be listening before the container exists.
             final java.nio.file.Path state = context.paths().tasks().containerState(container);
             Directories.create(state);
+            // First, so a start that fails from here on is still found by its caller's key.
+            TaskInventory.writeCallerKey(state, callerKey);
             if (startingBranch != null && workspace != null) {
                 startingBranch.writeTo(state);
                 startingBranch.writeForGate(workspace.gate().mirror(), request.task());
@@ -4266,7 +4316,8 @@ public final class TaskLaunch {
                             model.from(),
                             model.label().isEmpty() ? null : model.label(),
                             request.named(),
-                            ownSettingsHash.isEmpty() ? null : ownSettingsHash)
+                            ownSettingsHash.isEmpty() ? null : ownSettingsHash,
+                            callerKey)
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());

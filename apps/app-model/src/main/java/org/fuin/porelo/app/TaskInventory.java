@@ -1504,7 +1504,65 @@ public final class TaskInventory {
                                 GateSupport.mirror(context, project, task.repository()), within);
         row.put("landed", found.stream().map(landed -> landed(within, landed)).toList());
         row.put("minutes", RunLimit.minutes(context.paths().tasks().containerState(task.name())));
+        row.put("callerKey", callerKey(task.name()));
         return row;
+    }
+
+    /**
+     * The file a start writes its caller's key into, before anything else of it can fail; the
+     * task's profile carries the same key once it is written.
+     */
+    static final String CALLER_KEY_FILE = "caller-key";
+
+    /**
+     * Writes the key a start's caller gave it, where its state is made; a start given none leaves
+     * none, whatever an earlier task of the name left.
+     *
+     * @param state The task's state directory.
+     * @param key The caller's key, as given, or {@code null} for none.
+     * @throws java.io.IOException If it cannot be written.
+     */
+    static void writeCallerKey(final Path state, final @Nullable String key)
+            throws java.io.IOException {
+        final Path file = state.resolve(CALLER_KEY_FILE);
+        if (key == null) {
+            Files.deleteIfExists(file);
+            return;
+        }
+        Files.writeString(file, key, java.nio.charset.StandardCharsets.UTF_8);
+        Files.setPosixFilePermissions(
+                file, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+    }
+
+    /**
+     * Returns the key the program that started a task gave it: from its state where it runs, else
+     * from the record a reboot does not reach; from its profile, else from what its start wrote
+     * before the profile existed.
+     *
+     * @param container The task's container.
+     * @return The key, or {@code ""} when its start was given none.
+     */
+    String callerKey(final String container) {
+        final Path runtime = context.paths().tasks().containerState(container);
+        final Path state =
+                Files.isDirectory(runtime)
+                        ? runtime
+                        : context.paths().tasks().taskRecord(container);
+        final org.fuin.porelo.wire.TaskProfile profile =
+                org.fuin.porelo.wire.TaskProfile.readFrom(state);
+        if (profile != null) {
+            final String recorded = profile.callerKey();
+            return recorded == null ? "" : recorded;
+        }
+        try {
+            final Path file = state.resolve(CALLER_KEY_FILE);
+            return Files.isRegularFile(file)
+                    ? Files.readString(file, java.nio.charset.StandardCharsets.UTF_8)
+                    : "";
+        } catch (java.io.IOException ex) {
+            // A file that cannot be read says nothing; the task is still listed.
+            return "";
+        }
     }
 
     private static Map<String, Object> landed(String task, GitGate.Landed landed) {

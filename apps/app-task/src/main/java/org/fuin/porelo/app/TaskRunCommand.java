@@ -204,6 +204,18 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private java.util.List<String> reads = new java.util.ArrayList<>();
 
     @Option(
+            names = "--caller-key",
+            paramLabel = "KEY",
+            description =
+                    "A key of the starting program's own, kept with the task from its creation and"
+                            + " given back by the daemon's List and Watch, so a program that restarts"
+                            + " finds every task it started. Opaque to Porelo, never a caption, never"
+                            + " changed by a label; at most "
+                            + TaskLaunch.CALLER_KEY_MOST
+                            + " characters, no control characters.")
+    private @Nullable String callerKey;
+
+    @Option(
             names = "--minutes",
             paramLabel = "<n>",
             description =
@@ -897,6 +909,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 2;
         }
 
+        final String unkeyable = callerKey == null ? null : TaskLaunch.callerKeyRefusal(callerKey);
+        if (unkeyable != null) {
+            err.println("porelo: --caller-key " + unkeyable + ", so it cannot be kept");
+            err.flush();
+            return 64;
+        }
+
         final String unreadable = TaskLaunch.unreadable(reads);
         if (unreadable != null) {
             err.println("porelo: '" + unreadable + "' is no task's name, so it cannot be read");
@@ -948,6 +967,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         // pipe is refused as before.
                         .offering(offer(noInput, yes, Offer.atTerminal(), err))
                         .reading(reads)
+                        .keyedBy(callerKey)
                         // Asked at a terminal only; unattended the start only says it.
                         .askingToLeaveDefault(
                                 noInput || dryRun || !terminal.getAsBoolean()
@@ -1537,6 +1557,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--subagents",
                     "--minutes",
                     "--reads",
+                    "--caller-key",
                     "--upstream",
                     "--no-gate",
                     "--all-repositories",

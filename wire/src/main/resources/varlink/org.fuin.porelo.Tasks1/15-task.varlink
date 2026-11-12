@@ -274,6 +274,11 @@ type Task (
   # interface and the command line disagree about what a thing is called. Absent and empty are
   # deliberately the same state.
   label: string,
+  # The key Start's callerKey gave this task, as given; "" when its start was given none. The
+  # caller's own and opaque to porelo: never shown as a caption, never changed by Label, kept by a
+  # resume and through a restart of the caller, the daemon and the machine, and carried by a task
+  # whose start failed once its container was made.
+  callerKey: string,
   # Whether this task's own work is on the gate's waiting list, using its recorded class.
   # 1 when its recorded ref waits for review, 0 otherwise. An online task's ordinary push passes
   # on at once. Rescued refs remain in the gate's queue; a name suffix alone does not link a task.
@@ -727,6 +732,12 @@ method Start(
   # gate is never shown, and no other task's. Default: none. A name that is not a plain task name is
   # refused with org.varlink.service.InvalidParameter.
   reads: ?[]string,
+  # A key of the caller's own, kept with the task from its creation and given back on its row by List
+  # and Watch as callerKey, so a caller that restarts finds every task it started. Opaque to porelo:
+  # it is never shown as a caption, Label never changes it, and a start that brings back an existing
+  # task keeps the key that task was created with. At most 200 characters and no control characters,
+  # else org.varlink.service.InvalidParameter. Default: none.
+  callerKey: ?string,
   # Asks the person's own computer for the task's certificate, on a stream only: one continuing reply
   # may carry certify, answered by Certify on another connection. An interface sends it for a machine
   # that is not its own, as a host starts no task uncertified and holds no person's agent.
