@@ -455,6 +455,42 @@ class OrgWritingCommandsTest {
         assertThat(out.toString()).as("the change may have been made").contains("keep-me");
     }
 
+    @Test
+    void gitsWordsInARefusalNeverCarryTheUserInformationOfAnAddress() throws Exception {
+        failing =
+                org.fuin.porelo.organization.gittree.GitTreeStore.Unreachable.fromGit(
+                        "cannot read the organization's repository",
+                        "fatal: unable to access 'https://alice:hunter2@forge.example/org.git/':"
+                                + " The requested URL returned error: 403\n");
+
+        assertThat(run("org", "owner", "add", "alice", "--json", "--id", "keep-me")).isEqualTo(69);
+
+        assertThat(out.toString())
+                .as("the address is named, its user information left out")
+                .contains("forge.example/org.git")
+                .doesNotContain("hunter2");
+    }
+
+    @Test
+    void aStoreThatCannotBeReachedSaysWhichStepFailedAndWhatGitSaid() throws Exception {
+        // Without git's words a person cannot tell a missing right to push from a forge that did
+        // not answer, and asking again with the same id fails alike.
+        failing =
+                org.fuin.porelo.organization.gittree.GitTreeStore.Unreachable.fromGit(
+                        "cannot read the organization's repository",
+                        "fatal: could not read Username for 'https://forge.example': terminal"
+                                + " prompts disabled\n");
+
+        assertThat(run("org", "owner", "add", "alice", "--json", "--id", "keep-me")).isEqualTo(69);
+
+        assertThat(answer().get("reason")).isEqualTo("cannot-say");
+        assertThat(out.toString())
+                .as("the refusal names the step, git's words and the id to ask again with")
+                .contains("cannot read the organization's repository")
+                .contains("could not read Username")
+                .contains("keep-me");
+    }
+
     private IOException unreachable() {
         try {
             org.fuin.porelo.organization.gittree.GitTreeStore.at(

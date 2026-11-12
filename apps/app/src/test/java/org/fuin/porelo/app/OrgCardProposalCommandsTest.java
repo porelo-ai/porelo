@@ -66,7 +66,10 @@ class OrgCardProposalCommandsTest {
         assertThat(line.execute("org", "person", "proposals", "--json"))
                 .as("unreached, not failed")
                 .isEqualTo(69);
-        assertThat(out.toString()).as("JSON refusal").contains("cannot-say");
+        assertThat(out.toString())
+                .as("JSON refusal, naming the step that failed")
+                .contains("cannot-say")
+                .contains("cannot fetch the organization repository");
     }
 
     private static void unreachable(CommandLine line) {

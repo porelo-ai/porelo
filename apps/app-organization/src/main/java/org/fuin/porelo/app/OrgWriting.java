@@ -107,8 +107,10 @@ public abstract class OrgWriting extends OrgReading {
                     Refused.CANNOT_SAY,
                     (ex instanceof GitTreeStore.NotTaken
                                     ? ex.getMessage() + ": ask again with --id "
-                                    : "the organization cannot be reached, and the change may have"
-                                            + " been made: ask again with --id ")
+                                    : ForgeAddress.withoutUserinfoIn(
+                                                    String.valueOf(ex.getMessage()))
+                                            + "; the change may have been made: ask again with"
+                                            + " --id ")
                             + named,
                     null);
         }

@@ -81,8 +81,8 @@ abstract class OrgProposing extends OrgReading {
                     Refused.CANNOT_SAY,
                     ex instanceof GitTreeStore.NotTaken
                             ? ex.getMessage() + ": ask again"
-                            : "the organization cannot be reached, and a change may have been made:"
-                                    + " ask again",
+                            : ForgeAddress.withoutUserinfoIn(String.valueOf(ex.getMessage()))
+                                    + "; a change may have been made: ask again",
                     null);
         }
     }

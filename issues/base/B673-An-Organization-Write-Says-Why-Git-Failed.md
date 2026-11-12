@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B673",
   "title": "An Organization Write Says Why Git Failed",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 1,
@@ -36,6 +36,15 @@ drops them the same way. `porelo project sign` runs this in its own process; por
 - `OrgWriting` and `OrgProposing`: put `ex.getMessage()` after the sentence, as the `NotTaken` branch already does.
 - Red first: a test whose store throws `Unreachable.fromGit("cannot read the organization's repository", "fatal:
   could not read Username")` and asserts the refusal names both.
+
+## Built (2026-11-12)
+
+- `OrgWriting` and `OrgProposing` put the store's own words first: the failing step and, where git ran, git's own
+  lines as `GitTreeStore.Unreachable.fromGit` prepared them. Then they say, as before, that the change may have been
+  made and to ask again, with the same `--id` for a write. A push that was not taken already said so.
+- The words pass through `ForgeAddress.withoutUserinfoIn` first, so an address with user information in git's
+  words never reaches the answer. A test pins it with a password in an address.
+- `org person proposals` names the step as well, pinned in `OrgCardProposalCommandsTest`.
 
 ## Acceptance
 

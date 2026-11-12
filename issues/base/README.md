@@ -283,7 +283,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b673"></a>[B673](B673-An-Organization-Write-Says-Why-Git-Failed.md) | XS | - | A command that writes the organization and cannot reach its repository names git's own words and the step that failed, not only that the organization cannot be reached. |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 
@@ -304,6 +303,7 @@ from its side, as *blocked by*.
 | <a id="b648"></a>[B648](B648-A-Start-Carries-The-Callers-Own-Key.md) | M | - | Start takes an opaque key from its caller, at most 200 characters, kept with the task from its creation and given back by List and Watch, so a caller that restarts finds every task it started. | 0 |
 | <a id="b671"></a>[B671](B671-A-Starts-Steps-Name-The-Tasks-Container.md) | S | - | Every step of a Start from the container's creation on names the task's container, so a client that takes the task as started at AGENT STARTED and stops reading the call can follow it. | 0 |
 | <a id="b619"></a>[B619](B619-A-Task-Reads-Every-Repository-Of-Its-Project.md) | M | - | A task started to read its whole project sees every repository's main as a directory under /workspace, read only, taken wherever this machine takes each repository; it pushes nothing and leaves nothing behind. | - |
+| <a id="b673"></a>[B673](B673-An-Organization-Write-Says-Why-Git-Failed.md) | XS | - | A command that writes the organization and cannot reach its repository names git's own words and the step that failed, not only that the organization cannot be reached. | - |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. | - |
 | <a id="b597"></a>[B597](B597-Short-Names-For-A-Project-And-A-Task.md) | S | [B596](README.md#b596) | `project.short` and a task's `--short` shorten its container name. | - |
 | <a id="b632"></a>[B632](B632-An-Attended-Task-Takes-Its-Prompt-As-Its-First-Turn.md) | S | - | A Tasks1 Start with mode AGENT and a prompt answers once the task stands, and the agent's attended session, when it first starts, takes the prompt as its first turn and then waits for the person; an agent that cannot take one is refused with 64. | - |
