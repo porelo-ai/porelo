@@ -369,6 +369,32 @@ class StubAgentTest {
                 .contains("stub: continuing " + id + ", remembering lantern");
     }
 
+    @Test
+    void itsRestFitsWhatItShowsAtItsPromptAndNotWhatItShowsAtWork(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // A rest that does not fit the stub's screen has the suite say 'unknown' or 'at rest' of a
+        // stub doing the opposite, and wakes it into its work.
+        final AgentDefinition definition = agent.definition();
+        assertThat(definition.atRest()).as("the stub declares its rest").isNotNull();
+        final java.nio.file.Path script = dir.resolve("porelo-stub-cli");
+        java.nio.file.Files.writeString(script, renderedScript());
+        final java.nio.file.Path home = java.nio.file.Files.createDirectories(dir.resolve("home"));
+
+        final String resting =
+                attached(dir, home, "sh " + script, "lantern\n", "stub: noted lantern");
+
+        assertThat(definition.atRest().matches(resting))
+                .as("at its prompt, having answered:%n%s", resting)
+                .isTrue();
+        assertThat(definition.waiting().read(resting).seen())
+                .as("and no question open")
+                .isNotEqualTo(org.fuin.porelo.agent.api.Waiting.Seen.WAITING);
+        assertThat(definition.atRest().matches("stub: at work, nothing asked\nstub: step 3\n"))
+                .as("its screen while it works")
+                .isFalse();
+    }
+
     /**
      * Runs the script at a terminal, types what is given, and returns the screen once it shows what
      * is awaited.

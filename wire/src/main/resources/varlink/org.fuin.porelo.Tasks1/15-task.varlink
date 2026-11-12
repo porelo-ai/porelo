@@ -13,11 +13,16 @@ type Activity (
   # Waiting for a person to answer something, said by the thing that asked rather than guessed
   # from how long it has been quiet. waitingFor says what about.
   WAITING,
-  # Producing output.
+  # Producing output; for an attached agent that declares its rest, its screen shows it not at rest.
   WORKING,
   # Up and quiet, with no recorded question for a person. This does not mean "waiting for a message";
   # silence cannot say that. inboxWaiting counts what is waiting, for a client to interpret.
   IDLE,
+  # Up and attached, and its agent's screen shows it at rest at its prompt, by the agent's own
+  # declaration of what rest looks like, on two looks at least 1.5 s apart. Not IDLE, which is
+  # inferred from a quiet log. An agent that declares no rest stays UNKNOWN; a question to a person
+  # on its screen is never read as rest.
+  AT_REST,
   # Up, and its agent's run has ended - finished, or stopped by an error its agent read from its own
   # output. agentEnded says how. Neither working nor idle: nothing will happen any more on its own.
   ENDED,
@@ -235,7 +240,7 @@ type Task (
   # has no honest answer. This is what "idle for forty minutes" is arithmetic on; state is not.
   since: string,
   # What the work is doing. A recorded done declaration applies only to stopped or IDLE work;
-  # WORKING, WAITING, UNKNOWN and ENDED keep their meaning. The declaration stays until a start.
+  # WORKING, WAITING, AT_REST, UNKNOWN and ENDED keep their meaning. The declaration stays until a start.
   activity: Activity,
   # Last modification time of task.log, as an ISO-8601 instant; "" without a readable log.
   # Ask Tail(last: 1) for the last line when showing it. This timestamp alone does not change Watch.

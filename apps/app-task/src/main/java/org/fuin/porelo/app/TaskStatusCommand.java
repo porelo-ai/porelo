@@ -95,7 +95,7 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         }
 
         final TaskInventory.Task task =
-                TaskInventory.deriving(context).tasks().stream()
+                TaskInventory.derivingOnce(context).tasks().stream()
                         .filter(each -> each.name().equals(container))
                         .findFirst()
                         .orElse(null);
@@ -134,7 +134,7 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         line(out, "mode", task.mode());
         out.println();
         line(out, "state", task.state());
-        line(out, "activity", task.activity().name().toLowerCase(java.util.Locale.ROOT));
+        line(out, "activity", TaskListCommand.activity(task.activity()));
         if (task.agentEnded() != null) {
             // Its own line, and coloured when it is an error: the run is over, and only a person
             // can do anything now.
@@ -172,6 +172,9 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                         : age
                                 + " ago"
                                 + (task.since().isBlank() ? "" : "  (" + task.since() + ")"));
+        // When the latest request the broker carried to the provider began: a fact beside the
+        // activity, never a guess at contact - a login the agent keeps inside the task leaves none.
+        line(out, "last call", lastCall(new TaskUsage(context).read(task.name()).lastBegan()));
         line(out, "helpers", String.valueOf(task.helpers()));
         // Its porelo-mcp, as the gate is: running and where, or why not. None for a task whose
         // project allows it no endpoint.
@@ -384,6 +387,20 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         return derived.unproven()
                 ? reading + " (its rules have not matched in a day - check the agent's version)"
                 : reading;
+    }
+
+    /**
+     * Says when the latest brokered request began.
+     *
+     * @param began When, or {@code null} when nothing passed the broker.
+     * @return The line's value.
+     */
+    static String lastCall(java.time.@org.jspecify.annotations.Nullable Instant began) {
+        if (began == null) {
+            return "not known";
+        }
+        final String age = Age.compact(began.toString(), java.time.Instant.now());
+        return (age.isEmpty() ? "" : age + " ago  ") + "(" + began + ")";
     }
 
     private static void usage(PrintWriter out, org.fuin.porelo.core.UsageSums.Summary usage) {

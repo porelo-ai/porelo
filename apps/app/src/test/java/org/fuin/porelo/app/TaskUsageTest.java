@@ -88,6 +88,34 @@ class TaskUsageTest {
                         "2026-01-02T01:00+01:00");
     }
 
+    @Test
+    void saysWhenTheLatestFinishedBrokeredRequestBeganAndNothingWithoutOne(@TempDir Path dir)
+            throws Exception {
+        // A task with a brokered request said "not known", or one with none named a time: either
+        // sends a person after the wrong cause of a quiet task.
+        final PoreloContext context = context(dir);
+        assertThat(new TaskUsage(context).read(TASK).lastBegan())
+                .as("nothing passed the broker")
+                .isNull();
+        assertThat(TaskStatusCommand.lastCall(null)).isEqualTo("not known");
+
+        final Path file = record(context);
+        // An answer still streaming has no line yet: its half is not a request that began.
+        Files.writeString(
+                file,
+                "{\"time\":\"2026-01-01T23:00:00Z\"}\n{\"time\":\"2026-01-03T00:00:00Z\"",
+                java.nio.file.StandardOpenOption.APPEND);
+        final java.time.Instant began = new TaskUsage(context).read(TASK).lastBegan();
+
+        assertThat(began)
+                .as("the latest start of a finished request, whatever order the lines are in")
+                .isEqualTo(java.time.Instant.parse("2026-01-02T00:30:00Z"));
+        assertThat(TaskStatusCommand.lastCall(began))
+                .as("the instant is named")
+                .contains("2026-01-02T00:30:00Z")
+                .doesNotContain("not known");
+    }
+
     private Map<String, Object> count(Long tokens, long missing) {
         final var count = new java.util.LinkedHashMap<String, Object>();
         count.put("tokens", tokens);

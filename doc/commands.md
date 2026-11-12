@@ -164,7 +164,7 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | Command | What it does |
 |---|---|
 | `porelo task start [TASK]` | Creates a task, or brings back a stopped one with its workspace. |
-| `porelo task list` | Lists the tasks, with how long each has been in its state. |
+| `porelo task list` | Lists the tasks, with what each is doing and how long it has been in its state. |
 | `porelo task status TASK [--json]` | Everything known about one task, including unpushed work; `--json` answers a program, `absent` for none. |
 | `porelo task records --project PROJECT --since TIME [--json]` | A project's task records whose task ended at `TIME` or later, or works still, removed tasks' among them, oldest first: what each worked on, from when to when, and its tool calls. |
 | `porelo task logs TASK [LOG]` | Shows what the task's helpers on this machine wrote. |
@@ -391,12 +391,25 @@ for declared completion while stopped or idle, and otherwise the container runti
 | Activity | Meaning |
 |---|---|
 | `done` | the task declared completion through its own MCP socket and is stopped or idle; it waits on nobody |
-| `working` | producing output |
+| `working` | producing output; for an attached agent that declares its rest, its screen shows it not at rest |
 | `idle` | up, producing nothing, and not waiting for anybody as far as anything can tell |
+| `at rest` | attached, and its agent's screen shows it at its prompt waiting for its next turn, by the agent's own `at_rest`, on two looks 1.5 s apart |
 | `waiting` | waiting for a person, said by whatever asked (a clearance prompt, say); `waiting` names what about |
 | `ended` | up, and its agent's run has ended: nothing more will happen in it on its own |
 | `dead` | the container is not up |
-| `unknown` | nothing on this side can see what it does, such as a task with a terminal attached |
+| `unknown` | nothing on this side can see what it does, such as an attached agent that declares no `at_rest`, or whose screen shows a question to a person |
+
+`at rest` and `working` of an attached agent are read by the same rule the wake types by: only for an agent that
+declares both `at_rest` and the questions its screen shows, never while a question to a person is open, and rest
+only when two looks at its screen at least 1.5 s apart both show it. `task status` and `task list` look a second
+time themselves; the daemon's `Watch` takes its next read of the screen as the second look. `task list` shows the
+same activity in its `ACTIVITY` column.
+
+`last call` says when the latest request the broker carried to the provider began, and `not known` where none
+did. Only a credential the broker holds passes it: an agent that keeps its own login in the task, or a key the
+task holds itself, reaches the provider without it and leaves nothing here. A request is written down when its
+answer ends, so a long stream shows only once it has finished; counting tokens and listing models are not
+requests here.
 
 Where the project's MCP endpoint allows `Done`, a task calls
 `Done(task: CONTAINER, outcome: DONE|BLOCKED, why: REASON)` for itself only. Omitting `outcome`

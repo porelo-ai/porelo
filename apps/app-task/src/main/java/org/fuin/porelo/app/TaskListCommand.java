@@ -99,7 +99,7 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
         // Asked of the inventory rather than assembled here: the daemon answers the same question
         // for the interface, and two implementations of it would drift.
         final TaskInventory inventory = new TaskInventory(context);
-        final List<TaskInventory.Task> tasks = inventory.tasks();
+        final List<TaskInventory.Task> tasks = TaskInventory.derivingOnce(context).tasks();
         // Named like a task and not listed: a container Porelo holds no id for. Said under every
         // listing, a project's too, since such a container has no project anything could read.
         final List<String> unlisted = inventory.unrecognized(tasks);

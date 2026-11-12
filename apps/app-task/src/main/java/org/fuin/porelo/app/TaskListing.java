@@ -25,6 +25,7 @@ final class TaskListing {
      * @param project Its project, or {@code -}.
      * @param securityClass Its class, or {@code -}.
      * @param state What the runtime calls its state, short enough for its column.
+     * @param activity What its work is doing, as a person reads it.
      * @param age How long it has been in that state, or {@code -}.
      * @param helpers How many of its helpers are alive.
      */
@@ -33,6 +34,7 @@ final class TaskListing {
             String project,
             String securityClass,
             String state,
+            String activity,
             String age,
             long helpers) {
 
@@ -75,7 +77,9 @@ final class TaskListing {
         private String before() {
             // The name a person gave it, or its short one; the project column tells two of one
             // name apart, and 'task status' shows the container.
-            return String.format("%-38s %-14s %-9s %-18s ", display, project, securityClass, state);
+            return String.format(
+                    "%-38s %-14s %-9s %-18s %-8s ",
+                    display, project, securityClass, state, activity);
         }
 
         private String after() {
@@ -90,8 +94,8 @@ final class TaskListing {
      */
     static String header() {
         return String.format(
-                "%-38s %-14s %-9s %-18s %-5s %s",
-                "NAME", "PROJECT", "CLASS", "STATE", "AGE", "HELPERS");
+                "%-38s %-14s %-9s %-18s %-8s %-5s %s",
+                "NAME", "PROJECT", "CLASS", "STATE", "ACTIVITY", "AGE", "HELPERS");
     }
 
     /**
@@ -110,8 +114,20 @@ final class TaskListing {
                 task.project() == null ? "-" : task.project(),
                 task.securityClass() == null ? "-" : task.securityClass(),
                 state(task.state()),
+                activity(task.activity()),
                 age.isEmpty() ? "-" : age,
                 task.helpers());
+    }
+
+    /**
+     * Returns what the work is doing as a person reads it: the value's name in lower case, words
+     * apart.
+     *
+     * @param activity The activity.
+     * @return For example {@code at rest}.
+     */
+    static String activity(final TaskInventory.Activity activity) {
+        return activity.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
     }
 
     /**

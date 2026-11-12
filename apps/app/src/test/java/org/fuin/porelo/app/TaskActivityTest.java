@@ -414,6 +414,303 @@ class TaskActivityTest {
         assertThat(only(context).activity()).isEqualTo(TaskInventory.Activity.UNKNOWN);
     }
 
+    /** An agent that declares its rest and its question to a person, as the wake reads them. */
+    private static final org.fuin.porelo.agent.api.AgentDefinition RESTING =
+            org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                    new java.io.StringReader(
+                            """
+            name: resting
+            binary: resting
+            git_identity: { name: R, email: r@example.com }
+            headless: { prompt_flag: "-p" }
+            session:
+              at_rest:
+                shows: ["ready for the next turn"]
+                lacks: ["working on it"]
+              waiting:
+                screen:
+                  - { contains: "Trust this folder?", in_last_lines: 3, for: "the folder" }
+            """),
+                    "resting.yaml");
+
+    /** A clock a test moves. */
+    private static final class MovingClock extends java.time.Clock {
+
+        private Instant now = Instant.parse("2026-11-12T08:00:00Z");
+
+        void move(java.time.Duration by) {
+            now = now.plus(by);
+        }
+
+        @Override
+        public java.time.ZoneId getZone() {
+            return java.time.ZoneOffset.UTC;
+        }
+
+        @Override
+        public java.time.Clock withZone(java.time.ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
+    }
+
+    /** An attached task of the resting agent, whose screen is the stand-in its writer leaves. */
+    private Path attached(final String agent) throws IOException {
+        final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        agent,
+                        TaskMode.AGENT,
+                        null,
+                        null,
+                        "2026-11-12T07:00:00Z",
+                        "prompt")
+                .writeTo(state);
+        ScreenFile.prepare(state);
+        return state;
+    }
+
+    /**
+     * What the task's screen writer leaves: the screen, and its sign of life at the clock's now.
+     */
+    private static void draws(final Path state, final MovingClock clock, final String screen)
+            throws IOException {
+        final Path written = ScreenFile.directory(state);
+        Files.writeString(written.resolve(ScreenFile.SCREEN), screen);
+        Files.writeString(written.resolve(ScreenFile.ALIVE), "");
+        Files.setLastModifiedTime(
+                written.resolve(ScreenFile.ALIVE), FileTime.from(clock.instant()));
+    }
+
+    private TaskInventory deriving(final PoreloContext context, final MovingClock clock) {
+        return new TaskInventory(
+                context,
+                new AgentWaiting(
+                        context,
+                        clock,
+                        () -> java.util.Map.of("resting", java.util.Optional.of(RESTING))));
+    }
+
+    @Test
+    void anAttachedAgentWhoseScreenShowsItsRestOnTwoLooksIsAtRest(@TempDir Path dir)
+            throws IOException {
+
+        // An attached session writes to its terminal, not to a log: its rest is read from its
+        // screen by its own declaration, as the wake reads it, or nobody can tell it waits for its
+        // next turn.
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory = deriving(context, clock);
+        draws(state, clock, "the answer\nready for the next turn\n");
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "the answer\nready for the next turn\n");
+
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("two looks apart both show rest")
+                .isEqualTo(TaskInventory.Activity.AT_REST);
+    }
+
+    @Test
+    void oneLookAtRestIsNotYetRestAndAScreenAtWorkIsWorking(@TempDir Path dir) throws IOException {
+
+        // A look that fell into the gap between two tool calls said rest of a turn still running.
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory = deriving(context, clock);
+        draws(state, clock, "ready for the next turn\n");
+
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("one look shows rest")
+                .isEqualTo(TaskInventory.Activity.WORKING);
+
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "ready for the next turn\nworking on it\n");
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("its work line is on the screen")
+                .isEqualTo(TaskInventory.Activity.WORKING);
+
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "ready for the next turn\n");
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("rest begins again after the work")
+                .isEqualTo(TaskInventory.Activity.WORKING);
+    }
+
+    @Test
+    void aCommandAskedOnceLooksASecondTimeBeforeItSaysRest(@TempDir Path dir) throws IOException {
+
+        // 'task status' has no earlier read: it looks again after the wake's pause rather than
+        // say rest, or never, from one look.
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final java.util.List<java.time.Duration> paused = new java.util.ArrayList<>();
+        final TaskInventory inventory =
+                new TaskInventory(
+                        context,
+                        new AgentWaiting(
+                                context,
+                                clock,
+                                () -> java.util.Map.of("resting", java.util.Optional.of(RESTING)),
+                                time -> {
+                                    paused.add(time);
+                                    clock.move(time);
+                                    try {
+                                        draws(state, clock, "ready for the next turn\n");
+                                    } catch (IOException ex) {
+                                        throw new java.io.UncheckedIOException(ex);
+                                    }
+                                    return true;
+                                }));
+        draws(state, clock, "ready for the next turn\n");
+
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("both looks show rest")
+                .isEqualTo(TaskInventory.Activity.AT_REST);
+        assertThat(paused).as("one pause, the wake's").containsExactly(Rest.LOOK);
+    }
+
+    @Test
+    void aSecondLookThatFindsWorkSaysWorking(@TempDir Path dir) throws IOException {
+
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory =
+                new TaskInventory(
+                        context,
+                        new AgentWaiting(
+                                context,
+                                clock,
+                                () -> java.util.Map.of("resting", java.util.Optional.of(RESTING)),
+                                time -> {
+                                    clock.move(time);
+                                    try {
+                                        draws(state, clock, "working on it\n");
+                                    } catch (IOException ex) {
+                                        throw new java.io.UncheckedIOException(ex);
+                                    }
+                                    return true;
+                                }));
+        draws(state, clock, "ready for the next turn\n");
+
+        assertThat(inventory.tasks().getFirst().activity())
+                .isEqualTo(TaskInventory.Activity.WORKING);
+    }
+
+    @Test
+    void aQuestionToAPersonIsNeverRestAndAClearanceQuestionStaysWaiting(@TempDir Path dir)
+            throws IOException {
+
+        // Rest said over an open question would send nobody to answer it.
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory = deriving(context, clock);
+        final String asking = "ready for the next turn\nTrust this folder? [y/N]\n";
+        draws(state, clock, asking);
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, asking);
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("a question on its screen cannot be said rest or work")
+                .isEqualTo(TaskInventory.Activity.UNKNOWN);
+
+        new Waiting(state).asking("api.example.test:443");
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "ready for the next turn\n");
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "ready for the next turn\n");
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("whatever the screen shows, the clearance question is open")
+                .isEqualTo(TaskInventory.Activity.WAITING);
+    }
+
+    @Test
+    void aStoppedAttachedTaskIsDeadWhateverItsScreenShowed(@TempDir Path dir) throws IOException {
+
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory = deriving(context, clock);
+        draws(state, clock, "ready for the next turn\n");
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "ready for the next turn\n");
+        task("porelo-uc-shell-1", "Exited (0) 1 second ago", "1788500000", "1788509999");
+
+        assertThat(inventory.tasks().getFirst().activity()).isEqualTo(TaskInventory.Activity.DEAD);
+    }
+
+    @Test
+    void anAgentThatDeclaresNoRestAndAnUnattendedRunReadAsBefore(@TempDir Path dir)
+            throws IOException {
+
+        // Rest is the agent's own declaration, never silence: without one nothing is said.
+        final PoreloContext context = context(dir);
+        final Path state = attached("silent");
+        final MovingClock clock = new MovingClock();
+        final org.fuin.porelo.agent.api.AgentDefinition silent =
+                org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                name: silent
+                binary: silent
+                git_identity: { name: S, email: s@example.com }
+                headless: { prompt_flag: "-p" }
+                session:
+                  waiting:
+                    screen:
+                      - { contains: "Trust this folder?", in_last_lines: 3 }
+                """),
+                        "silent.yaml");
+        final TaskInventory inventory =
+                new TaskInventory(
+                        context,
+                        new AgentWaiting(
+                                context,
+                                clock,
+                                () ->
+                                        java.util.Map.of(
+                                                "silent",
+                                                java.util.Optional.of(silent),
+                                                "resting",
+                                                java.util.Optional.of(RESTING))));
+        draws(state, clock, "ready for the next turn\n");
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "ready for the next turn\n");
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("an agent declaring no rest")
+                .isEqualTo(TaskInventory.Activity.UNKNOWN);
+
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "resting",
+                        TaskMode.UNATTENDED,
+                        "go",
+                        null,
+                        "2026-11-12T07:00:00Z",
+                        "prompt")
+                .writeTo(state);
+        final Path log = Files.writeString(state.resolve("task.log"), "quiet for a while\n");
+        Files.setLastModifiedTime(log, FileTime.from(Instant.now().minusSeconds(3600)));
+        clock.move(AgentWaiting.SCREEN);
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("an unattended run is read by its log, whatever a screen showed")
+                .isEqualTo(TaskInventory.Activity.IDLE);
+    }
+
     @Test
     void aTaskWhoseContainerIsGoneIsDeadRatherThanIdle(@TempDir Path dir) throws IOException {
 

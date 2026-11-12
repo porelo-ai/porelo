@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B118",
   "title": "An Attached Agent Said At Rest Or Working",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 16,
@@ -103,3 +103,28 @@ yet run:
   is taken near the request's start, which is what the status names.
 
 Saying when a request ended, or that a stream is running now, is not part of this.
+
+## Built (2026-11-12)
+
+- **`Rest` in `app-model`** holds the wake's rule and `LOOK` (1.5 s); `AgentWake` uses it. Rest is read only for an
+  agent declaring both `at_rest` and screen rules for `waiting`, as the wake types only into such an agent.
+- **`AgentWaiting`** takes whole `AgentDefinition`s from its supplier and keeps, per task, since when its reads have
+  shown rest without a break; `Derived.turn` is `AT_REST` once two reads at least `LOOK` apart rested, `WORKING`
+  otherwise, `CANNOT_SAY` for a question on the screen, no screen, or an agent that declares too little. A pager
+  over the agent keeps what was read of the agent. `TaskInventory.derivingOnce` (used by `task status` and
+  `task list`) looks a second time after `LOOK` when rest is first seen; the daemon's `deriving` takes its next
+  read, at most every 3 s, as the second look.
+- **`AT_REST`** after `IDLE` in `TaskInventory.Activity` and the varlink `Activity`; within `Tasks1`, as an added
+  enum value is not breaking. `activityOf`: `DEAD`, `WAITING`, then `AT_REST` or `WORKING` from the turn, then as
+  before.
+- **`task status`** prints `at rest` and a `last call` line: the latest `time` in the task's usage record (the
+  broker's per-request lines, written when the answer ends), or `not known`. **`task list`** gains an `ACTIVITY`
+  column and now derives as status does.
+- `doc/commands.md`'s activity table and `last call`, `agents/README.md`'s `at_rest`, the stub's `at_rest` (its ready
+  line, lacking `stub: step`), and two scenarios in `agent-waiting.feature` with kit steps "porelo shows the … agent
+  in task … of … at rest" and "… working", which read `task status` and the task's row of `task list`.
+
+Not built or not run: the scenarios were written, not run on a VM. A stub declaring `at_rest` is now woken by a
+message that names its attached task or a file handed to it, which it echoes; no scenario checks a session's first
+typed line after such a wake. A declared DONE does not turn `AT_REST` into `DONE`, as the contract gives DONE only to
+stopped or `IDLE` work.

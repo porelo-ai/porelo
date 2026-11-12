@@ -1312,11 +1312,23 @@ public final class TaskInventory {
         /** Waiting for a person to answer something. Said by the thing that asked, not guessed. */
         WAITING,
 
-        /** Producing output. */
+        /**
+         * Producing output, or attached with an agent whose screen, read by its own declaration of
+         * rest, shows it not at rest.
+         */
         WORKING,
 
         /** Up, producing nothing, and not waiting for anybody as far as anything can tell. */
         IDLE,
+
+        /**
+         * Up and attached, and its agent's screen shows it at rest at its prompt, as its own
+         * declaration reads it, on two looks apart.
+         *
+         * <p>Not idle: idle is inferred from a log that stayed quiet, this is what the agent
+         * declares its rest looks like.
+         */
+        AT_REST,
 
         /**
          * Up, and its agent's run has ended - finished, or stopped by an error its agent read from
@@ -1390,6 +1402,21 @@ public final class TaskInventory {
         return new TaskInventory(
                 context,
                 new AgentWaiting(context, java.time.Clock.systemUTC()),
+                AgentEnding.of(context));
+    }
+
+    /**
+     * Constructor for a command asked once, such as {@code task status}: as {@link #deriving}, and
+     * an attached agent's screen first seen at rest is looked at again after {@link Rest#LOOK},
+     * since there is no earlier read to hold it against.
+     *
+     * @param context Where podman and the paths come from.
+     * @return The inventory.
+     */
+    public static TaskInventory derivingOnce(PoreloContext context) {
+        return new TaskInventory(
+                context,
+                AgentWaiting.lookingTwice(context, java.time.Clock.systemUTC()),
                 AgentEnding.of(context));
     }
 
@@ -1742,10 +1769,19 @@ public final class TaskInventory {
                                 summary.running(),
                                 profile == null ? null : profile.agent(),
                                 state);
+        final AgentWaiting.Derived derived =
+                agentWaiting == null
+                        ? AgentWaiting.Derived.NOTHING
+                        : agentWaiting.about(
+                                summary.name(),
+                                summary.running(),
+                                profile == null ? null : profile.agent(),
+                                profile == null ? null : profile.mode().name(),
+                                state);
         final Activity observed =
                 ended != null && summary.running()
                         ? Activity.ENDED
-                        : activityOf(summary, lastWrote, waitingFor);
+                        : activityOf(summary, lastWrote, waitingFor, derived.turn());
         final TaskDone.Declared declared = new TaskDone(context.paths()).read(summary.name());
         final Activity activity =
                 (observed == Activity.DEAD || observed == Activity.IDLE)
@@ -1811,14 +1847,7 @@ public final class TaskInventory {
                 // From the container's label, like the three above. The project moves on; this must
                 // not, or a question about a task is answered from a file that has changed.
                 summary.commit(),
-                agentWaiting == null
-                        ? AgentWaiting.Derived.NOTHING
-                        : agentWaiting.about(
-                                summary.name(),
-                                summary.running(),
-                                profile == null ? null : profile.agent(),
-                                profile == null ? null : profile.mode().name(),
-                                state),
+                derived,
                 credentialsGiven(
                         restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state),
                 grantsGiven(
@@ -2076,22 +2105,31 @@ public final class TaskInventory {
      * <p>In this order on purpose. A container that is down is dead whatever else is lying about in
      * its directory; a task that says it is waiting is waiting, because the thing that asked said
      * so; and only then does anything look at output, which is the one signal that needs a clock -
-     * so it decides between working and idle and never between waiting and anything.
+     * so it decides between working and idle and never between waiting and anything. An attached
+     * agent that declares its rest is read from its screen before that: it writes no log.
      *
      * @param summary What the runtime says.
      * @param lastWrote Last observed log write time, or {@code null} without a readable log.
      * @param waitingFor What it is waiting to be told, or {@code null}.
+     * @param turn Whether its attached agent's screen shows it at rest or at work.
      * @return What the work is doing.
      */
     private static Activity activityOf(
             ContainerSummary summary,
             java.time.@Nullable Instant lastWrote,
-            @Nullable String waitingFor) {
+            @Nullable String waitingFor,
+            AgentWaiting.Turn turn) {
         if (!summary.running()) {
             return Activity.DEAD;
         }
         if (waitingFor != null) {
             return Activity.WAITING;
+        }
+        if (turn == AgentWaiting.Turn.AT_REST) {
+            return Activity.AT_REST;
+        }
+        if (turn == AgentWaiting.Turn.WORKING) {
+            return Activity.WORKING;
         }
         if (lastWrote == null) {
             return Activity.UNKNOWN;

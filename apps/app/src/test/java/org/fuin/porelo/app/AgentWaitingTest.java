@@ -3,6 +3,7 @@ package org.fuin.porelo.app;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -14,7 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.fuin.porelo.agent.api.Waiting;
+import org.fuin.porelo.agent.api.AgentDefinition;
+import org.fuin.porelo.agent.api.AgentDefinitionReader;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
@@ -28,13 +30,36 @@ class AgentWaitingTest {
 
     private static final String TASK = "porelo-p-t";
 
-    private static final Waiting DECLARED =
-            new Waiting(
-                    List.of(
-                            new Waiting.Rule(
-                                    "Trust this folder?", 3, "whether to trust the folder")),
-                    List.of(new Waiting.Rule("(END)", 1, null)),
-                    new Waiting.LastMessage(Map.of("type", "result"), "result"));
+    private static final AgentDefinition DECLARED = asker("");
+
+    /** The asker, declaring its rest as well. */
+    private static final AgentDefinition RESTING =
+            asker(
+                    """
+              at_rest:
+                shows: ["ready for the next turn"]
+                lacks: ["working on it"]
+            """);
+
+    private static AgentDefinition asker(final String more) {
+        return AgentDefinitionReader.read(
+                new StringReader(
+                        """
+            name: asker
+            binary: asker
+            git_identity: { name: A, email: a@example.com }
+            headless: { prompt_flag: "-p" }
+            session:
+              waiting:
+                screen:
+                  - { contains: "Trust this folder?", in_last_lines: 3, for: "whether to trust the folder" }
+                not_its_screen:
+                  - { contains: "(END)", in_last_lines: 1 }
+                last_message: { record: { type: result }, text: result }
+            """
+                                + more),
+                "asker.yaml");
+    }
 
     @TempDir Path dir;
 
@@ -44,7 +69,7 @@ class AgentWaitingTest {
 
     private final AtomicInteger loaded = new AtomicInteger();
 
-    private AgentWaiting waiting(Map<String, Optional<Waiting>> declarations) {
+    private AgentWaiting waiting(Map<String, Optional<AgentDefinition>> declarations) {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

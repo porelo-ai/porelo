@@ -8,7 +8,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.fuin.porelo.agent.api.Waiting;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
@@ -72,11 +71,20 @@ class TaskListingScreensTest {
                         dir);
         final PoreloContext context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
-        final Waiting declared =
-                new Waiting(
-                        java.util.List.of(new Waiting.Rule("Trust this folder?", 3, "trust")),
-                        java.util.List.of(),
-                        null);
+        final org.fuin.porelo.agent.api.AgentDefinition declared =
+                org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                name: asker
+                binary: asker
+                git_identity: { name: A, email: a@example.com }
+                headless: { prompt_flag: "-p" }
+                session:
+                  waiting:
+                    screen:
+                      - { contains: "Trust this folder?", in_last_lines: 3, for: "trust" }
+                """),
+                        "asker.yaml");
         final TaskInventory inventory =
                 new TaskInventory(
                         context,

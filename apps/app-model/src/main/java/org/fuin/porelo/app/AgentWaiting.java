@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.agent.api.Waiting;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.wire.Json;
@@ -77,6 +78,25 @@ public final class AgentWaiting {
         UNSEEN
     }
 
+    /**
+     * Whether an attached agent is at rest at its prompt or at work, as its own declaration of rest
+     * reads its screen.
+     */
+    public enum Turn {
+
+        /** Its screen showed rest on two looks at least {@link Rest#LOOK} apart. */
+        AT_REST,
+
+        /** Its screen shows it not at rest, or at rest for one look only. */
+        WORKING,
+
+        /**
+         * Nothing can be said: not an attached running agent, an agent that does not declare its
+         * rest and its questions, a screen that cannot be read, or a question to a person on it.
+         */
+        CANNOT_SAY
+    }
+
     /** Whether a finished run's last message put something to the person. */
     public enum Asked {
 
@@ -105,6 +125,7 @@ public final class AgentWaiting {
      *     for none.
      * @param session The session its agent was running, recorded so the next start continues it; ""
      *     when none is - and then the next start begins a fresh one.
+     * @param turn Whether its attached agent rests at its prompt or works.
      */
     public record Derived(
             Screen screen,
@@ -113,16 +134,61 @@ public final class AgentWaiting {
             String lastMessage,
             Asked asked,
             String askedFrom,
-            String session) {
+            String session,
+            Turn turn) {
 
         /** What a task nothing could be read about carries. */
         public static final Derived NOTHING =
-                new Derived(Screen.UNSEEN, "", false, "", Asked.CANNOT_SAY, "", "");
+                new Derived(
+                        Screen.UNSEEN, "", false, "", Asked.CANNOT_SAY, "", "", Turn.CANNOT_SAY);
     }
 
-    private record Declarations(Instant read, Map<String, Optional<Waiting>> byAgent) {}
+    /** Waits between two looks at a screen. */
+    interface Pause {
 
-    private record Captured(Instant at, Screen screen, String waitingFor) {}
+        /**
+         * Waits.
+         *
+         * @param time How long.
+         * @return {@code false} when it was interrupted, so no second look is taken.
+         */
+        boolean waits(Duration time);
+    }
+
+    /** The pause a command asked once takes before it looks at a resting screen again. */
+    static final Pause SLEEPS =
+            time -> {
+                try {
+                    Thread.sleep(time);
+                    return true;
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            };
+
+    private record Declarations(Instant read, Map<String, Optional<AgentDefinition>> byAgent) {}
+
+    /**
+     * One read of a screen.
+     *
+     * @param at When.
+     * @param screen What it says about waiting.
+     * @param waitingFor What for, or "".
+     * @param restingSince Since when the reads of this screen have shown rest without a break, or
+     *     {@code null} when this one does not.
+     */
+    private record Captured(
+            Instant at, Screen screen, String waitingFor, @Nullable Instant restingSince) {
+
+        Captured(Instant at, Screen screen, String waitingFor) {
+            this(at, screen, waitingFor, null);
+        }
+
+        Captured resting(@Nullable Instant since) {
+            return new Captured(at, screen, waitingFor, since);
+        }
+    }
 
     private record Watched(Instant since, boolean matched) {}
 
@@ -132,7 +198,7 @@ public final class AgentWaiting {
 
     private final Clock clock;
 
-    private final java.util.function.Supplier<Map<String, Optional<Waiting>>> installed;
+    private final java.util.function.Supplier<Map<String, Optional<AgentDefinition>>> installed;
 
     private volatile @Nullable Declarations declarations;
 
@@ -142,6 +208,8 @@ public final class AgentWaiting {
 
     private final Map<String, LogRead> logs = new ConcurrentHashMap<>();
 
+    private final @Nullable Pause secondLook;
+
     /**
      * Constructor.
      *
@@ -149,7 +217,19 @@ public final class AgentWaiting {
      * @param clock What "now" is.
      */
     AgentWaiting(PoreloContext context, Clock clock) {
-        this(context, clock, () -> installed(context));
+        this(context, clock, () -> installed(context), null);
+    }
+
+    /**
+     * Constructor for a command asked once, which has no earlier read of a screen: a screen at rest
+     * is looked at a second time after {@link Rest#LOOK}, as the wake looks twice.
+     *
+     * @param context Where the agents, podman and the paths come from.
+     * @param clock What "now" is.
+     * @return The reader.
+     */
+    static AgentWaiting lookingTwice(PoreloContext context, Clock clock) {
+        return new AgentWaiting(context, clock, () -> installed(context), SLEEPS);
     }
 
     /**
@@ -157,16 +237,35 @@ public final class AgentWaiting {
      *
      * @param context Where podman and the paths come from.
      * @param clock What "now" is.
-     * @param installed Every installed agent's declaration by name, read again at most once a
-     *     {@link #DECLARATIONS}.
+     * @param installed Every installed agent's definition by name, read again at most once a {@link
+     *     #DECLARATIONS}.
      */
     AgentWaiting(
             PoreloContext context,
             Clock clock,
-            java.util.function.Supplier<Map<String, Optional<Waiting>>> installed) {
+            java.util.function.Supplier<Map<String, Optional<AgentDefinition>>> installed) {
+        this(context, clock, installed, null);
+    }
+
+    /**
+     * Constructor with where the declarations come from and how a second look waits.
+     *
+     * @param context Where podman and the paths come from.
+     * @param clock What "now" is.
+     * @param installed Every installed agent's definition by name, read again at most once a {@link
+     *     #DECLARATIONS}.
+     * @param secondLook How a screen first read at rest waits before it is read again, or {@code
+     *     null} for no second look - a watch, whose next read is a look of its own.
+     */
+    AgentWaiting(
+            PoreloContext context,
+            Clock clock,
+            java.util.function.Supplier<Map<String, Optional<AgentDefinition>>> installed,
+            @Nullable Pause secondLook) {
         this.context = context;
         this.clock = clock;
         this.installed = installed;
+        this.secondLook = secondLook;
     }
 
     /**
@@ -185,8 +284,11 @@ public final class AgentWaiting {
             @Nullable String agent,
             @Nullable String mode,
             Path state) {
-        final Waiting declared = agent == null ? null : declaration(agent);
-        final Captured screen = screenOf(container, running, mode, declared, state);
+        final AgentDefinition definition = agent == null ? null : definition(agent);
+        final Waiting declared = definition == null ? null : definition.waiting();
+        final org.fuin.porelo.agent.api.AtRest atRest =
+                definition == null ? null : definition.atRest();
+        final Captured screen = screenOf(container, running, mode, declared, atRest, state);
         final boolean unproven =
                 screen.screen() != Screen.UNDECLARED && unproven(container, screen);
         final String last =
@@ -200,7 +302,29 @@ public final class AgentWaiting {
                 last,
                 Asked.CANNOT_SAY,
                 "",
-                new TaskSession(context).recorded(container).orElse(""));
+                new TaskSession(context).recorded(container).orElse(""),
+                turn(screen, declared, atRest));
+    }
+
+    /**
+     * Says whether an agent rests or works by what its screen showed, by the wake's rule: rest only
+     * where its agent declares rest and questions, no question is open, and two reads at least
+     * {@link Rest#LOOK} apart both showed rest.
+     */
+    private static Turn turn(
+            Captured screen,
+            @Nullable Waiting declared,
+            org.fuin.porelo.agent.api.@Nullable AtRest atRest) {
+        if (!Rest.readable(declared, atRest)
+                || screen.screen() == Screen.WAITING
+                || screen.screen() == Screen.UNSEEN
+                || screen.screen() == Screen.UNDECLARED) {
+            return Turn.CANNOT_SAY;
+        }
+        final Instant since = screen.restingSince();
+        return since != null && !since.plus(Rest.LOOK).isAfter(screen.at())
+                ? Turn.AT_REST
+                : Turn.WORKING;
     }
 
     /** How many screens {@link #readScreens} reads at once. */
@@ -243,13 +367,16 @@ public final class AgentWaiting {
                         Math.min(AT_ONCE, due.size()),
                         Thread.ofPlatform().daemon().name("porelo-screen-", 0).factory())) {
             for (final Wanted task : due) {
+                final AgentDefinition definition =
+                        definition(java.util.Objects.requireNonNull(task.agent()));
                 pool.submit(
                         () ->
                                 screenOf(
                                         task.container(),
                                         true,
                                         task.mode(),
-                                        declaration(java.util.Objects.requireNonNull(task.agent())),
+                                        definition == null ? null : definition.waiting(),
+                                        definition == null ? null : definition.atRest(),
                                         context.paths().tasks().containerState(task.container())));
             }
         }
@@ -260,6 +387,7 @@ public final class AgentWaiting {
             boolean running,
             @Nullable String mode,
             @Nullable Waiting declared,
+            org.fuin.porelo.agent.api.@Nullable AtRest atRest,
             Path state) {
         final Instant now = clock.instant();
         if (declared == null || declared.screen().isEmpty()) {
@@ -275,7 +403,16 @@ public final class AgentWaiting {
         if (before != null && before.at().plus(SCREEN).isAfter(now)) {
             return before;
         }
-        final Captured read = capture(container, declared, before, now, state);
+        Captured read = capture(container, declared, atRest, before, now, state);
+        final Instant firstRest = read.restingSince();
+        if (secondLook != null
+                && firstRest != null
+                && firstRest.equals(read.at())
+                && secondLook.waits(Rest.LOOK)) {
+            // Rest first seen now, with no earlier read to hold it against: look again, as the
+            // wake does, rather than say rest of what may be a gap between two tool calls.
+            read = capture(container, declared, atRest, read, clock.instant(), state);
+        }
         screens.put(container, read);
         return read;
     }
@@ -283,6 +420,7 @@ public final class AgentWaiting {
     private Captured capture(
             String container,
             Waiting declared,
+            org.fuin.porelo.agent.api.@Nullable AtRest atRest,
             @Nullable Captured before,
             Instant now,
             Path state) {
@@ -291,7 +429,8 @@ public final class AgentWaiting {
         if (written != null) {
             return written.isEmpty()
                     ? new Captured(now, Screen.UNSEEN, "")
-                    : judged(declared.read(written), before, now);
+                    : judged(declared.read(written), before, now)
+                            .resting(restingSince(written, declared, atRest, before, now));
         }
         final CommandResult drawn;
         try {
@@ -314,7 +453,27 @@ public final class AgentWaiting {
             // No session yet, or one that ended: nothing is drawn to read.
             return new Captured(now, Screen.UNSEEN, "");
         }
-        return judged(declared.read(drawn.standardOutput()), before, now);
+        return judged(declared.read(drawn.standardOutput()), before, now)
+                .resting(restingSince(drawn.standardOutput(), declared, atRest, before, now));
+    }
+
+    /**
+     * Returns since when this screen and the reads before it showed rest, or {@code null} when it
+     * does not. A pager over the agent says nothing of it, so what was read of the agent stands.
+     */
+    private static @Nullable Instant restingSince(
+            String shown,
+            Waiting declared,
+            org.fuin.porelo.agent.api.@Nullable AtRest atRest,
+            @Nullable Captured before,
+            Instant now) {
+        if (declared.read(shown).seen() == Waiting.Seen.NOT_ITS_SCREEN) {
+            return before == null ? null : before.restingSince();
+        }
+        if (!Rest.shows(shown, declared, atRest)) {
+            return null;
+        }
+        return before != null && before.restingSince() != null ? before.restingSince() : now;
     }
 
     private static Captured judged(
@@ -380,22 +539,22 @@ public final class AgentWaiting {
         }
     }
 
-    private @Nullable Waiting declaration(String agent) {
+    private @Nullable AgentDefinition definition(String agent) {
         Declarations known = declarations;
         final Instant now = clock.instant();
         if (known == null || !known.read().plus(DECLARATIONS).isAfter(now)) {
-            final Map<String, Optional<Waiting>> byAgent = installed.get();
+            final Map<String, Optional<AgentDefinition>> byAgent = installed.get();
             known = new Declarations(now, byAgent);
             declarations = known;
         }
         return known.byAgent().getOrDefault(agent, Optional.empty()).orElse(null);
     }
 
-    private static Map<String, Optional<Waiting>> installed(PoreloContext context) {
-        final Map<String, Optional<Waiting>> byAgent = new java.util.HashMap<>();
+    private static Map<String, Optional<AgentDefinition>> installed(PoreloContext context) {
+        final Map<String, Optional<AgentDefinition>> byAgent = new java.util.HashMap<>();
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
             for (final org.fuin.porelo.agent.api.InstalledAgent each : agents.all()) {
-                byAgent.put(each.name(), Optional.ofNullable(each.definition().waiting()));
+                byAgent.put(each.name(), Optional.of(each.definition()));
             }
         } catch (RuntimeException ex) {
             // An agent that will not describe itself declares nothing that can be read.

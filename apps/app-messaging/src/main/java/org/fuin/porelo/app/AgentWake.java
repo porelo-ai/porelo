@@ -34,7 +34,7 @@ public final class AgentWake {
     private final PoreloContext context;
 
     /** How long between two looks at the screen: before typing, and after it. */
-    static final java.time.Duration LOOK = java.time.Duration.ofMillis(1500);
+    static final java.time.Duration LOOK = Rest.LOOK;
 
     private final java.time.Duration look;
 
@@ -547,9 +547,7 @@ public final class AgentWake {
         // Both, or never: an agent whose screen does not tell a question it put from its rest would
         // take the line and its Enter as the answer to a question nobody can see is open. A waiting
         // declaration that only says where a run's last message is declares no screen.
-        if (definition.atRest() == null
-                || definition.waiting() == null
-                || definition.waiting().screen().isEmpty()) {
+        if (!Rest.readable(definition)) {
             return false;
         }
         // Rest that holds over two looks: an agent's work line comes and goes between its tool
@@ -613,13 +611,8 @@ public final class AgentWake {
         if (!screen.live()) {
             return false;
         }
-        final String shown = String.join("\n", screen.lines());
-        final org.fuin.porelo.agent.api.Waiting waiting = definition.waiting();
-        final org.fuin.porelo.agent.api.AtRest atRest = definition.atRest();
-        return waiting != null
-                && atRest != null
-                && waiting.read(shown).seen() != org.fuin.porelo.agent.api.Waiting.Seen.WAITING
-                && atRest.matches(shown);
+        return Rest.shows(
+                String.join("\n", screen.lines()), definition.waiting(), definition.atRest());
     }
 
     /**

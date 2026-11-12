@@ -31,6 +31,30 @@ Feature: Porelo shows an agent waiting for a person, read by the agent's own dec
         And porelo shows the "stub" agent in task "attended" of "works" not waiting for a person
         And a script runs "porelo task remove porelo-works_attended --force"
 
+    Scenario: an attached agent that answered rests at its prompt and is said to
+        # The stub's at_rest is its ready line with no step of work under it: having answered the line typed, it
+        # waits for the next.
+        Given a project called "rests" of class "guarded" with a file in it
+        And a terminal on the machine
+        When I run "porelo task start attended --project rests --repository rests --agent stub --clearance deny"
+        Then the "stub" agent in task "attended" of "rests" reaches work without being asked anything
+        When I enter "lantern"
+        Then the screen of task "attended" of "rests" shows "stub: noted lantern"
+        And porelo shows the "stub" agent in task "attended" of "rests" at rest
+        And a script runs "porelo task remove porelo-rests_attended --force"
+
+    Scenario: an attached agent at work is said to be working, never at rest
+        Given a project called "busy" of class "guarded" with a file in it
+        And a script runs:
+            """
+            cd ~/busy && echo 2 > .porelo-stub-works && git add -A && git commit -q -m 'work until stopped'
+            """
+        And a terminal on the machine
+        When I run "porelo task start attended --project busy --repository busy --agent stub --clearance deny"
+        Then the "stub" agent in task "attended" of "busy" reaches work without being asked anything
+        And porelo shows the "stub" agent in task "attended" of "busy" working
+        And a script runs "porelo task remove porelo-busy_attended --force"
+
     Scenario: what a finished unattended run said last is shown without opening its log
         Given a project called "ran" of class "guarded" with a file in it
         When a task called "run" nobody is watching is started in "ran" for the "stub" agent and ends within 120 seconds

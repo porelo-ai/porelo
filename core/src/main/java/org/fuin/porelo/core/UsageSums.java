@@ -55,15 +55,29 @@ public final class UsageSums {
         }
     }
 
-    /** The reading state and all four views of the same record. */
+    /**
+     * The reading state and all four views of the same record.
+     *
+     * @param state Whether it could be read.
+     * @param totals Over every request.
+     * @param models By the model that answered.
+     * @param agents By agent.
+     * @param days By local day.
+     * @param hours By local hour.
+     * @param lastBegan When the latest finished request in it began, or {@code null} when none is
+     *     known: a line is written when its answer ends, with the time near its start.
+     */
     public record Summary(
             String state,
             Totals totals,
             List<Group> models,
             List<Group> agents,
             List<Group> days,
-            List<Group> hours) {
-        /** Returns the additive task usage contract. */
+            List<Group> hours,
+            @Nullable Instant lastBegan) {
+        /**
+         * Returns the additive task usage contract; the start of the latest request is not in it.
+         */
         public Map<String, Object> asMap() {
             return Map.of(
                     "state",
@@ -86,6 +100,7 @@ public final class UsageSums {
         final Accumulator totals = new Accumulator();
         final List<Map<String, Accumulator>> groups =
                 List.of(new TreeMap<>(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>());
+        Instant lastBegan = null;
         try (BufferedReader reader = Files.newBufferedReader(record)) {
             String line;
             while ((line = line(reader)) != null) {
@@ -94,7 +109,8 @@ public final class UsageSums {
                 try {
                     entry = (Map<?, ?>) java.util.Objects.requireNonNull(Json.parseDecimals(line));
                     Accumulator.check(entry);
-                    final var local = Instant.parse(String.valueOf(entry.get("time"))).atZone(zone);
+                    final Instant began = Instant.parse(String.valueOf(entry.get("time")));
+                    final var local = began.atZone(zone);
                     keys =
                             List.of(
                                     name(entry.get("model_answered")),
@@ -103,6 +119,7 @@ public final class UsageSums {
                                     local.truncatedTo(ChronoUnit.HOURS)
                                             .toOffsetDateTime()
                                             .toString());
+                    lastBegan = lastBegan == null || began.isAfter(lastBegan) ? began : lastBegan;
                 } catch (RuntimeException | StackOverflowError ex) {
                     // A killed broker's half line. That request was billed: it stays a request of
                     // which nothing is known, and takes nothing else with it.
@@ -126,7 +143,8 @@ public final class UsageSums {
                 groups(groups.get(0)),
                 groups(groups.get(1)),
                 groups(groups.get(2)),
-                groups(groups.get(3)));
+                groups(groups.get(3)),
+                lastBegan);
     }
 
     private static String name(@Nullable Object value) {
@@ -168,7 +186,7 @@ public final class UsageSums {
 
     private static Summary empty(String state) {
         return new Summary(
-                state, new Accumulator().value(), List.of(), List.of(), List.of(), List.of());
+                state, new Accumulator().value(), List.of(), List.of(), List.of(), List.of(), null);
     }
 
     private static List<Group> groups(Map<String, Accumulator> entries) {

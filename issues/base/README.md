@@ -311,7 +311,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
-| <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. |
 
 ## Review
 
@@ -370,6 +369,7 @@ from its side, as *blocked by*.
 | <a id="b586"></a>[B586](B586-A-Task-Name-The-Room-Cannot-Hold.md) | S | - | A long task name on a clash, and one with two hyphens in a row, still get a name in the room. | - |
 | <a id="b580"></a>[B580](B580-The-Gathered-Push-From-The-Window.md) | M | [B544](README.md#b544) | `PushToCentral` over the daemon: the gathered push to central with progress and typed refusals, for the window's release. | - |
 | <a id="b607"></a>[B607](B607-A-Missing-Builds-Credential-Names-Its-Forge.md) | XS | - | The wire's `MissingCredential` names the forge whose builds the missing entry reads, so the window can say which forge. | - |
+| <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](README.md#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. | - |
 | <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. | - |
 | <a id="b583"></a>[B583](B583-The-Rooms-Members-Over-The-Daemon.md) | S | - | `RoomMembers` over the daemon from the transport's `members` verb: who is in a project's room, tasks by container. | - |

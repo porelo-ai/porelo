@@ -44,6 +44,12 @@ session:
     # PORELO_STUB_WORKSPACE names another workspace, for a test outside a container.
     ready_marker: "stub: at work, nothing asked"
     ready_within_seconds: 30
+    # What the stub shows at its prompt, attached, waiting for the next line: its ready line, and no step
+    # of the work '.porelo-stub-works' makes it do. Over the setup question '.porelo-stub-covers' draws,
+    # the ready line is gone, so that never reads as rest.
+    at_rest:
+        shows: ["stub: at work, nothing asked"]
+        lacks: ["stub: step"]
     # What waiting for a person looks like in the stub's own output: its question on the screen, and
     # the record an unattended run ends with. Declared here because only the agent knows its wording -
     # nothing outside agents/ may. The question is the one '.porelo-stub-asks' makes it ask.

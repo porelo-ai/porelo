@@ -245,7 +245,9 @@ apart, and both must match. **The line must leave the input box:** a screen that
 after the line was typed means the agent took the Enter while it drew something; Porelo presses Enter once more and
 says so in its journal, and a line still standing after that is said as not delivered and only submitted, never typed
 again, at the next try. `shows` and `lacks` may not both be empty. The values above are
-Claude Code's own: each agent declares what its screen shows, measured at the version it pins.
+Claude Code's own: each agent declares what its screen shows, measured at the version it pins. The same reading
+makes `task status` and `task list` say an attached agent is `at rest` or `working`; an agent without `at_rest`
+stays `unknown` there.
 
 **`instructions` is how a task's agent is told what Porelo gives it there.** Porelo writes one guide - `/porelo/files`
 and what arrives there, the builds of its pushes, and its mailbox where it has one - to `/run/porelo/guide/README.md`,

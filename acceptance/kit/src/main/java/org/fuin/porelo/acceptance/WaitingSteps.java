@@ -114,6 +114,67 @@ public class WaitingSteps {
     }
 
     /**
+     * Asserts that Porelo says an attached agent is at rest, by its declaration of rest: in {@code
+     * task status} and on the task's row of {@code task list}, and that it keeps saying so.
+     *
+     * @param agent The agent.
+     * @param task The task.
+     * @param project The task's project.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Then("porelo shows the {string} agent in task {string} of {string} at rest")
+    public void showsAtRest(String agent, String task, String project) throws IOException {
+        showsActivity(agent, task, project, "at rest");
+    }
+
+    /**
+     * Asserts that Porelo says an attached agent is working, by its declaration of rest, and keeps
+     * saying so.
+     *
+     * @param agent The agent.
+     * @param task The task.
+     * @param project The task's project.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Then("porelo shows the {string} agent in task {string} of {string} working")
+    public void showsWorking(String agent, String task, String project) throws IOException {
+        showsActivity(agent, task, project, "working");
+    }
+
+    private void showsActivity(String agent, String task, String project, String activity)
+            throws IOException {
+        final Instant deadline = existsBy(project, task).plus(SHOWS_WITHIN);
+        String status = "";
+        String listed = "";
+        Instant since = null;
+        while (Instant.now().isBefore(deadline)) {
+            status = status(project, task);
+            listed = listed(task);
+            if (activity.equals(activity(status)) && listed.contains(" " + activity + " ")) {
+                since = since == null ? Instant.now() : since;
+                if (!Instant.now().isBefore(since.plus(HOLDS_FOR))) {
+                    return;
+                }
+            } else {
+                since = null;
+            }
+            pause();
+        }
+        throw new AssertionError(
+                "Porelo did not settle on showing the "
+                        + agent
+                        + " agent "
+                        + activity
+                        + " within "
+                        + SHOWS_WITHIN.toSeconds()
+                        + "s. If its screen shows it so, the agent's at_rest no longer fits it."
+                        + " 'porelo task status' said:\n"
+                        + status
+                        + "\nits row of 'porelo task list':\n"
+                        + listed);
+    }
+
+    /**
      * Starts a named unattended task that has to end within a bound.
      *
      * @param task The task's name.
@@ -252,6 +313,33 @@ public class WaitingSteps {
                 world.run("porelo task status " + Shell.quote(ReadySteps.container(project, task)));
         assertThat(output.status()).as("'porelo task status' failed:%n%s", output.all()).isZero();
         return output.out();
+    }
+
+    private String listed(String task) throws IOException {
+        final Ssh.Output output = world.run("porelo task list");
+        assertThat(output.status()).as("'porelo task list' failed:%n%s", output.all()).isZero();
+        final String name = TaskSteps.aName(task);
+        for (final String line : output.out().split("\n")) {
+            if (line.startsWith(name + " ")) {
+                return line;
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Picks the activity out of what {@code porelo task status} printed.
+     *
+     * @param status Its output.
+     * @return What follows {@code activity}, or "" when there is no such line.
+     */
+    static String activity(String status) {
+        for (final String line : status.split("\n")) {
+            if (line.startsWith("activity ")) {
+                return line.substring("activity ".length()).strip();
+            }
+        }
+        return "";
     }
 
     /**
