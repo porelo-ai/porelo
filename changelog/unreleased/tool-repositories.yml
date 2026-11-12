@@ -1,0 +1,2 @@
+title: "A project declares its build tools' repositories in `tool_repositories` and their adapters' settings in `extensions`, and a new task gets the settings files its ecosystem adapters write for them"
+type: added

@@ -30,6 +30,9 @@ final class Sections {
      */
     static final Sections REPOSITORY_SETTINGS = new Sections(PROJECT);
 
+    /** An entry of {@code tool_repositories}, a list whose entries are mappings. */
+    static final String TOOL_REPOSITORY = "tool_repositories[]";
+
     /** The section that allows a task an MCP endpoint: the project file's alone. */
     private static final String MCP = "mcp";
 
@@ -75,7 +78,9 @@ final class Sections {
                         "branch",
                         "base_branch",
                         MCP,
-                        "providers"));
+                        "providers",
+                        "tool_repositories",
+                        "extensions"));
         keys.put(
                 "project",
                 List.of(
@@ -113,6 +118,7 @@ final class Sections {
         keys.put("branch", List.of("template", "pattern"));
         keys.put(MCP, List.of("methods", "agents", "tasks", "minutes"));
         keys.put("providers.<name>", List.of("model", "label"));
+        keys.put(TOOL_REPOSITORY, List.of("ecosystem", "name", "url"));
     }
 
     /**

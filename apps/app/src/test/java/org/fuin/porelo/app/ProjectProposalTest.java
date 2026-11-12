@@ -477,4 +477,42 @@ class ProjectProposalTest {
                 .isEqualTo(JAVA + copy + MAVEN);
         assertThat(proposal.refusals()).isEmpty();
     }
+
+    @Test
+    void aRepositoryAndASettingAnAdapterFoundBecomeItsToolRepositoryAndItsBlock() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                finding(
+                                        Finding.Part.RULES,
+                                        "repository.corp",
+                                        "https://repo.example.org/maven/",
+                                        3),
+                                finding(Finding.Part.RULES, "extension.mirrorOf.corp", "*", 4)),
+                        List.of()));
+
+        var answer = proposal.answer();
+        final org.fuin.porelo.core.project.Project read =
+                ProjectReader.read(new StringReader(answer.get("draft").toString()), "draft");
+
+        assertThat(read.toolRepositories())
+                .as("the repository is declared for the adapter that found it")
+                .containsExactly(
+                        new org.fuin.porelo.core.project.ToolRepository(
+                                "maven", "corp", "https://repo.example.org/maven/"));
+        assertThat(read.egress().domains())
+                .as("with its host beside it in the egress")
+                .contains("repo.example.org");
+        assertThat(read.extensions())
+                .as("the setting is kept for that adapter, its key's dots nesting")
+                .containsExactly(
+                        java.util.Map.entry(
+                                "maven",
+                                java.util.Map.of("mirrorOf", java.util.Map.of("corp", "*"))));
+        assertThat(answer.get("not_placed").toString())
+                .as("neither is left for a person to place")
+                .doesNotContain("repository.corp", "extension.mirrorOf");
+    }
 }

@@ -791,4 +791,127 @@ class ProjectReaderTest {
         assertThat(read.repositories().getFirst().central())
                 .isEqualTo("git@github.com:acme/first.git");
     }
+
+    private static final String WITH_TOOL_REPOSITORY =
+            """
+            project:
+              name: "uc"
+              security_class: "guarded"
+            image:
+              from: "ubuntu:24.04"
+            egress:
+              domains: ["repo.example.org"]
+            tool_repositories:
+              - ecosystem: maven
+                name: corp
+                url: "https://repo.example.org/maven/"
+            extensions:
+              maven:
+                mirrorOf:
+                  corp: "*"
+            """;
+
+    @Test
+    void readsTheToolsRepositoriesAndTheBlockKeptForTheirAdapter() {
+
+        final Project project = read(WITH_TOOL_REPOSITORY);
+
+        assertThat(project.toolRepositories())
+                .as("each repository by its adapter, name and URL")
+                .containsExactly(
+                        new ToolRepository("maven", "corp", "https://repo.example.org/maven/"));
+        assertThat(project.extensions())
+                .as("the block is kept for its adapter as it is written")
+                .containsExactly(
+                        java.util.Map.entry(
+                                "maven",
+                                java.util.Map.of("mirrorOf", java.util.Map.of("corp", "*"))));
+        assertThat(read(MINIMAL).toolRepositories())
+                .as("a project that declares none has none")
+                .isEmpty();
+    }
+
+    @Test
+    void aRepositoryOnALiteralLoopbackAddressMayBePlainHttp() {
+
+        final Project project =
+                read(
+                        WITH_TOOL_REPOSITORY.replace(
+                                "https://repo.example.org/maven/", "http://127.0.0.1:8081/maven/"));
+
+        assertThat(project.toolRepositories())
+                .extracting(ToolRepository::url)
+                .containsExactly("http://127.0.0.1:8081/maven/");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.MethodSource("badToolRepositories")
+    void refusesAToolRepositoryOrBlockATaskCannotTake(
+            final String why, final String yaml, final String said) {
+
+        assertThatThrownBy(() -> read(yaml))
+                .as(why)
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining(said);
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments>
+            badToolRepositories() {
+        final String entry =
+                """
+                  - ecosystem: maven
+                    name: corp
+                    url: "https://repo.example.org/maven/"
+                """;
+        return java.util.stream.Stream.of(
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a dot would split the key that names it in a block",
+                        WITH_TOOL_REPOSITORY.replace("name: corp", "name: corp.eu"),
+                        "test.yml:10: 'tool_repositories[1].name'"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "two entries of one name",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "extensions:",
+                                entry.replace("ecosystem: maven", "ecosystem: npm")
+                                        + "extensions:"),
+                        "'corp' twice"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "plain http beyond loopback",
+                        WITH_TOOL_REPOSITORY.replace("https://repo", "http://repo"),
+                        "'tool_repositories[1].url' must be an https:// address"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a host the egress does not name, with the line to add",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "domains: [\"repo.example.org\"]",
+                                "domains: [\"other.example.org\"]"),
+                        "add \"repo.example.org\" to 'egress.domains'"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a block that is no mapping",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "  maven:\n    mirrorOf:\n      corp: \"*\"\n",
+                                "  maven: \"all\"\n"),
+                        "'extensions.maven' must be a mapping"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a key in a block with no value",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "  maven:\n    mirrorOf:\n      corp: \"*\"\n",
+                                "  maven:\n    mirrorOf:\n"),
+                        "'extensions.maven.mirrorOf' holds nothing"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a block deeper than the contract carries",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "corp: \"*\"", "a: {b: {c: {d: {e: {f: {g: {h: x}}}}}}}"),
+                        "deeper than 8 levels"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a block larger than the contract carries",
+                        WITH_TOOL_REPOSITORY.replace(
+                                "corp: \"*\"", "corp: \"" + "x".repeat(17_000) + "\""),
+                        "may have 16384"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "an offline project declares none",
+                        WITH_TOOL_REPOSITORY
+                                .replace("guarded", "offline")
+                                .replace("egress:\n  domains: [\"repo.example.org\"]\n", ""),
+                        "is offline, so it declares no tool repositories"));
+    }
 }

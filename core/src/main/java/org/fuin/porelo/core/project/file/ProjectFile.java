@@ -28,6 +28,10 @@ import org.jspecify.annotations.Nullable;
  *     none.
  * @param providers Each provider's default model, by the provider's name, in the order written
  *     ({@code providers}).
+ * @param toolRepositories The repositories a build tool in a task reaches, in the order written
+ *     ({@code tool_repositories}).
+ * @param extensions The block kept for each ecosystem adapter, by the adapter's name, as plain
+ *     values: text, truth values, numbers, lists and maps ({@code extensions}).
  */
 public record ProjectFile(
         @Nullable ProjectInfo project,
@@ -43,7 +47,9 @@ public record ProjectFile(
         Map<String, RepositoryEntry> repositories,
         @Nullable String baseBranch,
         @Nullable Mcp mcp,
-        Map<String, ProviderEntry> providers) {
+        Map<String, ProviderEntry> providers,
+        java.util.List<ToolRepositoryEntry> toolRepositories,
+        Map<String, Object> extensions) {
 
     /**
      * Constructor.
@@ -62,12 +68,71 @@ public record ProjectFile(
      * @param baseBranch The branch a task starts from by default.
      * @param mcp What a task may do through its MCP endpoint, or {@code null}.
      * @param providers Each provider's default model, by name.
+     * @param toolRepositories The repositories a build tool reaches.
+     * @param extensions The block kept for each ecosystem adapter, by its name.
      */
     public ProjectFile {
         parameters = ordered(parameters);
         credentials = ordered(credentials);
         repositories = ordered(repositories);
         providers = ordered(providers);
+        toolRepositories =
+                toolRepositories == null
+                        ? java.util.List.of()
+                        : java.util.List.copyOf(toolRepositories);
+        extensions = ordered(extensions);
+    }
+
+    /**
+     * Constructor for a file that declares no tool's repository.
+     *
+     * @param project Who the project is.
+     * @param image What a task's container is built from.
+     * @param build What the image build fetches from.
+     * @param egress What a task may reach.
+     * @param limits What one task may consume.
+     * @param mail Whom its tasks may write to.
+     * @param builds Where its builds are read.
+     * @param parameters The values a task may be started with.
+     * @param branch How a task's branch is named.
+     * @param credentials Vault entries to their destinations.
+     * @param repositories The repositories by name.
+     * @param baseBranch The branch a task starts from by default.
+     * @param mcp What a task may do through its MCP endpoint, or {@code null}.
+     * @param providers Each provider's default model, by name.
+     */
+    public ProjectFile(
+            @Nullable ProjectInfo project,
+            @Nullable Image image,
+            @Nullable BuildSources build,
+            @Nullable Egress egress,
+            @Nullable Limits limits,
+            @Nullable Mail mail,
+            @Nullable Builds builds,
+            Map<String, Parameter> parameters,
+            @Nullable BranchScheme branch,
+            Map<String, String> credentials,
+            Map<String, RepositoryEntry> repositories,
+            @Nullable String baseBranch,
+            @Nullable Mcp mcp,
+            Map<String, ProviderEntry> providers) {
+        this(
+                project,
+                image,
+                build,
+                egress,
+                limits,
+                mail,
+                builds,
+                parameters,
+                branch,
+                credentials,
+                repositories,
+                baseBranch,
+                mcp,
+                providers,
+                java.util.List.of(),
+                Map.of());
     }
 
     /**

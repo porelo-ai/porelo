@@ -134,6 +134,18 @@ final class FileYaml {
                             providers.put(name, each);
                         });
         put(top, "providers", providers);
+        final List<Map<String, Object>> toolRepositories = new java.util.ArrayList<>();
+        for (final ToolRepositoryEntry entry : file.toolRepositories()) {
+            final Map<String, Object> each = new LinkedHashMap<>();
+            put(each, "ecosystem", entry.ecosystem());
+            put(each, "name", entry.name());
+            put(each, "url", entry.url());
+            toolRepositories.add(each);
+        }
+        put(top, "tool_repositories", toolRepositories);
+        final Map<String, Object> extensions = new LinkedHashMap<>();
+        file.extensions().forEach((adapter, block) -> extensions.put(adapter, plain(block)));
+        put(top, "extensions", extensions);
         return top;
     }
 
@@ -225,6 +237,19 @@ final class FileYaml {
         put(written, "template", branch.template());
         put(written, "pattern", branch.pattern());
         return written;
+    }
+
+    /** A block of plain values, copied so the writer's own types are the ones it writes. */
+    private static Object plain(final Object value) {
+        if (value instanceof Map<?, ?> map) {
+            final Map<String, Object> copy = new LinkedHashMap<>();
+            map.forEach((key, each) -> copy.put(String.valueOf(key), plain(each)));
+            return copy;
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().map(FileYaml::plain).toList();
+        }
+        return value;
     }
 
     /** Puts a value the model holds; an absent one, or an empty list or map, is not written. */

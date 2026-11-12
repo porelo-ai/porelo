@@ -279,7 +279,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
-| <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](README.md#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |
 
 ## Review
 
@@ -337,6 +336,7 @@ from its side, as *blocked by*.
 | <a id="b544"></a>[B544](B544-The-Gathered-Push-And-Pull-Take-The-Central-Token-From-The-Vault.md) | M | [B543](README.md#b543) | `porelo host push \| pull`, the central token read from the person's vault, never stdin; `porelo-host-push` goes. | - |
 | <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. | - |
 | <a id="b583"></a>[B583](B583-The-Rooms-Members-Over-The-Daemon.md) | S | - | `RoomMembers` over the daemon from the transport's `members` verb: who is in a project's room, tasks by container. | - |
+| <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](README.md#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. | - |
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. | - |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. | - |
 | <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. | - |

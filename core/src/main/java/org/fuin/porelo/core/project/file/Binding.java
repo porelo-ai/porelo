@@ -249,6 +249,108 @@ final class Binding {
         return isNull(node) ? new LinkedHashMap<>() : section(node, path, section);
     }
 
+    /**
+     * Returns the mappings of a list whose every entry is one, each refused key by key as one of
+     * the file's fixed sections is.
+     *
+     * @param node The list's node, or {@code null} when the file leaves it out.
+     * @param path Its full path.
+     * @param section Which section each entry is, as {@link Sections} names it.
+     * @return Each entry's keys, in the order written, {@code null} for one that is no mapping;
+     *     empty when absent or not a list.
+     */
+    List<@Nullable Map<String, Node>> entries(
+            final @Nullable Node node, final String path, final String section) {
+        if (node == null || isNull(node)) {
+            return List.of();
+        }
+        if (!(node instanceof SequenceNode sequence)) {
+            faultAtKey(node, path, shape(path, "a list", node));
+            return List.of();
+        }
+        final List<@Nullable Map<String, Node>> entries = new ArrayList<>();
+        for (int at = 0; at < sequence.getValue().size(); at++) {
+            final Node each = sequence.getValue().get(at);
+            final String where = entry(path, at);
+            lines.put(where, line(each));
+            if (isNull(each)) {
+                fault(each, where, "'" + where + "' is empty");
+                entries.add(null);
+            } else {
+                entries.add(section(each, where, section));
+            }
+        }
+        return entries;
+    }
+
+    /**
+     * Returns the path of a list's entry, counted from one as a person counts them.
+     *
+     * @param path The list's full path.
+     * @param at The entry's index, from zero.
+     * @return Its path.
+     */
+    static String entry(final String path, final int at) {
+        return path + "[" + (at + 1) + "]";
+    }
+
+    /**
+     * Returns a block Porelo never reads as plain values: text, truth values, whole and decimal
+     * numbers, lists and maps, each as YAML reads it. A key with nothing under it is refused, since
+     * the block's reader takes no null.
+     *
+     * @param node Its node.
+     * @param path Its full path.
+     * @return The value, or {@code null} when something in it was refused.
+     */
+    @Nullable Object plain(final Node node, final String path) {
+        if (node instanceof MappingNode) {
+            final Map<String, Node> entries = mapping(node, path);
+            if (entries == null) {
+                return null;
+            }
+            final Map<String, Object> values = new LinkedHashMap<>();
+            entries.forEach(
+                    (key, value) -> {
+                        final Object plain = plain(value, join(path, key));
+                        if (plain != null) {
+                            values.put(key, plain);
+                        }
+                    });
+            return java.util.Collections.unmodifiableMap(values);
+        }
+        if (node instanceof SequenceNode sequence) {
+            final List<Object> values = new ArrayList<>();
+            for (int at = 0; at < sequence.getValue().size(); at++) {
+                final Object plain = plain(sequence.getValue().get(at), entry(path, at));
+                if (plain != null) {
+                    values.add(plain);
+                }
+            }
+            return java.util.Collections.unmodifiableList(values);
+        }
+        final ScalarNode scalar = (ScalarNode) node;
+        if (isNull(scalar)) {
+            fault(scalar, path, "'" + path + "' holds nothing; write a value or leave the key out");
+            return null;
+        }
+        if (Tag.BOOL.equals(scalar.getTag())) {
+            return bool(scalar, path);
+        }
+        if (Tag.INT.equals(scalar.getTag()) || Tag.FLOAT.equals(scalar.getTag())) {
+            // As YAML reads it, as a whole number is read elsewhere in the file.
+            final Object value =
+                    new Yaml(new SafeConstructor(new LoaderOptions())).load(scalar.getValue());
+            if (value instanceof Number number
+                    && (!(number instanceof Double each) || Double.isFinite(each))) {
+                return number;
+            }
+            fault(scalar, path, "'" + path + "' is no finite number: '" + shown(scalar) + "'");
+            return null;
+        }
+        return scalar.getValue();
+    }
+
     private @Nullable Map<String, Node> mapping(final @Nullable Node node, final String path) {
         if (node == null || isNull(node)) {
             return null;

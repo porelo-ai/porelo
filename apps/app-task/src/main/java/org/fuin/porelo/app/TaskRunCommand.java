@@ -968,6 +968,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         .offering(offer(noInput, yes, Offer.atTerminal(), err))
                         .reading(reads)
                         .keyedBy(callerKey)
+                        .configuringWith(detector)
                         // Asked at a terminal only; unattended the start only says it.
                         .askingToLeaveDefault(
                                 noInput || dryRun || !terminal.getAsBoolean()

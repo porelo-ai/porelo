@@ -161,13 +161,18 @@ public final class ProjectReader {
     /**
      * Returns the places where a project file holds what is not Porelo's to know: the project's own
      * names ({@code credentials}, {@code repositories}), each transport's settings ({@code
-     * mail.transports.<scheme>}) and the agents an MCP endpoint may start ({@code mcp.agents}), by
-     * the names this machine's agents go by.
+     * mail.transports.<scheme>}), the agents an MCP endpoint may start ({@code mcp.agents}), by the
+     * names this machine's agents go by, and each ecosystem adapter's block ({@code extensions}).
      *
      * @return Their paths.
      */
     public static List<String> openSections() {
-        return List.of("credentials", "repositories", "mail.transports.<scheme>", "mcp.agents");
+        return List.of(
+                "credentials",
+                "repositories",
+                "mail.transports.<scheme>",
+                "mcp.agents",
+                "extensions");
     }
 
     /**
@@ -276,7 +281,38 @@ public final class ProjectReader {
                 image.env(),
                 file.baseBranch(),
                 providers(file, Map.of()),
-                info.shortName());
+                info.shortName(),
+                toolRepositories(file),
+                extensions(file));
+    }
+
+    private static List<ToolRepository> toolRepositories(final ProjectFile file) {
+        return file.toolRepositories().stream()
+                .map(
+                        entry ->
+                                new ToolRepository(
+                                        Objects.requireNonNull(
+                                                entry.ecosystem(), "checked: ecosystem"),
+                                        Objects.requireNonNull(entry.name(), "checked: name"),
+                                        Objects.requireNonNull(entry.url(), "checked: url")))
+                .toList();
+    }
+
+    private static Map<String, Map<String, Object>> extensions(final ProjectFile file) {
+        final Map<String, Map<String, Object>> read = new LinkedHashMap<>();
+        file.extensions()
+                .forEach(
+                        (adapter, block) -> {
+                            final Map<String, Object> values = new LinkedHashMap<>();
+                            ((Map<?, ?>) block)
+                                    .forEach(
+                                            (key, value) ->
+                                                    values.put(
+                                                            String.valueOf(key),
+                                                            Objects.requireNonNull(value)));
+                            read.put(adapter, java.util.Collections.unmodifiableMap(values));
+                        });
+        return read;
     }
 
     /**

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B467",
   "title": "A Task Reaches Its Tool's Repositories Through Their Settings",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 19,
@@ -57,6 +57,27 @@ image itself carries settings, a build in the task asks the tool's default hosts
 - **Red first:** `ProjectReaderTest` reads the section and refuses each bad entry; a `TaskLaunch` test with a fake
   adapter places its settings file in the task user's home and stops the start when the adapter refuses; a
   `ProjectProposal` test writes both sections from a `repository.corp` finding and an `extension.mirrorOf.corp` finding.
+
+## Built (2026-11-12)
+
+- `project.yml` has two new optional top-level sections. `tool_repositories` lists entries with `ecosystem`, `name`
+  and `url`. `extensions` maps an adapter's name to a block Porelo passes on unread. `Project`, `ProjectFile`, the
+  binder, the writer, `ProjectSchema` and `doc/project-file.md` know both.
+- The file is refused when read for: a name outside `[A-Za-z0-9_-]`, a name used twice, a URL that is not `https`
+  (plain `http` only on `127.0.0.1` or `[::1]`), a URL with user information, a host the egress does not name (the
+  refusal says which line to add), an offline project that declares any, and a block that is no mapping, deeper
+  than 8 or over 16 KiB as JSON. The limits match the ecosystem contract's.
+- `ToolSettings` asks each named adapter `Configure` with its entries, the URL as written and its block, before
+  anything of the task is made. A missing or unusable adapter, a refusal, a failure, a timeout, or two adapters
+  answering one path stop the start in Porelo's words, never the adapter's.
+- `TaskLaunch` places each returned file at `/home/agent/<path>` with `TaskRunner.place`, owner-only where the
+  adapter says, beside the agent's files and only in a container made now.
+- A first start's draft turns `repository.<name>` findings into `tool_repositories` entries, with the host in
+  `egress`, and `extension.<key>` findings into `extensions.<adapter>`, the key's dots nesting.
+- To be checked, answered: inside the task a repository has its own URL, reached through the egress; a URL the
+  broker serves would come with credentials, which stay out of scope. The repositories are a top-level section, and
+  the draft fills them from what detection found. How a repository with a username and password is served is left
+  to the broker's own issue.
 
 ## Acceptance
 

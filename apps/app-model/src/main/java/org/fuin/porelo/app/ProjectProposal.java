@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
+import org.fuin.porelo.core.project.ToolRepository;
 import org.fuin.porelo.core.project.file.Egress;
 import org.fuin.porelo.core.project.file.Image;
 import org.fuin.porelo.core.project.file.ProjectFile;
@@ -15,6 +16,7 @@ import org.fuin.porelo.core.project.file.ProjectFileWriter;
 import org.fuin.porelo.core.project.file.ProjectInfo;
 import org.fuin.porelo.core.project.file.RepositoryEntry;
 import org.fuin.porelo.core.project.file.RepositoryFile;
+import org.fuin.porelo.core.project.file.ToolRepositoryEntry;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.Finding;
 import org.jspecify.annotations.Nullable;
@@ -31,6 +33,12 @@ final class ProjectProposal {
 
     /** A variable a plugin sets in the image. */
     private static final String ENV = "env.";
+
+    /** A repository a plugin's tool reaches, its value the URL. */
+    private static final String REPOSITORY = "repository.";
+
+    /** A setting for the plugin's own block, the key's dots nesting. */
+    private static final String EXTENSION = "extension.";
 
     private static final String BASE = "ubuntu:24.04";
 
@@ -61,6 +69,9 @@ final class ProjectProposal {
     private final Map<Key, List<Map<String, Object>>> groups = new LinkedHashMap<>();
     private final List<Map<String, Object>> unplaced = new ArrayList<>();
     private final Map<String, Object> credentials = new LinkedHashMap<>();
+    private final List<Map<String, Object>> extensionValues = new ArrayList<>();
+    private List<ToolRepositoryEntry> toolRepositories = List.of();
+    private Map<String, Object> extensions = Map.of();
     private List<Placed> tools = List.of();
     private List<Placed> unknowns = List.of();
     private List<String> hosts = List.of();
@@ -148,6 +159,11 @@ final class ProjectProposal {
             value.put("note", finding.note());
             value.put("plugin", plugin);
             values.add(value);
+            if (finding.part() == Finding.Part.RULES && finding.key().startsWith(EXTENSION)) {
+                // Each plugin's own: two plugins' blocks never disagree.
+                extensionValues.add(value);
+                continue;
+            }
             // Placed by the prefix alone, so two plugins disagreeing in the part still disagree.
             final boolean image = finding.key().startsWith(RUN) || finding.key().startsWith(ENV);
             groups.computeIfAbsent(
@@ -282,6 +298,16 @@ final class ProjectProposal {
         run.lines().forEach(line -> lines.add("image.run: " + line));
         env.forEach((name, value) -> lines.add("image.env: " + name + ": " + value));
         hosts.forEach(host -> lines.add("egress.domains: " + host));
+        toolRepositories.forEach(
+                each ->
+                        lines.add(
+                                "tool_repositories: "
+                                        + each.ecosystem()
+                                        + " "
+                                        + each.name()
+                                        + " "
+                                        + each.url()));
+        extensions.forEach((adapter, block) -> lines.add("extensions." + adapter + ": " + block));
         return List.copyOf(lines);
     }
 
@@ -330,6 +356,7 @@ final class ProjectProposal {
 
     Map<String, @Nullable Object> answer() {
         final List<Map<String, Object>> disagreements = new ArrayList<>();
+        final List<ToolRepositoryEntry> repositories = new ArrayList<>();
         final List<Map<String, Object>> notPlaced = new ArrayList<>();
         final List<String> domains = new ArrayList<>();
         final List<Placed> found = new ArrayList<>();
@@ -381,10 +408,33 @@ final class ProjectProposal {
                                         .distinct()
                                         .collect(java.util.stream.Collectors.joining("; "))));
             }
+            if (group.getKey().part() == Finding.Part.RULES && key.startsWith(REPOSITORY)) {
+                final String plugin = String.valueOf(known.getFirst().get("plugin"));
+                final String name = key.substring(REPOSITORY.length());
+                final String host = ToolRepository.host(value);
+                if (!name.matches(ToolRepository.NAME_PATTERN)
+                        || !plugin.matches(ToolRepository.ECOSYSTEM_PATTERN)
+                        || host == null
+                        || !(ToolRepository.isLoopback(host)
+                                || org.fuin.porelo.core.project.Egress.isDomain(host))) {
+                    notPlaced.addAll(known);
+                    continue;
+                }
+                repositories.add(new ToolRepositoryEntry(plugin, name, value));
+                if (!ToolRepository.isLoopback(host) && !domains.contains(host)) {
+                    domains.add(host);
+                    if (known.stream().allMatch(each -> "CHECKOUT".equals(each.get("origin")))) {
+                        ownHosts.add(host);
+                    }
+                }
+                continue;
+            }
             if (group.getKey().part() == Finding.Part.RULES && key.startsWith("host.")) {
-                domains.add(key.substring(5));
-                if (known.stream().allMatch(each -> "CHECKOUT".equals(each.get("origin")))) {
-                    ownHosts.add(key.substring(5));
+                if (!domains.contains(key.substring(5))) {
+                    domains.add(key.substring(5));
+                    if (known.stream().allMatch(each -> "CHECKOUT".equals(each.get("origin")))) {
+                        ownHosts.add(key.substring(5));
+                    }
                 }
             } else if (group.getKey().part() == Finding.Part.TOOLS
                     && key.startsWith("package.")
@@ -446,6 +496,9 @@ final class ProjectProposal {
                                     String.valueOf(value.get("file")),
                                     ""));
                 });
+        final Map<String, Object> blocks = blocks(notPlaced);
+        toolRepositories = List.copyOf(repositories);
+        extensions = blocks;
         tools = List.copyOf(found);
         unknowns = List.copyOf(unread);
         hosts = List.copyOf(domains);
@@ -454,7 +507,12 @@ final class ProjectProposal {
         refusals = List.copyOf(refused);
         env = java.util.Collections.unmodifiableMap(placedEnv);
         packages.append(fetched);
-        applied = !domains.isEmpty() || !packages.isEmpty() || !placedEnv.isEmpty();
+        applied =
+                !domains.isEmpty()
+                        || !packages.isEmpty()
+                        || !placedEnv.isEmpty()
+                        || !repositories.isEmpty()
+                        || !blocks.isEmpty();
         run = packages.toString();
         // What was found and where each value was read is the answer's to say, beside the draft:
         // the draft is written from its model, which holds no comment.
@@ -516,7 +574,80 @@ final class ProjectProposal {
                                 null,
                                 null,
                                 null,
-                                null)));
+                                null)),
+                null,
+                null,
+                Map.of(),
+                toolRepositories,
+                extensions);
+    }
+
+    /**
+     * Each plugin's block from its {@code extension.<key>} findings, the key's dots nesting; a
+     * finding that is unknown, or whose key runs into another's value, is left for a person.
+     */
+    private Map<String, Object> blocks(final List<Map<String, Object>> notPlaced) {
+        final Map<String, Map<List<String>, String>> flat = new LinkedHashMap<>();
+        for (var value : extensionValues) {
+            final String plugin = String.valueOf(value.get("plugin"));
+            final List<String> path =
+                    List.of(
+                            String.valueOf(value.get("key"))
+                                    .substring(EXTENSION.length())
+                                    .split("\\.", -1));
+            final String text = String.valueOf(value.get("value"));
+            final Map<List<String>, String> block =
+                    flat.computeIfAbsent(plugin, unused -> new LinkedHashMap<>());
+            if (Boolean.TRUE.equals(value.get("unknown"))
+                    || !plugin.matches(ToolRepository.ECOSYSTEM_PATTERN)
+                    || path.stream().anyMatch(String::isBlank)
+                    || clashes(block, path, text)) {
+                notPlaced.add(value);
+            } else {
+                block.put(path, text);
+            }
+        }
+        final Map<String, Object> written = new LinkedHashMap<>();
+        flat.forEach(
+                (plugin, block) -> {
+                    if (!block.isEmpty()) {
+                        written.put(plugin, nested(List.copyOf(block.entrySet()), 0));
+                    }
+                });
+        return java.util.Collections.unmodifiableMap(written);
+    }
+
+    /** Whether a path runs into one already placed: as its value, under it, or with another. */
+    private static boolean clashes(
+            final Map<List<String>, String> block, final List<String> path, final String value) {
+        for (var placed : block.entrySet()) {
+            final List<String> other = placed.getKey();
+            final int shorter = Math.min(other.size(), path.size());
+            if (other.subList(0, shorter).equals(path.subList(0, shorter))
+                    && (other.size() != path.size() || !placed.getValue().equals(value))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The entries below one level, nested by their next key, in the order written. */
+    private static Map<String, Object> nested(
+            final List<Map.Entry<List<String>, String>> entries, final int depth) {
+        final Map<String, List<Map.Entry<List<String>, String>>> byKey = new LinkedHashMap<>();
+        for (var entry : entries) {
+            byKey.computeIfAbsent(entry.getKey().get(depth), unused -> new ArrayList<>())
+                    .add(entry);
+        }
+        final Map<String, Object> level = new LinkedHashMap<>();
+        byKey.forEach(
+                (key, below) ->
+                        level.put(
+                                key,
+                                below.getFirst().getKey().size() == depth + 1
+                                        ? below.getFirst().getValue()
+                                        : nested(below, depth + 1)));
+        return level;
     }
 
     private static @Nullable String text(@Nullable Object value) {

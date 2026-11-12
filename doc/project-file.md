@@ -155,7 +155,7 @@ egress:
   sets: [os-packages-debian, git-hosting, maven]
 
   # Any other host by name. Ports 80 and 443 only.
-  domains: ["nexus.corp.example"]
+  domains: ["nexus.corp.example", "maven.corp.example"]
 
   # Services on this host, on TCP 443 only, in every class including offline.
   # These names resolve locally to the gate's host address, never through upstream DNS.
@@ -262,6 +262,21 @@ providers:
     model: "claude-opus-5-5"       # required; one word, handed to the agent's model flag
     label: "Opus 5.5"              # optional; what a client shows for it
 
+# Optional. The repositories a build tool in the task reaches. At each start of a new task, the
+# ecosystem adapter each entry names writes the tool's settings for them into the task user's home,
+# such as Maven's settings.xml with one mirror per repository. Egress names each host; a task reaches
+# the URL as written. An offline project declares none. See "A build tool's repositories" below.
+tool_repositories:
+  - ecosystem: maven               # the adapter, as 'porelo ecosystems' lists it
+    name: corp                     # letters, digits, '_' and '-'; each name once
+    url: "https://maven.corp.example/repository/maven-public/"   # https, or http on 127.0.0.1
+
+# Optional. Settings for one adapter alone, by its name, passed to it unread at the start.
+extensions:
+  maven:
+    mirrorOf:
+      corp: "*"                    # this repository stands in for every other
+
 # Optional. Gives each task of this project an MCP endpoint, through which it starts, lists and
 # stops tasks within these limits; without it a task gets none. See "A task's MCP endpoint" below.
 # mcp:
@@ -273,6 +288,26 @@ providers:
 #   tasks: 6                       # optional: the most it has running at once
 #   minutes: 240                   # optional: the longest run it may give one
 ```
+
+## A build tool's repositories
+
+A build in a task asks the repositories its tool's settings name, and with none it asks the tool's default hosts,
+which the egress refuses unless it names them. `tool_repositories` names the repositories instead. When a new task
+starts, Porelo asks each adapter named there, among the installed ones, for the settings files of its entries,
+with the block `extensions` keeps for it, and places those files in the task user's home before the agent's own.
+A file only its owner may read is placed so. A task that comes back keeps what it holds.
+
+**A start stops when an adapter cannot answer**: when it is not installed, refuses, fails or takes too long, or
+when two adapters write one file. The refusal names the adapter and what to do, never the adapter's own words,
+and nothing is created.
+
+**What a task reaches follows from `name` and `url` alone**: the egress names each host, and a URL whose host it
+does not name is refused when the file is read, naming the line to add. A block under `extensions` widens
+nothing; it is at most 16384 bytes as JSON and 8 levels deep. Porelo serves no credential for these repositories
+yet: one that wants a password keeps to what its own settings say.
+
+**A first start writes both sections** from what an adapter found: a repository it keys `repository.<name>`,
+with its host in `egress`, and a setting it keys `extension.<key>` under `extensions.<adapter>`.
 
 ## Starting branch
 

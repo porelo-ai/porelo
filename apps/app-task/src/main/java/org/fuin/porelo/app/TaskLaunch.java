@@ -1173,6 +1173,20 @@ public final class TaskLaunch {
         this.starterAgent = starterAgent;
     }
 
+    /** Who asks an installed ecosystem adapter for its tool's settings; a test answers it. */
+    private EcosystemDetector adapters = EcosystemDetector.INSTALLED;
+
+    /**
+     * Asks the ecosystem adapters through another.
+     *
+     * @param asking Who asks an installed adapter.
+     * @return This launch.
+     */
+    public TaskLaunch configuringWith(final EcosystemDetector asking) {
+        this.adapters = asking;
+        return this;
+    }
+
     /** Says when a stopped task's recorded repository settings differ from the file now. */
     private void settingsMovedOn(
             final java.nio.file.Path projectFile,
@@ -3042,6 +3056,19 @@ public final class TaskLaunch {
             return 69;
         }
 
+        // Asked before anything of the task is made: a build that cannot reach the repositories
+        // the project declares would ask the tool's default hosts, which the egress refuses.
+        final ToolSettings.Answer toolSettings =
+                ToolSettings.ask(project, context.paths().ecosystemDirectories(), adapters);
+        if (toolSettings instanceof ToolSettings.Answer.Refused refused) {
+            err.println("porelo: " + refused.reason());
+            err.println("porelo: nothing was created");
+            err.flush();
+            return 69;
+        }
+        final java.util.List<org.fuin.porelo.agent.api.ContainerFile> toolFiles =
+                ((ToolSettings.Answer.Files) toolSettings).files();
+
         final TaskRunner runner = context.tasks();
         final String container = startContainer(project);
         runner.reserving(reservation);
@@ -3756,6 +3783,11 @@ public final class TaskLaunch {
                                                     : ", named by the project"));
                         }
                     });
+            // Beside the agent's files, and only in a container made now: one that comes back
+            // keeps what it holds.
+            if (!placeToolSettings(runner, container, toolFiles, out, err)) {
+                return cleanUp(runner, container, 70, false, out, err);
+            }
             // Before anything else is started for it: a setup that fails then leaves no relay or
             // gate behind, only the container and its broker, which stopping it ends.
             final java.util.List<org.fuin.porelo.agent.api.ContainerFile> inWorkspace =
@@ -4856,6 +4888,43 @@ public final class TaskLaunch {
         } catch (java.io.IOException | RuntimeException ex) {
             return agentFilesFailed(agent, ex, err) ? null : java.util.List.of();
         }
+    }
+
+    /**
+     * Writes the settings files the project's build tools need, as their adapters answered them.
+     *
+     * @param runner Runs the container.
+     * @param container Container name.
+     * @param files What {@link ToolSettings} answered.
+     * @param out Where progress is reported.
+     * @param err Where problems are reported.
+     * @return {@code false} when they could not be placed: a build without them asks hosts the
+     *     egress refuses, so the task must not start.
+     */
+    private boolean placeToolSettings(
+            TaskRunner runner,
+            String container,
+            java.util.List<org.fuin.porelo.agent.api.ContainerFile> files,
+            PrintWriter out,
+            PrintWriter err) {
+        if (files.isEmpty()) {
+            return true;
+        }
+        try {
+            for (final var file : files) {
+                runner.place(container, file);
+            }
+        } catch (java.io.IOException | RuntimeException ex) {
+            err.println("porelo: could not place the build tools' settings: " + ex.getMessage());
+            err.flush();
+            return false;
+        }
+        out.println(
+                "prepared  "
+                        + files.size()
+                        + " settings file(s) for the build tools' repositories");
+        out.flush();
+        return true;
     }
 
     /**

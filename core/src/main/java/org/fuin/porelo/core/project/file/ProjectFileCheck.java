@@ -18,6 +18,7 @@ import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.fuin.porelo.core.project.SnippetFiles;
 import org.fuin.porelo.core.project.TaskVariables;
+import org.fuin.porelo.core.project.ToolRepository;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -25,6 +26,15 @@ import org.jspecify.annotations.Nullable;
  * Porelo can use. It returns every fault, each at its key, and throws nothing.
  */
 public final class ProjectFileCheck {
+
+    /**
+     * The most a block under {@code extensions} may hold as compact JSON: what the ecosystem
+     * contract carries to an adapter.
+     */
+    public static final int EXTENSION_BYTES = 16 * 1024;
+
+    /** The deepest a block under {@code extensions} may nest, counting the block as the first. */
+    public static final int EXTENSION_DEPTH = 8;
 
     /** What a project's name looks like. */
     public static final String PROJECT_NAME = "[a-z0-9][a-z0-9-]{0,62}";
@@ -214,6 +224,174 @@ public final class ProjectFileCheck {
             mcp(file.mcp());
         }
         providers(file.providers());
+        toolRepositories(file, label, securityClass);
+        extensions(file.extensions());
+    }
+
+    /**
+     * Checks {@code tool_repositories}: each entry's adapter, name and URL, and that the project's
+     * egress names its host, since what a task reaches for it follows from these alone.
+     */
+    private void toolRepositories(
+            final ProjectFile file,
+            final String label,
+            final @Nullable SecurityClass securityClass) {
+        if (file.toolRepositories().isEmpty()) {
+            return;
+        }
+        if (securityClass == SecurityClass.OFFLINE) {
+            fault(
+                    "tool_repositories",
+                    "Project '"
+                            + label
+                            + "' is offline, so it declares no tool repositories: its tasks reach"
+                            + " none. Remove 'tool_repositories' or raise the security class.");
+            return;
+        }
+        final Set<String> named = new java.util.HashSet<>();
+        for (int at = 0; at < file.toolRepositories().size(); at++) {
+            final ToolRepositoryEntry entry = file.toolRepositories().get(at);
+            final String path = Binding.entry("tool_repositories", at);
+            final String ecosystem = entry.ecosystem();
+            if (ecosystem == null) {
+                fault(
+                        path + ".ecosystem",
+                        "'"
+                                + path
+                                + ".ecosystem' is required: the adapter that writes the tool's"
+                                + " settings, as 'porelo ecosystems' lists it");
+            } else if (!ecosystem.matches(ToolRepository.ECOSYSTEM_PATTERN)) {
+                fault(
+                        path + ".ecosystem",
+                        "'" + path + ".ecosystem' names no adapter: '" + shown(ecosystem) + "'");
+            }
+            final String name = entry.name();
+            if (name == null) {
+                fault(path + ".name", "'" + path + ".name' is required");
+            } else if (!name.matches(ToolRepository.NAME_PATTERN)) {
+                fault(
+                        path + ".name",
+                        "'"
+                                + path
+                                + ".name' is letters, digits, '_' and '-', at most 64 of them, not '"
+                                + shown(name)
+                                + "': a dot would split the key that names it in an adapter's"
+                                + " block");
+            } else if (!named.add(name)) {
+                fault(
+                        path + ".name",
+                        "'tool_repositories' names the repository '" + name + "' twice");
+            }
+            final String url = entry.url();
+            if (url == null) {
+                fault(path + ".url", "'" + path + ".url' is required");
+                continue;
+            }
+            final String host = ToolRepository.host(url);
+            if (host == null) {
+                fault(
+                        path + ".url",
+                        "'"
+                                + path
+                                + ".url' must be an https:// address, or http:// on a literal"
+                                + " loopback address (127.0.0.1, [::1]), without user information,"
+                                + " not '"
+                                + shown(url)
+                                + "'");
+                continue;
+            }
+            if (!ToolRepository.isLoopback(host) && !reached(host, file.egress())) {
+                fault(
+                        path + ".url",
+                        "'"
+                                + path
+                                + ".url' reaches '"
+                                + shown(host)
+                                + "', which 'egress' does not name; add \""
+                                + shown(host)
+                                + "\" to 'egress.domains'");
+            }
+        }
+    }
+
+    /** Whether the egress names a host: as a domain or under one, or as a service on this host. */
+    private static boolean reached(final String host, final @Nullable Egress egress) {
+        if (egress == null) {
+            return false;
+        }
+        return egress.hostServices().contains(host)
+                || egress.domains().stream()
+                        .anyMatch(domain -> host.equals(domain) || host.endsWith("." + domain));
+    }
+
+    /**
+     * Checks {@code extensions}: each block is a mapping the ecosystem contract carries, by size
+     * and depth. What it says is the adapter's to judge.
+     */
+    private void extensions(final Map<String, Object> extensions) {
+        extensions.forEach(
+                (adapter, block) -> {
+                    final String path = Binding.join("extensions", adapter);
+                    if (!adapter.matches(ToolRepository.ECOSYSTEM_PATTERN)) {
+                        fault(path, "'" + path + "' names no adapter: '" + shown(adapter) + "'");
+                    }
+                    if (!(block instanceof Map<?, ?> map)) {
+                        fault(
+                                path,
+                                "'"
+                                        + path
+                                        + "' must be a mapping, not "
+                                        + (block instanceof List<?> ? "a list" : "a single value"));
+                        return;
+                    }
+                    if (depth(map) > EXTENSION_DEPTH) {
+                        fault(
+                                path,
+                                "'"
+                                        + path
+                                        + "' nests deeper than "
+                                        + EXTENSION_DEPTH
+                                        + " levels, which an adapter is not given");
+                        return;
+                    }
+                    if (blankKey(map)) {
+                        fault(path, "'" + path + "' holds a blank key");
+                        return;
+                    }
+                    final int bytes =
+                            org.fuin.porelo.wire.Json.write(map)
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                    .length;
+                    if (bytes > EXTENSION_BYTES) {
+                        fault(
+                                path,
+                                "'"
+                                        + path
+                                        + "' is "
+                                        + bytes
+                                        + " bytes as JSON, and one may have "
+                                        + EXTENSION_BYTES);
+                    }
+                });
+    }
+
+    /** How deep a value nests: a map or a list is one level more than what it holds. */
+    private static int depth(final Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return 1 + map.values().stream().mapToInt(ProjectFileCheck::depth).max().orElse(0);
+        }
+        if (value instanceof List<?> list) {
+            return 1 + list.stream().mapToInt(ProjectFileCheck::depth).max().orElse(0);
+        }
+        return 0;
+    }
+
+    private static boolean blankKey(final Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return map.keySet().stream().anyMatch(key -> String.valueOf(key).isBlank())
+                    || map.values().stream().anyMatch(ProjectFileCheck::blankKey);
+        }
+        return value instanceof List<?> list && list.stream().anyMatch(ProjectFileCheck::blankKey);
     }
 
     /**

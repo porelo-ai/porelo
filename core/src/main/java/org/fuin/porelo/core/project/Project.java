@@ -38,6 +38,10 @@ package org.fuin.porelo.core.project;
  *     none. A repository's own file names an image of its own, taken whole instead.
  * @param providers The model each provider's tasks run on unless their start names another, by the
  *     provider's name; empty when the file names none.
+ * @param toolRepositories The repositories its build tools reach, in the order written; empty when
+ *     the file declares none.
+ * @param extensions The block the file keeps for each ecosystem adapter, by the adapter's name,
+ *     which Porelo passes on and never reads; empty when it keeps none.
  */
 public record Project(
         String name,
@@ -61,7 +65,85 @@ public record Project(
         java.util.Map<String, String> imageEnv,
         @org.jspecify.annotations.Nullable String baseBranch,
         java.util.Map<String, ModelDefault> providers,
-        @org.jspecify.annotations.Nullable String shortName) {
+        @org.jspecify.annotations.Nullable String shortName,
+        java.util.List<ToolRepository> toolRepositories,
+        java.util.Map<String, java.util.Map<String, Object>> extensions) {
+
+    /**
+     * Constructor for a project whose tools reach no repository of their own.
+     *
+     * @param name Short name.
+     * @param description Human-readable description.
+     * @param securityClass Trust level.
+     * @param baseImage Base image.
+     * @param imageSnippet Extra build lines, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What the project's own tooling may reach.
+     * @param packageSources Where apt fetches from, or {@code null} for the default.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     * @param imageVariant The repository whose own image this is, or {@code null}.
+     * @param parameters What a start may be given.
+     * @param nickname The name its own repository's agent goes by, or {@code null}.
+     * @param branch How a task's branch at its forge is named, or {@code null}.
+     * @param review Whether a merge in its own repository needs approval.
+     * @param imageEnv Variables its own image sets.
+     * @param baseBranch Starting branch, or {@code null}.
+     * @param providers The model each provider's tasks run on, by provider.
+     * @param shortName Optional container spelling, or {@code null}.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname,
+            @org.jspecify.annotations.Nullable BranchScheme branch,
+            String review,
+            java.util.Map<String, String> imageEnv,
+            @org.jspecify.annotations.Nullable String baseBranch,
+            java.util.Map<String, ModelDefault> providers,
+            @org.jspecify.annotations.Nullable String shortName) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                providers,
+                shortName,
+                java.util.List.of(),
+                java.util.Map.of());
+    }
 
     /** Constructor for a project without a short spelling. */
     public Project(
@@ -896,6 +978,15 @@ public record Project(
     }
 
     public Project {
+        toolRepositories =
+                toolRepositories == null
+                        ? java.util.List.of()
+                        : java.util.List.copyOf(toolRepositories);
+        extensions =
+                extensions == null
+                        ? java.util.Map.of()
+                        : java.util.Collections.unmodifiableMap(
+                                new java.util.LinkedHashMap<>(extensions));
         ShortName.refusal(shortName)
                 .ifPresent(
                         reason -> {
@@ -1119,7 +1210,9 @@ public record Project(
                 imageEnv,
                 baseBranch,
                 providers,
-                shortName);
+                shortName,
+                toolRepositories,
+                extensions);
     }
 
     /**
@@ -1151,7 +1244,9 @@ public record Project(
                 imageEnv,
                 baseBranch,
                 each,
-                shortName);
+                shortName,
+                toolRepositories,
+                extensions);
     }
 
     /**
@@ -1296,6 +1391,8 @@ public record Project(
                 java.util.Map.of(),
                 baseBranch,
                 providers,
-                shortName);
+                shortName,
+                toolRepositories,
+                extensions);
     }
 }

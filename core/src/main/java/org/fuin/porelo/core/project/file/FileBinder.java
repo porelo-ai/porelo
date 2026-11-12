@@ -60,6 +60,32 @@ final class FileBinder {
                                 providers.put(name, entry);
                             }
                         });
+        final List<ToolRepositoryEntry> toolRepositories = new java.util.ArrayList<>();
+        final List<@Nullable Map<String, Node>> entries =
+                b.entries(
+                        top.get("tool_repositories"),
+                        "tool_repositories",
+                        Sections.TOOL_REPOSITORY);
+        for (int at = 0; at < entries.size(); at++) {
+            final Map<String, Node> s = entries.get(at);
+            if (s != null) {
+                final String path = Binding.entry("tool_repositories", at);
+                toolRepositories.add(
+                        new ToolRepositoryEntry(
+                                b.word(s.get("ecosystem"), path + ".ecosystem"),
+                                b.text(s.get("name"), path + ".name"),
+                                b.text(s.get("url"), path + ".url")));
+            }
+        }
+        final Map<String, Object> extensions = new LinkedHashMap<>();
+        b.named(top.get("extensions"), "extensions")
+                .forEach(
+                        (adapter, node) -> {
+                            final Object block = b.plain(node, Binding.join("extensions", adapter));
+                            if (block != null) {
+                                extensions.put(adapter, block);
+                            }
+                        });
         return new ProjectFile(
                 projectInfo(b, top.get("project")),
                 image(b, top.get("image"), "image"),
@@ -74,7 +100,9 @@ final class FileBinder {
                 repositories,
                 b.word(top.get("base_branch"), "base_branch"),
                 mcp(b, top.get("mcp")),
-                providers);
+                providers,
+                toolRepositories,
+                extensions);
     }
 
     private static @Nullable ProviderEntry provider(

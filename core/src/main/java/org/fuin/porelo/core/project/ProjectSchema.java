@@ -9,7 +9,8 @@ import java.util.List;
  * org.fuin.porelo.core.project.file.ProjectFileReader#sections()}), and a test holds the two to the
  * same set. Two places are open by design: the names under {@code credentials} and {@code
  * repositories} are the project's own, and what is under {@code mail.transports.<scheme>} is the
- * transport's, handed to it as it is written - the transport refuses what it does not know.
+ * transport's, handed to it as it is written - the transport refuses what it does not know. A block
+ * under {@code extensions} is likewise its ecosystem adapter's.
  */
 final class ProjectSchema {
 
@@ -582,6 +583,46 @@ final class ProjectSchema {
                             "label",
                             "What a person is shown for the model, one line.",
                             "string",
+                            "",
+                            false),
+                    key(
+                            "",
+                            "tool_repositories",
+                            "The repositories a build tool in a task reaches, each written into the"
+                                    + " tool's settings by its ecosystem adapter at the start; the"
+                                    + " egress names each host. An offline project declares none.",
+                            "list",
+                            "",
+                            false),
+                    key(
+                            "tool_repositories[]",
+                            "ecosystem",
+                            "The adapter that writes the tool's settings, as 'porelo ecosystems'"
+                                    + " lists it.",
+                            "string",
+                            "",
+                            true),
+                    key(
+                            "tool_repositories[]",
+                            "name",
+                            "The repository's name: letters, digits, '_' and '-', each name once.",
+                            "string",
+                            "",
+                            true),
+                    key(
+                            "tool_repositories[]",
+                            "url",
+                            "Its https URL, as a task reaches it; plain http only on 127.0.0.1 or"
+                                    + " [::1].",
+                            "string",
+                            "",
+                            true),
+                    key(
+                            "",
+                            "extensions",
+                            "Settings for one ecosystem adapter alone, by its name, which Porelo"
+                                    + " passes to it unread; they widen nothing a task reaches.",
+                            "map",
                             "",
                             false));
 

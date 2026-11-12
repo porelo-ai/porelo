@@ -86,7 +86,8 @@ class FileExamplesTest {
                         null,
                         List.of(new RepositorySettings.Layer("porelo.yml of shop", settings)));
 
-        assertThat(read.file().egress().domains()).containsExactly("build.example.org");
+        assertThat(read.file().egress().domains())
+                .containsExactly("maven.corp.example", "build.example.org");
         assertThat(read.file().limits().memory()).isEqualTo("16g");
         assertThat(read.file().build()).isNotNull();
         assertThat(read.file().build().packageSources()).isNull();
@@ -150,6 +151,14 @@ class FileExamplesTest {
                 .as("the documented peer")
                 .isEqualTo("matrix:");
         assertThat(file.branch().pattern()).as("the documented branch pattern").isNotNull();
+        assertThat(file.toolRepositories())
+                .as("the documented tool repository")
+                .singleElement()
+                .satisfies(
+                        entry -> assertThat(entry.url()).startsWith("https://maven.corp.example/"));
+        assertThat(file.extensions())
+                .as("the block documented for its adapter")
+                .containsOnlyKeys("maven");
         // The page's model id is a real one, which only a document may name.
         assertThat(file.providers().values())
                 .as("the documented default model")

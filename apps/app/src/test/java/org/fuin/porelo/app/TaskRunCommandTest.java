@@ -8071,4 +8071,174 @@ class TaskRunCommandTest {
                         "porelo 'task' 'start' '--set=NOTE=it'\\''s a b'"
                                 + " '--certify-stdin' '--detach' '--no-input' '--' 'fix'");
     }
+
+    /** A project whose build tool reaches one repository, kept for its adapter as written. */
+    private static final String WITH_TOOL_REPOSITORY =
+            """
+            project:
+              name: "uc"
+              security_class: "guarded"
+            image:
+              from: "ubuntu:24.04"
+            egress:
+              domains: ["repo.example.org"]
+            tool_repositories:
+              - ecosystem: maven
+                name: corp
+                url: "https://repo.example.org/maven/"
+            extensions:
+              maven:
+                mirrorOf:
+                  corp: "*"
+            """;
+
+    /** Installs an adapter that describes itself, which the detector given answers for. */
+    private static void installedAdapter(final PoreloContext context, final String name)
+            throws IOException {
+        final Path adapter =
+                Files.createDirectories(context.paths().ecosystemDirectories().getFirst())
+                        .resolve(name);
+        Files.writeString(
+                adapter,
+                "#!/bin/sh\nprintf '{\"protocolVersion\":1,\"ecosystem\":\"" + name + "\"}'\n");
+        adapter.toFile().setExecutable(true);
+    }
+
+    /** Starts the task {@code shell} of {@code uc} with the build-tool adapters answered so. */
+    private int startWithAdapters(
+            final PoreloContext context, final EcosystemDetector adapters, final String... args) {
+        recordedTasks(context);
+        final CommandLine cmd = PoreloCli.commandLine(context);
+        cmd.setOut(new PrintWriter(out));
+        cmd.setErr(new PrintWriter(err));
+        ((TaskRunCommand)
+                                cmd.getSubcommands()
+                                        .get("task")
+                                        .getSubcommands()
+                                        .get("start")
+                                        .getCommand())
+                        .detector =
+                adapters;
+        final List<String> all = new ArrayList<>(List.of("task", "start", "shell"));
+        all.addAll(List.of(args));
+        all.addAll(List.of("--repository", "uc"));
+        return cmd.execute(all.toArray(new String[0]));
+    }
+
+    @Test
+    void aStartPlacesTheSettingsTheToolsAdapterWritesInTheTaskUsersHome(@TempDir Path dir)
+            throws IOException {
+
+        // The adapter is asked with the project's repository and the block it keeps for it, and
+        // what it answers lands in the task user's home, owner-only where it says so.
+        final PoreloContext context = countingContext(dir);
+        installedAdapter(context, "maven");
+        final List<String> asked = new ArrayList<>();
+        final EcosystemDetector adapters =
+                new EcosystemDetector() {
+                    @Override
+                    public org.fuin.porelo.ecosystem.api.Detection detect(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    plugin,
+                            final Path checkout,
+                            final Path home) {
+                        throw new AssertionError("a start with a project file detects nothing");
+                    }
+
+                    @Override
+                    public List<org.fuin.porelo.ecosystem.api.File> configure(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    plugin,
+                            final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
+                            final org.fuin.porelo.ecosystem.api.Extension extension) {
+                        asked.add(plugin.name() + " " + repositories + " " + extension.values());
+                        return List.of(
+                                new org.fuin.porelo.ecosystem.api.File(
+                                        ".m2/settings.xml", "<settings/>", true));
+                    }
+                };
+        final Path said = dir.resolve("podman.said");
+        final Path podman = dir.resolve("logging-podman");
+        Files.writeString(
+                podman,
+                "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + shellArgument(said.toString()) + "\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final Path helpers = dir.resolve("helpers-porelo");
+        Files.writeString(helpers, "#!/bin/sh\nexit 0\n");
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
+        final int started;
+        try {
+            projectFile(dir, WITH_TOOL_REPOSITORY);
+            started = startWithAdapters(context, adapters, "-p", "uc", "--agent", "preview");
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+        }
+
+        assertThat(started).as("started: %s", err).isZero();
+        assertThat(asked)
+                .as("the adapter is asked once, with the URL as written and its block")
+                .containsExactly(
+                        "maven [Repository[name=corp, url=https://repo.example.org/maven/]]"
+                                + " {mirrorOf={corp=*}}");
+        final List<String> lines = Files.readAllLines(said);
+        assertThat(lines)
+                .as("its file is written in the task user's home: %s", lines)
+                .anyMatch(line -> line.endsWith(" tee /home/agent/.m2/settings.xml"));
+        assertThat(lines)
+                .as("for that user alone: %s", lines)
+                .anyMatch(line -> line.endsWith(" chmod 600 /home/agent/.m2/settings.xml"));
+    }
+
+    @Test
+    void anAdapterThatRefusesStopsTheStartBeforeAnythingIsMadeInPorelosOwnWords(@TempDir Path dir)
+            throws IOException {
+
+        // Its words are a stranger's: the refusal names the adapter and what to do instead.
+        final PoreloContext context = countingContext(dir);
+        installedAdapter(context, "maven");
+        final EcosystemDetector adapters =
+                new EcosystemDetector() {
+                    @Override
+                    public org.fuin.porelo.ecosystem.api.Detection detect(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    plugin,
+                            final Path checkout,
+                            final Path home) {
+                        throw new AssertionError("a start with a project file detects nothing");
+                    }
+
+                    @Override
+                    public List<org.fuin.porelo.ecosystem.api.File> configure(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    plugin,
+                            final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
+                            final org.fuin.porelo.ecosystem.api.Extension extension) {
+                        throw new org.fuin.porelo.ecosystem.api.EcosystemRefused(
+                                org.fuin.porelo.ecosystem.api.EcosystemRefused.Reason.UNREADABLE,
+                                "the adapter's own words");
+                    }
+                };
+        projectFile(dir, WITH_TOOL_REPOSITORY);
+
+        final int started = startWithAdapters(context, adapters, "-p", "uc", "--agent", "preview");
+
+        assertThat(started).as("refused: %s", err).isEqualTo(69);
+        assertThat(err.toString())
+                .as("the refusal names the adapter and what to do, never its words")
+                .contains("'maven'", "extensions.maven", "nothing was created")
+                .doesNotContain("the adapter's own words");
+        assertThat(runner.lines())
+                .as("no container is made for it")
+                .noneMatch(line -> line.contains(" create ") || line.contains(" build "));
+        assertThat(context.paths().messaging().mailbox("porelo-uc-shell"))
+                .as("nor is its conversation enrolled")
+                .doesNotExist();
+    }
 }
