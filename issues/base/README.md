@@ -255,7 +255,6 @@ from its side, as *blocked by*.
 | <a id="b635"></a>[B635](B635-Leaving-An-Attended-Task-Can-Stop-It.md) | M | - | Two choices made at a task's start, on the CLI and in Tasks1 Start so the window can offer them, neither the default: the session and the task end when the agent ends, and the task stops when the person leaves its shell; without them a task behaves as today. | - |
 | <a id="b222"></a>[B222](B222-A-Tasks-Tool-Settings-Written-At-Its-Start.md) | M | [B220](README.md#b220), [B219](README.md#b219) | A task's start has the plugins `configure` it and places their tool settings, pointing at the broker with no credential. | 0 |
 | <a id="b636"></a>[B636](B636-A-Missing-Homeserver-Names-The-Step.md) | XS | - | A start refused with no-homeserver for an organization project that names mail.transports.matrix says the step that ends it - a project admin names the homeserver and a room in project.yml and signs it - and the docs say the same. | - |
-| <a id="b48"></a>[B48](B48-The-Overview-That-Stays-Open.md) | M | - | `task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C. | - |
 | <a id="b228"></a>[B228](B228-A-Key-Pasted-At-The-Prompt-Is-Read-Whole.md) | S | - | A private key pasted at `vault put`'s prompt is read whole, as from a file or a pipe, and an unreadable key is called unreadable, not the wrong algorithm. | 0 |
 | <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | S | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. | 0 |
 | <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
@@ -284,6 +283,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
+| <a id="b48"></a>[B48](B48-The-Overview-That-Stays-Open.md) | M | - | `task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C. |
 
 ## Review
 

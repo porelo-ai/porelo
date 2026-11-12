@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B48",
   "title": "The Overview That Stays Open",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 35,
