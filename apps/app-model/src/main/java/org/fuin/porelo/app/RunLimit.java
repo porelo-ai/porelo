@@ -29,7 +29,46 @@ public final class RunLimit {
      */
     public record Ended(int minutes, String at) {}
 
+    /** The longest limit a run may be given: the largest number the command line takes. */
+    public static final int MOST = Integer.MAX_VALUE;
+
     private RunLimit() {}
+
+    /**
+     * Reads a run's limit as the command line or a varlink call gives it, where every number of a
+     * call may be a double.
+     *
+     * @param given What was given.
+     * @return The minutes, or {@code null} when it is no whole number from 1 to {@link #MOST}: zero
+     *     or less, a fraction, a number past the bound, a string or a boolean is no limit.
+     */
+    public static @Nullable Integer wholeMinutes(@Nullable Object given) {
+        if (!(given instanceof Number number)) {
+            return null;
+        }
+        final double minutes = number.doubleValue();
+        return minutes >= 1 && minutes <= MOST && minutes == Math.rint(minutes)
+                ? Integer.valueOf((int) minutes)
+                : null;
+    }
+
+    /**
+     * Says why a run's limit is refused, in the same words on the command line and in Tasks1 Start:
+     * one of zero ended the run before it began, and one read as another number bounded the agent
+     * to something nobody asked for.
+     *
+     * @param given What was given.
+     * @return The refusal, or {@code null} when it is a whole number from 1 up.
+     */
+    public static @Nullable String refusal(@Nullable Object given) {
+        if (wholeMinutes(given) != null) {
+            return null;
+        }
+        return "takes a whole number of minutes from 1 to "
+                + MOST
+                + ", not "
+                + (given instanceof String text ? "'" + text + "'" : given);
+    }
 
     /**
      * Records a run's limit as it starts, and forgets an earlier run's end by its limit.

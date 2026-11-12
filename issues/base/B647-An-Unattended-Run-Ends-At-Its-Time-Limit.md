@@ -68,6 +68,17 @@ How it is, read in the code on 2026-11-12 (this corrects the filing): an unatten
   (see To be checked).
 - Both records live in the task's state directory under the runtime directory. A machine restart drops them, as it
   drops the sidecar: the row then says `minutes` 0 and `agentEnded` as the agent's log tells it.
+- A second reading found five gaps, fixed:
+  - A task that reads its whole project, started with `--rm`, was removed at its limit, with its log. A run its
+    limit ended (exit 124 and the record) is now kept and stopped, as a failed run is.
+  - The stop at the limit says what it left running, as `task stop` does.
+  - An agent whose own end is in its log finished, though the limit passed as it ended: `agentEnded` answers its
+    end, not the limit.
+  - The record is written under the task's reservation, just before the container is stopped, and only when this
+    stop is the one that stops it running. A person's stop that came first stays a stop.
+  - `minutes` of 0 or less is refused on both surfaces in the same words, with exit 64. Tasks1 Start refuses a
+    fraction, a number past the int range, a string or a boolean the same way, where it clamped, cut or took 30.
+    Only an absent `minutes` takes the default 30.
 
 ## Acceptance
 
@@ -85,3 +96,15 @@ How it is, read in the code on 2026-11-12 (this corrects the filing): an unatten
 ## Decided by the operator (2026-11-12)
 
 - Accepted, priority Highest, with Estimated and Backlog given in advance for its analysis (ST314, run 26).
+
+## Read by a second model (2026-11-12)
+
+- Red, fixed: an `--all-repositories --rm` run its limit ended was removed with its log; such a run is now kept as a
+  failed one is. `endAtLimit` reports what its stop left running, as a stop does. An agent that ended its run as the
+  limit passed is reported as finished. A stop that came first is never recorded as the limit: the record is written
+  under the task's reservation, only by the stop that stops it running. `minutes` of 0 or less is refused on both
+  surfaces, and on Tasks1 Start a fraction, a number past the int range, a string or a boolean too, in the same
+  words, exit code 64.
+- Not changed: a daemon restart during a run loses its deadline (To be checked). The records live under the runtime
+  directory by design, as written above.
+- Not changed: List and Watch may ask git in the container while a limit's stop is still going; it ends with the stop.

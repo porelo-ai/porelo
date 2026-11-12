@@ -229,6 +229,26 @@ public final class TaskControl {
     }
 
     /**
+     * Stops a task as {@link #stop(String)} does, and does {@code first} just before, only when
+     * this stop is the one that stops it running: under the task's reservation, so a stop that came
+     * first is never taken for this one.
+     *
+     * @param container Container name.
+     * @param first What is done just before the container is stopped.
+     * @return What happened.
+     */
+    Stopped stopRunning(String container, Runnable first) {
+        if (!ContainerName.isTask(container)) {
+            return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
+        }
+        try {
+            return stopRecorded(container, false, false, false, null, first);
+        } catch (org.fuin.porelo.runtime.NotATaskException ex) {
+            return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
+        }
+    }
+
+    /**
      * Removes a task: its container, its state, and the workspace inside it.
      *
      * <p>Refuses a running task rather than stopping it as a side effect. Stopping ends an agent's
@@ -322,7 +342,7 @@ public final class TaskControl {
             return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
         }
         try {
-            return stopRecorded(container, purge, rescue, force, null);
+            return stopRecorded(container, purge, rescue, force, null, null);
         } catch (org.fuin.porelo.runtime.NotATaskException ex) {
             // Named like a task, no record of it: one never made here, or removed already. Not a
             // failure - the same answer as for a name of no task at all, and nothing done to a
@@ -332,7 +352,7 @@ public final class TaskControl {
     }
 
     Stopped stop(String container, ContainerState before) {
-        return stopRecorded(container, false, false, false, before);
+        return stopRecorded(container, false, false, false, before, null);
     }
 
     /**
@@ -377,11 +397,12 @@ public final class TaskControl {
             boolean purge,
             boolean rescue,
             boolean force,
-            @Nullable ContainerState before) {
+            @Nullable ContainerState before,
+            @Nullable Runnable first) {
         try {
             final var reservations = new TaskReservations(context);
             final TaskReservations.Operation<Stopped> stop =
-                    () -> stopClaimed(container, purge, rescue, force, before);
+                    () -> stopClaimed(container, purge, rescue, force, before, first);
             return before == null
                     ? reservations.mutate(container, stop)
                     : reservations.mutateRecorded(container, stop);
@@ -395,7 +416,8 @@ public final class TaskControl {
             boolean purge,
             boolean rescue,
             boolean force,
-            @Nullable ContainerState before)
+            @Nullable ContainerState before,
+            @Nullable Runnable first)
             throws IOException {
 
         // A bulk stop has already matched these records to its runtime snapshot by id.
@@ -515,6 +537,9 @@ public final class TaskControl {
         if (purge) {
             context.podman().remove(id);
         } else {
+            if (running && first != null) {
+                first.run();
+            }
             context.podman().stop(id);
         }
 

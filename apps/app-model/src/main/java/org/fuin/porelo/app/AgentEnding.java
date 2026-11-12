@@ -253,6 +253,13 @@ public final class AgentEnding {
         // Porelo's own end comes first: the agent was stopped mid-run, so its log says nothing.
         final RunLimit.Ended byLimit = RunLimit.endedBy(state);
         if (byLimit != null) {
+            // Unless it does: an agent that ended its run as the limit passed finished, and the
+            // limit only ended what had already ended. Read at once, as nothing writes any more.
+            final Ended own =
+                    agent == null ? null : fromLog(container, running, agent, state, false);
+            if (own != null) {
+                return own;
+            }
             return new Ended(
                     byLimit.at(),
                     false,
@@ -264,8 +271,18 @@ public final class AgentEnding {
                     false,
                     true);
         }
+        return agent == null ? null : fromLog(container, running, agent, state, true);
+    }
+
+    /**
+     * Reads how the agent ended from its log.
+     *
+     * @param quiet Whether a log written to lately is taken as a run still going.
+     */
+    private @Nullable Ended fromLog(
+            String container, boolean running, String agent, Path state, boolean quiet) {
         final Path log = state.resolve("task.log");
-        if (agent == null || !Files.isRegularFile(log)) {
+        if (!Files.isRegularFile(log)) {
             return null;
         }
         final long size;
@@ -276,7 +293,7 @@ public final class AgentEnding {
         } catch (IOException ex) {
             return null;
         }
-        if (written.isAfter(clock.instant().minus(QUIET))) {
+        if (quiet && written.isAfter(clock.instant().minus(QUIET))) {
             return null;
         }
         final Seen known = seen.get(container);

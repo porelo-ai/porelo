@@ -1,0 +1,2 @@
+title: An unattended run whose time limit passes is stopped in its container and kept with its log, and List and Watch say it ended by its limit, where only the podman exec client was killed and the agent went on unbounded; a limit of 0 minutes or less is refused on the command line and in Tasks1 Start
+type: fixed

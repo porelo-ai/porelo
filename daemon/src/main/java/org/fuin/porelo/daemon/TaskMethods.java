@@ -963,10 +963,11 @@ final class TaskMethods {
                                             PoreloDaemon.shortName(parameters))
                                     .map(reason -> "short: " + reason)
                                     .orElse(null);
-                    final String badSubagents =
-                            badShort == null ? PoreloDaemon.subagentsRefused(parameters) : badShort;
-                    if (badSubagents != null) {
-                        sink.println("porelo: " + badSubagents);
+                    String wrongUse = badShort;
+                    if (wrongUse == null) wrongUse = PoreloDaemon.subagentsRefused(parameters);
+                    if (wrongUse == null) wrongUse = PoreloDaemon.minutesRefused(parameters);
+                    if (wrongUse != null) {
+                        sink.println("porelo: " + wrongUse);
                         sink.println("porelo: nothing was created");
                         sink.flush();
                         System.out.println(startLine(text(parameters, "task"), "", 64));

@@ -715,7 +715,9 @@ method Start(
   # How long the agent may run, in minutes. Default: 30. On expiry Porelo stops the task as a stop
   # does, ending its agent in the container, and keeps what it produced - the exit code is 124, the
   # log holds what it managed to say, and List's agentEnded says limit: true. Only for a run: an
-  # attended task's session lasts as long as the person keeps it.
+  # attended task's session lasts as long as the person keeps it. Anything but a whole number from 1
+  # to 2147483647 (0, a negative number, a fraction, a string, a boolean) is refused with exitCode 64
+  # before anything is made, in the command line's words; only an absent one takes the default.
   minutes: ?int,
   # Tasks of the same project whose reviewed work this one may read, once it landed: its clone fetches
   # each one's landed refs as refs/remotes/origin/landed/<task>/<branch>, read only. Work still at the

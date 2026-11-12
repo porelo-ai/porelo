@@ -880,9 +880,7 @@ public final class PoreloDaemon {
                 parameters.get("maxTurns") instanceof Number turns
                         ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(turns)
                         : null,
-                parameters.get("minutes") instanceof Number minutes
-                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(minutes)
-                        : TaskLaunch.DEFAULT_MINUTES,
+                minutes(parameters),
                 // Not defaulted here. A project is a unit of work over one or more repositories,
                 // and a client that does not say which one the task is for gets the same refusal
                 // the CLI gives, naming what there is to choose from.
@@ -976,6 +974,44 @@ public final class PoreloDaemon {
                 + org.fuin.porelo.agent.api.SubagentLimit.MOST
                 + ", not "
                 + (given instanceof String text ? "'" + text + "'" : given);
+    }
+
+    /**
+     * Returns the time limit a start gives its run.
+     *
+     * @param parameters The call's parameters.
+     * @return The minutes, {@link TaskLaunch#DEFAULT_MINUTES} only when none was given.
+     * @throws VarlinkException If one was given that is no whole number from 1 up, which Start
+     *     refuses before it gets here ({@link #minutesRefused}).
+     */
+    static int minutes(Map<String, Object> parameters) {
+        final Object given = parameters.get("minutes");
+        if (given == null) {
+            return TaskLaunch.DEFAULT_MINUTES;
+        }
+        final Integer minutes = org.fuin.porelo.app.RunLimit.wholeMinutes(given);
+        if (minutes == null) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "minutes"));
+        }
+        return minutes;
+    }
+
+    /**
+     * Says why a start's time limit is refused, in the words the command line refuses it with.
+     *
+     * @param parameters The call's parameters.
+     * @return The refusal, or {@code null} when none was given or it is a whole number from 1 up.
+     */
+    static @Nullable String minutesRefused(Map<String, Object> parameters) {
+        final Object given = parameters.get("minutes");
+        if (given == null) {
+            return null;
+        }
+        // Clamped, cut to a whole number or dropped for the default, it bounded the run to
+        // something nobody asked for; zero or less ended it before it began.
+        final String refused = org.fuin.porelo.app.RunLimit.refusal(given);
+        return refused == null ? null : "minutes " + refused;
     }
 
     /** Keeps an explicitly empty short spelling available for the shared validator to refuse. */

@@ -643,6 +643,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.flush();
             return 64;
         }
+        // Zero or less ended the run before its agent began; Tasks1 Start refuses it in the same
+        // words.
+        final String badMinutes = RunLimit.refusal(minutes);
+        if (badMinutes != null) {
+            err.println("porelo: --minutes " + badMinutes);
+            err.flush();
+            return 64;
+        }
 
         if (allRepositories) {
             // Before anything is asked or read: each of these names one repository or its gate,

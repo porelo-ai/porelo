@@ -588,6 +588,55 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aTimeLimitThatIsNoWholeNumberOfMinutesFromOneIsRefusedAsWrongUseAndNeverRead(
+            @TempDir Path dir) throws Exception {
+
+        // Clamped, cut to a whole number or dropped for the default 30, it bounded the run to
+        // something nobody asked for; zero or less ended it before its agent began.
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("podman version", "5.8.1");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        for (final Object given :
+                                List.<Object>of(0, -5, 2.5, 1e11, -1e11, "30", true)) {
+                            final Map<String, Object> reply =
+                                    client.call(
+                                            PoreloDaemon.INTERFACE + ".Start",
+                                            Map.of(
+                                                    "project",
+                                                    PROJECT,
+                                                    "task",
+                                                    "shell",
+                                                    "repository",
+                                                    "uc",
+                                                    "prompt",
+                                                    "go",
+                                                    "minutes",
+                                                    given));
+                            assertThat(((Number) reply.get("exitCode")).intValue())
+                                    .as("%s is refused as wrong use", given)
+                                    .isEqualTo(64);
+                            @SuppressWarnings("unchecked")
+                            final List<String> output = (List<String>) reply.get("output");
+                            assertThat(String.join("\n", output))
+                                    .as("in the command line's words")
+                                    .contains(
+                                            "porelo: minutes takes a whole number of minutes from 1"
+                                                    + " to 2147483647, not ");
+                        }
+                    }
+                });
+        assertThat(runner.lines())
+                .as("nothing is asked of the runtime for a start refused as wrong use")
+                .noneMatch(line -> line.contains("podman ps") || line.contains("podman create"));
+    }
+
+    @Test
     void aNumberOfSubagentsThatIsNoWholeNumberIsRefusedBeforeAHostOrATaskIsAsked(@TempDir Path dir)
             throws Exception {
 

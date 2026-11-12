@@ -973,6 +973,9 @@ public final class TaskLaunch {
      */
     public static final int NO_AGENT = 69;
 
+    /** Exit code of a run whose time limit passed, or whose podman exec failed. */
+    static final int TIMED_OUT = 124;
+
     /** What happens once a task is up. */
     @FunctionalInterface
     public interface AfterStart {
@@ -3970,14 +3973,34 @@ public final class TaskLaunch {
     /**
      * Ends a run whose time limit passed as a stop ends a task: only the podman exec client was
      * ended, and the agent in the container went on, unbounded and unrecorded. The end is recorded
-     * first, so a fleet view never sees the task stopped without knowing why.
+     * first, so a fleet view never sees the task stopped without knowing why, and only by the stop
+     * that stops it running: a task somebody stopped just before was stopped by them, not by its
+     * limit.
      *
      * @param context The machine.
      * @param container The task.
      * @param minutes The limit that passed.
-     * @param err Where a failure is said.
+     * @param err Where a failure is said, and what the stop left running.
      */
     static void endAtLimit(PoreloContext context, String container, int minutes, PrintWriter err) {
+        try {
+            final TaskControl.Stopped stopped =
+                    new TaskControl(context)
+                            .stopRunning(
+                                    container,
+                                    () -> recordEndAtLimit(context, container, minutes, err));
+            reportStop(stopped, err);
+        } catch (RuntimeException ex) {
+            err.println(
+                    "porelo: the task could not be stopped at its time limit, and its agent may"
+                            + " still run: "
+                            + ex.getMessage());
+            err.flush();
+        }
+    }
+
+    private static void recordEndAtLimit(
+            PoreloContext context, String container, int minutes, PrintWriter err) {
         try {
             RunLimit.ended(
                     context.paths().tasks().containerState(container),
@@ -3985,15 +4008,6 @@ public final class TaskLaunch {
                     java.time.Instant.now());
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record the end at its time limit: " + ex.getMessage());
-            err.flush();
-        }
-        try {
-            new TaskControl(context).stop(container);
-        } catch (RuntimeException ex) {
-            err.println(
-                    "porelo: the task could not be stopped at its time limit, and its agent may"
-                            + " still run: "
-                            + ex.getMessage());
             err.flush();
         }
     }
@@ -4115,11 +4129,11 @@ public final class TaskLaunch {
                                 java.time.Duration.ofMinutes(request.minutes()));
             } catch (org.fuin.porelo.runtime.RunTimedOut ex) {
                 killed = ex;
-                code = 124;
+                code = TIMED_OUT;
                 endAtLimit(context, container, request.minutes(), err);
             } catch (org.fuin.porelo.runtime.ContainerException ex) {
                 killed = ex;
-                code = 124;
+                code = TIMED_OUT;
             } finally {
                 // Before anything else is written to the caller: while it runs, the follower is
                 // the only one writing there.
@@ -6038,8 +6052,15 @@ public final class TaskLaunch {
         // alone was made to read all the same.
         final boolean reading = reads(container);
         final boolean kept = keep;
+        // A run its limit ended is kept as a failed one is, with its log, whatever it read: its
+        // removal took the log that says why it never ended. By its code and its record both: a
+        // record a later session never cleared is no end of that session.
+        final boolean limited =
+                code == TIMED_OUT
+                        && RunLimit.endedBy(context.paths().tasks().containerState(container))
+                                != null;
 
-        if (code != 0 && exists && !kept && !reading) {
+        if (code != 0 && exists && !kept && (!reading || limited)) {
             if (!handedOver) {
                 // Kept to be started again, which brings back what is recorded: a start that failed
                 // had recorded none of what it started for it, and it came back without them.
@@ -6050,7 +6071,12 @@ public final class TaskLaunch {
             if (!handedOver) {
                 heldNothing(container);
             }
-            out.println("kept      " + container + " - it failed, so nothing was removed");
+            out.println(
+                    "kept      "
+                            + container
+                            + (limited
+                                    ? " - its time limit passed, so nothing was removed"
+                                    : " - it failed, so nothing was removed"));
             if (held.work() != null) {
                 out.println("          it holds " + held.work());
             }
