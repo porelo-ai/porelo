@@ -96,6 +96,15 @@ public final class OrganizationAccess {
     private static final java.util.regex.Pattern HTTPS_FORM =
             java.util.regex.Pattern.compile("https://(?<host>[^:/@]+)/(?<path>[^?#]+)");
 
+    private static final java.util.regex.Pattern ASCII_HOST =
+            java.util.regex.Pattern.compile("[A-Za-z0-9.-]+");
+
+    private static boolean sameHost(final String one, final String other) {
+        return ASCII_HOST.matcher(one).matches()
+                && one.toLowerCase(java.util.Locale.ROOT)
+                        .equals(other.toLowerCase(java.util.Locale.ROOT));
+    }
+
     /**
      * Returns a project repository's address in the organization's own form, for its forge.
      *
@@ -111,12 +120,18 @@ public final class OrganizationAccess {
         }
         final String host = project.group("host");
         final String path = project.group("path");
+        // Hosts of ASCII alone, compared as ASCII: equalsIgnoreCase takes 'ı' for 'i', which IDNA
+        // keeps
+        // apart, so a lookalike host would be reached as the organization's own.
+        if (!ASCII_HOST.matcher(host).matches()) {
+            return filed;
+        }
         final java.util.regex.Matcher scp = SCP_FORM.matcher(organization);
-        if (scp.matches() && scp.group("host").equalsIgnoreCase(host)) {
+        if (scp.matches() && sameHost(scp.group("host"), host)) {
             return "git@" + scp.group("host") + ":" + path;
         }
         final java.util.regex.Matcher ssh = SSH_FORM.matcher(organization);
-        if (ssh.matches() && ssh.group("host").equalsIgnoreCase(host)) {
+        if (ssh.matches() && sameHost(ssh.group("host"), host)) {
             final String port = ssh.group("port");
             return "ssh://git@" + ssh.group("host") + (port == null ? "" : port) + "/" + path;
         }

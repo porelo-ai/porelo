@@ -290,7 +290,29 @@ public final class ProjectFile {
      * refuses, so losing it costs what a new machine has too.
      */
     private @Nullable Instant accepted(final String address) throws IOException {
-        final Path file = memory.resolve(TreeRepository.digest(oneForm(address)));
+        return accepted(memory, address);
+    }
+
+    /**
+     * Returns the date last accepted for a repository, under either key it may be kept under.
+     *
+     * @param memory The directory of the dates accepted.
+     * @param address The repository's address, in any form.
+     * @return The later date, or {@code null} for none.
+     * @throws IOException When a record cannot be read.
+     */
+    static @Nullable Instant accepted(final Path memory, final String address) throws IOException {
+        // Kept under the address as it was given before one form was kept: the later of the two
+        // holds.
+        final Instant one = accepted(memory.resolve(TreeRepository.digest(oneForm(address))));
+        final Instant given = accepted(memory.resolve(TreeRepository.digest(address)));
+        if (one == null) {
+            return given;
+        }
+        return given == null || one.isAfter(given) ? one : given;
+    }
+
+    private static @Nullable Instant accepted(final Path file) throws IOException {
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             return null;
         }
@@ -310,15 +332,36 @@ public final class ProjectFile {
         final java.util.regex.Matcher scp =
                 java.util.regex.Pattern.compile("git@([^:/@]+):(.+)").matcher(address);
         if (scp.matches()) {
-            return "https://" + scp.group(1) + "/" + scp.group(2);
+            return https(scp.group(1), scp.group(2));
         }
         final java.util.regex.Matcher ssh =
                 java.util.regex.Pattern.compile("ssh://git@([^:/@]+)(?::[0-9]+)?/(.+)")
                         .matcher(address);
         if (ssh.matches()) {
-            return "https://" + ssh.group(1) + "/" + ssh.group(2);
+            return https(ssh.group(1), ssh.group(2));
+        }
+        final java.util.regex.Matcher https =
+                java.util.regex.Pattern.compile("https://([^:/@]+)(?::443)?/(.+)").matcher(address);
+        if (https.matches()) {
+            return https(https.group(1), https.group(2));
         }
         return address;
+    }
+
+    /**
+     * Returns the https form a forge answers to under every spelling: the host in lower case, no
+     * trailing slash and no trailing {@code .git}. Two spellings of one repository share a floor; a
+     * floor shared by mistake only refuses.
+     */
+    private static String https(final String host, final String path) {
+        String trimmed = path;
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        if (trimmed.endsWith(".git")) {
+            trimmed = trimmed.substring(0, trimmed.length() - ".git".length());
+        }
+        return "https://" + host.toLowerCase(java.util.Locale.ROOT) + "/" + trimmed;
     }
 
     private void remember(final String address, final Instant dated) throws IOException {

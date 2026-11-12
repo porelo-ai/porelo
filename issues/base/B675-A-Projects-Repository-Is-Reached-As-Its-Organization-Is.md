@@ -60,6 +60,16 @@ used as filed. The refusal names the repository it could not read.
   is carried into the ssh address as it is, which git then reads as the same path on the same forge.
 - The new memory test was red only as a compile failure, since `oneForm` did not exist before. The start's and create-repository's
   use of the reached address have no test of their own yet.
+- Codex read that again and found three Reds, fixed: a host compared with `equalsIgnoreCase` took a dotless `ı` for
+  `i`, so a lookalike forge would be reached over the organization's key; hosts are now ASCII only and compared as
+  ASCII. The one form kept the host's case, a trailing slash, `:443` and `.git`, so a respelling had no floor; it now
+  drops all four. A floor kept before under the address as given was no longer read; the later of the two keys holds.
+- Kept, from that reading: two ssh ports of one host share a floor, which can only refuse. A task's start whose second
+  read of organization.yml fails fetches as filed, over https, where no token means it fails; the signatures are
+  checked either way.
+- Seen: the lookalike test failed against the old compare; the spelling and old-floor tests could not compile there,
+  since `oneForm`'s new rules and `accepted(Path, String)` did not exist. The modules whole and apps/app whole
+  (4608) passed, but for McpWiringTest's stop under the host's load, which passed alone.
 - Not done here: the lead of a failed clone still says "the organization's repository" for a project's repository;
   `TreeRepository.fetch` gives every clone that lead, and tests pin it.
 

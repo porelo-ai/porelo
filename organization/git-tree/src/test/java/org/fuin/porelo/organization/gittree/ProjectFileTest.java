@@ -796,6 +796,39 @@ class ProjectFileTest {
     }
 
     @Test
+    void everySpellingOfOneRepositoryKeepsOneFloor() {
+        // A forge answers to these as one repository; a floor kept per spelling is lost by a
+        // respelling.
+        final String one = ProjectFile.oneForm("https://forge.example/acme/foo.git");
+        assertThat(ProjectFile.oneForm("git@FORGE.example:acme/foo.git")).isEqualTo(one);
+        assertThat(ProjectFile.oneForm("https://Forge.Example:443/acme/foo/")).isEqualTo(one);
+        assertThat(ProjectFile.oneForm("https://forge.example/acme/foo")).isEqualTo(one);
+        assertThat(ProjectFile.oneForm("https://forge.example/acme/bar.git")).isNotEqualTo(one);
+        assertThat(ProjectFile.oneForm("https://forge.example:8443/acme/foo.git"))
+                .as("another port is another server")
+                .isNotEqualTo(one);
+    }
+
+    @Test
+    void aFloorKeptUnderTheAddressAsGivenBeforeStillHolds(@TempDir final Path memory)
+            throws IOException {
+        // Accepted over ssh before the floor was kept in one form: an upgrade must not drop it.
+        final String address = "git@forge.example:acme/foo.git";
+        Files.createDirectories(memory);
+        Files.writeString(
+                memory.resolve(TreeRepository.digest(address)),
+                "2090-01-01T00:00:00Z\n",
+                java.nio.charset.StandardCharsets.UTF_8);
+        Files.writeString(
+                memory.resolve(TreeRepository.digest(ProjectFile.oneForm(address))),
+                "2080-01-01T00:00:00Z\n",
+                java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(ProjectFile.accepted(memory, address))
+                .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+    }
+
+    @Test
     void aMergeThatBringsBackAnOlderFileIsRefusedOnceANewerWasAccepted() throws Exception {
         final String older = git("rev-parse", "HEAD");
         aLaterChange("2090-01-01T00:00:00Z");

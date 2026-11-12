@@ -655,6 +655,21 @@ class OrgWritingCommandsTest {
     }
 
     @Test
+    void aLookalikeHostIsNeverReachedAsTheOrganizationsForge() {
+        // 'ı' (dotless i) is 'i' to equalsIgnoreCase, but another host to IDNA and to DNS.
+        assertThat(
+                        OrganizationAccess.reached(
+                                "git@git.example:acme/org.git",
+                                "https://g\u0131t.example/acme/p.git"))
+                .isEqualTo("https://g\u0131t.example/acme/p.git");
+        assertThat(
+                        OrganizationAccess.reached(
+                                "git@GIT.example:acme/org.git", "https://git.EXAMPLE/acme/p.git"))
+                .as("ASCII case is no other host")
+                .isEqualTo("git@GIT.example:acme/p.git");
+    }
+
+    @Test
     void aProjectsRepositoryKeepsItsHttpsAddressWhenTheOrganizationIsNamedOverHttps() {
         assertThat(
                         OrgAccess.reached(
