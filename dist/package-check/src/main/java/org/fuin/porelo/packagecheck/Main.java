@@ -187,6 +187,10 @@ public final class Main {
         final String rpmNotices = "/usr/share/licenses/porelo/THIRD-PARTY-NOTICES";
         new Notices("the porelo deb", debNotices, jars).check(debFile(deb, debNotices), report);
         new Notices("the porelo rpm", rpmNotices, jars).check(rpmFile(rpm, rpmNotices), report);
+        // Installed without porelo, the host's package carries its own copy for its own binary.
+        final String hostNotices = "/usr/share/doc/porelo-host/THIRD-PARTY-NOTICES";
+        new Notices("the porelo-host deb", hostNotices, jars)
+                .check(debFile(hostDeb, hostNotices), report);
 
         // A host gets the script through the package, checked by apt; it must be the one this tree
         // keeps, not an older copy left in a build directory.

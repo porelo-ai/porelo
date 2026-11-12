@@ -397,6 +397,18 @@
                                                 <group>root</group>
                                             </mapper>
                                         </data>
+                                        <!-- The host's binary compiles in a part of porelo's closure, so the same notices cover it. -->
+                                        <data>
+                                            <src>${project.basedir}/../../target/THIRD-PARTY-NOTICES</src>
+                                            <type>file</type>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>/usr/share/doc/porelo-host</prefix>
+                                                <filemode>644</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
                                         <data>
                                             <src>${project.basedir}/src/deb/copyright/copyright</src>
                                             <type>file</type>

@@ -55,5 +55,14 @@ native-image runtime. Fedora has no `/usr/share/common-licenses`, so the `.rpm` 
   as `%license`. Built locally: 12 jars and the GraalVM runtime, the same bytes in the `.deb`.
 - `package-check` fails a package without the file, or whose file has fewer jar sections than the classpath has jars.
   `Parity` needed no change, since it already leaves out each ecosystem's license directory.
-- Not yet run: `package-check`'s run against the built packages, which also reads the stub agent's packages; it runs
-  with the next packages built from this line.
+- A Sonnet reading found one Red, fixed: the separate `porelo-host` package shares the copyright file, which named
+  `/usr/share/doc/porelo/THIRD-PARTY-NOTICES`, absent where `porelo` is not installed, while its binary compiles in
+  third-party code too. It now carries the same file in `/usr/share/doc/porelo-host`; the copyright file says the
+  notices are beside it; `package-check` checks the host's copy too. The host's closure (git-tree, wire, picocli) is a
+  part of porelo's, so the one file covers it.
+- Kept, from that reading: the check counts jar sections against the classpath the generator read, so a jar missing
+  from both passes; the classpath is the binaries' runtime closure, which the native build compiles. A section with an
+  empty text and a missing runtime section are not checked here; the generator writes both.
+- `package-check` run against packages built here: the notices of the porelo deb, the rpm and the porelo-host deb
+  pass, 12 jar sections each. Its version and setup checks failed only because the native binaries were built before
+  this line was moved onto main and carry the older version; a full run follows with the next packages built whole.
