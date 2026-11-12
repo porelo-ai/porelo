@@ -5,13 +5,13 @@
   "$schema": "issue-1.json",
   "id": "B355",
   "title": "No Switch That Turns Every Check Off",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "Medium",
   "rank": 41,
   "blockedBy": [],
   "covers": "No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so",
-  "openQuestions": 3
+  "openQuestions": 0
 }
 ```
 
@@ -176,11 +176,10 @@ arrival line for a task that has no judge.
    and signers exist (`:301`). Where none exist, it wraps an accepting judge in `ArrivalRecords.recording` that
    records `accepted, unsigned`. The gate's `Pending`/`Review` answer carries the task's last arrival verdict from
    the event log.
-3. **The room.** `TransportLifecycle` (`:448`, `:1242`) adds the mark to the display name it sets, and sets it again
-   when the task's certificate or verification changes. The sending Porelo adds it to the `--shown` line. The
+3. **The room.** The sending Porelo adds the mark to the `--shown` line only. The display name stays as it is. The
    transport plugin stays unchanged.
-4. **The receiver's verdict.** `MessageDelivery` already holds a message whose key it does not believe (`:288`), so
-   a delivered task message is a certified one. The daemon's `Talk` event gains `mark`. It is filled from the
+4. **The receiver's verdict.** `MessageDelivery` holds a message whose key it does not believe (`:288`). The daemon's
+   `Held` and `ReadHeld` answers carry its `mark`, and the interface shows it with the release action. The daemon's `Talk` event gains `mark`. It is filled from the
    receiver's own trace (`MessageSigners.Traced`) and from the sending project's verification, and is never read from
    the message.
 5. **Refusals.** `porelo --insecure` and an `insecure` key in settings are refused as unknown, each seen in a test.
@@ -217,7 +216,7 @@ arrival line for a task that has no judge.
   task's `commit` is empty; an absent value shows as `unsigned`, never as certified. The gate's answer for a waiting push carries its arrival verdict as `ArrivalRecords` writes it
   (`accepted` or `accepted, unsigned`), so the review shows it before an approval.
 - **In the room, for persons reading in any client:** the sending Porelo puts the mark into the line it already
-  makes (`send --shown`) and into the task's display name (`rename --display`, set again when the state changes).
+  makes (`send --shown`) and into the task's display name (the display name is not renamed).
   The transport carries both unread; nothing changes there. A machine-readable `send --mark` in the transport is an
   optional XS of the room's, built only when it is wanted.
 - **In another person's interface:** the mark is the receiving Porelo's own verdict, from the message's signature
@@ -228,11 +227,8 @@ arrival line for a task that has no judge.
   `unverified` or empty).
 - No per-person config file: every opt-out stays a flag on its command.
 
-## Open questions
+## Decided by the operator (2026-11-12)
 
-1. **Does the `default` project show `unverified`?** It has no file, so nothing can verify it, and every task in it
-   would carry both marks. Should the mark be `unsigned` alone there, or both as the rule reads?
-2. **The display name renamed on a change.** Each rename is a member event in the room's history that other persons
-   see. Rename on every change of the mark, or carry the mark only in the line?
-3. **A held message from an uncertified task.** Today the receiver holds it, and it waits for `message release`.
-   Should the interface show it with the mark and a release action, or keep it out of the talk stream as now?
+- The `default` project shows `unsigned` only, never `unverified`: it has no file to verify.
+- The mark sits only in the line; the room's display name stays as it is.
+- A held message of an uncertified task shows in the interface with its mark and a release action.

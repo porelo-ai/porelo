@@ -5,13 +5,13 @@
   "$schema": "issue-1.json",
   "id": "B33",
   "title": "A Task's Own Fetches",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "S",
   "priority": "Medium",
   "rank": 23,
   "blockedBy": [],
   "covers": "The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios.",
-  "openQuestions": 4
+  "openQuestions": 0
 }
 ```
 
@@ -92,17 +92,8 @@ Steps:
 - A fetch that fails for a protocol reason does not present as an authentication failure. Seen to fail: a fetch
   forced to fail on protocol is reported as a 401 or a credential error.
 
-## Open questions for the operator
+## Decided by the operator (2026-11-12)
 
-Named 2026-11-12 (ST30). The default base image is still `ubuntu:24.04` (noble), for tasks and for the login
-container, and nothing sets `http.version`, so the report still applies as filed.
-1. **github.com in the acceptance suite.** The scenario clones a public repository from github.com, so its result
-   depends on a forge's behaviour and on the legs' network. Run it on every build, or only on request (a tag the
-   legs skip, run before a release)?
-2. **The reproduction run.** Step 1 is a run on the VM with an `online` task on noble and one on Fedora, by Agent
-   Core under its own daemon. Is that run wanted now, or only when a person meets a 401 in a task?
-3. **If it does not reproduce.** Close the issue with the measurement recorded and nothing built, or keep step 3's
-   line in `doc/running.md` (a 401 on an anonymous fetch is not the vault's) either way?
-4. **The default base image.** If the default moves off noble (for example to `ubuntu:26.04`, which the VM and the
-   build runners already use) before this is built, the line would be for projects that name noble themselves. Is
-   such a move planned, and does this issue then wait for it?
+- The github.com scenario runs on request only (tagged; the legs skip it).
+- The VM reproduction is done only when a person meets a 401 in a task.
+- If it does not reproduce, the issue is closed with the measurement recorded and nothing built.

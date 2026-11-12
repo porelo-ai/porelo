@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B384",
   "title": "A Start That Waits For Its Helpers",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "Medium",
   "rank": 43,

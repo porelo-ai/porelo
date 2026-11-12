@@ -5,13 +5,13 @@
   "$schema": "issue-1.json",
   "id": "B322",
   "title": "Porelo's Acceptance Legs Run On The Host's Forge",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "Medium",
   "rank": 42,
   "blockedBy": [],
-  "covers": "porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool, and the binary published there is again the one the Ubuntu leg tested",
-  "openQuestions": 3
+  "covers": "porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool; only GitHub publishes",
+  "openQuestions": 0
 }
 ```
 
@@ -22,15 +22,14 @@ Waits for machines asked for by kind from the host's pool, rented from a workflo
 Forgejo; until then porelo's legs run only on the central forge.
 
 **What must be true.** porelo's acceptance legs run on the host's Forgejo as they do on the central forge, on the same
-commit with no edit between them, and the binary published there is the one the Ubuntu leg tested.
+commit with no edit between them. Only GitHub publishes.
 
 ## What it switches on again
 
 - **The job:** `build.yml`'s `legs` job, *Leg - fedora* and *Leg - ubuntu*, each with its *Delete what this run
   created*. [B306](README.md#b306) lets it run only where `github.server_url` is GitHub's; this issue drops that
   condition.
-- **Publish:** on the host's forge, `deploy` again waits for the legs, or for a proof and the binaries built on the
-  runner, as on the central forge, and packages the binaries the Ubuntu leg fetched back with a manifest.
+- **Publish:** stays on GitHub alone. On the host's forge the legs prove the commit, and `deploy` does not run.
 
 ## What changes for that
 
@@ -49,33 +48,28 @@ with `Pool.read(file)`, `acquire(Spec)` and `Kind` (`amd64`, `amd64-build`). Its
 VM that resets itself when given back, so `sweep --mine` has nothing to delete there.
 1. **Red first.** A `legs` `MainTest`: with `PORELO_MACHINES_POOL` naming a pool file, `leg --os ubuntu` acquires from
    the pool by kind `amd64-build` (four accounts) and never opens Hetzner. Without the variable it rents as today. In
-   core `PublishWorkflowTest`, the `legs` job carries no `github.server_url` condition, and Publish's `needs` stays
-   `[build, proven, legs, native]` on both forges.
+   core `PublishWorkflowTest`, the `legs` job carries no `github.server_url` condition, and the deploy job still runs only on GitHub.
 2. **The source.** `Main.leg` picks `LocalPool.onThisHost(Pool.read(...))` when the variable is set and not empty,
    else Hetzner. `Leg.run` asks the `Machines` for a lease by OS and kind, not by server type. `--type` and
    `vars.LEG_TYPES` stay Hetzner's.
 3. **The workflow.** `build.yml` drops `github.server_url == 'https://github.com'` from `legs`. The HETZNER secrets stay
    in the env, empty on the forge. The clean-up step stays: `sweep --mine` does nothing for a pool lease (HO27's
    buildtools part).
-4. **Publish.** It is unchanged. It already waits for `legs` or for a proof and `native`, and packages the binaries the
-   Ubuntu leg fetched back.
+4. **Publish.** Only GitHub publishes: the deploy job keeps its `github.server_url` condition. On the host's forge the
+   legs build and prove, and nothing is published.
 5. **Order.** It is built after HO27 and its buildtools part are released, and the root pom's
    `porelo.buildtools.version` is raised in the same commit.
 
 ## Acceptance
 
 - The `legs` and workflow tests above are seen red first.
-- A run on the host's forge (Molecule, forge and pool on) runs both legs from the pool. The binary Publish packages is
-  the Ubuntu leg's. The same commit with no edit runs both legs rented on GitHub.
+- A run on the host's forge (Molecule, forge and pool on) runs both legs from the pool. The same commit with no edit runs both legs rented on GitHub.
 
-## Open questions
+## Decided by the operator (2026-11-12)
 
-1. **Reboot scenarios on a pool VM.** The suite's `@restart` scenarios reboot the machine. On the pool that is a VM
-   the host resets afterwards. May a leg reboot a pool VM, or are those scenarios left to the GitHub legs?
-2. **A Fedora VM in the pool.** The Fedora leg needs a Fedora VM in the host's pool, beside Ubuntu. Should the host
-   keep one, at its cost in memory and disk, or does the forge run only the Ubuntu leg?
-3. **Which forge publishes.** When both forges run the same commit, both reach Publish. Should the host's forge publish
-   to Central and the releases as well, or only build and prove, with publishing kept on one forge?
+- A leg's `@restart` scenarios may reboot a pool VM.
+- The host keeps a Fedora VM in the pool, so both legs run there.
+- Only GitHub publishes.
 
 ## To be checked
 
