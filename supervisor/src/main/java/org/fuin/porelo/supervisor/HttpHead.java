@@ -63,7 +63,14 @@ public record HttpHead(String method, String target, List<String> names, List<St
         final List<String> names = new ArrayList<>();
         final List<String> values = new ArrayList<>();
         String header;
+        // Each line is bounded by itself; the head as a whole is bounded here, or a peer that
+        // sends short lines and never the blank one grows this list without end.
+        int read = requestLine.length() + 2;
         while ((header = line(in)) != null && !header.isEmpty()) {
+            read += header.length() + 2;
+            if (read > LIMIT) {
+                throw new IOException("Request head exceeds " + LIMIT + " bytes");
+            }
             final int colon = header.indexOf(':');
             if (colon < 1) {
                 throw new IOException("Malformed header '" + header + "'");

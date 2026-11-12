@@ -35,6 +35,9 @@ public class VaultRepositoriesCommand implements Callable<Integer>, PoreloFactor
     /** The kinds of vault entry a repository's credential may be. */
     public static final List<String> KINDS = List.of("basic", "bearer", "header");
 
+    /** The fewest characters a basic credential's password has, so answers are scanned for it. */
+    public static final int PASSWORD_LENGTH = 12;
+
     @Option(
             names = "--socket",
             paramLabel = "<file>",
@@ -102,7 +105,8 @@ public class VaultRepositoriesCommand implements Callable<Integer>, PoreloFactor
      * <p>{@code basic}: the value is {@code user:password}, sent Base64-encoded behind {@code
      * Basic}. {@code bearer}: sent behind {@code Bearer}. {@code header}: sent as it is, in the
      * header its setting {@code header} names, such as {@code X-JFrog-Art-Api}. Each in the forms
-     * an answer must not carry: as stored, Base64-encoded, and a basic's password alone.
+     * an answer must not carry: as stored, Base64-encoded, and a basic's password alone, which is
+     * therefore at least {@link #PASSWORD_LENGTH} characters long.
      *
      * @param entry The vault entry.
      * @return How, or why not.
@@ -121,13 +125,21 @@ public class VaultRepositoriesCommand implements Callable<Integer>, PoreloFactor
                 if (colon <= 0) {
                     yield Credential.refused("is of kind basic and holds no 'user:password'");
                 }
-                final List<String> secrets = new ArrayList<>(List.of(value, encoded));
                 final String password = value.substring(colon + 1);
-                // A short password alone would cut answers at every word it spells.
-                if (password.length() >= 8) {
-                    secrets.add(password);
+                // Scanned for alone, a short password would cut answers at every word it spells;
+                // not scanned for, an answer could echo it with the user beside it. So refused.
+                if (password.length() < PASSWORD_LENGTH) {
+                    yield Credential.refused(
+                            "is of kind basic with a password shorter than "
+                                    + PASSWORD_LENGTH
+                                    + " characters, which cannot be kept out of answers: store"
+                                    + " a longer one");
                 }
-                yield new Credential("Authorization", "Basic " + encoded, secrets, null);
+                yield new Credential(
+                        "Authorization",
+                        "Basic " + encoded,
+                        List.of(value, encoded, password),
+                        null);
             }
             case "bearer" ->
                     new Credential(

@@ -114,6 +114,49 @@ class RepositoryProxyTest {
                             exchange.getResponseHeaders().set("Content-Encoding", "gzip");
                             answer(exchange, 200, "application/json", packed.toByteArray());
                         }
+                        case "/repository/maven/escaped.json" ->
+                                answer(
+                                        exchange,
+                                        200,
+                                        "application/json",
+                                        ("{\"auth\":\"builder:\\u0073\\u0033cret\\u002Drepository-password\"}")
+                                                .getBytes(StandardCharsets.UTF_8));
+                        case "/repository/maven/percent.txt" ->
+                                answer(
+                                        exchange,
+                                        200,
+                                        "text/plain",
+                                        "builder%3as3cret%2Drepository%2dpassword"
+                                                .getBytes(StandardCharsets.UTF_8));
+                        case "/repository/maven/clear.ndjson" ->
+                                answer(
+                                        exchange,
+                                        200,
+                                        "application/x-ndjson",
+                                        ("{\"auth\":\"" + USER_PASSWORD + "\"}\n")
+                                                .getBytes(StandardCharsets.UTF_8));
+                        case "/repository/maven/clear.yaml" ->
+                                answer(
+                                        exchange,
+                                        200,
+                                        "application/x-yaml",
+                                        ("auth: " + USER_PASSWORD + "\n")
+                                                .getBytes(StandardCharsets.UTF_8));
+                        case "/repository/maven/wide.json" ->
+                                answer(
+                                        exchange,
+                                        200,
+                                        "application/json; charset=UTF-16",
+                                        ("{\"auth\":\"" + USER_PASSWORD + "\"}")
+                                                .getBytes(StandardCharsets.UTF_16));
+                        case "/repository/maven/headers.jar" -> {
+                            exchange.getResponseHeaders()
+                                    .set("X-Debug-Auth", "s3cret%2Drepository%2Dpassword");
+                            exchange.getResponseHeaders().set("X-Anything", "harmless");
+                            exchange.getResponseHeaders().set("ETag", "\"v1\"");
+                            exchange.getResponseHeaders().set("X-Checksum-Sha1", "0123abcd");
+                            answer(exchange, 200, "application/java-archive", JAR);
+                        }
                         default -> answer(exchange, 404, "text/plain", "none".getBytes());
                     }
                 });
@@ -261,6 +304,10 @@ class RepositoryProxyTest {
                 "/corp/org//demo/demo.jar",
                 "/corp/./org/demo/demo.jar",
                 "/corp/org/%00/demo.jar",
+                "/corp/..;x=1/admin",
+                "/corp/org;jsessionid=1/demo/demo.jar",
+                "/corp/..%3bx=1/admin",
+                "/corp/..%3Bx=1/admin",
                 "/corp",
                 "/other/org/demo/demo.jar",
                 "http://127.0.0.1/corp/org/demo/demo.jar",
@@ -312,7 +359,15 @@ class RepositoryProxyTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/corp/clear.txt", "/corp/encoded.xml"})
+    @ValueSource(
+            strings = {
+                "/corp/clear.txt",
+                "/corp/encoded.xml",
+                "/corp/escaped.json",
+                "/corp/percent.txt",
+                "/corp/clear.ndjson",
+                "/corp/clear.yaml"
+            })
     void aTextAnswerCarryingTheCredentialIsCutOffBeforeIt(String target, @TempDir Path dir)
             throws IOException {
         final Path socket = dir.resolve("repository.sock");
@@ -324,8 +379,87 @@ class RepositoryProxyTest {
         assertThat(text(answer))
                 .doesNotContain(USER_PASSWORD)
                 .doesNotContain(BASIC)
-                .doesNotContain("s3cret-repository-password");
+                .doesNotContain("s3cret-repository-password")
+                .doesNotContain("repository-password")
+                .doesNotContain("repository%2dpassword");
         assertThat(logged).anyMatch(line -> line.contains("cut"));
+    }
+
+    @Test
+    void anEscapeSplitAcrossReadsIsHeldBackWhole() throws IOException {
+        final byte[] sent =
+                "{\"auth\":\"\\u0062uilder:s3cret-repository-password\"}"
+                        .getBytes(StandardCharsets.UTF_8);
+        final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        // One byte a read: every boundary falls inside the escape once.
+        final InputStream trickle =
+                new java.io.ByteArrayInputStream(sent) {
+                    @Override
+                    public synchronized int read(byte[] into, int offset, int length) {
+                        return super.read(into, offset, Math.min(1, length));
+                    }
+                };
+
+        final boolean whole =
+                RepositoryProxy.scanned(
+                        trickle,
+                        out,
+                        new RepositoryProxy.Repository(
+                                "corp",
+                                "https://repo.example/",
+                                "Authorization",
+                                "Basic " + BASIC,
+                                List.of(USER_PASSWORD, BASIC)));
+
+        assertThat(whole).isFalse();
+        assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("{\"auth\":\"");
+    }
+
+    @Test
+    void aTextAnswerInAnotherCharsetIsWithheld(@TempDir Path dir) throws IOException {
+        final Path socket = dir.resolve("repository.sock");
+        final byte[] answer;
+        try (RepositoryProxy proxy = proxy(socket)) {
+            answer = send(socket, "GET /corp/wide.json HTTP/1.1\r\n\r\n");
+        }
+
+        assertThat(text(answer)).startsWith("HTTP/1.1 502");
+        assertThat(new String(answer, StandardCharsets.UTF_16))
+                .doesNotContain("s3cret-repository-password");
+    }
+
+    @Test
+    void onlyTheAnswersAllowedHeadersReachTheTask(@TempDir Path dir) throws IOException {
+        final Path socket = dir.resolve("repository.sock");
+        final byte[] answer;
+        try (RepositoryProxy proxy = proxy(socket)) {
+            answer = send(socket, "GET /corp/headers.jar HTTP/1.1\r\n\r\n");
+        }
+
+        final String head = text(answer).substring(0, text(answer).indexOf("\r\n\r\n"));
+        assertThat(head.toLowerCase(java.util.Locale.ROOT))
+                .contains("content-type: application/java-archive")
+                .contains("etag: \"v1\"")
+                .contains("x-checksum-sha1: 0123abcd")
+                .doesNotContain("x-debug-auth")
+                .doesNotContain("x-anything")
+                .doesNotContain("s3cret");
+        assertThat(body(answer)).isEqualTo(JAR);
+    }
+
+    @Test
+    void aRangeIsNeverAskedForSoEveryAnswerIsWhole(@TempDir Path dir) throws IOException {
+        final Path socket = dir.resolve("repository.sock");
+        try (RepositoryProxy proxy = proxy(socket)) {
+            send(
+                    socket,
+                    "GET /corp/org/demo/demo.jar HTTP/1.1\r\nRange: bytes=0-0\r\n"
+                            + "If-Range: \"v1\"\r\n\r\n");
+        }
+
+        assertThat(reached)
+                .singleElement()
+                .satisfies(request -> assertThat(request).doesNotContainKeys("range", "if-range"));
     }
 
     @Test

@@ -148,6 +148,36 @@ The repository is a `tool_repositories` entry ([B467](README.md#b467)) with a cr
   TLS (a Nexus or Artifactory, or a stand-in serving a jar), its authority in the account's added authorities, the
   credential stored with `porelo vault put --type basic`, and a task whose `curl` and Maven build fetch through it.
 
+## Read by a second model (2026-11-12)
+
+A static reading of the broker found four Reds and three Yellows. Each Red was fixed with a test that failed first.
+
+- **Red: a path parameter could leave the prefix.** `/corp/..;x=1/admin` was sent as `/repo/..;x=1/admin`, which a
+  server that drops `;x=1` before it reads `..` resolves to `/admin`. Now a segment holding `;`, plain or as `%3b` in
+  either case, is refused with 400 before the repository. Four such targets were added to the refused paths.
+- **Red: an echo escaped or encoded passed the scan.** The answer's headers are now an allow-list: `Content-Type`,
+  `Content-Length`, `Content-Encoding` (for a binary answer; text that comes coded is still withheld), `ETag`,
+  `Last-Modified`, `Cache-Control`, `Expires`, `Date`, and `X-Checksum-Sha1`, `X-Checksum-Sha256` and
+  `X-Checksum-Md5`, which Nexus and Artifactory send and Maven reads instead of a checksum file. Every other header is
+  dropped, so `X-Debug-Auth: repo%2Dtoken...` never comes back. A text answer is scanned as the client would decode
+  it: `\uXXXX` and `\/` escapes and `%XX` bytes, in either case and in any mix with plain characters, count as the
+  character they stand for, and a held-back tail never starts inside an escape. A test feeds the scan one byte at a
+  time to check that. A text answer whose charset is not UTF-8, US-ASCII or ISO-8859-1, such as UTF-16, is withheld
+  with 502, and a NUL byte in text also stops the answer.
+- **Red: ranges could hand out a text answer in pieces.** `Range` and `If-Range` are dropped from the request, so
+  every answer is whole.
+- **Red: a short Basic password was not scanned for.** `vault repositories` now refuses at start a basic credential
+  whose password is shorter than 12 characters, saying it cannot be kept out of answers and never echoing it. Every
+  password it serves is scanned for.
+- **Yellow, fixed: text types read as binary.** Anything typed JSON, YAML or XML (`application/*+json`,
+  `application/x-ndjson`, `application/x-yaml` and the like) is now text and scanned.
+- **Yellow, fixed: a request head without end.** `HttpHead` now caps the whole head at 64 KiB, not only each line.
+  A test sends 20,000 short header lines with no blank line.
+- **Yellow, kept: the starter can be dumped.** `CredentialWiring` reads the vault in the CLI process to check that each
+  credential is there, and that process does not turn off core dumps. It stays as it is; it is filed on its own.
+
+`doc/reach.md` and the daemon's `Reach`, `doc/decisions.md` and `doc/project-file.md` say what changed.
+
 ## Acceptance
 
 - In a task, `curl $PORELO_REPOSITORY_CORP_URL<path>` fetches a jar from a repository that requires Basic auth, with

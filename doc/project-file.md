@@ -311,7 +311,7 @@ nothing; it is at most 16384 bytes as JSON and 8 levels deep.
 
 **A repository that wants a credential is read through the task's repository broker.** An entry with
 `credential` names a vault entry, stored with `porelo vault put <name> --type basic` (the value is
-`user:password`), `--type bearer`, or `--type header --setting header=<name>` (such as `X-JFrog-Art-Api`). Its
+`user:password`, the password at least 12 characters, since answers are scanned for it alone), `--type bearer`, or `--type header --setting header=<name>` (such as `X-JFrog-Art-Api`). Its
 `url` is the prefix the broker reads under: https, with no query, no fragment and no `.` or `..` in its path. The
 task never reaches it, so its host needs no egress line. The adapter is given the broker's address in the task,
 `http://127.0.0.1:9421/<name>/`, and the task's environment carries it as `PORELO_REPOSITORY_<NAME>_URL`. The

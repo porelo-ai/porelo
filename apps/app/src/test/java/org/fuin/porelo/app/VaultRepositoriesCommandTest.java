@@ -30,6 +30,24 @@ class VaultRepositoriesCommandTest {
     }
 
     @Test
+    void aBasicPasswordTooShortToKeepOutOfAnswersIsRefusedWithoutItsValue() {
+        final VaultRepositoriesCommand.Credential refused =
+                VaultRepositoriesCommand.credential(
+                        new VaultEntry("builder:shortpw0123", "basic", Map.of()));
+        final VaultRepositoriesCommand.Credential served =
+                VaultRepositoriesCommand.credential(
+                        new VaultEntry("builder:twelve-chars", "basic", Map.of()));
+
+        assertThat(refused.refusal())
+                .isNotNull()
+                .contains("12 characters")
+                .contains("kept out of answers")
+                .doesNotContain("shortpw0123");
+        assertThat(served.refusal()).isNull();
+        assertThat(served.secrets()).contains("twelve-chars");
+    }
+
+    @Test
     void aBearerAndAHeaderCredentialGoWhereTheirKindSays() {
         assertThat(
                         VaultRepositoriesCommand.credential(

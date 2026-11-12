@@ -367,9 +367,10 @@ public final class Reach {
                                                 .map(method -> "`" + method + "`")
                                                 .toList())
                                 + " only, under the prefix `tool_repositories` declares: a path"
-                                + " with a `.` or `..` segment, plain or encoded, an encoded"
-                                + " slash, backslash or percent, or an empty segment is refused"
-                                + " before the repository; a redirect is followed while it stays"
+                                + " with a `.` or `..` segment, plain or encoded, a path"
+                                + " parameter, an encoded slash, backslash or percent, or an empty"
+                                + " segment is refused before the repository; a range is never"
+                                + " asked for; a redirect is followed while it stays"
                                 + " under the prefix, at most "
                                 + RepositoryProxy.REDIRECTS
                                 + " times, and answered `502` otherwise; every request is logged"
@@ -378,9 +379,12 @@ public final class Reach {
                 new Row(
                         Part.HOLD,
                         "A package repository's answer",
-                        "Text is examined as it streams for the credential, as stored and"
-                                + " Base64-encoded, and cut off before it; text the repository"
-                                + " compresses is withheld. A binary answer, such as a jar, passes"
+                        "Text, and whatever is typed JSON, YAML or XML, is examined as it"
+                                + " streams for the credential, as stored and Base64-encoded, plain,"
+                                + " JSON-escaped or percent-encoded, and cut off before it; text the"
+                                + " repository compresses, or sends in a charset other than UTF-8,"
+                                + " US-ASCII or ISO-8859-1, is withheld. Only the headers a build"
+                                + " tool reads come back. A binary answer, such as a jar, passes"
                                 + " unread: the prefix the person declares is the bound",
                         Kind.CONTROL),
                 new Row(

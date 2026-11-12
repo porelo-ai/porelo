@@ -476,8 +476,10 @@ image, which Porelo does not do. A key carried in the request body is not rewrit
 ## A package repository's binary answer passes unread
 
 A task reads a package repository that wants a credential through its repository broker, which adds the vault's
-credential on the host and passes `GET` and `HEAD` under the declared prefix alone. A text answer is scanned as it streams for the credential, as stored and
-Base64-encoded, and cut off before it; text that comes compressed is withheld. **The exposure:** a binary answer
+credential on the host and passes `GET` and `HEAD` under the declared prefix alone. A text answer, and anything typed JSON, YAML or XML, is scanned as it streams for the
+credential, as stored and Base64-encoded, plain, JSON-escaped or percent-encoded, and cut off before it; text that
+comes compressed or in another charset is withheld, no range is asked for, and only the headers a build tool reads
+come back. **The exposure:** a binary answer
 under the prefix, a jar or a tarball, is streamed unread, so a repository that put its credential into one would hand
 it to the task. **Why it stays:** a compressed archive cannot be scanned, and refusing binary answers breaks every
 build; the prefix is the bound, and the person chooses it. **What would change the answer:** a repository found to

@@ -34,17 +34,18 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>Read only, and only under the prefix.</strong> GET and HEAD pass, every other method
  * is refused, so a task cannot deploy with the company's credential. The rest of the path is held
  * to the declared prefix before anything is sent: a {@code .} or {@code ..} segment, plain or
- * percent-encoded, an encoded slash or backslash, an encoded percent, an empty segment and a
- * control character are each refused, so no reading of the path by the repository leaves it. A
- * redirect is followed by the broker itself while it stays under the prefix, and answered as a
- * failure, unfollowed and unrepeated, when it leaves.
+ * percent-encoded, a path parameter ({@code ;}, plain or encoded), an encoded slash or backslash,
+ * an encoded percent, an empty segment and a control character are each refused, so no reading of
+ * the path by the repository leaves it. A redirect is followed by the broker itself while it stays
+ * under the prefix, and answered as a failure, unfollowed and unrepeated, when it leaves.
  *
  * <p><strong>What comes back.</strong> A text answer is scanned as it streams for the credential's
- * values and cut off where one appears; it is asked for uncompressed, and one that comes compressed
- * anyway is withheld, since the scan could not read it. A binary answer is streamed unread: a jar
- * or a tarball cannot be scanned, and the prefix, which the person chooses, is the control. Every
- * request is logged by its method, its path and the status, never a header, a query or a
- * credential.
+ * values, plain, JSON-escaped or percent-encoded, and cut off where one appears; it is asked for
+ * uncompressed and whole, never as a range, and one that comes compressed anyway, or in a charset
+ * the scan does not read, is withheld. Only the headers in {@link #ALLOWED} come back. A binary
+ * answer is streamed unread: a jar or a tarball cannot be scanned, and the prefix, which the person
+ * chooses, is the control. Every request is logged by its method, its path and the status, never a
+ * header, a query or a credential.
  *
  * <p>Its socket is bound as the agent broker's is ({@link VaultProxy#bind}). One request per
  * connection, answered with {@code Connection: close}.
@@ -59,12 +60,36 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
 
     /**
      * Headers dropped from the task's request beside {@link VaultProxy#CREDENTIAL_HEADERS}: a
-     * cookie is a credential too, and a compressed answer is one the scan cannot read.
+     * cookie is a credential too, a compressed answer is one the scan cannot read, and a range
+     * would hand out a text answer in pieces no single scan sees whole.
      */
-    private static final Set<String> DROPPED = Set.of("cookie", "accept-encoding");
+    private static final Set<String> DROPPED =
+            Set.of("cookie", "accept-encoding", "range", "if-range");
 
-    /** Headers of the repository's answer that are not handed to the task. */
-    private static final Set<String> WITHHELD = Set.of("set-cookie", "location");
+    /**
+     * The headers of the repository's answer the task is given; every other is dropped. What a
+     * build tool reads: the type and length, the coding of a binary answer, the validators and
+     * freshness Maven and npm cache by, and the checksums Nexus and Artifactory send, which Maven
+     * reads instead of fetching a checksum file.
+     */
+    static final Set<String> ALLOWED =
+            Set.of(
+                    "content-type",
+                    "content-encoding",
+                    "etag",
+                    "last-modified",
+                    "cache-control",
+                    "expires",
+                    "date",
+                    "x-checksum-sha1",
+                    "x-checksum-sha256",
+                    "x-checksum-md5");
+
+    /** The charsets the scan reads a text answer in: each spells ASCII as its own bytes. */
+    private static final Set<String> CHARSETS = Set.of("utf-8", "utf8", "us-ascii", "iso-8859-1");
+
+    /** The most bytes one character of a secret takes in an answer: {@code \u0041} is six. */
+    private static final int ESCAPED = 6;
 
     /**
      * One repository the task reads.
@@ -296,7 +321,8 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
         if (segment.isEmpty()) {
             return mayBeEmpty;
         }
-        if (segment.indexOf('\\') >= 0) {
+        // A path parameter: some servers drop ";x=1" before they read "..", so "..;x=1" leaves.
+        if (segment.indexOf('\\') >= 0 || segment.indexOf(';') >= 0) {
             return false;
         }
         final String lower = segment.toLowerCase(Locale.ROOT);
@@ -306,6 +332,7 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
                 || lower.contains("%5c")
                 || lower.contains("%2e")
                 || lower.contains("%25")
+                || lower.contains("%3b")
                 || lower.contains("%00")) {
             return false;
         }
@@ -413,6 +440,17 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
                         .firstValue("content-encoding")
                         .map(value -> value.strip().toLowerCase(Locale.ROOT))
                         .orElse("identity");
+        if (text && !"HEAD".equals(method) && !readable(response)) {
+            response.body().close();
+            refuse(
+                    out,
+                    502,
+                    "Bad Gateway",
+                    method,
+                    shown,
+                    "the repository answered " + status + " in a charset the broker cannot read");
+            return;
+        }
         if (text && !"HEAD".equals(method) && !"identity".equals(coding)) {
             response.body().close();
             refuse(
@@ -432,9 +470,7 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
                 .forEach(
                         (name, values) -> {
                             final String lower = name.toLowerCase(Locale.ROOT);
-                            if (lower.startsWith(":")
-                                    || VaultProxy.HOP_BY_HOP.contains(lower)
-                                    || WITHHELD.contains(lower)) {
+                            if (!ALLOWED.contains(lower)) {
                                 return;
                             }
                             for (final String value : values) {
@@ -467,10 +503,26 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
     }
 
     private static boolean carries(String value, Repository repository) {
-        return repository.secrets().stream().anyMatch(value::contains);
+        return first(value.getBytes(StandardCharsets.ISO_8859_1), needles(repository)) >= 0;
     }
 
-    /** Whether an answer is text the scan reads: typed as text, JSON or XML, or untyped. */
+    /** Whether a text answer's charset is one the scan reads; none named is read as UTF-8. */
+    private static boolean readable(HttpResponse<InputStream> response) {
+        final String type = response.headers().firstValue("content-type").orElse("");
+        for (final String parameter : type.split(";")) {
+            final String[] pair = parameter.strip().split("=", 2);
+            if (pair.length == 2 && "charset".equalsIgnoreCase(pair[0].strip())) {
+                final String charset = pair[1].strip().replace("\"", "").toLowerCase(Locale.ROOT);
+                return CHARSETS.contains(charset);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Whether an answer is text the scan reads: typed as text, or as anything JSON, YAML, XML or
+     * JavaScript, or untyped.
+     */
     private static boolean text(HttpResponse<InputStream> response) {
         final String type =
                 response.headers()
@@ -479,10 +531,9 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
                         .orElse("");
         return type.isEmpty()
                 || type.startsWith("text/")
-                || type.endsWith("/json")
-                || type.endsWith("+json")
-                || type.endsWith("/xml")
-                || type.endsWith("+xml")
+                || type.contains("json")
+                || type.contains("yaml")
+                || type.contains("xml")
                 || type.endsWith("/javascript");
     }
 
@@ -490,15 +541,19 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
      * Streams a text answer, holding back the bytes a secret could still be completing, and stops
      * before the first secret.
      *
+     * <p>Read as the client would decode it: a JSON escape {@code \\uXXXX} or {@code \\/} and a
+     * percent-encoded byte count as the character they stand for, in either case and in any mix
+     * with plain characters, so an echo spelled that way is found as one spelled plainly. A held
+     * back tail never begins inside such an escape, so no part of one is sent before it is read
+     * whole. A NUL byte stops the answer too: no text the scan reads holds one, and UTF-16 does.
+     *
      * @return Whether it streamed whole.
      */
-    private static boolean scanned(InputStream body, OutputStream out, Repository repository)
+    static boolean scanned(InputStream body, OutputStream out, Repository repository)
             throws IOException {
-        final List<byte[]> needles =
-                repository.secrets().stream()
-                        .map(secret -> secret.getBytes(StandardCharsets.UTF_8))
-                        .toList();
-        final int keep = needles.stream().mapToInt(needle -> needle.length).max().orElse(1) - 1;
+        final List<byte[]> needles = needles(repository);
+        final int keep =
+                needles.stream().mapToInt(needle -> needle.length).max().orElse(1) * ESCAPED;
         byte[] pending = new byte[0];
         final byte[] chunk = new byte[16 * 1024];
         int got;
@@ -506,17 +561,111 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
             final byte[] window = new byte[pending.length + got];
             System.arraycopy(pending, 0, window, 0, pending.length);
             System.arraycopy(chunk, 0, window, pending.length, got);
-            final int found = first(window, needles);
+            final Decoded decoded = Decoded.of(window);
+            final int found = first(decoded.bytes(), needles);
             if (found >= 0) {
-                out.write(window, 0, found);
+                out.write(window, 0, decoded.origin()[found]);
                 return false;
             }
-            final int passed = Math.max(0, window.length - keep);
+            final int passed = decoded.boundary(Math.max(0, window.length - keep));
             out.write(window, 0, passed);
             pending = java.util.Arrays.copyOfRange(window, passed, window.length);
         }
+        final Decoded rest = Decoded.of(pending);
+        final int found = first(rest.bytes(), needles);
+        if (found >= 0) {
+            out.write(pending, 0, rest.origin()[found]);
+            return false;
+        }
         out.write(pending);
         return true;
+    }
+
+    /** The secrets as the bytes a decoded answer would show them in, and a NUL. */
+    private static List<byte[]> needles(Repository repository) {
+        final List<byte[]> needles = new java.util.ArrayList<>();
+        repository
+                .secrets()
+                .forEach(secret -> needles.add(secret.getBytes(StandardCharsets.UTF_8)));
+        needles.add(new byte[] {0});
+        return needles;
+    }
+
+    /**
+     * Bytes as a client would decode their escapes.
+     *
+     * @param bytes The decoded bytes.
+     * @param origin For each decoded byte, where its escape or byte begins in the original.
+     * @param starts Where each escape or plain byte begins in the original, ascending.
+     */
+    private record Decoded(byte[] bytes, int[] origin, int[] starts) {
+
+        static Decoded of(byte[] raw) {
+            final java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            final int[] origin = new int[raw.length * 3 + 1];
+            final int[] starts = new int[raw.length + 1];
+            int tokens = 0;
+            int at = 0;
+            while (at < raw.length) {
+                starts[tokens++] = at;
+                final int from = bytes.size();
+                final int used;
+                if (raw[at] == '\\'
+                        && at + 5 < raw.length
+                        && (raw[at + 1] == 'u' || raw[at + 1] == 'U')
+                        && hex(raw, at + 2, 4) >= 0) {
+                    final byte[] spelled =
+                            String.valueOf((char) hex(raw, at + 2, 4))
+                                    .getBytes(StandardCharsets.UTF_8);
+                    bytes.write(spelled, 0, spelled.length);
+                    used = 6;
+                } else if (raw[at] == '\\' && at + 1 < raw.length && raw[at + 1] == '/') {
+                    bytes.write('/');
+                    used = 2;
+                } else if (raw[at] == '%' && at + 2 < raw.length && hex(raw, at + 1, 2) >= 0) {
+                    bytes.write(hex(raw, at + 1, 2));
+                    used = 3;
+                } else {
+                    bytes.write(raw[at]);
+                    used = 1;
+                }
+                for (int each = from; each < bytes.size(); each++) {
+                    origin[each] = at;
+                }
+                at += used;
+            }
+            return new Decoded(
+                    bytes.toByteArray(),
+                    java.util.Arrays.copyOf(origin, bytes.size()),
+                    java.util.Arrays.copyOf(starts, tokens));
+        }
+
+        /** The last start of an escape or byte at or before an offset, so none is split. */
+        int boundary(int offset) {
+            int last = 0;
+            for (final int start : starts) {
+                if (start > offset) {
+                    break;
+                }
+                last = start;
+            }
+            return last;
+        }
+
+        private static int hex(byte[] raw, int from, int digits) {
+            if (from + digits > raw.length) {
+                return -1;
+            }
+            int value = 0;
+            for (int at = from; at < from + digits; at++) {
+                final int digit = Character.digit(raw[at], 16);
+                if (digit < 0) {
+                    return -1;
+                }
+                value = value * 16 + digit;
+            }
+            return value;
+        }
     }
 
     private static int first(byte[] window, List<byte[]> needles) {
