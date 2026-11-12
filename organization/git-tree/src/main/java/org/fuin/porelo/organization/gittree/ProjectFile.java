@@ -290,7 +290,7 @@ public final class ProjectFile {
      * refuses, so losing it costs what a new machine has too.
      */
     private @Nullable Instant accepted(final String address) throws IOException {
-        final Path file = memory.resolve(TreeRepository.digest(address));
+        final Path file = memory.resolve(TreeRepository.digest(oneForm(address)));
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             return null;
         }
@@ -301,6 +301,26 @@ public final class ProjectFile {
         }
     }
 
+    /**
+     * Returns an address in the one form its memory is kept under: a repository reached over ssh is
+     * the repository its https address names, so a switch of form never drops the floor its
+     * accepted revisions set.
+     */
+    static String oneForm(final String address) {
+        final java.util.regex.Matcher scp =
+                java.util.regex.Pattern.compile("git@([^:/@]+):(.+)").matcher(address);
+        if (scp.matches()) {
+            return "https://" + scp.group(1) + "/" + scp.group(2);
+        }
+        final java.util.regex.Matcher ssh =
+                java.util.regex.Pattern.compile("ssh://git@([^:/@]+)(?::[0-9]+)?/(.+)")
+                        .matcher(address);
+        if (ssh.matches()) {
+            return "https://" + ssh.group(1) + "/" + ssh.group(2);
+        }
+        return address;
+    }
+
     private void remember(final String address, final Instant dated) throws IOException {
         Files.createDirectories(memory);
         final Path temporary = Files.createTempFile(memory, "accepted", ".tmp");
@@ -308,7 +328,7 @@ public final class ProjectFile {
             Files.writeString(temporary, dated + "\n", StandardCharsets.UTF_8);
             Files.move(
                     temporary,
-                    memory.resolve(TreeRepository.digest(address)),
+                    memory.resolve(TreeRepository.digest(oneForm(address))),
                     StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.ATOMIC_MOVE);
         } finally {

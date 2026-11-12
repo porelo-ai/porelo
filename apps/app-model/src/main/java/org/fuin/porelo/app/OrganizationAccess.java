@@ -87,6 +87,42 @@ public final class OrganizationAccess {
         };
     }
 
+    private static final java.util.regex.Pattern SCP_FORM =
+            java.util.regex.Pattern.compile("git@(?<host>[^:/@]+):.+");
+
+    private static final java.util.regex.Pattern SSH_FORM =
+            java.util.regex.Pattern.compile("ssh://git@(?<host>[^:/@]+)(?<port>:[0-9]+)?/.+");
+
+    private static final java.util.regex.Pattern HTTPS_FORM =
+            java.util.regex.Pattern.compile("https://(?<host>[^:/@]+)/(?<path>[^?#]+)");
+
+    /**
+     * Returns a project repository's address in the organization's own form, for its forge.
+     *
+     * @param organization The organization's address, as organization.yml names it.
+     * @param filed The address the organization files for the project.
+     * @return The ssh form of {@code filed} when the organization is named over ssh on its host,
+     *     else {@code filed}.
+     */
+    public static String reached(final String organization, final String filed) {
+        final java.util.regex.Matcher project = HTTPS_FORM.matcher(filed);
+        if (!project.matches()) {
+            return filed;
+        }
+        final String host = project.group("host");
+        final String path = project.group("path");
+        final java.util.regex.Matcher scp = SCP_FORM.matcher(organization);
+        if (scp.matches() && scp.group("host").equalsIgnoreCase(host)) {
+            return "git@" + scp.group("host") + ":" + path;
+        }
+        final java.util.regex.Matcher ssh = SSH_FORM.matcher(organization);
+        if (ssh.matches() && ssh.group("host").equalsIgnoreCase(host)) {
+            final String port = ssh.group("port");
+            return "ssh://git@" + ssh.group("host") + (port == null ? "" : port) + "/" + path;
+        }
+        return filed;
+    }
+
     /**
      * Finds the token the forge is asked with: declared for the https address, where it is sent,
      * however the repository is cloned, or held in the vault under the forge's name.

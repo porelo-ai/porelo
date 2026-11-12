@@ -785,6 +785,17 @@ class ProjectFileTest {
     }
 
     @Test
+    void aRepositoryReachedOverSshKeepsTheFloorItsHttpsAddressSet() {
+        // A person who switches to the organization's ssh form must not lose the newest
+        // revision accepted, or an older file would be taken once.
+        assertThat(ProjectFile.oneForm("git@forge.example:acme/foo.git"))
+                .isEqualTo(ProjectFile.oneForm("https://forge.example/acme/foo.git"))
+                .isEqualTo(ProjectFile.oneForm("ssh://git@forge.example:2222/acme/foo.git"));
+        assertThat(ProjectFile.oneForm("git@other.example:acme/foo.git"))
+                .isNotEqualTo(ProjectFile.oneForm("https://forge.example/acme/foo.git"));
+    }
+
+    @Test
     void aMergeThatBringsBackAnOlderFileIsRefusedOnceANewerWasAccepted() throws Exception {
         final String older = git("rev-parse", "HEAD");
         aLaterChange("2090-01-01T00:00:00Z");

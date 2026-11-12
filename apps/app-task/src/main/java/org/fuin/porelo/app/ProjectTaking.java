@@ -229,7 +229,17 @@ public final class ProjectTaking {
                             each.validUntil(),
                             each.revokedSince()));
         }
-        place(name, address, address, access, 1, keys, null, null);
+        // Reached as this person reaches the organization: over ssh when it is named over ssh.
+        String reached = address;
+        try {
+            reached =
+                    IdentityOrganization.repository(context)
+                            .map(organization -> OrganizationAccess.reached(organization, address))
+                            .orElse(address);
+        } catch (final IdentityChange.Refused ex) {
+            // Settings that do not read say nothing of the form: the address as filed.
+        }
+        place(name, address, reached, access, 1, keys, null, null);
     }
 
     private boolean isLocal(final String name) {

@@ -52,6 +52,14 @@ used as filed. The refusal names the repository it could not read.
   https address with a port of its own, or an organization named over https keep the address as filed.
 - `project sign`, its repository-file and checkout forms and `project show` read and write the project's repository at
   that address.
+- A Codex reading of that found two Reds, fixed: the memory of the revisions accepted was keyed by the address
+  read, so a read over ssh had no floor from those accepted over https; it is now keyed by the https form of the
+  address (`ProjectFile.oneForm`). A task's start (`ProjectTaking`) and `project create-repository` still read and
+  checked the https address; both now use the reached one, while the address filed stays https. The rewrite moved to
+  `OrganizationAccess.reached` in app-model so the task's start can use it. A Yellow is kept: a path's `%20` or `..`
+  is carried into the ssh address as it is, which git then reads as the same path on the same forge.
+- The new memory test was red only as a compile failure, since `oneForm` did not exist before. The start's and create-repository's
+  use of the reached address have no test of their own yet.
 - Not done here: the lead of a failed clone still says "the organization's repository" for a project's repository;
   `TreeRepository.fetch` gives every clone that lead, and tests pin it.
 

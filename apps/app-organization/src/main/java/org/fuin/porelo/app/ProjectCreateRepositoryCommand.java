@@ -166,15 +166,19 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
         final String first = firstFile(project, chosen);
         try {
             try {
-                opened.files().found(change, at, first);
+                opened.files().found(change, OrgAccess.reached(organization, at), first);
             } catch (Refused refused) {
                 if (Refused.NO_REPOSITORY.equals(refused.reason())) {
                     maker.make(machine, origin, project);
-                    opened.files().found(change, at, first);
+                    opened.files().found(change, OrgAccess.reached(organization, at), first);
                 } else if (review == null && Refused.USAGE.equals(refused.reason())) {
                     // Membership may have changed since this id's first signed commit.
                     chosen = chosen == null ? Repository.REVIEW_OPTIONAL : null;
-                    opened.files().found(change, at, firstFile(project, chosen));
+                    opened.files()
+                            .found(
+                                    change,
+                                    OrgAccess.reached(organization, at),
+                                    firstFile(project, chosen));
                 } else {
                     throw refused;
                 }
