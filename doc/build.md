@@ -30,11 +30,15 @@ hand-over and CI turn it on, and a run of only the touched modules (`-pl <change
 Requires JDK 25 or later. Byte Buddy is pinned to 1.17.8 via `org.fuin:bom`,
 because earlier versions reject class-file major version 69.
 
-The build and test tooling - `porelo-machines`, `porelo-release` and the FFM, CPU and package checks -
-lives in [porelo-buildtools](https://github.com/porelo-ai/porelo-buildtools) and is taken from Maven
-Central at the root pom's `porelo.buildtools.version`. Its snapshots come from the Central snapshot
-repository that `settings.xml` names, so pass `-s settings.xml` as CI does unless your own settings
-name it too.
+The FFM and CPU checks live in [build/](https://github.com/porelo-ai/porelo/blob/main/build/README.md),
+built and published with Porelo at `porelo.version`. Each profile that enables a check declares it as an
+exec plugin dependency, so the reactor builds it before the module it checks.
+
+`porelo-machines`, `porelo-release` and the package check's `porelo-json` stay in
+[porelo-buildtools](https://github.com/porelo-ai/porelo-buildtools), taken from Maven Central at the root
+pom's `porelo.buildtools.version`; the package check itself lives in `dist/package-check`. The build tools'
+snapshots come from the Central snapshot repository that `settings.xml` names, so pass `-s settings.xml`
+as CI does unless your own settings name it too.
 
 ### Native binaries
 

@@ -58,7 +58,8 @@ installs. Names are not unique in this field, and an agent that only says "Pi" o
 
 Copy an existing one. Two dependencies: `porelo-agent-api`, and `porelo-wire` for
 `Json`. These are the agent's two allowed production dependencies. Maven Central also
-holds `porelo-acceptance-kit`, `porelo-bom`, `porelo-build-api` and `porelo-ecosystem-api`;
+holds `porelo-acceptance-kit`, `porelo-bom`, `porelo-build-api`, `porelo-ecosystem-api`,
+`porelo-ffm-check` and `porelo-cpu-check`, making eight published artifacts;
 the acceptance kit is test-only for an agent. **Do not add a dependency on
 another agent** — the build will reject it.
 

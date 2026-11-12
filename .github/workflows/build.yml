@@ -97,7 +97,7 @@ jobs:
                   ./mvnw -B -q -s settings.xml -N exec:exec@check-deploy
 
             # FFM downcalls are not found by native-image's analysis: an unregistered one fails only in the shipped binary.
-            # The check is porelo-ffm-check, resolved from Central at the root pom's porelo.buildtools.version.
+            # The check is porelo-ffm-check, built in this reactor from build/ffm-check at porelo.version.
             - name: Every FFM downcall the tests made is registered
               run: ./mvnw -B -U -s settings.xml -Pnative,ffm-check -Dagent=true -pl core,shield,vault -am verify
 

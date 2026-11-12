@@ -140,7 +140,7 @@ would change the answer.
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
 | **The build and packages** | | |
 | Porelo is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#porelo-is-split-into-modules-by-area-not-into-repositories) |
-| The build tooling lives in its own repository; the acceptance kit stays | `porelo-buildtools` from Central at `porelo.buildtools.version`; the kit changes with the product | [entry](#the-build-tooling-lives-in-its-own-repository-the-acceptance-kit-stays) |
+| The build tooling lives in its own repository; the acceptance kit stays | FFM and CPU checks and the kit change with Porelo; release, machines and the package check's JSON stay in `porelo-buildtools` | [entry](#the-build-tooling-lives-in-its-own-repository-the-acceptance-kit-stays) |
 | Which machine types a leg rents | snapshots at the smallest disk; `cpx42` first for speed, three fallbacks; nothing enforces it | [entry](#which-machine-types-a-leg-rents) |
 | A developer's build labels itself | `chcon` after each build where SELinux is on; no build path in the shipped policy (not yet built) | [entry](#a-developers-build-labels-itself) |
 | A release waits for the misuse suite, and a found hole is never skipped | every misuse scenario ran and passed; a red one holds the release and is never tagged or filtered out | [entry](#a-release-waits-for-the-misuse-suite-and-a-found-hole-is-never-skipped) |
@@ -881,11 +881,14 @@ first, which makes the meeting visible rather than making it go away.
 
 ## The build tooling lives in its own repository; the acceptance kit stays
 
-`porelo-machines`, the release tool and the FFM, CPU and package checks live in `porelo-buildtools` on their own
-version line, and `porelo` takes them from Central at one property, `porelo.buildtools.version`. They are a separate
-world with a command line as their contract. The acceptance kit stays in `porelo`, because its steps change with the
-product: moved out, most product features would need a kit release first. The cost: a change that needs both is two
-pushes in order, the tooling first.
+`porelo-machines`, the release tool and the package check's `porelo-json` stay in `porelo-buildtools` on their own
+version line, and `porelo` takes them from Central at `porelo.buildtools.version`. The package check itself lives in
+`dist/package-check`. A change that needs both repositories is two pushes in order, the tooling first.
+
+The FFM and CPU checks live in `build/ffm-check` and `build/cpu-check`, built, tested and published with Porelo at
+`porelo.version`: they guard its native images, and changing either must not wait for a build-tools release.
+ffm-check uses porelo-wire's JSON; the package check keeps porelo-json. The acceptance kit stays in `porelo`,
+because its steps change with the product: moved out, most product features would need a kit release first.
 
 ## Which machine types a leg rents
 

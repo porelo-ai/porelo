@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B621",
   "title": "The Native-Image Checks Live With Porelo",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 30,
@@ -94,6 +94,24 @@ agy (gemini) read the plan; the build takes its answers:
 - porelo-planner can take `porelo-cpu-check` from porelo's snapshot at once, but its own release waits until a porelo
   release carries the checks, since `check-releases` refuses a snapshot version.
 
+## As built
+
+- `build/` (`porelo-build-checks`) holds `build/ffm-check` and `build/cpu-check`, moved from porelo-buildtools as they
+  are; ffm-check reads JSON through porelo-wire's `Json`. Both publish as wire does, so `AGENTS.md` names eight
+  artifacts on Central.
+- The root's dependency management names both at `${porelo.version}`; the root's plugin management no longer names
+  them, and each of the eleven module profiles that turns a check on adds its check to `exec-maven-plugin` there.
+- The reactor takes a profile's plugin dependency as an edge: `-Pnative,ffm-check -pl core -am` builds
+  `porelo-ffm-check` before core, and `-Pnative -pl daemon -am` builds `porelo-cpu-check` before the daemon.
+- Not run here: a native image through both checks, the GitHub build, and porelo-planner taking `porelo-cpu-check`
+  from porelo (its own change, after this lands).
+
+## After the code reading
+
+agy (gemini) read the change against porelo-buildtools' `HEAD`: every pom names both checks at `${porelo.version}` and
+none at `porelo.buildtools.version`; the moved code and tests match except ffm-check's `Json` import; both modules
+publish as wire does; the documents agree on eight artifacts. No findings, so nothing changed.
+
 ## Acceptance
 
 - `./mvnw -Pnative install` runs both checks from this repository's modules, and their tests pass here.
@@ -128,7 +146,5 @@ M, est=63 (p80 229) by the median velocity. There are no open questions.
 
 ## To be checked
 
-- Maven 3.9's reactor takes the plugin dependency in a profile as an edge, so `-pl core -am` and the whole reactor
-  build `build/ffm-check` before core: seen in the first `validate` with the profiles on.
 - porelo-planner resolves porelo's snapshots and releases from the repositories it already reads (it reads
   porelo-buildtools' today); to be confirmed with the planner's owner when handing over.

@@ -165,6 +165,7 @@ What each Maven module is, in a few sentences of its own:
 - [agents](agents/README.md), [builds](builds/README.md), [ecosystems](ecosystems/README.md) - the contracts agents,
   build readers and ecosystem adapters are written against
 - [apps](apps/README.md) - the `porelo` command line, area by area
+- [build](build/README.md) - the native-image checks built and published with Porelo
 - [daemon](daemon/README.md), [hooks](hooks/README.md) - `porelod` and the OCI hooks
 - [host](host/README.md) - the host's own privileged `porelo-host` program
 - [acceptance](acceptance/README.md) - scenarios at a real terminal
