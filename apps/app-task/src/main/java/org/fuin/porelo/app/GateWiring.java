@@ -26,6 +26,20 @@ final class GateWiring {
     /** Which repository of the project this gate serves, or {@code null} for the project's own. */
     private final @Nullable String repository;
 
+    /** The tasks whose landed work this task was started to read. */
+    private java.util.List<String> reads = java.util.List.of();
+
+    /**
+     * Has the task's gate show it, read only, where the named tasks' work landed.
+     *
+     * @param tasks The tasks it reads.
+     * @return This wiring.
+     */
+    GateWiring reading(final java.util.List<String> tasks) {
+        this.reads = java.util.List.copyOf(tasks);
+        return this;
+    }
+
     /**
      * Constructor with what the run decided.
      *
@@ -142,6 +156,42 @@ final class GateWiring {
             final @Nullable String repository,
             final @Nullable String forgeBranch,
             final @Nullable Certified certified) {
+        return serving(
+                project,
+                bind,
+                port,
+                state,
+                taskName,
+                repository,
+                forgeBranch,
+                certified,
+                java.util.List.of());
+    }
+
+    /**
+     * Returns the command that serves a task's gate, showing it where the tasks it reads landed.
+     *
+     * @param project The task's project.
+     * @param bind Where the gate listens.
+     * @param port Its port.
+     * @param state The task's runtime state.
+     * @param taskName The task's own name.
+     * @param repository Which repository of the project, or {@code null} for its own.
+     * @param forgeBranch The task's branch at the forge, or {@code null} for {@code porelo/<task>}.
+     * @param certified What its arrivals are judged by, or {@code null}.
+     * @param reads The tasks whose landed work it reads; none for every other task.
+     * @return The command.
+     */
+    static java.util.List<String> serving(
+            final org.fuin.porelo.core.project.Project project,
+            final String bind,
+            final int port,
+            final java.nio.file.Path state,
+            final String taskName,
+            final @Nullable String repository,
+            final @Nullable String forgeBranch,
+            final @Nullable Certified certified,
+            final java.util.List<String> reads) {
         final java.util.List<String> command =
                 new java.util.ArrayList<>(
                         java.util.List.of(
@@ -185,6 +235,12 @@ final class GateWiring {
             command.add("--signers");
             command.add(certified.signers().toString());
         }
+        if (!reads.isEmpty()) {
+            // On the recorded command line too: a resumed reader is shown what it was started to
+            // read, and nothing more.
+            command.add("--reads");
+            command.add(String.join(",", reads));
+        }
         if (repository != null) {
             // On the recorded command line, so that resuming the task brings back a gate on the
             // same mirror. A resumed task that served the project's own repository instead would
@@ -217,7 +273,8 @@ final class GateWiring {
                         taskName,
                         repository,
                         forgeBranch,
-                        certified);
+                        certified,
+                        reads);
 
         try {
             final ProcessBuilder builder =

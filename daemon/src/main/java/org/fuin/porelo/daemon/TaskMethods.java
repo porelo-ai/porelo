@@ -56,7 +56,7 @@ final class TaskMethods {
     static Map<String, Object> list(final TaskInventory inventory) {
         final List<TaskInventory.Task> found = inventory.tasks();
         return Map.of(
-                "tasks", found.stream().map(TaskInventory.Task::asMap).toList(),
+                "tasks", inventory.rows(found),
                 "unrecognized", inventory.unrecognized(found));
     }
 
@@ -405,7 +405,7 @@ final class TaskMethods {
                         replies.last(
                                 Map.of(
                                         "tasks",
-                                        found.stream().map(TaskInventory.Task::asMap).toList(),
+                                        inventory.rows(found),
                                         "unrecognized",
                                         inventory.unrecognized(found)));
                         return;
@@ -419,17 +419,13 @@ final class TaskMethods {
                         // a fleet view to redraw because a clock had moved. Measured against a real
                         // task, which is the only way this shows up at all.
                         final List<String> unrecognized = inventory.unrecognized(tasks);
+                        final List<Map<String, Object>> rows = inventory.rows(tasks);
                         final List<String> settled =
                                 new java.util.ArrayList<>(
-                                        tasks.stream().map(PoreloDaemon::withoutAge).toList());
+                                        rows.stream().map(PoreloDaemon::withoutAge).toList());
                         settled.addAll(unrecognized);
                         if (!settled.equals(previous)) {
-                            replies.more(
-                                    Map.of(
-                                            "tasks",
-                                            tasks.stream().map(TaskInventory.Task::asMap).toList(),
-                                            "unrecognized",
-                                            unrecognized));
+                            replies.more(Map.of("tasks", rows, "unrecognized", unrecognized));
                             previous = settled;
                         }
                         sleep(WATCH_INTERVAL);
@@ -1018,13 +1014,15 @@ final class TaskMethods {
                     // lacks - and there is because the name comes back as a value.
                     final java.util.concurrent.atomic.AtomicReference<String> started =
                             new java.util.concurrent.atomic.AtomicReference<>("");
+                    final java.util.List<String> reads = reads(parameters);
                     final TaskLaunch.Request asked = request(parameters, context);
                     final TaskLaunch launch =
                             new TaskLaunch(
                                             context,
                                             asked,
                                             new org.fuin.porelo.app.StartSteps(progress, sink))
-                                    .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"));
+                                    .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"))
+                                    .reading(reads);
                     if (replies.streaming()) {
                         // The run's own lines as it writes them, apart from Porelo's.
                         launch.followRun(line -> progress.stream().send(Map.of("runLine", line)));
@@ -1393,6 +1391,23 @@ final class TaskMethods {
         }
         throw new VarlinkException(
                 "org.varlink.service.InvalidParameter", Map.of("parameter", name));
+    }
+
+    /** The tasks a start reads the landed work of: none when not given, refused when not names. */
+    static java.util.List<String> reads(final Map<String, Object> parameters) {
+        final Object given = parameters.get("reads");
+        if (given == null) {
+            return java.util.List.of();
+        }
+        if (given instanceof java.util.List<?> list
+                && list.stream().allMatch(String.class::isInstance)) {
+            final java.util.List<String> names = list.stream().map(String.class::cast).toList();
+            if (TaskLaunch.unreadable(names) == null) {
+                return names;
+            }
+        }
+        throw new VarlinkException(
+                "org.varlink.service.InvalidParameter", Map.of("parameter", "reads"));
     }
 
     /** Who calls: the account the daemon runs as, which is the only one its socket lets in. */

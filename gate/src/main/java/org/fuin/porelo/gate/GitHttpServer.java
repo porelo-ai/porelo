@@ -33,6 +33,10 @@ public class GitHttpServer implements AutoCloseable {
     /** Services a client may ask for. Anything else is refused. */
     private static final Set<String> SERVICES = Set.of("git-upload-pack", "git-receive-pack");
 
+    /** A task's name as a reader may give it: one ref component, no pattern. */
+    private static final java.util.regex.Pattern TASK_NAME =
+            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
+
     private final HttpServer server;
 
     private final Path mirror;
@@ -50,6 +54,9 @@ public class GitHttpServer implements AutoCloseable {
     private volatile @org.jspecify.annotations.Nullable Arrivals arrivals;
 
     private volatile @org.jspecify.annotations.Nullable Signer signer;
+
+    /** The tasks whose landed work this task was started to read. */
+    private volatile List<String> reads = List.of();
 
     private final Object refreshing = new Object();
 
@@ -257,6 +264,17 @@ public class GitHttpServer implements AutoCloseable {
         return this;
     }
 
+    /**
+     * Shows this task, read only, where the named tasks' work landed, and nothing else of theirs.
+     *
+     * @param tasks The tasks it was started to read.
+     * @return This server.
+     */
+    public GitHttpServer reading(final List<String> tasks) {
+        this.reads = List.copyOf(tasks);
+        return this;
+    }
+
     /** Starts serving. */
     public void start() {
         server.start();
@@ -370,6 +388,7 @@ public class GitHttpServer implements AutoCloseable {
                 git.run(
                         hidingOthers(
                                 ref,
+                                "git-upload-pack".equals(service) ? reads : List.of(),
                                 service.substring("git-".length()),
                                 "--stateless-rpc",
                                 "--advertise-refs",
@@ -411,7 +430,12 @@ public class GitHttpServer implements AutoCloseable {
                 exchange.sendResponseHeaders(200, 0);
                 try (OutputStream out = exchange.getResponseBody()) {
                     git.stream(
-                            hidingOthers(ref, "upload-pack", "--stateless-rpc", mirror.toString()),
+                            hidingOthers(
+                                    ref,
+                                    reads,
+                                    "upload-pack",
+                                    "--stateless-rpc",
+                                    mirror.toString()),
                             body,
                             out);
                 }
@@ -718,6 +742,13 @@ public class GitHttpServer implements AutoCloseable {
      */
     static List<String> hidingOthers(
             @org.jspecify.annotations.Nullable String ref, String... arguments) {
+        return hidingOthers(ref, List.of(), arguments);
+    }
+
+    static List<String> hidingOthers(
+            @org.jspecify.annotations.Nullable String ref,
+            List<String> reads,
+            String... arguments) {
         final List<String> command = new java.util.ArrayList<>();
         if (ref != null) {
             // git matches at a ref's component boundary, so the task's own ref and its rescue are
@@ -733,6 +764,16 @@ public class GitHttpServer implements AutoCloseable {
         }
         // An ownership record would otherwise expose work kept out of another task's starting view.
         command.addAll(List.of("-c", "transfer.hideRefs=" + GitGate.FORWARDED));
+        // Where work landed, for the readers that name its task alone: later entries win, and
+        // each name is matched at a component boundary, so 'foo-1/' does not reveal 'foo-10'.
+        command.addAll(List.of("-c", "transfer.hideRefs=" + GitGate.LANDED));
+        for (final String task : reads) {
+            if (!TASK_NAME.matcher(task).matches()) {
+                // A name with a separator or a pattern could reveal more than one task's work.
+                continue;
+            }
+            command.addAll(List.of("-c", "transfer.hideRefs=!" + GitGate.LANDED + task + "/"));
+        }
         command.addAll(List.of(arguments));
         return command;
     }

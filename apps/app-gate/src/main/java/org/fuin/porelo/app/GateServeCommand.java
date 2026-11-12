@@ -91,6 +91,15 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private @Nullable String branchName;
 
     @Option(
+            names = "--reads",
+            paramLabel = "TASK",
+            split = ",",
+            description =
+                    "Shows this task, read only, where the named tasks' work landed after their gate"
+                            + " forwarded it, and nothing else of theirs. Only with --ref.")
+    private java.util.List<String> reads = new java.util.ArrayList<>();
+
+    @Option(
             names = "--host-push",
             paramLabel = "<project>/<repo>",
             description =
@@ -280,7 +289,18 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                         @Override
                                         public @Nullable String passOn(
                                                 String taken, String commit) {
-                                            return gate.passOn(branch, commit);
+                                            final String refused = gate.passOn(branch, commit);
+                                            if (refused == null
+                                                    && ref != null
+                                                    && ref.startsWith(GitGate.INCOMING)) {
+                                                // As an approval records it: a reader of this
+                                                // task finds its work by where it landed.
+                                                gate.recordLanded(
+                                                        ref.substring(GitGate.INCOMING.length()),
+                                                        java.util.Objects.requireNonNull(branch),
+                                                        commit);
+                                            }
+                                            return refused;
                                         }
                                     };
             try (GitHttpServer server =
@@ -298,6 +318,9 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                     // signature: a vault unlocked after the gate started is read then.
                     final String task = ref.substring(GitGate.INCOMING.length());
                     server.signing(signing(context, project.name(), task));
+                }
+                if (ref != null && !reads.isEmpty()) {
+                    server.reading(reads);
                 }
                 if (principal != null && signers != null && ref != null) {
                     server.judging(

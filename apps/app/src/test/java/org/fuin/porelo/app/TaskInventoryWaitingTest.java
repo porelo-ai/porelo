@@ -141,6 +141,38 @@ class TaskInventoryWaitingTest {
                 .isEqualTo(TaskInventory.Activity.DEAD);
     }
 
+    @Test
+    void aRowSaysWhereItsTasksWorkLandedAndNothingWhileItWaits() throws IOException {
+        // A reader's starter needs the ref to name before it starts the reader.
+        task("fix", "guarded");
+        task("held", "guarded");
+        runner.answering("ps", row("fix", "guarded", false) + row("held", "guarded", true));
+        runner.answering("for-each-ref", "refs/porelo/incoming/held\n");
+        final String commit = "0123456789abcdef0123456789abcdef01234567";
+        final Path ref =
+                GateSupport.mirror(context, "demo", "app")
+                        .resolve(org.fuin.porelo.gate.GitGate.LANDED + "fix/porelo/fix");
+        Files.createDirectories(ref.getParent());
+        Files.writeString(ref, commit + "\n");
+        final TaskInventory inventory = inventory();
+
+        final List<java.util.Map<String, Object>> rows = inventory.rows(inventory.tasks());
+
+        assertThat(rows.getFirst())
+                .as("the branch, the ref a reader fetches, the commit")
+                .containsEntry(
+                        "landed",
+                        List.of(
+                                java.util.Map.of(
+                                        "branch", "porelo/fix",
+                                        "ref", "refs/porelo/landed/fix/porelo/fix",
+                                        "remote", "origin/landed/fix/porelo/fix",
+                                        "commit", commit)));
+        assertThat(rows.getLast())
+                .as("work at the gate has landed nowhere")
+                .containsEntry("landed", List.of());
+    }
+
     private TaskInventory inventory() {
         return new TaskInventory(context, null);
     }

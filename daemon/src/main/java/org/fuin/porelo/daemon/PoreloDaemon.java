@@ -469,11 +469,21 @@ public final class PoreloDaemon {
      * @return A key that changes only when something an operator would want redrawn changes.
      */
     static String withoutAge(TaskInventory.Task task) {
-        final String state = task.state();
+        return withoutAge(task.asMap());
+    }
+
+    /**
+     * Returns a row as sent, without what changes on its own, so where work landed redraws too.
+     *
+     * @param row The row a client is sent.
+     * @return A key that changes only when something an operator would want redrawn changes.
+     */
+    static String withoutAge(java.util.Map<String, Object> row) {
+        final String state = String.valueOf(row.getOrDefault("state", ""));
         final int code = state.startsWith("Exited (") ? state.indexOf(')') : -1;
         final String settled = code > 0 ? state.substring(0, code + 1) : state.split(" ")[0];
         // State ages and log write times alone would continually redraw an open Watch.
-        final java.util.Map<String, Object> sent = new java.util.LinkedHashMap<>(task.asMap());
+        final java.util.Map<String, Object> sent = new java.util.LinkedHashMap<>(row);
         sent.put("state", settled);
         sent.remove("lastWrote");
         return org.fuin.porelo.wire.Json.write(sent);

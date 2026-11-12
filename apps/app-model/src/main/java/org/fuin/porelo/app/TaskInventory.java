@@ -1474,6 +1474,52 @@ public final class TaskInventory {
     }
 
     /**
+     * Returns tasks as a client is sent them.
+     *
+     * @param tasks The tasks, as {@link #tasks()} found them.
+     * @return One row each, in the same order.
+     */
+    public List<Map<String, Object>> rows(List<Task> tasks) {
+        return tasks.stream().map(this::row).toList();
+    }
+
+    /**
+     * Returns one task as a client is sent it: its own fields, and where its work landed.
+     *
+     * <p>Where work landed is the gate's, not the container's, so it is read from the project's
+     * mirror here rather than carried on the task: {@code []} while the work waits, for a task that
+     * records no project, and for one that never landed anything.
+     *
+     * @param task The task.
+     * @return Its row.
+     */
+    public Map<String, Object> row(Task task) {
+        final Map<String, Object> row = new LinkedHashMap<>(task.asMap());
+        final String within = String.valueOf(row.getOrDefault("task", ""));
+        final String project = task.project();
+        final List<GitGate.Landed> found =
+                project == null || within.isEmpty()
+                        ? List.of()
+                        : GitGate.landedIn(
+                                GateSupport.mirror(context, project, task.repository()), within);
+        row.put("landed", found.stream().map(landed -> landed(within, landed)).toList());
+        return row;
+    }
+
+    private static Map<String, Object> landed(String task, GitGate.Landed landed) {
+        final String under = task + "/" + landed.branch();
+        return Map.of(
+                "branch",
+                landed.branch(),
+                "ref",
+                GitGate.LANDED + under,
+                "remote",
+                "origin/landed/" + under,
+                "commit",
+                landed.commit());
+    }
+
+    /**
      * Returns every task on this machine, running or stopped.
      *
      * @return Tasks, in the order the runtime lists them.

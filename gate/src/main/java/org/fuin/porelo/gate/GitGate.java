@@ -37,6 +37,20 @@ public class GitGate {
     public static final String FORWARDED = "refs/porelo/forwarded/";
 
     /**
+     * Where a task's work landed, by the branch it was forwarded to: {@code <task>/<branch>} at the
+     * forwarded commit. Hidden from every task but a reader started naming that task.
+     */
+    public static final String LANDED = "refs/porelo/landed/";
+
+    /**
+     * Where a task's work landed.
+     *
+     * @param branch The branch it was forwarded to.
+     * @param commit The commit forwarded there.
+     */
+    public record Landed(String branch, String commit) {}
+
+    /**
      * After a task's own ref: where what it never handed back is rescued to when the task is
      * removed - beside its reviewed work, never in it.
      */
@@ -1455,6 +1469,7 @@ public class GitGate {
             String name, String branch, String reviewed, String pushed) {
         // A refused API call still leaves a push to recognize on the next approval.
         gitIn("update-ref", forwardedRef(name, branch), pushed);
+        recordLanded(name, branch, pushed);
         final PullRequests reviews = pullRequests;
         final String url =
                 reviews == null
@@ -1581,9 +1596,93 @@ public class GitGate {
      *
      * @param name The task's name, without the namespace prefix.
      */
+    /**
+     * Records that a task's work landed on a branch.
+     *
+     * @param task The task's name.
+     * @param branch The branch it was forwarded to.
+     * @param commit The commit forwarded.
+     */
+    public void recordLanded(String task, String branch, String commit) {
+        // git checks the name: a task or branch that makes no ref name records nothing.
+        gitIn("update-ref", LANDED + task + "/" + branch, commit);
+    }
+
+    /**
+     * Says where a task's work landed.
+     *
+     * @param task The task's name.
+     * @return One entry per branch, none while its work waits or when it never landed.
+     */
+    public List<Landed> landed(String task) {
+        final String under = LANDED + task + "/";
+        return gitIn("for-each-ref", "--format=%(objectname) %(refname)", under)
+                .standardOutput()
+                .lines()
+                .map(String::strip)
+                .filter(line -> line.indexOf(' ') > 0)
+                .map(
+                        line ->
+                                new Landed(
+                                        line.substring(line.indexOf(' ') + 1 + under.length()),
+                                        line.substring(0, line.indexOf(' '))))
+                .toList();
+    }
+
+    /**
+     * Says where a task's work landed by reading the mirror's files, with no git process: a fleet
+     * view asks for every task twice a second.
+     *
+     * @param mirror The bare mirror, which need not exist.
+     * @param task The task's name; anything that is no plain name has nothing.
+     * @return One entry per branch, sorted by branch, as {@link #landed(String)} says them.
+     */
+    public static List<Landed> landedIn(Path mirror, String task) {
+        if (!task.matches("[A-Za-z0-9][A-Za-z0-9._-]*") || task.contains("..")) {
+            return List.of();
+        }
+        final String under = LANDED + task + "/";
+        final Map<String, String> found = new TreeMap<>();
+        try {
+            final Path packed = mirror.resolve("packed-refs");
+            if (Files.isRegularFile(packed)) {
+                for (final String line : Files.readAllLines(packed, StandardCharsets.UTF_8)) {
+                    final int space = line.indexOf(' ');
+                    if (space == 40 && line.startsWith(under, space + 1)) {
+                        found.put(
+                                line.substring(space + 1 + under.length()), line.substring(0, 40));
+                    }
+                }
+            }
+            // A loose ref is newer than its packed line, so it wins.
+            final Path loose = mirror.resolve(under);
+            if (Files.isDirectory(loose)) {
+                try (var files = Files.walk(loose)) {
+                    for (final Path file : files.filter(Files::isRegularFile).toList()) {
+                        final String commit =
+                                Files.readString(file, StandardCharsets.UTF_8).strip();
+                        if (commit.matches("[0-9a-f]{40}")) {
+                            found.put(loose.relativize(file).toString().replace('\\', '/'), commit);
+                        }
+                    }
+                }
+            }
+        } catch (IOException ex) {
+            // A ref written while it was read: the next look sees it whole.
+            return List.of();
+        }
+        return found.entrySet().stream()
+                .map(entry -> new Landed(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
     public void forget(String name) {
         if (resolves(INCOMING + name)) {
             gitIn("update-ref", "-d", INCOMING + name);
+        }
+        // Where an earlier task of this name landed is not the new one's: its row would say so.
+        for (final Landed landed : landedIn(mirror, name)) {
+            gitIn("update-ref", "-d", LANDED + name + "/" + landed.branch());
         }
         final Path pushed = mirror.resolve(HOST_PUSHED);
         final Path record = pushed.resolve(name).normalize();

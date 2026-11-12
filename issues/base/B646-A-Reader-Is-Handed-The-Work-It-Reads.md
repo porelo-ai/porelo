@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B646",
   "title": "A Reader Is Handed The Work It Reads",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Highest",
   "rank": 1,
@@ -87,6 +87,18 @@ start settled. A person may name another branch at approval, so the branch the w
 - A reader started by Tasks1 Start with `reads` finds the builder's work with `git ls-remote origin` and
   `git fetch`. A task started without `reads` finds none of it, as today.
 - List names `landed` for the builder after its approval, and nothing while its work waits at the gate.
+
+## Built (2026-11-12)
+
+- The gate writes `refs/porelo/landed/<task>/<branch>` where it forwards: on approval, and on an online task's
+  passing push. A reader's gate unhides only the tasks it names (`task run --reads`, Tasks1 Start `reads`).
+- A name is checked for its form only: a plain task name, else 64 on the CLI and `InvalidParameter` in Tasks1. A
+  name that is no task of the project shows nothing, because the mirror is the project's own. So the plan's "else 64"
+  for another project's task is not needed to keep its work hidden.
+- The row's `landed` entries are `{branch, ref, remote, commit}`. `remote` is `origin/landed/<task>/<branch>`, the
+  name the order gives, so no client builds it (asked by Agent Frontend, 16:30Z).
+- The records stay after approval, as the forwarded records do. They are removed where the gate forgets a task's
+  name: when an online task is removed, and when a new online task of the same name starts.
 
 ## Answered in the analysis
 

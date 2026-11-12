@@ -341,6 +341,11 @@ public class TaskWorkspace {
                 + " then git remote set-url origin \"$PORELO_REMOTE_URL\";"
                 + " else git remote add origin \"$PORELO_REMOTE_URL\"; fi; "
                 + "git config checkout.defaultRemote porelo; "
+                // Where the work of the tasks this one was started to read landed: its gate shows
+                // a reader only those, and every other task nothing, so the same line serves all.
+                + "git config --get-all remote.origin.fetch 2>/dev/null | grep -q '/landed/'"
+                + " || git config --add remote.origin.fetch"
+                + " '+refs/porelo/landed/*:refs/remotes/origin/landed/*'; "
                 // Within a limit, where the image has 'timeout': a remote that never answers - an
                 // ssh port dropped on the way - held the launch for its whole time, with nothing
                 // said. What became of it is printed for the launch to report; the task starts

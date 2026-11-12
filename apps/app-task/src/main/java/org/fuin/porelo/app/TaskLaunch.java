@@ -2146,6 +2146,46 @@ public final class TaskLaunch {
         return this;
     }
 
+    /** The tasks whose landed work this task was started to read; none for every other task. */
+    private java.util.List<String> reads = java.util.List.of();
+
+    /** A task's name as a reader gives it: one ref component, no pattern. */
+    private static final java.util.regex.Pattern READABLE =
+            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
+
+    /**
+     * Returns the first name a reader may not give, or {@code null} when every one is a task's.
+     *
+     * @param tasks The names.
+     * @return The first that is no task's name, or {@code null}.
+     */
+    public static @Nullable String unreadable(final java.util.List<String> tasks) {
+        for (final String task : tasks) {
+            if (task == null || !READABLE.matcher(task).matches()) {
+                return String.valueOf(task);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Starts this task to read where the named tasks' work landed: its gate shows it those, read
+     * only, and nothing else of any other task. A name that is no task of this project shows
+     * nothing, since the gate serves the project's own mirror.
+     *
+     * @param tasks The tasks it reads.
+     * @return This launch.
+     * @throws IllegalArgumentException When a name is no task's name.
+     */
+    public TaskLaunch reading(final java.util.List<String> tasks) {
+        final String refused = unreadable(tasks);
+        if (refused != null) {
+            throw new IllegalArgumentException("'" + refused + "' is no task's name");
+        }
+        this.reads = java.util.List.copyOf(new java.util.LinkedHashSet<>(tasks));
+        return this;
+    }
+
     /** Who is asked whether to take the repository out of {@code default}; nobody by default. */
     private Offer leavingDefault = Offer.NOBODY;
 
@@ -3675,7 +3715,8 @@ public final class TaskLaunch {
             }
 
             if (workspace != null) {
-                gate().startGate(
+                gate().reading(reads)
+                        .startGate(
                                 runner,
                                 workspace,
                                 wiring.gateAddress(),

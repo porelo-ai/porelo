@@ -137,6 +137,19 @@ type ScreenState (WAITING, NOT_WAITING, UNDECLARED, UNSEEN)
 # Whether a finished run's last message was a question. See Task.asked.
 type Asked (ASKED, DID_NOT_ASK, CANNOT_SAY)
 
+# Where a task's reviewed work landed.
+type Landed (
+  # The branch it was forwarded to, such as porelo/shell.
+  branch: string,
+  # The ref a reading task fetches it by, refs/porelo/landed/<task>/<branch>.
+  ref: string,
+  # What a reading task's clone holds it as after git fetch, origin/landed/<task>/<branch>: the name
+  # its order gives, copied unchanged.
+  remote: string,
+  # The commit forwarded there.
+  commit: string
+)
+
 type Task (
   # Container name, which is what every other method takes as its task parameter.
   name: string,
@@ -199,6 +212,9 @@ type Task (
   # task's approval goes by default in a project with a branch block. porelo/<task> for a task
   # started before it was recorded; "" when it has no gate.
   forgeBranch: string,
+  # Where its reviewed work landed, one entry per branch, readable by a task started with reads naming
+  # it. [] while its work waits at the gate, and for a task that never landed anything.
+  landed: []Landed,
   # Whether its commits are signed by a key of its own, certified at its start by a person the
   # project's access file admits, and judged at its gate when they arrive. false for a task whose
   # starter's agent held no such key, and for every task started before this field existed.
@@ -692,6 +708,11 @@ method Start(
   # it produced is kept - the exit code is 124 and the log holds what it managed to say. Only for
   # a run: an attended task's session lasts as long as the person keeps it.
   minutes: ?int,
+  # Tasks of the same project whose reviewed work this one may read, once it landed: its clone fetches
+  # each one's landed refs as refs/remotes/origin/landed/<task>/<branch>, read only. Work still at the
+  # gate is never shown, and no other task's. Default: none. A name that is not a plain task name is
+  # refused with org.varlink.service.InvalidParameter.
+  reads: ?[]string,
   # Asks the person's own computer for the task's certificate, on a stream only: one continuing reply
   # may carry certify, answered by Certify on another connection. An interface sends it for a machine
   # that is not its own, as a host starts no task uncertified and holds no person's agent.

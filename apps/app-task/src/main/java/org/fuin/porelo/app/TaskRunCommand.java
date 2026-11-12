@@ -194,6 +194,16 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable Integer subagents;
 
     @Option(
+            names = "--reads",
+            paramLabel = "TASK",
+            split = ",",
+            description =
+                    "Starts this task to read the named tasks' work where it landed, once their gate"
+                            + " forwarded it: its gate shows it those, read only, as"
+                            + " origin/landed/<task>/<branch>, and nothing else of any other task.")
+    private java.util.List<String> reads = new java.util.ArrayList<>();
+
+    @Option(
             names = "--minutes",
             paramLabel = "<n>",
             description = "How long the agent may run. Default: ${DEFAULT-VALUE}")
@@ -870,6 +880,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 2;
         }
 
+        final String unreadable = TaskLaunch.unreadable(reads);
+        if (unreadable != null) {
+            err.println("porelo: '" + unreadable + "' is no task's name, so it cannot be read");
+            err.flush();
+            return 64;
+        }
+
         // Starting the task is the domain's job; what this class adds is the terminal. The daemon
         // builds the same request and gets the same behavior without running a CLI.
         final TaskLaunch launch =
@@ -913,6 +930,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
                         .offering(offer(noInput, yes, Offer.atTerminal(), err))
+                        .reading(reads)
                         // Asked at a terminal only; unattended the start only says it.
                         .askingToLeaveDefault(
                                 noInput || dryRun || !terminal.getAsBoolean()
@@ -1501,6 +1519,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--max-turns",
                     "--subagents",
                     "--minutes",
+                    "--reads",
                     "--upstream",
                     "--no-gate",
                     "--all-repositories",

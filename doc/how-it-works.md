@@ -134,6 +134,14 @@ checkout's task into that checkout as `porelo/<task>`, and `porelo gate approve`
 repository's work to its `upstream` - the immediate Git destination: the host's forge or a central or
 company forge, named in the project file.
 
+A task never sees another task's work, with one named exception: a task started to read it.
+`porelo task run --reads foo-1` (Tasks1 Start's `reads`) starts a reader whose gate shows it, read
+only, where `foo-1`'s work landed once a gate forwarded it: `git ls-remote origin` lists
+`refs/porelo/landed/foo-1/<branch>`, and `git fetch` brings it as `origin/landed/foo-1/<branch>`.
+Work still waiting at the gate is shown to nobody, and no other task's work is shown. Tasks1 List
+and Watch say in a task's row where its work landed, as `landed`: the branch, the ref,
+the name a reader sees and the commit, `[]` while it waits.
+
 Each project has a **security class**, and the class decides, never a flag on a task. `offline`:
 no external host resolves and no Git work leaves on its own; the Git mirror is the end of the line,
 and `approve` refuses. `guarded`: only what the project declares resolves, and work leaves only after

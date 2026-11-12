@@ -74,6 +74,28 @@ class TaskWorkspaceTest {
     }
 
     @Test
+    void aReadersWorkspaceFetchesWhereTheTasksItReadsLandedUnderOrigin(@TempDir Path root)
+            throws IOException {
+        // A reader polled git ls-remote for half an hour for a branch it could not reach.
+        final Path mirror = seededMirror(root, "main");
+        final String landed = git(mirror, "rev-parse", "main");
+        git(mirror, "update-ref", "refs/porelo/landed/foo-1/porelo/foo-1", landed);
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+
+        runCloneScript(workspace, mirror, "refs/porelo/incoming/reader");
+        runCloneScript(workspace, mirror, "refs/porelo/incoming/reader");
+
+        assertThat(git(workspace, "rev-parse", "refs/remotes/origin/landed/foo-1/porelo/foo-1"))
+                .as("git fetch brings the work under a name the order can use")
+                .isEqualTo(landed);
+        assertThat(git(workspace, "config", "--get-all", "remote.origin.fetch").lines())
+                .as("set once, beside origin's own branches, however often the task starts")
+                .containsOnlyOnce(
+                        "+refs/heads/*:refs/remotes/origin/*",
+                        "+refs/porelo/landed/*:refs/remotes/origin/landed/*");
+    }
+
+    @Test
     void theGateIsAlsoTheWorkspacesOriginAndAPushThereGoesToTheTasksRef(@TempDir Path root)
             throws IOException {
         // Agent Pi on porelo-move-3 had no origin, and checked against porelo/main instead.
