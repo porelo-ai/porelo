@@ -247,6 +247,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b631"></a>[B631](B631-A-Task-That-Read-Its-Project-Ends-Without-Failing.md) | XS | - | A prompted task that reads every repository of its project is removed at its run's end without the clean-up asking podman about it by name, so a run that went well answers its own exit code, never 70 "no task Porelo made". |
 | <a id="b518"></a>[B518](B518-A-Person-Leaves-An-Organization.md) | S | - | `porelo org leave`: a person withdraws their own card and roles and forgets the organization on this machine, refused where it would leave no owner; the window's *Leave…* runs it. |
 | <a id="b517"></a>[B517](B517-A-Card-Proposed-And-Accepted-By-An-Owner.md) | L | - | A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it. |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
