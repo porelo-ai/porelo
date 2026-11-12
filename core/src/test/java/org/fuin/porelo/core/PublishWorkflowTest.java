@@ -182,7 +182,11 @@ class PublishWorkflowTest {
                                 "-P" + expected,
                                 "-s",
                                 "settings.xml",
-                                "-DskipTests");
+                                "-DskipTests",
+                                // A throttled upload is tried again, and fewer go at once.
+                                "-Daether.connector.http.retryHandler.count=8",
+                                "-Daether.connector.http.retryHandler.interval=15000",
+                                "-Daether.connector.basic.threads=2");
             } else {
                 assertThat(Files.readString(output)).contains("PORELO_DEPLOY_PROFILE");
             }
