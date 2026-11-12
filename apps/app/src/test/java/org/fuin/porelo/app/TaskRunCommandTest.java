@@ -4805,7 +4805,8 @@ class TaskRunCommandTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-5"})
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"0", "-5", "2.5", "2147483648", "'abc'"})
     void aTimeLimitOfNoMinutesOrFewerIsWrongUse(String value, @TempDir Path dir)
             throws IOException {
         // Zero or less ended the run at once; Tasks1 Start refuses it in the same words.
@@ -4823,10 +4824,12 @@ class TaskRunCommandTest {
                         "preview",
                         "--prompt",
                         "go",
-                        "--minutes=" + value,
+                        "--minutes=" + value.replace("'", ""),
                         "--dry-run");
 
-        assertThat(code).as("refused as wrong use: %s", err).isEqualTo(64);
+        assertThat(code)
+                .as("refused as wrong use, as Tasks1 Start refuses it: %s", err)
+                .isEqualTo(64);
         assertThat(err.toString())
                 .contains(
                         "porelo: --minutes takes a whole number of minutes from 1 to 2147483647,"

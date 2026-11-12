@@ -134,6 +134,30 @@ class TaskRunLimitTest {
     }
 
     @Test
+    void aLineTheAgentWritesWhileTheLimitsStopIsStillGoingIsNoEndOfItsOwn(@TempDir final Path dir)
+            throws IOException {
+        final Path state = Files.createDirectories(dir.resolve("state"));
+        Files.writeString(state.resolve("task.log"), "{\"type\":\"message\"}\n");
+        RunLimit.ended(state, 1, java.time.Instant.parse("2026-11-12T17:00:00Z"));
+
+        final AgentEnding.Ended ended =
+                new AgentEnding(
+                                runner,
+                                Clock.systemUTC(),
+                                (agent, lines) ->
+                                        lines.isEmpty()
+                                                ? null
+                                                : new AgentEnd(true, "", "agent", null))
+                        .about(TASK, true, "an-agent", state);
+
+        assertThat(ended).isNotNull();
+        assertThat(ended.asMap())
+                .as("the container still runs and its log was just written: the limit ended it")
+                .containsEntry("limit", true)
+                .containsEntry("finished", false);
+    }
+
+    @Test
     void aTaskThatReadItsProjectStartedToBeRemovedIsKeptWhenItsLimitEndedIt(@TempDir final Path dir)
             throws IOException {
         final PoreloContext context = context(dir);

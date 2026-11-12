@@ -108,3 +108,9 @@ How it is, read in the code on 2026-11-12 (this corrects the filing): an unatten
 - Not changed: a daemon restart during a run loses its deadline (To be checked). The records live under the runtime
   directory by design, as written above.
 - Not changed: List and Watch may ask git in the container while a limit's stop is still going; it ends with the stop.
+- Read again (a Sonnet sub-agent): a log was read without the quiet wait while the limit's stop still ran, so a line
+  the agent wrote meanwhile read as its end; the wait now holds while the container runs. `--minutes` on the
+  command line is read by Porelo, not picocli, so a fraction, a word or a number past the int range is refused with
+  64 in the words Tasks1 Start uses. A failure to write the limit's record no longer stops the stop.
+- Not changed: when the reservation is held by another operation, the limit's stop is refused and the task is
+  stopped by the run's clean-up, without the record.

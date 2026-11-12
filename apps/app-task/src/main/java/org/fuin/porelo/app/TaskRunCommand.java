@@ -209,6 +209,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             description =
                     "How long the agent may run, in minutes; then the task is stopped and its log,"
                             + " workspace and result are kept. Default: ${DEFAULT-VALUE}")
+    private String minutesGiven = "30";
+
+    /** The limit as read from {@link #minutesGiven}, once it is a whole number from 1 up. */
     private int minutes = 30;
 
     @Option(
@@ -643,10 +646,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.flush();
             return 64;
         }
-        // Zero or less ended the run before its agent began; Tasks1 Start refuses it in the same
-        // words.
-        final String badMinutes = RunLimit.refusal(minutes);
-        if (badMinutes != null) {
+        // Zero or less ended the run before its agent began. Read here, not by picocli: its refusal
+        // of a fraction or a word is exit code 2 in its
+        // own words, where Tasks1 Start refuses the same with 64 in these.
+        final Object givenMinutes = number(minutesGiven);
+        final String badMinutes = RunLimit.refusal(givenMinutes);
+        if (badMinutes == null) {
+            minutes = java.util.Objects.requireNonNull(RunLimit.wholeMinutes(givenMinutes));
+        } else {
             err.println("porelo: --minutes " + badMinutes);
             err.flush();
             return 64;
@@ -1609,5 +1616,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
         return context.podman().poreloTasks().stream()
                 .anyMatch(summary -> summary.name().equals(container));
+    }
+
+    /** A number as the command line wrote it, or the text itself when it is none. */
+    private static Object number(final String text) {
+        try {
+            return new java.math.BigDecimal(text.strip());
+        } catch (NumberFormatException ex) {
+            return text;
+        }
     }
 }

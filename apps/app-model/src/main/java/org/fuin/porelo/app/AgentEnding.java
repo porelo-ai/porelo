@@ -254,9 +254,11 @@ public final class AgentEnding {
         final RunLimit.Ended byLimit = RunLimit.endedBy(state);
         if (byLimit != null) {
             // Unless it does: an agent that ended its run as the limit passed finished, and the
-            // limit only ended what had already ended. Read at once, as nothing writes any more.
+            // limit only ended what had already ended. Read at once only once the container is
+            // stopped: while the limit's stop is still going, the agent may write a line that
+            // reads as an end.
             final Ended own =
-                    agent == null ? null : fromLog(container, running, agent, state, false);
+                    agent == null ? null : fromLog(container, running, agent, state, running);
             if (own != null) {
                 return own;
             }

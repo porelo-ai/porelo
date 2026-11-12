@@ -4006,7 +4006,7 @@ public final class TaskLaunch {
                     context.paths().tasks().containerState(container),
                     minutes,
                     java.time.Instant.now());
-        } catch (java.io.IOException ex) {
+        } catch (java.io.IOException | RuntimeException ex) {
             err.println("porelo: could not record the end at its time limit: " + ex.getMessage());
             err.flush();
         }
