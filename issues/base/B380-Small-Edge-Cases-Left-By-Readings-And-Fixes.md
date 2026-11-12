@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B380",
   "title": "Small Edge Cases Left By Readings And Fixes",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "-",
   "priority": "Medium",
   "rank": 40,

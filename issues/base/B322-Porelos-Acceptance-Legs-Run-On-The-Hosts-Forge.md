@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B322",
   "title": "Porelo's Acceptance Legs Run On The Host's Forge",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "-",
   "priority": "Medium",
   "rank": 52,
