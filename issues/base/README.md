@@ -261,7 +261,6 @@ from its side, as *blocked by*.
 | <a id="b636"></a>[B636](B636-A-Missing-Homeserver-Names-The-Step.md) | XS | - | A start refused with no-homeserver for an organization project that names mail.transports.matrix says the step that ends it - a project admin names the homeserver and a room in project.yml and signs it - and the docs say the same. | - |
 | <a id="b228"></a>[B228](B228-A-Key-Pasted-At-The-Prompt-Is-Read-Whole.md) | S | - | A private key pasted at `vault put`'s prompt is read whole, as from a file or a pipe, and an unreadable key is called unreadable, not the wrong algorithm. | 0 |
 | <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | S | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. | 0 |
-| <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b679"></a>[B679](B679-A-Task-Start-Reading-The-Vault-Leaves-No-Core-Dump.md) | XS | - | A `porelo task start` that reads the vault to see which credentials it can serve makes itself undumpable first, as the brokers do, so a crash of the starting process never writes a decrypted credential to a core file. | - |
 | <a id="b686"></a>[B686](B686-A-Credential-Found-By-Its-Address.md) | S | - | `porelo vault credential --for <url>` answers git's credential request for an https repository with the token Porelo would lend for that address itself, found in the account's declarations or by the names the address implies, so a program that reads a private repository with Porelo's login passes only the address. | 0 |
@@ -310,10 +309,11 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
-| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
+| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. | - |
+| <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
 
 ## Review
 

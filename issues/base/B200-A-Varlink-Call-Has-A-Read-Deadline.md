@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B200",
   "title": "A Varlink Call Has A Read Deadline",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 37,
