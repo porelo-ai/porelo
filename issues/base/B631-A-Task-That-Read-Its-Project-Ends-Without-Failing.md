@@ -35,3 +35,14 @@ recorded id, then calls `reapOrphans`, whose `pidOf(container)` goes through `Po
 - `RecognizedTasksTest.aTaskThatReadItsProjectEndsWithoutFailingOnceItsRemovalTookItsRecord`, seen red with the VM's
   own words, `NotATaskException: porelo-foo-project_all is no task Porelo made`.
 - Not seen here: the F492 run on the VM with this change.
+
+## After the code reading
+
+agy (gemini) read the change: nothing on a reading task's ending path reaches `Podman.target` by name after its
+removal, and skipping `pidOf` without a record cannot stop helpers under a running task, since a container of
+Porelo's never runs without one (the hook refuses it). Two yellows, taken as they are:
+
+- The test calls `reapOrphans` directly on a recognizing context without a record, not through `cleanUpOrFail`'s
+  removal; it fails without the change with the VM's own words, which is the path that broke.
+- `cleanUpOrFail`'s `recorded == null` branch now does what `reapOrphans` does without a record; folding them is a
+  simplification left for a later change.

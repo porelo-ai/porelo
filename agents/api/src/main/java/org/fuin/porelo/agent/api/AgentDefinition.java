@@ -603,6 +603,49 @@ public record AgentDefinition(
     }
 
     /**
+     * Returns the command an attended task starts the agent with, handing it an opening text as its
+     * first turn, after which it waits for the person.
+     *
+     * <p>Only for an agent that takes its prompt positionally: invoked as {@code tool "text"}
+     * without its print flag, such an agent opens its session on the text. A prompt flag says how
+     * the agent runs once and ends (print mode), nothing about how its session takes an opening
+     * text, so such an agent is refused rather than guessed at. So is a text that begins like an
+     * option or a file reference, which the agent would read as one.
+     *
+     * @param model The model to ask for, or {@code null} for the agent's own.
+     * @param opening The opening text, or {@code null} for none.
+     * @return Command and arguments, never empty.
+     * @throws AgentException If the model or the opening text cannot be handed to this agent.
+     */
+    public List<String> attendedCommand(@Nullable String model, @Nullable String opening) {
+        final List<String> command = attendedCommand(model);
+        if (opening == null) {
+            return command;
+        }
+        if (!headless.promptFlag().isEmpty()) {
+            throw new AgentException(
+                    "Agent '"
+                            + name
+                            + "' cannot be handed an opening text in an attended session: it"
+                            + " declares no positional prompt");
+        }
+        final String begins = opening.stripLeading();
+        if (begins.isEmpty()
+                || begins.startsWith("-")
+                || begins.startsWith("@")
+                || opening.indexOf('\0') >= 0) {
+            throw new AgentException(
+                    "Agent '"
+                            + name
+                            + "' cannot be handed an opening text that is blank, holds a NUL or"
+                            + " begins with '-' or '@': it would read it as an option or a file");
+        }
+        final List<String> opened = new java.util.ArrayList<>(command);
+        opened.add(opening);
+        return List.copyOf(opened);
+    }
+
+    /**
      * Constructor for an agent that does not say how to log in.
      *
      * <p>Most do not, and it is not a defect: an agent whose credential is an API key has nothing

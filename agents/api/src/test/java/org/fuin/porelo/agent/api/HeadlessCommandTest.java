@@ -105,6 +105,48 @@ class HeadlessCommandTest {
     }
 
     @Test
+    void startsAnAttachedAgentThatTakesItsPromptPositionallyWithItsOpeningTextLast() {
+
+        // An attended task started with a prompt: the agent takes it as its first turn and then
+        // waits for the person, as an agent invoked as 'tool "text"' without its print flag does.
+        final String positional = FULL.replace("  prompt_flag: \"-p\"\n", "  prompt_flag: \"\"\n");
+
+        assertThat(
+                        agent(positional)
+                                .definition()
+                                .attendedCommand("cheap-model", "Let us discuss the idea."))
+                .as("the opening text after every flag, as the agent's own words take it")
+                .containsExactly(
+                        "example-cli", "--model", "cheap-model", "Let us discuss the idea.");
+        assertThat(agent(positional).definition().attendedCommand(null, null))
+                .as("no opening text, the attended command as before")
+                .containsExactly("example-cli");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"", "   ", "--model other", "  -x", "@secrets.txt", " @file", "a\u0000b"})
+    void refusesAnOpeningTextTheAgentWouldReadAsAnOptionOrAFile(final String opening) {
+        final String positional = FULL.replace("  prompt_flag: \"-p\"\n", "  prompt_flag: \"\"\n");
+
+        assertThatThrownBy(() -> agent(positional).definition().attendedCommand(null, opening))
+                .as("refused, never handed to the agent as its first turn")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("cannot be handed an opening text");
+    }
+
+    @Test
+    void refusesAnOpeningTextForAnAttachedAgentWhosePromptTakesAFlag() {
+
+        // A prompt flag is the agent's way of running once and ending, so it says nothing of how
+        // an interactive session takes an opening text; nothing is guessed.
+        assertThatThrownBy(() -> agent(FULL).definition().attendedCommand(null, "hello"))
+                .as("refused rather than started as a run that ends")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("cannot be handed an opening text");
+    }
+
+    @Test
     void startsAnAgentWithNothingToTurnOffAsItself() {
         assertThat(agent(FULL).definition().sandboxedCommand()).containsExactly("example-cli");
     }

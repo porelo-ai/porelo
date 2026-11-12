@@ -30,6 +30,9 @@ import org.jspecify.annotations.Nullable;
  */
 public final class TaskSession {
 
+    /** Where an attended task's opening text waits in its state for its session's first start. */
+    static final String OPENING = "opening";
+
     private final PoreloContext context;
 
     /**
@@ -327,9 +330,17 @@ public final class TaskSession {
             fromFiles(container, ids).ifPresent(id -> record(container, id));
         }
         final String id = toContinue(container, definition).orElse(null);
+        // Its opening text goes to a fresh session alone, and once: a continued session has had
+        // its first turn, and a second fresh one is the person starting over.
+        final String opening = id == null ? takeOpening(container) : null;
         final List<String> command =
                 new TaskGuide(context.paths(), container)
-                        .instructing(definition, attachedCommand(definition, profile.model(), id));
+                        .instructing(
+                                definition,
+                                attachedCommand(definition, profile.model(), id, opening));
+        if (opening != null) {
+            out.println("opening   its prompt, as the session's first turn");
+        }
         out.println(
                 "session   "
                         + (id != null
@@ -343,10 +354,74 @@ public final class TaskSession {
         return org.fuin.porelo.runtime.ShellWords.quote(command);
     }
 
+    /**
+     * Keeps the text an attended task's agent takes as its session's first turn, until that session
+     * starts.
+     *
+     * @param container The task's container.
+     * @param text The opening text.
+     * @throws java.io.IOException If it cannot be written.
+     */
+    public void open(final String container, final String text) throws java.io.IOException {
+        final Path file = openingFile(container);
+        final Path staged =
+                java.nio.file.Files.createTempFile(
+                        file.getParent(),
+                        ".",
+                        ".staged",
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                                java.nio.file.attribute.PosixFilePermissions.fromString(
+                                        "rw-------")));
+        try {
+            java.nio.file.Files.writeString(staged, text, java.nio.charset.StandardCharsets.UTF_8);
+            java.nio.file.Files.move(
+                    staged,
+                    file,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            java.nio.file.Files.deleteIfExists(staged);
+        }
+    }
+
+    /**
+     * Takes the opening text an attended task keeps, once: the next fresh session gets nothing.
+     *
+     * @param container The task's container.
+     * @return The text, or {@code null} when none is kept.
+     */
+    @Nullable String takeOpening(final String container) {
+        final Path file = openingFile(container);
+        try {
+            if (!java.nio.file.Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                return null;
+            }
+            final String text =
+                    java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8);
+            java.nio.file.Files.delete(file);
+            return text;
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
+
+    private Path openingFile(final String container) {
+        return context.paths().tasks().containerState(container).resolve(OPENING);
+    }
+
     /** Builds an attached agent's command, continuing the recorded session when present. */
     static List<String> attachedCommand(
             AgentDefinition definition, @Nullable String model, @Nullable String id) {
-        final List<String> command = new ArrayList<>(definition.attendedCommand(model));
+        return attachedCommand(definition, model, id, null);
+    }
+
+    /** Builds an attached agent's command, with the opening text of a fresh session. */
+    static List<String> attachedCommand(
+            AgentDefinition definition,
+            @Nullable String model,
+            @Nullable String id,
+            @Nullable String opening) {
+        final List<String> command = new ArrayList<>(definition.attendedCommand(model, opening));
         if (id != null) {
             command.add(
                     java.util.Objects.requireNonNull(

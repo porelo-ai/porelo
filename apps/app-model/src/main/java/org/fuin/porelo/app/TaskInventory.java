@@ -59,7 +59,8 @@ public final class TaskInventory {
      * @param helpers How many recorded helper processes are alive.
      * @param agent Agent running in it, or {@code null} when it has none or nothing recorded one.
      * @param mode How somebody is meant to be involved, or {@code null} when nothing recorded it.
-     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param prompt What an unattended task was asked to do, or an attended task's first turn, or
+     *     {@code null}.
      * @param branch Ref its work goes to, or {@code null} when it has no gate.
      * @param since When its container's current state began, ISO-8601, or empty when the runtime
      *     cannot say.

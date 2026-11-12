@@ -188,8 +188,9 @@ type Task (
   # for a task started before this field existed, where nothing recorded one and inventing an
   # answer would be worse than admitting there is none.
   mode: string,
-  # What an unattended task was asked to do. Kept after it has finished, because "what was this
-  # asked to do" is a question people have about a task that is over. "" for the other modes.
+  # What an unattended task was asked to do, or the first turn an attended task was started with.
+  # Kept after it has finished, because "what was this asked to do" is a question people have
+  # about a task that is over. "" for a shell, and for an attended task started without one.
   prompt: string,
   # Ref its work goes to, such as refs/porelo/incoming/shell. "" when it has no gate.
   branch: string,
@@ -665,7 +666,9 @@ method Start(
   # Giving one makes this call RUN the agent, not merely start the container: the call lasts as
   # long as the run does, and with "more" the agent's own output arrives as it is produced. The
   # exit code in the reply is then the agent's. Without a prompt the container comes up and the
-  # call returns, as it always did.
+  # call returns, as it always did. With mode AGENT the prompt runs nothing: the call returns once
+  # the task stands, and the agent's attended session, when it first starts, takes the prompt as
+  # its first turn and then waits for the person. An agent that cannot take one is refused with 64.
   prompt: ?string,
   # Model to ask the agent for, one word. Omitted, the repository's porelo.yml's for the task's
   # provider, else project.yml's (providers.<provider>.model), else the agent's own default. A model
@@ -675,7 +678,7 @@ method Start(
   # A client leaves this out to take the default when the person did not choose a model. Sending
   # even that same model explicitly records modelFrom as "start", rather than its file's source.
   model: ?string,
-  # Turn limit, when the agent declares one.
+  # Turn limit, when the agent declares one. Only for a run: an attended task's session has none.
   maxTurns: ?int,
   # The most subagents the agent may run at the same time inside the task; 0 for none. Default: the
   # project file's limits.subagents, else 0. A number the agent's definition says it cannot enforce
@@ -685,7 +688,8 @@ method Start(
   # same number is taken, another is refused with exitCode 64.
   subagents: ?int,
   # How long the agent may run, in minutes. Default: 30. On expiry the run is killed and whatever
-  # it produced is kept - the exit code is 124 and the log holds what it managed to say.
+  # it produced is kept - the exit code is 124 and the log holds what it managed to say. Only for
+  # a run: an attended task's session lasts as long as the person keeps it.
   minutes: ?int,
   # Asks the person's own computer for the task's certificate, on a stream only: one continuing reply
   # may carry certify, answered by Certify on another connection. An interface sends it for a machine

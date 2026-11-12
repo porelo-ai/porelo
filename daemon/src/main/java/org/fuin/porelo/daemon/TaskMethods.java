@@ -40,6 +40,19 @@ final class TaskMethods {
 
     private TaskMethods() {}
 
+    /** Keeps an attended start's prompt for its session's first turn. */
+    static void opened(
+            final org.fuin.porelo.app.PoreloContext context,
+            final String container,
+            final org.fuin.porelo.app.TaskLaunch launch) {
+        try {
+            new org.fuin.porelo.app.TaskSession(context)
+                    .open(container, java.util.Objects.requireNonNull(launch.opening()));
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
+
     static Map<String, Object> list(final TaskInventory inventory) {
         final List<TaskInventory.Task> found = inventory.tasks();
         return Map.of(
@@ -1115,11 +1128,29 @@ final class TaskMethods {
                         // Brought back with a prompt, it runs - continuing its session where the
                         // agent can - as a new task with a prompt does. A start that ignored it
                         // would report a run nobody performed.
+                        // An opening text is a new attended task's: one that exists has had its
+                        // first turn, or is of another mode, and would silently drop it.
+                        if (existing.code() == 0 && launch.opening() != null) {
+                            sink.println(
+                                    "porelo: "
+                                            + existing.container()
+                                            + " exists, and only a new attended task takes a"
+                                            + " prompt as its first turn: attach to it, or start"
+                                            + " a new task");
+                            sink.flush();
+                        }
                         code =
-                                existing.code() != 0 || empty(parameters, "prompt") == null
+                                existing.code() != 0
                                         ? existing.code()
-                                        : launch.runAgentInExisting(
-                                                existing.container(), null, sink, sink);
+                                        : launch.opening() != null
+                                                ? 64
+                                                : empty(parameters, "prompt") == null
+                                                        ? 0
+                                                        : launch.runAgentInExisting(
+                                                                existing.container(),
+                                                                null,
+                                                                sink,
+                                                                sink);
                     } else {
                         code =
                                 launch.launch(
@@ -1127,6 +1158,12 @@ final class TaskMethods {
                                         sink,
                                         running -> {
                                             started.set(running.container());
+                                            // Attended, its prompt is its session's first turn:
+                                            // kept for that session, and nothing runs now.
+                                            if (launch.opening() != null) {
+                                                opened(context, running.container(), launch);
+                                                return 0;
+                                            }
                                             // With a prompt this is an unattended run and has to
                                             // actually run: a task started over the socket is as
                                             // unattended as one started at a terminal, and a client

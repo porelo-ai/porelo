@@ -247,7 +247,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b632"></a>[B632](B632-An-Attended-Task-Takes-Its-Prompt-As-Its-First-Turn.md) | S | - | A Tasks1 Start with mode AGENT and a prompt answers once the task stands, and the agent's attended session, when it first starts, takes the prompt as its first turn and then waits for the person; an agent that cannot take one is refused with 64. |
 | <a id="b518"></a>[B518](B518-A-Person-Leaves-An-Organization.md) | S | - | `porelo org leave`: a person withdraws their own card and roles and forgets the organization on this machine, refused where it would leave no owner; the window's *Leave…* runs it. |
 | <a id="b517"></a>[B517](B517-A-Card-Proposed-And-Accepted-By-An-Owner.md) | L | - | A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it. |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
@@ -257,6 +256,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b632"></a>[B632](B632-An-Attended-Task-Takes-Its-Prompt-As-Its-First-Turn.md) | S | - | A Tasks1 Start with mode AGENT and a prompt answers once the task stands, and the agent's attended session, when it first starts, takes the prompt as its first turn and then waits for the person; an agent that cannot take one is refused with 64. |
 | <a id="b631"></a>[B631](B631-A-Task-That-Read-Its-Project-Ends-Without-Failing.md) | XS | - | A prompted task that reads every repository of its project is removed at its run's end without the clean-up asking podman about it by name, so a run that went well answers its own exit code, never 70 "no task Porelo made". |
 | <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
 | <a id="b625"></a>[B625](B625-A-Unit-Test-Never-Reads-The-Machines-Host-Helper.md) | S | - | No unit test's task start asks the real machine whether it is a host: on a machine with the host package installed, `apps/app`'s start tests are as green as on one without. |

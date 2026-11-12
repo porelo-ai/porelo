@@ -459,6 +459,59 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void anExistingTaskStartedAttendedWithAPromptIsRefusedAndKeepsNoOpeningText(@TempDir Path dir)
+            throws Exception {
+
+        // Only a new attended task takes a prompt as its first turn: one that exists has had it,
+        // or is of another mode, and its next session would silently drop the text.
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering(
+                "container inspect",
+                "c0ffee0000000000000000000000000000000000000000000000000000000000\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 1 minute ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\tc0ffee0000000000000000000000000000000000000000000000000000000000\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"),
+                "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-uc-shell"),
+                "c0ffee0000000000000000000000000000000000000000000000000000000000");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "shell",
+                                                "mode",
+                                                "AGENT",
+                                                "prompt",
+                                                "Let us discuss the idea."));
+
+                        @SuppressWarnings("unchecked")
+                        final List<String> output = (List<String>) reply.get("output");
+                        assertThat(((Number) reply.get("exitCode")).intValue())
+                                .as("refused as wrong use: " + String.join(" | ", output))
+                                .isEqualTo(64);
+                        assertThat(String.join("\n", output))
+                                .contains("only a new attended task takes a prompt");
+                    }
+                });
+        assertThat(context.paths().tasks().containerState("porelo-uc-shell").resolve("opening"))
+                .as("no text kept for a session that would drop it")
+                .doesNotExist();
+    }
+
+    @Test
     void startRefusesATaskThatIsAlreadyRunning(@TempDir Path dir) throws Exception {
 
         final PoreloContext context = hooked(dir);

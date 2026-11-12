@@ -226,4 +226,28 @@ class TaskSessionTest {
         assertThat(sessions.toContinue(TASK, agent(false, null))).isEmpty();
         assertThat(sessions.toContinue(TASK, null)).isEmpty();
     }
+
+    @Test
+    void anAttendedTasksPromptIsItsFirstFreshSessionsFirstTurnAndOnlyThat() throws IOException {
+
+        // An attended task started with a prompt runs nothing at its start: its prompt waits for
+        // the session a person opens, which the agent starts on that text and then waits.
+        final PoreloContext context = context();
+        Files.createDirectories(context.paths().tasks().containerState(TASK));
+        final TaskSession sessions = new TaskSession(context);
+
+        sessions.open(TASK, "Let us discuss the idea.");
+
+        final String taken = sessions.takeOpening(TASK);
+        assertThat(taken)
+                .as("the kept text, for the first fresh session")
+                .isEqualTo("Let us discuss the idea.");
+        assertThat(TaskSession.attachedCommand(agent(true, IDS), "chosen-model", null, taken))
+                .as("the agent started on it as its first turn, after every flag")
+                .containsExactly(
+                        "asker-cli", "--model", "chosen-model", "Let us discuss the idea.");
+        assertThat(sessions.takeOpening(TASK))
+                .as("a second fresh session is the person starting over, without it")
+                .isNull();
+    }
 }

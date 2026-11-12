@@ -1417,6 +1417,10 @@ public final class TaskLaunch {
                 credentialCheckCode = 64;
                 return false;
             }
+            if (refusesOpening(agent, err)) {
+                credentialCheckCode = 64;
+                return false;
+            }
             try (PrintWriter quiet = new PrintWriter(java.io.Writer.nullWriter())) {
                 if (refusesModel(agent, effective, file, quiet, err)) {
                     credentialCheckCode = 2;
@@ -2448,6 +2452,39 @@ public final class TaskLaunch {
 
     private TaskReservations.@Nullable ContainerNameTaken nameTaken;
 
+    /**
+     * Returns the text an attended task's agent takes as its session's first turn: the prompt of a
+     * start whose mode is {@code AGENT}, which runs nothing at the start.
+     *
+     * @return The text, or {@code null} for any other start.
+     */
+    public @Nullable String opening() {
+        return request.mode() == org.fuin.porelo.wire.TaskMode.AGENT ? request.prompt() : null;
+    }
+
+    /**
+     * Says, for an attended start given a prompt, that its agent cannot take the prompt as its
+     * session's first turn. A usage error, refused before any credential is asked for.
+     *
+     * @param agent The selected agent, or {@code null} for none.
+     * @param err Where the refusal is said.
+     * @return Whether the start is refused.
+     */
+    private boolean refusesOpening(final @Nullable InstalledAgent agent, final PrintWriter err) {
+        final String opening = opening();
+        if (opening == null || agent == null) {
+            return false;
+        }
+        try {
+            agent.definition().attendedCommand(null, opening);
+            return false;
+        } catch (final org.fuin.porelo.agent.api.AgentException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return true;
+        }
+    }
+
     /** The refusal shared by terminal, daemon and child starts. */
     public TaskReservations.@Nullable ContainerNameTaken containerNameTaken() {
         return nameTaken;
@@ -3175,6 +3212,13 @@ public final class TaskLaunch {
                                 + " without one");
                 err.flush();
                 return 69;
+            }
+            // An attended task given a prompt hands it to its agent as the session's first turn;
+            // one whose agent cannot take it is refused here, before anything is made.
+            if (refusesOpening(select(agents), err)) {
+                err.println("porelo: nothing was created");
+                err.flush();
+                return 64;
             }
 
             if (gated) {
