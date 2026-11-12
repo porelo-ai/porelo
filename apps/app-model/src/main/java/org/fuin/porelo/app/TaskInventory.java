@@ -1503,6 +1503,7 @@ public final class TaskInventory {
                         : GitGate.landedIn(
                                 GateSupport.mirror(context, project, task.repository()), within);
         row.put("landed", found.stream().map(landed -> landed(within, landed)).toList());
+        row.put("minutes", RunLimit.minutes(context.paths().tasks().containerState(task.name())));
         return row;
     }
 

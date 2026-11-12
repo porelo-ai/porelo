@@ -206,7 +206,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     @Option(
             names = "--minutes",
             paramLabel = "<n>",
-            description = "How long the agent may run. Default: ${DEFAULT-VALUE}")
+            description =
+                    "How long the agent may run, in minutes; then the task is stopped and its log,"
+                            + " workspace and result are kept. Default: ${DEFAULT-VALUE}")
     private int minutes = 30;
 
     @Option(

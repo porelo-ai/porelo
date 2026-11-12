@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B647",
   "title": "An Unattended Run Ends At Its Time Limit",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Highest",
   "rank": 2,
@@ -53,6 +53,21 @@ How it is, read in the code on 2026-11-12 (this corrects the filing): an unatten
 4. **Visible.** List's and Watch's row carries the run's `minutes`, so the planner sees what it set. The default stays
    30; the planner sets one per phase through Tasks1 Start's `minutes`, as today.
 5. An attended session has no limit, as today: `runAgentSteps` is only the unattended path.
+
+## Built (2026-11-12)
+
+- At the deadline, `Podman.execute` throws `RunTimedOut` (it threw a plain `ContainerException` before). The launch
+  then writes `ended-by-limit.json` (the minutes and the time) into the task's state, and stops the task through
+  `TaskControl.stop`, as `porelo task stop` does. The exit code stays 124.
+- Each run writes `run-limit.json` with its minutes as it starts, and drops an earlier `ended-by-limit.json`.
+- `AgentEnding` answers the record first: `agentEnded` with `finished: false`, `source: "porelo"`,
+  `error: "its time limit of N minutes passed"` and `limit: true`. Every other end says `limit: false`.
+- List's and Watch's row carries `minutes`: what the last run was given, 0 for an attended session and for a task
+  from before.
+- The daemon's Start runs the same launch, so it ends the same way. A daemon restart during a run is not covered
+  (see To be checked).
+- Both records live in the task's state directory under the runtime directory. A machine restart drops them, as it
+  drops the sidecar: the row then says `minutes` 0 and `agentEnded` as the agent's log tells it.
 
 ## Acceptance
 

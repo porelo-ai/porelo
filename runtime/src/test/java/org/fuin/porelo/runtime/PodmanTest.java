@@ -983,4 +983,33 @@ class PodmanTest {
         assertThat(recording().screen("porelo-p-fake", 5, false).live()).isFalse();
         assertThat(runner.invocations()).isEmpty();
     }
+
+    @Test
+    void aRunPastItsLimitIsSaidToHaveTimedOutSoItsCallerEndsTheAgent(@TempDir Path directory)
+            throws Exception {
+        // Ending the podman exec client leaves the agent running in its container; the caller
+        // must tell a passed limit from any other failure to stop it there.
+        final Path podman = directory.resolve("podman");
+        Files.writeString(podman, "#!/bin/sh\nexec sleep 30\n");
+        podman.toFile().setExecutable(true);
+        System.setProperty(Podman.NAMED, podman.toString());
+        try {
+            assertThatThrownBy(
+                            () ->
+                                    new Podman(runner)
+                                            .execute(
+                                                    "porelo-p-fake",
+                                                    Map.of(),
+                                                    List.of("agent"),
+                                                    directory.resolve("task.log"),
+                                                    java.time.Duration.ofMillis(300)))
+                    .isInstanceOfSatisfying(
+                            RunTimedOut.class,
+                            ex ->
+                                    assertThat(ex.limit())
+                                            .isEqualTo(java.time.Duration.ofMillis(300)));
+        } finally {
+            System.clearProperty(Podman.NAMED);
+        }
+    }
 }

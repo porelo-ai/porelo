@@ -79,12 +79,13 @@ public final class AgentEnding {
      * @param at When its log was last written, ISO 8601.
      * @param finished Whether it answered its prompt to the end.
      * @param error Empty when finished; else the text as the agent or its provider gave it.
-     * @param source {@code provider} or {@code agent}.
+     * @param source {@code provider} or {@code agent}, or {@code porelo} when porelo ended it.
      * @param status The provider's HTTP status, when the provider refused.
      * @param unpushed Changed files and commits in the workspace that never reached the gate.
      * @param answer The agent's last message, as the record its definition declares gives it; ""
      *     when it declares none or none was written. At most its last {@link #ANSWER} bytes.
      * @param answerCut Whether the answer was longer and only its end is kept.
+     * @param limit Whether porelo ended it because its time limit passed.
      */
     public record Ended(
             String at,
@@ -94,7 +95,21 @@ public final class AgentEnding {
             @Nullable Integer status,
             int unpushed,
             String answer,
-            boolean answerCut) {
+            boolean answerCut,
+            boolean limit) {
+
+        /** An end its agent said, not one porelo made at a time limit. */
+        public Ended(
+                String at,
+                boolean finished,
+                String error,
+                String source,
+                @Nullable Integer status,
+                int unpushed,
+                String answer,
+                boolean answerCut) {
+            this(at, finished, error, source, status, unpushed, answer, answerCut, false);
+        }
 
         /**
          * Returns it as an interface reads it.
@@ -113,6 +128,7 @@ public final class AgentEnding {
             map.put("unpushed", unpushed);
             map.put("answer", answer);
             map.put("answerCut", answerCut);
+            map.put("limit", limit);
             return map;
         }
     }
@@ -234,6 +250,20 @@ public final class AgentEnding {
      */
     public @Nullable Ended about(
             String container, boolean running, @Nullable String agent, Path state) {
+        // Porelo's own end comes first: the agent was stopped mid-run, so its log says nothing.
+        final RunLimit.Ended byLimit = RunLimit.endedBy(state);
+        if (byLimit != null) {
+            return new Ended(
+                    byLimit.at(),
+                    false,
+                    "its time limit of " + byLimit.minutes() + " minutes passed",
+                    "porelo",
+                    null,
+                    unpushed(container, running, state),
+                    "",
+                    false,
+                    true);
+        }
         final Path log = state.resolve("task.log");
         if (agent == null || !Files.isRegularFile(log)) {
             return null;

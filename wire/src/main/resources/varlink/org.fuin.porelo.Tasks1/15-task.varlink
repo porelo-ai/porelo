@@ -36,7 +36,8 @@ type AgentEnded (
   # "" when finished; else the text as the agent or its provider gave it.
   error: string,
   # Whose the error is: "provider" or "agent". A provider's is named as the provider's, so a person
-  # looks there - credits, key, limits - and not at Porelo.
+  # looks there - credits, key, limits - and not at Porelo. "porelo" when Porelo ended the run at its
+  # time limit.
   source: string,
   # The provider's HTTP status, when the provider refused: 402, 401, 429, 403.
   status: ?int,
@@ -49,6 +50,10 @@ type AgentEnded (
   answer: string,
   # Whether the answer was longer and only its end is kept.
   answerCut: bool,
+  # Whether Porelo ended the run because its time limit passed (Start's minutes): its container was
+  # stopped as a stop does, its log, workspace and result kept. finished is false and error names
+  # the minutes.
+  limit: bool,
   # What was taken of the file the task hands back, once its end took it. Absent for a task started
   # without Start's result, and while nothing was taken.
   result: ?TaskResult
@@ -212,6 +217,9 @@ type Task (
   # task's approval goes by default in a project with a branch block. porelo/<task> for a task
   # started before it was recorded; "" when it has no gate.
   forgeBranch: string,
+  # The time limit in minutes its last unattended run was given (Start's minutes, default 30). 0 for an
+  # attended session, which has none, and for a task whose run predates this field.
+  minutes: int,
   # Where its reviewed work landed, one entry per branch, readable by a task started with reads naming
   # it. [] while its work waits at the gate, and for a task that never landed anything.
   landed: []Landed,
@@ -704,9 +712,10 @@ method Start(
   # project file's number. A task brought back keeps its number and hands it to its agent again: the
   # same number is taken, another is refused with exitCode 64.
   subagents: ?int,
-  # How long the agent may run, in minutes. Default: 30. On expiry the run is killed and whatever
-  # it produced is kept - the exit code is 124 and the log holds what it managed to say. Only for
-  # a run: an attended task's session lasts as long as the person keeps it.
+  # How long the agent may run, in minutes. Default: 30. On expiry Porelo stops the task as a stop
+  # does, ending its agent in the container, and keeps what it produced - the exit code is 124, the
+  # log holds what it managed to say, and List's agentEnded says limit: true. Only for a run: an
+  # attended task's session lasts as long as the person keeps it.
   minutes: ?int,
   # Tasks of the same project whose reviewed work this one may read, once it landed: its clone fetches
   # each one's landed refs as refs/remotes/origin/landed/<task>/<branch>, read only. Work still at the

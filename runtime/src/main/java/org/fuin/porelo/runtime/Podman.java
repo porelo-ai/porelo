@@ -1141,9 +1141,9 @@ public class Podman {
             builder.environment().putAll(environment);
             final Process process = builder.start();
             if (!process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                // Only the client: the agent in the container goes on until the caller stops it.
                 process.destroyForcibly();
-                throw new ContainerException(
-                        "The agent did not finish within " + timeout.toSeconds() + " seconds");
+                throw new RunTimedOut(timeout);
             }
             return process.exitValue();
         } catch (IOException ex) {

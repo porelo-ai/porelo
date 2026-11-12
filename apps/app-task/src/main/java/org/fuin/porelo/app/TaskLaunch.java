@@ -3967,6 +3967,37 @@ public final class TaskLaunch {
         return runLinesDropped;
     }
 
+    /**
+     * Ends a run whose time limit passed as a stop ends a task: only the podman exec client was
+     * ended, and the agent in the container went on, unbounded and unrecorded. The end is recorded
+     * first, so a fleet view never sees the task stopped without knowing why.
+     *
+     * @param context The machine.
+     * @param container The task.
+     * @param minutes The limit that passed.
+     * @param err Where a failure is said.
+     */
+    static void endAtLimit(PoreloContext context, String container, int minutes, PrintWriter err) {
+        try {
+            RunLimit.ended(
+                    context.paths().tasks().containerState(container),
+                    minutes,
+                    java.time.Instant.now());
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not record the end at its time limit: " + ex.getMessage());
+            err.flush();
+        }
+        try {
+            new TaskControl(context).stop(container);
+        } catch (RuntimeException ex) {
+            err.println(
+                    "porelo: the task could not be stopped at its time limit, and its agent may"
+                            + " still run: "
+                            + ex.getMessage());
+            err.flush();
+        }
+    }
+
     private int runAgentSteps(
             TaskRunner runner,
             @Nullable InstalledAgent selected,
@@ -4033,6 +4064,12 @@ public final class TaskLaunch {
         out.flush();
 
         final java.util.function.Consumer<String> following = runLines;
+        try {
+            RunLimit.started(context.paths().tasks().containerState(container), request.minutes());
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not record this run's time limit: " + ex.getMessage());
+            err.flush();
+        }
         final TaskWorkRecords records = new TaskWorkRecords(context);
         try {
             records.runStarted(container);
@@ -4076,6 +4113,10 @@ public final class TaskLaunch {
                                 environment,
                                 log,
                                 java.time.Duration.ofMinutes(request.minutes()));
+            } catch (org.fuin.porelo.runtime.RunTimedOut ex) {
+                killed = ex;
+                code = 124;
+                endAtLimit(context, container, request.minutes(), err);
             } catch (org.fuin.porelo.runtime.ContainerException ex) {
                 killed = ex;
                 code = 124;
