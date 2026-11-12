@@ -1,0 +1,2 @@
+title: "An agent definition says how its attended session takes an opening text, session.opening_flag: positionally or after a flag such as -i, so a discussion can open with an agent whose headless prompt takes a flag"
+type: added

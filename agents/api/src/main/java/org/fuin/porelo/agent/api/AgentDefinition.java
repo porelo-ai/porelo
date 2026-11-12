@@ -63,6 +63,9 @@ import org.jspecify.annotations.Nullable;
  * @param loginFlow How its sign-in works, or {@code null} when undeclared.
  * @param subagents What its adapter can enforce of the subagents a task allows it; {@link
  *     SubagentLimit#OFF} when it declares nothing, so that it is started only with none.
+ * @param openingFlag How its attended session takes an opening text: {@code ""} as its last
+ *     argument, any other value a flag the text follows; {@code null} when it declares nothing, and
+ *     then only an agent whose headless prompt is positional takes one, positionally.
  */
 public record AgentDefinition(
         String name,
@@ -92,7 +95,102 @@ public record AgentDefinition(
         @Nullable AtRest atRest,
         List<AgentGrant> grants,
         @Nullable LoginFlow loginFlow,
-        SubagentLimit subagents) {
+        SubagentLimit subagents,
+        @Nullable String openingFlag) {
+
+    /**
+     * Constructor for an agent that does not say how its session takes an opening text: then it
+     * takes one positionally when its headless prompt is positional, and none otherwise.
+     *
+     * @param name Short name.
+     * @param label Human-readable label.
+     * @param binary Executable inside the container.
+     * @param gitIdentity Commit author.
+     * @param headless Command-line shape.
+     * @param supportsResume Whether it continues a session.
+     * @param resumeFlag The flag that does, or {@code null}.
+     * @param tokenEnvironment Where its token goes, by credential type.
+     * @param provider How it reaches a provider, or {@code null}.
+     * @param allowedDomains Destinations it may reach.
+     * @param refusedDomains Destinations it may not.
+     * @param version Its pinned version, or {@code null}.
+     * @param artifacts What the image build fetches.
+     * @param installAsRoot Commands run as root in the image.
+     * @param installAsAgent Commands run as the agent in the image.
+     * @param packaged Trees the package carries.
+     * @param configDirectory Where it keeps its credentials, or {@code null}.
+     * @param loginArguments What runs its login, or {@code null}.
+     * @param loginDocumentation Where that login is described, or {@code null}.
+     * @param sandboxedArguments What turns its own permission prompts off.
+     * @param ready What it shows once at work, or {@code null}.
+     * @param waiting What waiting for a person looks like, or {@code null}.
+     * @param sessionIds Where it names its session, or {@code null}.
+     * @param instructionArguments How it takes standing instructions.
+     * @param atRest What its screen shows at rest, or {@code null}.
+     * @param grants The OAuth apps it signs in to providers with.
+     * @param loginFlow How its sign-in works, or {@code null}.
+     * @param subagents How many subagents it may start.
+     */
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready,
+            @Nullable Waiting waiting,
+            @Nullable SessionIds sessionIds,
+            List<String> instructionArguments,
+            @Nullable AtRest atRest,
+            List<AgentGrant> grants,
+            @Nullable LoginFlow loginFlow,
+            SubagentLimit subagents) {
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                waiting,
+                sessionIds,
+                instructionArguments,
+                atRest,
+                grants,
+                loginFlow,
+                subagents,
+                null);
+    }
 
     /**
      * Constructor for an agent that declares nothing about its subagents, and is therefore started
@@ -606,11 +704,12 @@ public record AgentDefinition(
      * Returns the command an attended task starts the agent with, handing it an opening text as its
      * first turn, after which it waits for the person.
      *
-     * <p>Only for an agent that takes its prompt positionally: invoked as {@code tool "text"}
-     * without its print flag, such an agent opens its session on the text. A prompt flag says how
-     * the agent runs once and ends (print mode), nothing about how its session takes an opening
-     * text, so such an agent is refused rather than guessed at. So is a text that begins like an
-     * option or a file reference, which the agent would read as one.
+     * <p>As its {@code session.opening_flag} says: last, positionally, or after that flag. An agent
+     * that declares none takes it positionally when its headless prompt is positional: invoked as
+     * {@code tool "text"} without its print flag, such an agent opens its session on the text. A
+     * prompt flag says how the agent runs once and ends (print mode), nothing about how its session
+     * takes an opening text, so such an agent is refused rather than guessed at. So is a text that
+     * begins like an option or a file reference, which the agent would read as one.
      *
      * @param model The model to ask for, or {@code null} for the agent's own.
      * @param opening The opening text, or {@code null} for none.
@@ -622,12 +721,14 @@ public record AgentDefinition(
         if (opening == null) {
             return command;
         }
-        if (!headless.promptFlag().isEmpty()) {
+        final String flag =
+                openingFlag != null ? openingFlag : headless.promptFlag().isEmpty() ? "" : null;
+        if (flag == null) {
             throw new AgentException(
                     "Agent '"
                             + name
                             + "' cannot be handed an opening text in an attended session: it"
-                            + " declares no positional prompt");
+                            + " declares no session.opening_flag, and its prompt is no positional one");
         }
         final String begins = opening.stripLeading();
         if (begins.isEmpty()
@@ -641,6 +742,9 @@ public record AgentDefinition(
                             + " begins with '-' or '@': it would read it as an option or a file");
         }
         final List<String> opened = new java.util.ArrayList<>(command);
+        if (!flag.isEmpty()) {
+            opened.add(flag);
+        }
         opened.add(opening);
         return List.copyOf(opened);
     }

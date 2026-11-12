@@ -46,6 +46,7 @@ public final class AgentDefinitionJson {
         out.put("headless", headless);
         out.put("supportsResume", Boolean.valueOf(definition.supportsResume()));
         putIfPresent(out, "resumeFlag", definition.resumeFlag());
+        putIfPresent(out, "openingFlag", definition.openingFlag());
         out.put("tokenEnvironment", definition.tokenEnvironment());
         if (!definition.packaged().isEmpty()) {
             final java.util.List<Object> trees = new java.util.ArrayList<>();
@@ -228,7 +229,15 @@ public final class AgentDefinitionJson {
                 // Absent from an adapter older than the field, which can hold only none.
                 source.get("subagents") != null
                         ? SubagentLimit.of(source.get("subagents"), "the agent's own description")
-                        : SubagentLimit.OFF);
+                        : SubagentLimit.OFF,
+                // Absent from an adapter older than the field; a declared one is checked as a
+                // file's is, so a bad one from an adapter is refused rather than run.
+                source.get("openingFlag") != null
+                        ? AgentDefinitionReader.openingFlag(
+                                source.get("openingFlag"),
+                                "openingFlag",
+                                "the agent's own description")
+                        : null);
     }
 
     private static Map<String, Object> writeWaiting(Waiting waiting) {

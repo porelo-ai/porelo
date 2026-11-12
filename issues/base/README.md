@@ -250,7 +250,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b638"></a>[B638](B638-An-Agent-Declares-How-Its-Session-Takes-An-Opening-Text.md) | S | - | An agent definition's session.opening_flag says how an attended session takes an opening text - "" positionally, or after a flag such as agy's -i - so a discussion can open with any agent; absent, the text is positional for an agent whose headless prompt is, and refused otherwise, as today. |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 
@@ -258,6 +257,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b638"></a>[B638](B638-An-Agent-Declares-How-Its-Session-Takes-An-Opening-Text.md) | S | - | An agent definition's session.opening_flag says how an attended session takes an opening text - "" positionally, or after a flag such as agy's -i - so a discussion can open with any agent; absent, the text is positional for an agent whose headless prompt is, and refused otherwise, as today. |
 | <a id="b633"></a>[B633](B633-A-Task-Record-Refusal-Names-Its-Failed-Check.md) | S | - | A task whose identity record is refused as unreadable is refused with the check that failed - which file, and what it held against what was expected - so a person or the window can tell a broken record from a stale one without reading porelo's code. |
 | <a id="b639"></a>[B639](B639-A-Stopped-Attended-Task-Answers-Its-Result.md) | XS | - | An attended task's stop takes the file it hands back from its box, so Tasks1 Result and List answer it handed once the person left the session, though a listing at its start had found it missing. |
 | <a id="b634"></a>[B634](B634-A-Task-That-Read-Its-Project-Ends-As-Any-Task-Ends.md) | S | - | A task that read its whole project is kept at its end as any task is, stopped and with its Result, unless its start asked for --rm, so a discussion's idea can be handed in after it ends; only the question about unhanded work stays unasked. |

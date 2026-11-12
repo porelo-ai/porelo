@@ -145,7 +145,8 @@ public final class AgentDefinitionReader {
                 optionalSection(root, "login").containsKey("flow")
                         ? LoginFlow.of(optionalSection(root, "login").get("flow"), origin)
                         : null,
-                subagents(root, origin));
+                subagents(root, origin),
+                openingFlag(session, origin));
     }
 
     /**
@@ -164,6 +165,45 @@ public final class AgentDefinitionReader {
         }
         final Object value = root.get("subagents");
         return Boolean.FALSE.equals(value) ? SubagentLimit.OFF : SubagentLimit.of(value, origin);
+    }
+
+    /**
+     * Reads {@code session.opening_flag}: {@code ""} for an opening text taken positionally, or the
+     * one argument it follows, which begins with {@code -}.
+     *
+     * @param session The session section.
+     * @param origin Where it was read from, for a refusal.
+     * @return The flag, or {@code null} when none is declared.
+     */
+    private static @Nullable String openingFlag(final Map<?, ?> session, final String origin) {
+        if (!session.containsKey("opening_flag")) {
+            return null;
+        }
+        return openingFlag(session.get("opening_flag"), "session.opening_flag", origin);
+    }
+
+    /**
+     * Takes a declared opening flag, from a file or from an agent's own description.
+     *
+     * @param value What was declared.
+     * @param key The name it was declared under, for a refusal.
+     * @param origin Where it was read from, for a refusal.
+     * @return The flag: {@code ""}, or one flag beginning with {@code -}.
+     */
+    static String openingFlag(final @Nullable Object value, final String key, final String origin) {
+        if (value instanceof String flag
+                && (flag.isEmpty()
+                        || flag.startsWith("-")
+                                && flag.length() > 1
+                                && flag.chars()
+                                        .noneMatch(c -> Character.isWhitespace(c) || c == 0))) {
+            return flag;
+        }
+        throw new AgentException(
+                origin
+                        + ": "
+                        + key
+                        + " must be \"\" for a positional opening text, or one flag beginning with '-'");
     }
 
     /**

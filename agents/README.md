@@ -96,6 +96,9 @@ headless:                     # the agent's own spelling of the common ideas
 session:
   supports_resume: true
   resume_flag: "--resume"
+  opening_flag: "-i"                # optional; how an attended session takes an opening text: "" as its
+                                    #     last argument, else the one flag it follows. Absent, only an agent
+                                    #     whose prompt_flag is "" takes one, positionally; others refuse it
   session_id:                       # optional; where it names the session it runs
     record: { type: system }        # an unattended run: the record naming it ...
     key: session_id                 # ... and its field holding the id

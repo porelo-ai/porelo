@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /** Tests for the one command builder that serves every agent. */
@@ -144,6 +145,60 @@ class HeadlessCommandTest {
                 .as("refused rather than started as a run that ends")
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("cannot be handed an opening text");
+    }
+
+    @Test
+    void anAgentWhosePromptTakesAFlagTakesItsOpeningTextAsItsSessionDeclares() {
+
+        // claude's and agy's -p is print mode, so an opening text was refused for both; their
+        // session says the form.
+        final String positional =
+                FULL.replace(
+                        "  resume_flag: \"--resume\"\n",
+                        "  resume_flag: \"--resume\"\n  opening_flag: \"\"\n");
+        final String flagged =
+                FULL.replace(
+                        "  resume_flag: \"--resume\"\n",
+                        "  resume_flag: \"--resume\"\n  opening_flag: \"-i\"\n");
+
+        assertThat(agent(positional).definition().attendedCommand(null, "Let us discuss."))
+                .as("declared positional, though its headless prompt takes -p")
+                .containsExactly("example-cli", "Let us discuss.");
+        assertThat(agent(flagged).definition().attendedCommand("cheap-model", "Let us discuss."))
+                .as("after its declared flag, last")
+                .containsExactly("example-cli", "--model", "cheap-model", "-i", "Let us discuss.");
+        assertThat(agent(flagged).definition().attendedCommand(null, null))
+                .as("no opening text, no flag")
+                .containsExactly("example-cli");
+        assertThatThrownBy(() -> agent(flagged).definition().attendedCommand(null, "-x"))
+                .as("the text's rule holds after a flag too")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("begins with '-' or '@'");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "\"i\"",
+                "\"-\"",
+                "\"-i x\"",
+                "\"--a\\tb\"",
+                "\"-a\\0\"",
+                "7",
+                "true",
+                "[]",
+                "null"
+            })
+    void refusesADefinitionWhoseOpeningFlagIsNoOneFlag(final String flag) {
+        // Written as YAML: quoted ones are strings, the others a number, a boolean, a list, none.
+        final String bad =
+                FULL.replace(
+                        "  resume_flag: \"--resume\"\n",
+                        "  resume_flag: \"--resume\"\n  opening_flag: " + flag + "\n");
+        assertThatThrownBy(() -> agent(bad))
+                .as("refused when read, never guessed at")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("session.opening_flag");
     }
 
     @Test
@@ -330,6 +385,39 @@ class HeadlessCommandTest {
                         definition.instructed(
                                 definition.attendedCommand(null), "/run/porelo/mail/README.md"))
                 .containsExactly("example-cli");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "-i"})
+    void anOpeningFlagSurvivesTheWayToPorelo(final String flag) {
+        // Porelo reads an installed agent's definition from its own description, never its file.
+        final AgentDefinition definition =
+                agent(
+                                FULL.replace(
+                                        "  resume_flag: \"--resume\"\n",
+                                        "  resume_flag: \"--resume\"\n  opening_flag: \""
+                                                + flag
+                                                + "\"\n"))
+                        .definition();
+
+        final AgentDefinition carried =
+                AgentDefinitionJson.read(AgentDefinitionJson.write(definition));
+
+        assertThat(carried).isEqualTo(definition);
+        assertThat(carried.attendedCommand(null, "Let us discuss."))
+                .isEqualTo(definition.attendedCommand(null, "Let us discuss."));
+    }
+
+    @Test
+    void refusesAnOpeningFlagFromAnAgentsDescriptionThatIsNoOneFlag() {
+        final Map<String, Object> described =
+                new java.util.LinkedHashMap<>(AgentDefinitionJson.write(agent(FULL).definition()));
+        described.put("openingFlag", "i");
+
+        assertThatThrownBy(() -> AgentDefinitionJson.read(described))
+                .as("refused as a file's is, never run")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("openingFlag");
     }
 
     @Test

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B638",
   "title": "An Agent Declares How Its Session Takes An Opening Text",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 4,
@@ -39,3 +39,27 @@ issue of declaring the form for every agent (claude positional, agy `-i`); this 
 2. `attendedCommand(model, opening)` takes the declared form, and falls back as above when none is declared.
 3. Red first: `HeadlessCommandTest` cases for `""` with a flagged headless prompt, `-i`, the absent fallback both
    ways, and a text beginning with `-` after `-i`; `AgentDefinitionReaderTest` for the field and a refused value.
+
+## As built
+
+- `AgentDefinition` has `openingFlag` as its last component. The constructor with the old components leaves it `null`,
+  so every caller from before keeps its meaning.
+- `AgentDefinitionReader` reads `session.opening_flag` and refuses anything other than `""` or one flag that begins
+  with `-` (no whitespace, no NUL, not a bare `-`, no non-string). `AgentDefinitionJson` carries the field in an agent's
+  own description and reads it back with the same check, because Porelo takes an installed agent's definition from
+  that description.
+- `attendedCommand(model, opening)` appends the declared flag, if any, and then the text. When no flag is declared it
+  falls back as before. The rule on the text holds for both forms.
+- `agents/README.md` names the field, and a changelog entry says it.
+
+## After the code reading
+
+Read by agy (gemini-4-argon-high).
+
+- Taken (red): `AgentDefinitionJson` neither wrote nor read `openingFlag`, so an installed adapter's declaration never
+  reached Porelo, and claude and agy would still be refused. `anOpeningFlagSurvivesTheWayToPorelo` failed for `""` and
+  for `-i` without the write.
+- Taken (yellow): a bad value in an agent's description is refused as one in a file is
+  (`refusesAnOpeningFlagFromAnAgentsDescriptionThatIsNoOneFlag`).
+- Taken (yellow): the refusal test wrote every value quoted, so it never tried a non-string or a NUL. It now also tries
+  `7`, `true`, `[]`, `null` and `-a\0`.
