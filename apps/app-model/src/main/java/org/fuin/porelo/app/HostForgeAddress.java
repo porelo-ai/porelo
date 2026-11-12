@@ -38,6 +38,17 @@ public final class HostForgeAddress {
     }
 
     /**
+     * Constructor for the host locations owned by this context.
+     *
+     * @param context The machine.
+     */
+    public HostForgeAddress(final PoreloContext context) {
+        this(
+                context.paths().hostDirectory().resolve("forge.conf"),
+                context.paths().hostDirectory().resolve("organization/projects"));
+    }
+
+    /**
      * Constructor.
      *
      * @param forgeConf Where the host names its forge's port.

@@ -18,6 +18,26 @@ class HostPersonTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     @Test
+    void aHostDirectoryInTheContextRequiresTheHelperEvenWhenItIsMissing() throws Exception {
+        final PoreloContext context = context();
+        Files.createDirectories(context.paths().hostDirectory());
+
+        assertThat(context.paths().hostProgram())
+                .as("configuration alone identifies a host whose helper is missing")
+                .doesNotExist();
+        assertThat(new HostPerson(context).present())
+                .as("the default constructor reads this context's host directory")
+                .isTrue();
+        assertThat(new HostPerson(context, dir.resolve("absent-helper")).present())
+                .as("the helper override still uses this context's host directory")
+                .isTrue();
+        assertThatThrownBy(() -> new HostPerson(context).start("fix", "certificate"))
+                .as("a configured host must refuse when its helper is missing")
+                .isInstanceOf(HostPerson.Refused.class)
+                .hasMessageContaining("install the porelo-host package");
+    }
+
+    @Test
     void aHostIsOneWithItsPersonsHelper() throws Exception {
         final Path helper = dir.resolve("porelo-host");
         assertThat(new HostPerson(context(), helper, dir.resolve("absent-host")).present())

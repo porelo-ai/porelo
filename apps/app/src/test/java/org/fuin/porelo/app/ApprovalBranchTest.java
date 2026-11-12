@@ -186,6 +186,34 @@ class ApprovalBranchTest {
                 .isEqualTo("develop");
     }
 
+    // A unit test on a machine with the host package must not read that machine's forge.conf.
+    @Test
+    void anApprovalReadsTheHostsForgeFromItsContextNeverFromTheMachine() throws Exception {
+        final PoreloContext context = context();
+        final Project project =
+                project(
+                        """
+                repositories:
+                  repo:
+                    upstream: "http://127.0.0.1:3001/acme/repo.git"
+                """);
+        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
+        final Path state =
+                Files.createDirectories(
+                        context.paths()
+                                .tasks()
+                                .containerState(
+                                        org.fuin.porelo.runtime.ContainerName.of(project, "fix")));
+        new TaskBase("develop", "FROM").writeTo(state);
+        final Path conf = context.paths().hostDirectory().resolve("forge.conf");
+        Files.createDirectories(conf.getParent());
+        Files.writeString(conf, "git_port=3001\n");
+
+        assertThat(ApprovalBranch.of(context, project, project.repository("repo"), "fix", null))
+                .as("the context's host forge, not /etc/porelo-host, decides the task branch")
+                .isEqualTo("porelo/fix");
+    }
+
     @Test
     void inAProjectWithABlockAnApprovalWithoutABranchGoesToTheTasksOwn() throws Exception {
         final PoreloContext context = context();

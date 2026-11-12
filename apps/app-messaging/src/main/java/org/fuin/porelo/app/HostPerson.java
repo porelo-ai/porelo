@@ -22,9 +22,6 @@ import org.fuin.porelo.wire.Json;
  */
 final class HostPerson {
 
-    /** Where a host installs the helper; sudo allows it by this path alone. */
-    static final Path PROGRAM = HostForgeLending.PROGRAM;
-
     private final PoreloContext context;
 
     private final Path program;
@@ -36,7 +33,7 @@ final class HostPerson {
      * @param context The machine.
      */
     HostPerson(PoreloContext context) {
-        this(context, PROGRAM);
+        this(context, context.paths().hostProgram());
     }
 
     /**
@@ -46,7 +43,7 @@ final class HostPerson {
      * @param program The helper.
      */
     HostPerson(PoreloContext context, Path program) {
-        this(context, program, Path.of("/etc/porelo-host"));
+        this(context, program, context.paths().hostDirectory());
     }
 
     HostPerson(PoreloContext context, Path program, Path hostDirectory) {

@@ -189,7 +189,8 @@ public final class OrganizationProjects {
      */
     public static OrganizationProjects of(final PoreloContext context) {
         return new OrganizationProjects(
-                context.paths().projects().organizationProjects(), HOST_FILES);
+                context.paths().projects().organizationProjects(),
+                context.paths().hostDirectory().resolve("organization/projects"));
     }
 
     /**

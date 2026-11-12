@@ -5607,7 +5607,7 @@ public final class TaskLaunch {
             throw new ProjectException(OwnRepository.refusal(project));
         }
         final String offHost =
-                new HostForgeAddress().refusal(project, chosen.name(), request.upstream());
+                new HostForgeAddress(context).refusal(project, chosen.name(), request.upstream());
         if (offHost != null) {
             throw new ProjectException(offHost);
         }

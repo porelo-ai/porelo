@@ -98,7 +98,13 @@ public final class ApprovalBranch {
             final Repository repository,
             final String task,
             final @Nullable String named) {
-        return of(context, project, repository, task, named, HostForgeLending.FORGE_CONF);
+        return of(
+                context,
+                project,
+                repository,
+                task,
+                named,
+                context.paths().hostDirectory().resolve("forge.conf"));
     }
 
     /**

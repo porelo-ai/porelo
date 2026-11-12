@@ -90,7 +90,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
     }
 
     Path forgeConf() {
-        return HostForgeLending.FORGE_CONF;
+        return context.paths().hostDirectory().resolve("forge.conf");
     }
 
     GitGate gate(final Project project) {

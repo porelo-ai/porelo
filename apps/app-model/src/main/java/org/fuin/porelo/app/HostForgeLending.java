@@ -23,9 +23,6 @@ final class HostForgeLending implements GitCredentials {
     /** Where a host names its forge's {@code git_port}. */
     static final Path FORGE_CONF = Path.of("/etc/porelo-host/forge.conf");
 
-    /** Where a host installs the helper; sudo allows it by this path alone. */
-    static final Path PROGRAM = Path.of("/usr/sbin/porelo-host");
-
     /**
      * The system's sudo, by its path: a bare name is looked up in the caller's own {@code PATH},
      * where a directory of the person's could hold another, not in the environment chosen below.
@@ -58,7 +55,11 @@ final class HostForgeLending implements GitCredentials {
      */
     HostForgeLending(
             final PoreloContext context, final GitCredentials otherwise, final Path forgeConf) {
-        this(context, otherwise, forgeConf, () -> java.nio.file.Files.isRegularFile(PROGRAM));
+        this(
+                context,
+                otherwise,
+                forgeConf,
+                () -> java.nio.file.Files.isRegularFile(context.paths().hostProgram()));
     }
 
     HostForgeLending(
@@ -158,7 +159,8 @@ final class HostForgeLending implements GitCredentials {
                             .run(
                                     // A token of its own for this command: a plain forge-token
                                     // replaces every token of the login, a running task's too.
-                                    onHost(PROGRAM, "forge", "lend-token").withInput(""));
+                                    onHost(context.paths().hostProgram(), "forge", "lend-token")
+                                            .withInput(""));
         } catch (final CommandException ex) {
             return null;
         }

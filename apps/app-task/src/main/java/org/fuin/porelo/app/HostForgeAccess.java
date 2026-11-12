@@ -48,7 +48,7 @@ final class HostForgeAccess implements FetchAccess {
                 context,
                 fetchFrom,
                 otherwise,
-                () -> java.nio.file.Files.isRegularFile(HostPerson.PROGRAM));
+                () -> java.nio.file.Files.isRegularFile(context.paths().hostProgram()));
     }
 
     HostForgeAccess(
@@ -115,7 +115,9 @@ final class HostForgeAccess implements FetchAccess {
                                     // Lent for this command, beside the tokens a running task
                                     // holds.
                                     HostForgeLending.onHost(
-                                                    HostPerson.PROGRAM, "forge", "lend-token")
+                                                    context.paths().hostProgram(),
+                                                    "forge",
+                                                    "lend-token")
                                             .withInput(""));
         } catch (final CommandException ex) {
             requireInstalled();

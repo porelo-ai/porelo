@@ -419,7 +419,7 @@ class StartCheckTest {
         // installed on the machine, which this test cannot do - and a fixture that could would be
         // testing a stand-in.
         final StartCheck.Result result =
-                StartCheck.withRepository(READY, threeRepositories(dir), null, true);
+                StartCheck.withRepository(context(dir), READY, threeRepositories(dir), null, true);
 
         assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.NO_REPOSITORY_CHOSEN);
         assertThat(result.ready()).isFalse();
@@ -436,7 +436,7 @@ class StartCheckTest {
 
         // It holds project.yml, which decides what every task of the project may reach.
         final StartCheck.Result result =
-                StartCheck.withRepository(READY, threeRepositories(dir), "uc", true);
+                StartCheck.withRepository(context(dir), READY, threeRepositories(dir), "uc", true);
 
         assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_REPOSITORY);
         assertThat(result.detail())
@@ -449,7 +449,7 @@ class StartCheckTest {
             throws Exception {
 
         final StartCheck.Result result =
-                StartCheck.withRepository(READY, threeRepositories(dir), null, true);
+                StartCheck.withRepository(context(dir), READY, threeRepositories(dir), null, true);
 
         assertThat(result.detail()).endsWith("works in: backend, frontend");
     }
@@ -468,7 +468,9 @@ class StartCheckTest {
                   from: "ubuntu:24.04"
                 """);
 
-        assertThat(StartCheck.withRepository(READY, file, "solo", true)).isEqualTo(READY);
+        assertThat(StartCheck.withRepository(context(dir), READY, file, "solo", true))
+                .as("a project without other repositories can work in its own")
+                .isEqualTo(READY);
     }
 
     @Test
@@ -476,7 +478,8 @@ class StartCheckTest {
 
         // Different from naming none: somebody typed something, and what helps is the list.
         final StartCheck.Result result =
-                StartCheck.withRepository(READY, threeRepositories(dir), "nowhere", true);
+                StartCheck.withRepository(
+                        context(dir), READY, threeRepositories(dir), "nowhere", true);
 
         assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_REPOSITORY);
         assertThat(result.detail()).contains("nowhere").contains("backend");
@@ -494,9 +497,9 @@ class StartCheckTest {
                                         + "    upstream:"
                                         + " https://forge.example.org/o/shop-backend.git"));
 
-        assertThat(StartCheck.withRepository(READY, file, "shop-backend", true))
+        assertThat(StartCheck.withRepository(context(dir), READY, file, "shop-backend", true))
                 .as("CanStart must allow the full name that Start resolves to backend")
-                .isEqualTo(StartCheck.withRepository(READY, file, "backend", true))
+                .isEqualTo(StartCheck.withRepository(context(dir), READY, file, "backend", true))
                 .isEqualTo(READY);
     }
 
@@ -505,7 +508,10 @@ class StartCheckTest {
 
         // It gets an empty directory and can commit nowhere, so it works on no repository and there
         // is nothing for it to name.
-        assertThat(StartCheck.withRepository(READY, threeRepositories(dir), null, false))
+        assertThat(
+                        StartCheck.withRepository(
+                                context(dir), READY, threeRepositories(dir), null, false))
+                .as("a start without a gate needs no repository choice")
                 .isEqualTo(READY);
     }
 
@@ -514,7 +520,10 @@ class StartCheckTest {
 
         // Proves the refusals above are about the repository and not about the fixture: with a good
         // name, what everything else answered comes back untouched.
-        assertThat(StartCheck.withRepository(READY, threeRepositories(dir), "backend", true))
+        assertThat(
+                        StartCheck.withRepository(
+                                context(dir), READY, threeRepositories(dir), "backend", true))
+                .as("a known repository preserves the other checks' answer")
                 .isEqualTo(READY);
     }
 

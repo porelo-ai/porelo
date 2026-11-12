@@ -28,6 +28,74 @@ import picocli.CommandLine;
 class TaskRunCommandTest {
 
     @Test
+    void aHelperPlantedInTheContextMakesTaskStartRefuseCertification(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path program = context.paths().hostProgram();
+        Files.createDirectories(program.getParent());
+        Files.writeString(program, "#!/bin/sh\nexit 0\n");
+        Files.setPosixFilePermissions(
+                program, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+
+        assertThat(context.paths().hostDirectory())
+                .as("the helper alone must identify the host")
+                .doesNotExist();
+        assertThat(new HostPerson(context).present())
+                .as("host detection reads the helper planted in this context")
+                .isTrue();
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a host refuses an uncertifiable task: %s", err).isEqualTo(65);
+        assertThat(err.toString())
+                .as("the refusal is the host's certification rule")
+                .contains("this host starts a task only with a key of its own that you certify");
+        assertThat(runner.lines())
+                .as("a refused host start creates no container")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aTaskStartsWhenItsContextHasNoHostHelperOrDirectory(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+
+        assertThat(context.paths().hostProgram())
+                .as("this context has no host helper")
+                .doesNotExist();
+        assertThat(context.paths().hostDirectory())
+                .as("this context has no host configuration")
+                .doesNotExist();
+        assertThat(new HostPerson(context).present())
+                .as("host detection depends only on this context")
+                .isFalse();
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a machine without a host starts the task: %s", err).isZero();
+        assertThat(err.toString())
+                .as("the machine's installed host package cannot impose certification")
+                .doesNotContain(
+                        "this host starts a task only with a key of its own that you certify");
+        assertThat(runner.lines())
+                .as("the start reaches container creation")
+                .anyMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
     void aStartByAnEncodedActualNameResumesItsRecordedLogicalTask(@TempDir Path dir)
             throws Exception {
         // The actual spelling must not become a different logical owner at the reservation.

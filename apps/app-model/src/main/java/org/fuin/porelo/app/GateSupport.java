@@ -182,7 +182,13 @@ public final class GateSupport {
             Repository repository,
             @Nullable String upstream,
             @Nullable String seed) {
-        return gate(context, project, repository, upstream, seed, HostForgeLending.FORGE_CONF);
+        return gate(
+                context,
+                project,
+                repository,
+                upstream,
+                seed,
+                context.paths().hostDirectory().resolve("forge.conf"));
     }
 
     /**
@@ -260,7 +266,7 @@ public final class GateSupport {
         return new HostForgeLending(
                 context,
                 new VaultGitCredentials(context, project + "-" + repository),
-                HostForgeLending.FORGE_CONF);
+                context.paths().hostDirectory().resolve("forge.conf"));
     }
 
     /**

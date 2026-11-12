@@ -17,6 +17,43 @@ import org.junit.jupiter.params.provider.ValueSource;
 class PoreloPathsTest {
 
     @Test
+    void aTestContextsHostPathsStayUnderItsOwnDataDirectory(@TempDir Path dir) {
+        final XdgPaths xdg = XdgPaths.of(name -> null, dir);
+        final PoreloPaths paths = new PoreloPaths(xdg, dir.resolve("bin"));
+
+        assertThat(paths.hostProgram())
+                .as("unit tests must never ask the installed privileged helper")
+                .isEqualTo(xdg.data().resolve("host/usr/sbin/porelo-host"));
+        assertThat(paths.hostDirectory())
+                .as("unit tests must never read the machine's host configuration")
+                .isEqualTo(xdg.data().resolve("host/etc/porelo-host"));
+    }
+
+    @Test
+    void realHostPathsKeepThePackagesLocationsAfterTheContextIsBuilt(@TempDir Path dir) {
+        final XdgPaths xdg = XdgPaths.of(name -> null, dir);
+        final String previous =
+                System.setProperty(org.fuin.porelo.core.config.RealAccount.REFUSED, "false");
+        final PoreloPaths paths;
+        try {
+            paths = new PoreloPaths(xdg, dir.resolve("bin"));
+        } finally {
+            if (previous == null) {
+                System.clearProperty(org.fuin.porelo.core.config.RealAccount.REFUSED);
+            } else {
+                System.setProperty(org.fuin.porelo.core.config.RealAccount.REFUSED, previous);
+            }
+        }
+
+        assertThat(paths.hostProgram())
+                .as("a real context keeps the exact helper path allowed by sudo")
+                .isEqualTo(Path.of("/usr/sbin/porelo-host"));
+        assertThat(paths.hostDirectory())
+                .as("a real context keeps the packaged host configuration directory")
+                .isEqualTo(Path.of("/etc/porelo-host"));
+    }
+
+    @Test
     void ecosystemDiscoveryChecksTheAccountBeforeTheRedirectedPackages(@TempDir Path dir) {
         final String previous = System.getProperty(PoreloPaths.PACKAGED_ROOT);
         final Path packages = dir.resolve("packages");

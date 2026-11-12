@@ -12,9 +12,43 @@ import org.jspecify.annotations.Nullable;
  * @param binaryDirectory Directory the hook binaries are installed in.
  * @param packagedHooks Where a package would have put the hook binaries.
  * @param packagedAgents Where a package would have put the agent binaries.
+ * @param hostProgram The host's privileged helper: {@code /usr/sbin/porelo-host} in a real run,
+ *     where sudo allows it by that path alone.
+ * @param hostDirectory The host's configuration directory: {@code /etc/porelo-host} in a real run.
  */
 public record PoreloPaths(
-        XdgPaths xdg, Path binaryDirectory, Path packagedHooks, Path packagedAgents) {
+        XdgPaths xdg,
+        Path binaryDirectory,
+        Path packagedHooks,
+        Path packagedAgents,
+        Path hostProgram,
+        Path hostDirectory) {
+
+    /**
+     * Keeps host locations under this context's data directory when the real account is refused.
+     *
+     * @param xdg The base directories.
+     * @param binaryDirectory Directory the hook binaries are installed in.
+     * @param packagedHooks Where a package would have put the hook binaries.
+     * @param packagedAgents Where a package would have put the agent binaries.
+     */
+    public PoreloPaths(
+            XdgPaths xdg, Path binaryDirectory, Path packagedHooks, Path packagedAgents) {
+        this(
+                xdg,
+                binaryDirectory,
+                packagedHooks,
+                packagedAgents,
+                hostLocation(xdg, "usr/sbin/porelo-host"),
+                hostLocation(xdg, "etc/porelo-host"));
+    }
+
+    private static Path hostLocation(XdgPaths xdg, String relative) {
+        return (org.fuin.porelo.core.config.RealAccount.refused()
+                        ? xdg.data().resolve("host")
+                        : Path.of("/"))
+                .resolve(relative);
+    }
 
     /**
      * Constructor for the real machine, where the packaged locations are fixed.

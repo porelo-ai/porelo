@@ -70,15 +70,18 @@ class GateHostApprovalTest {
         base = commit("base");
         git(work, "push", "-q", "origin", "main");
         final XdgPaths xdg = XdgPaths.of(name -> null, dir.resolve("home"));
+        final PoreloPaths lendingPaths = new PoreloPaths(xdg, dir.resolve("bin"));
+        final String helper = lendingPaths.hostProgram().toString();
         // A unit test must never ask the real host's helper for a person's forge token.
         lendingContext =
                 new PoreloContext(
                         command -> {
                             assertThat(command.arguments())
+                                    .as("sudo runs the context's helper alone")
                                     .containsExactly(
                                             HostForgeLending.SUDO.toString(),
                                             "-n",
-                                            "/usr/sbin/porelo-host",
+                                            helper,
                                             "forge",
                                             "lend-token");
                             assertThat(command.input()).isEmpty();
@@ -88,7 +91,7 @@ class GateHostApprovalTest {
                                     .isEqualTo(HostForgeLending.HOST_ENVIRONMENT);
                             return new CommandResult(command, 0, LENT_TOKEN + "\n", "");
                         },
-                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        lendingPaths,
                         args -> 0);
         // Approval also anchors an event; the helper's strict runner must never receive it.
         context =

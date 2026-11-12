@@ -120,10 +120,11 @@ class ProjectTakingTest {
 
     private CommandResult helperAnswers(final Command command) {
         assertThat(command.arguments())
+                .as("sudo runs the context's helper alone")
                 .containsExactly(
                         HostForgeLending.SUDO.toString(),
                         "-n",
-                        "/usr/sbin/porelo-host",
+                        context.paths().hostProgram().toString(),
                         "forge",
                         "lend-token");
         assertThat(command.input()).isEmpty();
@@ -668,7 +669,7 @@ class ProjectTakingTest {
                         List.of(
                                 HostForgeLending.SUDO.toString(),
                                 "-n",
-                                "/usr/sbin/porelo-host",
+                                context.paths().hostProgram().toString(),
                                 "forge",
                                 "lend-token"));
         assertThat(

@@ -57,6 +57,7 @@ class HostForgeAccessTest {
 
     @Test
     void it_asks_the_hosts_helper_with_nothing_on_its_input() {
+        final Path program = dir.resolve("XDG_DATA_HOME/porelo/host/usr/sbin/porelo-host");
         access(GATE, answering(0, TOKEN + "\n")).lend(GATE).close();
 
         assertThat(commands)
@@ -64,10 +65,11 @@ class HostForgeAccessTest {
                 .satisfies(
                         command -> {
                             assertThat(command.arguments())
+                                    .as("a fetch asks the helper owned by its context")
                                     .containsExactly(
                                             HostForgeLending.SUDO.toString(),
                                             "-n",
-                                            HostPerson.PROGRAM.toString(),
+                                            program.toString(),
                                             "forge",
                                             "lend-token");
                             assertThat(command.input()).isEmpty();

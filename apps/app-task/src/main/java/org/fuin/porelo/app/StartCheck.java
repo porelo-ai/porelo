@@ -876,6 +876,7 @@ public final class StartCheck {
                 withSettings(
                         context,
                         withRepository(
+                                context,
                                 withCredentials(context, rest, projectFile, credentials),
                                 projectFile,
                                 repository,
@@ -1505,6 +1506,7 @@ public final class StartCheck {
     }
 
     static Result withRepository(
+            PoreloContext context,
             Result rest,
             @Nullable Path projectFile,
             @Nullable String repository,
@@ -1560,7 +1562,7 @@ public final class StartCheck {
                     rest.credential(),
                     OwnRepository.refusal(project));
         }
-        final String offHost = new HostForgeAddress().refusal(project, chosen.name(), null);
+        final String offHost = new HostForgeAddress(context).refusal(project, chosen.name(), null);
         if (offHost != null) {
             return new Result(
                     Outcome.UNKNOWN_REPOSITORY,

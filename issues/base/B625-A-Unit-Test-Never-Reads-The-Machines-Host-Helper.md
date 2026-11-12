@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B625",
   "title": "A Unit Test Never Reads The Machine's Host Helper",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 1,
@@ -14,8 +14,9 @@
 }
 ```
 
-**Why this size.** the host's two fixed paths moved behind the context in `HostPerson` and its five callers in
-`app-messaging` and `app-task`, and the test context pointing them at its own directory; no contract.
+**Why this size.** the host's fixed paths moved behind the context: the helper and the host directory with its
+`forge.conf` and `organization/projects`, read by a task's start and an approval, and the test context pointing them at
+its own directory; no contract.
 
 **What must be true.** A unit test runs on a developer's machine that has the host package installed and passes as
 it does on a build runner. Today `TaskLaunch`'s default constructor makes `new HostPerson(context)`, and
@@ -36,6 +37,35 @@ branch alike. A build runner has no host package, so CI stays green and the leak
   test asks the opposite. With the build's `porelo.test.real.account.refused` set, the context's host paths lie under
   the test's directory. A test that plants a helper there sees `present()` true, and a start in it is refused as
   on a host. Without the plant, a start goes on.
+
+## As built
+
+Built by Codex CLI on Agent Core's brief, reviewed and extended by Agent Core.
+
+- `PoreloPaths` carries `hostProgram` and `hostDirectory`. A context built where the build set
+  `porelo.test.real.account.refused` puts them under its data directory (`host/usr/sbin/porelo-host`,
+  `host/etc/porelo-host`); any other context names `/usr/sbin/porelo-host` and `/etc/porelo-host`, so sudo still runs
+  the helper by that path alone.
+- What a task's start and an approval read now comes from the context: `HostPerson`, `HostForgeLending` (the helper
+  and `forge.conf`), `HostForgeAccess`, `HostForgeAddress`, `OrganizationProjects.of`, `GateSupport`, `StartCheck`,
+  `TaskLaunch`, `GateApproveCommand`, `ApprovalBranch` and `HostPush`.
+- Tests: `PoreloPathsTest` (a test context's host paths stay under its directory; the real ones keep the package's
+  places), `TaskRunCommandTest` (a helper planted in the context refuses the start as on a host; without it the start
+  goes on), `HostPersonTest`, `ApprovalBranchTest` (an approval reads the host's forge from the context). Seen red:
+  the test context pointed at `/` again, and `ApprovalBranch` back on `/etc/porelo-host/forge.conf`. Tests that held
+  the helper's literal path in sudo's arguments now hold the context's.
+- Not measured: a run of `apps/app`'s tests on a machine with the host package installed, since this one has none.
+  Left on the fixed paths, outside a task's start and an approval: `TransportLifecycle`, `TransportConversations`,
+  `HostPullRequestReader`, `ProjectInventory`, `UpstreamWatch`, `ProjectListCommand`, `HostCentral`,
+  `HostArrivalLedger` and the `host` commands; a test of one of them on such a machine can still read it.
+
+## After the code reading
+
+agy (gemini) read the change. Fixed: `GateApproveCommand`, `ApprovalBranch` and `HostPush` still named
+`/etc/porelo-host/forge.conf` with a context at hand (red first, `ApprovalBranchTest`); two assertions gained their
+reason. Left: `PoreloPaths`' canonical constructor takes any host path, as a record's does; nothing outside it calls
+that constructor and a shipped binary refuses to run at all with the test property set. Older snake-case test names
+in `HostForgeAccessTest` and `ProjectTakingTest` stay as they are.
 
 ## Acceptance
 

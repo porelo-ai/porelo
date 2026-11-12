@@ -75,7 +75,10 @@ class HostForgeLendingTest {
         assertThat(runner.lines())
                 .as("a token of its own for this command, which leaves the person's other tokens")
                 .containsExactly(
-                        HostForgeLending.SUDO + " -n " + HostPerson.PROGRAM + " forge lend-token");
+                        HostForgeLending.SUDO
+                                + " -n "
+                                + context.paths().hostProgram()
+                                + " forge lend-token");
         final var asked = runner.only("lend-token");
         assertThat(asked.inheritsEnvironment())
                 .as("the session's own variables, which the host refuses")
