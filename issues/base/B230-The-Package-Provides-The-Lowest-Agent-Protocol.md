@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B230",
   "title": "The Package Provides The Lowest Agent Protocol",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 39,
@@ -53,3 +53,16 @@ today it checks no `Provides` at all.
 ## Decided by the operator (2026-11-12)
 
 - To Backlog, priority unchanged.
+
+## Built (2026-11-12)
+
+- The root pom's `porelo.agent.protocol.lowest` (3) is filtered into the `.deb`'s `Provides:` and the `.rpm`'s
+  `<provides>`; `package-check` reads both from the built packages and holds them to `AgentProtocol.LOWEST`, read from
+  porelo-agent-api, and fails a package that provides none, two, or another number.
+- `agents/README.md` says what an agent's package depends on: any of `porelo-agent-protocol-<n>` from its lowest up
+  to its `VERSION`.
+- Seen red: packages built with the property at 2 failed `package-check` with "the deb provides agent protocol 2,
+  but porelo's lowest is 3", and the same for the rpm; at 3 every check passes, and `dpkg-deb -f ... Provides` gives
+  `porelo-agent-protocol-3`.
+- Not yet run: the acceptance on the ubuntu VM (an agent package depending on 3 or 4 installs beside this package;
+  one depending on 2 alone is refused by apt). The VM is held by another lane; it runs when the slot is free.
