@@ -476,11 +476,12 @@ renamed, removed or reinterpreted method or field raises `LOWEST`.
 
 **What an agent's package depends on.** Porelo's `.deb` and `.rpm` provide
 `porelo-agent-protocol-<LOWEST>`, one number. An agent's package depends on any one
-of `porelo-agent-protocol-<n>` for every `n` from the `LOWEST` it was built with up
-to its own `VERSION` - on Debian `porelo-agent-protocol-3 | porelo-agent-protocol-4
+of `porelo-agent-protocol-<n>` for every `n` from `AgentProtocol.LOWEST` at its
+build up to its own `VERSION` - on Debian `porelo-agent-protocol-3 | porelo-agent-protocol-4
 | porelo-agent-protocol-5`, on Fedora `(porelo-agent-protocol-3 or
 porelo-agent-protocol-4 or porelo-agent-protocol-5)`. The package manager then
-refuses only a pairing Porelo itself would refuse.
+refuses a pairing Porelo itself would refuse, and also a Porelo whose `LOWEST` is
+older than the agent's: the agent was built after a break that Porelo predates.
 
 ## What an agent finds of itself
 

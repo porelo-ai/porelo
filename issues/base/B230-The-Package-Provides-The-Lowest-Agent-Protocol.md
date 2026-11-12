@@ -66,3 +66,13 @@ today it checks no `Provides` at all.
   `porelo-agent-protocol-3`.
 - Not yet run: the acceptance on the ubuntu VM (an agent package depending on 3 or 4 installs beside this package;
   one depending on 2 alone is refused by apt). The VM is held by another lane; it runs when the slot is free.
+
+## Read by a second model (2026-11-12)
+
+- No Red. Yellow, fixed: the check took `foo-porelo-agent-protocol-3` and `porelo-agent-protocol-3-foo` for the
+  capability; it now matches a whole name only, and tests that failed before pin both and `-30`.
+- Yellow, written down: providing only `LOWEST` also refuses an agent built after a break this porelo predates (its
+  lowest above porelo's), which porelo itself would run; `agents/README.md` now says so. Providing every number up to
+  porelo's own `VERSION` was weighed and left: porelo accepts agents newer than its `VERSION`, so no range it provides
+  is the whole of what it accepts.
+- Kept: the root pom's number is compared with `LOWEST` by `package-check` on built packages, not by every build.

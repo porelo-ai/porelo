@@ -70,4 +70,29 @@ class AgentProtocolProvidedTest {
                 .as("the package provides one number, its lowest, never a list to choose from")
                 .isEqualTo(1);
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"foo-porelo-agent-protocol-%d", "porelo-agent-protocol-%d-foo"})
+    void failsANameThatOnlyHoldsTheCapability(String form) {
+        final String other = String.format(form, LOWEST);
+
+        AgentProtocolProvided.check(
+                other, rpmProvides("porelo-agent-protocol-" + LOWEST), out.report);
+
+        assertThat(out.report.failures())
+                .as("another package's capability is no agent protocol porelo provides")
+                .isEqualTo(1);
+    }
+
+    @Test
+    void failsAProtocolThatOnlyBeginsWithTheLowest() {
+        AgentProtocolProvided.check(
+                "porelo-agent-protocol-" + LOWEST + "0",
+                rpmProvides("porelo-agent-protocol-" + LOWEST + " = 0.5.1"),
+                out.report);
+
+        assertThat(out.report.failures()).isEqualTo(1);
+        assertThat(out.text()).contains("the deb provides agent protocol " + LOWEST + "0");
+    }
 }

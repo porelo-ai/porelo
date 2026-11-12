@@ -15,7 +15,9 @@ import org.fuin.porelo.agent.api.AgentProtocol;
  */
 final class AgentProtocolProvided {
 
-    private static final Pattern PROVIDED = Pattern.compile("\\bporelo-agent-protocol-(\\d+)\\b");
+    // A whole capability: not the tail of another name, nor the head of one ("-3-foo").
+    private static final Pattern PROVIDED =
+            Pattern.compile("(?<![\\w.-])porelo-agent-protocol-(\\d+)(?![\\w.-])");
 
     private AgentProtocolProvided() {
         throw new UnsupportedOperationException("Utility class");
