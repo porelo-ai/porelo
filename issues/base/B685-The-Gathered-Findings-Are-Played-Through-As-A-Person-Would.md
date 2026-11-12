@@ -10,7 +10,7 @@
   "priority": "High",
   "rank": 34,
   "blockedBy": [],
-  "covers": "A script plays ST56 at the command line on the test VM as a person would: B380's, HO86's and F288's points each hold nothing open; a point that proved larger is an issue of its own."
+  "covers": "A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own."
 }
 ```
 
@@ -20,7 +20,7 @@ Filed 2026-11-12 for ST347 (every story played through once, as a user would), f
 porelo-project's stories.
 
 **What must be true.** The story's test is played once on the test VM by a script that does what a person would at
-the command line: B380's, HO86's and F288's points each hold nothing open; a point that proved larger is an issue of its own. Its issues here: [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203), [B666](README.md#b666); HO86 and F288 are other repositories'.
+the command line: [B380](README.md#b380)'s, HO86's and F288's points each hold nothing open; a point that proved larger is an issue of its own. Its issues here: [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203), [B666](README.md#b666); HO86 and F288 are other repositories'.
 
 ## Plan
 
