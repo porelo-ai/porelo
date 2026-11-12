@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b646"></a>[B646](B646-A-Reader-Is-Handed-The-Work-It-Reads.md) | - | - | A task started to read another task's work is given that work through its own gate, read only and under a name its order can use, and nothing else of other tasks; today no task can see another task's branch. |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |
 | <a id="b516"></a>[B516](B516-Task-Records-Exported-Over-OTLP.md) | M | [B514](README.md#b514) | [B514](#b514)'s records exported as OpenTelemetry logs to a collector the organization names, off by default, chosen per kind, by the CLI only. |
@@ -105,6 +106,7 @@ from its side, as *blocked by*.
 | <a id="b643"></a>[B643](B643-A-Clear-Passes-Deploy-Keys-Whose-Vault-Is-Gone.md) | - | - | porelo project clear does not stop at 'the vault is locked' for deploy keys that lived in a vault which no longer exists; it says what it could not read and clears the rest. |
 | <a id="b644"></a>[B644](B644-An-Agents-Own-Telemetry-Kept-With-Its-Run.md) | - | [B514](README.md#b514) | porelo receives an agent's own OTLP export on a local receiver and keeps it in the task's journal under its run, vendor ids mapped and sources marked, tokens and costs never counted twice; nothing is forwarded unless the OTLP export chooses it. |
 | <a id="b645"></a>[B645](B645-A-Shut-Vault-Login-Stores-Within-Its-Wait.md) | - | - | The acceptance scenario of a login asked for while the vault is shut says 'Signed in - the credential is stored' within the time it waits on every leg, or the wait is measured and set as its sibling's is. |
+| <a id="b647"></a>[B647](B647-An-Unattended-Run-Ends-At-Its-Time-Limit.md) | - | - | An unattended run has a time limit, set at its start with a default, after which porelo ends it, records it as ended by its limit and keeps its log; a model that never ends its turn no longer holds a task forever. |
 | <a id="b476"></a>[B476](B476-Porelos-Own-Commits-Carry-The-Accounts-Noreply-Address.md) | S | - | Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority. |
 
 ## Accepted
