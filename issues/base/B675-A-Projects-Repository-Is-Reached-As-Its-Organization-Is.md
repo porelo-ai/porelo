@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B675",
   "title": "A Project's Repository Is Reached As Its Organization Is",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Highest",
   "rank": 1,
