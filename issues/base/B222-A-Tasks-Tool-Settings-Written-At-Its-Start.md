@@ -65,3 +65,11 @@ placed.
 ## Decided by the operator (2026-11-12)
 
 - To Backlog, priority unchanged.
+
+## Covered by B467 (2026-11-13)
+
+- [B467](README.md#b467), in Review, builds what this issue asks: a project declares its build tool's repositories in
+  `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns,
+  pointing at the broker with no credential in the task.
+- Proposed to the operator: Rejected as covered by [B467](README.md#b467). The Coordinator agreed in the room; the state
+  is the operator's to set.
