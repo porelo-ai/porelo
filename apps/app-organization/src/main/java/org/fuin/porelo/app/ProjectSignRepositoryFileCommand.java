@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.Project;
@@ -267,12 +268,14 @@ public class ProjectSignRepositoryFileCommand extends OrgWriting {
         }
         final Map<String, Signers> signers = new LinkedHashMap<>();
         for (final String name : projects) {
-            answers.getProjectRepository(name)
-                    .ifPresent(
-                            repository ->
-                                    signers.put(
-                                            name,
-                                            new Signers(repository, answers.signingKeys(name))));
+            final Optional<String> repository = answers.getProjectRepository(name);
+            if (repository.isPresent()) {
+                signers.put(
+                        name,
+                        new Signers(
+                                OrgAccess.reached(machine, repository.orElseThrow()),
+                                answers.signingKeys(name)));
+            }
         }
         return signers;
     }

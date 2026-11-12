@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B675",
   "title": "A Project's Repository Is Reached As Its Organization Is",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 1,
@@ -43,6 +43,17 @@ used as filed. The refusal names the repository it could not read.
 - The lead of a failed fetch names the repository read: the project's, not the organization's.
 - Red first: a project filed at `https://forge.example/o/p.git`, the organization at `git@forge.example:o/org.git`;
   the sign's git is asked `git@forge.example:o/p.git`.
+
+## Built (2026-11-12)
+
+- `OrgAccess.reached` gives a project repository's address the form this person reaches the organization in:
+  `https://<forge>/<path>` becomes `git@<forge>:<path>` when organization.yml names the organization as
+  `git@<forge>:...`, or `ssh://git@<forge>[:port]/<path>` for the `ssh://` form, with its port. Another host, an
+  https address with a port of its own, or an organization named over https keep the address as filed.
+- `project sign`, its repository-file and checkout forms and `project show` read and write the project's repository at
+  that address.
+- Not done here: the lead of a failed clone still says "the organization's repository" for a project's repository;
+  `TreeRepository.fetch` gives every clone that lead, and tests pin it.
 
 ## Acceptance
 

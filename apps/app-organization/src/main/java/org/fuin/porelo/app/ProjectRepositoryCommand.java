@@ -370,7 +370,8 @@ public class ProjectRepositoryCommand {
             throw new Refused(
                     Refused.CANNOT_SAY, "the organization cannot be reached to say who may", null);
         }
-        return place(reading.answers(), project, login);
+        final Place place = place(reading.answers(), project, login);
+        return new Place(OrgAccess.reached(machine, place.address()), place.keys());
     }
 
     /**

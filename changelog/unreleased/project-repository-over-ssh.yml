@@ -1,0 +1,2 @@
+title: "A project's repository on the organization's own forge is read and written over ssh when the organization is named over ssh, so signing a project's file needs no forge token"
+type: fixed

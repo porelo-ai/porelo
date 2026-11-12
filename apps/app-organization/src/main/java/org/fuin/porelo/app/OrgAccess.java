@@ -536,6 +536,58 @@ final class OrgAccess {
         entries.add(new NodeTuple(scalar(name), replacement));
     }
 
+    private static final java.util.regex.Pattern SCP_FORM =
+            java.util.regex.Pattern.compile("git@(?<host>[^:/@]+):.+");
+
+    private static final java.util.regex.Pattern SSH_FORM =
+            java.util.regex.Pattern.compile("ssh://git@(?<host>[^:/@]+)(?<port>:[0-9]+)?/.+");
+
+    private static final java.util.regex.Pattern HTTPS_FORM =
+            java.util.regex.Pattern.compile("https://(?<host>[^:/@]+)/(?<path>[^?#]+)");
+
+    /**
+     * Returns a project repository's address as this person reaches it: over ssh when this
+     * machine's organization is named over ssh and the project's repository is on that same forge,
+     * as filed otherwise. Over https Porelo lends only a forge token, which a person who reaches
+     * the organization by key alone does not keep.
+     *
+     * @param context The machine.
+     * @param filed The address the organization files for the project.
+     * @return The address to clone and push.
+     * @throws IOException If organization.yml cannot be read.
+     */
+    static String reached(final PoreloContext context, final String filed) throws IOException {
+        final Optional<String> organization = repository(context);
+        return organization.isEmpty() ? filed : reached(organization.orElseThrow(), filed);
+    }
+
+    /**
+     * Returns a project repository's address in the organization's own form, for its forge.
+     *
+     * @param organization The organization's address, as organization.yml names it.
+     * @param filed The address the organization files for the project.
+     * @return The ssh form of {@code filed} when the organization is named over ssh on its host,
+     *     else {@code filed}.
+     */
+    static String reached(final String organization, final String filed) {
+        final java.util.regex.Matcher project = HTTPS_FORM.matcher(filed);
+        if (!project.matches()) {
+            return filed;
+        }
+        final String host = project.group("host");
+        final String path = project.group("path");
+        final java.util.regex.Matcher scp = SCP_FORM.matcher(organization);
+        if (scp.matches() && scp.group("host").equalsIgnoreCase(host)) {
+            return "git@" + scp.group("host") + ":" + path;
+        }
+        final java.util.regex.Matcher ssh = SSH_FORM.matcher(organization);
+        if (ssh.matches() && ssh.group("host").equalsIgnoreCase(host)) {
+            final String port = ssh.group("port");
+            return "ssh://git@" + ssh.group("host") + (port == null ? "" : port) + "/" + path;
+        }
+        return filed;
+    }
+
     /**
      * Reads the address this machine's settings name.
      *

@@ -183,7 +183,11 @@ public class ProjectShowCommand extends OrgReading {
         }
         final List<OrganizationQuestions.SigningKey> keys = state.signingKeys(project);
         final ProjectFile.Read read =
-                files.read(machine, state.getProjectRepository(project).orElseThrow(), keys);
+                files.read(
+                        machine,
+                        OrgAccess.reached(
+                                machine, state.getProjectRepository(project).orElseThrow()),
+                        keys);
         final Project file = read.project();
         final List<Map<String, @Nullable Object>> names = file == null ? List.of() : names(file);
         final Map<String, @Nullable Object> repositories = repositories(read.state(), names);

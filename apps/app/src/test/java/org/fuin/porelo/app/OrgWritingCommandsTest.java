@@ -637,6 +637,44 @@ class OrgWritingCommandsTest {
         assertThat(calls).isEmpty();
     }
 
+    @Test
+    void aProjectsRepositoryOnTheOrganizationsForgeIsReachedOverSshAsTheOrganizationIs()
+            throws Exception {
+        // Over https only a forge token is lent: a person who reaches the organization by key
+        // alone could not sign a project's file filed at its https clone address.
+        organization();
+
+        assertThat(OrgAccess.reached(context(), "https://github.com/acme/foo-project.git"))
+                .as("the organization is named over ssh on the same forge")
+                .isEqualTo("git@github.com:acme/foo-project.git");
+        assertThat(OrgAccess.reached(context(), "https://forge.example/acme/foo-project.git"))
+                .as("another forge is reached as filed")
+                .isEqualTo("https://forge.example/acme/foo-project.git");
+        assertThat(OrgAccess.reached(context(), "git@github.com:acme/foo-project.git"))
+                .isEqualTo("git@github.com:acme/foo-project.git");
+    }
+
+    @Test
+    void aProjectsRepositoryKeepsItsHttpsAddressWhenTheOrganizationIsNamedOverHttps() {
+        assertThat(
+                        OrgAccess.reached(
+                                "https://github.com/acme/organization.git",
+                                "https://github.com/acme/foo-project.git"))
+                .isEqualTo("https://github.com/acme/foo-project.git");
+        assertThat(
+                        OrgAccess.reached(
+                                "ssh://git@forge.example:2222/acme/organization.git",
+                                "https://forge.example/acme/foo-project.git"))
+                .as("the organization's own ssh port goes with it")
+                .isEqualTo("ssh://git@forge.example:2222/acme/foo-project.git");
+        assertThat(
+                        OrgAccess.reached(
+                                "git@github.com:acme/organization.git",
+                                "https://github.com:8443/acme/foo-project.git"))
+                .as("an address with a port of its own names another server")
+                .isEqualTo("https://github.com:8443/acme/foo-project.git");
+    }
+
     private void organization() throws IOException {
         final Path file = dir.resolve("config/porelo/organization.yml");
         Files.createDirectories(file.getParent());
