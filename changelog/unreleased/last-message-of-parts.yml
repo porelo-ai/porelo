@@ -1,0 +1,2 @@
+title: "An agent whose last message is a list of parts - thinking, text, tool calls - can declare its text parts, so its run's answer is its text"
+type: added

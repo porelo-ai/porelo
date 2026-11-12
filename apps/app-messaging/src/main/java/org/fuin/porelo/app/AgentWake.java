@@ -545,8 +545,11 @@ public final class AgentWake {
      */
     boolean wake(final String container, final AgentDefinition definition, final String line) {
         // Both, or never: an agent whose screen does not tell a question it put from its rest would
-        // take the line and its Enter as the answer to a question nobody can see is open.
-        if (definition.atRest() == null || definition.waiting() == null) {
+        // take the line and its Enter as the answer to a question nobody can see is open. A waiting
+        // declaration that only says where a run's last message is declares no screen.
+        if (definition.atRest() == null
+                || definition.waiting() == null
+                || definition.waiting().screen().isEmpty()) {
             return false;
         }
         // Rest that holds over two looks: an agent's work line comes and goes between its tool

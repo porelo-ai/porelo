@@ -140,13 +140,14 @@ public record Waiting(
      *     have, at least one.
      * @param text The field holding the message, a dotted path too.
      */
-    public record LastMessage(Map<String, String> record, String text) {
+    public record LastMessage(Map<String, String> record, String text, @Nullable Part part) {
 
         /**
          * Constructor with validation.
          *
          * @param record The fields to match.
-         * @param text The field holding the text.
+         * @param text The field holding the text, or with {@code part} the list of parts.
+         * @param part Which parts of a list are text, or {@code null} when the field holds text.
          */
         public LastMessage {
             record = Map.copyOf(record);
@@ -167,6 +168,16 @@ public record Waiting(
         }
 
         /**
+         * Constructor for a message whose field holds its text.
+         *
+         * @param record The fields to match.
+         * @param text The field holding the text.
+         */
+        public LastMessage(Map<String, String> record, String text) {
+            this(record, text, null);
+        }
+
+        /**
          * Picks the last message out of a run's records.
          *
          * @param records The run's machine-readable output, one parsed record per line, in order.
@@ -175,13 +186,67 @@ public record Waiting(
         public @Nullable String of(List<?> records) {
             String last = null;
             for (final Object each : records) {
-                if (each instanceof Map<?, ?> fields
-                        && RecordPath.matches(fields, record)
-                        && RecordPath.value(fields, text) instanceof String said) {
-                    last = said;
+                if (each instanceof Map<?, ?> fields && RecordPath.matches(fields, record)) {
+                    final String said = said(RecordPath.value(fields, text));
+                    if (said != null) {
+                        last = said;
+                    }
                 }
             }
             return last;
+        }
+
+        private @Nullable String said(@Nullable Object value) {
+            if (part == null) {
+                return value instanceof String said ? said : null;
+            }
+            if (!(value instanceof List<?> parts)) {
+                return null;
+            }
+            // Thinking and tool calls are parts too; only the declared text parts are said.
+            final List<String> said = new ArrayList<>();
+            for (final Object each : parts) {
+                if (each instanceof Map<?, ?> fields
+                        && RecordPath.matches(fields, part.record())
+                        && RecordPath.value(fields, part.text()) instanceof String text) {
+                    said.add(text);
+                }
+            }
+            return said.isEmpty() ? null : String.join("\n", said);
+        }
+    }
+
+    /**
+     * Which parts of a message's list are its text, for an agent whose message is a list of parts -
+     * its thinking, its text, its tool calls.
+     *
+     * @param record The fields a text part has.
+     * @param text The field of a part holding its text.
+     */
+    public record Part(Map<String, String> record, String text) {
+
+        /**
+         * Constructor with validation.
+         *
+         * @param record The fields to match.
+         * @param text The field holding the text.
+         */
+        public Part {
+            record = Map.copyOf(record);
+            if (record.isEmpty() || record.size() > MOST_RULES) {
+                throw new AgentException(
+                        "A message's text part is found by 1 to "
+                                + MOST_RULES
+                                + " fields, not "
+                                + record.size());
+            }
+            if (text.isBlank()) {
+                throw new AgentException("A message's text part names the field holding its text");
+            }
+            for (final String field : record.keySet()) {
+                RecordPath.checked(field, "A text part's field");
+            }
+            RecordPath.checked(text, "A text part's text field");
         }
     }
 

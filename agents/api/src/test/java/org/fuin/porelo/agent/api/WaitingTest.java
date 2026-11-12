@@ -275,4 +275,81 @@ class WaitingTest {
                 .as("the record is matched and its text read through the nested mapping")
                 .isEqualTo("Done.");
     }
+
+    @Test
+    void aLastMessageOfPartsIsTheTextOfItsTextParts() {
+        // As Pi ends a message: its thinking first, then its text, in one list of parts.
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
+                session:
+                  waiting:
+                    last_message:
+                      record: { type: message_end, message.role: assistant }
+                      text: message.content
+                      part: { record: { type: text }, text: text }
+                """);
+        final Waiting.LastMessage last = definition.waiting().lastMessage();
+        final List<Object> records =
+                List.of(
+                        org.fuin.porelo.wire.Json.parse(
+                                "{\"type\":\"message_end\",\"message\":{\"role\":\"user\","
+                                        + "\"content\":[{\"type\":\"text\",\"text\":\"Read .\"}]}}"),
+                        org.fuin.porelo.wire.Json.parse(
+                                "{\"type\":\"message_end\",\"message\":{\"role\":\"assistant\","
+                                        + "\"content\":[{\"type\":\"thinking\",\"thinking\":\"Let me see.\"},"
+                                        + "{\"type\":\"text\",\"text\":\"Findings:\\n- one\"},"
+                                        + "{\"type\":\"text\",\"text\":\"- two\"}]}}"),
+                        org.fuin.porelo.wire.Json.parse(
+                                "{\"type\":\"message_end\",\"message\":{\"role\":\"assistant\","
+                                        + "\"content\":[{\"type\":\"toolCall\",\"name\":\"bash\"}]}}"));
+
+        assertThat(last.of(records))
+                .as("its text parts in order, past its thinking; a message of no text says nothing")
+                .isEqualTo("Findings:\n- one\n- two");
+        assertThat(AgentDefinitionJson.read(AgentDefinitionJson.write(definition)).waiting())
+                .as("what 'describe' and the socket carry comes back the same")
+                .isEqualTo(definition.waiting());
+    }
+
+    @Test
+    void aLastMessageWithoutPartsTakesNoList() {
+        final Waiting.LastMessage last =
+                new Waiting.LastMessage(Map.of("type", "message_end"), "content");
+
+        assertThat(
+                        last.of(
+                                List.of(
+                                        Map.of(
+                                                "type",
+                                                "message_end",
+                                                "content",
+                                                List.of(Map.of("type", "text", "text", "x"))))))
+                .isNull();
+    }
+
+    @Test
+    void refusesAPartThatNamesNoTextOrNoRecord() {
+        for (final String part :
+                List.of(
+                        "{ record: { type: text } }",
+                        "{ text: text }",
+                        "{ record: {}, text: text }",
+                        "{ record: { type: text }, text: text, also: x }")) {
+            assertThatThrownBy(
+                            () ->
+                                    read(
+                                            MINIMAL
+                                                    + "session:\n  waiting:\n    last_message:\n"
+                                                    + "      record: { type: message_end }\n"
+                                                    + "      text: message.content\n"
+                                                    + "      part: "
+                                                    + part
+                                                    + "\n"))
+                    .as(part)
+                    .isInstanceOf(AgentException.class)
+                    .hasMessageContaining("test.yaml");
+        }
+    }
 }

@@ -304,10 +304,26 @@ public final class AgentDefinitionReader {
             final Map<?, ?> last = optionalSection(waiting, "last_message");
             Waiting.LastMessage lastMessage = null;
             if (waiting.get("last_message") != null) {
-                only(last, List.of("record", "text"), origin, "session.waiting.last_message");
+                only(
+                        last,
+                        List.of("record", "text", "part"),
+                        origin,
+                        "session.waiting.last_message");
+                Waiting.Part part = null;
+                if (last.get("part") != null) {
+                    final Map<?, ?> partOf = optionalSection(last, "part");
+                    only(
+                            partOf,
+                            List.of("record", "text"),
+                            origin,
+                            "session.waiting.last_message.part");
+                    part =
+                            new Waiting.Part(
+                                    map(partOf.get("record")), required(partOf, "text", origin));
+                }
                 lastMessage =
                         new Waiting.LastMessage(
-                                map(last.get("record")), required(last, "text", origin));
+                                map(last.get("record")), required(last, "text", origin), part);
             }
             return new Waiting(
                     rules(waiting.get("screen"), origin),

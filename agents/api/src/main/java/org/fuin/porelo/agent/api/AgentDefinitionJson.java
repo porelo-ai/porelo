@@ -250,6 +250,12 @@ public final class AgentDefinitionJson {
             final Map<String, Object> last = new LinkedHashMap<>();
             last.put("record", waiting.lastMessage().record());
             last.put("text", waiting.lastMessage().text());
+            if (waiting.lastMessage().part() != null) {
+                final Map<String, Object> part = new LinkedHashMap<>();
+                part.put("record", waiting.lastMessage().part().record());
+                part.put("text", waiting.lastMessage().part().text());
+                last.put("part", part);
+            }
             out.put("lastMessage", last);
         }
         return out;
@@ -266,7 +272,15 @@ public final class AgentDefinitionJson {
     private static Waiting readWaiting(Map<?, ?> source) {
         final Waiting.LastMessage last =
                 source.get("lastMessage") instanceof Map<?, ?> found
-                        ? new Waiting.LastMessage(map(found.get("record")), string(found, "text"))
+                        ? new Waiting.LastMessage(
+                                map(found.get("record")),
+                                string(found, "text"),
+                                // Absent from an adapter older than the field: its text is a
+                                // string.
+                                found.get("part") instanceof Map<?, ?> part
+                                        ? new Waiting.Part(
+                                                map(part.get("record")), string(part, "text"))
+                                        : null)
                         : null;
         return new Waiting(
                 readRules(source.get("screen")), readRules(source.get("notItsScreen")), last);

@@ -171,6 +171,36 @@ class AgentWakeTest {
     }
 
     @Test
+    void anAgentThatDeclaresOnlyWhereItsLastMessageIsIsNeverWoken() {
+
+        // Where a run's last message is sits beside the screen rules, but says nothing of a
+        // screen: pi's rest still does not tell a question it put from its rest.
+        final AgentDefinition lastMessageOnly =
+                AgentDefinitionReader.read(
+                        new StringReader(
+                                """
+                name: pi
+                binary: pi
+                git_identity: { name: P, email: p@example.com }
+                headless: { prompt_flag: "-p" }
+                session:
+                  at_rest:
+                    shows: ["(auto)"]
+                  waiting:
+                    last_message:
+                      record: { type: message_end, message.role: assistant }
+                      text: message.content
+                      part: { record: { type: text }, text: text }
+                """),
+                        "pi.yaml");
+        runner.answering(
+                "capture-pane", "What is your favourite colour?\n/workspace (master)\n (auto)\n");
+
+        assertThat(new AgentWake(context()).wake("porelo-p-writer", lastMessageOnly)).isFalse();
+        assertThat(typed()).isFalse();
+    }
+
+    @Test
     void onlyAMessageThatNamesTheTaskOrIsSaidToItDirectlyWakesIt() throws IOException {
         final Path named =
                 Files.writeString(dir.resolve("a.json"), "{\"metadata\":{\"to\":[\"writer\"]}}");

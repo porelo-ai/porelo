@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B640",
   "title": "An Answer Read From A Message Of Parts",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 1,
@@ -45,3 +45,31 @@ pi could not have declared its answer even if it tried.
    through `AgentDefinitionJson`.
 4. Tell the pi adapter's owner the declaration once this is pushed:
    `last_message: { record: { type: message_end, message.role: assistant }, text: message.content, part: { record: { type: text }, text: text } }`.
+
+## As built
+
+- `Waiting.LastMessage` has an optional `Part(record, text)`. With a part, the record's text field must hold a list.
+  The answer is the text of each part that matches, joined in order by a newline. A record with no such part, such
+  as a message that only calls a tool, is passed over, and the last record that said something stands. Without a
+  part, the text field must hold a string, as before. The two-component constructor keeps every caller's meaning.
+- `AgentDefinitionReader` reads `session.waiting.last_message.part` and refuses an unknown key, a missing `text` or an
+  empty `record`. `AgentDefinitionJson` writes and reads it. An adapter older than the field sends none.
+- `agents/README.md` names the field. The ended record, List and `RunResult` read it through `LastMessage.of`
+  unchanged.
+- `last_message` sits in `session.waiting`, so declaring it gives an agent a waiting declaration without screen rules.
+  `AgentWake` now types into an agent only when its waiting declaration has screen rules, so pi, whose screen cannot
+  tell a question it put from its rest, is still never woken. `AgentWaiting` already answered such an agent "cannot
+  say" (`UNDECLARED`). `AgentWakeTest` has an agent with `at_rest` and only `last_message`, at rest under an open
+  question. It was typed into without the guard.
+- `WaitingTest` reads pi's `message_end` shape (thinking, then two text parts, then a message that only calls a tool)
+  and expects the text. It failed with `""` when the text parts were not taken, and the round trip through the
+  agent's description failed when `part` was not written.
+
+## After the code reading
+
+Read by agy (gemini-4-argon-high), with nothing to take. All five points were green: answers without `part` are
+unchanged; parts are joined in order and passed over when no text part matches; `part` is checked and refused naming
+the file, and it survives the agent's description both ways; answers stay within each caller's bound; the tests show
+the contract. Agent Smith's reading of the wake (an agent with `at_rest` and only `last_message` would be woken) was
+taken, with the guard above.
+
