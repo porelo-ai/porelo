@@ -280,10 +280,7 @@ from its side, as *blocked by*.
 | <a id="b593"></a>[B593](B593-A-Join-Says-When-It-Invited.md) | XS | - | `JoinMessages` answers `invited: true` when a join invited an account the person already has, so the window says to accept the invitation. |
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | M | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
-| <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
 | <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | M | - | `AgentEnded.answer`, the agent's declared last message, its end kept; `Done(outcome, why)` answered as `Task.ended`, FAILED derived. |
-| <a id="b554"></a>[B554](B554-A-Forge-Tokens-Reach-Checked-Against-What-A-Move-Needs.md) | S | - | A forge token's permissions checked against what a move asks of it, each missing one named, before a server is rented. |
-| <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
 | <a id="b590"></a>[B590](B590-The-Gathered-Push-Takes-Repository-Names-And-Names-A-401.md) | M | [B544](README.md#b544), [B580](README.md#b580) | The gathered push takes a project-file key or forge name and reports a central 401 before any push, through the shared typed refusal. |
 | <a id="b588"></a>[B588](B588-A-Person-Starts-The-Hosts-Follow-Now.md) | M | [B550](README.md#b550) | An admitted person's `porelo host follow` starts or joins one host follow pass through one sudo verb and answers its completion status. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
@@ -572,6 +569,9 @@ from its side, as *blocked by*.
 | <a id="b186"></a>B186 | One Line For One Dropped Connection | One line for one dropped connection: kernel timestamps, `queue-threshold 1` and the source port, and a retry within ten seconds is no second line. |
 | <a id="b195"></a>B195 | Renamed Porelo Here | Everything this repository builds, ships and documents says Porelo, but for the released changelog entries: artifacts, varlink interfaces, programs, packages, paths, variables, nft and SELinux names and the message signature namespace; a documents test refuses the old word. |
 | <a id="b383"></a>B383 | A Build That Fits Its Old Time | The step *Build and unit tests* takes 9:39 to 11:08 where the cut took 21.4 minutes: the App, the vault and the daemon run their tests in four JVMs, the organization's adapter its checks concurrently; no test, wait or fixture changed. |
+| <a id="b553"></a>B553 | A Move Runs Without A Terminal For A Rehearsal | Every command of a move's person refuses at once without a terminal instead of prompting, naming the step that gives what is missing (`--passphrase-command`, `SSH_AUTH_SOCK`, `--stdin`), with Git's and SSH's askpass off in every lease and no exit code changed. |
+| <a id="b554"></a>B554 | A Forge Token's Reach Checked Against What A Move Needs | `org create --check` answers `token-reach`, each of members, administration, contents and workflows ready, missing or cannot-tell on GitHub and Forgejo, from the reads a move makes, before a server is rented. |
+| <a id="b556"></a>B556 | The Talk Log Says Whom A Line Was For And Whether It Woke | `talk log --json` gives each record line's `to`, `via`, `all` and `woken`, read from the retained message and the task's wake record, never its text. |
 
 ## Rejected
 
