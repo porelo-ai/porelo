@@ -109,7 +109,7 @@ public final class TaskTarget {
                 "cannot resolve task '"
                         + refused.name()
                         + "': "
-                        + refused.reason().said()
+                        + refused.said()
                         + "; 'porelo task list' lists tasks by their actual names",
                 refused.reason() == TaskIdentities.Reason.AMBIGUOUS ? SEVERAL : NONE,
                 refused.reason());

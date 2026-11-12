@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B633",
   "title": "A Task Record Refusal Names Its Failed Check",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 3,
@@ -38,3 +38,26 @@ and task names only.
    name refused, and a container name that is neither the legacy nor the encoded form.
 3. `TaskTarget`, `TaskRefresh` and `TalkPassCommand` print `refused.said()`.
 4. Red first: a sidecar naming another state directory is refused with both paths named.
+
+## As built
+
+- `TaskIdentities.Refused` carries `check`, and `said()` gives the reason's words, then the check. The two-argument
+  constructor leaves `check` empty, so the reason and the name are what code compares, as before.
+- Each `INVALID_RECORD` names its check: a name that is no task container's; an id file that holds no id; a sidecar
+  that is no regular file, or no sidecar porelo can read (with the parser's words); a sidecar naming another state
+  directory (both paths); the two sidecars disagreeing; a short name refused (that one alone); the sidecar's task
+  against the container's label; no task recorded and no legacy name; a task name refused; a name that is neither
+  form. A task record under the records directory that cannot be read is named by its own sidecar.
+- `TaskTarget`, `TaskRefresh` and `TalkPassCommand` print `said()`.
+- `TaskStateTest` sees a moved state directory refused with both paths, and the no-task and short-name words, each
+  seen red first.
+
+## After the code reading
+
+Read by agy (gemini-4-argon-high).
+
+- Taken (yellow): four checks' words said more or other than what failed: a task named '' where none was recorded, a
+  short name "null" beside the refused one, a parse failure said of an unread file, and a record directory named
+  instead of its sidecar. Each now says what failed.
+- Not taken (yellow): the parser's words can carry a key name, an escape or a number from a sidecar. A sidecar holds
+  no secret (project, policy, paths, names), and these words are what tell a broken record apart.

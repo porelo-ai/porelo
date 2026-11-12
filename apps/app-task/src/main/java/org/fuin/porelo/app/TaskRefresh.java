@@ -120,7 +120,7 @@ public final class TaskRefresh {
                             ? Outcome.NO_SUCH_TASK
                             : Outcome.FAILED,
                     Map.of(),
-                    "cannot resolve task '" + container + "': " + refused.reason().said(),
+                    "cannot resolve task '" + container + "': " + refused.said(),
                     false);
         }
         final TaskIdentity identity = ((TaskIdentities.Found) resolved).identity();

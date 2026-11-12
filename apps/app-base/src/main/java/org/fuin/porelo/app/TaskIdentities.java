@@ -20,8 +20,33 @@ public final class TaskIdentities {
     /** One verified owner. */
     public record Found(TaskIdentity identity) implements Result {}
 
-    /** No action is authorized by this lookup. */
-    public record Refused(Reason reason, String name) implements Result {}
+    /**
+     * No action is authorized by this lookup.
+     *
+     * @param reason Why, as code branches on it.
+     * @param name The name it was asked by.
+     * @param check What failed, in a person's words, or "" where the reason says it all.
+     */
+    public record Refused(Reason reason, String name, String check) implements Result {
+        /**
+         * Refuses where the reason says it all.
+         *
+         * @param reason Why.
+         * @param name The name it was asked by.
+         */
+        public Refused(final Reason reason, final String name) {
+            this(reason, name, "");
+        }
+
+        /**
+         * Returns the reason in a person's words, with the check that failed.
+         *
+         * @return The words.
+         */
+        public String said() {
+            return check.isEmpty() ? reason.said() : reason.said() + ": " + check;
+        }
+    }
 
     /** Why ownership could not be established. */
     public enum Reason {
@@ -47,6 +72,8 @@ public final class TaskIdentities {
             return said;
         }
     }
+
+    private static final String NO_TASK_NAME = "its name is no task container's name";
 
     private final PoreloContext context;
 
@@ -93,7 +120,7 @@ public final class TaskIdentities {
     /** Reads retained ownership without asking a runtime or opening the account. */
     public static Result retained(PoreloPaths paths, String container) {
         if (!container.matches("porelo-[a-z0-9_-]+")) {
-            return new Refused(Reason.INVALID_RECORD, container);
+            return new Refused(Reason.INVALID_RECORD, container, NO_TASK_NAME);
         }
         final String runtimeId = Sidecar.recordedId(paths.tasks().containerState(container));
         final String durableId = Sidecar.recordedId(paths.tasks().taskRecord(container));
@@ -139,6 +166,7 @@ public final class TaskIdentities {
         Refused incomplete = null;
         final List<ContainerSummary> known = new ArrayList<>(candidates);
         final Path records = context.paths().tasks().taskRecord("");
+        Path reading = null;
         if (Files.isDirectory(records, LinkOption.NOFOLLOW_LINKS)) {
             try (var entries = Files.list(records)) {
                 for (Path entry : entries.toList()) {
@@ -146,6 +174,7 @@ public final class TaskIdentities {
                     if (candidates.stream().noneMatch(each -> each.name().equals(name))
                             && name.matches("porelo-[a-z0-9_-]+")) {
                         final Path sidecarFile = entry.resolve("sidecar.json");
+                        reading = sidecarFile;
                         final Sidecar claimed =
                                 Files.isRegularFile(sidecarFile, LinkOption.NOFOLLOW_LINKS)
                                         ? Sidecar.readFrom(sidecarFile)
@@ -167,7 +196,12 @@ public final class TaskIdentities {
                     | java.io.UncheckedIOException
                     | IllegalArgumentException
                     | org.fuin.porelo.wire.JsonException ex) {
-                return new Refused(Reason.INVALID_RECORD, given);
+                return new Refused(
+                        Reason.INVALID_RECORD,
+                        given,
+                        (reading == null ? "the task records under " + records : reading.toString())
+                                + " cannot be read: "
+                                + ex.getMessage());
             }
         }
         for (ContainerSummary summary : known) {
@@ -211,19 +245,20 @@ public final class TaskIdentities {
     private static Result read(PoreloPaths paths, ContainerSummary summary) {
         final String name = summary.name();
         if (!ContainerName.isTask(name) || !name.matches("porelo-[a-z0-9_-]+")) {
-            return new Refused(Reason.INVALID_RECORD, name);
+            return new Refused(Reason.INVALID_RECORD, name, NO_TASK_NAME);
         }
         final Path runtime = paths.tasks().containerState(name);
         final Path durable = paths.tasks().taskRecord(name);
         String id = null;
         String project = summary.project();
         Sidecar identityRecord = null;
+        Path read = durable.resolve("sidecar.json");
         try {
             for (Path directory : List.of(durable, runtime)) {
                 final Path idFile = directory.resolve(Sidecar.RECORDED_ID);
                 final String recorded = Sidecar.recordedId(directory);
                 if (Files.exists(idFile, LinkOption.NOFOLLOW_LINKS) && recorded == null) {
-                    return new Refused(Reason.INVALID_RECORD, name);
+                    return new Refused(Reason.INVALID_RECORD, name, idFile + " holds no id");
                 }
                 if (recorded != null) {
                     if (id != null && !id.equals(recorded)) {
@@ -234,13 +269,22 @@ public final class TaskIdentities {
                 final Path file = directory.resolve("sidecar.json");
                 if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
                     if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
-                        return new Refused(Reason.INVALID_RECORD, name);
+                        return new Refused(
+                                Reason.INVALID_RECORD, name, file + " is no regular file");
                     }
+                    read = file;
                     final Sidecar sidecar = Sidecar.readFrom(file);
                     if (!Path.of(sidecar.stateDirectory())
                             .normalize()
                             .equals(runtime.normalize())) {
-                        return new Refused(Reason.INVALID_RECORD, name);
+                        return new Refused(
+                                Reason.INVALID_RECORD,
+                                name,
+                                file
+                                        + " names the state directory "
+                                        + sidecar.stateDirectory()
+                                        + ", not "
+                                        + runtime);
                     }
                     if (project != null && !project.equals(sidecar.project())) {
                         return new Refused(Reason.PROJECT_MISMATCH, name);
@@ -252,13 +296,22 @@ public final class TaskIdentities {
                                             identityRecord.projectShort(), sidecar.projectShort())
                                     || !java.util.Objects.equals(
                                             identityRecord.taskShort(), sidecar.taskShort()))) {
-                        return new Refused(Reason.INVALID_RECORD, name);
+                        return new Refused(
+                                Reason.INVALID_RECORD,
+                                name,
+                                "its two sidecars name another task or short name, "
+                                        + durable
+                                        + " and "
+                                        + runtime);
                     }
                     identityRecord = sidecar;
                 }
             }
         } catch (IOException | IllegalArgumentException | org.fuin.porelo.wire.JsonException ex) {
-            return new Refused(Reason.INVALID_RECORD, name);
+            return new Refused(
+                    Reason.INVALID_RECORD,
+                    name,
+                    read + " is no sidecar porelo can read: " + ex.getMessage());
         }
         if (id == null) {
             return new Refused(Reason.MISSING_RECORD, name);
@@ -273,13 +326,27 @@ public final class TaskIdentities {
         final String taskShort = identityRecord == null ? null : identityRecord.taskShort();
         if (org.fuin.porelo.core.project.ShortName.refusal(projectShort).isPresent()
                 || org.fuin.porelo.core.project.ShortName.refusal(taskShort).isPresent()) {
-            return new Refused(Reason.INVALID_RECORD, name);
+            return new Refused(
+                    Reason.INVALID_RECORD,
+                    name,
+                    "its sidecar's short name '"
+                            + (org.fuin.porelo.core.project.ShortName.refusal(projectShort)
+                                            .isPresent()
+                                    ? projectShort
+                                    : taskShort)
+                            + "' is no short name porelo takes");
         }
         final String recordedTask = identityRecord == null ? null : identityRecord.task();
         if (recordedTask != null
                 && summary.task() != null
                 && !recordedTask.equals(summary.task())) {
-            return new Refused(Reason.INVALID_RECORD, name);
+            return new Refused(
+                    Reason.INVALID_RECORD,
+                    name,
+                    "its sidecar names the task "
+                            + recordedTask
+                            + ", its container's label "
+                            + summary.task());
         }
         final String explicitTask = recordedTask == null ? summary.task() : recordedTask;
         final String task =
@@ -287,7 +354,16 @@ public final class TaskIdentities {
         if (task.isEmpty()
                 || !task.matches(Project.TASK_NAME_PATTERN)
                 || explicitTask == null && (projectShort != null || taskShort != null)) {
-            return new Refused(Reason.INVALID_RECORD, name);
+            return new Refused(
+                    Reason.INVALID_RECORD,
+                    name,
+                    explicitTask == null && (projectShort != null || taskShort != null)
+                            ? "its sidecar names short names but no task"
+                            : task.isEmpty()
+                                    ? "neither its sidecar nor its label names its task, and its"
+                                            + " name is no legacy name in project "
+                                            + project
+                                    : "the task name '" + task + "' is no task name porelo takes");
         }
         final TaskIdentity.Format format;
         if (name.equals(ContainerName.PREFIX + project + "-" + task)) {
@@ -296,7 +372,13 @@ public final class TaskIdentities {
                 && ContainerName.isEncoded(project, task, projectShort, taskShort, name)) {
             format = TaskIdentity.Format.ENCODED;
         } else {
-            return new Refused(Reason.INVALID_RECORD, name);
+            return new Refused(
+                    Reason.INVALID_RECORD,
+                    name,
+                    "its name is neither the legacy nor the encoded name of task '"
+                            + task
+                            + "' in project "
+                            + project);
         }
         return new Found(
                 new TaskIdentity(format, project, task, name, id, projectShort, taskShort));

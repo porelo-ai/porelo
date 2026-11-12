@@ -67,7 +67,7 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
                     "porelo: "
                             + container
                             + ": "
-                            + refusal.reason().said()
+                            + refusal.said()
                             + "; name a task with verified ownership");
             err.flush();
             return 66;

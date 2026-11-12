@@ -196,11 +196,79 @@ class TaskStateTest {
                 identities(name + "\tUp 1 minute\t\t\tweb\tguarded\tr\t\t" + ID + "\twrong-task\n");
         identityRecord(context, name, "web");
         assertThat(new TaskIdentities(context).lookup(name, null))
-                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.INVALID_RECORD, name));
+                .extracting("reason", "name")
+                .containsExactly(TaskIdentities.Reason.INVALID_RECORD, name);
         Files.writeString(
                 context.paths().tasks().taskRecord(name).resolve("sidecar.json"), "{broken");
         assertThat(new TaskIdentities(context).lookup(name, null))
-                .isEqualTo(new TaskIdentities.Refused(TaskIdentities.Reason.INVALID_RECORD, name));
+                .extracting("reason", "name")
+                .containsExactly(TaskIdentities.Reason.INVALID_RECORD, name);
+    }
+
+    @Test
+    void aSidecarNamingAnotherStateDirectoryIsRefusedWithBothPaths() throws IOException {
+        // A refusal that names its check tells a moved state directory from a broken record.
+        final String name = "porelo-web_x";
+        final PoreloContext context =
+                identities(name + "\tUp 1 minute\t\t\tweb\tguarded\tr\t\t" + ID + "\tx\n");
+        final Path record = context.paths().tasks().taskRecord(name);
+        org.fuin.porelo.wire.Sidecar.recordId(record, ID);
+        final Path elsewhere = Path.of("/elsewhere/porelo/tasks", name);
+        new org.fuin.porelo.wire.Sidecar(
+                        3,
+                        "web",
+                        "guarded",
+                        "ruleset.nft",
+                        "dns.conf",
+                        "porelo",
+                        elsewhere.toString())
+                .writeTo(record.resolve("sidecar.json"));
+
+        final TaskIdentities.Result result = new TaskIdentities(context).lookup(name, null);
+
+        assertThat(result).isInstanceOf(TaskIdentities.Refused.class);
+        final TaskIdentities.Refused refused = (TaskIdentities.Refused) result;
+        assertThat(refused.reason()).isEqualTo(TaskIdentities.Reason.INVALID_RECORD);
+        assertThat(refused.said())
+                .as("both state directories named")
+                .contains("cannot be read")
+                .contains(elsewhere.toString())
+                .contains(context.paths().tasks().containerState(name).toString());
+    }
+
+    @Test
+    void aRecordNamingNoTaskOrABadShortNameSaysSoAndNoMore() throws IOException {
+        final String name = "porelo-web_x";
+        final PoreloContext untold =
+                identities(name + "\tUp 1 minute\t\t\tweb\tguarded\tr\t\t" + ID + "\t\n");
+        identityRecord(untold, name, "web");
+        assertThat(((TaskIdentities.Refused) new TaskIdentities(untold).lookup(name, null)).said())
+                .as("no task recorded, not a task named ''")
+                .contains("neither its sidecar nor its label names its task")
+                .doesNotContain("''");
+
+        final PoreloContext shortened =
+                identities(name + "\tUp 1 minute\t\t\tweb\tguarded\tr\t\t" + ID + "\tx\n");
+        final Path record = shortened.paths().tasks().taskRecord(name);
+        org.fuin.porelo.wire.Sidecar.recordId(record, ID);
+        new org.fuin.porelo.wire.Sidecar(
+                        3,
+                        "web",
+                        "guarded",
+                        "ruleset.nft",
+                        "dns.conf",
+                        "porelo",
+                        shortened.paths().tasks().containerState(name).toString(),
+                        "x",
+                        null,
+                        "Not_Short!")
+                .writeTo(record.resolve("sidecar.json"));
+        assertThat(
+                        ((TaskIdentities.Refused) new TaskIdentities(shortened).lookup(name, null))
+                                .said())
+                .as("only the short name refused")
+                .contains("'Not_Short!'")
+                .doesNotContain("null");
     }
 
     @Test
