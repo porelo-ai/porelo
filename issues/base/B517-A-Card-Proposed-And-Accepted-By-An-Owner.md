@@ -6,7 +6,7 @@
   "id": "B517",
   "title": "A Card Proposed, And Accepted By An Owner",
   "state": "Implementing",
-  "size": "M",
+  "size": "L",
   "priority": "Medium",
   "rank": 26,
   "blockedBy": [],
@@ -14,8 +14,9 @@
 }
 ```
 
-**Why this size.** a proposal's place in the organization's tree, a reading of waiting proposals, an owner's acceptance, and
-the CLI for both sides.
+**Why this size.** L: a proposal's place on the forge, which needs fork, close and branch calls the forge clients
+porelo uses do not have, a reading of waiting proposals that judges each as the readers will, an admin's acceptance,
+and the CLI for both sides.
 
 Backlog since 2026-11-09, in ST295. Filed 2026-11-08. Its plan reading comes first.
 
@@ -49,7 +50,8 @@ access to the organization's repository to propose.
 person's card from its own key. What stops the person today is write access alone. So acceptance is the person's own
 commit, unchanged, pushed to `main` as a fast-forward by someone who may write there. No reader rule changes, no role
 gains a right, and a machine on an older porelo takes the accepted card as it takes any card today. A merge commit, a
-squash or a rebase would carry the admin's signature on the card's path and be refused, so acceptance never makes one.
+squash or a rebase would carry the admin's signature on the card's path and be refused (unless the login had a
+refused card before, where an organization admin may file one in its place), so acceptance never makes one.
 The other way, an organization admin filing a self-signed card in their own commit, would need a new rule in
 `TreeWalk` that every machine must learn first; it is not taken.
 
@@ -86,10 +88,36 @@ All tests are unit tests over a fake forge and local repositories.
 **Who accepts.** The issue says an owner; `doc/roles.md` gives cards to organization admins, and to owners only while
 the list is absent. The plan follows `doc/roles.md`.
 
-## To be checked in the plan reading
+## After the plan reading
 
-- That a fast-forward of the person's commit is judged exactly as their own `identity create` push is, and nothing in
-  the walk looks at who pushed.
+agy (gemini) read the plan against the code; the build takes these answers:
+
+- **Judged as the readers will.** `proposals` and `accept` judge a proposal by applying its commit to a scratch clone
+  of `main` and walking it with `TreeWalk`, as `GitTreeWrites` judges a write before its push, so the forge's word on
+  the login's key, a revoked key and a refused path are judged exactly as every machine will judge them. Beside the
+  walk: the card names no `predecessor` (a first card), its key is no other login's (`keyHolder`), and today lies
+  between its `created` and `expires`.
+- **Stale is seen before accepting.** `proposals` answers `stale` when the commit's parent is not `main`'s tip. Each
+  acceptance makes every other open proposal stale, since the person's signature covers the parent; `join`, run
+  again, signs anew on the new tip. Accepted as the cost of no new reader rule; proposals are rare.
+- **The acting admin is checked.** `accept` and `decline` make no commit of the admin's, so on a fresh read the acting
+  login must be an organization admin (an owner while the list is absent) and the key in the agent must be that
+  login's trusted, unrevoked key, before anything is pushed or closed. The role check is porelo's: anyone the forge
+  lets write `main` could push the same commit, which files only the person's own card and grants no role.
+- **The pull request is bound to its person.** A proposal is taken only from branch `porelo-card-<login>` opened by the
+  forge user `<login>`; any other pull request touching the path is not a proposal.
+- **The forge's side, in porelo.** The forge clients porelo takes (`porelo-forge-client-github`, `-forgejo`) open,
+  list and read pull requests but cannot fork, close one or delete a branch. Those calls are made in porelo over
+  `HttpClient` and `Json`, as `HttpForgeAdmin` does, rather than waiting for a forge-clients release.
+- **A branch in the organization's repository first.** Where the person may push a branch but not `main`, `join` pushes
+  `porelo-card-<login>` there; only a refused branch push forks, polling GitHub's fork until it answers.
+- **`join` in `app-organization`, from the kept card.** `app-organization` does not depend on `app-vault`. `join` takes
+  the card `identity create` keeps under the identity directory (it keeps it before filing it), as `OrgWriting`
+  reads it, and signs the commit through the agent as `OrgWriting` does; with no kept card it says to run
+  `porelo identity create` first. `identity create`, refused at the push, names `porelo org join`.
+
+## To be checked
+
 - That a forge's "merged" mark after a plain push to `main` holds on both forges, or the pull request is closed with
   a comment instead.
 - A private organization repository: the person must be able to read it to fork; one who cannot is told so, and no
