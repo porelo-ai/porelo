@@ -565,7 +565,10 @@ type StartStep (
   # What it waits on, such as "the room's homeserver"; "" when it waits on nothing outside Porelo.
   waitingOn: string,
   # FAILED only: the dependency's last error line, at most 300 characters; "" otherwise.
-  cause: string
+  cause: string,
+  # The task's container, on every step once it exists (HELPERS, AGENT); absent before. A client
+  # that stops reading Start at AGENT STARTED follows the task by it: the run goes on without it.
+  container: ?string
 )
 
 # Starts a task: creates one that is not there, or brings back one that is stopped.

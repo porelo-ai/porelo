@@ -1949,6 +1949,7 @@ public final class TaskLaunch {
         }
         // Its workspace, its branch and its uncommitted changes are all in that container. What has
         // to be started again is everything that lives on the host, which is what resume does.
+        steps.at(container);
         steps.started(StartStep.Step.HELPERS);
         try {
             final TaskControl.Resumed resumed = new TaskControl(context).resume(container);
@@ -3712,6 +3713,7 @@ public final class TaskLaunch {
             if (inWorkspace == null) {
                 return cleanUp(runner, container, 70, false, out, err);
             }
+            steps.at(container);
             steps.started(StartStep.Step.HELPERS);
             if (needsRelay && plumbing != null) {
                 wiring().startRelay(runner, container, plumbing.socket(), out, err);
@@ -3927,6 +3929,7 @@ public final class TaskLaunch {
         if (request.prompt() == null) {
             return runAgentSteps(runner, selected, container, environment, out, err);
         }
+        steps.at(container);
         steps.started(StartStep.Step.AGENT);
         try {
             steps.recordIn(context.paths().tasks().containerState(container));

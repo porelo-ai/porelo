@@ -381,4 +381,23 @@ class StartStepsTest {
                 .as("something is in its place, which nobody cleaned up")
                 .contains("cannot record the start's step");
     }
+
+    @Test
+    void everyStepAfterTheContainerExistsNamesIt() {
+        // A client that takes the task as started from the agent's step, and stops reading the
+        // start there, found no container to follow.
+        final List<StartStep> seen = new ArrayList<>();
+        final StartSteps steps = new StartSteps(seen::add, new PrintWriter(new StringWriter()));
+
+        steps.started(StartStep.Step.CONTAINER);
+        steps.at("porelo-demo-fix");
+        steps.started(StartStep.Step.HELPERS);
+        steps.started(StartStep.Step.AGENT);
+
+        assertThat(seen.getFirst().asMap()).as("before it exists").doesNotContainKey("container");
+        assertThat(seen.getLast().asMap())
+                .containsEntry("step", "AGENT")
+                .containsEntry("state", "STARTED")
+                .containsEntry("container", "porelo-demo-fix");
+    }
 }

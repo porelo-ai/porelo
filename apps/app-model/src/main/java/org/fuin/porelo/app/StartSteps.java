@@ -15,6 +15,9 @@ public final class StartSteps implements TaskRunner.StartProgress {
     private String without = "";
     private String refusal = "";
 
+    /** The task's container once it exists; every later step names it. */
+    private String container = "";
+
     /**
      * Creates a listener.
      *
@@ -33,6 +36,16 @@ public final class StartSteps implements TaskRunner.StartProgress {
     public StartSteps(Consumer<StartStep> consumer, PrintWriter warnings) {
         this.consumer = consumer;
         this.recording = new StartStepFile(warnings);
+    }
+
+    /**
+     * Says the task's container exists: every step from here on names it, so a client that stops
+     * reading the start still finds the task.
+     *
+     * @param name The container's name.
+     */
+    public void at(String name) {
+        this.container = name;
     }
 
     /**
@@ -242,7 +255,7 @@ public final class StartSteps implements TaskRunner.StartProgress {
                     case HELPERS -> "Starting the task's gate, credential proxy and helpers";
                     case AGENT -> "Running the agent";
                 };
-        final StartStep event = new StartStep(step, state, text, waitingOn, cause);
+        final StartStep event = new StartStep(step, state, text, waitingOn, cause, container);
         current = event;
         final Path path = directory;
         if (path != null) {

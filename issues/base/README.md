@@ -287,6 +287,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b671"></a>[B671](B671-A-Starts-Steps-Name-The-Tasks-Container.md) | S | - | Every step of a Start from the container's creation on names the task's container, so a client that takes the task as started at AGENT STARTED and stops reading the call can follow it. |
 | <a id="b647"></a>[B647](B647-An-Unattended-Run-Ends-At-Its-Time-Limit.md) | M | - | An unattended run has a time limit, set at its start with a default, after which porelo ends it, records it as ended by its limit and keeps its log; a model that never ends its turn no longer holds a task forever. |
 | <a id="b646"></a>[B646](B646-A-Reader-Is-Handed-The-Work-It-Reads.md) | M | - | A task started to read another task's work is given that work through its own gate, read only and under a name its order can use, and nothing else of other tasks; today no task can see another task's branch. |
 | <a id="b625"></a>[B625](B625-A-Unit-Test-Never-Reads-The-Machines-Host-Helper.md) | S | - | No unit test's task start asks the real machine whether it is a host: on a machine with the host package installed, `apps/app`'s start tests are as green as on one without. |

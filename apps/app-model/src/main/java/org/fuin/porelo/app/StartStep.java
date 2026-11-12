@@ -1,5 +1,6 @@
 package org.fuin.porelo.app;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -10,8 +11,24 @@ import java.util.Map;
  * @param text The words every surface shows.
  * @param waitingOn The outside dependency, or empty.
  * @param cause The failure's last diagnostic, or empty.
+ * @param container The task's container once it exists, or empty before.
  */
-public record StartStep(Step step, State state, String text, String waitingOn, String cause) {
+public record StartStep(
+        Step step, State state, String text, String waitingOn, String cause, String container) {
+
+    /**
+     * A transition before the task's container exists.
+     *
+     * @param step The stable stage.
+     * @param state What it is doing.
+     * @param text The words every surface shows.
+     * @param waitingOn The outside dependency, or empty.
+     * @param cause The failure's last diagnostic, or empty.
+     */
+    public StartStep(Step step, State state, String text, String waitingOn, String cause) {
+        this(step, state, text, waitingOn, cause, "");
+    }
+
     /** The stable stages of starting a task. */
     public enum Step {
         SOURCE,
@@ -34,22 +51,21 @@ public record StartStep(Step step, State state, String text, String waitingOn, S
     }
 
     /**
-     * Returns the contract's five fields.
+     * Returns the contract's fields: the container only once it exists.
      *
      * @return The varlink shape.
      */
     public Map<String, Object> asMap() {
-        return Map.of(
-                "step",
-                step.name(),
-                "state",
-                state.name(),
-                "text",
-                text,
-                "waitingOn",
-                waitingOn,
-                "cause",
-                cause);
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("step", step.name());
+        map.put("state", state.name());
+        map.put("text", text);
+        map.put("waitingOn", waitingOn);
+        map.put("cause", cause);
+        if (!container.isEmpty()) {
+            map.put("container", container);
+        }
+        return map;
     }
 
     /**

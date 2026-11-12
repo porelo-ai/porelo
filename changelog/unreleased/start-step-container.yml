@@ -1,0 +1,2 @@
+title: "Every `Tasks1.Start` step from the container's creation on names the task's `container`, so a client can stop reading at `AGENT` `STARTED` and still follow the task"
+type: changed
