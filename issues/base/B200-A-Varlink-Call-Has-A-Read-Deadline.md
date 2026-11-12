@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B200",
   "title": "A Varlink Call Has A Read Deadline",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 37,
@@ -53,6 +53,14 @@ Read in the code on 2026-10-20 (`wire`, `agents/api`, `builds/api`, `apps`, `dae
      the process as `bounded` does today.
    - `DoctorCommand.versionAt`: its own executor goes, the 5 s passed as the deadline.
    - `ShieldReadCommand` and the daemon's `ClearanceService.Verdict` call (`EgressMethods`, `:262`): the default.
+   - `InstalledEcosystem`: its 10 s for `Describe` and its 120 s a question (`Resolve`'s own bound too) passed as the
+     deadline, the plugin ended on a timeout; its `bounded` stays for the ready line and the connect, which read no
+     answer.
+   - `HostVaultConnection`: its own 5 s passed as the deadline, a timeout said as "did not answer", never as
+     unreachable; `within` stays, since it bounds the connect and the peer check too.
+   - `ShieldSubscribeCommand`: a stream, unbounded, since a subscription is quiet until a packet is dropped.
+   - `PoreloDaemon`'s clearance `Subscribe` per running task: a stream, unbounded for the same reason; its thread
+     ends when the watcher goes.
 5. `wire/README.md` states the rule: an answer within a deadline, a stream unbounded unless asked.
 
 **Red first:** `VarlinkTest`: a server that accepts, reads the call and never answers - the shape
@@ -66,6 +74,24 @@ Read in the code on 2026-10-20 (`wire`, `agents/api`, `builds/api`, `apps`, `dae
   the method; a stream without one keeps waiting.
 - An agent that hangs in `ContainerSetup` fails the task's start after the deadline, named, instead of holding it.
 - No varlink interface changes.
+
+## Built
+
+- `VarlinkConnection.receive(Duration)` waits on a `Selector` with the channel non-blocking, reads what is there
+  before it looks at the clock, looks at it after a partial message too, and puts the channel back to blocking;
+  `receive()` stays unbounded for the server.
+- `VarlinkClient`: `DEFAULT_DEADLINE` (30 s), `call(method, parameters, Duration)`, `callMore(..., Duration)` for
+  each reply; a timeout closes the connection and throws the new `VarlinkTimeoutException` (method, deadline, no
+  error name).
+- `InstalledAgent`: `Describe` and `Find` within 10 s, said with the agent's diagnosis; every other call at the
+  default; its executor-based `bounded` is gone, with its two tests, since the ready line never used it.
+- `InstalledBuildReader`, `InstalledEcosystem`, `HostVaultConnection` and `DoctorCommand.versionAt` as the Plan
+  says; `ShieldReadCommand`, `EgressMethods` and the streams needed no code change.
+- Tests: `VarlinkTest` `aCallToAServiceThatNeverAnswersEndsAtItsDeadlineNamingTheMethod` and
+  `aStreamWithoutADeadlineKeepsWaitingAndOneWithADeadlineEnds`, both seen hanging into JUnit's 10 s timeout before
+  the fix, and `anAnswerWithinTheDeadlineIsReadAndTheConnectionServesTheNextCall`; `InstalledAgentTest`
+  `anAgentThatHangsInContainerSetupFailsTheStartAtTheDeadlineNamingTheMethod`, seen hanging with the deadline
+  broken on purpose.
 
 ## Decided by the operator (2026-11-12)
 

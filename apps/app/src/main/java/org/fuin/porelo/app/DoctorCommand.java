@@ -899,43 +899,24 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     }
 
     /**
-     * Asks the daemon at a socket for its version, within a few seconds, on a thread of its own.
+     * Asks the daemon at a socket for its version, within a few seconds.
      *
      * @param socket Where it listens.
      * @return Its version.
      */
     static String versionAt(java.nio.file.Path socket) {
-        final java.util.concurrent.ExecutorService asking =
-                java.util.concurrent.Executors.newSingleThreadExecutor(
-                        task -> {
-                            final Thread thread = new Thread(task, "porelo-doctor-daemon");
-                            thread.setDaemon(true);
-                            return thread;
-                        });
-        try {
-            return asking.submit(
-                            () -> {
-                                try (org.fuin.porelo.wire.varlink.VarlinkClient client =
-                                        new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
-                                    return String.valueOf(
-                                            client.call(
-                                                            "org.varlink.service.GetInfo",
-                                                            java.util.Map.of())
-                                                    .get("version"));
-                                }
-                            })
-                    .get(5, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (java.util.concurrent.TimeoutException ex) {
+        try (org.fuin.porelo.wire.varlink.VarlinkClient client =
+                new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
+            return String.valueOf(
+                    client.call(
+                                    "org.varlink.service.GetInfo",
+                                    java.util.Map.of(),
+                                    java.time.Duration.ofSeconds(5))
+                            .get("version"));
+        } catch (org.fuin.porelo.wire.varlink.VarlinkTimeoutException ex) {
             throw new IllegalStateException("no answer within 5 seconds", ex);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("interrupted", ex);
-        } catch (java.util.concurrent.ExecutionException ex) {
-            final Throwable cause = ex.getCause();
-            throw new IllegalStateException(
-                    cause == null ? "failed" : String.valueOf(cause.getMessage()), ex);
-        } finally {
-            asking.shutdownNow();
+        } catch (org.fuin.porelo.wire.varlink.VarlinkException | java.io.IOException ex) {
+            throw new IllegalStateException(String.valueOf(ex.getMessage()), ex);
         }
     }
 

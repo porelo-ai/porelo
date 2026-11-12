@@ -2,10 +2,16 @@ package org.fuin.porelo.wire.varlink;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -54,7 +60,7 @@ public class VarlinkConnection implements AutoCloseable {
     }
 
     /**
-     * Reads one message.
+     * Reads one message, waiting as long as it takes.
      *
      * @return The object, or {@code null} when the peer closed the connection.
      * @throws IOException If reading fails.
@@ -63,27 +69,103 @@ public class VarlinkConnection implements AutoCloseable {
     @Nullable
     public Map<String, Object> receive() throws IOException {
         while (true) {
-            final byte[] buffered = pending.toByteArray();
-            for (int i = 0; i < buffered.length; i++) {
-                if (buffered[i] == 0) {
-                    final String text = new String(buffered, 0, i, StandardCharsets.UTF_8);
-                    pending.reset();
-                    pending.write(buffered, i + 1, buffered.length - i - 1);
-                    return parse(text);
-                }
-            }
-            if (pending.size() > MAX_MESSAGE) {
-                // A peer that never sends a NUL is either broken or trying to make this process
-                // allocate without limit.
-                throw new VarlinkException("A varlink message exceeded " + MAX_MESSAGE + " bytes");
+            final Map<String, Object> message = buffered();
+            if (message != null) {
+                return message;
             }
             reading.clear();
             if (channel.read(reading) < 0) {
                 return null;
             }
-            reading.flip();
-            pending.write(reading.array(), 0, reading.limit());
+            keep();
         }
+    }
+
+    /**
+     * Reads one message, waiting no longer than a limit.
+     *
+     * <p>Only on this connection's one thread: it switches the channel to non-blocking for the
+     * wait, as {@link #peerGone()} does, since a unix-domain channel has no read timeout.
+     *
+     * @param within How long to wait for the whole message.
+     * @return The object, or {@code null} when the peer closed the connection.
+     * @throws SocketTimeoutException If no whole message arrived within the limit; what did arrive
+     *     is kept, and the connection is the caller's to close.
+     * @throws IOException If reading fails, or the waiting thread is interrupted.
+     * @throws VarlinkException If the peer sent something that is not a varlink message.
+     */
+    @Nullable
+    public Map<String, Object> receive(final Duration within) throws IOException {
+        final long deadline = System.nanoTime() + within.toNanos();
+        final Map<String, Object> waiting = buffered();
+        if (waiting != null) {
+            return waiting;
+        }
+        channel.configureBlocking(false);
+        try {
+            try (Selector selector = Selector.open()) {
+                channel.register(selector, SelectionKey.OP_READ);
+                while (true) {
+                    // What is there is read before the clock is looked at, so an answer that came
+                    // in time is never refused because this thread was scheduled late.
+                    reading.clear();
+                    final int read = channel.read(reading);
+                    if (read < 0) {
+                        return null;
+                    }
+                    if (read > 0) {
+                        keep();
+                        final Map<String, Object> message = buffered();
+                        if (message != null) {
+                            return message;
+                        }
+                    }
+                    // Looked at after a part too: a peer trickling bytes with no end would
+                    // otherwise hold the caller until the message limit.
+                    final long left = deadline - System.nanoTime();
+                    if (left <= 0) {
+                        throw new SocketTimeoutException("No whole message within " + within);
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        // A select returns at once for an interrupted thread: without this it
+                        // would spin until the deadline.
+                        throw new InterruptedIOException("Interrupted while waiting for a reply");
+                    }
+                    selector.select(Math.max(1, TimeUnit.NANOSECONDS.toMillis(left + 999_999)));
+                    selector.selectedKeys().clear();
+                }
+            }
+        } finally {
+            // The selector is closed by now, which deregisters the channel; a registered channel
+            // cannot be made blocking again.
+            channel.configureBlocking(true);
+        }
+    }
+
+    /** Takes the next whole message out of what was read, if one is there. */
+    @Nullable
+    private Map<String, Object> buffered() {
+        final byte[] buffered = pending.toByteArray();
+        for (int i = 0; i < buffered.length; i++) {
+            if (buffered[i] == 0) {
+                final String text = new String(buffered, 0, i, StandardCharsets.UTF_8);
+                pending.reset();
+                pending.write(buffered, i + 1, buffered.length - i - 1);
+                return parse(text);
+            }
+        }
+        if (pending.size() > MAX_MESSAGE) {
+            // A peer that never sends a NUL is either broken or trying to make this process
+            // allocate without limit.
+            throw new VarlinkException("A varlink message exceeded " + MAX_MESSAGE + " bytes");
+        }
+        return null;
+    }
+
+    /** Keeps what the last read brought. */
+    private void keep() {
+        reading.flip();
+        pending.write(reading.array(), 0, reading.limit());
     }
 
     /**

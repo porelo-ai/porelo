@@ -31,6 +31,10 @@ public class InstalledAgent implements AutoCloseable {
     /** How long to wait for a spawned agent to create its socket. */
     static final long READY_TIMEOUT_SECONDS = 10;
 
+    /** How long a started agent may take to describe itself, or to say what it finds. */
+    static final java.time.Duration READY_DEADLINE =
+            java.time.Duration.ofSeconds(READY_TIMEOUT_SECONDS);
+
     private final Path executable;
 
     private final Path socket;
@@ -100,7 +104,7 @@ public class InstalledAgent implements AutoCloseable {
             awaitReady();
             opened = new VarlinkClient(socket);
             this.client = opened;
-            this.definition = bounded("describe itself", this::handshake);
+            this.definition = described(() -> handshake(client, executable), "describe itself");
         } catch (RuntimeException ex) {
             // Everything it left goes, and the failure is the agent's: as a VarlinkException it
             // escaped the list, which threw the whole lookup away and left the agents started
@@ -242,58 +246,22 @@ public class InstalledAgent implements AutoCloseable {
     }
 
     /**
-     * Runs a step that talks to the agent within the limit a start has: the client waits without
-     * one, and an agent that accepted the connection and never answered held every task start.
+     * Runs a step that asks the agent within the deadline a start has, and says what is known of it
+     * when the answer did not come.
      */
-    private <T> T bounded(final String asked, final java.util.function.Supplier<T> step) {
+    private <T> T described(final java.util.function.Supplier<T> step, final String asked) {
         try {
-            return bounded(executable, asked, step, READY_TIMEOUT_SECONDS);
-        } catch (AgentException ex) {
-            if (ex.getMessage() != null && ex.getMessage().contains(" within ")) {
-                throw new AgentException(
-                        ex.getMessage() + diagnosis(process.isAlive(), afterReady.toString()));
-            }
-            throw ex;
-        }
-    }
-
-    /**
-     * Runs a step that talks to an agent within a limit, on a thread of its own that ends with it.
-     *
-     * <p>A platform thread, not a virtual one: on a virtual thread the one step of a lookup that
-     * waits on the agent waited on the scheduler too, and on a machine of two processors under load
-     * an agent that answered in a tenth of a second was given up on. Closed after each use, and
-     * interrupted at the limit, so a step that never ends leaves no thread behind.
-     *
-     * @param executable The agent, for the message.
-     * @param asked What it was asked to do, for the message.
-     * @param step What to run.
-     * @param seconds The limit.
-     * @return What the step returned.
-     */
-    static <T> T bounded(
-            Path executable, String asked, java.util.function.Supplier<T> step, long seconds) {
-        final java.util.concurrent.ExecutorService runner =
-                java.util.concurrent.Executors.newSingleThreadExecutor(
-                        task -> {
-                            final Thread thread = new Thread(task, "porelo-agent-describe");
-                            thread.setDaemon(true);
-                            return thread;
-                        });
-        try {
-            return runner.submit(step::get).get(seconds, TimeUnit.SECONDS);
-        } catch (java.util.concurrent.TimeoutException ex) {
+            return step.get();
+        } catch (org.fuin.porelo.wire.varlink.VarlinkTimeoutException ex) {
             throw new AgentException(
-                    executable + " did not " + asked + " within " + seconds + " seconds");
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new AgentException("Interrupted while asking " + executable, ex);
-        } catch (java.util.concurrent.ExecutionException ex) {
-            throw ex.getCause() instanceof RuntimeException failed
-                    ? failed
-                    : new AgentException(executable + " failed to " + asked, ex);
-        } finally {
-            runner.shutdownNow();
+                    executable
+                            + " did not "
+                            + asked
+                            + " within "
+                            + READY_TIMEOUT_SECONDS
+                            + " seconds"
+                            + diagnosis(process.isAlive(), afterReady.toString()),
+                    ex);
         }
     }
 
@@ -363,8 +331,26 @@ public class InstalledAgent implements AutoCloseable {
      */
     static Answer optional(
             final VarlinkClient client, final String method, final Map<String, Object> parameters) {
+        return optional(client, method, parameters, VarlinkClient.DEFAULT_DEADLINE);
+    }
+
+    /**
+     * Calls a method an agent built against an older contract may lack, within a deadline.
+     *
+     * @param client The connection to the agent.
+     * @param method The method.
+     * @param parameters Its parameters.
+     * @param deadline How long the answer may take.
+     * @return The answer, or {@link Answer.CannotSay} when the agent has no such method.
+     * @throws org.fuin.porelo.wire.varlink.VarlinkTimeoutException When no answer came in time.
+     */
+    static Answer optional(
+            final VarlinkClient client,
+            final String method,
+            final Map<String, Object> parameters,
+            final java.time.Duration deadline) {
         try {
-            return new Answer.Answered(client.call(method, parameters));
+            return new Answer.Answered(client.call(method, parameters, deadline));
         } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
             if (METHOD_NOT_FOUND.equals(ex.getErrorName())) {
                 return new Answer.CannotSay(method);
@@ -384,10 +370,6 @@ public class InstalledAgent implements AutoCloseable {
         return optional(client, method, parameters);
     }
 
-    private AgentDefinition handshake() {
-        return handshake(client, executable);
-    }
-
     /**
      * Asks an agent what it is, and refuses one this Porelo cannot work with.
      *
@@ -398,7 +380,8 @@ public class InstalledAgent implements AutoCloseable {
      */
     static AgentDefinition handshake(final VarlinkClient client, final Path executable) {
 
-        final Map<String, Object> answer = client.call(AgentProtocol.DESCRIBE, Map.of());
+        final Map<String, Object> answer =
+                client.call(AgentProtocol.DESCRIBE, Map.of(), READY_DEADLINE);
 
         if (!(answer.get("protocolVersion") instanceof Number version)) {
             throw new AgentException(
@@ -503,8 +486,8 @@ public class InstalledAgent implements AutoCloseable {
     /**
      * Asks the agent what it finds of itself on this machine, within the limit a start has.
      *
-     * <p>Over a connection of its own: the limit interrupts the read, which closes the channel it
-     * reads, and the start that goes on needs the agent's connection.
+     * <p>Over a connection of its own: a call that outlives its deadline closes the connection it
+     * was asked on, and the start that goes on needs the agent's connection.
      *
      * @param configDirectory The directory the definition declares, expanded.
      * @return The findings, in the tool's order; one that cannot say when the agent has no such
@@ -512,21 +495,22 @@ public class InstalledAgent implements AutoCloseable {
      * @throws RuntimeException If it failed some other way, which is not read as an old agent.
      */
     public List<Finding> find(final Path configDirectory) {
-        return bounded(
-                "say what it finds",
+        return described(
                 () -> {
                     try (VarlinkClient own = new VarlinkClient(socket)) {
                         return switch (optional(
                                 own,
                                 AgentProtocol.FIND,
-                                Map.of("configDirectory", configDirectory.toString()))) {
+                                Map.of("configDirectory", configDirectory.toString()),
+                                READY_DEADLINE)) {
                             case Answer.Answered answered -> findings(answered.reply());
                             case Answer.CannotSay cannotSay -> List.of(Finding.cannotSay());
                         };
                     } catch (IOException closing) {
                         throw new AgentException(executable + " could not be asked what it finds");
                     }
-                });
+                },
+                "say what it finds");
     }
 
     /**
@@ -574,9 +558,26 @@ public class InstalledAgent implements AutoCloseable {
      * @return Files to write, possibly empty.
      */
     public List<ContainerFile> containerSetup(SetupContext context) {
+        return containerSetup(client, context, VarlinkClient.DEFAULT_DEADLINE);
+    }
+
+    /**
+     * Asks an agent what it needs placed in a container before it starts, within a deadline.
+     *
+     * @param client The connection to the agent.
+     * @param context What the agent is told about this task.
+     * @param deadline How long the answer may take.
+     * @return Files to write, possibly empty.
+     * @throws org.fuin.porelo.wire.varlink.VarlinkTimeoutException When no answer came in time,
+     *     which fails the start rather than holding it.
+     */
+    static List<ContainerFile> containerSetup(
+            final VarlinkClient client,
+            final SetupContext context,
+            final java.time.Duration deadline) {
 
         final Map<String, Object> answer =
-                client.call(AgentProtocol.CONTAINER_SETUP, context.parameters());
+                client.call(AgentProtocol.CONTAINER_SETUP, context.parameters(), deadline);
 
         final List<ContainerFile> files = new java.util.ArrayList<>();
         if (answer.get("files") instanceof List<?> list) {

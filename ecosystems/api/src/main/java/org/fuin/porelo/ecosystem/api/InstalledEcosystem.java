@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.fuin.porelo.wire.varlink.VarlinkException;
+import org.fuin.porelo.wire.varlink.VarlinkTimeoutException;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -370,10 +372,7 @@ public final class InstalledEcosystem implements AutoCloseable {
                             READY_SECONDS);
             handshake(
                     executable,
-                    bounded(
-                            process,
-                            () -> client.call(EcosystemProtocol.DESCRIBE, Map.of()),
-                            READY_SECONDS));
+                    answered(process, client, EcosystemProtocol.DESCRIBE, Map.of(), READY_SECONDS));
             return new Running(process, client);
         } catch (RuntimeException ex) {
             ended(process);
@@ -456,7 +455,7 @@ public final class InstalledEcosystem implements AutoCloseable {
         }
         final Running asked = running;
         try {
-            return bounded(asked.process(), () -> asked.client().call(method, parameters), seconds);
+            return answered(asked.process(), asked.client(), method, parameters, seconds);
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
                 // The connection failed, not the question. The process is ended and waited for
@@ -464,6 +463,24 @@ public final class InstalledEcosystem implements AutoCloseable {
                 ended(asked.process());
             }
             throw ex;
+        }
+    }
+
+    /**
+     * Asks within a deadline; a plugin that does not answer in time is ended, so the next question
+     * starts it again rather than reading this answer late.
+     */
+    private Map<String, Object> answered(
+            final Process process,
+            final VarlinkClient client,
+            final String method,
+            final Map<String, Object> parameters,
+            final long seconds) {
+        try {
+            return client.call(method, parameters, Duration.ofSeconds(seconds));
+        } catch (VarlinkTimeoutException ex) {
+            process.destroyForcibly();
+            throw fault(executable + " did not answer within " + seconds + " seconds");
         }
     }
 
@@ -546,7 +563,9 @@ public final class InstalledEcosystem implements AutoCloseable {
                         });
     }
 
-    /** Runs a step against the plugin within a limit: the varlink client waits without one. */
+    /**
+     * Runs a step that is no varlink call within a limit: a ready line and a connect wait without.
+     */
     private <T> T bounded(final Process process, final Supplier<T> step, final long seconds) {
         final ExecutorService runner =
                 Executors.newSingleThreadExecutor(

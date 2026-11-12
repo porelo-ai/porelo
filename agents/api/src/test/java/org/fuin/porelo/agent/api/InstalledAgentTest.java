@@ -75,54 +75,6 @@ class InstalledAgentTest {
     }
 
     @Test
-    void theDescriptionIsAwaitedOnAThreadOfItsOwnAndNotOnTheSchedulersOwn() {
-
-        // On a virtual thread, the one step of a lookup that waits on the agent waited on a
-        // scheduler too: on a machine of two processors under a suite's load, an agent that
-        // answered in a tenth of a second "did not describe itself within 10 seconds".
-        final Boolean virtual =
-                InstalledAgent.bounded(
-                        Path.of("agent"),
-                        "describe itself",
-                        () -> Thread.currentThread().isVirtual(),
-                        5);
-
-        assertThat(virtual).isFalse();
-    }
-
-    @Test
-    void aDescriptionThatNeverComesLeavesNoThreadBehind() throws Exception {
-
-        // The executor was never closed and a cancel interrupts nothing: every timeout left its
-        // thread waiting.
-        final java.util.concurrent.CountDownLatch ended =
-                new java.util.concurrent.CountDownLatch(1);
-
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () ->
-                                InstalledAgent.bounded(
-                                        Path.of("agent"),
-                                        "describe itself",
-                                        () -> {
-                                            try {
-                                                Thread.sleep(60_000);
-                                            } catch (InterruptedException ex) {
-                                                Thread.currentThread().interrupt();
-                                            } finally {
-                                                ended.countDown();
-                                            }
-                                            return null;
-                                        },
-                                        1))
-                .isInstanceOf(AgentException.class)
-                .hasMessageContaining("within 1 seconds");
-
-        assertThat(ended.await(5, java.util.concurrent.TimeUnit.SECONDS))
-                .as("the waiting step was ended")
-                .isTrue();
-    }
-
-    @Test
     void aDescriptionThatDidNotComeSaysWhetherTheAgentStillRunsAndWhatItLastSaid() {
 
         // "did not describe itself within 10 seconds" was all there was, three times, and never
@@ -351,6 +303,45 @@ class InstalledAgentTest {
             org.assertj.core.api.Assertions.assertThatThrownBy(
                             () -> InstalledAgent.ended(client, "a line"))
                     .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkException.class);
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(10)
+    void anAgentThatHangsInContainerSetupFailsTheStartAtTheDeadlineNamingTheMethod(
+            @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        // The call waited without a limit: an agent that accepted the question and never
+        // answered held the task's start for ever, and its start had no word of why.
+        final Path socket = dir.resolve("s.sock");
+        final java.util.concurrent.CountDownLatch released =
+                new java.util.concurrent.CountDownLatch(1);
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Method hangs =
+                (parameters, replies) -> {
+                    try {
+                        released.await();
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                    replies.last(java.util.Map.of("files", java.util.List.of()));
+                };
+        try (var server = agent(socket, java.util.Map.of("ContainerSetup", hangs));
+                var client = new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
+            final long started = System.nanoTime();
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    InstalledAgent.containerSetup(
+                                            client,
+                                            new SetupContext(
+                                                    "t", "api-key", "/workspace", "", "p", 0),
+                                            java.time.Duration.ofMillis(300)))
+                    .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkTimeoutException.class)
+                    .hasMessageContaining(AgentProtocol.CONTAINER_SETUP);
+            assertThat(java.time.Duration.ofNanos(System.nanoTime() - started))
+                    .as("given up on at its deadline")
+                    .isLessThan(java.time.Duration.ofSeconds(2));
+        } finally {
+            released.countDown();
         }
     }
 }

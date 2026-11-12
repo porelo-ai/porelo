@@ -1,0 +1,2 @@
+title: "A varlink call through porelo-wire's client that the other side accepted and never answers ends after 30 seconds, or its caller's own limit, with an error naming the method, so an agent stuck in its container setup no longer holds a task's start; a stream still waits until there is news"
+type: fixed

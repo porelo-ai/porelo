@@ -152,7 +152,11 @@ final class HostVaultConnection implements HostVaultAccess {
                         })) {
             final Map<String, Object> scoped = new java.util.LinkedHashMap<>(parameters);
             scoped.put("vault", vault);
-            return client.call("org.fuin.porelo.Tasks1." + method, scoped);
+            return client.call("org.fuin.porelo.Tasks1." + method, scoped, timeout);
+        } catch (org.fuin.porelo.wire.varlink.VarlinkTimeoutException ex) {
+            // A daemon that accepted and did not answer is there: never read as unreachable.
+            throw new VaultException(
+                    "The host vault owner did not answer; retry after checking porelod", ex);
         } catch (VarlinkException ex) {
             if ("org.fuin.porelo.Tasks1.NotAHostVault".equals(ex.getErrorName())) {
                 throw new org.fuin.porelo.vault.NotAHostVaultException();

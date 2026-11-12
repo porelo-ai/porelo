@@ -187,6 +187,158 @@ class VarlinkTest {
         }
     }
 
+    /**
+     * A service that accepts, reads the call and never answers, until the test lets it go.
+     *
+     * @param socket Where it listens.
+     * @param released Counted down by the test once it is done.
+     * @return The bound channel, closed by the test.
+     */
+    private static java.nio.channels.ServerSocketChannel silent(
+            final Path socket, final java.util.concurrent.CountDownLatch released)
+            throws IOException {
+        final java.nio.channels.ServerSocketChannel channel =
+                java.nio.channels.ServerSocketChannel.open(java.net.StandardProtocolFamily.UNIX);
+        channel.bind(java.net.UnixDomainSocketAddress.of(socket));
+        Thread.ofPlatform()
+                .daemon()
+                .start(
+                        () -> {
+                            try (java.nio.channels.SocketChannel client = channel.accept()) {
+                                client.read(java.nio.ByteBuffer.allocate(4096));
+                                released.await();
+                            } catch (IOException | InterruptedException ex) {
+                                // The test is over.
+                            }
+                        });
+        return channel;
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(10)
+    void aCallToAServiceThatNeverAnswersEndsAtItsDeadlineNamingTheMethod(@TempDir Path dir)
+            throws Exception {
+
+        // The read had no limit: a daemon that accepted and never answered held every caller, a
+        // task start and an editor's gate calls among them.
+        final java.util.concurrent.CountDownLatch released =
+                new java.util.concurrent.CountDownLatch(1);
+        try (var service = silent(dir.resolve("silent.sock"), released);
+                VarlinkClient client = new VarlinkClient(dir.resolve("silent.sock"))) {
+            final long started = System.nanoTime();
+
+            assertThatThrownBy(
+                            () ->
+                                    client.call(
+                                            INTERFACE + ".Silent",
+                                            Map.of(),
+                                            java.time.Duration.ofMillis(200)))
+                    .isInstanceOfSatisfying(
+                            VarlinkTimeoutException.class,
+                            timeout -> {
+                                assertThat(timeout.getMethod())
+                                        .as("the method that got no answer")
+                                        .isEqualTo(INTERFACE + ".Silent");
+                                assertThat(timeout.getErrorName())
+                                        .as("no name, since the peer sent none")
+                                        .isNull();
+                            })
+                    .hasMessageContaining(INTERFACE + ".Silent")
+                    .hasMessageContaining("200 ms");
+            assertThat(java.time.Duration.ofNanos(System.nanoTime() - started))
+                    .as("ended at its deadline, not long after")
+                    .isLessThan(java.time.Duration.ofSeconds(1));
+            assertThatThrownBy(() -> client.call(INTERFACE + ".Next", Map.of()))
+                    .as("a late answer is never read as the next call's: the connection is closed")
+                    .isInstanceOf(VarlinkException.class);
+        } finally {
+            released.countDown();
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(10)
+    void aStreamWithoutADeadlineKeepsWaitingAndOneWithADeadlineEnds(@TempDir Path dir)
+            throws Exception {
+
+        // A stream may rightly be quiet for long - a clearance subscription until a packet is
+        // dropped - so only a caller that asks for a bound gets one.
+        final java.util.concurrent.CountDownLatch released =
+                new java.util.concurrent.CountDownLatch(1);
+        try (var service = silent(dir.resolve("quiet.sock"), released);
+                VarlinkClient client = new VarlinkClient(dir.resolve("quiet.sock"))) {
+            final Thread waiting =
+                    Thread.ofPlatform()
+                            .daemon()
+                            .start(
+                                    () -> {
+                                        try {
+                                            client.callMore(
+                                                    INTERFACE + ".Quiet", Map.of(), reply -> true);
+                                        } catch (RuntimeException ex) {
+                                            // Ended by the close below.
+                                        }
+                                    });
+
+            assertThat(waiting.join(java.time.Duration.ofMillis(800)))
+                    .as("a stream without a deadline is still waiting")
+                    .isFalse();
+            client.close();
+            waiting.join(java.time.Duration.ofSeconds(5));
+        } finally {
+            released.countDown();
+        }
+
+        final java.util.concurrent.CountDownLatch again =
+                new java.util.concurrent.CountDownLatch(1);
+        try (var service = silent(dir.resolve("bounded.sock"), again);
+                VarlinkClient client = new VarlinkClient(dir.resolve("bounded.sock"))) {
+            assertThatThrownBy(
+                            () ->
+                                    client.callMore(
+                                            INTERFACE + ".Quiet",
+                                            Map.of(),
+                                            reply -> true,
+                                            java.time.Duration.ofMillis(200)))
+                    .isInstanceOf(VarlinkTimeoutException.class)
+                    .hasMessageContaining(INTERFACE + ".Quiet");
+        } finally {
+            again.countDown();
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(10)
+    void anAnswerWithinTheDeadlineIsReadAndTheConnectionServesTheNextCall(@TempDir Path dir)
+            throws IOException {
+
+        // The bounded read switches the channel to non-blocking for its wait; a channel left that
+        // way would make the next send or unbounded read fail.
+        try (VarlinkServer server = server(dir)) {
+            server.method(
+                    "Ping", (parameters, replies) -> replies.last(Map.of("pong", Boolean.TRUE)));
+
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(
+                                client.call(
+                                        INTERFACE + ".Ping",
+                                        Map.of(),
+                                        java.time.Duration.ofSeconds(5)))
+                        .containsEntry("pong", Boolean.TRUE);
+                final List<Object> seen = new ArrayList<>();
+                client.callMore(
+                        INTERFACE + ".Ping",
+                        Map.of(),
+                        reply -> seen.add(reply.get("pong")),
+                        java.time.Duration.ofSeconds(5));
+                assertThat(seen).containsExactly(Boolean.TRUE);
+                assertThat(client.call(INTERFACE + ".Ping", Map.of()))
+                        .as("the connection serves another call after the bounded ones")
+                        .containsEntry("pong", Boolean.TRUE);
+            }
+        }
+    }
+
     @Test
     void reportsAnUnknownMethodAsAVarlinkError(@TempDir Path dir) throws IOException {
 

@@ -1,16 +1,27 @@
 package org.fuin.porelo.wire.varlink;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Predicate;
+import org.jspecify.annotations.Nullable;
 
-/** Calls a varlink method over a unix socket. */
+/**
+ * Calls a varlink method over a unix socket.
+ *
+ * <p>A call answered once waits for its reply at most {@link #DEFAULT_DEADLINE}, or the deadline
+ * its caller gives; a stream waits without one unless its caller gives one.
+ */
 public class VarlinkClient implements AutoCloseable {
+
+    /** How long a call answered once waits for its reply unless its caller says otherwise. */
+    public static final Duration DEFAULT_DEADLINE = Duration.ofSeconds(30);
 
     private final VarlinkConnection connection;
 
@@ -42,17 +53,36 @@ public class VarlinkClient implements AutoCloseable {
     }
 
     /**
-     * Calls a method once and returns the reply.
+     * Calls a method once and returns the reply, waiting at most {@link #DEFAULT_DEADLINE}.
      *
      * @param method Fully qualified method name.
      * @param parameters Call parameters.
      * @return The reply parameters.
+     * @throws VarlinkTimeoutException If no reply came within the deadline.
      * @throws VarlinkException If the peer returns an error or closes early.
      */
     public Map<String, Object> call(String method, Map<String, Object> parameters) {
+        return call(method, parameters, DEFAULT_DEADLINE);
+    }
+
+    /**
+     * Calls a method once and returns the reply, waiting at most a given time.
+     *
+     * <p>A call that outlives its deadline closes the connection, since a late reply would be read
+     * as the next call's.
+     *
+     * @param method Fully qualified method name.
+     * @param parameters Call parameters.
+     * @param deadline How long the reply may take.
+     * @return The reply parameters.
+     * @throws VarlinkTimeoutException If no reply came within the deadline.
+     * @throws VarlinkException If the peer returns an error or closes early.
+     */
+    public Map<String, Object> call(
+            String method, Map<String, Object> parameters, Duration deadline) {
         try {
             send(method, parameters, false);
-            final Map<String, Object> reply = connection.receive();
+            final Map<String, Object> reply = receive(method, deadline);
             if (reply == null) {
                 throw new VarlinkException("The service closed the connection without replying");
             }
@@ -64,7 +94,8 @@ public class VarlinkClient implements AutoCloseable {
 
     /**
      * Calls a method with {@code more} and hands each reply to a consumer until the stream ends or
-     * the consumer asks to stop.
+     * the consumer asks to stop, waiting for each reply as long as it takes: a stream may rightly
+     * be quiet until there is news.
      *
      * @param method Fully qualified method name.
      * @param parameters Call parameters.
@@ -75,10 +106,31 @@ public class VarlinkClient implements AutoCloseable {
             String method,
             Map<String, Object> parameters,
             Predicate<Map<String, Object>> consumer) {
+        callMore(method, parameters, consumer, null);
+    }
+
+    /**
+     * Calls a method with {@code more} as {@link #callMore(String, Map, Predicate)} does, waiting
+     * at most a given time for each reply.
+     *
+     * @param method Fully qualified method name.
+     * @param parameters Call parameters.
+     * @param consumer Receives each reply; returning {@code false} stops the stream.
+     * @param eachReply How long each reply may take, the first included.
+     * @throws VarlinkTimeoutException If a reply did not come within the limit; the connection is
+     *     closed.
+     * @throws VarlinkException If the peer returns an error.
+     */
+    public void callMore(
+            String method,
+            Map<String, Object> parameters,
+            Predicate<Map<String, Object>> consumer,
+            @Nullable Duration eachReply) {
         try {
             send(method, parameters, true);
             while (true) {
-                final Map<String, Object> reply = connection.receive();
+                final Map<String, Object> reply =
+                        eachReply == null ? connection.receive() : receive(method, eachReply);
                 if (reply == null) {
                     // The peer closed mid-stream. Returning here would be indistinguishable from a
                     // stream that ended properly - a client would stop watching and go on showing
@@ -100,6 +152,23 @@ public class VarlinkClient implements AutoCloseable {
             }
         } catch (IOException ex) {
             throw new VarlinkException("Streaming call to " + method + " failed", ex);
+        }
+    }
+
+    /** Reads one reply within a deadline, closing the connection when none came. */
+    private @Nullable Map<String, Object> receive(String method, Duration deadline)
+            throws IOException {
+        try {
+            return connection.receive(deadline);
+        } catch (SocketTimeoutException ex) {
+            try {
+                connection.close();
+            } catch (IOException closing) {
+                ex.addSuppressed(closing);
+            }
+            final VarlinkTimeoutException timeout = new VarlinkTimeoutException(method, deadline);
+            timeout.initCause(ex);
+            throw timeout;
         }
     }
 

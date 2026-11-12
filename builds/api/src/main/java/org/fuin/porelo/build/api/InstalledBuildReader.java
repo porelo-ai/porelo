@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.fuin.porelo.wire.varlink.VarlinkException;
+import org.fuin.porelo.wire.varlink.VarlinkTimeoutException;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -227,9 +229,7 @@ public final class InstalledBuildReader implements AutoCloseable {
         try {
             awaitReady(process);
             opened = new VarlinkClient(socket);
-            final VarlinkClient described = opened;
-            final Map<String, Object> answer =
-                    bounded(process, () -> describe(described), READY_SECONDS);
+            final Map<String, Object> answer = describe(opened);
             final int version =
                     answer.get("protocolVersion") instanceof Number number
                             ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(number)
@@ -268,13 +268,20 @@ public final class InstalledBuildReader implements AutoCloseable {
 
     private Map<String, Object> describe(final VarlinkClient client) {
         try {
-            return client.call(BuildProtocol.DESCRIBE, Map.of());
+            return client.call(BuildProtocol.DESCRIBE, Map.of(), Duration.ofSeconds(READY_SECONDS));
+        } catch (VarlinkTimeoutException ex) {
+            throw new BuildReaderException(
+                    executable + " did not answer within " + READY_SECONDS + " seconds", ex);
         } catch (VarlinkException ex) {
             if (!"org.varlink.service.MethodNotFound".equals(ex.getErrorName())) {
                 throw ex;
             }
             final Object interfaces =
-                    client.call("org.varlink.service.GetInfo", Map.of()).get("interfaces");
+                    client.call(
+                                    "org.varlink.service.GetInfo",
+                                    Map.of(),
+                                    Duration.ofSeconds(READY_SECONDS))
+                            .get("interfaces");
             final List<String> builds =
                     interfaces instanceof List<?> listed
                             ? listed.stream()
@@ -302,8 +309,12 @@ public final class InstalledBuildReader implements AutoCloseable {
         }
         final Running asked = running;
         try {
-            return bounded(
-                    asked.process(), () -> asked.client().call(method, parameters), CALL_SECONDS);
+            return asked.client().call(method, parameters, Duration.ofSeconds(CALL_SECONDS));
+        } catch (VarlinkTimeoutException ex) {
+            // Killed, so the next question starts it again rather than reading this answer late.
+            ended(asked.process());
+            throw new BuildReaderException(
+                    executable + " did not answer within " + CALL_SECONDS + " seconds", ex);
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
                 // The connection failed, not the question: the reader is gone or going. Its process
@@ -387,7 +398,7 @@ public final class InstalledBuildReader implements AutoCloseable {
                         });
     }
 
-    /** Runs a step against the reader within a limit: the varlink client waits without one. */
+    /** Runs a step that is no varlink call within a limit: reading the ready line waits without. */
     private <T> T bounded(final Process process, final Supplier<T> step, final long seconds) {
         final ExecutorService runner =
                 Executors.newSingleThreadExecutor(
