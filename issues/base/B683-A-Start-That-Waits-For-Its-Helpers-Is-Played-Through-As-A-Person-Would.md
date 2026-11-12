@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B683",
   "title": "A Start That Waits For Its Helpers Is Played Through As A Person Would",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 32,
@@ -28,6 +28,30 @@ the command line: a start waits until its gate and relay are both up; a start wh
   with the list of what held and what did not.
 - One run on the VM through the coordinator, by the rules below; product faults found become Backlog issues, script
   fixes one commit, then one new run.
+
+## Script (2026-11-13)
+
+`acceptance/stories/st53.sh`, run as the test account on the Ubuntu test VM against the installed porelo, with a vault
+(`PORELO_VAULT`) and a guarded project `st53-<random>` of its own and the stub agent:
+
+1. A start of a task with a gate and a credential relay; read the moment it returns: its code, and whether `gate.pid`
+   and `relay.pid` in the task's state directory name running processes.
+2. A start whose gate cannot record that it is up: a directory stands where the gate writes its pid, so it never
+   records one. Read the start's code (70 expected) and whether any process still names the task's state directory.
+3. The same for the relay (`relay.pid`).
+4. Two starts of `twin` at the same moment: read both codes, then whether the container still runs with its gate.
+
+Each step says what it does and what it read; the run ends with what held, what did not hold as expected, and what
+did not hold, and exits 1 when anything failed unexpectedly. A trap removes the tasks, the project, its image, the
+state directories it made and the vault, also when the run stops part-way.
+
+**Expected failures:** [B384](README.md#b384) for every point of steps 1 to 4 except that a start answers 0 and that
+one of the two starts starts the task; `--expect-fail` changes the list (`none` when [B384](README.md#b384) is in Review).
+
+**How it is run** (through the coordinator, on the laptop, from this repository's root):
+
+    scp acceptance/stories/st53.sh <account>@<test-vm>:
+    ssh <account>@<test-vm> 'bash -l st53.sh --test-account' 2>&1 | tee st53.log
 
 ## Rules for a story test (operator, 2026-11-12)
 

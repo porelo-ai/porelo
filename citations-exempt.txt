@@ -1,0 +1,4 @@
+# A story test names its story and the issues it expects to fail, by number: that is what it reports.
+acceptance/stories/st43.sh
+acceptance/stories/st53.sh
+acceptance/stories/st56.sh

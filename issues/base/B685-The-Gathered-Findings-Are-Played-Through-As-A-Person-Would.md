@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B685",
   "title": "The Gathered Findings Are Played Through As A Person Would",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 34,
@@ -28,6 +28,36 @@ the command line: [B380](README.md#b380)'s, HO86's and F288's points each hold n
   with the list of what held and what did not.
 - One run on the VM through the coordinator, by the rules below; product faults found become Backlog issues, script
   fixes one commit, then one new run.
+
+## Script (2026-11-13)
+
+`acceptance/stories/st56.sh`, run as the test account on the Ubuntu test VM against the installed porelo:
+
+1. The issue indexes of porelo, porelo-host and porelo-frontend, read from GitHub's main branches or from a directory
+   given with `--issues`: [B380](README.md#b380) and porelo-host's HO86 are closed and name where their points went
+   ([B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), the points not worth it; [B666](README.md#b666)); F288 is filed; [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203) and [B666](README.md#b666) are filed, and
+   each is checked to be in Review or Finished.
+2. [B649](README.md#b649): a commit signed with an SSH key, new to a bare repository as a push brings it, judged by
+   `porelo commit verify` with an allowed-signers file of the signer's line alone, then beside a line holding a lone
+   CR, a line ssh-keygen cannot parse, and a line beginning with U+2000 before `#`, with `git verify-commit`'s verdict
+   on the same file read beside it.
+3. [B650](README.md#b650): a stopped `--no-gate` task removed without `--force`; the suggestions for the names `123 `,
+   `People` and `Porelo-x` (not `123`, `people`, `porelo-x`); an unknown `-r` alone and beside a refused name
+   answering one code; `porelo project init --name` with a 62-character name refused, naming the room.
+4. [B203](README.md#b203): `porelo task files` and `porelo task status` answering by the task's name and by its
+   container's name.
+
+[B651](README.md#b651) (tests only), [B666](README.md#b666) (a host's push judge) and F288 (the desktop interface)
+show nothing at this command line and are checked as filed. A trap removes the tasks, the project, its image, the
+checkout and the vault.
+
+**Expected failures:** [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203), [B666](README.md#b666) and F288, none in Review; `--expect-fail` changes the list.
+
+**How it is run** (through the coordinator, on the laptop, from this repository's root; the `--issues` directory
+only while the indexes on GitHub are older than the local ones):
+
+    scp acceptance/stories/st56.sh <account>@<test-vm>:
+    ssh <account>@<test-vm> 'bash -l st56.sh --test-account' 2>&1 | tee st56.log
 
 ## Rules for a story test (operator, 2026-11-12)
 
