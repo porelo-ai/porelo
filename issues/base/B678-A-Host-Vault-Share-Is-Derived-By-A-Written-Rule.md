@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B678",
   "title": "A Host Vault Share Is Derived By A Written Rule",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 4,
@@ -44,3 +44,16 @@ Ed25519 signs deterministically, so a fixed key gives fixed bytes at every step.
 ## Acceptance
 
 - The vector in the docs equals what the test asserts; a change to the derivation fails the test.
+
+## Built (2026-11-12)
+
+- `HostVaultShareVectorTest` in vault pins the vector: a key made for the vector only (the Ed25519 seed of the
+  bytes 0x00 to 0x1f), host `SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s`, login `builder`. It derives
+  through `HostVaultShare.derive` and asserts in hex the public blob, the signed data the key was asked to sign,
+  the binary SSHSIG blob and the share; it also builds the signed data from the written rule, checks the share is
+  the HKDF of the blob, and checks that `doc/credentials.md` states each value of the vector.
+- Red first: the test ran with placeholder values and failed on each, and the real values were read off one at a
+  time; the share was checked once more with an independent HKDF outside Java.
+- `doc/credentials.md` has the section *How a host share is derived*: the rule in four steps, the vector, and the
+  host steps (`vault unlock`, `init`, `clear --yes --force` and `rekey`, each with `--json`, their input, answers
+  and exit codes). No production code changed.
