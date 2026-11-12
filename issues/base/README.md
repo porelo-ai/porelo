@@ -245,6 +245,7 @@ from its side, as *blocked by*.
 | <a id="b518"></a>[B518](B518-A-Person-Leaves-An-Organization.md) | S | - | `porelo org leave`: a person withdraws their own card and roles and forgets the organization on this machine, refused where it would leave no owner; the window's *Leave…* runs it. |
 | <a id="b517"></a>[B517](B517-A-Card-Proposed-And-Accepted-By-An-Owner.md) | M | - | A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it. |
 | <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
+| <a id="b630"></a>[B630](B630-A-Tasks-Record-Splits-Its-Work-By-Sub-Agent.md) | L | - | A task's record names each sub-agent's own span with its issue and parent, counts tokens per sub-agent, takes an issue id with a hyphen, and keeps several issue and phase pairs given at the start. |
 
 ## Implementing
 
