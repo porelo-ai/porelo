@@ -125,20 +125,22 @@ class PublishWorkflowTest {
 
     @ParameterizedTest
     @CsvSource({
-        "false, '', '', false",
-        "false, forge-release, forge-release, true",
-        "'', '', central-sonatype-release, true",
-        "true, '', central-sonatype-release, true",
-        "other, '', central-sonatype-release, true",
-        "'', forge-release, forge-release, true",
-        "false, 'profile with spaces', 'profile with spaces', true",
-        "false, '$(touch injected)', '$(touch injected)', true"
+        "false, '', '', false, snapshots",
+        "false, forge-release, forge-release, true, snapshots",
+        "'', '', central-sonatype-release, true, snapshots",
+        "'', '', central-sonatype-release, true, releases",
+        "true, '', central-sonatype-release, true, snapshots",
+        "other, '', central-sonatype-release, true, releases",
+        "'', forge-release, forge-release, true, snapshots",
+        "false, 'profile with spaces', 'profile with spaces', true, releases",
+        "false, '$(touch injected)', '$(touch injected)', true, snapshots"
     })
     void theProfileIsGuardedBeforeMavenAndPassedAsOneArgument(
             final String publish,
             final String profile,
             final String expected,
-            final boolean allowed)
+            final boolean allowed,
+            final String channel)
             throws IOException, InterruptedException {
         final String script = String.valueOf(deployTheJars().get("run"));
         assertThat(script).doesNotContain("${{");
@@ -168,6 +170,7 @@ class PublishWorkflowTest {
         command.environment().put("PORELO_PUBLISH", publish);
         command.environment().put("PORELO_DEPLOY_PROFILE", profile);
         command.environment().put("DEPLOY_ARGUMENTS", arguments.toString());
+        command.environment().put("CHANNEL", channel);
         final Process process = command.start();
         try {
             assertThat(process.waitFor(10, TimeUnit.SECONDS)).as("the step ends").isTrue();
@@ -175,18 +178,30 @@ class PublishWorkflowTest {
             assertThat(Files.exists(arguments)).as("whether Maven was called").isEqualTo(allowed);
             assertThat(Files.exists(directory.resolve("injected"))).isFalse();
             if (allowed) {
-                assertThat(Files.readAllLines(arguments))
-                        .containsExactly(
-                                "-B",
-                                "deploy",
-                                "-P" + expected,
-                                "-s",
-                                "settings.xml",
-                                "-DskipTests",
-                                // A throttled upload is tried again, and fewer go at once.
-                                "-Daether.connector.http.retryHandler.count=8",
-                                "-Daether.connector.http.retryHandler.interval=15000",
-                                "-Daether.connector.basic.threads=2");
+                final List<String> wanted =
+                        new ArrayList<>(
+                                List.of(
+                                        "-B",
+                                        "deploy",
+                                        "-P" + expected,
+                                        "-s",
+                                        "settings.xml",
+                                        "-DskipTests",
+                                        // A throttled upload is tried again, and fewer go at once.
+                                        "-Daether.connector.http.retryHandler.count=8",
+                                        "-Daether.connector.http.retryHandler.interval=15000",
+                                        "-Daether.connector.basic.threads=2"));
+                if ("snapshots".equals(channel)) {
+                    // A snapshot is not validated: unsigned, no sources or javadoc, and only
+                    // what other repositories resolve.
+                    wanted.addAll(
+                            List.of(
+                                    "-Dgpg.skip=true",
+                                    "-Dmaven.source.skip=true",
+                                    "-Dmaven.javadoc.skip=true",
+                                    "-DskipInternalPublishing=true"));
+                }
+                assertThat(Files.readAllLines(arguments)).containsExactlyElementsOf(wanted);
             } else {
                 assertThat(Files.readString(output)).contains("PORELO_DEPLOY_PROFILE");
             }
@@ -196,10 +211,69 @@ class PublishWorkflowTest {
     }
 
     @Test
+    void aSnapshotPublishesOnlyWhatOtherRepositoriesResolveAndAReleaseEverything()
+            throws IOException {
+        // Read as the deploy step sets it: a snapshot passes -DskipInternalPublishing=true.
+        assertThat(published(true))
+                .as("a snapshot: what the agent, adapter and ecosystem repositories resolve")
+                .containsExactlyInAnyOrder(
+                        "porelo-wire",
+                        "porelo-agent-api",
+                        "porelo-build-api",
+                        "porelo-ecosystem-api",
+                        "porelo-bom",
+                        "porelo-acceptance-kit");
+        assertThat(published(false))
+                .as("a release: those and the native-image checks")
+                .containsExactlyInAnyOrder(
+                        "porelo-wire",
+                        "porelo-agent-api",
+                        "porelo-build-api",
+                        "porelo-ecosystem-api",
+                        "porelo-bom",
+                        "porelo-acceptance-kit",
+                        "porelo-cpu-check",
+                        "porelo-ffm-check");
+    }
+
+    /** The modules whose skipPublishing resolves to false, with or without the snapshot switch. */
+    private static List<String> published(final boolean snapshot) throws IOException {
+        final Pattern skip = Pattern.compile("<skipPublishing>([^<]*)</skipPublishing>");
+        final Pattern own = Pattern.compile("</parent>\\s*<artifactId>([^<]+)</artifactId>");
+        final Pattern internal =
+                Pattern.compile("<skipInternalPublishing>([^<]*)</skipInternalPublishing>");
+        final List<String> published = new ArrayList<>();
+        try (var poms = Files.walk(ROOT)) {
+            for (final Path pom :
+                    poms.filter(path -> path.getFileName().toString().equals("pom.xml"))
+                            .filter(path -> !path.toString().contains("/target/"))
+                            .filter(path -> !path.toString().contains("/node_modules/"))
+                            .toList()) {
+                final String text = Files.readString(pom);
+                final Matcher declared = skip.matcher(text);
+                final Matcher name = own.matcher(text);
+                if (!declared.find() || !name.find()) {
+                    continue;
+                }
+                String value = declared.group(1).trim();
+                if (value.equals("${skipInternalPublishing}")) {
+                    final Matcher fallback = internal.matcher(text);
+                    value = snapshot ? "true" : fallback.find() ? fallback.group(1).trim() : "";
+                }
+                if (value.equals("false")) {
+                    published.add(name.group(1));
+                }
+            }
+        }
+        return published;
+    }
+
+    @Test
     void deployReadsItsProfileAndRegistryCredentialsFromTheEnvironment() throws Exception {
         final Map<?, ?> env = (Map<?, ?>) deployTheJars().get("env");
         assertThat(env.get("PORELO_DEPLOY_PROFILE")).isEqualTo("${{ vars.PORELO_DEPLOY_PROFILE }}");
         assertThat(env.get("PORELO_PUBLISH")).isEqualTo("${{ vars.PORELO_PUBLISH }}");
+        assertThat(env.get("CHANNEL")).isEqualTo("${{ steps.channel.outputs.channel }}");
         assertThat(env.get("MAVEN_SNAPSHOTS_URL")).isEqualTo("${{ vars.MAVEN_SNAPSHOTS_URL }}");
         assertThat(env.get("PORELO_PUBLISHER_TOKEN"))
                 .isEqualTo("${{ secrets.PORELO_PUBLISHER_TOKEN }}");

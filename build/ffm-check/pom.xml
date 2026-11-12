@@ -17,9 +17,11 @@
     <description>Porelo - Checking that every FFM downcall a test makes is registered for the native image (BUILD)</description>
 
     <properties>
-        <!-- Published so other repositories can check their native images with Porelo's version. -->
-        <maven.deploy.skip>false</maven.deploy.skip>
-        <skipPublishing>false</skipPublishing>
+        <!-- Published in a release so other repositories can check their native images with Porelo's version. A
+             snapshot publish leaves it out with -DskipInternalPublishing=true: no repository resolves its snapshot. -->
+        <skipInternalPublishing>false</skipInternalPublishing>
+        <maven.deploy.skip>${skipInternalPublishing}</maven.deploy.skip>
+        <skipPublishing>${skipInternalPublishing}</skipPublishing>
     </properties>
 
     <dependencies>

@@ -430,6 +430,7 @@ jobs:
                   OSS_SONATYPE_USERNAME: ${{ secrets.OSS_SONATYPE_USERNAME }}
                   OSS_SONATYPE_TOKEN: ${{ secrets.OSS_SONATYPE_TOKEN }}
                   OSS_SONATYPE_GPG_PASSPHRASE: ${{ secrets.OSS_SONATYPE_GPG_PASSPHRASE }}
+                  CHANNEL: ${{ steps.channel.outputs.channel }}
               run: |
                   set -eu
                   if [ -z "$PORELO_DEPLOY_PROFILE" ] && [ "$PORELO_PUBLISH" != false ]; then
@@ -437,12 +438,19 @@ jobs:
                   fi
                   [ -n "$PORELO_DEPLOY_PROFILE" ] \
                       || { echo "::error::PORELO_DEPLOY_PROFILE is empty; set the deploy profile"; exit 1; }
+                  # A snapshot sends fewer files. Central validates no snapshot, so it goes unsigned and without
+                  # sources and javadoc jars, and only the modules other repositories resolve. A release keeps them all.
+                  set --
+                  if [ "${CHANNEL:-}" = snapshots ]; then
+                      set -- -Dgpg.skip=true -Dmaven.source.skip=true -Dmaven.javadoc.skip=true \
+                          -DskipInternalPublishing=true
+                  fi
                   # Central's snapshot repository answers 429 to a burst of uploads: fewer at once, and each
                   # throttled request tried again after a pause rather than failing the publish.
                   ./mvnw -B deploy -P"$PORELO_DEPLOY_PROFILE" -s settings.xml -DskipTests \
                       -Daether.connector.http.retryHandler.count=8 \
                       -Daether.connector.http.retryHandler.interval=15000 \
-                      -Daether.connector.basic.threads=2
+                      -Daether.connector.basic.threads=2 "$@"
 
             # Into the channel this run publishes to. A release that is already there is refused: a published release
             # is never replaced, as on Central.
