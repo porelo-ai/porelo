@@ -45,10 +45,11 @@ today it checks no `Provides` at all.
 
 ## Acceptance
 
-- `dpkg-deb -f porelo_*.deb Provides` and `rpm -qp --provides porelo-*.rpm` both name
-  `porelo-agent-protocol-<LOWEST>`.
-- On the ubuntu VM, an agent package depending on `porelo-agent-protocol-3 | porelo-agent-protocol-4` installs beside
-  this package, and one depending only on a number below `LOWEST` is refused by `apt`.
+- `dpkg-deb -f porelo_*.deb Provides` names `porelo-agent-protocol (= <LOWEST>)` and `rpm -qp --provides
+  porelo-*.rpm` names `porelo-agent-protocol = <LOWEST>`, the versioned form the rpm plugin requires (see "Changed
+  after a measurement").
+- On the ubuntu VM, an agent package requiring `porelo-agent-protocol (>= 3), porelo-agent-protocol (<= 5)` installs
+  beside this package, and one requiring only a number below `LOWEST` is refused by `apt`.
 
 ## Decided by the operator (2026-11-12)
 
@@ -64,8 +65,7 @@ today it checks no `Provides` at all.
 - Seen red: packages built with the property at 2 failed `package-check` with "the deb provides agent protocol 2,
   but porelo's lowest is 3", and the same for the rpm; at 3 every check passes, and `dpkg-deb -f ... Provides` gives
   `porelo-agent-protocol-3`.
-- Not yet run: the acceptance on the ubuntu VM (an agent package depending on 3 or 4 installs beside this package;
-  one depending on 2 alone is refused by apt). The VM is held by another lane; it runs when the slot is free.
+- The acceptance on the ubuntu VM ran after the change to the versioned form; see "Run on the ubuntu VM".
 
 ## Read by a second model (2026-11-12)
 
@@ -98,3 +98,14 @@ today it checks no `Provides` at all.
 - Yellow, fixed: the check matched a substring, so another name ending in the capability, an epoch (`3:1`), a tilde
   (`3~rc1`) or an unversioned provide beside the right one passed. It now reads each whole entry: every entry naming
   `porelo-agent-protocol` must be exactly the plain number, once. Tests that failed before pin each.
+
+## Run on the ubuntu VM (2026-11-12)
+
+- With this build's `porelo` deb (`Provides: porelo-agent-protocol (= 3)`), `apt-get -s install` on ubuntu26.04, as
+  the `core` account, resolved three probe agent packages:
+  - requiring `>= 3, <= 5`: installs beside it;
+  - requiring `<= 2`: refused ("Unable to satisfy dependencies");
+  - requiring `>= 4, <= 5`: refused.
+- Control: the same `>= 3, <= 5` probe without this build is refused, "porelo-agent-protocol (>= 3) but it is not
+  installable", so the provide is what satisfies it.
+- apt was run in simulation, so the machine-wide install stayed as it was; the probes were removed afterwards.
