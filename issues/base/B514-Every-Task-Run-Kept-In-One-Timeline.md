@@ -95,6 +95,24 @@ the clearance. What is new is that they are kept per run.
 whose trust does not depend on the stream. They are mirrored into the stream, so the stream is the one timeline to
 read and the chain is the one to trust.
 
+## Research (2026-11-12)
+
+The operator's research on AI agent observability tools (in `porelo-project` ST137 and ST341 to ST343), taken in:
+- **No collector or tool replaces this issue.** A collector buffers, and it can lose data even with `file_storage`
+  (opentelemetry.io/docs/collector/resiliency). Langfuse ingests traces only, not OTLP logs. So the local journal
+  outside the task container stays the truth for:
+  - the run, task and session ids, and their order;
+  - restart and abort states;
+  - retention;
+  - the CLI's readings.
+- An export, a receiver or a view is derived from that journal ([B516](README.md#b516), [B644](README.md#b644)), never a
+  second truth.
+
+Open questions, for the plan reading:
+- Does "kept" mean until the person deletes it, and within what disk budget, said and bounded?
+- Are the lifecycle and the metadata enough, or is a full replay of the dialog and the tool calls needed? A replay
+  holds prompts, tool arguments and output, so it is a trust decision of its own.
+
 ## Plan
 
 One issue, in this order:

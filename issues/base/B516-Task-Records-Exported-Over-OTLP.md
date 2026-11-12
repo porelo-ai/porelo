@@ -35,3 +35,28 @@ The export crosses a trust boundary of its own, so it is its own issue and its o
 ## Plan
 
 Not planned yet. A plan reading comes first: what leaves, and to whom, is the trust boundary.
+
+## Plan inputs (2026-11-12)
+
+From the operator's research on AI agent observability tools (`porelo-project` ST341):
+- **The export is a derived view of [B514](README.md#b514)'s journal.** It is never a second store, and the journal
+  answers whatever an export lost.
+- **Standard parts, not our own protocol:** the OpenTelemetry SDK and its OTLP exporter.
+  - Lifecycle entries and log lines go out as LogRecords.
+  - Finished steps can go out as spans.
+  - Numbers go out as metrics.
+- **Attributes:** `porelo.task.id`, `porelo.run.id`, the record's sequence number and its kind, plus the fitting
+  `gen_ai.*` fields. The GenAI semantic conventions are still in development (now in
+  open-telemetry/semantic-conventions-genai), so the version used is pinned and named.
+- **An allowlist of fields before the first hop.** Off by default: free text, prompts, tool arguments and results, the
+  agent's output and error texts. A secret is never released by any "allow output" switch, because it is never in a
+  record.
+- **Delivery:**
+  - an export cursor in the journal, with retry and dedup;
+  - backpressure limits, and gaps shown, never hidden;
+  - an export that fails never blocks or slows a run.
+
+Open questions, for the plan reading:
+- Future records only, or released history as well?
+- How do duplicates and lost records show, at the destination and in porelo?
+- Only permissively licensed open-source destinations, or AGPL and ELv2 ones too, each as a separate target?
