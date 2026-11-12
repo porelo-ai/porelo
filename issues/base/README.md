@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b629"></a>[B629](B629-Each-Side-Log-Line-Carries-Its-Time.md) | S | - | Each line a task's side process writes to gate.log, vault.log, relay.log or clearance.log starts with the time it was written, and Tasks1 `Tail` answers that time beside each line, null for a line without one, for the window's one timeline of a piece of work. |
 | <a id="b626"></a>[B626](B626-A-Start-Step-Fails-When-The-Start-Ends.md) | - | - | The acceptance kit's step that waits for an agent's session fails as soon as the terminal's `porelo task start` has ended without one, naming the start's exit and output, instead of waiting out its 900 seconds. |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |
@@ -246,6 +245,7 @@ from its side, as *blocked by*.
 | <a id="b517"></a>[B517](B517-A-Card-Proposed-And-Accepted-By-An-Owner.md) | M | - | A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it. |
 | <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. |
 | <a id="b630"></a>[B630](B630-A-Tasks-Record-Splits-Its-Work-By-Sub-Agent.md) | L | - | A task's record names each sub-agent's own span with its issue and parent, counts tokens per sub-agent, takes an issue id with a hyphen, and keeps several issue and phase pairs given at the start. |
+| <a id="b629"></a>[B629](B629-Each-Side-Log-Line-Carries-Its-Time.md) | S | - | Each line a task's side process writes to gate.log, vault.log, relay.log or clearance.log starts with the time it was written, and Tasks1 `Tail` answers that time beside each line, null for a line without one, for the window's one timeline of a piece of work. |
 
 ## Implementing
 
