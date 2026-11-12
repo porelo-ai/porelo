@@ -18,7 +18,7 @@
 
 Filed 2026-11-12 from an operator test's VM run, straight into the backlog as the bug rule says.
 
-**What was seen.** With B673's build, `porelo project sign foo-project --yes --base <commit> --id <id>` answered "cannot
+**What was seen.** With [B673](README.md#b673)'s build, `porelo project sign foo-project --yes --base <commit> --id <id>` answered "cannot
 read the organization's repository: error: unable to read askpass response from '/bin/false'; fatal: could not read
 Username for 'https://github.com': terminal prompts disabled" (exit 69). The signing account's organization.yml names
 the organization over ssh (`git@github.com:<owner>/<org>.git`), its forwarded agent holds the key, and no forge token
