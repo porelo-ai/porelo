@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B677",
   "title": "A Host's Service Is Reached By Its Role",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 3,
@@ -47,3 +47,25 @@ card and resolves no name.
 
 - On a host, `printf 'GET / HTTP/1.0\r\n\r\n' | ssh <host> porelo service connect forge-web` answers with the
   forge's page as that person; a test fails while bytes are lost or the wrong socket is reached.
+
+## Built (2026-11-12)
+
+- `ServiceConnectCommand` under the new top-level `service` group (`ServiceCommand`, registered in `PoreloCli`).
+  `HOST_SOCKETS` is the one table of roles and sockets; the test builds the command over a table in a temporary
+  directory, an attribute source and root's uid.
+- The socket's own owner is the service's account (the forge's, the homeserver's), never root, so the check asks of
+  the socket only that it is a socket nobody else may write, and of every directory above it up to `/` that it is
+  root's and written by root alone: only root could have placed the socket there. Root is uid 0 only in the initial
+  user namespace (`/proc/self/uid_map` the identity map); elsewhere the command refuses with 69, since an owner of 0
+  there says nothing.
+- Exit 0 when the service ends; 64 for an unknown role; 69 naming the role for no socket ("this host serves none"),
+  a socket that refuses, or a refused socket or directory; 70 for a failure while carrying. The end of standard input
+  half-closes the socket, and the service's end ends the command, as `porelo daemon connect` does.
+- `doc/commands.md` gains the `service` section with the roles, sockets and exit codes; `porelo` has no man page of
+  its own.
+- Tests (`ServiceConnectCommandTest`, unit level, real Unix sockets): a request carried to the forge-web socket and
+  echoed back only after the input's end arrived; forge-git and homeserver reach their own sockets and not the web
+  one; an unknown role 64 through the real command line; a missing socket and a socket nobody accepts on 69 with
+  their own words; a socket in a directory others can write, in a directory another account owns, a socket others
+  can write and a plain file are refused with no connection made. All nine were seen red against a stub that
+  returned 0.

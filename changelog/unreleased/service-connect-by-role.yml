@@ -1,0 +1,2 @@
+title: "`porelo service connect <forge-web|forge-git|homeserver>` joins standard input and output to the host's forge or homeserver socket as the person, so a window carries one service through one ssh channel"
+type: added

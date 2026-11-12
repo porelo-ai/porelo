@@ -27,6 +27,7 @@ file are in [the project file](project-file.md).
 | [`panic`](#panic) | Stops every task and helper, removing nothing. |
 | [`keep`](#keep) | Copies the usage records into a directory, or puts them back from one. |
 | [`daemon`](#daemon) | Reaches the daemon on this machine. |
+| [`service`](#service) | Reaches a service this host serves, by its role. |
 | [`completion`](#completion) | Prints the TAB completion script for a shell. |
 
 ## For a given job
@@ -1166,6 +1167,26 @@ both stay as they are, and the others are still copied. Exit 0, or 70 naming wha
 
 `porelo daemon connect` bridges standard input and output to the daemon's socket, for use as an ssh
 `ProxyCommand`. The daemon is `porelod`; see [the daemon](running.md#the-daemon).
+
+## service
+
+`porelo service connect <role>`, run on a host over ssh once per connection, joins its standard input and output to
+the Unix socket the host serves that role on, so a window on another machine carries one service through one ssh
+channel with no port of its own. It connects as the person, so the gate behind the socket takes the login from the
+peer's credentials as for a local client; it carries no credential, reads no card and resolves no name.
+
+| Role | Socket |
+|---|---|
+| `forge-web` | `/run/porelo-forge/web.sock` |
+| `forge-git` | `/run/porelo-forge/git.sock` |
+| `homeserver` | `/run/porelo-matrix/client.sock` |
+
+Before connecting it checks that the socket is a socket nobody else may write and that every directory above it is
+root's and written by root alone, since the socket's own owner is the service's account. Standard output carries the
+service's bytes and nothing else; the end of standard input half-closes the socket, and the service's end ends the
+command. Exit 0 when the service ends; 64 for an unknown role; 69 naming the role when the host serves none (no
+socket), when its socket refuses, or when the socket or a directory above it is refused; 70 when the connection fails
+while carrying.
 
 ## completion
 

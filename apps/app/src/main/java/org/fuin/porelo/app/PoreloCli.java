@@ -41,6 +41,7 @@ import picocli.CommandLine.Spec;
             PanicCommand.class,
             KeepCommand.class,
             DaemonCommand.class,
+            ServiceCommand.class,
             ProjectsCommand.class,
             ClearCommand.class,
             CompletionCommand.class,
