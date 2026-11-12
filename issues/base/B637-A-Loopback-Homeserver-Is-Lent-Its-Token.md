@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "S",
   "priority": "Low",
-  "rank": null,
+  "rank": 1,
   "blockedBy": [],
   "covers": "porelo lends matrix-registration-token.<server> to a homeserver on loopback http, as it does to an https or Unix socket one, so a person's local homeserver can be named for a project; any other plain http address still lends nothing."
 }

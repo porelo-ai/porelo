@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "XS",
   "priority": "Medium",
-  "rank": null,
+  "rank": 34,
   "blockedBy": [],
   "covers": "A start refused with no-homeserver for an organization project that names mail.transports.matrix says the step that ends it - a project admin names the homeserver and a room in project.yml and signs it - and the docs say the same."
 }

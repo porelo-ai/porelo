@@ -6,6 +6,7 @@
   "id": "B626",
   "title": "A Start Step Fails When The Start Ends",
   "state": "Idea",
+  "size": "-",
   "priority": "Medium",
   "rank": 42,
   "blockedBy": [],

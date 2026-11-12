@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": null,
+  "rank": 33,
   "blockedBy": [],
   "covers": "Two choices made at a task's start, on the CLI and in Tasks1 Start so the window can offer them, neither the default: the session and the task end when the agent ends, and the task stops when the person leaves its shell; without them a task behaves as today."
 }
