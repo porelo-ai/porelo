@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B631",
   "title": "A Task That Read Its Project Ends Without Failing",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "Highest",
   "rank": 1,
@@ -27,3 +27,11 @@ Nothing after its removal asks podman about it by name.
 How it is today, read in the code: `cleanUpOrFail` removes a reading task with `TaskControl.remove`, which takes its
 recorded id, then calls `reapOrphans`, whose `pidOf(container)` goes through `Podman.target`. With no recorded id,
 `target` throws `NotATaskException`, and `cleanUp` turns that into 70.
+
+## As built
+
+- `TaskLaunch.reapOrphans` asks podman for the container's pid only while the task has a recorded id; with none, its
+  container is gone with its removal, and the reaping goes on to the helpers and the MCP endpoint by their state.
+- `RecognizedTasksTest.aTaskThatReadItsProjectEndsWithoutFailingOnceItsRemovalTookItsRecord`, seen red with the VM's
+  own words, `NotATaskException: porelo-foo-project_all is no task Porelo made`.
+- Not seen here: the F492 run on the VM with this change.

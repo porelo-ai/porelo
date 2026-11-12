@@ -1,0 +1,2 @@
+title: "A prompted task that reads every repository of its project answers its run's own exit code when it is removed at its end, no longer 70 for a task with no record left"
+type: fixed

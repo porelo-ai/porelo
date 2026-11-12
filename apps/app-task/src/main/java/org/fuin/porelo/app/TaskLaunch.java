@@ -5780,7 +5780,10 @@ public final class TaskLaunch {
      * @param container The task.
      */
     static void reapOrphans(PoreloContext context, String container) {
-        if (context.podman().pidOf(container).orElse(0L) > 0) {
+        // A task whose removal took its record runs nothing of Porelo's, and podman is asked about
+        // a task by its recorded id alone: asking by the name refuses it as no task Porelo made.
+        if (context.recordedId(container) != null
+                && context.podman().pidOf(container).orElse(0L) > 0) {
             return;
         }
         TaskLifecycle.stopHelpers(context.paths().tasks().containerState(container));

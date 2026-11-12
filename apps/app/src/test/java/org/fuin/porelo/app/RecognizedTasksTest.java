@@ -146,4 +146,33 @@ class RecognizedTasksTest {
 
         assertThat(context.recordedId("porelo-p-kept")).isEqualTo("a1b2c3d4e5f6");
     }
+
+    @Test
+    void aTaskThatReadItsProjectEndsWithoutFailingOnceItsRemovalTookItsRecord() {
+
+        // A prompted task reading every repository is removed at its end, and the reaping after
+        // that asked podman by name for a task with no record left, so a run that went well
+        // answered 70, "no task Porelo made".
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0)
+                        .recognizingTasks();
+
+        org.assertj.core.api.Assertions.assertThatCode(
+                        () -> TaskLaunch.reapOrphans(context, "porelo-foo-project_all"))
+                .as("a removed task's reaping asks podman nothing by its name")
+                .doesNotThrowAnyException();
+        assertThat(runner.invocations())
+                .as("and nothing is done to a container of that name")
+                .noneMatch(command -> command.arguments().contains("porelo-foo-project_all"));
+    }
 }
