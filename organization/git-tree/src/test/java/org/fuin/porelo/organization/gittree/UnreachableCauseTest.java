@@ -44,6 +44,29 @@ class UnreachableCauseTest {
     }
 
     @Test
+    void anAddressCutAtTheEndKeepsNoneOfItsUserInformation() {
+        final String said =
+                Unreachable.fromGit(
+                                LEAD,
+                                "fatal: "
+                                        + "x".repeat(370)
+                                        + " 'https://alice:hunter2@forge.example/o.git'\n")
+                        .getMessage();
+
+        assertThat(said).doesNotContain("hunter2").doesNotContain("alice");
+    }
+
+    @Test
+    void whatTheServerAnsweredIsNeverQuoted() {
+        assertThat(
+                        Unreachable.fromGit(
+                                        LEAD,
+                                        "fatal: invalid server response; got 'the-lent-token'\n")
+                                .getMessage())
+                .doesNotContain("the-lent-token");
+    }
+
+    @Test
     void anUntrustedHostKeyIsNamed() {
         assertThat(
                         Unreachable.fromGit(

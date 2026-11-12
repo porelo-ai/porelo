@@ -59,6 +59,34 @@ class OrgProposalAccessTest {
         }
     }
 
+    @Test
+    void aTokenDeclaredInAVariableGitReadsItselfIsNeverHandedToGit() throws Exception {
+        // Git echoes a GIT_TRACE it cannot take, and the echo reaches a refusal.
+        String previous = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
+        try {
+            PoreloContext machine =
+                    new PoreloContext(
+                            new ProcessCommandRunner(),
+                            new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                            args -> 0,
+                            name -> "GIT_TRACE".equals(name) ? "lent-token" : null);
+            Path declarations = machine.paths().xdg().config().resolve("credentials.yml");
+            Files.createDirectories(declarations.getParent());
+            Files.writeString(
+                    declarations,
+                    "credentials:\n  - match: https://forge.example.org/acme/\n    kind: token\n    source: env\n    env: GIT_TRACE\n");
+            try (var lease =
+                    OrganizationAccess.lent(machine, "")
+                            .lend("https://forge.example.org/acme/organization.git")) {
+                assertThat(lease.environment()).doesNotContainValue("lent-token");
+            }
+        } finally {
+            if (previous == null) System.clearProperty(PoreloBinary.NAMED);
+            else System.setProperty(PoreloBinary.NAMED, previous);
+        }
+    }
+
     PoreloContext context() throws Exception {
         PoreloContext machine =
                 new PoreloContext(

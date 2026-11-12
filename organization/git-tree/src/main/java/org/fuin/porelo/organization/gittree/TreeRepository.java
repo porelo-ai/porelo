@@ -502,6 +502,9 @@ final class TreeRepository implements AutoCloseable {
         return said.lines()
                 .filter(line -> !line.stripLeading().startsWith("remote:"))
                 .filter(line -> !line.contains("remote error:"))
+                // Git quotes what the server answered, and a forge may answer with what it was
+                // sent.
+                .filter(line -> !line.contains("invalid server response"))
                 .collect(java.util.stream.Collectors.joining("\n"))
                 .strip();
     }

@@ -62,3 +62,9 @@ drops them the same way. `porelo project sign` runs this in its own process; por
   without git's words; they are other commands than the one seen.
 - From the first VM run: git's lines ran together where the newline was made printable ("'/bin/false'?fatal:").
   `fromGit` now joins them with "; ".
+- Codex read that and found three Reds, fixed: git's "invalid server response; got '...'" quotes what the forge
+  answered, which may echo the lent token, so such a line is dropped; an address cut at 400 characters could lose its
+  `@` and keep its user information, so it is redacted before the cut; and a credential declared in a variable git
+  reads itself (`GIT_`, `SSH_`, `LD_`) is never handed to git under that name. Each has a test that failed before.
+- Kept, from that reading: the credential helper does not hold a line to git's 65,535 bytes; git took longer lines,
+  and no value leaks.

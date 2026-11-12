@@ -100,9 +100,13 @@ public final class GitTreeStore {
          * @return It.
          */
         public static Unreachable fromGit(final String lead, final String standardError) {
+            // User information is left out before the words are cut: a cut through an address
+            // would leave its user and secret without the '@' that marks them.
             final String own =
                     org.fuin.porelo.vault.RegistryText.printable(
-                            TreeRepository.gitsOwnWords(standardError).replace("\n", "; "));
+                            ForgeAddress.withoutUserinfoIn(
+                                    TreeRepository.gitsOwnWords(standardError)
+                                            .replace("\n", "; ")));
             if (own.isEmpty()) {
                 return new Unreachable(lead);
             }

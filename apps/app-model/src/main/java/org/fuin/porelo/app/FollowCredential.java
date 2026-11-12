@@ -519,7 +519,15 @@ public final class FollowCredential implements AutoCloseable {
      * @return Its name, or {@code null} when no token comes from a variable.
      */
     @Nullable String variable() {
-        return environment.get(VARIABLE);
+        final String name = environment.get(VARIABLE);
+        // Git, ssh and the loader read these names themselves, and git echoes a value it cannot
+        // take: a token in GIT_TRACE would be on its standard error, and so in a refusal.
+        return name == null
+                        || name.startsWith("GIT_")
+                        || name.startsWith("SSH_")
+                        || name.startsWith("LD_")
+                ? null
+                : name;
     }
 
     /**
