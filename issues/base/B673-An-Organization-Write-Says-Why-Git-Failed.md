@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B673",
   "title": "An Organization Write Says Why Git Failed",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 1,
