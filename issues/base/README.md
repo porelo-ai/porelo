@@ -108,6 +108,7 @@ from its side, as *blocked by*.
 | <a id="b645"></a>[B645](B645-A-Shut-Vault-Login-Stores-Within-Its-Wait.md) | - | - | The acceptance scenario of a login asked for while the vault is shut says 'Signed in - the credential is stored' within the time it waits on every leg, or the wait is measured and set as its sibling's is. |
 | <a id="b647"></a>[B647](B647-An-Unattended-Run-Ends-At-Its-Time-Limit.md) | - | - | An unattended run has a time limit, set at its start with a default, after which porelo ends it, records it as ended by its limit and keeps its log; a model that never ends its turn no longer holds a task forever. |
 | <a id="b476"></a>[B476](B476-Porelos-Own-Commits-Carry-The-Accounts-Noreply-Address.md) | S | - | Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority. |
+| <a id="b648"></a>[B648](B648-A-Start-Carries-The-Callers-Own-Key.md) | - | - | Start takes an opaque key from its caller, at most 200 characters, kept with the task from its creation and given back by List and Watch, so a caller that restarts finds every task it started. |
 
 ## Accepted
 
