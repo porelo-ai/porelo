@@ -220,6 +220,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b675"></a>[B675](B675-A-Projects-Repository-Is-Reached-As-Its-Organization-Is.md) | S | - | A person whose organization is reached over ssh writes a project's repository on the same forge over ssh too, so `project sign` and the project's other file writes need no forge token when the organization needs none. | 0 |
 | <a id="b673"></a>[B673](B673-An-Organization-Write-Says-Why-Git-Failed.md) | XS | - | A command that writes the organization and cannot reach its repository names git's own words and the step that failed, not only that the organization cannot be reached. | 0 |
 | <a id="b674"></a>[B674](B674-A-Forced-Removal-Takes-Over-A-Start-That-Never-Ends.md) | S | - | `task remove --force` ends the name's claim even while a start in another process still holds it, so `project remove --force` and `project clear` are no longer refused by an unfinished start of a task already removed. | 0 |
 | <a id="b646"></a>[B646](B646-A-Reader-Is-Handed-The-Work-It-Reads.md) | M | - | A task started to read another task's work is given that work through its own gate, read only and under a name its order can use, and nothing else of other tasks; today no task can see another task's branch. | 0 |
