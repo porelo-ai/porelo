@@ -27,5 +27,5 @@ fallbacks, and waits for this one.
 ## To be checked
 
 - How this meets [B322](README.md#b322), whose leg takes the host's pool by kind and keeps `--type` for the rented
-  machine: built first, this leaves B322 only the pool's source and the workflow condition.
+  machine: built first, this leaves that issue only the pool's source and the workflow condition.
 - `vars.LEG_TYPES` and the core workflow tests that pin the legs' arguments (`PublishWorkflowTest` and its neighbours).

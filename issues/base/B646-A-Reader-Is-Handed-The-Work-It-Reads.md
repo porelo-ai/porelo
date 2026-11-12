@@ -5,12 +5,13 @@
   "$schema": "issue-1.json",
   "id": "B646",
   "title": "A Reader Is Handed The Work It Reads",
-  "state": "Idea",
-  "size": "-",
-  "priority": "High",
+  "state": "Backlog",
+  "size": "M",
+  "priority": "Highest",
   "rank": 1,
   "blockedBy": [],
-  "covers": "A task started to read another task's work is given that work through its own gate, read only and under a name its order can use, and nothing else of other tasks; today no task can see another task's branch."
+  "covers": "A task started to read another task's work is given that work through its own gate, read only and under a name its order can use, and nothing else of other tasks; today no task can see another task's branch.",
+  "openQuestions": 0
 }
 ```
 
@@ -47,7 +48,59 @@ branch, so the fix is porelo's. The planner's order follows whatever name porelo
 "A Reader Is Started With The Work It Reads": it takes the branch from the task's row with ENDED into the reader's
 `{tasks}`, and the reader's offer names the builders' tasks, so the window starts it naming them.
 
-Open questions, for the plan reading:
-- Branches as they stand on the forge (forwarded), or the reviewed commit named by porelo?
-- Whether a reader of a whole project (`--all-repositories`, a reading copy without `.git`) needs the same, and in
-  what form.
+**Size.** M: the gate, its serve command, the start's option and record, Tasks1 Start and List, and the docs; one
+contract change the window and the planner read.
+
+## Plan
+
+Read in the code on 2026-11-12 (main 120805914). The mirror is the project's, shared by its tasks. A task's gate serves
+it through `git upload-pack` with `transfer.hideRefs` (`GitHttpServer.hidingOthers`): every `refs/porelo/incoming/`
+but the task's own, and every `refs/porelo/forwarded/`. The refresh drops every task branch from the mirror
+(`GitGate.dropApprovedBranches`, `taskBranch`). When the gate forwards a task's work, it records the commit under
+`refs/porelo/forwarded/<task>/<hash of upstream and branch>` (`GitGate.java:1457`, `forwardedRef`). The name does not
+say the branch, and the record is hidden from every task. The List row already carries `forgeBranch`, the branch the
+start settled. A person may name another branch at approval, so the branch the work landed on is the forward's own.
+
+1. **Red first.** In `GitGateTest`, a builder's approved work and a reader started naming the builder:
+   - the reader's `git ls-remote origin` lists `refs/porelo/landed/<builder>/<branch>` at the forwarded commit;
+   - a third task started without naming the builder lists nothing of it;
+   - work still held at the gate is listed for nobody;
+   - the reader's push to that ref is refused.
+2. **The landed record.** Where the gate forwards (`:1457`), it also writes `refs/porelo/landed/<task>/<branch>` at
+   the forwarded commit. The record names the branch, and the commit is the one forwarded: in `guarded` the reviewed
+   one, in `online` the task's own as its class allows. It is removed with the task's other refs.
+3. **Hidden, then named.** `hidingOthers` hides `refs/porelo/landed/` for every task. For each task the reader names,
+   it unhides `refs/porelo/landed/<task>/` (git matches at a component boundary, so `foo-1` does not reveal `foo-10`).
+   `git receive-pack` already takes only the task's own incoming ref, so the reader cannot write there. A test pins it.
+4. **The start.** `task run --reads TASK` (repeatable) and Tasks1 Start's `reads: [string]`. Each name must be a task of
+   the same project and repository, else 64. The names are kept in the task's profile, passed to its `gate serve` as
+   `--reads`, and kept on resume. The reader's workspace gets the fetch refspec
+   `+refs/porelo/landed/*:refs/remotes/origin/landed/*`, so `git fetch` brings `origin/landed/<task>/<branch>`.
+5. **The row.** List's and Watch's row of a task whose work landed carries `landed: [{branch, ref, commit}]`, read
+   from its `refs/porelo/landed/<task>/` records. The planner takes `ref` into the reader's order. `forgeBranch` stays
+   as it is.
+6. **Docs.** `doc/how-it-works.md` (gate) and the Tasks1 reference name `reads` and `landed`.
+
+## Acceptance
+
+- The four cases of step 1, each seen red first.
+- A reader started by Tasks1 Start with `reads` finds the builder's work with `git ls-remote origin` and
+  `git fetch`. A task started without `reads` finds none of it, as today.
+- List names `landed` for the builder after its approval, and nothing while its work waits at the gate.
+
+## Answered in the analysis
+
+- **Forge branch or reviewed commit:** the commit the gate forwarded, under the branch it landed on. In `guarded`
+  that is the reviewed commit. The forge is not read, so a later push by someone else to that branch is not shown
+  as the task's work.
+- **A reader of a whole project** (`--all-repositories`, a reading copy without `.git`): not in this issue. Its copy
+  has no gate to serve refs through. If it needs one, it is its own issue.
+
+## To be checked
+
+- What removing the builder does to its `landed` records while a reader still runs. The plan keeps them until the
+  builder is removed; a reader started after that refuses the name with 64.
+
+## Decided by the operator (2026-11-12)
+
+- Accepted, priority Highest, with Estimated and Backlog given in advance for its analysis (ST314, run 26).
