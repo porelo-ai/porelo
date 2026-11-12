@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B621",
   "title": "The Native-Image Checks Live With Porelo",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 30,
@@ -78,6 +78,21 @@ dry run that `check-deploy` reads shows `injected-central-publishing` in both mo
 -Dagent=true -pl core -am verify` builds `porelo-ffm-check` first and refuses a removed registration in core's
 `reachability-metadata.json` (put back afterwards); and `-N exec:exec@release -Drelease.args="check-commits ..."` runs
 from a local repository holding no porelo-ffm-check at porelo's version.
+
+## After the plan reading
+
+agy (gemini) read the plan; the build takes its answers:
+
+- `build/README.md`, linking both checks, and a link to it in the root `README.md`, or `check-readmes` fails at
+  `validate`.
+- `build/ffm-check` and `build/cpu-check` take `porelo-build-checks` as parent with `relativePath` `../pom.xml`, as every
+  grouped module here does; `build/pom.xml` takes the root.
+- Both modules bind `cyclonedx-maven-plugin` and set `Automatic-Module-Name`, as every published jar here does.
+- ffm-check names `porelo-wire` without a version, from the root's dependency management at `${porelo.version}`.
+- Also changed: `AGENTS.md`'s other two sentences on six artifacts, `agents/README.md`, and `build.yml`'s comment on
+  where `porelo-ffm-check` comes from.
+- porelo-planner can take `porelo-cpu-check` from porelo's snapshot at once, but its own release waits until a porelo
+  release carries the checks, since `check-releases` refuses a snapshot version.
 
 ## Acceptance
 
