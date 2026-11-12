@@ -571,6 +571,14 @@ public final class TaskControl {
                                     + "'s work record was not completed: "
                                     + ex.getMessage());
                 }
+                try {
+                    // Taken again, so Result answers what its agent wrote, though a listing at
+                    // its start found the file missing; a file once handed stays as handed.
+                    new TaskResult(context.paths()).take(container);
+                } catch (java.io.IOException ex) {
+                    System.err.println(
+                            "porelo: " + container + "'s result was not taken: " + ex.getMessage());
+                }
             }
         }
         // Out of its rooms where its next start brings it back, or a room counts it as running. Not

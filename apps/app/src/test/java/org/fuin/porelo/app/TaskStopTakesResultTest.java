@@ -32,6 +32,33 @@ class TaskStopTakesResultTest {
     }
 
     @Test
+    void anAttendedTaskStoppedAnswersItsResultThoughItsStartFoundItMissing(@TempDir final Path dir)
+            throws IOException {
+        // A listing in the second before its container ran took the file as missing, and nothing
+        // looked again: the person's discussion ended, and its idea stayed missing.
+        final PoreloContext context = context(dir);
+        TaskIdentityFixture.record(context.paths(), "porelo-uc-all", "uc", "all", ID);
+        final TaskResult result = new TaskResult(context.paths());
+        result.prepare("porelo-uc-all", "idea.json");
+        assertThat(result.takeOnce("porelo-uc-all").state())
+                .as("taken at its start, before the agent wrote")
+                .isEqualTo(TaskResult.State.MISSING);
+        Files.writeString(result.box("porelo-uc-all").resolve("idea.json"), "{\"idea\":2}");
+        runner.answering(
+                "ps",
+                "porelo-uc-all\tUp 4 minutes\t1700000000\t0\tuc\tguarded\t\t\t" + ID + "\tall\n");
+
+        new TaskControl(context).stop("porelo-uc-all");
+
+        final TaskResult.Answer answer = result.answer("porelo-uc-all");
+        assertThat(answer).isNotNull();
+        assertThat(answer.taken().state())
+                .as("taken again at its stop")
+                .isEqualTo(TaskResult.State.HANDED);
+        assertThat(answer.content()).isEqualTo("{\"idea\":2}");
+    }
+
+    @Test
     void anAttendedTaskStoppedAnswersItsResultBeforeAnyListing(@TempDir final Path dir)
             throws IOException {
         // An attended session runs no prompt run that takes the file, and only a listing took it
