@@ -257,6 +257,7 @@ from its side, as *blocked by*.
 | <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | S | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. | 0 |
 | <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
+| <a id="b679"></a>[B679](B679-A-Task-Start-Reading-The-Vault-Leaves-No-Core-Dump.md) | XS | - | A `porelo task start` that reads the vault to see which credentials it can serve makes itself undumpable first, as the brokers do, so a crash of the starting process never writes a decrypted credential to a core file. | - |
 | <a id="b666"></a>[B666](B666-The-Push-Judges-Arming-Stops-On-A-Link.md) | S | [B549](README.md#b549) | The host's push-judge arming stops on a linked repository or git directory, checks the hook and the link target as plain executable files without following links, leaves no link when it stops, and removal decides once | 0 |
 | <a id="b651"></a>[B651](B651-Tests-That-Pass-Under-Any-Login-And-Umask.md) | S | - | The transport tests pass under a login such as Alex or runner_1, the directory tests show their fault under umask 002, and a tagged VM test shows a peer of another account | 0 |
 | <a id="b650"></a>[B650](B650-A-Starts-Smaller-Refusals-And-Leftovers.md) | M | - | A start leaves no unrecorded container, a no-gate task is removable, a long project name and a refused task name get a usable answer, two refusals answer one code, and a host start names the builds entry it misses | 0 |
@@ -271,6 +272,7 @@ from its side, as *blocked by*.
 | <a id="b637"></a>[B637](B637-A-Loopback-Homeserver-Is-Lent-Its-Token.md) | S | - | porelo lends matrix-registration-token.<server> to a homeserver on loopback http, as it does to an https or Unix socket one, so a person's local homeserver can be named for a project; any other plain http address still lends nothing. | - |
 | <a id="b672"></a>[B672](B672-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The daily Shared rules check runs porelo-release's `issues check issues`, so an issue head that breaks the issue format is found within a day. | - |
 | <a id="b676"></a>[B676](B676-A-Record-Path-Matches-A-Boolean-Or-A-Number.md) | XS | - | An agent description's `.record` match (`last_message.record`, `session_id.record`) can name a boolean or number field: `is_error: false` matches the record's false, as a string field matches today. | - |
+| <a id="b680"></a>[B680](B680-A-Kept-Start-That-Never-Ran-Keeps-Its-Callers-Key.md) | XS | - | A start that fails under `--keep`, one that only reads, or one handed over, whose container podman made but never ran, saves its caller's key to the task's record, so a reboot before it runs does not lose the key its caller finds it by. | - |
 
 ## Implementing
 
