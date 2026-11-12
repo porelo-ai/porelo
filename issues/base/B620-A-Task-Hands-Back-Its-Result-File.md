@@ -85,3 +85,11 @@ How it is today, read in the code:
     run said.
   - Rejected, by design: a file left in the box from an earlier run is that run's file at the next run's end. A take
     after `too-large` or `unreadable` takes again.
+- From Machines' VM round on fd07b3f4 (2026-11-12), three points, each checked against the contract:
+  - `porelo task status --json` gave no `result`, though `List` and `Result` carry it. It now adds `result` (name,
+    state, bytes) for a task started with one.
+    `TaskStatusIdentityTest.statusJsonSaysWhatWasTakenOfTheFileATaskHandsBack` was red first.
+  - `Tasks1.Result` takes the container name, not the short name. That is as designed: like `Stop`, `Remove`,
+    `Tail` and every other method naming one task, it takes what `List` answers as `name`.
+  - The container stays up after `Done`. That is as designed: `Done` records how the work ended and "neither stops
+    nor removes the container" (its contract). The file is taken at `Done` all the same.

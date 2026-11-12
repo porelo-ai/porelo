@@ -74,4 +74,39 @@ class TaskStatusIdentityTest {
                 .as("the compatible existing name")
                 .isEqualTo("porelo-uc-shell-1");
     }
+
+    @Test
+    void statusJsonSaysWhatWasTakenOfTheFileATaskHandsBack(@TempDir Path dir) throws Exception {
+        // A program asking a task's status read no result, though List and Result carry it.
+        final var runner = new FakeCommandRunner();
+        runner.answering("ps", "porelo-uc-shell-1\tExited (0)\t\t\tuc\n");
+        final var xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final var context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
+        Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell-1"));
+        final TaskResult result = new TaskResult(context.paths());
+        result.prepare("porelo-uc-shell-1", "idea.json");
+        Files.writeString(result.box("porelo-uc-shell-1").resolve("idea.json"), "{\"idea\":1}");
+        result.take("porelo-uc-shell-1");
+        final var output = new StringWriter();
+        final var cli = PoreloCli.commandLine(context);
+        cli.setOut(new PrintWriter(output));
+
+        assertThat(cli.execute("task", "status", "porelo-uc-shell-1", "--json")).isZero();
+        final var report = (Map<?, ?>) Json.parse(output.toString());
+        final var taken = (Map<?, ?>) report.get("result");
+        assertThat(taken).as("what was taken, as List says it").isNotNull();
+        assertThat(taken.get("name")).isEqualTo("idea.json");
+        assertThat(taken.get("state")).isEqualTo("handed");
+        assertThat(((Number) taken.get("bytes")).longValue()).isEqualTo(10L);
+    }
 }

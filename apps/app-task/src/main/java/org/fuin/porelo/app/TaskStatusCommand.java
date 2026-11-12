@@ -447,6 +447,9 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
             report.put("model", blankToNull(task.model()));
             report.put("modelLabel", blankToNull(task.modelLabel()));
             report.put("modelFrom", blankToNull(task.modelFrom()));
+            // As List says it; left out for a task that hands nothing back, or nothing yet.
+            final TaskResult.Taken result = task.result();
+            if (result != null) report.put("result", result.asMap());
         }
         // Left out when there is none, so what a program reads of an absent task stays as it was.
         final var usage = new TaskUsage(context).read(name);

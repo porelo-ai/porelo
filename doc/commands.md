@@ -426,7 +426,9 @@ task started without `--result` answers `NoResultNamed`, a name no task holds `N
 order, `task` for the short name, `container` for the full container name, and `model`, `modelLabel` and
 `modelFrom` from the task's saved profile. `name` keeps its full container name for existing readers. A task on its
 agent's default has null `model` and `modelLabel` and `agent` for `modelFrom`; a missing profile leaves all three
-null. An absent task's answer leaves these fields out, as before.
+null. A task started with `--result` adds `result`, what was taken of its file as `Tasks1.List` says it: `name`,
+`state` and `bytes`, without the content, which `Tasks1.Result` answers. An absent task's answer leaves these fields
+out, as before.
 
 `task status` also reads provider-reported token usage, summed by answering model, agent, local day
 and local hour. Each of input, cache read, cache write, output and reasoning has its reported total
