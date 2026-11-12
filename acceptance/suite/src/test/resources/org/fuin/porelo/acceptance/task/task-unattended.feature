@@ -60,7 +60,8 @@ Feature: An unattended run, started at the terminal and through the daemon
             # The stub declares example.net and is deliberately not given it - the name the resolver refuses.
             ask '{"method":"org.fuin.porelo.Tasks1.Agents","parameters":{}}' | grep -oE '"refusedDomains":\["example.net"\]'
             reply=$(ask '{"method":"org.fuin.porelo.Tasks1.Start","parameters":{"task":"viadaemon","project":"unattended","agent":"stub","repository":"unattended","prompt":"say hello and stop","clearance":"deny","keep":true}}')
-            container=$(printf '%s' "$reply" | grep -oE '"container":"[^"]*"' | cut -d'"' -f4)
+            # The reply names the container once and again in each of its steps: one name is the path.
+            container=$(printf '%s' "$reply" | grep -oE '"container":"[^"]*"' | head -1 | cut -d'"' -f4)
             echo "started: ${container:-nothing}"
             printf '%s' "$reply" | grep -oE '"result":"[^"]*"|"resultKind":"[^"]*"' | sed 's/^/answered: /'
             test -s "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$container/task.log" && echo "the daemon ran the agent, not only the container"
