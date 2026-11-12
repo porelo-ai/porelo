@@ -5,16 +5,17 @@
   "$schema": "issue-1.json",
   "id": "B355",
   "title": "No Switch That Turns Every Check Off",
-  "state": "Accepted",
-  "size": "S",
+  "state": "Analyzed",
+  "size": "M",
   "priority": "Medium",
-  "rank": 6,
+  "rank": 41,
   "blockedBy": [],
   "covers": "No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so"
 }
 ```
 
-**Why this size.** proposed, plus the room's and the interface's parts: no `--insecure` is built; what is built is one
+**Why this size.** M: several modules (app-model, app-task, app-gate, app-messaging, the daemon) and one contract
+change that the interface reads (`verified` and the Talk event's `mark`). No `--insecure` is built; what is built is one
 visible mark for what already runs unsigned or unverified, in `task list`, the interface, the gate's verdicts and the
 room, read from state that exists.
 
@@ -161,6 +162,31 @@ its absence) carried into three outputs and one record line; no new check, no ne
 wrote in the organization's place, or one this machine ran a task for, whose file nothing verified; the task's
 `commit` answers empty.
 
+## Plan
+
+Read in the code on 2026-11-12. A task's `certified` is already answered (`TaskInventory.java:1186`), and so is its
+`commit`, which is empty where nothing verified the project. What is missing is the mark built from them, and the
+arrival line for a task that has no judge.
+1. **The red tests first.** `TaskInventoryTest`: a task whose `commit` is empty answers `verified: false`, and
+   `task list` shows `unsigned` / `unverified` in its line. `ArrivalRecordsTest`: an uncertified task's accepted
+   push writes `accepted, unsigned`.
+2. **This machine.** `TaskInventory.asMap` gains `verified`. `TaskListCommand` and `TaskStatusCommand` render the
+   mark beside the state, and `certified` stays as it is. `GateServeCommand` wraps a judge only where a principal
+   and signers exist (`:301`). Where none exist, it wraps an accepting judge in `ArrivalRecords.recording` that
+   records `accepted, unsigned`. The gate's `Pending`/`Review` answer carries the task's last arrival verdict from
+   the event log.
+3. **The room.** `TransportLifecycle` (`:448`, `:1242`) adds the mark to the display name it sets, and sets it again
+   when the task's certificate or verification changes. The sending Porelo adds it to the `--shown` line. The
+   transport plugin stays unchanged.
+4. **The receiver's verdict.** `MessageDelivery` already holds a message whose key it does not believe (`:288`), so
+   a delivered task message is a certified one. The daemon's `Talk` event gains `mark`. It is filled from the
+   receiver's own trace (`MessageSigners.Traced`) and from the sending project's verification, and is never read from
+   the message.
+5. **Refusals.** `porelo --insecure` and an `insecure` key in settings are refused as unknown, each seen in a test.
+   The refusal at `TaskLaunch.java:2045` stays.
+6. **Docs.** `doc/running.md` and the JSON reference name `verified` and `mark`. The interface (Frontend) renders
+   `mark`; that is its own issue.
+
 ## Acceptance
 
 - A task started in `default` without a certifier's key starts, and `task list` and `task status --json`
@@ -200,3 +226,12 @@ wrote in the organization's place, or one this machine ran a task for, whose fil
   never the sender's own content. The talk event Porelo hands the interface carries it as `mark` (`unsigned`,
   `unverified` or empty).
 - No per-person config file: every opt-out stays a flag on its command.
+
+## Open questions
+
+1. **Does the `default` project show `unverified`?** It has no file, so nothing can verify it, and every task in it
+   would carry both marks. Should the mark be `unsigned` alone there, or both as the rule reads?
+2. **The display name renamed on a change.** Each rename is a member event in the room's history that other persons
+   see. Rename on every change of the mark, or carry the mark only in the line?
+3. **A held message from an uncertified task.** Today the receiver holds it, and it waits for `message release`.
+   Should the interface show it with the mark and a release action, or keep it out of the talk stream as now?

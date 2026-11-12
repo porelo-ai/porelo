@@ -91,8 +91,17 @@ Steps:
 - A fetch that fails for a protocol reason does not present as an authentication failure. Seen to fail: a fetch
   forced to fail on protocol is reported as a 401 or a credential error.
 
-## To be checked
+## Open questions for the operator
 
-- **Whether the acceptance suite should depend on github.com**. The scenario is one a person would
-  do, but it makes the suite's result depend on a forge's behaviour; a scenario run only on request is the other
-  way.
+Named 2026-11-12 (ST30). The default base image is still `ubuntu:24.04` (noble), for tasks and for the login
+container, and nothing sets `http.version`, so the report still applies as filed.
+1. **github.com in the acceptance suite.** The scenario clones a public repository from github.com, so its result
+   depends on a forge's behaviour and on the legs' network. Run it on every build, or only on request (a tag the
+   legs skip, run before a release)?
+2. **The reproduction run.** Step 1 is a run on the VM with an `online` task on noble and one on Fedora, by Agent
+   Core under its own daemon. Is that run wanted now, or only when a person meets a 401 in a task?
+3. **If it does not reproduce.** Close the issue with the measurement recorded and nothing built, or keep step 3's
+   line in `doc/running.md` (a 401 on an anonymous fetch is not the vault's) either way?
+4. **The default base image.** If the default moves off noble (for example to `ubuntu:26.04`, which the VM and the
+   build runners already use) before this is built, the line would be for projects that name noble themselves. Is
+   such a move planned, and does this issue then wait for it?

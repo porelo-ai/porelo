@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B48",
   "title": "The Overview That Stays Open",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 17,
+  "rank": 35,
   "blockedBy": [],
   "covers": "`task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C."
 }

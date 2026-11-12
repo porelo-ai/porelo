@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B570",
   "title": "Porelo's Tests Follow The Pyramid",
-  "state": "Accepted",
+  "state": "Analyzed",
   "size": "XL",
   "priority": "Medium",
-  "rank": 1,
+  "rank": 40,
   "blockedBy": [],
   "covers": "Prove domain flows with unit tests over fakes, redesign classes hard to test alone, and keep narrow integration tests before the CLI's final end-to-end suite."
 }
@@ -308,4 +308,22 @@ For every harmful behavior, see the unit regression fail first, implement the se
 - Every separately selected module unit run is **under 60 seconds including setup/teardown**. Fresh counts move toward **70–80% unit / 15–20% integration**, with CLI exception; report runtime separately and never call parallel testcase sums wall time.
 - Use fake time/transport/store where sufficient; narrow tagged kernel/socket/process/PTY integration remains. No real endpoint proves domain decisions; quota/expiry/order tests never sleep.
 - Follow-up reports exact revision, skip identities, per-level cases/classes, testcase sums, class durations and elapsed steps. Missing/filtered/failed-run durations say **not measured**.
-- This audit changes only this issue (Accepted README row only if size changes). Only executable validation requested: offline root Maven validate with pinned JDK; no build/tests, remotes, machines or background work.
+- Each fix is red first at the lowest level named in its row, and it reports its module unit run time against fix 14's measure.
+
+## Open questions
+
+Named 2026-11-12 (ST296).
+1. **One issue or fourteen.** AGENTS.md has an XL say how it splits. Should fixes 1–14 be filed as their own issues,
+   each L or smaller, to be estimated and placed in the backlog one by one? Or should this issue stay as one audit, built in
+   the order of its table?
+2. **The order.** The table puts trust and data loss first (fix 1, fix 2). Fix 14 (reproducible levels and times) is
+   S, and it makes the "under 60 s per module" check measurable. Should fix 14 go first, so that every later fix
+   reports against it?
+3. **The 60-second budget.** `target-pyramid.md` sets shares by count and no time budget, while this issue sets
+   "under 60 s per module including setup". Is that a hard acceptance gate for each fix, or a direction reported
+   only?
+4. **Removing end-to-end cases (fix 13).** Once a lower proof is red-then-green, does the agent remove a repeated
+   CLI case on its own judgment, or does the operator approve each removal from a list?
+5. **Large redesigns beside feature work.** Fixes 1, 2 and 6 rework `TaskLaunch`, `TreeWalk` and `VaultProxy`,
+   which most feature issues also touch. Should they run between feature rounds, with nothing else open in those
+   classes, or interleave with them?
