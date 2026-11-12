@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B467",
   "title": "A Task Reaches Its Tool's Repositories Through Their Settings",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 19,
