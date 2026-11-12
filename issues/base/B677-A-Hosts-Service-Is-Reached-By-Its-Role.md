@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B677",
   "title": "A Host's Service Is Reached By Its Role",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 3,
