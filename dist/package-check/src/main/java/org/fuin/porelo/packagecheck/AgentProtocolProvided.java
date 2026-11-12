@@ -15,11 +15,14 @@ import org.fuin.porelo.agent.api.AgentProtocol;
  */
 final class AgentProtocolProvided {
 
-    // The capability at a version, as dpkg-deb gives it ("porelo-agent-protocol (= 3)") and as
-    // rpm gives it ("porelo-agent-protocol = 3"); a whole name, never the tail of another one.
-    private static final Pattern PROVIDED =
-            Pattern.compile(
-                    "(?<![\\w.-])porelo-agent-protocol\\s*(?:\\(\\s*=\\s*(\\d+)\\s*\\)|=\\s*(\\d+))(?![\\w.-])");
+    private static final String NAME = "porelo-agent-protocol";
+
+    // A whole entry, as dpkg-deb gives one ("porelo-agent-protocol (= 3)") and as rpm gives one
+    // ("porelo-agent-protocol = 3"): a plain number, no epoch, tilde or release, which would move
+    // it past an agent's bounds.
+    private static final Pattern DEB = Pattern.compile("porelo-agent-protocol \\(= (\\d+)\\)");
+
+    private static final Pattern RPM = Pattern.compile("porelo-agent-protocol = (\\d+)");
 
     private AgentProtocolProvided() {
         throw new UnsupportedOperationException("Utility class");
@@ -33,13 +36,34 @@ final class AgentProtocolProvided {
      * @param report where the verdicts go
      */
     static void check(String debProvides, String rpmProvides, Report report) {
-        one("the deb", debProvides, report);
-        one("the rpm", rpmProvides, report);
+        one("the deb", debProvides.split(","), DEB, report);
+        one("the rpm", rpmProvides.split("\\R"), RPM, report);
     }
 
-    private static void one(String label, String provides, Report report) {
-        final List<Integer> numbers = numbers(provides);
+    private static void one(String label, String[] entries, Pattern exact, Report report) {
+        final List<Integer> numbers = new java.util.ArrayList<>();
         final int lowest = AgentProtocol.LOWEST;
+        for (final String raw : entries) {
+            final String entry = raw.strip();
+            if (!entry.contains(NAME)) {
+                continue;
+            }
+            final Matcher matcher = exact.matcher(entry);
+            if (!matcher.matches()) {
+                // Unversioned, it meets every agent's bounds; another name or version, none sure.
+                report.fail(
+                        label
+                                + " provides '"
+                                + entry
+                                + "'; only "
+                                + NAME
+                                + " at porelo's lowest, "
+                                + lowest
+                                + ", as a plain number");
+                return;
+            }
+            numbers.add(Integer.parseInt(matcher.group(1)));
+        }
         if (numbers.isEmpty()) {
             report.fail(
                     label
@@ -63,15 +87,5 @@ final class AgentProtocolProvided {
                             + ", but porelo's lowest is "
                             + lowest);
         }
-    }
-
-    private static List<Integer> numbers(String provides) {
-        final Matcher matcher = PROVIDED.matcher(provides);
-        return matcher.results()
-                .map(
-                        found ->
-                                Integer.parseInt(
-                                        found.group(1) != null ? found.group(1) : found.group(2)))
-                .toList();
     }
 }

@@ -90,3 +90,11 @@ today it checks no `Provides` at all.
 - Seen: the checker's new tests failed against the numbered form's checker; packages built with the property at 2
   failed `package-check` naming 2 and 3; at 3 `dpkg-deb -f ... Provides` gives `porelo-agent-protocol (= 3)` and every
   check of `package-check` passed.
+
+## Read by Codex (2026-11-12)
+
+- No Red; apt and dnf take the versioned form with `3` alone on Debian 13, Ubuntu 26.04 and Fedora 43, and the
+  accepted pairings are porelo's own but for the agent built after a break the README names.
+- Yellow, fixed: the check matched a substring, so another name ending in the capability, an epoch (`3:1`), a tilde
+  (`3~rc1`) or an unversioned provide beside the right one passed. It now reads each whole entry: every entry naming
+  `porelo-agent-protocol` must be exactly the plain number, once. Tests that failed before pin each.

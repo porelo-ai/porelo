@@ -108,4 +108,40 @@ class AgentProtocolProvidedTest {
         assertThat(out.report.failures()).isEqualTo(1);
         assertThat(out.text()).contains("the deb provides agent protocol " + LOWEST * 10);
     }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "porelo-agent-protocol = %d:1",
+                "porelo-agent-protocol = %d~rc1",
+                "porelo-agent-protocol = %d-1",
+                "porelo-agent-protocol"
+            })
+    void failsAnRpmCapabilityThatIsNoPlainNumber(String form) {
+        // An epoch passes '<= 5', a tilde fails '>= 3', unversioned meets every bound.
+        AgentProtocolProvided.check(
+                deb(LOWEST), rpmProvides(rpm(LOWEST), String.format(form, LOWEST)), out.report);
+
+        assertThat(out.report.failures()).as(out.text()).isEqualTo(1);
+    }
+
+    @Test
+    void failsTheRightNumberTwice() {
+        AgentProtocolProvided.check(
+                deb(LOWEST) + ", " + deb(LOWEST), rpmProvides(rpm(LOWEST)), out.report);
+
+        assertThat(out.report.failures())
+                .as("one provide of one number, not a list, even of the right one")
+                .isEqualTo(1);
+    }
+
+    @Test
+    void failsAnotherNameThatEndsInTheCapability() {
+        AgentProtocolProvided.check(
+                "foo+porelo-agent-protocol (= " + LOWEST + ")",
+                rpmProvides(rpm(LOWEST)),
+                out.report);
+
+        assertThat(out.report.failures()).isEqualTo(1);
+    }
 }
