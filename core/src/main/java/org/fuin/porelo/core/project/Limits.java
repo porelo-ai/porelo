@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
  * @param handIn Bytes one file handed to a running task may have.
  * @param subagents The most subagents a task's agent may run at the same time; 0 for none.
  * @param passOn How long an online task's gate waits for the forge to take a push it passes on.
+ * @param ideas The most ideas one task may propose over its own socket; 0 for none.
  */
 public record Limits(
         @Nullable String memory,
@@ -22,7 +23,8 @@ public record Limits(
         int pids,
         long handIn,
         int subagents,
-        java.time.Duration passOn) {
+        java.time.Duration passOn,
+        int ideas) {
 
     /** Memory a task gets unless the project says otherwise. */
     public static final String DEFAULT_MEMORY = "8g";
@@ -32,6 +34,12 @@ public record Limits(
 
     /** How a project opts out of a memory or CPU limit on purpose. */
     public static final String NONE = "none";
+
+    /**
+     * The most ideas a project may let one task propose: each is kept with the task until it is
+     * removed, and every client watching it is sent all of them on every change.
+     */
+    public static final int MOST_IDEAS = 100;
 
     /** Processes a task gets unless the project says otherwise, matching podman's own default. */
     public static final int DEFAULT_PIDS = 2048;
@@ -73,7 +81,7 @@ public record Limits(
      */
     public static Limits defaults() {
         return new Limits(
-                DEFAULT_MEMORY, DEFAULT_CPUS, DEFAULT_PIDS, DEFAULT_HAND_IN, 0, DEFAULT_PASS_ON);
+                DEFAULT_MEMORY, DEFAULT_CPUS, DEFAULT_PIDS, DEFAULT_HAND_IN, 0, DEFAULT_PASS_ON, 0);
     }
 
     /**
@@ -98,6 +106,7 @@ public record Limits(
      * @param handIn Bytes one file handed to a running task may have.
      * @param subagents The most subagents at the same time.
      * @param passOn How long a gate waits for the forge to take a push.
+     * @param ideas The most ideas one task may propose.
      */
     public Limits {
         if (pids < 1) {
@@ -115,10 +124,17 @@ public record Limits(
                             + passOn.toSeconds()
                             + " s is outside ten seconds to one hour");
         }
+        if (ideas < 0) {
+            throw new ProjectException("An idea limit of " + ideas + " is below none");
+        }
+        if (ideas > MOST_IDEAS) {
+            throw new ProjectException(
+                    "An idea limit of " + ideas + " is over the most of " + MOST_IDEAS);
+        }
     }
 
     /**
-     * Constructor for limits whose gate waits the default for the forge.
+     * Constructor for limits whose gate waits the default for the forge and that allow no ideas.
      *
      * @param memory Memory limit, or {@code null}.
      * @param cpus CPU limit, or {@code null}.
@@ -128,7 +144,7 @@ public record Limits(
      */
     public Limits(
             @Nullable String memory, @Nullable String cpus, int pids, long handIn, int subagents) {
-        this(memory, cpus, pids, handIn, subagents, DEFAULT_PASS_ON);
+        this(memory, cpus, pids, handIn, subagents, DEFAULT_PASS_ON, 0);
     }
 
     /**
@@ -140,7 +156,7 @@ public record Limits(
      * @param handIn Bytes one file handed to a running task may have.
      */
     public Limits(@Nullable String memory, @Nullable String cpus, int pids, long handIn) {
-        this(memory, cpus, pids, handIn, 0, DEFAULT_PASS_ON);
+        this(memory, cpus, pids, handIn, 0, DEFAULT_PASS_ON, 0);
     }
 
     /**

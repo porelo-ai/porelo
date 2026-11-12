@@ -189,6 +189,28 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void aTasksIdeasAreDeclaredWithTheMethodTheRowAndTheirFields() {
+        // The window reads each idea off the row by these names and hands its id on once.
+        final String description = PoreloDaemon.description();
+        assertThat(description)
+                .as("the task proposes an idea for itself and is told its id")
+                .contains(
+                        "method ProposeIdea(task: string, title: string, whatMustBeTrue: string)"
+                                + " -> (id: string)",
+                        "error NotAllowed(message: string)",
+                        "error NotItsOwn(task: string, parent: string)");
+        final Matcher idea =
+                Pattern.compile("(?ms)^type TaskIdea \\(\\n(.*?)^\\)").matcher(description);
+        assertThat(idea.find()).as("the contract declares TaskIdea").isTrue();
+        assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), idea.group(1)))
+                .containsExactlyInAnyOrder("id", "title", "whatMustBeTrue", "at");
+        final Matcher task =
+                Pattern.compile("(?ms)^type Task \\(\\n(.*?)^\\)").matcher(description);
+        assertThat(task.find()).as("the contract declares Task").isTrue();
+        assertThat(task.group(1)).as("every row carries its ideas").contains("ideas: []TaskIdea");
+    }
+
+    @Test
     void memberRemovalDeclaresItsInputsOutcomesAndMissingMemberError() {
         // Clients need every outcome and a named missing-member refusal to implement revocation.
         final String description = PoreloDaemon.description();

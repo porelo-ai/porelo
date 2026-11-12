@@ -103,6 +103,82 @@ final class TaskMethods {
         new org.fuin.porelo.app.TaskResult(context.paths()).take(task);
     }
 
+    /** Keeps an idea the socket's own task proposes for itself, within its project's bound. */
+    static Map<String, Object> proposeIdea(
+            final PoreloContext context, final Map<String, Object> parameters)
+            throws java.io.IOException {
+        final String task = text(parameters, "task");
+        // For itself alone, as Done: an idea under a child's or a sibling's name is words put in
+        // its mouth for the person's window.
+        if (!task.equals(McpTaskSockets.caller())
+                || !(new org.fuin.porelo.app.TaskIdentities(context).lookup(task, null)
+                        instanceof org.fuin.porelo.app.TaskIdentities.Found found)) {
+            throw new VarlinkException(
+                    INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
+        }
+        for (final String parameter : new java.util.TreeSet<>(parameters.keySet())) {
+            if (!java.util.Set.of("task", "title", "whatMustBeTrue").contains(parameter)) {
+                throw new VarlinkException(
+                        "org.varlink.service.InvalidParameter", Map.of("parameter", parameter));
+            }
+        }
+        if (!(parameters.get("title") instanceof String title)
+                || !org.fuin.porelo.app.TaskIdeas.validTitle(title)) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "title"));
+        }
+        if (!(parameters.get("whatMustBeTrue") instanceof String whatMustBeTrue)
+                || !org.fuin.porelo.app.TaskIdeas.validWhatMustBeTrue(whatMustBeTrue)) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "whatMustBeTrue"));
+        }
+        final String project = found.identity().project();
+        // Read at each call, as the mail rules are: a bound the person lowered holds at once.
+        final int most;
+        try {
+            most =
+                    org.fuin.porelo.core.project.ProjectReader.read(
+                                    org.fuin.porelo.app.ProjectSource.require(context, project))
+                            .limits()
+                            .ideas();
+        } catch (org.fuin.porelo.core.project.ProjectException ex) {
+            // Without the reason: it names where the file lies and the machine's other projects.
+            throw new VarlinkException(
+                    INTERFACE + ".NotAllowed",
+                    Map.of(
+                            "message",
+                            "the file of project '"
+                                    + project
+                                    + "' cannot be read, so it allows no idea"));
+        }
+        if (most < 1) {
+            throw new VarlinkException(
+                    INTERFACE + ".NotAllowed",
+                    Map.of(
+                            "message",
+                            "project '"
+                                    + project
+                                    + "' allows a task no ideas: limits.ideas is 0, the default"));
+        }
+        try {
+            return Map.of(
+                    "id",
+                    new org.fuin.porelo.app.TaskIdeas(context.paths())
+                            .propose(task, title, whatMustBeTrue, most)
+                            .id());
+        } catch (org.fuin.porelo.app.TaskIdeas.BoundReached ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".NotAllowed",
+                    Map.of(
+                            "message",
+                            "this task has proposed "
+                                    + ex.most()
+                                    + " ideas, the most limits.ideas of project '"
+                                    + project
+                                    + "' allows"));
+        }
+    }
+
     /** Answers the file a task handed back, or why there is none; from the host's files alone. */
     static Map<String, Object> result(final PoreloContext context, final String task) {
         // A task's name and nothing else: one with a directory part would read beside the results.
@@ -268,6 +344,12 @@ final class TaskMethods {
                 (parameters, replies) -> {
                     done(context, parameters);
                     replies.last(Map.of());
+                });
+
+        server.method(
+                "ProposeIdea",
+                (parameters, replies) -> {
+                    replies.last(proposeIdea(context, parameters));
                 });
 
         server.method(

@@ -394,6 +394,16 @@ observed activity is `IDLE`, its state is `done`, with no waiting reason. New ou
 again while keeping the declaration; an ended run keeps its `ENDED` activity. A later start clears
 completion. See [task status](commands.md) for the activity values.
 
+A task whose project's MCP endpoint allows `ProposeIdea`, and whose project file sets
+[`limits.ideas`](project-file.md#limits), can propose an idea for itself, a new issue it found while working, with
+`ProposeIdea(task: CONTAINER, title: ..., whatMustBeTrue: ...)`: a title of one line and at most 120 characters, and
+what must be true in one or two sentences of at most 1000 characters, with no control characters but line breaks.
+It is told the idea's id, `idea-1`, `idea-2` and so on. Porelo keeps the idea on the host, outside the task's mounts,
+until the task is removed, and shows it on the task's row in List and Watch, where the person's window hands it on;
+a later start keeps it. A call naming another task is refused with `NotItsOwn`, one past the project's bound with
+`NotAllowed`, and a title or text out of these bounds with `InvalidParameter`, never trimmed or cut. Another task of
+the project sees no idea in its own listing unless its endpoint reads output (`Logs` or `Tail`).
+
 An agent learns what Porelo gives it in its task from one guide, which it takes into its standing instructions at
 every start when its definition declares how (`instructions`): Porelo writes it to `/run/porelo/guide/README.md`,
 mounted into the task and read only there. Where the task has a mailbox, the mailbox's text from

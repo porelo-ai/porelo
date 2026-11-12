@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B668",
   "title": "A Task Proposes An Idea",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 21,
@@ -23,6 +23,33 @@ that watches the task (the window) sees each idea once, with an id, and hands it
 
 **Size.** M: one method in Tasks1 on the task socket, a bound in the project file, a record beside the task's `done`
 record, the row field, and the docs.
+
+## Built (2026-11-12)
+
+By a Claude Code sub-agent of Agent Core, uncommitted in `core-b668`.
+- **The allowance.** `limits.ideas` in `project.yml` (`core`: both `Limits` records, `FileBinder`, `FileYaml`,
+  `Sections`, `ProjectFileCheck`, `ProjectSchema`, `ProjectReader`): default 0, at most 100 (`Limits.MOST_IDEAS`),
+  read at each call. The cap of 100 is new here: it bounds the record and every row Watch sends.
+- **The method.** `Tasks1.ProposeIdea(task: string, title: string, whatMustBeTrue: string) -> (id: string)`,
+  `TaskMethods.proposeIdea`, modelled on `Done`: it carries `task`, which must be the socket's own (`NotItsOwn`
+  otherwise, and on the person's socket), since the Plan's refusal of another task's name needs a name to refuse. A
+  task's endpoint carries it only where `mcp.methods` names it (`McpTaskSockets.WRITING`). `NotAllowed` (already in
+  Tasks1) for 0, past the bound, or an unreadable file; `InvalidParameter` for an unknown parameter, a title that is
+  blank, over 120 characters or holds a control character or line separator, or a `whatMustBeTrue` that is blank,
+  over 1000 characters or holds a control character but `\n` and `\r`.
+- **The record.** `TaskIdeas` (`app-base`), `ideas.json` in the task's record directory under `ideas.lock`, written
+  staged and moved, owner-only; ids `idea-1`, `idea-2`, ... An unreadable record shows no ideas and refuses a new one,
+  so nothing is numbered twice. A later start keeps them; removal deletes the directory.
+- **The row.** `TaskInventory.row` adds `ideas: []TaskIdea`, `[]` when none; Watch compares the whole row, so a new
+  idea is a change. A task socket without `Logs` or `Tail` receives `ideas: []` (`McpTaskSockets.WHAT_IT_WROTE`), so
+  one agent's text does not reach another's prompt.
+- **Docs.** `doc/project-file.md` (`limits.ideas`, the endpoint's methods), the Tasks1 contract's comments, and
+  `doc/running.md` under "What a task's agent is told", beside `Done`. The guide in "Porelo in this task" is the same
+  text for every task, so it names no method only some tasks have.
+- **Tests seen red, then green:** `ProjectIdeasTest` and `FileRoundTripTest` (core); `TaskIdeasTest` (apps/app);
+  `TaskIdeaMethodsTest` (daemon), which holds the acceptance with `limits.ideas: 2`. Written with the code and only
+  seen green: the `limits.ideas: -1` case of `ProjectFileFaultsTest`, and the pin in `InterfaceDescriptionTest` of the
+  method, `TaskIdea` and the row field. No feature: the kit has no step for a task's own socket.
 
 ## Plan
 

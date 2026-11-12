@@ -86,7 +86,7 @@ class FileRoundTripTest {
                         List.of("nexus.corp.example"),
                         List.of("forge.internal.example"),
                         List.of("telemetry.nexus.corp.example")),
-                new Limits("16g", 4096, "2.5", "64m", 2),
+                new Limits("16g", 4096, "2.5", "64m", 2, null, 2),
                 new Mail(
                         peers,
                         new Mail.Rules("allow", "prompt", "deny"),
@@ -119,7 +119,7 @@ class FileRoundTripTest {
                         new Image("ubuntu:24.04", Map.of(), null, null),
                         new BuildSources(null),
                         new Egress(List.of(), List.of(), List.of("forge.internal.example"), null),
-                        new Limits("none", null, "none", null, 0),
+                        new Limits("none", null, "none", null, 0, null, null),
                         new Mail(Map.of(), null, null, Map.of("matrix", new Mail.Transport(null))),
                         null,
                         Map.of(),

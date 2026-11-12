@@ -362,6 +362,14 @@ final class ProjectSchema {
                             "2m",
                             false),
                     key(
+                            "limits",
+                            "ideas",
+                            "The most ideas one task may propose with ProposeIdea over its own socket;"
+                                    + " 0 for none. Read at each proposal.",
+                            "integer",
+                            "0",
+                            false),
+                    key(
                             "mail",
                             "peers",
                             "The names tasks may write to, each with where it is reached.",

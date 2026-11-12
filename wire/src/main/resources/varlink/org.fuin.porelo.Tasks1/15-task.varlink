@@ -75,6 +75,18 @@ type TaskEnded (
   at: string
 )
 
+# An idea a task proposed for itself with ProposeIdea: a new issue it found while working.
+type TaskIdea (
+  # The task's own counter: idea-1, idea-2, ... A client hands each id on once.
+  id: string,
+  # One line of at most 120 characters, as the task gave it.
+  title: string,
+  # One or two sentences of at most 1000 characters; it may hold line breaks.
+  whatMustBeTrue: string,
+  # When the host kept it, ISO-8601.
+  at: string
+)
+
 # What the host took of the one file a task hands back, named by Start's result.
 type TaskResult (
   # The file's name, as Start was given it.
@@ -260,6 +272,9 @@ type Task (
   # whose agent did not end on its own: after Done, a stop or a prompt run. Absent for a task started
   # without Start's result, and while nothing was taken.
   result: ?TaskResult,
+  # The ideas it proposed with ProposeIdea, oldest first; [] when none. They stay until the task is
+  # removed, and a later start keeps them. Task text: a task socket without Logs or Tail receives [].
+  ideas: []TaskIdea,
   # What it is waiting to be told: a clearance question, or review while its work is on the
   # gate's waiting list. A passed online push supplies no review reason. "" for a stopped task.
   waitingFor: string,
@@ -536,6 +551,18 @@ method List() -> (tasks: []Task, unrecognized: []string)
 # again without losing the declaration; ENDED is unchanged. A later start clears the declaration.
 # This replaces no completion message to the room, and neither stops nor removes the container.
 method Done(task: string, outcome: ?(DONE, BLOCKED), why: ?string) -> ()
+
+# The task proposes an idea for itself: a new issue it found while working, kept with the task and
+# offered on its List and Watch row (ideas), where the person's client hands it on. Carried only by a
+# task socket whose project's mcp.methods includes ProposeIdea. task must be that socket's task,
+# never even a child or another project; a call over the person's socket, or naming anybody else,
+# is NotItsOwn. The project file's limits.ideas, read at each call, is the most ideas one task may
+# propose (0, the default, for none): a call where it is 0, or past it, is NotAllowed naming the
+# bound. title is one line of at most 120 characters; whatMustBeTrue is at most 1000 characters,
+# with no control characters but line breaks; either empty is InvalidParameter, and neither is
+# trimmed or cut. id is the task's own counter, idea-1, idea-2, ... The daemon keeps the ideas in
+# its private durable task record, outside every task mount, until the task is removed.
+method ProposeIdea(task: string, title: string, whatMustBeTrue: string) -> (id: string)
 
 # The file a task hands back, as the host took it, read from this machine's files alone: also after
 # its container is gone and after the task was removed, until the next start of its name, which

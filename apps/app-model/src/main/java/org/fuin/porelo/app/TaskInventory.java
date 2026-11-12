@@ -1532,6 +1532,11 @@ public final class TaskInventory {
         row.put("landed", found.stream().map(landed -> landed(within, landed)).toList());
         row.put("minutes", RunLimit.minutes(context.paths().tasks().containerState(task.name())));
         row.put("callerKey", callerKey(task.name()));
+        // What it proposed with ProposeIdea, from the host's own record; [] when none.
+        row.put(
+                "ideas",
+                new TaskIdeas(context.paths())
+                        .read(task.name()).stream().map(TaskIdeas.Idea::asMap).toList());
         return row;
     }
 

@@ -334,6 +334,7 @@ class ProjectFileFaultsTest {
                         "limits.hand_in",
                         "is too large"),
                 refused(BASE + "limits:\n  subagents: -1\n", 7, "limits.subagents", "of 0 or more"),
+                refused(BASE + "limits:\n  ideas: -1\n", 7, "limits.ideas", "of 0 or more"),
                 // Mail.
                 refused(
                         BASE + "mail:\n  peers:\n    \"a b\":\n      address: \"matrix:\"\n",

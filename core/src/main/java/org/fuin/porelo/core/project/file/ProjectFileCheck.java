@@ -901,6 +901,17 @@ public final class ProjectFileCheck {
                                 + "'");
             }
         }
+        if (limits.ideas() != null
+                && (limits.ideas() < 0
+                        || limits.ideas() > org.fuin.porelo.core.project.Limits.MOST_IDEAS)) {
+            fault(
+                    "limits.ideas",
+                    "'limits.ideas' must be a whole number of 0 or more, at most "
+                            + org.fuin.porelo.core.project.Limits.MOST_IDEAS
+                            + ", not '"
+                            + limits.ideas()
+                            + "'");
+        }
     }
 
     private @Nullable Long bytes(final String size, final String path) {

@@ -100,7 +100,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "work");
 
     /** The methods a task's endpoint may carry beside the reading ones. */
-    private static final Set<String> WRITING = Set.of("Start", "Stop", "Done");
+    private static final Set<String> WRITING = Set.of("Start", "Stop", "Done", "ProposeIdea");
 
     /** One socket, and the thread serving it. */
     private record Served(VarlinkServer server, Thread thread) {}
@@ -180,7 +180,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                         "mcp.methods: '"
                                 + method
                                 + "' is not offered to a task: its endpoint carries only the"
-                                + " reading methods McpMethods names, Start, Stop and Done");
+                                + " reading methods McpMethods names, Start, Stop, Done and ProposeIdea");
             }
         }
         return List.copyOf(refused);
@@ -645,9 +645,18 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      */
     static final Set<String> WHAT_IT_SAID = Set.of("lastMessage", "agentEnded", "ended", "result");
 
+    /**
+     * What a listed task carries that its agent wrote and every row has, sent empty instead: the
+     * ideas it proposed, which would otherwise reach another agent's prompt.
+     */
+    static final Set<String> WHAT_IT_WROTE = Set.of("ideas");
+
     private static Object withoutWhatItSaid(final Object task) {
         final Map<Object, Object> kept = new LinkedHashMap<>((Map<?, ?>) task);
         kept.keySet().removeAll(WHAT_IT_SAID);
+        for (final String field : WHAT_IT_WROTE) {
+            kept.replace(field, List.of());
+        }
         return kept;
     }
 

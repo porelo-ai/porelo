@@ -89,6 +89,7 @@ final class FileYaml {
             put(limits, "hand_in", file.limits().handIn());
             put(limits, "subagents", file.limits().subagents());
             put(limits, "pass_on", file.limits().passOn());
+            put(limits, "ideas", file.limits().ideas());
             top.put("limits", limits);
         }
         if (file.mail() != null) {

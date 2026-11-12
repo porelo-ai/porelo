@@ -682,7 +682,7 @@ error DeployKeyRefused(message: string)
 # An error rather than an empty answer, for the same reason NoSuchTask is one: a caller that asked
 # about something that is not there has a wrong argument, and reporting it as "nothing to do" lets
 # that wrong argument arrive as a legitimate result.
-# The acting person may not do this; 'message' says why.
+# The acting person, or the task on its own socket, may not do this; 'message' says why.
 error NotAllowed(message: string)
 
 error NoSuchProject(project: string)

@@ -12,6 +12,7 @@ import org.jspecify.annotations.Nullable;
  * @param subagents The most subagents at the same time ({@code subagents}).
  * @param passOn How long the gate waits for the forge to take a push, such as {@code 2m} ({@code
  *     pass_on}).
+ * @param ideas The most ideas one task may propose ({@code ideas}).
  */
 public record Limits(
         @Nullable String memory,
@@ -19,10 +20,11 @@ public record Limits(
         @Nullable String cpus,
         @Nullable String handIn,
         @Nullable Integer subagents,
-        @Nullable String passOn) {
+        @Nullable String passOn,
+        @Nullable Integer ideas) {
 
     /**
-     * Constructor for a section that leaves the pass-on limit to its default.
+     * Constructor for a section that leaves the pass-on and idea limits to their defaults.
      *
      * @param memory As podman takes it, or {@code none}.
      * @param pids The most processes.
@@ -36,6 +38,6 @@ public record Limits(
             @Nullable String cpus,
             @Nullable String handIn,
             @Nullable Integer subagents) {
-        this(memory, pids, cpus, handIn, subagents, null);
+        this(memory, pids, cpus, handIn, subagents, null, null);
     }
 }
