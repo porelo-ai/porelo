@@ -30,6 +30,14 @@
 
     <!-- Reactor ordering only; see the note in dist-deb. -->
     <dependencies>
+        <!-- The deb module generates the shared bill and notices before either package can be assembled. -->
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-dist-deb</artifactId>
+            <version>${porelo.version}</version>
+            <type>pom</type>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-app</artifactId>
@@ -46,7 +54,7 @@
 
     <profiles>
 
-        <!-- Requires -Pnative to have produced the binaries; run as: mvn -Pnative,dist package -->
+        <!-- Requires -Pnative to have produced the binaries; run as: mvn -Pnative,dist verify -->
         <profile>
             <id>dist</id>
             <build>
@@ -250,6 +258,14 @@ exit 0
                                     <group>root</group>
                                 </entry>
                                 <!-- 'license' marks it %license, so 'rpm -qL' answers. -->
+                                <entry>
+                                    <name>/usr/share/licenses/${package.name}/THIRD-PARTY-NOTICES</name>
+                                    <file>${project.basedir}/../../target/THIRD-PARTY-NOTICES</file>
+                                    <mode>0644</mode>
+                                    <user>root</user>
+                                    <group>root</group>
+                                    <license>true</license>
+                                </entry>
                                 <entry>
                                     <name>/usr/share/licenses/${package.name}/LICENSE</name>
                                     <file>${project.basedir}/../../LICENSE</file>

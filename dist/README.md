@@ -3,6 +3,9 @@
 The packages Porelo is shipped in, and the script that prepares a machine for them. A module of packaging `pom` that
 only groups them.
 
+Both `porelo` packages carry generated `THIRD-PARTY-NOTICES` with the third-party jars' full license texts and the
+GraalVM runtime's notices.
+
 - [dist-deb](dist-deb/README.md) - the `.deb`.
 - [dist-rpm](dist-rpm/README.md) - the `.rpm`.
 - [dist-check](dist-check/README.md) - reads the packages the build wrote and checks their version.

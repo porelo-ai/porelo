@@ -19,7 +19,13 @@ class LayoutTest {
         assertThat(root.resolve("dist/package-check")).isDirectory();
         final List<String> places =
                 new ArrayList<>(
-                        List.of(Main.DEB, Main.RPM, Main.AGENT, Main.BINARY, Main.HOST_BINARY));
+                        List.of(
+                                Main.DEB,
+                                Main.RPM,
+                                Main.AGENT,
+                                Main.BINARY,
+                                Main.HOST_BINARY,
+                                Main.NOTICES_CLASSPATH));
         places.addAll(Main.STRAYS);
         for (final String place : places) {
             final Path module = root.resolve(place.substring(0, place.indexOf("/target")));

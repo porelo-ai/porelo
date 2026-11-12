@@ -2,6 +2,9 @@
 
 Checks this repository's `.deb` and `.rpm` against each other and against a real install. It builds no package itself.
 
+It checks each package's `THIRD-PARTY-NOTICES` against `dist/dist-deb/target/third-party-classpath.txt`, the third-party
+runtime classpath supplied to the generator.
+
 The separate `porelo-host` Debian package is required beside `porelo` and checked for freshness against its own native
 binary. Debian and Ubuntu installs check its version, runtime-option refusal, environment refusal and man page;
 Fedora installs and the Debian/RPM parity check cover `porelo` only.

@@ -29,9 +29,7 @@
         <setup.install.dir>/usr/share/porelo/setup</setup.install.dir>
     </properties>
 
-    <!-- Not used for a classpath - this module produces no code. It is here so the reactor builds
-         the binaries before this module packages them; without it the ordering is undefined and
-         the packaging silently picks up whatever an earlier build left in target. -->
+    <!-- The shipped executables' runtime closure supplies the bill and notices, and orders the reactor before packaging. -->
     <dependencies>
         <dependency>
             <groupId>org.fuin.porelo</groupId>
@@ -56,7 +54,7 @@
 
     <profiles>
 
-        <!-- Requires -Pnative to have produced the binaries; run as: mvn -Pnative,dist package -->
+        <!-- Requires -Pnative to have produced the binaries; run as: mvn -Pnative,dist verify -->
         <profile>
             <id>dist</id>
             <build>
@@ -85,6 +83,64 @@
                                     <!-- Nothing here is deployed to Maven: the package is what ships. -->
                                     <skipNotDeployed>false</skipNotDeployed>
                                     <skipAttach>true</skipAttach>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- After package the reactor supplies jars, never classes directories; only third-party jars need notices. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.8.1</version>
+                        <executions>
+                            <execution>
+                                <id>third-party-classpath</id>
+                                <phase>pre-integration-test</phase>
+                                <goals>
+                                    <goal>build-classpath</goal>
+                                </goals>
+                                <configuration>
+                                    <includeScope>runtime</includeScope>
+                                    <excludeGroupIds>org.fuin.porelo</excludeGroupIds>
+                                    <outputFile>${project.build.directory}/third-party-classpath.txt</outputFile>
+                                    <regenerateFile>true</regenerateFile>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Both packages read this one generated file, from the bill above and the native build's JDK. -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>third-party-notices</id>
+                                <phase>post-integration-test</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${java.home}/bin/java</executable>
+                                    <includeProjectDependencies>false</includeProjectDependencies>
+                                    <includePluginDependencies>true</includePluginDependencies>
+                                    <executableDependency>
+                                        <groupId>org.fuin.porelo</groupId>
+                                        <artifactId>porelo-release</artifactId>
+                                    </executableDependency>
+                                    <arguments>
+                                        <argument>-classpath</argument>
+                                        <classpath/>
+                                        <argument>org.fuin.porelo.release.Main</argument>
+                                        <argument>third-party-notices</argument>
+                                        <argument>${project.build.directory}/third-party-classpath.txt</argument>
+                                        <argument>${project.basedir}/../../target/porelo.cdx.json</argument>
+                                        <argument>${java.home}</argument>
+                                        <argument>${project.basedir}/../../target/THIRD-PARTY-NOTICES</argument>
+                                        <argument>--own</argument>
+                                        <argument>org\.fuin\.porelo:.*</argument>
+                                    </arguments>
                                 </configuration>
                             </execution>
                         </executions>
@@ -276,6 +332,17 @@
                                             <mapper>
                                                 <type>perm</type>
                                                 <prefix>/usr/share/zsh/vendor-completions</prefix>
+                                                <filemode>644</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
+                                        <data>
+                                            <src>${project.basedir}/../../target/THIRD-PARTY-NOTICES</src>
+                                            <type>file</type>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>/usr/share/doc/${package.name}</prefix>
                                                 <filemode>644</filemode>
                                                 <user>root</user>
                                                 <group>root</group>

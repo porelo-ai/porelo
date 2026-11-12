@@ -33,6 +33,9 @@ public final class Main {
 
     static final String SETUP_SOURCE = "dist/dist-setup/porelo-setup.sh";
 
+    /** The third-party jars supplied to the notices generator, without Porelo's own modules. */
+    static final String NOTICES_CLASSPATH = "dist/dist-deb/target/third-party-classpath.txt";
+
     /** What porelo's bill must name: the modules the package is built from, and what they link. */
     static final Set<String> SHIPS = Set.of("porelo-app", "porelod", "porelo-core", "picocli");
 
@@ -177,6 +180,13 @@ public final class Main {
                 .check(debFile(agentDeb, billPath(stub)), billPath(stub), report);
         new Bill("the agent rpm", stub, agentBill, Set.of(), Set.of())
                 .check(rpmFile(agentRpm, billPath(stub)), billPath(stub), report);
+
+        report.section("third-party notices");
+        final int jars = Notices.jarCount(read(root.resolve(NOTICES_CLASSPATH)));
+        final String debNotices = "/usr/share/doc/porelo/THIRD-PARTY-NOTICES";
+        final String rpmNotices = "/usr/share/licenses/porelo/THIRD-PARTY-NOTICES";
+        new Notices("the porelo deb", debNotices, jars).check(debFile(deb, debNotices), report);
+        new Notices("the porelo rpm", rpmNotices, jars).check(rpmFile(rpm, rpmNotices), report);
 
         // A host gets the script through the package, checked by apt; it must be the one this tree
         // keeps, not an older copy left in a build directory.

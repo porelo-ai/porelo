@@ -114,6 +114,10 @@ The `porelo` package installs:
 | `/usr/bin/porelo`, `/usr/bin/porelod` | the two dynamically linked binaries |
 | `/usr/libexec/porelo/hooks/` | the three static hook binaries |
 
+The build generates `THIRD-PARTY-NOTICES` from the shipped executables' third-party runtime jars, the CycloneDX bill
+and GraalVM's notices, installed at `/usr/share/doc/porelo/THIRD-PARTY-NOTICES` in the `.deb` and as `%license` at
+`/usr/share/licenses/porelo/THIRD-PARTY-NOTICES` in the `.rpm`.
+
 It registers nothing. Podman reads OCI hook descriptors per user, so each
 operator runs `porelo setup` once; that writes the descriptors into
 `$XDG_CONFIG_HOME/containers` and points podman at them. Nothing in the package touches

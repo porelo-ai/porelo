@@ -15,6 +15,9 @@ Comment: These executables are compiled whole from the program and the classes o
  porelo-wire (org.fuin.porelo.wire); porelod also carries porelo-wire's contract
  files (varlink/org.fuin.porelo.Tasks1). Those classes and files are under
  Apache-2.0, and the rest of each executable under GPL-3.0-or-later.
+ .
+ Third-party code is compiled into the executables; its licenses and
+ full license texts are in /usr/share/doc/porelo/THIRD-PARTY-NOTICES.
 
 License: GPL-3.0-or-later
  This program is free software: you can redistribute it and/or modify it under

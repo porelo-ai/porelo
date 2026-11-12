@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B606",
   "title": "The Packages Carry The Third-Party Notices",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 1,
@@ -46,3 +46,14 @@ native-image runtime. Fedora has no `/usr/share/common-licenses`, so the `.rpm` 
   own notices.
 - `package-check` fails a package that lacks the file, or whose file names fewer jars than the native build took in.
 - `Parity` keeps comparing the two packages; the file's place differs on purpose, as `LICENSE` does.
+
+## Built (2026-11-12)
+
+- `dist-deb` writes the runtime classpath of `porelo`, `porelod` and the hooks without Porelo's own modules, and
+  calls `porelo-release third-party-notices` over it, the bill and the build's JDK. Both packages take the one
+  generated file: the `.deb` at `/usr/share/doc/porelo/THIRD-PARTY-NOTICES`, named in `debian/copyright`, the `.rpm`
+  as `%license`. Built locally: 12 jars and the GraalVM runtime, the same bytes in the `.deb`.
+- `package-check` fails a package without the file, or whose file has fewer jar sections than the classpath has jars.
+  `Parity` needed no change, since it already leaves out each ecosystem's license directory.
+- Not yet run: `package-check`'s run against the built packages, which also reads the stub agent's packages; it runs
+  with the next packages built from this line.
