@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B219",
   "title": "A Private Package Repository Through The Broker",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "L",
   "priority": "Medium",
   "rank": 50,
@@ -88,6 +88,65 @@ package repository, and none should be loosened there:
 with a task's own `Authorization` header reaches the server with the vault's credential and not the task's; a PUT, a
 GET outside the prefix, `../` out of it and a redirect to another host are each refused and never reach the server;
 a text answer carrying the credential's value is cut off before that value reaches the task.
+
+## Decided in building (2026-11-12)
+
+The repository is a `tool_repositories` entry ([B467](README.md#b467)) with a credential, not a second key.
+- **Why.** [B467](README.md#b467) already declares a build tool's repository by `ecosystem`, `name` and `url`,
+  refuses a bad name or a URL that is not https, and hands it to the ecosystem adapter's `Configure`, which writes
+  the tool's settings. A `repositories_read` key would declare the same repository twice, in two shapes, and leave
+  the settings to a variable no adapter reads.
+- **The entry.** `credential` is optional: the name of a vault entry (`repository/corp-nexus`). Without it the
+  entry is as [B467](README.md#b467) built it. With it, `url` is the prefix the broker serves: https, with no query
+  and no fragment. Its host needs no `egress` line, since the broker reaches it from the host, not the task.
+- **The adapter gets the broker's address.** For an entry with a credential, `Configure` is given
+  `http://127.0.0.1:9421/<name>/` as the repository's URL. The contract's `Repository.url` is already "its URL
+  inside the task", so the contract does not change. The task's environment also carries
+  `PORELO_REPOSITORY_<NAME>_URL` with the same address, for a tool no adapter configures.
+- **The port is 9421**, not 9420: 9420 is the default port of a sign-in's redirect on the host (`CodeGrant`).
+- **The credential's form** is the vault entry's type: `basic` (the value is `user:password`; the broker encodes
+  it), `bearer`, or `header` with the setting `header=<name>` (such as `X-JFrog-Art-Api`).
+- **No socket in the task.** The relay enters only the task's network namespace and dials the broker's socket on
+  the host, so the second socket is not mounted into the container (plan part 4 mounted it).
+- **Plan parts this changes.** Part 1: no new key; `ToolRepository` gains `credential`, and the schema, the reader,
+  the writer and `doc/project-file.md` with it. Part 4: the address goes into `Configure` as well as the
+  environment, the port is 9421, and no socket is mounted. Part 5: the settings are written by the adapter from
+  `Configure`, as [B467](README.md#b467) built it, not from the environment variable.
+- **[B474](README.md#b474).** Its plan puts a package route into the agent's broker (`VaultProxy`) with a phantom
+  token in the settings. This broker is the token-less one for the same kind of read; [B474](README.md#b474) could
+  serve its project's snapshots as one more repository of this broker, its credential the task's host-issued
+  token, once someone decides so. Nothing here changes `VaultProxy` or blocks [B474](README.md#b474) as planned.
+
+## Built (2026-11-12)
+
+- A `tool_repositories` entry takes `credential`, a vault entry's name. With one, its `url` must be https, without
+  user information, query or fragment, and without a `.` or `..` segment, plain or encoded; its host needs no
+  egress line. `ToolRepository`, the binder, the writer, `ProjectSchema` and `doc/project-file.md` know it.
+- `RepositoryProxy` in `supervisor` is the second broker kind beside `VaultProxy`, with no token. It passes `GET`
+  and `HEAD` only and answers every other method `405`. The path's first segment names the repository. A path
+  with a `.` or `..` segment, plain or encoded, an encoded slash, backslash or percent, an empty segment, a control
+  character, or a target that is no path is refused before the repository.
+- It drops every credential header the task sent, its cookies and its wish for a compressed answer, and adds the
+  vault's credential. It follows a redirect itself while it stays under the prefix, at most 5 times; a redirect
+  that leaves is answered `502`, unfollowed, and its target is not repeated.
+- A text answer is scanned as it streams for the credential, as stored and Base64-encoded, and a basic's password
+  of 8 or more characters alone, and cut off before it; the cut is logged. Text that comes compressed is withheld.
+  A binary answer passes byte for byte, unread. Each request is logged by method, path and status, never a
+  header, a query or a credential.
+- `porelo vault repositories` serves it for one task on `<state>/repository.sock`. It reads the credentials once
+  and refuses an entry that is not `basic` (`user:password`), `bearer`, or `header` with its `header` setting.
+- A start runs it when the project declares a repository with a credential, before the container, and a second
+  relay, `repository-relay`, on `127.0.0.1:9421` in the task's namespace after it. Both are recorded helpers; a
+  resume points the relay at the new container. A repository whose credential the vault lacks is said and left out.
+  A project with none gets neither.
+- `Configure` is given `http://127.0.0.1:9421/<name>/` for such a repository, and the task's environment carries
+  `PORELO_REPOSITORY_<NAME>_URL`. Nothing credential-shaped enters the task.
+- `doc/reach.md` and the daemon's `Reach` have three rows, read off the code by `ReachDocumentTest`;
+  `doc/decisions.md` keeps the accepted risk of the binary answer; `doc/commands.md` names the command.
+- The tests use a plain-http repository on loopback; the broker's decisions do not depend on TLS. The acceptance
+  against an authenticated HTTPS repository is still to be run: it needs a repository that demands Basic auth over
+  TLS (a Nexus or Artifactory, or a stand-in serving a jar), its authority in the account's added authorities, the
+  credential stored with `porelo vault put --type basic`, and a task whose `curl` and Maven build fetch through it.
 
 ## Acceptance
 

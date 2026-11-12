@@ -266,7 +266,6 @@ from its side, as *blocked by*.
 | <a id="b33"></a>[B33](B33-A-Tasks-Own-Fetches.md) | S | - | The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios. | 0 |
 | <a id="b322"></a>[B322](B322-Porelos-Acceptance-Legs-Run-On-The-Hosts-Forge.md) | M | - | porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool; only GitHub publishes | 0 |
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings | - |
-| <a id="b219"></a>[B219](B219-A-Private-Package-Repository-Through-The-Broker.md) | L | - | A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task. | - |
 | <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | M | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. | 0 |
 | <a id="b197"></a>[B197](B197-A-Push-To-A-Slow-Forge-Has-A-Bound.md) | M | - | A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer. | - |
 | <a id="b637"></a>[B637](B637-A-Loopback-Homeserver-Is-Lent-Its-Token.md) | S | - | porelo lends matrix-registration-token.<server> to a homeserver on loopback http, as it does to an https or Unix socket one, so a person's local homeserver can be named for a project; any other plain http address still lends nothing. | - |
@@ -279,6 +278,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
+| <a id="b219"></a>[B219](B219-A-Private-Package-Repository-Through-The-Broker.md) | L | - | A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task. |
 
 ## Review
 
