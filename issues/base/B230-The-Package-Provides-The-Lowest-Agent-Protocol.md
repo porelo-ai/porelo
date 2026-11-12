@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B230",
   "title": "The Package Provides The Lowest Agent Protocol",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 39,
