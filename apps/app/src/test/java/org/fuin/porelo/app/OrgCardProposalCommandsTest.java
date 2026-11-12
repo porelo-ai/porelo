@@ -69,7 +69,8 @@ class OrgCardProposalCommandsTest {
         assertThat(out.toString())
                 .as("JSON refusal, naming the step that failed")
                 .contains("cannot-say")
-                .contains("cannot fetch the organization repository");
+                .contains("cannot fetch the organization repository")
+                .contains("a change may have been made: ask again");
     }
 
     private static void unreachable(CommandLine line) {

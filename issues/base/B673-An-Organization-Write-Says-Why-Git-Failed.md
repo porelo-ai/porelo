@@ -49,3 +49,16 @@ drops them the same way. `porelo project sign` runs this in its own process; por
 ## Acceptance
 
 - The refusal names the failing step and git's words; a test fails while they are dropped.
+
+## Read by a second model (2026-11-12)
+
+- A value of several lines in a token file, variable or vault entry would have put its second line on git's standard
+  error, which git quotes as `invalid credential line`, and so into this refusal. `porelo vault credential` now
+  refuses a username or secret with a line break or a NUL and hands git nothing; a test pins it.
+- The tests now assert the whole tail of the refusal, ask again with the same `--id`, on both paths.
+- Not changed: an address with `%40` in place of `@` is left as it is by `withoutUserinfoIn`; an organization's
+  address with user information is refused where it is set, so no such address reaches git here.
+- Not changed here: `OrgCreateCommand`, `IdentityOrganization.filed` and `ProjectCreateRepositoryCommand` still answer
+  without git's words; they are other commands than the one seen.
+- From the first VM run: git's lines ran together where the newline was made printable ("'/bin/false'?fatal:").
+  `fromGit` now joins them with "; ".

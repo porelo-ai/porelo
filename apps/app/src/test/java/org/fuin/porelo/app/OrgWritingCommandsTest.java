@@ -488,7 +488,7 @@ class OrgWritingCommandsTest {
                 .as("the refusal names the step, git's words and the id to ask again with")
                 .contains("cannot read the organization's repository")
                 .contains("could not read Username")
-                .contains("keep-me");
+                .contains("the change may have been made: ask again with --id keep-me");
     }
 
     private IOException unreachable() {

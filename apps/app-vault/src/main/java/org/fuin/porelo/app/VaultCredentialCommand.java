@@ -118,10 +118,23 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
             // shows it.
             return 0;
         }
+        // Git reads one line a field and warns of any other line by quoting it: a value of
+        // several lines would put its second line on git's standard error, in the open.
+        if (!oneLine(username) || !oneLine(secret)) {
+            err.println(
+                    "porelo: the value holds a line break or a NUL, which git's credential"
+                            + " protocol cannot carry; nothing was handed to git");
+            err.flush();
+            return 0;
+        }
         out.println("username=" + username);
         out.println("password=" + secret);
         out.flush();
         return 0;
+    }
+
+    private static boolean oneLine(final String value) {
+        return value.indexOf('\n') < 0 && value.indexOf('\r') < 0 && value.indexOf('\0') < 0;
     }
 
     /**

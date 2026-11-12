@@ -102,7 +102,7 @@ public final class GitTreeStore {
         public static Unreachable fromGit(final String lead, final String standardError) {
             final String own =
                     org.fuin.porelo.vault.RegistryText.printable(
-                            TreeRepository.gitsOwnWords(standardError));
+                            TreeRepository.gitsOwnWords(standardError).replace("\n", "; "));
             if (own.isEmpty()) {
                 return new Unreachable(lead);
             }

@@ -32,6 +32,18 @@ class UnreachableCauseTest {
     }
 
     @Test
+    void gitsLinesReadAsSeparateClauses() {
+        assertThat(
+                        Unreachable.fromGit(
+                                        LEAD,
+                                        "error: unable to read askpass response from '/bin/false'\n"
+                                                + "fatal: could not read Username\n")
+                                .getMessage())
+                .as("each of git's lines is its own clause, not run into the next")
+                .endsWith("'/bin/false'; fatal: could not read Username");
+    }
+
+    @Test
     void anUntrustedHostKeyIsNamed() {
         assertThat(
                         Unreachable.fromGit(

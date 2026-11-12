@@ -22,7 +22,11 @@ class VaultCredentialAtATerminalTest {
     private final StringWriter err = new StringWriter();
 
     private int run(final boolean terminal) throws Exception {
-        final Path file = Files.writeString(dir.resolve("token"), "the-secret\n");
+        return run(terminal, "the-secret\n");
+    }
+
+    private int run(final boolean terminal, final String stored) throws Exception {
+        final Path file = Files.writeString(dir.resolve("token"), stored);
         final VaultCredentialCommand command = new VaultCredentialCommand();
         command.standardOutputIsATerminal = () -> terminal;
         final InputStream before = System.in;
@@ -50,6 +54,16 @@ class VaultCredentialAtATerminalTest {
         assertThat(run(false)).isZero();
 
         assertThat(out.toString()).contains("password=the-secret");
+    }
+
+    @Test
+    void aValueOfSeveralLinesIsNotHandedToGitWhichWouldEchoTheSecondOne() throws Exception {
+        assertThat(run(false, "the-secret\nsecond-half\n")).isZero();
+
+        assertThat(out.toString())
+                .as("git warns 'invalid credential line: <line>', the line in the open")
+                .isEmpty();
+        assertThat(err.toString()).contains("line break").doesNotContain("second-half");
     }
 
     @Test
