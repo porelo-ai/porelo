@@ -10,7 +10,7 @@
   "priority": "Medium",
   "rank": 39,
   "blockedBy": [],
-  "covers": "The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses.",
+  "covers": "The `.deb` and `.rpm` provide `porelo-agent-protocol` at version `<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses.",
   "openQuestions": 0
 }
 ```
@@ -76,3 +76,17 @@ today it checks no `Provides` at all.
   porelo's own `VERSION` was weighed and left: porelo accepts agents newer than its `VERSION`, so no range it provides
   is the whole of what it accepts.
 - Kept: the root pom's number is compared with `LOWEST` by `package-check` on built packages, not by every build.
+
+## Changed after a measurement (2026-11-12)
+
+- The agent repositories' rpm plugin (de.dentrassi rpm 1.13.0) refuses the rich dependency
+  `(porelo-agent-protocol-3 or ...)` the README named ("Invalid short format"). So the capability is versioned
+  instead: porelo provides `porelo-agent-protocol (= <LOWEST>)` in the `.deb` and `porelo-agent-protocol = <LOWEST>`
+  in the `.rpm`; an agent requires it `>=` the `LOWEST` at its build and `<=` its own `VERSION`, two plain
+  requirements on both systems. It accepts and refuses the same pairings as the numbered names did.
+- `package-check` reads the versioned form from both packages and fails an unversioned or numbered capability; the
+  acceptance on the VM uses the versioned form: an agent package requiring `>= 3, <= 5` installs, one requiring
+  `<= 2` is refused.
+- Seen: the checker's new tests failed against the numbered form's checker; packages built with the property at 2
+  failed `package-check` naming 2 and 3; at 3 `dpkg-deb -f ... Provides` gives `porelo-agent-protocol (= 3)` and every
+  check of `package-check` passed.

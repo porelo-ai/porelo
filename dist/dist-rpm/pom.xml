@@ -108,7 +108,7 @@ Where SELinux is enforcing, a task container cannot reach porelo's sockets until
                             </requires>
                             <!-- The lowest agent protocol this porelo accepts: an agent's package requires it, so dnf refuses only what porelo would. -->
                             <provides>
-                                <provide>porelo-agent-protocol-${porelo.agent.protocol.lowest}</provide>
+                                <provide>porelo-agent-protocol = ${porelo.agent.protocol.lowest}</provide>
                             </provides>
                             <!-- Recommended, not required: they require porelo, so requiring them would
                                  be a cycle. dnf installs a weak dependency by default, which is what a

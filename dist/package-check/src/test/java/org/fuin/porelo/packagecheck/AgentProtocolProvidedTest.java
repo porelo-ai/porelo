@@ -4,12 +4,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.fuin.porelo.agent.api.AgentProtocol;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class AgentProtocolProvidedTest {
 
     private static final int LOWEST = AgentProtocol.LOWEST;
 
     private final Reports out = new Reports();
+
+    /** What {@code dpkg-deb -f <deb> Provides} prints for a versioned capability. */
+    private static String deb(int version) {
+        return "porelo-agent-protocol (= " + version + ")";
+    }
+
+    /** One line of {@code rpm -qp --provides} for a versioned capability. */
+    private static String rpm(int version) {
+        return "porelo-agent-protocol = " + version;
+    }
 
     /** What {@code rpm -qp --provides} prints: the package itself first, one capability a line. */
     private static String rpmProvides(String... more) {
@@ -24,19 +36,14 @@ class AgentProtocolProvidedTest {
 
     @Test
     void passesBothPackagesProvidingTheLowestProtocolPoreloAccepts() {
-        final String provided = "porelo-agent-protocol-" + LOWEST;
-
-        AgentProtocolProvided.check(provided, rpmProvides(provided), out.report);
+        AgentProtocolProvided.check(deb(LOWEST), rpmProvides(rpm(LOWEST)), out.report);
 
         assertThat(out.report.failures()).as(out.text()).isZero();
     }
 
     @Test
     void failsAPackageProvidingOneBelowTheLowestAndNamesBothNumbers() {
-        final String below = "porelo-agent-protocol-" + (LOWEST - 1);
-
-        AgentProtocolProvided.check(
-                below, rpmProvides("porelo-agent-protocol-" + LOWEST), out.report);
+        AgentProtocolProvided.check(deb(LOWEST - 1), rpmProvides(rpm(LOWEST)), out.report);
 
         assertThat(out.report.failures())
                 .as(
@@ -50,35 +57,44 @@ class AgentProtocolProvidedTest {
 
     @Test
     void failsAPackageProvidingNoAgentProtocol() {
-        AgentProtocolProvided.check("porelo-agent-protocol-" + LOWEST, rpmProvides(), out.report);
+        AgentProtocolProvided.check(deb(LOWEST), rpmProvides(), out.report);
 
         assertThat(out.report.failures())
                 .as("an rpm without the capability makes dnf refuse every agent package")
                 .isEqualTo(1);
-        assertThat(out.text()).contains("the rpm provides no porelo-agent-protocol-<n>");
+        assertThat(out.text()).contains("the rpm provides no porelo-agent-protocol at a version");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"porelo-agent-protocol", "porelo-agent-protocol-%d"})
+    void failsACapabilityWithoutAVersion(String form) {
+        // Unversioned, no agent's '>=' or '<=' is met; a number in the name is the old form.
+        AgentProtocolProvided.check(
+                String.format(form, LOWEST), rpmProvides(rpm(LOWEST)), out.report);
+
+        assertThat(out.report.failures()).isEqualTo(1);
     }
 
     @Test
     void failsAPackageProvidingTwoAgentProtocols() {
-        final String two =
-                "porelo-agent-protocol-" + LOWEST + ", porelo-agent-protocol-" + (LOWEST + 1);
-
         AgentProtocolProvided.check(
-                two, rpmProvides("porelo-agent-protocol-" + LOWEST), out.report);
+                deb(LOWEST) + ", " + deb(LOWEST + 1), rpmProvides(rpm(LOWEST)), out.report);
 
         assertThat(out.report.failures())
                 .as("the package provides one number, its lowest, never a list to choose from")
                 .isEqualTo(1);
     }
 
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(
-            strings = {"foo-porelo-agent-protocol-%d", "porelo-agent-protocol-%d-foo"})
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "foo-porelo-agent-protocol (= %d)",
+                "porelo-agent-protocol-foo (= %d)",
+                "porelo-agent-protocol (= %d.1)"
+            })
     void failsANameThatOnlyHoldsTheCapability(String form) {
-        final String other = String.format(form, LOWEST);
-
         AgentProtocolProvided.check(
-                other, rpmProvides("porelo-agent-protocol-" + LOWEST), out.report);
+                String.format(form, LOWEST), rpmProvides(rpm(LOWEST)), out.report);
 
         assertThat(out.report.failures())
                 .as("another package's capability is no agent protocol porelo provides")
@@ -87,12 +103,9 @@ class AgentProtocolProvidedTest {
 
     @Test
     void failsAProtocolThatOnlyBeginsWithTheLowest() {
-        AgentProtocolProvided.check(
-                "porelo-agent-protocol-" + LOWEST + "0",
-                rpmProvides("porelo-agent-protocol-" + LOWEST + " = 0.5.1"),
-                out.report);
+        AgentProtocolProvided.check(deb(LOWEST * 10), rpmProvides(rpm(LOWEST)), out.report);
 
         assertThat(out.report.failures()).isEqualTo(1);
-        assertThat(out.text()).contains("the deb provides agent protocol " + LOWEST + "0");
+        assertThat(out.text()).contains("the deb provides agent protocol " + LOWEST * 10);
     }
 }

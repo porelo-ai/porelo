@@ -6,8 +6,8 @@ import java.util.regex.Pattern;
 import org.fuin.porelo.agent.api.AgentProtocol;
 
 /**
- * Checks that both packages provide {@code porelo-agent-protocol-<LOWEST>}, the capability an
- * agent's package depends on.
+ * Checks that both packages provide {@code porelo-agent-protocol} at version {@code LOWEST}, the
+ * capability an agent's package depends on.
  *
  * <p>The number is written in the root pom for the two package descriptions, and read here from
  * {@link AgentProtocol} itself, so a raised {@code LOWEST} with the pom left behind fails here
@@ -15,9 +15,11 @@ import org.fuin.porelo.agent.api.AgentProtocol;
  */
 final class AgentProtocolProvided {
 
-    // A whole capability: not the tail of another name, nor the head of one ("-3-foo").
+    // The capability at a version, as dpkg-deb gives it ("porelo-agent-protocol (= 3)") and as
+    // rpm gives it ("porelo-agent-protocol = 3"); a whole name, never the tail of another one.
     private static final Pattern PROVIDED =
-            Pattern.compile("(?<![\\w.-])porelo-agent-protocol-(\\d+)(?![\\w.-])");
+            Pattern.compile(
+                    "(?<![\\w.-])porelo-agent-protocol\\s*(?:\\(\\s*=\\s*(\\d+)\\s*\\)|=\\s*(\\d+))(?![\\w.-])");
 
     private AgentProtocolProvided() {
         throw new UnsupportedOperationException("Utility class");
@@ -40,7 +42,9 @@ final class AgentProtocolProvided {
         final int lowest = AgentProtocol.LOWEST;
         if (numbers.isEmpty()) {
             report.fail(
-                    label + " provides no porelo-agent-protocol-<n>; porelo's lowest is " + lowest);
+                    label
+                            + " provides no porelo-agent-protocol at a version; porelo's lowest is "
+                            + lowest);
         } else if (numbers.size() > 1) {
             report.fail(
                     label
@@ -63,6 +67,11 @@ final class AgentProtocolProvided {
 
     private static List<Integer> numbers(String provides) {
         final Matcher matcher = PROVIDED.matcher(provides);
-        return matcher.results().map(found -> Integer.parseInt(found.group(1))).toList();
+        return matcher.results()
+                .map(
+                        found ->
+                                Integer.parseInt(
+                                        found.group(1) != null ? found.group(1) : found.group(2)))
+                .toList();
     }
 }

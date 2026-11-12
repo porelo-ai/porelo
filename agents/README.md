@@ -475,13 +475,15 @@ say", never "nothing found". Any other error is an error, not an old agent. A
 renamed, removed or reinterpreted method or field raises `LOWEST`.
 
 **What an agent's package depends on.** Porelo's `.deb` and `.rpm` provide
-`porelo-agent-protocol-<LOWEST>`, one number. An agent's package depends on any one
-of `porelo-agent-protocol-<n>` for every `n` from `AgentProtocol.LOWEST` at its
-build up to its own `VERSION` - on Debian `porelo-agent-protocol-3 | porelo-agent-protocol-4
-| porelo-agent-protocol-5`, on Fedora `(porelo-agent-protocol-3 or
-porelo-agent-protocol-4 or porelo-agent-protocol-5)`. The package manager then
-refuses a pairing Porelo itself would refuse, and also a Porelo whose `LOWEST` is
-older than the agent's: the agent was built after a break that Porelo predates.
+`porelo-agent-protocol` at one version, its `LOWEST`: `Provides: porelo-agent-protocol
+(= 3)` on Debian, `porelo-agent-protocol = 3` on Fedora. An agent's package requires
+it at least at `AgentProtocol.LOWEST` at its build and at most at its own `VERSION` -
+on Debian `Depends: porelo-agent-protocol (>= 3), porelo-agent-protocol (<= 5)`, on
+Fedora the two requires `porelo-agent-protocol >= 3` and `porelo-agent-protocol <= 5`;
+no rich dependency, which the rpm plugin the adapters build with refuses. The package
+manager then refuses a pairing Porelo itself would refuse, and also a Porelo whose
+`LOWEST` is older than the agent's: the agent was built after a break that Porelo
+predates.
 
 ## What an agent finds of itself
 
