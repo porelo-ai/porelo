@@ -1,0 +1,2 @@
+title: "The `.deb` and `.rpm` provide `porelo-agent-protocol-<n>`, the lowest agent protocol porelo accepts, so an agent's package can depend on it"
+type: added

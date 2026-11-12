@@ -11,6 +11,8 @@ Homepage: https://github.com/porelo-ai/porelo
 # Podman 5, as the setup script demands: a plain apt install on a release offering 4 would fail 'porelo doctor'.
 # The C library and zlib at the floor the binaries were measured to need: jdeb does not read them.
 Depends: podman (>= 5), catatonit, nftables, dnsmasq-base, git, util-linux, libc6 (>= [[package.glibc.floor]]), zlib1g
+# The lowest agent protocol this porelo accepts: an agent's package depends on it, so apt refuses only what porelo would.
+Provides: porelo-agent-protocol-[[porelo.agent.protocol.lowest]]
 # Recommended, not required: they depend on porelo, so requiring them would be a cycle. apt installs
 # a recommendation by default, which is what a machine without the setup script needs - without the
 # filter nothing leaves a task.

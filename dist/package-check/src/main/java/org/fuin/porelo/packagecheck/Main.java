@@ -161,6 +161,15 @@ public final class Main {
         report.section("deb and rpm agree");
         Parity.check(debFiles(deb), rpmFiles(rpm), report);
 
+        report.section("the agent protocol an agent's package depends on");
+        final Commands.Result rpmProvides =
+                inFedora(rpm, "rpm", "-qp", "--provides", "/pkg/" + rpm.getFileName());
+        if (!rpmProvides.ok()) {
+            throw new IllegalStateException(
+                    "rpm could not read what " + rpm + " provides: " + rpmProvides.output());
+        }
+        AgentProtocolProvided.check(debField(deb, "Provides"), rpmProvides.output(), report);
+
         // Registered as a vendor's agent is: under a name of its own, by one description, which the
         // installs below find.
         report.section("the agent is packaged as a vendor's would be");

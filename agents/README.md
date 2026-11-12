@@ -474,6 +474,14 @@ a newer one included, since Porelo calls only methods it knows.
 say", never "nothing found". Any other error is an error, not an old agent. A
 renamed, removed or reinterpreted method or field raises `LOWEST`.
 
+**What an agent's package depends on.** Porelo's `.deb` and `.rpm` provide
+`porelo-agent-protocol-<LOWEST>`, one number. An agent's package depends on any one
+of `porelo-agent-protocol-<n>` for every `n` from the `LOWEST` it was built with up
+to its own `VERSION` - on Debian `porelo-agent-protocol-3 | porelo-agent-protocol-4
+| porelo-agent-protocol-5`, on Fedora `(porelo-agent-protocol-3 or
+porelo-agent-protocol-4 or porelo-agent-protocol-5)`. The package manager then
+refuses only a pairing Porelo itself would refuse.
+
 ## What an agent finds of itself
 
 `Find(configDirectory)` answers what the agent's tool holds on this machine, so a start without

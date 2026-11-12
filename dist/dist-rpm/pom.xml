@@ -106,6 +106,10 @@ Where SELinux is enforcing, a task container cannot reach porelo's sockets until
                                 <require>libc.so.6(GLIBC_${package.glibc.floor})(64bit)</require>
                                 <require>libz.so.1(ZLIB_${package.zlib.floor})(64bit)</require>
                             </requires>
+                            <!-- The lowest agent protocol this porelo accepts: an agent's package requires it, so dnf refuses only what porelo would. -->
+                            <provides>
+                                <provide>porelo-agent-protocol-${porelo.agent.protocol.lowest}</provide>
+                            </provides>
                             <!-- Recommended, not required: they require porelo, so requiring them would
                                  be a cycle. dnf installs a weak dependency by default, which is what a
                                  machine without the setup script needs - without the filter nothing

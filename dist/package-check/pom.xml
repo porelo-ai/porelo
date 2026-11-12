@@ -53,6 +53,12 @@
             <version>${porelo.buildtools.version}</version>
         </dependency>
 
+        <!-- The lowest agent protocol the packages must provide is read from the contract itself. -->
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-agent-api</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
