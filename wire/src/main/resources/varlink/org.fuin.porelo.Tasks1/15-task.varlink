@@ -623,14 +623,15 @@ method Start(
   # Gives the task every repository of the project to read, the project's own among them, instead
   # of one to work on: each at its main as this machine takes it, under /workspace/<repository>/,
   # read only and without .git, and never what tasks pushed for review. No gate and no push target;
-  # its end removes the container whatever it holds, rm or not. Its agent, image and egress are the
+  # its end asks nothing about work: without rm it is stopped and kept, with its Result, until it is
+  # removed; with rm it is removed. Its agent, image and egress are the
   # project's own repository's, which is the task's 'repository'. A repository that cannot be read
   # is named among the output lines and left out; none readable refuses the start (exitCode 69).
   # Refused with exitCode 64 beside repository, branch, from, noGate or upstream. Unnamed, the task
   # is named "all", or the next free one. Not offered through a task's MCP start. An existing task
   # is brought back only as the kind it was made: allRepositories for a task on one repository, or
   # repository or noGate for one that reads them all, is refused with exitCode 64. A prompt run
-  # removes it at its end too, whatever its exit.
+  # ends it the same way, whatever its exit.
   allRepositories: ?bool,
   # The name of the one file the task hands back at its end: a file name, no directory, at most 255
   # bytes of UTF-8, no control character, never "." or "..". The task finds /run/porelo/result/

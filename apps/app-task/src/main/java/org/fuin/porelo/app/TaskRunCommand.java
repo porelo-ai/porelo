@@ -241,7 +241,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             description =
                     "Gives the task every repository of the project, its own among them, each at its"
                             + " main as this machine takes it, under /workspace/<repository>/, read"
-                            + " only. No gate, nothing pushed, and the task is removed at its end.")
+                            + " only. No gate, nothing pushed; at its end the task is stopped and"
+                            + " kept, or removed with --rm.")
     private boolean allRepositories;
 
     @Option(
@@ -997,8 +998,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                     return code;
                                 }
                                 render(running.selected(), running.container(), out, err);
-                                // After it is shown: a task that reads its project goes with its
-                                // run, and its log with it.
+                                // After it is shown: a task that reads its project is stopped and
+                                // kept at its run's end, or removed with its log under --rm.
                                 final int ended =
                                         launch.promptEnded(running.container(), code, out, err);
                                 return ended == 0 ? 0 : 70;
@@ -1033,16 +1034,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                                                             .model())))
                                             : null;
                             out.println(
-                                    allRepositories
-                                            ? "Attaching. Leaving the shell removes the container, since it only"
-                                                    + " reads its project and holds nothing to keep."
-                                            : rm
-                                                    ? "Attaching. Leaving the shell removes the container; Ctrl-C stops it and"
-                                                            + " keeps it, because an interrupted run may hold work."
-                                                    : "Attaching. The container is kept when you leave; remove it with"
-                                                            + " 'porelo task remove "
-                                                            + running.container()
-                                                            + "'.");
+                                    rm
+                                            ? "Attaching. Leaving the shell removes the container; Ctrl-C stops it and"
+                                                    + " keeps it, because an interrupted run may hold work."
+                                            : "Attaching. The container is kept when you leave; remove it with"
+                                                    + " 'porelo task remove "
+                                                    + running.container()
+                                                    + "'.");
                             if (startWith != null) {
                                 out.println(
                                         "Starting "

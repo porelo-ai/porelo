@@ -5913,8 +5913,9 @@ public final class TaskLaunch {
     }
 
     /**
-     * Ends a run with a prompt: removes the task when it reads its whole project, whatever the
-     * run's exit, as an attached session's end does; any other task is left as the run left it.
+     * Ends a run with a prompt: a task that reads its whole project is stopped and kept, or removed
+     * when its start asked for that, whatever the run's exit, as an attached session's end does;
+     * any other task is left as the run left it.
      *
      * <p>Called by whoever runs the prompt, after it showed the run: the removal takes the task's
      * logs with it.
@@ -5930,7 +5931,7 @@ public final class TaskLaunch {
         if (!reads(container)) {
             return code;
         }
-        return cleanUp(context.tasks(), container, code, false, out, err);
+        return cleanUp(context.tasks(), container, code, request.keep(), out, err);
     }
 
     private int cleanUpOrFail(
@@ -5949,11 +5950,12 @@ public final class TaskLaunch {
                         && context.podman().stateOf(recorded)
                                 != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT;
         boolean unmade = false;
-        // A task that read its whole project wrote nothing anybody can take back, and what it read
-        // is its project's main: its end removes it, kept or failed, so nothing staged survives.
-        // Asked of the task too: one brought back by its name alone was made to read all the same.
+        // A task that read its whole project wrote nothing anybody can take back, so its end asks
+        // nothing about work. It is kept as any task is, for its Result: removed at its end, a
+        // discussion's idea went with it. Asked of the task too: one brought back by its name
+        // alone was made to read all the same.
         final boolean reading = reads(container);
-        final boolean kept = keep && !reading;
+        final boolean kept = keep;
 
         if (code != 0 && exists && !kept && !reading) {
             if (!handedOver) {
@@ -6029,6 +6031,15 @@ public final class TaskLaunch {
                                 + " --force'");
                 out.flush();
             }
+        }
+        if (kept && reading && exists) {
+            // Stopped, never left running: one left up after its session held its project's trees
+            // with nobody watching.
+            final TaskControl.Stopped stopped = new TaskControl(context).stop(container);
+            if (!reportStop(stopped, err)) return code == 0 ? 70 : code;
+            out.println("kept      " + container + " - it only read, and is stopped");
+            out.println("          remove it with 'porelo task remove " + container + "'");
+            out.flush();
         }
         if (recorded == null) {
             // Nothing it made runs, whatever of that name does: its helpers are all that is left.

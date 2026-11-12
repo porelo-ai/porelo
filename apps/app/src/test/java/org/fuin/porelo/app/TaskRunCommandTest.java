@@ -6688,7 +6688,7 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void aTaskThatReadsItsWholeProjectIsRemovedAtItsEndWhateverItHolds(@TempDir Path dir)
+    void aTaskThatReadsItsWholeProjectIsStoppedAndKeptAtItsEndWhateverItHolds(@TempDir Path dir)
             throws Exception {
 
         final PoreloContext prepared = context(dir, true);
@@ -6752,17 +6752,18 @@ class TaskRunCommandTest {
                 .as("its repositories are its workspace, read only: %s", err)
                 .anyMatch(line -> line.contains(":/workspace:ro,Z"));
         assertThat(runner.lines())
-                .as("removed at its end, though nobody asked for --rm: %s", out)
-                .anyMatch(line -> line.contains("rm --force"));
+                .as("stopped and kept at its end, since nobody asked for --rm: %s", out)
+                .anyMatch(line -> line.contains("stop --time"))
+                .noneMatch(line -> line.contains("rm --force"));
         assertThat(out.toString()).doesNotContain("never reached the gate");
         assertThat(out.toString())
                 .as("told so when it is attached")
-                .contains("Leaving the shell removes the container, since it only reads")
-                .doesNotContain("The container is kept when you leave");
+                .contains("The container is kept when you leave")
+                .doesNotContain("Leaving the shell removes the container");
         final Path read = prepared.paths().tasks().repositories("any").getParent();
         assertThat(read).as("it was given what it read").exists();
         try (java.util.stream.Stream<Path> left = Files.list(read)) {
-            assertThat(left.toList()).as("what it read goes with it").isEmpty();
+            assertThat(left.toList()).as("what it read stays until it is removed").isNotEmpty();
         }
     }
 
@@ -6886,10 +6887,10 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void aTaskThatReadsItsProjectGoneIntoAgainIsRemovedWhenThePersonLeaves(@TempDir Path dir)
+    void aTaskThatReadsItsProjectGoneIntoAgainIsStoppedAndKeptWhenThePersonLeaves(@TempDir Path dir)
             throws IOException {
-        // Made to keep nothing, it went on running after its second session ended, holding a
-        // whole project's trees until somebody removed it by hand.
+        // Left running after its second session ended, it held a whole project's trees until
+        // somebody removed it by hand; removed instead, a discussion's idea went with it.
         final PoreloContext context = context(dir, true);
         Files.createDirectories(
                 context.paths().tasks().repositories("porelo-uc-shell").resolve("uc"));
@@ -6901,20 +6902,21 @@ class TaskRunCommandTest {
         assertThat(code).as("said: %s / %s", err, out).isZero();
         assertThat(execCalls).as("gone into").hasSize(1);
         assertThat(runner.lines())
-                .as("removed once its session ended: %s", err)
-                .anyMatch(line -> line.contains("rm --force"));
-        assertThat(out.toString()).contains("removed   porelo-uc-shell");
+                .as("stopped once its session ended: %s", err)
+                .anyMatch(line -> line.contains("stop --time"))
+                .noneMatch(line -> line.contains("rm --force"));
+        assertThat(out.toString()).contains("kept      porelo-uc-shell");
         assertThat(context.paths().tasks().repositories("porelo-uc-shell"))
-                .as("what it read goes with it")
-                .doesNotExist();
+                .as("what it read stays with it until it is removed")
+                .exists();
     }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 3})
-    void aTaskThatReadsItsProjectIsRemovedAtTheEndOfItsPromptRunHoweverItEnded(
+    void aTaskThatReadsItsProjectIsStoppedAndKeptAtTheEndOfItsPromptRunHoweverItEnded(
             int exit, @TempDir Path dir) throws IOException {
-        // A prompt run never reached the end that removes a task, so a reader's container and its
-        // trees stayed after every unattended run.
+        // Removed at its end, its Result went with it, and a discussion's idea never reached the
+        // planner; left running, it held its trees with nobody watching.
         final PoreloContext context = modelContext(dir, false);
         final String project = projectFile(dir, MINIMAL);
         ownMain(context, dir);
@@ -6945,6 +6947,51 @@ class TaskRunCommandTest {
         }
 
         assertThat(code).as("the run's own verdict: %s", err).isEqualTo(exit == 0 ? 0 : 70);
+        assertThat(runner.lines())
+                .as("stopped and kept at the end of its run: %s", out)
+                .anyMatch(line -> line.contains("stop --time"))
+                .noneMatch(line -> line.contains("rm --force"));
+        final Path read = context.paths().tasks().repositories("any").getParent();
+        try (java.util.stream.Stream<Path> left = Files.list(read)) {
+            assertThat(left.toList()).as("what it read stays until it is removed").isNotEmpty();
+        }
+    }
+
+    @Test
+    void aTaskThatReadsItsProjectStartedWithRmIsRemovedAtTheEndOfItsPromptRun(@TempDir Path dir)
+            throws IOException {
+        // As any task started with --rm: nothing of it stays.
+        final PoreloContext context = modelContext(dir, false);
+        final String project = projectFile(dir, MINIMAL);
+        ownMain(context, dir);
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\nexit 0\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int code;
+        try {
+            code =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "--all-repositories",
+                            "--rm",
+                            "--agent",
+                            "preview",
+                            "--prompt",
+                            "read it",
+                            "-p",
+                            project);
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(code).as("the run's own verdict: %s", err).isZero();
         assertThat(runner.lines())
                 .as("removed at the end of its run: %s", out)
                 .anyMatch(line -> line.contains("rm --force"));

@@ -247,7 +247,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b634"></a>[B634](B634-A-Task-That-Read-Its-Project-Ends-As-Any-Task-Ends.md) | S | - | A task that read its whole project is kept at its end as any task is, stopped and with its Result, unless its start asked for --rm, so a discussion's idea can be handed in after it ends; only the question about unhanded work stays unasked. |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 
@@ -255,6 +254,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b634"></a>[B634](B634-A-Task-That-Read-Its-Project-Ends-As-Any-Task-Ends.md) | S | - | A task that read its whole project is kept at its end as any task is, stopped and with its Result, unless its start asked for --rm, so a discussion's idea can be handed in after it ends; only the question about unhanded work stays unasked. |
 | <a id="b518"></a>[B518](B518-A-Person-Leaves-An-Organization.md) | S | - | `porelo org leave`: a person withdraws their own card and roles and forgets the organization on this machine, refused where it would leave no owner; the window's *Leave…* runs it. |
 | <a id="b517"></a>[B517](B517-A-Card-Proposed-And-Accepted-By-An-Owner.md) | L | - | A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it. |
 | <a id="b632"></a>[B632](B632-An-Attended-Task-Takes-Its-Prompt-As-Its-First-Turn.md) | S | - | A Tasks1 Start with mode AGENT and a prompt answers once the task stands, and the agent's attended session, when it first starts, takes the prompt as its first turn and then waits for the person; an agent that cannot take one is refused with 64. |

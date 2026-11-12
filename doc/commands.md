@@ -234,11 +234,12 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 - `--all-repositories` gives the task every repository of the project, its own among them, to read: each at its main
   as this machine takes it (from the host's forge, from central, or your own mirror; an offline project's from its
   mirror alone), under `/workspace/<repository>/`, read only and without `.git`. Nothing your project's tasks pushed
-  for review is in it. The task has no gate and pushes nothing, and its end removes it, `--rm` or not, whatever it
-  holds. A repository that cannot be read is named and left out; when none can be, the start is refused (exit 69).
-  It takes no `-r`, `--branch`, `--from`, `--no-gate` or `--upstream` (exit 64). Unnamed, the task is called `all`.
-  A prompt run removes it at its end too, and so does leaving its session when you went back into it with
-  `task start all` or `task attach all`. It comes back only as it was made: `--all-repositories` for a task on one
+  for review is in it. The task has no gate and pushes nothing. Its end, whatever it holds, asks nothing about work:
+  without `--rm` it is stopped and kept, with its result, until `task remove`; with `--rm` it is removed. A
+  repository that cannot be read is named and left out; when none can be, the start is refused (exit 69). It takes no
+  `-r`, `--branch`, `--from`, `--no-gate` or `--upstream` (exit 64). Unnamed, the task is called `all`. A prompt run
+  ends it the same way, and leaving its session stops and keeps it when you went back into it with `task start all`
+  or `task attach all`. It comes back only as it was made: `--all-repositories` for a task on one
   repository, and `-r` or `--no-gate` for one that reads them all, are refused (exit 64). An agent's setup file meant
   for the workspace is not written, and the start says so.
 - `--result NAME` names the one file the task hands back at its end: its agent writes it into

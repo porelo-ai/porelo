@@ -270,19 +270,21 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
     }
 
     /**
-     * Removes a task that reads its whole project once the person left its session, as the start
-     * that made it does; a task of any other kind, or a session only detached from, is left as it
-     * is.
+     * Stops a task that reads its whole project once the person left its session, and keeps it, as
+     * the start that made it does; a task of any other kind, or a session only detached from, is
+     * left as it is.
      *
      * <p>Only when the session's own shell said it ended: a container that cannot be asked has not
-     * said so, and is kept running, as a detach is.
+     * said so, and is kept running, as a detach is. Kept for its Result: removed here, a
+     * discussion's idea went with it; left running, it held its project's trees with nobody
+     * watching.
      *
      * @param context The machine.
      * @param container The task gone into.
      * @param code The session's exit code.
-     * @param out Where the removal is said.
+     * @param out Where the stop is said.
      * @param err Where what survived it is said.
-     * @return The session's code, or 70 when a session that ended well left the task behind.
+     * @return The session's code, or 70 when a session that ended well left the task running.
      */
     static int leftAReader(
             final PoreloContext context,
@@ -294,25 +296,25 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
                 || !context.tasks().sessionEnded(container)) {
             return code;
         }
-        final TaskControl.Stopped removed = new TaskControl(context).remove(container, false, true);
-        for (final String alive : removed.surviving()) {
+        final TaskControl.Stopped stopped = new TaskControl(context).stop(container);
+        for (final String alive : stopped.surviving()) {
             err.println("porelo: still running: " + alive);
         }
-        if (!removed.removed()) {
+        err.flush();
+        if (!stopped.clean()) {
             err.println(
                     "porelo: "
                             + container
-                            + " was not removed ("
-                            + removed.outcome()
-                            + "); remove it with 'porelo task remove "
+                            + " was not stopped ("
+                            + stopped.outcome()
+                            + "); stop it with 'porelo task stop "
                             + container
-                            + " --force'");
-        }
-        err.flush();
-        if (!removed.removed() || !removed.clean()) {
+                            + "'");
+            err.flush();
             return code == 0 ? 70 : code;
         }
-        out.println("removed   " + container + " - it read its project, and holds nothing to keep");
+        out.println("kept      " + container + " - it only read, and is stopped");
+        out.println("          remove it with 'porelo task remove " + container + "'");
         out.flush();
         return code;
     }

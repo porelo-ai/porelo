@@ -1182,8 +1182,9 @@ final class TaskMethods {
                                                             running.environment(),
                                                             sink,
                                                             sink);
-                                            // A task that reads its project goes with its run,
-                                            // as at a terminal.
+                                            // A task that reads its project is stopped and kept
+                                            // at its run's end, or removed with rm, as at a
+                                            // terminal.
                                             final int ended =
                                                     launch.promptEnded(
                                                             running.container(), ran, sink, sink);
