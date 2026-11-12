@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 /** Returns a person's terminal to its saved settings after attaching to a task's session. */
 final class TerminalAttach {
 
-    private static final String RESETS =
+    static final String RESETS =
             "\033[?1000l\033[?1002l\033[?1003l\033[?1006l\033[?1015l"
                     + "\033[?1004l\033[?2004l\033[>4;0m\033[?1049l\033[?25h";
 

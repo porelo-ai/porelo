@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B48",
   "title": "The Overview That Stays Open",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 35,
@@ -146,9 +146,52 @@ Steps, in order:
 - The rendering is the same code that prints the one-shot listing, proven by a test that changes
   the listing's format and sees both change. Seen to fail: that test, when only one of the two changes.
 
-## To be checked
+## Built (2026-11-12)
 
-- **Does it need the daemon?** `porelo task list` builds its answer in this process and works where
-  nothing runs but podman. Consuming `Watch` makes the watching form need a daemon, which an operator meets as an
-  error message. The plan states it plainly and falls back to one listing; the other choice is polling its own
-  inventory, as the second change detector point 2 refuses.
+- **One listing, two forms.** `TaskListing` (`apps/app-task`) holds the table's text: header, a row in its parts
+  (everything but the age, and the age cell with its column), the line said when there is no task, and the notes
+  under the table. `TaskListCommand.render` prints it once from this process's `TaskInventory`; the watching view
+  draws the same rows with a two-character marker column in front. `TaskListWatchTest` runs `task list` and
+  `task list --watch` against one machine and finds the same header and rows in both.
+- **The state column keeps only the state's first word** (`Up`, or `Exited (<code>)` as before), the reduction the
+  daemon's `Watch` already compares by: the age column says how long, and a view sent a list only when something
+  other than an age changed would otherwise show `Up 3 seconds` for an hour. This changes what the one-shot listing
+  prints; no acceptance scenario read the age out of the state column.
+- **`TaskRows`** reads a `Watch` row back into a `TaskInventory.Task`. `TaskRowsTest` sends a task with every field it
+  reads set through the wire's JSON and gets the same row and the same rendering back. Not read back, since no
+  listing shows them: how the agent's run ended (`agentEnded`), the files handed in, the builds of its pushes and the
+  file it handed back. The reader lives in `apps/app-task` beside its one caller, not in `app-model` beside `asMap`.
+- **`--project <name>`** on `task list` filters the tasks before the listing sees them, in both forms; without it
+  both show every task. Containers named like tasks that Porelo holds no id for are still noted under a project's
+  listing, since no project can be read for them.
+- **`--watch`** connects to the daemon's socket, calls `Watch` with `more` and lets each reply replace the held list
+  (`TaskWatch`); a second connection follows `Prompts`. A thread works the ages out again once a minute from each
+  task's `since`; nothing asks the daemon for a list.
+- **Clearance questions** are kept from `Prompts` until their verdict (`allow`, `deny`, `timeout`) or their deadline;
+  while any is open, the first line says how many wait, for which tasks, and that they are answered where clearance
+  is asked, not in this view. Under `--project` only that project's tasks count. A `missed` count on the stream adds
+  that questions may be waiting unseen; a `Prompts` that fails puts that on the line instead.
+- **At a terminal** the view draws on the alternate screen with the cursor hidden and line wrapping off, keeps the
+  first line for the hint so a question moves no row, writes only rows whose text other than the age changed, and
+  for an age alone writes just the age cell. Tasks waiting for somebody (a question seen asked, a screen its agent
+  declares a wait on, or its work at the gate) sort first and carry `!`. On leaving it turns colours off and wrapping
+  on, then writes the reset an attach ends with (`TerminalAttach.RESETS`: main screen, cursor shown, mouse and other
+  modes off). Ctrl-C runs that from a shutdown hook, which then halts with 0; the normal end runs it in `finally`. The
+  view changes no `stty` setting, so it saves and restores none.
+- **Not at a terminal** it prints the listing once, then one line per change: the time, the task and what changed
+  (`state Up -> Exited (1)`, `helpers 2 -> 0`, waiting or not), a task listed or gone, the hint line when it changes.
+  No escape sequence.
+- **Without a daemon** it says that porelod does not answer at the socket and the list cannot be watched, prints the
+  listing once and exits 69 (EX_UNAVAILABLE). A daemon that refuses `Watch` before its first reply is answered the
+  same way; one that stops mid-way gets the terminal given back, a line saying what was shown is no longer current,
+  and 69.
+- **Acceptance**, `acceptance/suite/.../task/task-list-watch.feature` (`@slow`): start a task, open the view in a
+  terminal, stop the task from a script, see `Exited (`; Ctrl-C; `stty -a` compared with the one taken before, and the
+  new kit step "the terminal is back on its main screen with its cursor shown", which fails when the alternate screen
+  was never left or the cursor left hidden (`TerminalStepsTest` holds that, red when the check is removed). The kit
+  gained the key `Ctrl+C`. The scenario was written, not run: it needs the VM.
+
+Not built: the view asks neither the terminal's height nor its width. A list longer than the screen is not scrolled,
+and with wrapping off a line wider than the screen, such as the note on containers Porelo holds no id for, is cut at
+its edge. Whether the watching form should need the daemon is settled as planned: it does, and without one it says
+so and lists once.

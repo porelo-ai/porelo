@@ -283,7 +283,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
-| <a id="b48"></a>[B48](B48-The-Overview-That-Stays-Open.md) | M | - | `task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C. |
 
 ## Review
 
@@ -367,6 +366,7 @@ from its side, as *blocked by*.
 | <a id="b529"></a>[B529](B529-A-Peers-Message-Cannot-Pass-For-A-Filter-Note.md) | S | - | Another task's message shaped like a refusal note no longer wakes every task it reaches. | - |
 | <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](README.md#b540) | `porelo-host gate forge --web\|--git\|--runner` after porelo-host's load measure; `pool revert \| make-vm \| find-vm \| delete-vm`. | - |
 | <a id="b550"></a>[B550](B550-The-Host-Follows-Its-Organization-In-Java.md) | L | [B546](README.md#b546), [B547](README.md#b547) | `porelo-host org follow \| refresh \| renew-pin`; the project verbs called in-process. | - |
+| <a id="b48"></a>[B48](B48-The-Overview-That-Stays-Open.md) | M | - | `task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C. | - |
 | <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](README.md#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test; built, in review. | - |
 | <a id="b547"></a>[B547](B547-Task-Accounts-And-Lent-Tokens-Through-The-Host-Tool.md) | L | [B541](README.md#b541) | `porelo-host task start \| end`, `forge issue-token \| lend-token`, for `SUDO_USER` alone; porelo's callers switched. | - |
 | <a id="b546"></a>[B546](B546-The-Host-Tool-Measures-Copies-And-Advances-A-Project.md) | L | [B545](README.md#b545) | `porelo-host project measure-central \| copy \| advance \| check-central`. | - |

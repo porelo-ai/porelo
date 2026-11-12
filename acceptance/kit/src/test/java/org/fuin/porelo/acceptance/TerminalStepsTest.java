@@ -95,4 +95,22 @@ class TerminalStepsTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(TerminalSteps.alternatives("a, b")).containsExactly("a", "b");
     }
+
+    @Test
+    void aScreenGivenBackPassesAndOneLeftTakenFailsSayingWhat() {
+        final String drawn = "ready$ porelo task list --watch\033[?1049h\033[?25l\033[1;1Hrows";
+        final String reset = "\033[0m\033[?7h\033[?1049l\033[?25h";
+
+        assertThat(TerminalSteps.leftAsFound(drawn + reset + "^C\r\nready$ "))
+                .as("given back")
+                .isEmpty();
+        assertThat(TerminalSteps.leftAsFound(drawn + "^C\r\nready$ "))
+                .as("the reset left out")
+                .contains("the alternate screen was never left");
+        assertThat(TerminalSteps.leftAsFound(drawn + "\033[?1049l^C\r\nready$ "))
+                .contains("the cursor was left hidden");
+        assertThat(TerminalSteps.leftAsFound("ready$ "))
+                .as("nothing that took the screen proves nothing")
+                .isPresent();
+    }
 }

@@ -1,14 +1,25 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.fuin.porelo.wire.varlink.TasksContract;
+import org.fuin.porelo.wire.varlink.VarlinkClient;
+import org.fuin.porelo.wire.varlink.VarlinkException;
+import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 /**
- * Lists the tasks on this machine.
+ * Lists the tasks on this machine, once or for as long as somebody watches.
  *
  * <p>The container runtime knows the containers; only Porelo knows which project and security class
  * each belongs to, which is what an operator with several tasks running actually needs to tell them
@@ -21,6 +32,23 @@ import picocli.CommandLine.Spec;
         description = "Lists the tasks on this machine.")
 public class TaskListCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
+    /** What the command answers when the daemon a watch needs does not: EX_UNAVAILABLE. */
+    static final int NO_DAEMON = 69;
+
+    /** How often a watching view at a terminal works its ages out again. */
+    static final Duration AGES = Duration.ofMinutes(1);
+
+    @Option(
+            names = "--project",
+            paramLabel = "<name>",
+            description = "Lists only this project's tasks.")
+    private @Nullable String project;
+
+    @Option(
+            names = "--watch",
+            description = "Keeps the list on screen, as the daemon reports changes, until Ctrl-C.")
+    private boolean watch;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -32,7 +60,17 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
 
     @Override
     public Integer call() {
-        return render(spec.commandLine().getOut());
+        final PrintWriter out = spec.commandLine().getOut();
+        if (watch) {
+            return watch(
+                    context,
+                    project,
+                    context.input().outputTerminal(),
+                    out,
+                    spec.commandLine().getErr(),
+                    Clock.systemUTC());
+        }
+        return render(out);
     }
 
     /**
@@ -45,111 +83,200 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
      * @return Exit code.
      */
     Integer render(PrintWriter out) {
+        return render(context, project, out);
+    }
 
+    /**
+     * Renders the listing once, from this process's own inventory.
+     *
+     * @param context The machine.
+     * @param project The one project whose tasks are listed, or {@code null} for every task.
+     * @param out Where to write.
+     * @return Exit code.
+     */
+    static int render(
+            final PoreloContext context, final @Nullable String project, final PrintWriter out) {
         // Asked of the inventory rather than assembled here: the daemon answers the same question
         // for the interface, and two implementations of it would drift.
-        final List<TaskInventory.Task> tasks = new TaskInventory(context).tasks();
-
-        // Named like a task and not listed: a container Porelo holds no id for. Said rather than
-        // left out, because "No tasks" over a stopped container that has a task's record lets its
-        // work be removed unseen.
-        final List<String> unlisted = new TaskInventory(context).unrecognized(tasks);
-
-        if (tasks.isEmpty()) {
-            out.println(unlisted.isEmpty() ? "No tasks." : "No tasks Porelo acts on.");
-            unlistedNote(unlisted, out);
-            out.flush();
-            return 0;
-        }
-
-        // The age the state column had to drop. It is kept as an instant precisely so it can be
-        // stated here rather than parsed back out of the runtime's own phrasing.
-        final java.time.Instant now = java.time.Instant.now();
-        out.printf(
-                "%-38s %-14s %-9s %-18s %-5s %s%n",
-                "NAME", "PROJECT", "CLASS", "STATE", "AGE", "HELPERS");
-        for (final TaskInventory.Task task : tasks) {
-            final String age = Age.compact(task.since(), now);
-            // The name a person gave it, or its short one; the project column tells two of one
-            // name apart, and 'task status' shows the container.
-            out.printf(
-                    "%-38s %-14s %-9s %-18s %-5s %s%n",
-                    task.display(),
-                    task.project() == null ? "-" : task.project(),
-                    task.securityClass() == null ? "-" : task.securityClass(),
-                    state(task.state()),
-                    age.isEmpty() ? "-" : age,
-                    task.helpers());
-        }
-        unlistedNote(unlisted, out);
-        // Said once, under the table, rather than squeezed into a column: which tasks the machine
-        // took down.
-        final List<String> restarted =
-                tasks.stream()
-                        .filter(task -> TaskInventory.RESTARTED.equals(task.startDetail()))
-                        .map(TaskInventory.Task::name)
-                        .toList();
-        if (!restarted.isEmpty()) {
-            out.println();
-            out.println("down because the machine restarted: " + String.join(", ", restarted));
-            out.println(
-                    "'porelo task start --restarted' brings them all back, each whole or not at all");
-        }
-        // Runs nobody watches are never brought back on their own, so they are not offered with
-        // those above.
-        final List<String> interrupted =
-                tasks.stream()
-                        .filter(task -> TaskInventory.INTERRUPTED.equals(task.startDetail()))
-                        .map(TaskInventory.Task::name)
-                        .toList();
-        if (!interrupted.isEmpty()) {
-            out.println();
-            out.println(
-                    "interrupted by the machine's restart, staying stopped: "
-                            + String.join(", ", interrupted));
-            out.println(
-                    "each keeps its session, and its next 'porelo task start' with a prompt continues it");
-        }
-        out.flush();
+        final TaskInventory inventory = new TaskInventory(context);
+        final List<TaskInventory.Task> tasks = inventory.tasks();
+        // Named like a task and not listed: a container Porelo holds no id for. Said under every
+        // listing, a project's too, since such a container has no project anything could read.
+        final List<String> unlisted = inventory.unrecognized(tasks);
+        TaskListing.print(TaskListing.of(tasks, project), unlisted, java.time.Instant.now(), out);
         return 0;
     }
 
     /**
-     * Returns the runtime's state, short enough to stay in its column.
+     * Shows the listing and keeps it showing, from the daemon's {@code Watch}, until Ctrl-C.
      *
-     * <p>The runtime writes a phrase, and its longest - {@code Exited (143) Less than a second ago}
-     * - is twice the width of the column, so it ran into the helper count and the row stopped being
-     * a table. The age is what gets dropped: this is a list of what exists and whether it is up,
-     * and {@code task list} is how an operator finds the name to stop or resume.
+     * <p>What it shows is what the interface is sent, and it asks for nothing on its own: the list
+     * arrives when something other than an age changed, the clearance questions from {@code
+     * Prompts}, and the ages are worked out here once a minute. Without a daemon it says so, prints
+     * the listing once and answers {@link #NO_DAEMON}.
      *
-     * @param state What the runtime called it.
-     * @return The state, at most as wide as its column.
+     * @param context The machine.
+     * @param project The one project whose tasks are shown, or {@code null} for every task.
+     * @param terminal Whether the output is a terminal, drawn over in place; otherwise each change
+     *     is a line.
+     * @param out Where to show it.
+     * @param err Where to say what could not be done.
+     * @param clock What "now" is.
+     * @return 0 when stopped or when the daemon ended the stream; {@link #NO_DAEMON} when it could
+     *     not be watched.
      */
-    private static String state(String state) {
-        // 'Exited (143) Less than a second ago' and 'Exited (0) 2 minutes ago' both carry an age
-        // this table has no room for, and the exit code is the part worth keeping: it is how a task
-        // that was stopped is told apart from one that died.
-        final int code = state.startsWith("Exited (") ? state.indexOf(')') : -1;
-        final String shortened = code > 0 ? state.substring(0, code + 1) : state;
-        return shortened.length() <= 18 ? shortened : shortened.substring(0, 17) + "…";
+    static int watch(
+            final PoreloContext context,
+            final @Nullable String project,
+            final boolean terminal,
+            final PrintWriter out,
+            final PrintWriter err,
+            final Clock clock) {
+        final Path socket = context.paths().daemonSocket();
+        final VarlinkClient tasks;
+        try {
+            tasks = new VarlinkClient(socket);
+        } catch (VarlinkException ex) {
+            return once(context, project, out, err, "porelod does not answer at " + socket);
+        }
+        final TaskWatch view =
+                new TaskWatch(
+                        terminal
+                                ? new TaskWatch.Screen(new TaskWatch.Ansi(out))
+                                : new TaskWatch.Log(out),
+                        project);
+        // Ctrl-C ends the process from a signal, where no finally runs: the terminal is given back
+        // there too, and stopping is not a failure.
+        final Thread reset =
+                new Thread(
+                        () -> {
+                            view.close();
+                            Runtime.getRuntime().halt(0);
+                        },
+                        "porelo-watch-reset");
+        Runtime.getRuntime().addShutdownHook(reset);
+        final AtomicReference<@Nullable VarlinkClient> prompts = new AtomicReference<>();
+        final AtomicBoolean ended = new AtomicBoolean();
+        final Thread questions =
+                Thread.ofPlatform()
+                        .daemon()
+                        .name("porelo-watch-prompts")
+                        .start(() -> followPrompts(socket, view, prompts, ended, clock));
+        final Thread ages =
+                Thread.ofPlatform()
+                        .daemon()
+                        .name("porelo-watch-ages")
+                        .start(
+                                () -> {
+                                    try {
+                                        while (!ended.get()) {
+                                            Thread.sleep(AGES);
+                                            view.tick(clock.instant());
+                                        }
+                                    } catch (InterruptedException ex) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                });
+        final boolean[] arrived = {false};
+        try (tasks) {
+            tasks.callMore(
+                    TasksContract.INTERFACE + ".Watch",
+                    Map.of(),
+                    reply -> {
+                        arrived[0] = true;
+                        view.listed(
+                                TaskRows.read(list(reply.get("tasks"))),
+                                list(reply.get("unrecognized")).stream()
+                                        .map(String::valueOf)
+                                        .toList(),
+                                clock.instant());
+                        return true;
+                    });
+            return 0;
+        } catch (VarlinkException | java.io.IOException ex) {
+            view.close();
+            if (!arrived[0]) {
+                return once(
+                        context,
+                        project,
+                        out,
+                        err,
+                        "porelod at "
+                                + socket
+                                + " does not send the task list: "
+                                + ex.getMessage());
+            }
+            err.println(
+                    "porelo: porelod stopped sending the task list ("
+                            + ex.getMessage()
+                            + "); what was shown is no longer current");
+            err.flush();
+            return NO_DAEMON;
+        } finally {
+            ended.set(true);
+            view.close();
+            ages.interrupt();
+            questions.interrupt();
+            closeQuietly(prompts.get());
+            try {
+                Runtime.getRuntime().removeShutdownHook(reset);
+            } catch (IllegalStateException ex) {
+                // Already shutting down, where the hook gives the terminal back itself.
+            }
+        }
     }
 
-    /**
-     * Says which containers named like tasks are not listed, and why: Porelo recorded no container
-     * id for them - made before it recorded one, or by something else - so no command of Porelo's
-     * acts on them.
-     *
-     * @param unlisted Their names.
-     * @param out Where to say it.
-     */
-    private static void unlistedNote(final List<String> unlisted, final PrintWriter out) {
-        if (!unlisted.isEmpty()) {
-            out.println(
-                    "not listed: "
-                            + String.join(", ", unlisted)
-                            + " - named like tasks, but Porelo holds no"
-                            + " container id for them (made before it recorded one, or by something else), so nothing of"
-                            + " Porelo's acts on them; 'podman ps --all' shows them, and removing one removes what is in it");
+    /** Follows the open clearance questions until the view ends; a failure is said on the view. */
+    private static void followPrompts(
+            final Path socket,
+            final TaskWatch view,
+            final AtomicReference<@Nullable VarlinkClient> held,
+            final AtomicBoolean ended,
+            final Clock clock) {
+        try (VarlinkClient client = new VarlinkClient(socket)) {
+            held.set(client);
+            client.callMore(
+                    TasksContract.INTERFACE + ".Prompts",
+                    Map.of(),
+                    event -> {
+                        view.prompted(event, clock.instant());
+                        return !ended.get();
+                    });
+        } catch (VarlinkException | java.io.IOException ex) {
+            if (!ended.get()) {
+                view.unfollowed(String.valueOf(ex.getMessage()), clock.instant());
+            }
+        }
+    }
+
+    /** Says what could not be watched, and lists once instead. */
+    private static int once(
+            final PoreloContext context,
+            final @Nullable String project,
+            final PrintWriter out,
+            final PrintWriter err,
+            final String why) {
+        err.println(
+                "porelo: "
+                        + why
+                        + ", so the list cannot be watched; this is the list once."
+                        + " Start the daemon with 'systemctl --user start porelod' to watch it");
+        err.flush();
+        render(context, project, out);
+        return NO_DAEMON;
+    }
+
+    private static List<?> list(final @Nullable Object value) {
+        return value instanceof List<?> items ? items : List.of();
+    }
+
+    private static void closeQuietly(final @Nullable VarlinkClient client) {
+        if (client != null) {
+            try {
+                client.close();
+            } catch (java.io.IOException | RuntimeException ex) {
+                // Only unblocks the reader; there is nothing left to tell anybody.
+            }
         }
     }
 }

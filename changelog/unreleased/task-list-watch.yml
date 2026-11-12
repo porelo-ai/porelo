@@ -1,0 +1,2 @@
+title: "`porelo task list --watch` keeps the task list on screen from the daemon's `Watch`, redrawing only the rows that changed and the ages once a minute, with waiting tasks first and marked, a line for waiting clearance questions, one line per change when the output is not a terminal, and the terminal given back on Ctrl-C; `--project` narrows both forms, and the state column keeps only the state's first word, since the age column says how long"
+type: added

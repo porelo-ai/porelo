@@ -808,4 +808,41 @@ public class TerminalSteps {
         // out of a pipe, a log or a fixture.
         assertThat(world.output().all()).doesNotContain("\033[");
     }
+
+    /**
+     * Asserts a program that drew over the screen gave it back: the main screen and the cursor
+     * shown again after it last took them, which a person whose shell has no cursor notices at once
+     * and no exit code says.
+     *
+     * @throws IOException If the terminal cannot be read.
+     */
+    @Then("the terminal is back on its main screen with its cursor shown")
+    public void theTerminalIsBackOnItsMainScreen() throws IOException {
+        final java.util.Optional<String> wrong = leftAsFound(world.terminal().drain());
+        assertThat(wrong).as(wrong.orElse("")).isEmpty();
+    }
+
+    /**
+     * Says what a program that drew over the screen left changed, judged from what the terminal
+     * received.
+     *
+     * @param seen Everything the terminal received.
+     * @return What was left changed, or empty when the screen and the cursor were given back.
+     */
+    static java.util.Optional<String> leftAsFound(final String seen) {
+        final int entered = seen.lastIndexOf("\033[?1049h");
+        final int hidden = seen.lastIndexOf("\033[?25l");
+        if (entered < 0 || hidden < 0) {
+            // Nothing took them, so nothing here proves they were given back.
+            return java.util.Optional.of(
+                    "nothing drew on the alternate screen with its cursor hidden");
+        }
+        if (seen.lastIndexOf("\033[?1049l") < entered) {
+            return java.util.Optional.of("the alternate screen was never left");
+        }
+        if (seen.lastIndexOf("\033[?25h") < hidden) {
+            return java.util.Optional.of("the cursor was left hidden");
+        }
+        return java.util.Optional.empty();
+    }
 }

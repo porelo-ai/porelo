@@ -130,7 +130,8 @@ class TaskLifecycleCommandsTest {
                 .contains("shell-1 ")
                 .contains("uc")
                 .contains("guarded")
-                .contains("Up 4 minutes");
+                .as("the state's first word; the age column says how long")
+                .contains(" Up ");
         assertThat(out.toString())
                 .as("another user's container is not Porelo's business")
                 .doesNotContain("not-porelo-at-all");
