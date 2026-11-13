@@ -32,6 +32,41 @@ class HostTaskShowTest {
                 .isEqualTo(new Answer(0, record + "\n", ""));
     }
 
+    @Test
+    void aRecordUnderItsProjectIsServedBesideOneOfTheOldLayout() throws Exception {
+        final String record = task("alice", "one", FINGERPRINT);
+        fixture.put("/var/lib/porelo-host/tasks/alice/alpha/one.json", record);
+        fixture.put(
+                "/var/lib/porelo-host/tasks/alice/two.json",
+                task("alice", "two", "SHA256:" + "C".repeat(43)));
+        assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
+                .isEqualTo(new Answer(0, record + "\n", ""));
+        assertThat(fixture.run(SUDO, "task", "show", "SHA256:" + "C".repeat(43)).code()).isZero();
+    }
+
+    @Test
+    void aRecordUnderAnotherProjectThanItsCertificatesIsNoValidRecord() throws Exception {
+        final Path path =
+                fixture.put(
+                        "/var/lib/porelo-host/tasks/alice/beta/one.json",
+                        task("alice", "one", FINGERPRINT));
+        assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
+                .isEqualTo(
+                        new Answer(
+                                65, "", "porelo-host: " + path + " holds no valid task record\n"));
+    }
+
+    @Test
+    void anUnknownEntryUnderAProjectRefusesTheLookup() throws Exception {
+        final Path path = fixture.put("/var/lib/porelo-host/tasks/alice/alpha/unknown", "{}");
+        assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
+                .isEqualTo(
+                        new Answer(
+                                65,
+                                "",
+                                "porelo-host: " + path.getParent() + " holds an unknown entry\n"));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"developer", "project-admin"})
     void anotherMembersTaskInASharedProjectIsServed(String role) throws Exception {

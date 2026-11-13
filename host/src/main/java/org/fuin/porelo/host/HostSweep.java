@@ -33,13 +33,17 @@ final class HostSweep {
         final List<String> errors = new HostRevocations(files, runtime).retry(records);
         final var now = clock.instant();
         final TreeMap<String, Set<String>> due = new TreeMap<>();
+        // Each due token's name in the swept list: <project>/<task>, or the old layout's <task>.
+        final Map<String, String> labels = new java.util.HashMap<>();
         for (var task : new HostTasks(files).read()) {
             final var record = records.get(task.login());
             if (!task.end().isAfter(now)
                     && record != null
                     && (!record.locked() || record.pending())) {
-                due.computeIfAbsent(task.login(), key -> new TreeSet<>())
-                        .add(TASK_TOKEN + task.name());
+                due.computeIfAbsent(task.login(), key -> new TreeSet<>()).add(task.token());
+                labels.put(
+                        task.login() + "/" + task.token(),
+                        task.project() == null ? task.name() : task.project() + "/" + task.name());
             }
         }
         if (due.isEmpty() || runtime.configuration(due.firstKey()) == null) {
@@ -54,7 +58,12 @@ final class HostSweep {
             for (var entry : due.entrySet()) {
                 try {
                     for (String name : session.drop("porelo-" + entry.getKey(), entry.getValue())) {
-                        swept.add(entry.getKey() + "/" + name.substring(TASK_TOKEN.length()));
+                        swept.add(
+                                entry.getKey()
+                                        + "/"
+                                        + labels.getOrDefault(
+                                                entry.getKey() + "/" + name,
+                                                name.substring(TASK_TOKEN.length())));
                     }
                 } catch (HostRefusal error) {
                     errors.add(entry.getKey() + ": " + error.getMessage());

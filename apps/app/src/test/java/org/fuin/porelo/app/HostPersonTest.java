@@ -79,6 +79,25 @@ class HostPersonTest {
     }
 
     @Test
+    void theEndNamesTheProjectBeforeTheTask() {
+        // The host keeps a task by project and name: another project's task of the name is not it.
+        runner.answering("task end acme fix", "{\"task\":\"fix\",\"ended\":true}\n");
+        final HostPerson host =
+                new HostPerson(context(), dir.resolve("helper"), dir.resolve("absent-host"));
+
+        assertThat(host.end("acme", "fix")).isTrue();
+        assertThat(runner.invocations().getLast().arguments())
+                .containsExactly(
+                        HostForgeLending.SUDO.toString(),
+                        "-n",
+                        dir.resolve("helper").toString(),
+                        "task",
+                        "end",
+                        "acme",
+                        "fix");
+    }
+
+    @Test
     void oneLineEndAfterTheTokenIsNoPartOfIt() {
         // A token kept with its line end fails at the forge, so the task's every push would.
         runner.answering("task start fix", "forge-token-value\n");
@@ -101,27 +120,29 @@ class HostPersonTest {
                 .hasMessageContaining("not signed by alice's current key")
                 .satisfies(ex -> assertThat(((HostPerson.Refused) ex).code()).isEqualTo(65));
 
-        runner.answering("task end fix", "{\"task\":\"fix\",\"ended\":true}\n");
-        assertThat(host.end("fix")).isTrue();
-        runner.answering("task end other", "{\"task\":\"fix\",\"ended\":true}\n");
-        assertThat(host.end("other")).as("an answer about another task").isFalse();
-        runner.answering("task end empty", "");
-        assertThat(host.end("empty")).as("no answer at all, which ends no removal").isFalse();
-        runner.answering("task end broken", "{\"task\":");
-        assertThat(host.end("broken")).as("an answer that does not read").isFalse();
+        runner.answering("task end acme fix", "{\"task\":\"fix\",\"ended\":true}\n");
+        assertThat(host.end("acme", "fix")).isTrue();
+        runner.answering("task end acme other", "{\"task\":\"fix\",\"ended\":true}\n");
+        assertThat(host.end("acme", "other")).as("an answer about another task").isFalse();
+        runner.answering("task end acme empty", "");
+        assertThat(host.end("acme", "empty"))
+                .as("no answer at all, which ends no removal")
+                .isFalse();
+        runner.answering("task end acme broken", "{\"task\":");
+        assertThat(host.end("acme", "broken")).as("an answer that does not read").isFalse();
     }
 
     @Test
     void everyCallOfTheHostIsGivenNoneOfTheSessionsEnvironment() {
         // A desktop session's bus address, passed on, is refused by the host program.
         runner.answering("task start fix", "token");
-        runner.answering("task end fix", "{\"task\":\"fix\",\"ended\":true}\n");
+        runner.answering("task end acme fix", "{\"task\":\"fix\",\"ended\":true}\n");
         runner.answering("task show", "");
         final HostPerson host =
                 new HostPerson(context(), dir.resolve("helper"), dir.resolve("absent-host"));
 
         host.start("fix", "cert");
-        host.end("fix");
+        host.end("acme", "fix");
         host.show("SHA256:" + "A".repeat(43));
 
         assertThat(runner.invocations())
@@ -161,7 +182,7 @@ class HostPersonTest {
         final Path configuration = Files.createDirectory(dir.resolve("host-configuration"));
         final HostPerson host = new HostPerson(context(), dir.resolve("missing"), configuration);
         assertThat(host.present()).isTrue();
-        assertThatThrownBy(() -> host.end("fix"))
+        assertThatThrownBy(() -> host.end("acme", "fix"))
                 .isInstanceOf(HostPerson.Refused.class)
                 .hasMessageContaining("/usr/sbin/porelo-host");
         assertThatThrownBy(() -> host.show("SHA256:" + "A".repeat(43)))

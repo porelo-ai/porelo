@@ -64,8 +64,8 @@ class TaskStopSurvivorsTest {
 
         assertThat(result.removed()).as("the task is removed").isTrue();
         assertThat(runner.lines())
-                .as("the host is told the task ended")
-                .anyMatch(line -> line.contains(program + " task end shell-1"));
+                .as("the host is told the task ended, by its project and its name")
+                .anyMatch(line -> line.contains(program + " task end uc shell-1"));
     }
 
     @ParameterizedTest

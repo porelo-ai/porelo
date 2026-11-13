@@ -81,7 +81,11 @@ class HostTaskReviewTest {
                     default -> Map.of("SUDO_USER", "alice", "SUDO_UID", "1001");
                 };
         for (String command :
-                List.of("task start t1", "task end t1", "forge issue-token", "forge lend-token")) {
+                List.of(
+                        "task start t1",
+                        "task end alpha t1",
+                        "forge issue-token",
+                        "forge lend-token")) {
             final var answer = host.run(env, "", command.split(" "));
             assertThat(answer.code())
                     .as(command + ": " + answer.err())
@@ -95,7 +99,7 @@ class HostTaskReviewTest {
     @ValueSource(
             strings = {
                 "task start t1",
-                "task end t1",
+                "task end alpha t1",
                 "task show bad",
                 "forge lend-token",
                 "forge issue-token"

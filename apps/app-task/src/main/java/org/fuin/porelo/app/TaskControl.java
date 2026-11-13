@@ -706,7 +706,7 @@ public final class TaskControl {
             final HostPerson host = hosts.apply(context);
             if (host.present() && identity != null) {
                 try {
-                    host.end(identity.task());
+                    host.end(identity.project(), identity.task());
                 } catch (final HostPerson.Refused ex) {
                     // The removal goes on; a host that cannot be told now drops the token when the
                     // certificate expires, and its words say what the next start of the name meets.

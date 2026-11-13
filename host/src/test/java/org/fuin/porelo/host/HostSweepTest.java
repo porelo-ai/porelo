@@ -235,6 +235,28 @@ class HostSweepTest {
     }
 
     @Test
+    void aProjectsEndedTaskIsSweptByItsProjectsTokenBesideAnOldLayoutOne() throws Exception {
+        fixture.put(
+                "/var/lib/porelo-host/tasks/alice/alpha/ended.json",
+                task("alice", "ended", FINGERPRINT));
+        fixture.put(
+                "/var/lib/porelo-host/tasks/alice/beta/ended.json",
+                task("alice", "ended", "SHA256:" + "C".repeat(43))
+                        .replace("task:alpha:", "task:beta:")
+                        .replace("2030-01-02T03:04:05Z", "2030-01-02T03:04:06Z"));
+        taskRecord("alice", "old", "2030-01-02T03:04:05Z");
+        add("porelo-alice", "porelo-task-alpha_ended");
+        add("porelo-alice", "porelo-task-beta_ended");
+        add("porelo-alice", "porelo-task-old");
+        assertThat(sweep())
+                .isEqualTo(
+                        new Answer(0, "{\"swept\":[\"alice/alpha/ended\",\"alice/old\"]}\n", ""));
+        assertThat(tokens.get("porelo-alice").values())
+                .as("beta's live task of that name keeps its token")
+                .containsExactly("porelo-task-beta_ended");
+    }
+
+    @Test
     void onlyEndedTaskTokensAreDeletedAndAnotherSweepIsEmpty() throws Exception {
         taskRecord("alice", "ended", "2030-01-02T03:04:05Z");
         taskRecord("alice", "live", "2030-01-02T03:04:06Z");

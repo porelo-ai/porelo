@@ -335,7 +335,17 @@ final class HostTaskFixture {
                 .toList();
     }
 
+    /** Alice's record of project alpha's task, where the fixture's certificate names it. */
     Path record(String task) {
+        return record("alpha", task);
+    }
+
+    Path record(String project, String task) {
+        return tree.path("/var/lib/porelo-host/tasks/alice/" + project + "/" + task + ".json");
+    }
+
+    /** Alice's record of a task in the layout before a record was its project's. */
+    Path oldRecord(String task) {
         return tree.path("/var/lib/porelo-host/tasks/alice/" + task + ".json");
     }
 

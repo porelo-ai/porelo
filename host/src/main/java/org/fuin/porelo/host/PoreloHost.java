@@ -295,8 +295,8 @@ public final class PoreloHost implements Callable<Integer> {
                 "task",
                 new CommandLine(new Group())
                         .addSubcommand("show", new TaskShow(host))
-                        .addSubcommand("start", new TaskChange(host, true))
-                        .addSubcommand("end", new TaskChange(host, false))
+                        .addSubcommand("start", new TaskChange(host))
+                        .addSubcommand("end", new TaskEnd(host))
                         .addSubcommand("sweep", new TaskSweep(host)));
         command.addSubcommand(
                 "forge",
@@ -518,16 +518,14 @@ public final class PoreloHost implements Callable<Integer> {
     @Command(mixinStandardHelpOptions = true, exitCodeOnInvalidInput = 64)
     static final class TaskChange implements Callable<Integer> {
         private final PoreloHost host;
-        private final boolean start;
 
         @CommandLine.Parameters(index = "0", paramLabel = "<task>")
         private String task;
 
         @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
 
-        TaskChange(PoreloHost host, boolean start) {
+        TaskChange(PoreloHost host) {
             this.host = host;
-            this.start = start;
         }
 
         @Override
@@ -537,14 +535,46 @@ public final class PoreloHost implements Callable<Integer> {
             host.files.check(conf, 69, true, false, -1);
             try (var lock = HostConfigurationLock.acquire(conf, false)) {
                 new HostRecords(host.files).read();
-                final HostPerson person = host.sudoPerson(start ? "task" : "end");
+                final HostPerson person = host.sudoPerson("task");
                 final PrintWriter out = spec.commandLine().getOut();
-                if (start) {
-                    out.print(host.tasks.start(person, task, host.input));
-                    out.flush();
-                } else {
-                    out.println(HostJson.write(host.tasks.end(person, task)));
-                }
+                out.print(host.tasks.start(person, task, host.input));
+                out.flush();
+            }
+            return 0;
+        }
+    }
+
+    /** Ends a project's task: the project and the task, as its certificate named them. */
+    @Command(mixinStandardHelpOptions = true, exitCodeOnInvalidInput = 64)
+    static final class TaskEnd implements Callable<Integer> {
+        private final PoreloHost host;
+
+        @CommandLine.Parameters(index = "0", paramLabel = "<project>")
+        private String project;
+
+        @CommandLine.Parameters(index = "1", paramLabel = "<task>")
+        private String task;
+
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        TaskEnd(PoreloHost host) {
+            this.host = host;
+        }
+
+        @Override
+        public Integer call() throws IOException {
+            if (!project.equals("default") && !project.matches(HostRecords.PROJECT)) {
+                throw new HostRefusal(64, "a project must match " + HostRecords.PROJECT);
+            }
+            HostTasks.checkName(task);
+            final var conf = host.files.path("/etc/porelo-host/forge.conf");
+            host.files.check(conf, 69, true, false, -1);
+            try (var lock = HostConfigurationLock.acquire(conf, false)) {
+                new HostRecords(host.files).read();
+                final HostPerson person = host.sudoPerson("end");
+                spec.commandLine()
+                        .getOut()
+                        .println(HostJson.write(host.tasks.end(person, project, task)));
             }
             return 0;
         }

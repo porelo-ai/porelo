@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B735",
   "title": "A Host's Task Record Is One Project's",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 50,
@@ -45,3 +45,17 @@ token.
 - Two projects' tasks of one name and one person on a host keep their records and tokens through each other's start
   and end.
 - A task recorded under the old layout is still listed and ended.
+
+## Built
+
+- `HostTasks` records a task at `tasks/<login>/<project>/<task>.json`, the project from its certificate (an
+  uncertified one under `default`), and issues and drops the token `porelo-task-<project>_<task>`; a start drops only
+  its own name. The record walk reads both layouts; an old record keeps its old token, and a record under a project
+  directory must be that project's.
+- The host's `task end <project> <task>` ends the record under that project, else an uncertified one under
+  `default`, else an old-layout record whose certificate names that project; ending one project's task never drops
+  another project's record or token. `HostPerson.end` sends the project, which `TaskControl` takes from the task's
+  identity. The sweep drops each record's own token.
+- Old records are listed, shown, swept and ended, never moved.
+- Red first in `HostTaskAccountsTest`: two projects' tasks `shell` of one person through each other's start and end
+  (the second start was refused before), and an old-layout record listed and ended by its old token.

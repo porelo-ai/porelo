@@ -255,8 +255,14 @@ it only by that path, through `sudo -n`, never with a shell, and never passes a 
   without a forge; one trailing line end is not part of it. Porelo keeps the token in the task's vault entries for
   its gate, never in the container or a file. Any other exit fails the start: 69 is answered as 69, every other
   code as 65. Porelo shows the helper's standard error, never its standard output.
-- **End:** removing the task runs `porelo-host task end <task>`, which answers
+- **End:** removing the task runs `porelo-host task end <project> <task>`, which answers
   `{"task":"<task>","ended":true}`; any other answer is reported as not ended.
+- **Record and token:** the host records a task as `/var/lib/porelo-host/tasks/<login>/<project>/<task>.json`, the
+  project taken from the certificate's principal (`default` for a task started uncertified), and names its forge
+  token `porelo-task-<project>_<task>`; a project never holds `_`. So one person's tasks of one name in two projects
+  keep their own record and token, and neither's start or end touches the other's. A record of the earlier layout,
+  `tasks/<login>/<task>.json`, is still listed and swept, and ended by its token `porelo-task-<task>` when its
+  certificate names the project the end names; such records are not moved.
 - **Show:** `porelo task certificate <fingerprint>` asks `porelo-host task show <fingerprint>` for a
   certificate this machine did not keep, and does not believe an answer naming another key.
 

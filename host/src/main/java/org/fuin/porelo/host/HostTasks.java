@@ -79,7 +79,9 @@ final class HostTasks {
         final var entry = certificate.entry(person.login(), task, line);
         for (Task recorded : read()) {
             if (certificate.fingerprint().equals(recorded.entry().get("fingerprint"))
-                    && !(recorded.login().equals(person.login()) && recorded.name().equals(task))) {
+                    && !(recorded.login().equals(person.login())
+                            && recorded.name().equals(task)
+                            && recorded.startedFor(project))) {
                 throw new HostRefusal(
                         65,
                         "the task key "
@@ -87,7 +89,7 @@ final class HostTasks {
                                 + " is recorded for another task");
             }
         }
-        return recordAndToken(person.login(), task, entry);
+        return recordAndToken(person.login(), project, task, entry);
     }
 
     /**
@@ -110,6 +112,7 @@ final class HostTasks {
         // Bounded as a certificate is, so the sweep ends its token as it ends a certified task's.
         return recordAndToken(
                 person.login(),
+                "default",
                 task,
                 fields(
                         "task",
@@ -126,66 +129,123 @@ final class HostTasks {
                         now.plus(UNCERTIFIED_VALIDITY).toString()));
     }
 
-    private String recordAndToken(String login, String task, Map<String, @Nullable Object> entry)
+    /**
+     * The forge token's name of a task: {@code porelo-task-<project>_<task>}, or {@code
+     * porelo-task-<task>} for a record of the old layout, which names no project. A project never
+     * holds {@code _}, so the first one parts the two.
+     */
+    static String token(@Nullable String project, String task) {
+        return project == null ? TOKEN + task : TOKEN + project + "_" + task;
+    }
+
+    static final String TOKEN = "porelo-task-";
+
+    private String recordAndToken(
+            String login, String project, String task, Map<String, @Nullable Object> entry)
             throws IOException {
         final var config = runtime.configuration(login);
         if (config != null) {
             runtime.personEndpoint(config);
         }
-        publish(login, task, entry);
+        publish(login, project, task, entry);
         if (config == null) {
             return "";
         }
         try (var session = runtime.session(login)) {
             final String identity = "porelo-" + login;
-            final String name = "porelo-task-" + task;
+            final String name = token(project, task);
             session.drop(identity, java.util.Set.of(name));
             return session.token(identity, "write:repository,read:package", name);
         }
     }
 
-    Map<String, @Nullable Object> end(HostPerson person, String task) {
+    /**
+     * Ends a project's task: drops its token alone and keeps its record. A task recorded under the
+     * old layout, without a project directory, is ended by its old token name, if its certificate
+     * is of that project.
+     */
+    Map<String, @Nullable Object> end(HostPerson person, String project, String task) {
         try {
             new HostRecords(files).admitted(person.login());
         } catch (HostRefusal ex) {
             // A task started uncertified was started whatever the organization says: its person
             // ends it, and so its token, as anyone ends their own.
-            if (!uncertified(person.login(), task)) throw ex;
+            if (!uncertified(person.login(), project, task)) throw ex;
         }
-        final Path root = files.path("/var/lib/porelo-host/tasks");
-        files.check(root, 73, false, true, 0700);
-        files.check(root.resolve(person.login()), 73, false, true, 0700);
-        final Path path = root.resolve(person.login()).resolve(task + ".json");
-        if (!files.check(path, 73, false, false, 0600)) {
-            throw new HostRefusal(65, "task " + task + " is not recorded for " + person.login());
+        final Task recorded = recorded(person.login(), project, task);
+        if (recorded == null) {
+            throw new HostRefusal(
+                    65, "task " + project + "/" + task + " is not recorded for " + person.login());
         }
-        taskRecord(path, person.login(), task);
         if (runtime.configuration(person.login()) != null) {
             try (var session = runtime.session(person.login())) {
-                session.drop("porelo-" + person.login(), java.util.Set.of("porelo-task-" + task));
+                session.drop("porelo-" + person.login(), java.util.Set.of(recorded.token()));
             }
         }
         return fields("task", task, "ended", true);
     }
 
-    private boolean uncertified(String login, String task) {
-        final Path path = files.path("/var/lib/porelo-host/tasks/" + login + "/" + task + ".json");
+    private boolean uncertified(String login, String project, String task) {
         try {
-            return files.check(path, 73, false, false, 0600)
-                    && Boolean.TRUE.equals(taskRecord(path, login, task).get("uncertified"));
+            final Task recorded = recorded(login, project, task);
+            return recorded != null && Boolean.TRUE.equals(recorded.entry().get("uncertified"));
         } catch (HostRefusal ex) {
             return false;
         }
     }
 
-    private void publish(String login, String task, Map<String, @Nullable Object> entry)
+    /** A person's record of a project's task, under the project or else in the old layout. */
+    private @Nullable Task recorded(String login, String project, String task) {
+        final Path root = files.path("/var/lib/porelo-host/tasks");
+        files.check(root, 73, false, true, 0700);
+        final Path person = root.resolve(login);
+        files.check(person, 73, false, true, 0700);
+        final Task own = recorded(person, login, project, task);
+        if (own != null) {
+            return own;
+        }
+        // A task started uncertified is recorded for default whatever its project is.
+        final Task uncertified =
+                project.equals("default") ? null : recorded(person, login, "default", task);
+        if (uncertified != null && Boolean.TRUE.equals(uncertified.entry().get("uncertified"))) {
+            return uncertified;
+        }
+        final Path old = person.resolve(task + ".json");
+        if (files.check(old, 73, false, false, 0600)) {
+            final Task found = new Task(login, null, task, taskRecord(old, login, null, task));
+            if (found.startedFor(project)
+                    || Boolean.TRUE.equals(found.entry().get("uncertified"))) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private @Nullable Task recorded(Path person, String login, String project, String task) {
+        final Path directory = person.resolve(project);
+        if (files.check(directory, 73, false, true, 0700)) {
+            final Path path = directory.resolve(task + ".json");
+            if (files.check(path, 73, false, false, 0600)) {
+                return new Task(login, project, task, taskRecord(path, login, project, task));
+            }
+        }
+        return null;
+    }
+
+    private void publish(
+            String login, String project, String task, Map<String, @Nullable Object> entry)
             throws IOException {
         try {
-            final Path directory = files.path("/var/lib/porelo-host/tasks/" + login);
+            final Path directory =
+                    files.path("/var/lib/porelo-host/tasks/" + login + "/" + project);
             files.directories(directory);
+            final Path person =
+                    java.util.Objects.requireNonNull(
+                            directory.getParent(), "A project's tasks have a person directory");
+            files.check(person, 73, true, true, 0700);
             files.check(
                     java.util.Objects.requireNonNull(
-                            directory.getParent(), "The person's tasks have a root directory"),
+                            person.getParent(), "The person's tasks have a root directory"),
                     73,
                     true,
                     true,
@@ -201,7 +261,7 @@ final class HostTasks {
                 } catch (FileAlreadyExistsException ex) {
                     if (!java.util.Objects.equals(
                             entry.get("certificate"),
-                            taskRecord(target, login, task).get("certificate"))) {
+                            taskRecord(target, login, project, task).get("certificate"))) {
                         throw new HostRefusal(
                                 65,
                                 "task " + task + " is recorded already, with another certificate");
@@ -252,7 +312,20 @@ final class HostTasks {
         throw new HostRefusal(65, "no task certificate is recorded for " + fingerprint);
     }
 
-    record Task(String login, String name, Map<String, @Nullable Object> entry) {
+    /**
+     * A task's record; its project is the directory it is recorded in, {@code null} for a record of
+     * the old layout, {@code tasks/<login>/<task>.json}.
+     */
+    record Task(
+            String login,
+            @Nullable String project,
+            String name,
+            Map<String, @Nullable Object> entry) {
+        /** The name of the task's forge token. */
+        String token() {
+            return HostTasks.token(project, name);
+        }
+
         boolean visibleTo(HostRecords.Person person) {
             for (String member : person.members()) {
                 final String[] membership = member.split(" ", -1);
@@ -269,6 +342,13 @@ final class HostTasks {
          */
         boolean of(String project) {
             return List.of("task:" + project + ":" + name).equals(entry.get("principals"));
+        }
+
+        /** Whether the task was started for a project, certified or, in test mode, not. */
+        boolean startedFor(String project) {
+            return of(project)
+                    || Boolean.TRUE.equals(entry.get("uncertified"))
+                            && project.equals(entry.get("project"));
         }
 
         Instant end() {
@@ -298,18 +378,35 @@ final class HostTasks {
             for (Path path : files.list(directory, 73, 0700)) {
                 final String name = path.getFileName().toString();
                 if (!name.endsWith(".json")
-                        || !name.substring(0, name.length() - 5)
-                                .matches("[a-z0-9][a-z0-9._-]{0,63}")) {
-                    throw new HostRefusal(65, directory + " holds an unknown entry");
+                        && (name.equals("default") || name.matches(HostRecords.PROJECT))
+                        && !files.isPlainFile(path)) {
+                    // Listing checks it is root's directory alone, and refuses a link.
+                    for (Path recorded : files.list(path, 73, 0700)) {
+                        final String task = taskName(path, recorded);
+                        found.add(
+                                new Task(user, name, task, taskRecord(recorded, user, name, task)));
+                    }
+                } else {
+                    // The old layout, before a record was its project's.
+                    final String task = taskName(directory, path);
+                    found.add(new Task(user, null, task, taskRecord(path, user, null, task)));
                 }
-                final String task = name.substring(0, name.length() - 5);
-                found.add(new Task(user, task, taskRecord(path, user, task)));
             }
         }
         return found;
     }
 
-    private Map<String, @Nullable Object> taskRecord(Path path, String login, String task) {
+    private static String taskName(Path directory, Path path) {
+        final String name = path.getFileName().toString();
+        if (!name.endsWith(".json")
+                || !name.substring(0, name.length() - 5).matches("[a-z0-9][a-z0-9._-]{0,63}")) {
+            throw new HostRefusal(65, directory + " holds an unknown entry");
+        }
+        return name.substring(0, name.length() - 5);
+    }
+
+    private Map<String, @Nullable Object> taskRecord(
+            Path path, String login, @Nullable String project, String task) {
         files.check(path, 73, true, false, 0600);
         final String text = files.read(path);
         try {
@@ -325,7 +422,9 @@ final class HostTasks {
                                     && entry.get("fingerprint") instanceof String;
             if (!task.equals(entry.get("task"))
                     || !login.equals(entry.get("login"))
-                    || !wellFormed) {
+                    || !wellFormed
+                    || project != null
+                            && !new Task(login, project, task, entry).startedFor(project)) {
                 throw new IllegalArgumentException("Invalid task fields");
             }
             final String time = string(entry.get("valid_before"));

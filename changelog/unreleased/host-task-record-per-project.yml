@@ -1,0 +1,2 @@
+title: "A host keeps a person's task record and forge token per project, so ending one project's task never ends another project's task of the same name"
+type: fixed

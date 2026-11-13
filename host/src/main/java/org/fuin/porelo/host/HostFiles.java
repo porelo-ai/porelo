@@ -210,6 +210,21 @@ final class HostFiles {
         }
     }
 
+    /** Whether a path is a plain file itself, not a link to one; its owner and mode unchecked. */
+    boolean isPlainFile(Path path) {
+        try {
+            return (((Number)
+                                            java.util.Objects.requireNonNull(
+                                                    attributes.read(path).get("mode"),
+                                                    "Unix attributes include mode"))
+                                    .intValue()
+                            & 0170000)
+                    == 0100000;
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
     boolean isSocket(Path path) {
         try {
             return (((Number)

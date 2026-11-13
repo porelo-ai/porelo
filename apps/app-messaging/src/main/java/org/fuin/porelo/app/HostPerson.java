@@ -144,14 +144,17 @@ final class HostPerson {
     }
 
     /**
-     * Tells the host a task ended, so its forge token goes.
+     * Tells the host a project's task ended, so its forge token goes: the host keeps a task by
+     * project and name, so another project's task of that name keeps its own.
      *
+     * @param project The task's project, as its certificate names it.
      * @param task The task's name.
      * @return Whether the host answered that this task ended.
      * @throws Refused If the host refused it, or could not be asked.
      */
-    boolean end(String task) {
-        final CommandResult ended = run(HostForgeLending.onHost(program, "task", "end", task));
+    boolean end(String project, String task) {
+        final CommandResult ended =
+                run(HostForgeLending.onHost(program, "task", "end", project, task));
         try {
             return Json.parse(ended.standardOutput().strip()) instanceof Map<?, ?> answer
                     && task.equals(answer.get("task"))

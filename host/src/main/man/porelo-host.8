@@ -93,7 +93,8 @@ Root's timer only; refused with status 65 when SUDO_USER is set.
 Takes an exclusive flock on /etc/porelo-host/forge.conf, retries pending person
 locks, and deletes forge task tokens whose recorded certificate has ended.
 Retains every task record and every token for a task whose certificate is still valid.
-Prints one JSON object with a sorted swept list of login/task names.
+Prints one JSON object with a sorted swept list of login/project/task names,
+login/task for a record of the earlier layout.
 One person's forge failure stops no other person's sweep; failures answer status
 69, naming the completed deletions and failures. Removal of the temporary
 administrator token is attempted before the answer, including when a request
@@ -104,8 +105,10 @@ Through sudo only: read one Ed25519 task certificate from bounded standard input
 Require the calling person's current organization key, a single principal
  task:<project>:<task>, current validity, and membership of that project.
 The installed porelo judges it again against that key and the host KRL in an
-isolated systemd unit. Record the certificate privately before making the gate
- token; answer the token alone without a line end, or nothing on a forge-less host.
+isolated systemd unit. Record the certificate privately, under its project,
+before making the gate token porelo\-task\-<project>_<task>, dropping only a token
+of that name first; answer the token alone without a line end, or nothing on a
+forge-less host.
 An identical certificate is a retry and rotates its token. Another certificate
 for that task, or the same task key recorded elsewhere, is refused.
 An empty standard input asks for an uncertified start. It is accepted only while
@@ -115,9 +118,13 @@ porelo\-people, taken from SUDO_USER and SUDO_UID, is accepted for the project
 default whatever the organization says. The record names no certificate, key or
 principal; it says uncertified, and its validity is seven days, as a certificate's.
 .TP
-.B task end <task>
-Through sudo only: delete that task's gate token alone, retain its certificate,
+.B task end <project> <task>
+Through sudo only: delete that project's task's gate token
+porelo\-task\-<project>_<task> alone, retain its certificate,
 and print {"task":"<task>","ended":true}. An unrecorded task is refused.
+A task with no record under the project but one of the earlier layout,
+tasks/<login>/<task>.json, whose certificate names that project, is ended by
+its token porelo\-task\-<task>.
 A task started uncertified is ended by its person whatever the organization says.
 .TP
 .B test\-switches \-\-json
@@ -442,8 +449,10 @@ root repairs its cause and successfully runs porelo-host org follow.
 .B /etc/porelo-host/
 Root's forge.conf, people records and organization state, pin and project progress.
 .TP
-.B /var/lib/porelo-host/tasks/<login>/<task>.json
-Root's private, durable task certificate records.
+.B /var/lib/porelo-host/tasks/<login>/<project>/<task>.json
+Root's private, durable task certificate records, one per project's task; the
+person's and the project's directories mode 0700, the record 0600. Records of
+the earlier layout, tasks/<login>/<task>.json, are still read, swept and ended.
 .TP
 .B /usr/sbin/porelo-host
 The host program.

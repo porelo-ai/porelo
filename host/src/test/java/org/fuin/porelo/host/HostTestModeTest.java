@@ -67,8 +67,8 @@ class HostTestModeTest {
 
         assertThat(answer.code()).as(answer.err()).isZero();
         assertThat(answer.out()).matches("[0-9a-f]{40}");
-        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-t1");
-        final Path record = host.record("t1");
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-default_t1");
+        final Path record = host.record("default", "t1");
         assertThat((int) Files.getAttribute(record, "unix:mode") & 0777).isEqualTo(0600);
         final var entry = HostJson.object(HostJson.parse(Files.readString(record)));
         assertThat(entry)
@@ -83,8 +83,9 @@ class HostTestModeTest {
         assertThat(host.run(Map.of(), "", "task", "sweep").code())
                 .as("the sweep reads the record")
                 .isZero();
-        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-t1");
-        assertThat(host.run("", "task", "end", "t1"))
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-default_t1");
+        // Its person's own project is not default: the end finds it under default all the same.
+        assertThat(host.run("", "task", "end", "alpha", "t1"))
                 .isEqualTo(new HostReadFixture.Answer(0, "{\"task\":\"t1\",\"ended\":true}\n", ""));
         assertThat(host.names("porelo-alice")).isEmpty();
         assertThat(record).as("the end keeps the record, as for every task").exists();
@@ -95,7 +96,18 @@ class HostTestModeTest {
         host.tree.put(FILE, ON);
         assertThat(uncertified().code()).isZero();
         assertThat(uncertified().code()).as("a retry rotates its token").isZero();
-        assertThat(host.run(host.certificate(), "task", "start", "t1").code()).isEqualTo(65);
+        final String forDefault =
+                host.certificate(
+                        "alice",
+                        "task",
+                        java.util.List.of("task:default:t1"),
+                        "20261030000000Z:20261031000000Z",
+                        false,
+                        "porelo task t1 by alice");
+        assertThat(host.run(forDefault, "task", "start", "t1").code()).isEqualTo(65);
+        assertThat(host.run(host.certificate(), "task", "start", "t1").code())
+                .as("project alpha's task t1 is another task than default's")
+                .isZero();
     }
 
     @Test
@@ -114,7 +126,7 @@ class HostTestModeTest {
         host.getent.put("group porelo-people", "porelo-people:x:990:bob\n");
         final var answer = uncertified();
         assertThat(answer.code()).as(answer.err()).isEqualTo(65);
-        assertThat(host.record("t1")).doesNotExist();
+        assertThat(host.record("default", "t1")).doesNotExist();
         assertThat(host.names("porelo-alice")).isEmpty();
     }
 
@@ -175,7 +187,7 @@ class HostTestModeTest {
         final var answer = uncertified();
         // An unsafe directory above it fails forge.conf's own check first, with 69.
         assertThat(answer.code()).as(defect + ": " + answer.err()).isIn(65, 69);
-        assertThat(host.record("t1")).doesNotExist();
+        assertThat(host.record("default", "t1")).doesNotExist();
         assertThat(host.names("porelo-alice")).isEmpty();
     }
 
@@ -183,6 +195,6 @@ class HostTestModeTest {
     void theSwitchTakesNoFlagOfTheCaller() throws Exception {
         assertThat(host.run("", "task", "start", "--yes", "t1").code()).isEqualTo(64);
         assertThat(host.run("", "task", "start", "t1", "--uncertified").code()).isEqualTo(64);
-        assertThat(host.record("t1")).doesNotExist();
+        assertThat(host.record("default", "t1")).doesNotExist();
     }
 }

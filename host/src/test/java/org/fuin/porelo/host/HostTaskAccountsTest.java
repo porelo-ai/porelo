@@ -43,7 +43,7 @@ class HostTaskAccountsTest {
         final var answer = start(certificate);
         assertThat(answer.code()).as(answer.err()).isZero();
         assertThat(answer.out()).matches("[0-9a-f]{40}");
-        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-t1");
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-alpha_t1");
         final var token = host.tokens.get("porelo-alice").values().iterator().next();
         assertThat(token.secret()).isEqualTo(answer.out());
         assertThat(token.scopes()).isEqualTo("write:repository,read:package");
@@ -52,6 +52,13 @@ class HostTaskAccountsTest {
         assertThat((int) Files.getAttribute(record.getParent(), "unix:mode") & 0777)
                 .isEqualTo(0700);
         assertThat((int) Files.getAttribute(record.getParent().getParent(), "unix:mode") & 0777)
+                .isEqualTo(0700);
+        assertThat(
+                        (int)
+                                        Files.getAttribute(
+                                                record.getParent().getParent().getParent(),
+                                                "unix:mode")
+                                & 0777)
                 .isEqualTo(0700);
         assertThat(Files.readString(record))
                 .contains(
@@ -92,7 +99,7 @@ class HostTaskAccountsTest {
                                 false,
                                 "porelo task t1 by alice"));
         assertThat(answer.code()).as(answer.err()).isEqualTo(code);
-        assertThat(Files.exists(host.record("t1"))).isEqualTo(code == 0);
+        assertThat(Files.exists(host.record(principals.split(":")[1], "t1"))).isEqualTo(code == 0);
         assertThat(host.calls.stream().anyMatch(call -> call.getFirst().equals("systemd-run")))
                 .isEqualTo(code == 0);
     }
@@ -203,7 +210,7 @@ class HostTaskAccountsTest {
         final var second = start(certificate);
         assertThat(second.code()).as(second.err()).isZero();
         assertThat(first.out()).isNotEqualTo(second.out());
-        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-t1");
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-alpha_t1");
         final var refused =
                 start(
                         cert(
@@ -233,20 +240,100 @@ class HostTaskAccountsTest {
                         "porelo task t2 by alice");
         assertThat(host.run(other, "task", "start", "t2").code()).isEqualTo(65);
         assertThat(host.record("t2")).doesNotExist();
-        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-t1");
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-alpha_t1");
     }
 
     @Test
     void endingOneTaskLeavesItsRecordAndEveryOtherToken() throws Exception {
         assertThat(start(host.certificate()).code()).isZero();
-        host.add("porelo-alice", "porelo-task-t2");
+        host.add("porelo-alice", "porelo-task-alpha_t2");
         host.add("alice", "person");
-        assertThat(host.run("", "task", "end", "t1"))
+        assertThat(host.run("", "task", "end", "alpha", "t1"))
                 .isEqualTo(new HostReadFixture.Answer(0, "{\"task\":\"t1\",\"ended\":true}\n", ""));
-        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-t2");
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-alpha_t2");
         assertThat(host.names("alice")).containsExactly("person");
         assertThat(host.record("t1")).exists();
-        assertThat(host.run("", "task", "end", "missing").code()).isEqualTo(65);
+        assertThat(host.run("", "task", "end", "alpha", "missing").code()).isEqualTo(65);
+        assertThat(host.run("", "task", "end", "beta", "t1").code())
+                .as("another project's task of that name is not recorded")
+                .isEqualTo(65);
+    }
+
+    private String shell(String key, String project) throws Exception {
+        return cert(
+                "alice",
+                key,
+                List.of("task:" + project + ":shell"),
+                "20261030000000Z:20261031000000Z",
+                false,
+                "porelo task shell by alice");
+    }
+
+    @Test
+    void twoProjectsTasksOfOneNameKeepTheirRecordsAndTokensThroughEachOthersStartAndEnd()
+            throws Exception {
+        host.tree.person("alice", "member=alpha developer\nmember=beta developer\n", "");
+        final var a = host.run(shell("task", "alpha"), "task", "start", "shell");
+        assertThat(a.code()).as(a.err()).isZero();
+        final var b = host.run(shell("other-task", "beta"), "task", "start", "shell");
+        assertThat(b.code()).as(b.err()).isZero();
+        assertThat(host.names("porelo-alice"))
+                .as("b's start dropped no token of a's")
+                .containsExactly("porelo-task-alpha_shell", "porelo-task-beta_shell");
+        assertThat(host.requests)
+                .noneMatch(request -> request.startsWith("DELETE /admin/users/porelo-alice/"));
+        assertThat(host.record("alpha", "shell")).exists();
+        assertThat(host.record("beta", "shell")).exists();
+
+        assertThat(host.run("", "task", "end", "alpha", "shell"))
+                .isEqualTo(
+                        new HostReadFixture.Answer(0, "{\"task\":\"shell\",\"ended\":true}\n", ""));
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-beta_shell");
+        assertThat(
+                        host.requests.stream()
+                                .filter(
+                                        request ->
+                                                request.startsWith(
+                                                        "DELETE /admin/users/porelo-alice/")))
+                .as("a's end dropped a's token alone")
+                .hasSize(1);
+        assertThat(HostJson.object(HostJson.parse(Files.readString(host.record("beta", "shell")))))
+                .containsEntry("principals", List.of("task:beta:shell"));
+        assertThat(host.record("alpha", "shell")).as("an end keeps its record").exists();
+        assertThat(host.oldRecord("shell")).doesNotExist();
+    }
+
+    @Test
+    void aTaskRecordedInTheOldLayoutIsStillListedAndEndedByItsOldToken() throws Exception {
+        assertThat(start(host.certificate()).code()).isZero();
+        Files.move(host.record("t1"), host.oldRecord("t1"));
+        Files.delete(host.record("t1").getParent());
+        host.tokens.get("porelo-alice").clear();
+        host.add("porelo-alice", "porelo-task-t1");
+        host.add("porelo-alice", "porelo-task-alpha_t2");
+
+        final var listed = new HostTasks(host.tree.files()).read();
+        assertThat(listed)
+                .singleElement()
+                .satisfies(
+                        task -> {
+                            assertThat(task.login()).isEqualTo("alice");
+                            assertThat(task.project()).isNull();
+                            assertThat(task.name()).isEqualTo("t1");
+                            assertThat(task.token()).isEqualTo("porelo-task-t1");
+                        });
+        assertThat(host.run(Map.of(), "", "task", "show", host.fingerprint("task")).code())
+                .isZero();
+
+        assertThat(host.run("", "task", "end", "beta", "t1").code())
+                .as("the old record is alpha's, not beta's")
+                .isEqualTo(65);
+        assertThat(host.names("porelo-alice"))
+                .containsExactly("porelo-task-alpha_t2", "porelo-task-t1");
+        assertThat(host.run("", "task", "end", "alpha", "t1"))
+                .isEqualTo(new HostReadFixture.Answer(0, "{\"task\":\"t1\",\"ended\":true}\n", ""));
+        assertThat(host.names("porelo-alice")).containsExactly("porelo-task-alpha_t2");
+        assertThat(host.oldRecord("t1")).exists();
     }
 
     @Test
@@ -259,7 +346,7 @@ class HostTaskAccountsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"root", "person", "record"})
+    @ValueSource(strings = {"root", "person", "project", "record"})
     void taskLinksNeverRedirectAPublicationOrRead(String part) throws Exception {
         final String certificate = host.certificate();
         assertThat(start(certificate).code()).isZero();
@@ -267,15 +354,16 @@ class HostTaskAccountsTest {
         final Path outside = Files.createDirectory(directory.resolve("outside"));
         final Path target =
                 switch (part) {
-                    case "root" -> host.record("t1").getParent().getParent();
-                    case "person" -> host.record("t1").getParent();
+                    case "root" -> host.record("t1").getParent().getParent().getParent();
+                    case "person" -> host.record("t1").getParent().getParent();
+                    case "project" -> host.record("t1").getParent();
                     default -> host.record("t1");
                 };
         Files.move(target, target.resolveSibling(target.getFileName() + ".saved"));
         Files.createSymbolicLink(target, part.equals("record") ? sentinel : outside);
         final int calls = host.calls.size();
         assertThat(start(certificate).code()).isEqualTo(73);
-        assertThat(host.run("", "task", "end", "t1").code()).isEqualTo(73);
+        assertThat(host.run("", "task", "end", "alpha", "t1").code()).isEqualTo(73);
         assertThat(Files.readString(sentinel)).isEqualTo("untouched");
         assertThat(host.calls.subList(calls, host.calls.size()))
                 .noneMatch(call -> call.contains("generate-access-token"));
@@ -428,6 +516,11 @@ class HostTaskAccountsTest {
                 "task start ../t1",
                 "task start t1 extra",
                 "task end",
+                "task end t1",
+                "task end alpha t1 extra",
+                "task end Alpha t1",
+                "task end al_pha t1",
+                "task end alpha T1",
                 "task --drop t1",
                 "forge issue-token alice",
                 "task sweep now"
@@ -442,7 +535,7 @@ class HostTaskAccountsTest {
     @Test
     void rootWithoutASudoPersonCannotStartOrEndATask() {
         assertThat(host.run(Map.of(), "", "task", "start", "t1").code()).isEqualTo(64);
-        assertThat(host.run(Map.of(), "", "task", "end", "t1").code()).isEqualTo(64);
+        assertThat(host.run(Map.of(), "", "task", "end", "alpha", "t1").code()).isEqualTo(64);
         assertThat(host.calls).isEmpty();
     }
 
