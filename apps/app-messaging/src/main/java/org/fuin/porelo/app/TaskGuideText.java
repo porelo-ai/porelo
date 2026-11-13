@@ -157,8 +157,9 @@ public final class TaskGuideText {
                   `key: value` - `commit`, `verdict`, one `run` line per workflow run, one `job` line per
                   job, `since`, and `detail` when there is more to say.
                 - `verdict` is `queued` or `running` while the build goes on, then `success`, `failure` or
-                  `cancelled`. It is `unknown` when there is no build or Porelo cannot read it, and `detail`
-                  says why, such as "held at the gate for a person".
+                  `cancelled`. It is `none` when no build of this push is reported while this task runs, and
+                  `unknown` when Porelo cannot read the build yet. `detail` says why, such as "held at the gate
+                  for a person".
                 - A `run` line names a workflow of the commit and its state when the file was written:
                   `queued` or `in_progress` while it goes on, then what became of it. Not every forge names
                   its runs.
@@ -168,9 +169,10 @@ public final class TaskGuideText {
                 - The file is replaced each time the verdict changes.
 
                 **After you push, read `build-<commit>.txt` until its verdict is final, before you call the work
-                done.** The final verdicts are `success`, `failure`, `cancelled` and `unknown`. On `failure`, read
-                the log each failed `job` line names, fix the cause, and push again. With `unknown` no build comes
-                while this task runs, and your work is done once it is pushed: do not wait for one.
+                done.** The final verdicts are `success`, `failure`, `cancelled` and `none`. `unknown` is not final:
+                read the file again later. On `failure`, read the log each failed `job` line names, fix the cause,
+                and push again. With `none` no build comes while this task runs, and your work is done once it is
+                pushed: do not wait for one.
                 """
                         .replace("@FILES@", Containerfile.HAND_IN_FILES);
         final String shared = mailbox ? files + "\n" + MailboxGuide.text() : files;

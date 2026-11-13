@@ -539,7 +539,7 @@ public class GitHttpServer implements AutoCloseable {
                 }
             }
 
-            tellTaken(commands(request));
+            tellTaken(commands(request), reportedOk(response.toByteArray(), capabilities(request)));
             exchange.getResponseHeaders()
                     .add("Content-Type", "application/x-" + service + "-result");
             exchange.getResponseHeaders().add("Cache-Control", "no-cache");
@@ -747,8 +747,12 @@ public class GitHttpServer implements AutoCloseable {
      * since the push itself landed.
      *
      * @param commands The push's {@code <old> <new> <ref>} commands.
+     * @param ok The refs receive-pack reported {@code ok}, or {@code null} when the client asked
+     *     for no report.
      */
-    private void tellTaken(final List<String[]> commands) {
+    private void tellTaken(
+            final List<String[]> commands,
+            final @org.jspecify.annotations.Nullable Set<String> ok) {
         final Taken listener = taken;
         if (listener == null) {
             return;
@@ -756,6 +760,10 @@ public class GitHttpServer implements AutoCloseable {
         for (final String[] command : commands) {
             // The rescue beside the task's ref is the person's; a deletion brings no commit.
             if (!command[2].equals(ref) || ZERO.equals(command[1])) {
+                continue;
+            }
+            // receive-pack ends well when it refuses a ref too: only its report says it landed.
+            if (ok != null && !ok.contains(command[2])) {
                 continue;
             }
             try {
@@ -1005,6 +1013,72 @@ public class GitHttpServer implements AutoCloseable {
             }
             refs.add(fields);
         }
+    }
+
+    /**
+     * Reads the refs a {@code receive-pack} answer reports {@code ok}, from its report-status:
+     * within band 1 when the client asked for a side band, else the answer itself.
+     *
+     * @param response What receive-pack answered.
+     * @param capabilities What the client asked for.
+     * @return The refs, empty when the report cannot be read, or {@code null} when the client asked
+     *     for no report.
+     */
+    static @org.jspecify.annotations.Nullable Set<String> reportedOk(
+            final byte[] response, final List<String> capabilities) {
+        if (!capabilities.contains("report-status") && !capabilities.contains("report-status-v2")) {
+            return null;
+        }
+        final byte[] status;
+        if (capabilities.contains("side-band-64k") || capabilities.contains("side-band")) {
+            final ByteArrayOutputStream band = new ByteArrayOutputStream();
+            for (final byte[] each : packetLines(response)) {
+                if (each.length > 0 && each[0] == 1) {
+                    band.write(each, 1, each.length - 1);
+                }
+            }
+            status = band.toByteArray();
+        } else {
+            status = response;
+        }
+        final java.util.Set<String> ok = new java.util.HashSet<>();
+        for (final byte[] each : packetLines(status)) {
+            String line = new String(each, StandardCharsets.UTF_8);
+            if (line.endsWith("\n")) {
+                line = line.substring(0, line.length() - 1);
+            }
+            if (line.startsWith("ok ")) {
+                ok.add(line.substring(3));
+            }
+        }
+        return ok;
+    }
+
+    /**
+     * Splits pkt-lines into their payloads, skipping flush and delimiter packets; stops at the
+     * first that cannot be read.
+     */
+    private static List<byte[]> packetLines(final byte[] data) {
+        final List<byte[]> lines = new java.util.ArrayList<>();
+        int at = 0;
+        while (at + 4 <= data.length) {
+            final int length;
+            try {
+                length = Integer.parseInt(new String(data, at, 4, StandardCharsets.US_ASCII), 16);
+            } catch (NumberFormatException ex) {
+                break;
+            }
+            if (length < 4) {
+                at += 4;
+                continue;
+            }
+            if (at + length > data.length) {
+                break;
+            }
+            lines.add(java.util.Arrays.copyOfRange(data, at + 4, at + length));
+            at += length;
+        }
+        return lines;
     }
 
     /**

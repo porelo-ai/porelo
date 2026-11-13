@@ -137,7 +137,8 @@ public final class TaskBuilds {
      * One verdict for one commit, as it was handed into the task.
      *
      * @param commit The full sha the task pushed.
-     * @param verdict queued, running, success, failure, cancelled or unknown.
+     * @param verdict queued, running, success, failure, cancelled or unknown; in the gate's own
+     *     hand-in, none.
      * @param jobs The jobs whose log reached the task, in the forge's order.
      * @param since UTC, when the verdict last changed.
      * @param detail Why it is unknown, or what more the forge said; "" otherwise.

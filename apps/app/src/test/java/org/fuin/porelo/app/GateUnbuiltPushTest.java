@@ -32,11 +32,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Test for {@link UnbuiltPush} at a task's gate: a push that is not built while the task runs is
- * answered at once with {@code build-<commit>.txt}, verdict {@code unknown}, and why.
+ * answered at once with {@code build-<commit>.txt}, verdict {@code none}, and why.
  */
 class GateUnbuiltPushTest {
 
     private static final String TASK = "fix";
+
+    private static final String REF = GitGate.INCOMING + TASK;
 
     private static final Instant NOW = Instant.parse("2026-11-13T10:15:30Z");
 
@@ -68,8 +70,7 @@ class GateUnbuiltPushTest {
     }
 
     @Test
-    void aPushHeldAtTheGateForAPersonIsAnsweredAtOnceWithAnUnknownVerdictAndWhy()
-            throws IOException {
+    void aPushHeldAtTheGateForAPersonIsAnsweredAtOnceWithVerdictNoneAndWhy() throws IOException {
         final GitGate gate = new GitGate(runner, mirror, GateMode.GATEKEEPING, upstream.toString());
         gate.initialize();
         final TaskToken token = TaskToken.mint();
@@ -85,7 +86,7 @@ class GateUnbuiltPushTest {
                     .isEqualTo(
                             "commit: "
                                     + commit
-                                    + "\nverdict: unknown\nsince: 2026-11-13T10:15:30Z\n"
+                                    + "\nverdict: none\nsince: 2026-11-13T10:15:30Z\n"
                                     + "detail: held at the gate for a person; nothing is built"
                                     + " until it is passed on\n");
         }
@@ -115,7 +116,7 @@ class GateUnbuiltPushTest {
 
             assertThat(handed.get("build-" + commit.substring(0, 12) + ".txt"))
                     .as("passed on, but nothing reports its build")
-                    .contains("verdict: unknown\n")
+                    .contains("verdict: none\n")
                     .contains("detail: " + UnbuiltPush.NO_BUILDS + "\n");
         }
     }
@@ -129,6 +130,31 @@ class GateUnbuiltPushTest {
                 serving(token, null, UnbuiltPush.HELD)
                         .judging((old, commit) -> "commit " + commit + " is not signed")) {
             assertThatThrownBy(() -> pushed(server, token)).hasMessageContaining("not signed");
+
+            assertThat(handed).as("the push did not land: nothing is waited for").isEmpty();
+        }
+    }
+
+    @Test
+    void aPushGitRejectsHandsInNothingForItsCommit() throws IOException {
+        final GitGate gate = new GitGate(runner, mirror, GateMode.GATEKEEPING, upstream.toString());
+        gate.initialize();
+        final TaskToken token = TaskToken.mint();
+        try (GitHttpServer server = serving(token, null, UnbuiltPush.HELD)) {
+            pushed(server, token);
+            handed.clear();
+            // receive-pack refuses the ref, here through a hook, and still ends well: only its
+            // report says the ref was not updated.
+            final Path hook = mirror.resolve("hooks").resolve("update");
+            Files.createDirectories(hook.getParent());
+            Files.writeString(hook, "#!/bin/sh\necho 'the mirror takes no more' >&2\nexit 1\n");
+            hook.toFile().setExecutable(true);
+            Files.writeString(work.resolve("more.txt"), "more of the agent's work");
+            git(work, "add", "more.txt");
+            git(work, "commit", "-q", "-m", "more of the agent's work");
+
+            assertThatThrownBy(() -> git(work, "push", "-q", url(server), "HEAD:" + REF))
+                    .hasMessageContaining("hook declined");
 
             assertThat(handed).as("the push did not land: nothing is waited for").isEmpty();
         }
@@ -169,12 +195,7 @@ class GateUnbuiltPushTest {
 
     /** Clones through the gate, commits, and pushes to the task's ref: the commit pushed. */
     private String pushed(final GitHttpServer server, final TaskToken token) throws IOException {
-        final String url =
-                "http://"
-                        + InetAddress.getLoopbackAddress().getHostAddress()
-                        + ":"
-                        + server.port()
-                        + "/mirror.git";
+        final String url = url(server);
         git(
                 root,
                 "clone",
@@ -188,8 +209,16 @@ class GateUnbuiltPushTest {
         git(work, "add", "agent.txt");
         git(work, "commit", "-q", "-m", "the agent's work");
         final String commit = git(work, "rev-parse", "HEAD").standardOutput().strip();
-        git(work, "push", "-q", url, "HEAD:" + GitGate.INCOMING + TASK);
+        git(work, "push", "-q", url, "HEAD:" + REF);
         return commit;
+    }
+
+    private static String url(final GitHttpServer server) {
+        return "http://"
+                + InetAddress.getLoopbackAddress().getHostAddress()
+                + ":"
+                + server.port()
+                + "/mirror.git";
     }
 
     private CommandResult git(final Path directory, final String... arguments) {

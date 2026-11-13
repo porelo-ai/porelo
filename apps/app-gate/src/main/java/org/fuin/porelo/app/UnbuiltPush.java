@@ -13,7 +13,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Tells a task at its push that no build of it comes while it runs: {@code build-<commit>.txt} with
- * verdict {@code unknown} and why, handed in before the push is answered.
+ * verdict {@code none} and why, handed in before the push is answered.
+ *
+ * <p>{@code none} is the gate's alone and final: the build watch writes {@code unknown} while a
+ * build may still come (a rate limit, a forge it cannot reach, a run not shown yet), and the guide
+ * has the agent read that again.
  *
  * <p>Here and not in the build watch, because only the gate sees a push it holds: the watch asks
  * the forge, which a held push reaches only when a person passes it on, and a project that follows
@@ -30,8 +34,8 @@ public final class UnbuiltPush implements GitHttpServer.Taken {
     public static final String NO_BUILDS =
             "this project follows no builds; no build of this push is reported";
 
-    /** The verdict of a build nobody reports on, as the build API spells it. */
-    static final String UNKNOWN = "unknown";
+    /** The verdict of a push no build of which is reported while the task runs. */
+    static final String NONE = "none";
 
     /** Hands a file into the task, as Porelo. */
     @FunctionalInterface
@@ -91,7 +95,7 @@ public final class UnbuiltPush implements GitHttpServer.Taken {
         final TaskBuilds.Seen seen =
                 new TaskBuilds.Seen(
                         commit,
-                        UNKNOWN,
+                        NONE,
                         List.of(),
                         clock.instant().truncatedTo(ChronoUnit.SECONDS).toString(),
                         why,

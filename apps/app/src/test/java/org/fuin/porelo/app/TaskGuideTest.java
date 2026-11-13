@@ -73,19 +73,32 @@ class TaskGuideTest {
     }
 
     @Test
-    void namesUnknownAsFinalSoAPushWithNothingToBuildIsDone() {
+    void namesNoneAsFinalSoAPushWithNothingToBuildIsDone() {
 
         // An agent waited 30 minutes for a build of work held at the gate, since the guide had it
-        // read the file until its verdict was final and never said unknown was.
+        // read the file until its verdict was final and never said which verdict says none comes.
         final String text = TaskGuideText.text(false).replaceAll("\\s+", " ");
 
         assertThat(text)
-                .contains("The final verdicts are `success`, `failure`, `cancelled` and `unknown`.")
+                .contains("The final verdicts are `success`, `failure`, `cancelled` and `none`.")
                 .contains(
-                        "With `unknown` no build comes while this task runs, and your work is done"
+                        "With `none` no build comes while this task runs, and your work is done"
                                 + " once it is pushed")
                 .contains("held at the gate for a person")
                 .contains("follows no builds");
+    }
+
+    @Test
+    void doesNotCallUnknownFinalSinceTheWatchWritesItWhileABuildMayStillCome() {
+
+        // The build watch writes unknown for a rate limit, an unreachable forge or a build not
+        // shown yet, and replaces it later: an agent that stopped there never read the failure.
+        final String text = TaskGuideText.text(false).replaceAll("\\s+", " ");
+        final int start = text.indexOf("The final verdicts are");
+        final String finals = text.substring(start, text.indexOf('.', start));
+
+        assertThat(finals).as("the final verdicts").doesNotContain("unknown");
+        assertThat(text).contains("`unknown` is not final");
     }
 
     @Test

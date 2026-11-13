@@ -966,7 +966,7 @@ class BuildWatchTest {
     }
 
     @Test
-    void aPushHeldAtTheGateAndPassedOnLaterHasItsUnknownReplacedByItsBuild() throws IOException {
+    void aPushHeldAtTheGateAndPassedOnLaterHasItsNoneReplacedByItsBuild() throws IOException {
         final BuildWatch watch = watch().withoutPullRequests();
         watch.round();
         // The gate's answer at the push, through the same files as the watch's.
@@ -980,7 +980,7 @@ class BuildWatchTest {
 
         assertThat(files.get("build-111111111111.txt"))
                 .as("while it waits for a person, the forge has nothing of it")
-                .contains("verdict: unknown")
+                .contains("verdict: none")
                 .contains("detail: " + UnbuiltPush.HELD);
 
         later(BuildWatch.GRACE);
