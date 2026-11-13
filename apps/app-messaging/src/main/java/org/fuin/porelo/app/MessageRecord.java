@@ -253,6 +253,26 @@ public final class MessageRecord {
     }
 
     /**
+     * Returns every mark the record's lines kept for one message.
+     *
+     * <p>A message held again on its way out keeps the verdict it was first held with: a released
+     * message is the same message, and what was said about it still holds.
+     *
+     * @param message The message's file name.
+     * @return The marks, joined with ", "; "" when no line marked it.
+     * @throws IOException Reading failed.
+     */
+    public String markOf(final String message) throws IOException {
+        String marks = "";
+        for (final Map<String, Object> line : lines()) {
+            if (message.equals(line.get("message")) && line.get("mark") instanceof String mark) {
+                marks = MessageRead.joined(marks, mark);
+            }
+        }
+        return marks;
+    }
+
+    /**
      * Counts what happened with one peer since a moment.
      *
      * @param event The event to count, one of the constants here.

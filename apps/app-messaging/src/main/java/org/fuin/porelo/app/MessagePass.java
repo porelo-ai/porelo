@@ -166,7 +166,8 @@ public final class MessagePass {
                 new MessageFiltering(runner, filter).run(mailbox, mail.outgoingReported());
 
         // The sending task's mark on what leaves it, held or sent, so a line read later says it as
-        // the room's line did.
+        // the room's line did. A verdict an earlier line kept for the message stays on the new
+        // one: the live stream reads each line alone.
         final String sending = marks.of(mailbox.root().getFileName().toString());
         final MessageBudget budget = new MessageBudget(record, mail);
         MessageDispatch.Outcome dispatched =
@@ -192,7 +193,7 @@ public final class MessagePass {
                         "",
                         stuck.reason(),
                         MessageRecord.OUT,
-                        sending);
+                        MessageRead.joined(record.markOf(stuck.message()), sending));
                 // The sender is told the moment it is held, not when somebody gets round to the
                 // hold list: an agent with no answer waits forever or sends the same thing again.
                 new HostBounce()
@@ -213,7 +214,14 @@ public final class MessagePass {
                 final TransportSend.Result result = send.send(mailbox, transport);
                 sent.put(transport, result);
                 for (final String message : result.sent()) {
-                    record.append(MessageRecord.SENT, message, "", "", transport, "", sending);
+                    record.append(
+                            MessageRecord.SENT,
+                            message,
+                            "",
+                            "",
+                            transport,
+                            "",
+                            MessageRead.joined(record.markOf(message), sending));
                 }
                 for (final String message : result.deferred()) {
                     record.append(MessageRecord.DEFERRED, message, "", transport);
@@ -226,7 +234,7 @@ public final class MessagePass {
                             "",
                             stuck.reason(),
                             MessageRecord.OUT,
-                            sending);
+                            MessageRead.joined(record.markOf(stuck.message()), sending));
                     // A permanent transport failure is final, so the answer says so rather than
                     // leaving the agent to believe its message is still on its way.
                     new HostBounce()

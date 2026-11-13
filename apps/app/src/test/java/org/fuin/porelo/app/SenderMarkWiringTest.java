@@ -247,6 +247,76 @@ class SenderMarkWiringTest {
     }
 
     @Test
+    void aMessageHeldAgainOnItsWayOutCarriesItsKeptVerdictOnTheNewLine() throws IOException {
+        // The live stream reads each line as it is written, so the line itself must say it: a
+        // message intake held unsigned, released by a person, held again for a peer nobody knows.
+        final Path filter = dir.resolve("filter");
+        executable(filter);
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-web_x"));
+        mailbox.create();
+        new MessageRecord(mailbox)
+                .append(
+                        MessageRecord.HELD,
+                        "m-1.json",
+                        "",
+                        "",
+                        "it was not sent: no key of its own",
+                        MessageRecord.OUT,
+                        TrustMark.UNSIGNED);
+        Files.createDirectories(mailbox.accepted());
+        Files.writeString(
+                mailbox.accepted().resolve("m-1.json"),
+                "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"stranger\"}}");
+        Files.writeString(
+                mailbox.accepted().resolve("m-1.json.sig"), "-----BEGIN SSH SIGNATURE-----");
+        Files.writeString(
+                mailbox.accepted().resolve("m-1.json" + MessageDispatch.RELEASED_SUFFIX), "");
+        final MessagePass pass =
+                new MessagePass(
+                        runner, filter, new TransportDirectory(List.of(dir.resolve("none"))));
+
+        pass.run(
+                mailbox,
+                new Mail(List.of()),
+                () -> {
+                    throw new MessageSigners.Unsigned("no key of its own", false);
+                },
+                PeerKeys.NONE,
+                new Moderation(dir.resolve("moderation").resolve("web.json")));
+
+        final List<Map<String, Object>> held =
+                new MessageRecord(mailbox)
+                        .entries().stream()
+                                .filter(line -> MessageRecord.HELD.equals(line.get("event")))
+                                .toList();
+        assertThat(held).hasSize(2);
+        assertThat(held.get(1).get("mark")).as("the new line itself").isEqualTo(TrustMark.UNSIGNED);
+    }
+
+    @Test
+    void anUnsignedTaskClaimingAPersonsRoleIsStillHeldUnsigned() throws IOException {
+        // Changing a field of its own message must not take the verdict away.
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-web_x"));
+        mailbox.create();
+        Files.writeString(
+                mailbox.outboxNew().resolve("m.json"),
+                "{\"messageId\":\"m\",\"role\":\"ROLE_USER\"}");
+
+        new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                .run(
+                        mailbox,
+                        new Mail(List.of()),
+                        () -> {
+                            throw new MessageSigners.Unsigned("no key of its own", false);
+                        },
+                        PeerKeys.NONE,
+                        new Moderation(dir.resolve("moderation").resolve("web.json")));
+
+        assertThat(mailbox.hold().resolve("m.json")).exists();
+        assertThat(new MessageRead().read(mailbox, "m").mark()).isEqualTo(TrustMark.UNSIGNED);
+    }
+
+    @Test
     void aRecordWrittenBeforeMarksStillVerifiesByTheHashesItWasWrittenWith() throws IOException {
         // Hashes computed outside Java, from the material before marks: no direction slot on a
         // line without one, the direction alone on a line with one.

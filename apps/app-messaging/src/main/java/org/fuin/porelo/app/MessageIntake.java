@@ -120,6 +120,12 @@ public final class MessageIntake {
                 // Held, not corrected: a host that rewrote the role would be signing its own
                 // sentence about who wrote this, and the record would stop being evidence.
                 place(bytes, mailbox.hold().resolve(name));
+                if (signing == null) {
+                    // Still unsigned: the role it claims takes nothing away from that verdict.
+                    this.unsigned.add(
+                            new MessageDelivery.Held(
+                                    name, "it was not sent: " + unsigned, "", TrustMark.UNSIGNED));
+                }
                 continue;
             }
 
