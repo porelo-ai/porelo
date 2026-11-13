@@ -20,15 +20,15 @@
 Filed 2026-11-13 from the reviewer readings of [B674](README.md#b674), [B506](README.md#b506) and
 [B316](README.md#b316), where nothing was found to stop a merge:
 
-- **B674.** `TaskControl.retireDeleting` catches only `IOException`. An `UncheckedIOException` or other runtime
-  failure of the guide's, the repositories' or the result's delete still skips the retire, which is the bug B674
+- **[B674](README.md#b674).** `TaskControl.retireDeleting` catches only `IOException`. An `UncheckedIOException` or other runtime
+  failure of the guide's, the repositories' or the result's delete still skips the retire, which is the bug [B674](README.md#b674)
   closed for the mailbox. `TaskReservationsTest`'s undeletable directory is read-only, so as root the delete succeeds
   and the tests fail; it wants `assumeFalse` for root. And a comment, at the order of the mailbox delete before the
   retire, so a later reorder does not reopen the race.
-- **B506.** Two `TaskActivityTest` cases assert the activity only as not `waiting`, or as neither at rest nor working;
+- **[B506](README.md#b506).** Two `TaskActivityTest` cases assert the activity only as not `waiting`, or as neither at rest nor working;
   any other wrong activity passes. Pin it to `unknown`. The stub test reads the question out of the rendered
   script with a pattern that breaks on reformatting ([B693](README.md#b693) lets it run the script instead).
-- **B316.** A name nothing asks for prints `used for  nothing yet - …` on standard output, the prefix a reader takes
+- **[B316](README.md#b316).** A name nothing asks for prints `used for  nothing yet - …` on standard output, the prefix a reader takes
   for a use. Say it under another word. The misfit check (an entry's type against what asks for it) is not applied to
   names a project asks for: `vault put github-actions --type ssh-key` is called used by the build reader with no
   warning. Untested: a project's own file over its host's, the skip of `default`, an unreadable file skipped quietly.
