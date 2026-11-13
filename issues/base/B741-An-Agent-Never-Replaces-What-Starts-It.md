@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B741",
   "title": "An Agent Never Replaces What Starts It",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "High",
   "rank": 50,
