@@ -18,9 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Holds that the kernel names a peer of another account as that account, which a test on one
- * account cannot show: it takes a second uid, so it runs only where one is at hand, on a test
- * machine.
+ * Holds that a peer of another account is not taken for this one, which a test on one account
+ * cannot show: it takes a second uid, so it runs only where one is at hand, on a test machine.
  *
  * <p>Tagged {@code second-account}, which no run takes unless asked for with {@code
  * -Dgroups=second-account -Dporelo.tests.excluded=}, the root pom excluding the tag otherwise.
@@ -67,9 +66,11 @@ class SocketPeerOtherAccountTest {
             try (SocketChannel accepted = listener.accept()) {
                 final var peer = SocketPeer.read(accepted);
 
+                // The uid of anybody else is not passed on: -1, never this account's.
                 assertThat(peer.uid())
-                        .as("the kernel names the connecting account")
-                        .isEqualTo(other);
+                        .as("another account's uid is not given as this one's")
+                        .isEqualTo(-1L)
+                        .isNotEqualTo(SocketPeer.ownUid());
                 assertThat(peer.sameUser())
                         .as("a peer of another account is not this account")
                         .isFalse();
