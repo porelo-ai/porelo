@@ -584,4 +584,69 @@ class ClearanceHubTest {
         assertThat(allowed).containsExactly("1.1.1.1");
         assertThat(announced.getLast().source()).isEqualTo(Decision.GRANTED);
     }
+
+    @Test
+    void aSecondAnswerFromAClientDoesNotReplaceAPersonsFirst() {
+
+        // DENY then ALLOW opened the firewall; ALLOW then DENY left it open while the hub said
+        // deny. A person's answer is final.
+        final ClearanceHub hub = hub(Verdict.TIMEOUT);
+        hub.handle(ONE_ONE_ONE_ONE);
+
+        hub.decide("tcp/1.1.1.1/443", "1.1.1.1", Verdict.DENY);
+        hub.decide("tcp/1.1.1.1/443", "1.1.1.1", Verdict.ALLOW);
+
+        assertThat(hub.decisions()).containsEntry("tcp/1.1.1.1/443", Verdict.DENY);
+        assertThat(allowed).isEmpty();
+        assertThat(announced)
+                .extracting(Decision::verdict)
+                .containsExactly(Verdict.TIMEOUT, Verdict.DENY);
+    }
+
+    @Test
+    void aNotificationAnsweredAfterAClientKeepsTheClientsAnswer() {
+
+        final ClearanceHub[] holder = new ClearanceHub[1];
+        holder[0] =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            holder[0].decide("tcp/1.1.1.1/443", "1.1.1.1", Verdict.DENY);
+                            return Verdict.ALLOW;
+                        },
+                        (address, name) -> allowed.add(address));
+        holder[0].onDecision(announced::add);
+
+        assertThat(holder[0].handle(ONE_ONE_ONE_ONE)).isEqualTo(Verdict.DENY);
+        assertThat(allowed).isEmpty();
+        assertThat(announced).extracting(Decision::verdict).containsExactly(Verdict.DENY);
+    }
+
+    @Test
+    void aQuestionHeldAfterItsPromptFailedEndsAtItsOwnDeadline() {
+
+        // Counted from the failure, a slow failure kept the question open past the deadline its
+        // subscribers were shown.
+        final ClearanceHub hub =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            try {
+                                Thread.sleep(500);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                            throw new ClearanceException("no notification service");
+                        },
+                        (address, name) -> allowed.add(address));
+        hub.holdFor(java.time.Duration.ofMillis(600));
+
+        final long started = System.nanoTime();
+        hub.handle(ONE_ONE_ONE_ONE);
+        final long took = (System.nanoTime() - started) / 1_000_000;
+
+        assertThat(took).as("ms from the question to its end").isBetween(550L, 950L);
+    }
 }

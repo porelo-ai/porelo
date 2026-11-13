@@ -18,10 +18,9 @@
 **Why this size.** The cause is not read yet; one reproduction at the command line, then a fix in the clearance's
 way to the task's row, which the activity test already models.
 
-Filed 2026-11-13 from Frontend's run of an interface story on the test VM, with Core's packages from 40b17b120 in the
-frontend account. A stub task of a guarded project reached `example.org`, which its project did not declare. For 45 s,
-`porelo` listed the task with `waitingFor` "" and activity `unknown`, and the `task list --watch` showed no question
-line above its table. The steps before it (typing into the task's terminal, the watch's rows) passed.
+Seen in an interface story on the test VM. A stub task of a guarded project reached `example.org`, which its project did
+not declare. For 45 s, `porelo` listed the task with `waitingFor` "" and activity `unknown`, and the `task list --watch`
+showed no question line above its table. The steps before it (typing into the task's terminal, the watch's rows) passed.
 
 **What must be true.** The clearance question the hub holds for that address is in the task's row (`waitingFor`, activity
 `waiting`) and in the watch, as `TaskActivityTest`'s clearance cases say.
@@ -39,7 +38,7 @@ line above its table. The steps before it (typing into the task's terminal, the 
 - The reproduction lists the task waiting for the address within 10 s, and the watch names it; a test fails without
   the fix.
 
-## Built (2026-11-13)
+## Built
 
 - Cause, reproduced at the command line with `porelo shield watch --events` on a session bus without a notification
   service (`dbus-run-session`): `DesktopPrompt.ask` threw at once, the `waiting` file was removed in the same
@@ -63,3 +62,25 @@ line above its table. The steps before it (typing into the task's terminal, the 
   .aSubscriberThatComesLaterIsStillToldTheQuestionsStillOpen` got no event.
 - `doc/how-it-works.md` and `doc/getting-started.md` no longer say `prompt` needs a desktop.
 - No VM run. The acceptance's 10 s on the VM stays open for the next interface story run.
+
+## Built after the reading
+
+On [B237](README.md#b237)'s head, whose single hub lock makes the check, the verdict, the firewall and the journal
+one step.
+
+- Red 1: a task's MCP `Prompts` passes only the questions and answers of its own project's tasks, by each task's
+  record, as `List` and `Watch` do. Through another project's endpoint, B's destination, project and task were read,
+  and the replay showed questions from before the subscriber came. Red first in `McpTaskSocketsTest
+  .aTasksPromptsCarryOnlyItsOwnProjectsQuestions`, against a pass-through.
+- Red 2, a timeout writing over a client's allow: closed by that lock. The timeout's removal of the question and its
+  verdict are one step under it, and a client's answer is wholly before or after.
+- Yellow 4: a person's first answer is final. A second client answer changes nothing, and a notification answered
+  after a client keeps the client's. Red first: `aSecondAnswerFromAClientDoesNotReplaceAPersonsFirst` (DENY then
+  ALLOW ended ALLOW) and `aNotificationAnsweredAfterAClientKeepsTheClientsAnswer`.
+- Yellow 6: a held question ends at the deadline counted from when it was asked, not from the prompt's failure.
+  `aQuestionHeldAfterItsPromptFailedEndsAtItsOwnDeadline` took 1100 ms for a 500 ms failure and a 600 ms hold.
+- Yellow 3: `ClearanceService` keeps and delivers each event, and a subscriber joins and is told what is open, in
+  one step, so no subscriber sees an answered question as open again.
+- Yellow 5: a `Report` that becomes a question carries its key, so a later subscriber gets it. What the hub settles
+  without asking carries none, since nothing would end it. Red first:
+  `aQuestionHeldThroughAReportIsToldToALaterSubscriber`.

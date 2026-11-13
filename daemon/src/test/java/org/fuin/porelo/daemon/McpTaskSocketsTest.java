@@ -1190,6 +1190,50 @@ class McpTaskSocketsTest {
     }
 
     @Test
+    void aTasksPromptsCarryOnlyItsOwnProjectsQuestions() throws IOException {
+        // Through project A's endpoint a subscriber read B's questions: where B's task tried to
+        // go, its project and its name, although B is not in A's list.
+        final Path socket = opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"Prompts\"]"));
+        identity(sockets.context(), LEAD, "uc", null);
+        identity(sockets.context(), "porelo-other-x", "other", null);
+        final List<Map<String, Object>> sent = new java.util.ArrayList<>();
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
+                McpTaskSockets.ownPrompts(
+                        sockets.context(),
+                        "uc",
+                        new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
+                            @Override
+                            public void more(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public void last(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public boolean streaming() {
+                                return true;
+                            }
+
+                            @Override
+                            public boolean open() {
+                                return true;
+                            }
+                        });
+
+        replies.more(Map.of("task", LEAD, "key", "tcp/1.1.1.1/443", "project", "uc"));
+        replies.more(Map.of("task", "porelo-other-x", "key", "tcp/9.9.9.9/443", "project", "uc"));
+        replies.more(Map.of("key", "tcp/8.8.8.8/443"));
+
+        assertThat(socket).exists();
+        assertThat(sent)
+                .as("its own task's question alone, whatever project another's event names")
+                .containsExactly(Map.of("task", LEAD, "key", "tcp/1.1.1.1/443", "project", "uc"));
+    }
+
+    @Test
     void aStartThroughASectionWithoutLogsOrTailCarriesNothingOfItsRun() throws IOException {
         final List<Map<String, Object>> more = new java.util.ArrayList<>();
         final List<Map<String, Object>> last = new java.util.ArrayList<>();

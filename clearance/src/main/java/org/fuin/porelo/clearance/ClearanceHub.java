@@ -205,6 +205,8 @@ public class ClearanceHub {
 
         // Asked outside the lock: a person takes seconds, and a client answers meanwhile.
         Verdict verdict;
+        // The hold counts from here, the moment its deadline was shown, not from a failure.
+        final long asked = System.nanoTime();
         askingAbout.accept(blocked.shown());
         try {
             verdict =
@@ -217,7 +219,7 @@ public class ClearanceHub {
                                     blocked.protocol()));
         } catch (ClearanceException ex) {
             // Not put on any screen, so still open: a client can answer it until the hold runs out.
-            verdict = held(key);
+            verdict = held(key, asked);
         } finally {
             answeredAll.run();
         }
@@ -226,7 +228,9 @@ public class ClearanceHub {
             // running out says nothing. Written over, the firewall was open while the hub said it
             // was not, and a resume never allowed it again. An answer at the notification itself
             // came last, and stands.
-            if (!asking.remove(key) && verdict == Verdict.TIMEOUT) {
+            // A client's answer while it waited stands against the notification's too: a person's
+            // answer is final, the first one.
+            if (!asking.remove(key) && (verdict == Verdict.TIMEOUT || answered.contains(key))) {
                 return decided.getOrDefault(key, Verdict.DENY);
             }
             if (verdict != Verdict.TIMEOUT) {
@@ -296,8 +300,8 @@ public class ClearanceHub {
     }
 
     /** Waits until a client answers the question or the hold runs out. */
-    private Verdict held(String key) {
-        final long until = System.nanoTime() + hold.toNanos();
+    private Verdict held(String key, long asked) {
+        final long until = asked + hold.toNanos();
         synchronized (answers) {
             long left;
             while (asking.contains(key) && (left = until - System.nanoTime()) > 0) {
@@ -337,6 +341,11 @@ public class ClearanceHub {
                     if (decided.put(key, Verdict.DENY) == null) {
                         announce(blocked, Verdict.DENY, Decision.HOST);
                     }
+                    return;
+                }
+                if (answered.contains(key)) {
+                    // A person answered already: DENY then ALLOW opened the firewall, and ALLOW
+                    // then DENY left it open while the hub said deny. The first answer stands.
                     return;
                 }
                 if (verdict != Verdict.TIMEOUT) {

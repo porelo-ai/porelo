@@ -121,4 +121,59 @@ class ClearanceServiceTest {
         listener.join(TimeUnit.SECONDS.toMillis(1));
         Thread.sleep(300);
     }
+
+    @Test
+    void aQuestionHeldThroughAReportIsToldToALaterSubscriber(@TempDir Path dir) throws Exception {
+
+        // A watcher with its own reader reports through Report: that event carried no key, so a
+        // held question was kept for nobody who came later.
+        final java.util.concurrent.CountDownLatch release =
+                new java.util.concurrent.CountDownLatch(1);
+        final ClearanceHub hub =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            try {
+                                release.await(5, TimeUnit.SECONDS);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                            return Verdict.DENY;
+                        },
+                        (address, name) -> {});
+        final List<Map<String, Object>> events = new CopyOnWriteArrayList<>();
+        try (ClearanceService service = new ClearanceService(dir.resolve("c.sock"), hub)) {
+            service.start();
+            final Thread reporting =
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try (VarlinkClient reporter =
+                                                new VarlinkClient(dir.resolve("c.sock"))) {
+                                            reporter.call(
+                                                    ClearanceService.INTERFACE + ".Report",
+                                                    Map.of(
+                                                            "destination",
+                                                            "1.1.1.1",
+                                                            "port",
+                                                            443,
+                                                            "protocol",
+                                                            "tcp"));
+                                        } catch (Exception ex) {
+                                            // The test reads what the subscriber got.
+                                        }
+                                    });
+            Thread.sleep(300);
+
+            subscribe(dir, events, 1);
+            release.countDown();
+            reporting.join(5_000);
+        }
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst())
+                .containsEntry("key", "tcp/1.1.1.1/443")
+                .doesNotContainKey("verdict");
+    }
 }

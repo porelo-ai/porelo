@@ -709,6 +709,53 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     }
 
     /**
+     * Returns replies that pass, of the clearance questions and answers of every task, only those
+     * of one project's tasks: a task's question names where it tried to go, its project and its
+     * name, and none of it is another project's to read.
+     *
+     * @param context Where the tasks' records are.
+     * @param project The caller's project.
+     * @param replies Where the kept events go.
+     * @return The replies to answer through.
+     */
+    static VarlinkServer.Replies ownPrompts(
+            final PoreloContext context,
+            final String project,
+            final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                if (ours(parameters)) {
+                    replies.more(parameters);
+                }
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                replies.last(ours(parameters) ? parameters : Map.of());
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+
+            private boolean ours(final Map<String, Object> event) {
+                // By the task's own record, not the project the event says: the watcher writes
+                // that from what its start was told.
+                return event.get("task") instanceof String task
+                        && new TaskIdentities(context).lookup(task, project)
+                                instanceof TaskIdentities.Found;
+            }
+        };
+    }
+
+    /**
      * Whether a section allows what Logs and Tail read: a run's lines and what it answered.
      *
      * @param endpoint The section.
@@ -995,6 +1042,12 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                             refuseAnotherProject(parameters);
                             method.call(parameters, replies);
                         };
+            } else if ("Prompts".equals(name)) {
+                // Every task's questions come through the daemon's stream; a task's agent reads
+                // its own project's, as it lists only them.
+                held =
+                        (parameters, replies) ->
+                                method.call(parameters, ownPrompts(context, project, replies));
             } else if (TASK_LISTS.contains(name)) {
                 // The person's every task is theirs to read; a task's agent reads its own
                 // project's.

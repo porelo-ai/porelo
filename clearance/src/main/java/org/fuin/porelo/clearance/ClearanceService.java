@@ -77,6 +77,12 @@ public class ClearanceService implements AutoCloseable {
                     event.put("destination", destination);
                     event.put("port", port);
                     event.put("protocol", protocol);
+                    // A question is kept for a later subscriber by its key; what the hub settles
+                    // without asking is no question and is not kept, since nothing would end it.
+                    final String key = key(protocol, destination, port);
+                    if (!hub.settled(key) && !hub.neverAsked(destination)) {
+                        event.put("key", key);
+                    }
                     broadcast(event);
                     final String shown = port == 0 ? destination : destination + ":" + port;
                     final Verdict verdict =
@@ -94,10 +100,10 @@ public class ClearanceService implements AutoCloseable {
                         return;
                     }
                     final Backlog queue = new Backlog(1024);
-                    subscribers.add(queue);
-                    // After joining, so a question put meanwhile is not missed; one told twice is
-                    // the same question to a client, by its key.
+                    // Joined and told what is open in one step with every broadcast: apart, a
+                    // question kept before a deny was delivered after it, and read as open again.
                     synchronized (open) {
+                        subscribers.add(queue);
                         open.values().forEach(queue::offer);
                     }
                     try {
@@ -166,16 +172,19 @@ public class ClearanceService implements AutoCloseable {
     }
 
     private void broadcast(Map<String, Object> event) {
-        if (event.get("key") instanceof String key) {
-            if (event.containsKey("verdict")) {
-                open.remove(key);
-            } else {
-                open.put(key, event);
-            }
-        }
         // Never waits: a subscriber that has stopped reading must not block the reader, which is on
-        // the path of every dropped packet. What does not fit is counted and told.
-        subscribers.forEach(queue -> queue.offer(event));
+        // the path of every dropped packet. What does not fit is counted and told. Kept and
+        // delivered in one step, so every subscriber sees a question and its answer in order.
+        synchronized (open) {
+            if (event.get("key") instanceof String key) {
+                if (event.containsKey("verdict")) {
+                    open.remove(key);
+                } else {
+                    open.put(key, event);
+                }
+            }
+            subscribers.forEach(queue -> queue.offer(event));
+        }
     }
 
     /**
