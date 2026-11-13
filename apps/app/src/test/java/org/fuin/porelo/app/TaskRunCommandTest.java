@@ -1326,6 +1326,11 @@ class TaskRunCommandTest {
         // success anyway - which happens to be the right answer here, and is pinned rather than
         // relied on.
         runner.answering("test -f", "");
+        // An image built as an adapter must build it: the preview agent's binary root-owned, so
+        // its start goes ahead; a test of the refusal answers otherwise.
+        runner.answering(
+                org.fuin.porelo.runtime.PinnedBinary.CHECKED_BY + " preview",
+                "run\t/usr/local/bin/preview\n");
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -3533,6 +3538,45 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aNewTasksStartBuildsTheRecordOfItsAgentsBinaryIntoAnImageBuiltBeforeIt(@TempDir Path dir)
+            throws IOException {
+
+        // An image built before the record existed is still the project's: a start that reused it
+        // as it was refused every new task with nothing a person could do but rebuild by hand.
+        final PoreloContext context = countingContext(dir);
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+
+        assertThat(started).as("started: %s", err).isZero();
+        final List<String> builds =
+                runner.lines().stream().filter(line -> line.contains(" build ")).toList();
+        assertThat(builds)
+                .as("every start builds, the cache keeping what did not change")
+                .isNotEmpty()
+                .noneMatch(line -> line.contains("--no-cache"));
+        final Path containerfile;
+        try (var tree = Files.walk(dir)) {
+            containerfile =
+                    tree.filter(path -> path.getFileName().toString().equals("Containerfile"))
+                            .findFirst()
+                            .orElseThrow();
+        }
+        assertThat(Files.readString(containerfile))
+                .as("the build it runs records the agent's binary, a layer the old image lacks")
+                .contains("command -v 'preview'")
+                .contains(org.fuin.porelo.runtime.PinnedBinary.RECORDS + "/preview");
+    }
+
+    @Test
     void aTaskStartedByAnotherRecordsItsParentAndTheLogSaysWhoStartedIt(@TempDir Path dir)
             throws IOException {
 
@@ -5698,6 +5742,228 @@ class TaskRunCommandTest {
                                         .resolve("task.log")))
                 .as("the agent is asked for its run with the task's own number")
                 .contains("go on subagents=2");
+    }
+
+    @Test
+    void anAgentWhoseBinaryItsOwnUserCouldWriteIsNotStarted(@TempDir Path dir) throws IOException {
+
+        // A binary under the agent's home is the agent's to replace: the next start ran what the
+        // agent wrote in an earlier task.
+        final PinnedRun ran =
+                runPinned(
+                        dir,
+                        check ->
+                                runner.failing(
+                                        check,
+                                        3,
+                                        "changeable\t/home/agent/.local/bin/preview\n",
+                                        ""));
+
+        assertThat(ran.code()).as("refused: %s", err).isEqualTo(70);
+        assertThat(err.toString())
+                .as("names the agent and the path, and says who must change")
+                .contains(
+                        "porelo: the agent preview is not started: /home/agent/.local/bin/preview"
+                                + " can be written by the agent's user")
+                .contains("its adapter must install its binary as root");
+        assertThat(ran.log()).as("nothing was run in the container").isEmpty();
+    }
+
+    @Test
+    void anAgentWhoseBinaryRootOwnsStartsByItsAbsolutePath(@TempDir Path dir) throws IOException {
+
+        // Looked up by its bare name, the start ran whatever the agent left first on PATH.
+        final PinnedRun ran =
+                runPinned(dir, check -> runner.answering(check, "run\t/usr/local/bin/preview\n"));
+
+        assertThat(ran.code()).as("the run went ahead: %s", err).isZero();
+        assertThat(runner.only(org.fuin.porelo.runtime.PinnedBinary.CHECKED_BY).describe())
+                .as("checked as the container's root")
+                .startsWith("podman exec --user root ");
+        assertThat(ran.log())
+                .as("the agent is started by the path its image recorded")
+                .contains(" /usr/local/bin/preview go on ")
+                .doesNotContain(" preview go on ");
+    }
+
+    @Test
+    void aStartThatAttachesItsAgentRunsItByThePathItsImageRecorded(@TempDir Path dir)
+            throws IOException {
+
+        // An attended start by the bare name ran whatever the agent left first on PATH.
+        final PoreloContext context = countingContext(dir);
+
+        final int code =
+                startAt(
+                        context,
+                        true,
+                        "--attach",
+                        "agent",
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(execCalls).as("the session it went into: %s", err).hasSize(1);
+        assertThat(String.join(" ", execCalls.getFirst()))
+                .as("its agent started by the recorded absolute path")
+                .contains("/usr/local/bin/preview");
+    }
+
+    @Test
+    void aStartThatWouldAttachAnAgentItsUserCouldChangeEntersNothing(@TempDir Path dir)
+            throws IOException {
+
+        // Refused only in words, the session still started what the agent wrote last time.
+        final PoreloContext context = countingContext(dir);
+        refuseThePreviewBinary();
+
+        final int code =
+                startAt(
+                        context,
+                        true,
+                        "--attach",
+                        "agent",
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("refused: %s", err).isEqualTo(70);
+        assertThat(err.toString())
+                .as("names the agent and the path")
+                .contains(
+                        "the agent preview is not started: /home/agent/.local/bin/preview can be"
+                                + " written by the agent's user");
+        assertThat(execCalls).as("no session is entered").isEmpty();
+    }
+
+    @Test
+    void goingIntoATaskWhoseSessionIsGoneStartsItsAgentByThePathItsImageRecorded(@TempDir Path dir)
+            throws IOException {
+
+        // The agent of an attended task is started again when its session is gone: by name, it
+        // was what the agent had left on PATH.
+        final PoreloContext context = agentTaskWithoutSession(dir);
+
+        final int code = startAt(context, true, "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as("went in: %s", err).isZero();
+        assertThat(execCalls).as("the session it went into").hasSize(1);
+        assertThat(String.join(" ", execCalls.getFirst()))
+                .as("its agent started by the recorded absolute path")
+                .contains("/usr/local/bin/preview");
+    }
+
+    @Test
+    void goingIntoATaskWhoseAgentItsUserCouldChangeEntersNothing(@TempDir Path dir)
+            throws IOException {
+
+        // Refused only in words, the session still started what the agent wrote last time.
+        final PoreloContext context = agentTaskWithoutSession(dir);
+        refuseThePreviewBinary();
+
+        final int code = startAt(context, true, "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as("refused: %s", err).isEqualTo(70);
+        assertThat(err.toString())
+                .as("names the agent and the path")
+                .contains("the agent preview is not started: /home/agent/.local/bin/preview");
+        assertThat(execCalls).as("no session is entered").isEmpty();
+    }
+
+    /** A running attended task of the preview agent, its session gone. */
+    private PoreloContext agentTaskWithoutSession(Path dir) throws IOException {
+        final PoreloContext context = countingContext(dir);
+        runner.answering("ps", RUNNING_SHELL);
+        runner.failing("has-session", 1, "");
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "preview",
+                        org.fuin.porelo.wire.TaskMode.AGENT,
+                        null,
+                        null,
+                        "2026-11-14T00:00:00Z",
+                        "deny",
+                        null,
+                        null,
+                        null,
+                        null,
+                        0)
+                .writeTo(
+                        Files.createDirectories(
+                                context.paths().tasks().containerState("porelo-uc-shell")));
+        return context;
+    }
+
+    private void refuseThePreviewBinary() {
+        runner.failing(
+                org.fuin.porelo.runtime.PinnedBinary.CHECKED_BY + " preview",
+                3,
+                "changeable\t/home/agent/.local/bin/preview\n",
+                "");
+    }
+
+    private record PinnedRun(int code, String log) {}
+
+    /** Runs a prompt in an existing task with a podman that writes what it was asked to run. */
+    private PinnedRun runPinned(Path dir, java.util.function.Consumer<String> check)
+            throws IOException {
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview");
+        recordSubagents(context, "preview", 0);
+        check.accept(org.fuin.porelo.runtime.PinnedBinary.CHECKED_BY + " preview");
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int code;
+        try {
+            code =
+                    new TaskLaunch(
+                                    context,
+                                    new TaskLaunch.Request(
+                                            "shell",
+                                            dir.resolve("project.yml"),
+                                            null,
+                                            null,
+                                            null,
+                                            8,
+                                            null,
+                                            true,
+                                            false,
+                                            "deny",
+                                            true,
+                                            org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                                            "go on",
+                                            null,
+                                            null,
+                                            1,
+                                            "uc",
+                                            java.util.Map.of(),
+                                            java.util.Map.of(),
+                                            null,
+                                            null))
+                            .runAgentInExisting(
+                                    "porelo-uc-shell",
+                                    null,
+                                    new PrintWriter(out),
+                                    new PrintWriter(err));
+        } finally {
+            if (standIn == null) {
+                System.clearProperty(org.fuin.porelo.runtime.Podman.NAMED);
+            } else {
+                System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+            }
+        }
+        final Path log =
+                context.paths().tasks().containerState("porelo-uc-shell").resolve("task.log");
+        return new PinnedRun(code, Files.exists(log) ? Files.readString(log) : "");
     }
 
     @Test

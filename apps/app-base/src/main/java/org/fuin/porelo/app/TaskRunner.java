@@ -752,15 +752,18 @@ public class TaskRunner {
      * so the same agent can be asked to render it afterwards.
      *
      * @param agent The installed agent.
+     * @param binary Its binary, checked in this container by {@link #agentBinary}.
      * @param container Container to run in.
      * @param request What to ask the agent to do.
      * @param environment Variables for the run; phantom tokens only.
      * @param logFile Where the agent's raw output goes.
      * @param timeout How long the agent may run.
      * @return Exit code of the agent.
+     * @throws AgentBinary.Refusal If the agent's command starts with another program.
      */
     public int runAgent(
             org.fuin.porelo.agent.api.InstalledAgent agent,
+            AgentBinary.Pinned binary,
             String container,
             org.fuin.porelo.agent.api.RunRequest request,
             java.util.Map<String, String> environment,
@@ -771,10 +774,23 @@ public class TaskRunner {
         return podman.execute(
                 container,
                 environment,
-                new TaskGuide(paths, container)
-                        .instructing(agent.definition(), agent.buildCommand(request)),
+                binary.running(
+                        new TaskGuide(paths, container)
+                                .instructing(agent.definition(), agent.buildCommand(request))),
                 logFile,
                 timeout);
+    }
+
+    /**
+     * Checks, as the container's root, the binary an agent is started by in a running task.
+     *
+     * @param container The task.
+     * @param definition The agent.
+     * @return Its checked absolute path, or the refusal.
+     */
+    public AgentBinary.Checked agentBinary(
+            String container, org.fuin.porelo.agent.api.AgentDefinition definition) {
+        return AgentBinary.check(podman, container, definition);
     }
 
     /**

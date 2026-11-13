@@ -226,7 +226,14 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
         final org.fuin.porelo.runtime.Podman podman = context.podman();
         // An agent task whose session is gone starts its agent again, continuing where it can;
         // otherwise the session that is there, or a shell.
-        final String agent = new TaskSession(context).attachedAgent(container, out);
+        final String agent;
+        try {
+            agent = new TaskSession(context).attachedAgent(container, out);
+        } catch (AgentBinary.Refusal refusal) {
+            err.println("porelo: " + refusal.refused().said());
+            err.flush();
+            return 70;
+        }
         final int left =
                 agent != null
                         ? TerminalAttach.run(

@@ -286,6 +286,7 @@ public final class TaskSession {
      * @param container The task's container, running.
      * @param out Where the choice is said.
      * @return A shell command, or {@code null}.
+     * @throws AgentBinary.Refusal When the agent's binary is refused, which starts nothing.
      */
     public @Nullable String attachedAgent(String container, java.io.PrintWriter out) {
         final org.fuin.porelo.wire.TaskProfile profile =
@@ -320,6 +321,12 @@ public final class TaskSession {
         if (definition == null) {
             return null;
         }
+        // Before its opening text is taken: a refused start leaves it for the next.
+        final AgentBinary.Pinned binary =
+                switch (AgentBinary.check(context.podman(), container, definition)) {
+                    case AgentBinary.Pinned pinned -> pinned;
+                    case AgentBinary.Refused refused -> throw new AgentBinary.Refusal(refused);
+                };
         // The files first: they are what the agent itself kept, and a stop that could not read them
         // left nothing recorded.
         final SessionIds ids = definition.supportsResume() ? definition.sessionIds() : null;
@@ -331,10 +338,11 @@ public final class TaskSession {
         // its first turn, and a second fresh one is the person starting over.
         final String opening = id == null ? takeOpening(container) : null;
         final List<String> command =
-                new TaskGuide(context.paths(), container)
-                        .instructing(
-                                definition,
-                                attachedCommand(definition, profile.model(), id, opening));
+                binary.running(
+                        new TaskGuide(context.paths(), container)
+                                .instructing(
+                                        definition,
+                                        attachedCommand(definition, profile.model(), id, opening)));
         if (opening != null) {
             out.println("opening   its prompt, as the session's first turn");
         }

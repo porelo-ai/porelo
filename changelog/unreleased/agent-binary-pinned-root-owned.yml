@@ -1,0 +1,2 @@
+title: "Every agent start runs the absolute path its image recorded at build, and is refused when the agent's user could write that path, its target or a directory above either"
+type: security

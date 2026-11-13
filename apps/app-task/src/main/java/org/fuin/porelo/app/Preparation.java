@@ -173,6 +173,8 @@ public final class Preparation {
                                 AgentStaging.stage(
                                         agent, project, context.paths(), context.runner(), out),
                                 java.util.List.of());
+                // Resolved after every layer, the project's too, as the start will find it.
+                layers = layers.pinning(agent.definition().binary());
             } else {
                 // An image without an agent is a real thing to want - it is what a person working
                 // in the container by hand needs - so this is reported rather than refused.

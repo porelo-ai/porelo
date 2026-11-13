@@ -13,9 +13,14 @@ import org.jspecify.annotations.Nullable;
  * @param asRoot Fragments run before the image drops to the unprivileged user.
  * @param asAgent Fragments run as the agent user.
  * @param settings What the image records about its build, or {@code null} to record nothing.
+ * @param pinned The bare name of the program a start runs, resolved and recorded after every layer,
+ *     or {@code null} for an image that starts none.
  */
 public record ImageLayers(
-        List<String> asRoot, List<String> asAgent, @Nullable ImageSettings settings) {
+        List<String> asRoot,
+        List<String> asAgent,
+        @Nullable ImageSettings settings,
+        @Nullable String pinned) {
 
     /**
      * Constructor with all data.
@@ -23,10 +28,23 @@ public record ImageLayers(
      * @param asRoot Fragments run as root.
      * @param asAgent Fragments run as the agent user.
      * @param settings What the image records, or {@code null}.
+     * @param pinned The program a start runs, or {@code null}.
      */
     public ImageLayers {
         asRoot = List.copyOf(asRoot);
         asAgent = List.copyOf(asAgent);
+    }
+
+    /**
+     * Constructor for layers that pin no program.
+     *
+     * @param asRoot Fragments run as root.
+     * @param asAgent Fragments run as the agent user.
+     * @param settings What the image records, or {@code null}.
+     */
+    public ImageLayers(
+            List<String> asRoot, List<String> asAgent, @Nullable ImageSettings settings) {
+        this(asRoot, asAgent, settings, null);
     }
 
     /**
@@ -46,7 +64,18 @@ public record ImageLayers(
      * @return The same layers, with the record.
      */
     public ImageLayers recording(ImageSettings recorded) {
-        return new ImageLayers(asRoot, asAgent, recorded);
+        return new ImageLayers(asRoot, asAgent, recorded, pinned);
+    }
+
+    /**
+     * Returns these layers pinning the program a start runs: resolved on root's {@code PATH} after
+     * every layer and recorded in the image, so a start never looks the bare name up.
+     *
+     * @param program The program's bare name.
+     * @return The same layers, pinning it.
+     */
+    public ImageLayers pinning(String program) {
+        return new ImageLayers(asRoot, asAgent, settings, program);
     }
 
     /**
@@ -70,7 +99,7 @@ public record ImageLayers(
         appendSeparated(root, moreAsRoot);
         final List<String> agent = new java.util.ArrayList<>(asAgent);
         appendSeparated(agent, moreAsAgent);
-        return new ImageLayers(root, agent, settings);
+        return new ImageLayers(root, agent, settings, pinned);
     }
 
     private static void appendSeparated(List<String> target, List<String> addition) {

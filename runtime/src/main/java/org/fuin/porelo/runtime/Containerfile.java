@@ -670,6 +670,12 @@ public final class Containerfile {
             lines.addAll(layers.asAgent());
         }
 
+        final String pinned = layers.pinned();
+        if (pinned != null) {
+            lines.add("");
+            lines.addAll(PinnedBinary.recording(pinned));
+        }
+
         return String.join("\n", lines) + "\n";
     }
 }

@@ -1047,6 +1047,36 @@ public class Podman {
     }
 
     /**
+     * Checks, as the container's root, the program the task's image pinned for a name.
+     *
+     * @param container Container name or id.
+     * @param name The program's bare name, as the image recorded it.
+     * @return Its checked path, or why it must not be started; a check that could not run is not an
+     *     answer of yes.
+     */
+    public PinnedBinary.Answer pinnedBinary(String container, String name) {
+        if (!PinnedBinary.pinnable(name)) {
+            return new PinnedBinary.Unpinned(PinnedBinary.Reason.UNRECORDED, name);
+        }
+        try {
+            return PinnedBinary.read(
+                    name,
+                    runner.run(
+                            podman(
+                                    exec(
+                                            ROOT_USER,
+                                            target(container),
+                                            "/bin/sh",
+                                            "-c",
+                                            PinnedBinary.CHECK,
+                                            PinnedBinary.CHECKED_BY,
+                                            name))));
+        } catch (RuntimeException ex) {
+            return new PinnedBinary.Unpinned(PinnedBinary.Reason.UNCHECKED, "");
+        }
+    }
+
+    /**
      * Asks Porelo's tmux server something, as the container's root: the only user that reaches it.
      *
      * @param container Container name or id.

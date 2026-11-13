@@ -1192,6 +1192,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 return existing.code();
             }
             // An agent task whose session is gone starts its agent again, continuing where it can.
+            final String agent;
+            try {
+                agent = new TaskSession(context).attachedAgent(existing.container(), out);
+            } catch (AgentBinary.Refusal refusal) {
+                err.println("porelo: " + refusal.refused().said());
+                err.flush();
+                return 70;
+            }
             final int left =
                     TerminalAttach.run(
                             context,
@@ -1199,8 +1207,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                     .attachCommand(
                                             existing.container(),
                                             shell,
-                                            new TaskSession(context)
-                                                    .attachedAgent(existing.container(), out),
+                                            agent,
                                             existing.project()
                                                     + "/"
                                                     + new TaskIdentities(context)
@@ -1260,20 +1267,36 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                             // permission is turned off here too - reported from the test machine,
                             // where an attached claude asked to approve a command the container had
                             // already made safe.
-                            final String startWith =
-                                    "agent".equals(attach) && running.selected() != null
-                                            ? org.fuin.porelo.runtime.ShellWords.quote(
-                                                    new TaskGuide(
-                                                                    context.paths(),
-                                                                    running.container())
-                                                            .instructing(
-                                                                    running.selected().definition(),
-                                                                    running.selected()
-                                                                            .definition()
-                                                                            .attendedCommand(
-                                                                                    running
-                                                                                            .model())))
-                                            : null;
+                            final String startWith;
+                            try {
+                                startWith =
+                                        "agent".equals(attach) && running.selected() != null
+                                                ? org.fuin.porelo.runtime.ShellWords.quote(
+                                                        AgentBinary.started(
+                                                                context.podman(),
+                                                                running.container(),
+                                                                running.selected().definition(),
+                                                                new TaskGuide(
+                                                                                context.paths(),
+                                                                                running.container())
+                                                                        .instructing(
+                                                                                running.selected()
+                                                                                        .definition(),
+                                                                                running.selected()
+                                                                                        .definition()
+                                                                                        .attendedCommand(
+                                                                                                running
+                                                                                                        .model()))))
+                                                : null;
+                            } catch (AgentBinary.Refusal refusal) {
+                                err.println("porelo: " + refusal.refused().said());
+                                err.println(
+                                        "porelo: "
+                                                + running.container()
+                                                + " is kept running; nothing was started in it");
+                                err.flush();
+                                return 70;
+                            }
                             out.println(
                                     rm
                                             ? "Attaching. Leaving the shell removes the container; Ctrl-C stops it and"

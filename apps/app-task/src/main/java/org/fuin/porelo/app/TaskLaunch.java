@@ -4270,6 +4270,16 @@ public final class TaskLaunch {
             err.flush();
             return 2;
         }
+        // Before anything of the run is written: a refused binary leaves no run behind.
+        final AgentBinary.Pinned binary;
+        switch (runner.agentBinary(container, selected.definition())) {
+            case AgentBinary.Pinned pinned -> binary = pinned;
+            case AgentBinary.Refused refused -> {
+                err.println("porelo: " + refused.said());
+                err.flush();
+                return 70;
+            }
+        }
         final Path log = context.paths().tasks().containerState(container).resolve("task.log");
         // This run's log alone: a resumed task's last run must not answer for this one, nor stream
         // as if it were. Emptied in place, so a reader never finds it missing; a link is removed,
@@ -4358,6 +4368,7 @@ public final class TaskLaunch {
                 code =
                         runner.runAgent(
                                 selected,
+                                binary,
                                 container,
                                 agentRequest,
                                 environment,
@@ -4617,6 +4628,8 @@ public final class TaskLaunch {
                             AgentStaging.stage(
                                     agent, project, context.paths(), context.runner(), out),
                             java.util.List.of());
+            // Resolved after every layer, the project's too, as the start will find it.
+            layers = layers.pinning(agent.definition().binary());
         }
 
         if (!project.imageSnippetLines().isEmpty()) {
