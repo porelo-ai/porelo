@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B702",
   "title": "Every Vault Write Says What Uses The Entry",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Low",
   "rank": 56,
