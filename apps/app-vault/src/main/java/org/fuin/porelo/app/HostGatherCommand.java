@@ -23,7 +23,7 @@ abstract class HostGatherCommand implements Callable<Integer>, PoreloFactory.Con
 
     @CommandLine.Spec CommandLine.Model.CommandSpec spec;
     PoreloContext context = PoreloContext.real();
-    Path forgeConf = HostForgeTokenCommand.FORGE_CONF;
+    Path forgeConf = HostForgeSettings.FILE;
     RootOwnedFile.Attributes attributes = HostCentral.ATTRIBUTES;
     UnaryOperator<Path> taken = SystemProgram::at;
     Function<String, Path> found = SystemProgram::find;

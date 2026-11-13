@@ -411,6 +411,44 @@ class HostGatherCommandTest {
         assertThat(runner.invocations()).isEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "git_port=3001",
+                "git_port=",
+                "name=INVALID",
+                "account=porelo-forge",
+                "account=Invalid"
+            })
+    void pushRefusesWhatTheSharedReaderRefusesInTheSameWords(String change) throws Exception {
+        // One reader of forge.conf: push and forge-token must not drift on what they accept.
+        Files.writeString(conf, Files.readString(conf) + change + "\n");
+        vault(Map.of("forge.example.org.central", VaultEntry.of(CENTRAL)), true);
+        final var line = cli();
+        assertThat(line.execute("host", "push", "acme")).isEqualTo(69);
+        assertThat(runner.invocations()).isEmpty();
+        final String pushed = err.toString();
+        if (change.startsWith("git_port=")) {
+            assertThat(pushed).isEqualTo("porelo: " + conf + " names no valid git_port\n");
+            return;
+        }
+        err.getBuffer().setLength(0);
+        final var issuer =
+                (HostForgeTokenCommand)
+                        line.getSubcommands()
+                                .get("host")
+                                .getSubcommands()
+                                .get("forge-token")
+                                .getCommand();
+        final var push =
+                (HostGatherCommand)
+                        line.getSubcommands().get("host").getSubcommands().get("push").getCommand();
+        issuer.forgeConf = conf;
+        issuer.attributes = push.attributes;
+        assertThat(line.execute("host", "forge-token")).isEqualTo(69);
+        assertThat(pushed).isNotBlank().isEqualTo(err.toString());
+    }
+
     @Test
     void unsafeSystemGitRefusesBeforeIssuance() {
         // A replaced git binary must not receive either credential or trigger local token rotation.

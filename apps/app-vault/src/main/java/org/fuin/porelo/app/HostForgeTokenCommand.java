@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.BooleanSupplier;
@@ -90,25 +91,19 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
         if (ifForge && missingPlain(forgeConf)) {
             return 0;
         }
-        final HostForgeSettings settings = HostForgeSettings.read(forgeConf, attributes);
-        if (settings == null) {
-            err.println("porelo: the forge settings are not a plain file root alone can change");
-            err.flush();
-            return 69;
-        }
-        if (ifForge && settings.accounts() <= 1 && settings.account().isEmpty()) {
+        final HostForgeSettings read = HostForgeSettings.read(forgeConf, attributes);
+        if (read != null && ifForge && read.accounts() <= 1 && read.account().isEmpty()) {
             return 0;
         }
-        if (!settings.validAccount()) {
-            err.println("porelo: the forge settings name no single valid forge account");
+        // The token is the forge's own, so its port is not needed here.
+        final String refused = HostForgeSettings.refusal(read, forgeConf, false);
+        if (refused != null) {
+            err.println("porelo: " + refused);
             err.flush();
             return 69;
         }
-        if (!settings.validName()) {
-            err.println("porelo: the forge settings name no valid forge");
-            err.flush();
-            return 69;
-        }
+        final HostForgeSettings settings =
+                Objects.requireNonNull(read, "absent forge settings are refused");
 
         try {
             taken.apply(hostProgram);
@@ -231,7 +226,7 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
             err.flush();
             return 69;
         }
-        final String entryName = settings.entryName();
+        final String entryName = settings.personEntry();
         received.accept(secret);
         try {
             context.vault()

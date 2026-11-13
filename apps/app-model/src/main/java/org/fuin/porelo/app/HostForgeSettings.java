@@ -8,10 +8,23 @@ import java.nio.file.Path;
 import org.fuin.porelo.wire.RootOwnedFile;
 import org.jspecify.annotations.Nullable;
 
-/** The bounded root-owned settings used both to store and to spend a person's forge token. */
-public record HostForgeSettings(String name, String account, int accounts, @Nullable String port) {
+/**
+ * The host's root-owned forge settings, read in this one place for every person's host command:
+ * {@code porelo host push | pull}, {@code porelo host forge-token} and the pull-request reader.
+ *
+ * @param name the forge's name, which names its vault entries
+ * @param account the forge's account
+ * @param accounts how many {@code account=} lines the file holds
+ * @param port the forge's {@code git_port}, or 0 when the file names none, names it more than once
+ *     or names no valid port
+ */
+public record HostForgeSettings(String name, String account, int accounts, int port) {
     /** The host's root-owned forge settings. */
     public static final Path FILE = Path.of("/etc/porelo-host/forge.conf");
+
+    /** The words for a file that is absent, unreadable, not UTF-8 or not root's alone. */
+    public static final String NOT_ROOTS =
+            "the forge settings are not a plain file root alone can change";
 
     /** Reads the same checked UTF-8 file for every consumer; null means absent or refused. */
     public static @Nullable HostForgeSettings read(Path file, RootOwnedFile.Attributes attributes) {
@@ -45,7 +58,26 @@ public record HostForgeSettings(String name, String account, int accounts, @Null
         }
         final boolean usablePort =
                 ports == 1 && port.matches("[1-9][0-9]{0,4}") && Integer.parseInt(port) <= 65535;
-        return new HostForgeSettings(name, account, accounts, usablePort ? port : null);
+        return new HostForgeSettings(
+                name, account, accounts, usablePort ? Integer.parseInt(port) : 0);
+    }
+
+    /**
+     * Why the settings read from {@code file} are refused, in the words every person's host command
+     * prints after {@code porelo: }; null when they are usable.
+     *
+     * @param settings what {@link #read} returned
+     * @param file where they were read, named in the port's refusal
+     * @param port whether the command reaches the forge and so needs its port
+     */
+    public static @Nullable String refusal(
+            @Nullable HostForgeSettings settings, Path file, boolean port) {
+        if (settings == null) return NOT_ROOTS;
+        if (!settings.validAccount())
+            return "the forge settings name no single valid forge account";
+        if (!settings.validName()) return "the forge settings name no valid forge";
+        if (port && !settings.validPort()) return file + " names no valid git_port";
+        return null;
     }
 
     /** Whether the settings name one valid forge account. */
@@ -53,13 +85,23 @@ public record HostForgeSettings(String name, String account, int accounts, @Null
         return accounts == 1 && account.matches("[a-z_][a-z0-9_-]{0,31}");
     }
 
-    /** Whether the name can form the vault entry the token command writes. */
+    /** Whether the name can form the vault entries the person's host commands use. */
     public boolean validName() {
         return name.matches("[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?");
     }
 
-    /** The entry written by {@code porelo host forge-token}. */
-    public String entryName() {
+    /** Whether the settings name the forge's {@code git_port} exactly once, as a valid port. */
+    public boolean validPort() {
+        return port > 0;
+    }
+
+    /** The person's own forge token, written by {@code porelo host forge-token}. */
+    public String personEntry() {
         return name + ".person";
+    }
+
+    /** The person's token at the central forge, which push and pull read. */
+    public String centralEntry() {
+        return name + ".central";
     }
 }

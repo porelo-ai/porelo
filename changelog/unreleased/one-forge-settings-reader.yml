@@ -1,0 +1,2 @@
+title: "porelo host push, pull and forge-token read the host's forge settings through one reader, so push now refuses a forge.conf naming git_port twice"
+type: fixed

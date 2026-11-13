@@ -155,15 +155,14 @@ public final class HostPullRequestReader {
 
     /** Confirms the state of reviews absent from a subsequent open list. */
     public Round poll(Project project, List<Pull> previous) {
-        final HostForgeSettings settings = HostForgeSettings.read(conf, attributes);
-        if (settings == null
-                || !settings.validName()
-                || !settings.validAccount()
-                || settings.port() == null) {
+        final HostForgeSettings read = HostForgeSettings.read(conf, attributes);
+        if (HostForgeSettings.refusal(read, conf, true) != null) {
             throw new Refused(
                     "settings",
                     "repair the host's root-owned forge settings before reading reviews");
         }
+        final HostForgeSettings settings =
+                java.util.Objects.requireNonNull(read, "absent forge settings are refused");
         final var entries =
                 context.readableCredentials()
                         .orElseThrow(
@@ -171,9 +170,9 @@ public final class HostPullRequestReader {
                                         new Refused(
                                                 "vault-unreadable",
                                                 "the vault is locked or unreadable; unlock or repair it before reading reviews"));
-        final var entry = entries.get(settings.entryName());
+        final var entry = entries.get(settings.personEntry());
         if (entry == null || !entry.value().matches("[0-9a-f]{40}"))
-            throw new MissingToken(settings.entryName());
+            throw new MissingToken(settings.personEntry());
         final String token = entry.value();
         final Map<String, URI> repositories = repositories(project, settings);
         final Map<String, Pull> current = new LinkedHashMap<>();

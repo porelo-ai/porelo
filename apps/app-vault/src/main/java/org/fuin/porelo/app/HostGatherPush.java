@@ -5,9 +5,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
-import java.nio.ByteBuffer;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -18,7 +15,6 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultException;
 import org.fuin.porelo.vault.VaultFile;
-import org.fuin.porelo.wire.RootOwnedFile;
 import picocli.CommandLine;
 
 /** The person's noninteractive gathered release, shared with the host command. */
@@ -38,7 +34,7 @@ public final class HostGatherPush {
     }
 
     final PoreloContext context;
-    java.nio.file.Path forgeConf = HostForgeTokenCommand.FORGE_CONF;
+    java.nio.file.Path forgeConf = HostForgeSettings.FILE;
     org.fuin.porelo.wire.RootOwnedFile.Attributes attributes = HostCentral.ATTRIBUTES;
     java.util.function.UnaryOperator<java.nio.file.Path> taken =
             org.fuin.porelo.wire.SystemProgram::at;
@@ -105,7 +101,7 @@ public final class HostGatherPush {
             if (caller == 0)
                 throw HostGatherRefusal.host(
                         "account", 77, "push and pull run in the person's own account");
-            final Settings settings = settings();
+            final HostForgeSettings settings = settings();
             final Path git = program("git");
             final Path curl = pull ? git : program("curl");
             program("getent");
@@ -118,7 +114,7 @@ public final class HostGatherPush {
                         69,
                         "the host token issuer is not a program root alone can change");
             }
-            final String key = settings.name() + ".central";
+            final String key = settings.centralEntry();
             credential = key;
             final VaultState state = vaultBeforePrograms(key, asking);
             if (state.opener().isPresent()) central = central(state.entries(), key);
@@ -200,8 +196,8 @@ public final class HostGatherPush {
                                     if (issued == 65)
                                         err.println(
                                                 "porelo: your vault took no new forge token; "
-                                                        + settings.name()
-                                                        + ".person works again after your next push or pull with your vault open");
+                                                        + settings.personEntry()
+                                                        + " works again after your next push or pull with your vault open");
                                     selected.refuseCredentials(centralToken, token);
                                     return new HostGatherFlow(
                                                     context.runner()
@@ -369,44 +365,11 @@ public final class HostGatherPush {
         return Path.of(fields[5]);
     }
 
-    private record Settings(String name, int port) {}
-
-    private Settings settings() {
-        final String text;
-        try {
-            text =
-                    StandardCharsets.UTF_8
-                            .newDecoder()
-                            .onMalformedInput(CodingErrorAction.REPORT)
-                            .decode(
-                                    ByteBuffer.wrap(
-                                            RootOwnedFile.read(forgeConf, 65536, attributes, 0)))
-                            .toString();
-        } catch (IOException | IllegalArgumentException ex) {
-            throw HostGatherRefusal.host(
-                    "settings",
-                    69,
-                    "the forge settings are not a plain file root alone can change");
-        }
-        String name = "", account = "", port = "";
-        int accounts = 0;
-        for (String raw : text.split("\n", -1)) {
-            final String line = raw.endsWith("\r") ? raw.substring(0, raw.length() - 1) : raw;
-            if (line.startsWith("name=")) name = line.substring(5);
-            if (line.startsWith("account=")) {
-                account = line.substring(8);
-                accounts++;
-            }
-            if (line.startsWith("git_port=")) port = line.substring(9);
-        }
-        if (accounts != 1 || !account.matches("[a-z_][a-z0-9_-]{0,31}"))
-            throw HostGatherRefusal.host(
-                    "settings", 69, "the forge settings name no single valid forge account");
-        if (!name.matches("[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?"))
-            throw HostGatherRefusal.host("settings", 69, "the forge settings name no valid forge");
-        if (!port.matches("[1-9][0-9]{0,4}") || Integer.parseInt(port) > 65535)
-            throw HostGatherRefusal.host("settings", 69, forgeConf + " names no valid git_port");
-        return new Settings(name, Integer.parseInt(port));
+    private HostForgeSettings settings() {
+        final HostForgeSettings read = HostForgeSettings.read(forgeConf, attributes);
+        final String refused = HostForgeSettings.refusal(read, forgeConf, true);
+        if (refused != null) throw HostGatherRefusal.host("settings", 69, refused);
+        return java.util.Objects.requireNonNull(read, "absent forge settings are refused");
     }
 
     static Path lock(PoreloContext context) {

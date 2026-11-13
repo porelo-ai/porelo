@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B587",
   "title": "One Reader Of The Host's Forge Settings",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 9,
@@ -34,3 +34,31 @@ readers drift: a rule one learns the other does not.
 - `HostGatherCommand` takes `HostForgeSettings` (extended with what it needs, the port as a number) and its private
   record goes.
 - Red first: a forge.conf `HostForgeSettings` refuses is refused by `porelo host push` with the same words.
+
+## Built
+
+- **One reader for each person's host command.** `porelo host push | pull` (`HostGatherPush`), `porelo host
+  forge-token` and `HostPullRequestReader` all take the forge's name, its vault entries and its port from
+  `HostForgeSettings`, and their refusals from its `refusal(read, file, port)`. `HostGatherPush`'s private `Settings`
+  record and its own parsing are gone.
+- **`HostForgeSettings`** (app-model):
+  - the port is now an `int` (0 when none or not valid)
+  - new: `refusal`, `validPort`, `centralEntry` and `NOT_ROOTS`
+  - `entryName()` is now `personEntry()`
+- **The checks the private reader made all hold, in the same words and order:**
+  - a plain file only root can change, at most 64 KiB, strict UTF-8
+  - `account=` exactly once and valid
+  - a valid `name=`
+  - a valid `git_port`, at most 65535
+  - CR line endings stripped
+
+  One change: a second `git_port=` line is refused, where push used to take the last one.
+- **Tests.** `HostForgeSettingsTest` is new. `HostGatherCommandTest.pushRefusesWhatTheSharedReaderRefusesInTheSameWords`
+  has five cases, and push exits 69 in each, with `forge-token`'s words. The case with `git_port` given twice failed
+  before the change (exit 0). The targeted run on the build box was green:
+  - `buildbox-porelo-0344425f9ee5-20261113T171440Z.log`
+  - 116 tests across HostGatherCommandTest, HostGatherPushTest, HostForgeSettingsTest, HostForgeTokenCommandTest and
+    HostPullRequestReaderTest
+  - 0 skipped
+- **Left out:** `HostPush` (app-gate), `HostForgeAddress` and `HostForgeLending` (app-model) and the `host/` module
+  still read `git_port` themselves. None of them is a person's host command.
