@@ -438,7 +438,8 @@ public final class AgentDefinitionReader {
                             "base_url_env",
                             "adds_path",
                             "default",
-                            "dialects")) {
+                            "dialects",
+                            "knows")) {
                 if (provider.get(key) != null) {
                     throw new AgentException(
                             origin
@@ -458,7 +459,37 @@ public final class AgentDefinitionReader {
                 optional(provider, "socket_env"),
                 baseUrl,
                 addsPath(provider.get("adds_path"), baseUrl, origin),
-                dialects(provider.get("dialects"), dialect, baseUrl, origin));
+                dialects(provider.get("dialects"), dialect, baseUrl, origin),
+                knows(provider.get("knows"), origin));
+    }
+
+    /**
+     * Reads {@code provider.knows}: the providers a {@code native} agent recognizes by name.
+     *
+     * <p>A list only. A single word is refused rather than read as one name, so that a word with a
+     * meaning of its own can be given one later without an agent having relied on it as a name.
+     *
+     * @param declared The value, or {@code null} when absent.
+     * @param origin Where the definition came from, for error messages.
+     * @return The names, empty when absent.
+     */
+    private static List<String> knows(final @Nullable Object declared, final String origin) {
+        if (declared == null) {
+            return List.of();
+        }
+        if (!(declared instanceof List<?> names)) {
+            throw new AgentException(
+                    origin + ": 'provider.knows' must be a list of provider names");
+        }
+        final List<String> result = new ArrayList<>();
+        for (final Object name : names) {
+            if (!(name instanceof String text) || text.isBlank()) {
+                throw new AgentException(
+                        origin + ": 'provider.knows' lists '" + name + "', which is not a name");
+            }
+            result.add(text);
+        }
+        return List.copyOf(result);
     }
 
     private static Map<String, AgentProvider.Dialect> dialects(

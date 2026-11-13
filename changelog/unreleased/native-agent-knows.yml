@@ -1,0 +1,2 @@
+title: "An agent speaking `native` lists the providers it knows under `provider.knows`, and a start with any other provider is refused before anything is made, naming them"
+type: added

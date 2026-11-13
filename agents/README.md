@@ -142,6 +142,7 @@ provider:
     _default: EXAMPLE_API_KEY
   base_url_env: EXAMPLE_BASE_URL
   adds_path: false              # optional; true when the agent adds the dialect's path itself
+  # knows: [anthropic, openai]  # only beside 'dialect: native'; the providers it recognizes by name
 
 allowed_domains:              # what the shield and the resolver must permit
   - api.example.com

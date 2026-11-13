@@ -481,6 +481,68 @@ class SelectedProviderTest {
     }
 
     @Test
+    void aNativeAgentIsRefusedAProviderItDoesNotKnow(@org.junit.jupiter.api.io.TempDir Path own)
+            throws Exception {
+
+        // The harm: a native agent is told only a provider's name and endpoint, so one it does
+        // not know starts and then fails inside the task. Refused before the start instead,
+        // naming what it does know, and still given a provider in its list.
+        Files.writeString(
+                own.resolve("example-unknown.yaml"),
+                """
+                name: example-unknown
+                upstream: https://api.example-unknown.test
+                dialects:
+                  openai: /v1
+                """);
+        final Map<String, ProviderDefinition> declared =
+                new ProviderDirectory(java.util.List.of(own, SHIPPED)).all();
+        final AgentDefinition knowing =
+                agent(
+                        """
+                provider:
+                  default: openai
+                  dialect: native
+                  endpoint: url
+                  base_url_env: EXAMPLE_BASE_URL
+                  knows: [openai, anthropic]
+                """);
+
+        final SelectedProvider.Choice refused =
+                SelectedProvider.consider(declared, knowing, "example-unknown");
+
+        assertThat(refused.refusal()).isEqualTo(SelectedProvider.Refusal.UNKNOWN_TO_AGENT);
+        assertThat(refused.wanted()).isEqualTo("example-unknown");
+        assertThat(refused.detail())
+                .contains("'example'", "'example-unknown'", "openai, anthropic");
+        assertThatThrownBy(() -> SelectedProvider.choose(declared, knowing, "example-unknown"))
+                .isInstanceOf(AgentException.class)
+                .hasMessage(refused.detail());
+        assertThat(SelectedProvider.drivable(declared, knowing))
+                .containsExactly("anthropic", "openai");
+        assertThat(SelectedProvider.choose(declared, knowing, "anthropic").name())
+                .isEqualTo("anthropic");
+    }
+
+    @Test
+    void aNativeAgentThatListsNothingIsGivenEveryProvider() {
+
+        // An agent that has not taken the list keeps today's behaviour rather than being broken.
+        final AgentDefinition listless =
+                agent(
+                        """
+                provider:
+                  default: openrouter
+                  dialect: native
+                  endpoint: url
+                """);
+
+        assertThat(SelectedProvider.drivable(shipped(), listless))
+                .containsExactlyElementsOf(shipped().keySet().stream().sorted().toList());
+        assertThat(SelectedProvider.consider(shipped(), listless, "google").refusal()).isNull();
+    }
+
+    @Test
     void anAgentThatIsNotBrokeredSelectsNothing() {
 
         // Not an error: it takes its credential directly, and there is nothing to stand in for.

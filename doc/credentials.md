@@ -120,10 +120,15 @@ token_env:
 ```
 
 An agent says which dialect it speaks, and an agent and a provider fit when the provider serves that
-dialect; nothing pairs them by name. An agent that knows providers itself speaks `native`, the first
-dialect the provider lists. So adding a provider needs no change to Porelo and no rebuild of any agent,
-and an agent can drive a provider nobody wrote down for it. `porelo agents --verbose` shows the pairs,
-with each agent's default, and `porelo task start --provider <name>` chooses one for a run.
+dialect; nothing pairs them by name. So adding a provider needs no change to Porelo and no rebuild of any
+agent, and an agent can drive a provider nobody wrote down for it. `porelo agents --verbose` shows the
+pairs, with each agent's default, and `porelo task start --provider <name>` chooses one for a run.
+
+An agent that knows providers itself speaks `native`, the first dialect the provider lists. It is told
+only the provider's name and the broker's address, so it can drive only a provider it recognizes by
+that name. Its definition lists them under `provider.knows`, and it is paired with those alone: a start
+with any other provider is refused before anything is made, naming the agent, the provider and the
+providers it knows. A `native` agent whose definition lists none is paired with every provider.
 
 **The vault is keyed by provider**, not by agent: one entry under `anthropic` serves every agent that
 reaches Anthropic. An entry still stored under the agent's own name is used when there is none under

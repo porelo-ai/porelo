@@ -81,6 +81,9 @@ public final class AgentDefinitionJson {
                                 });
                 provider.put("dialects", dialects);
             }
+            if (!definition.provider().knows().isEmpty()) {
+                provider.put("knows", definition.provider().knows());
+            }
             out.put("provider", provider);
         }
         out.put("allowedDomains", definition.allowedDomains());
@@ -412,7 +415,8 @@ public final class AgentDefinitionJson {
                 text(source.get("socketEnvironment")),
                 text(source.get("baseUrlEnvironment")),
                 Boolean.TRUE.equals(source.get("addsPath")),
-                dialects);
+                dialects,
+                strings(source.get("knows")));
     }
 
     @Nullable

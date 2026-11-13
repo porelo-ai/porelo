@@ -2,6 +2,7 @@ package org.fuin.porelo.agent.api;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -30,6 +31,11 @@ import org.jspecify.annotations.Nullable;
  *     baseUrlEnvironment} is given the broker's address alone.
  * @param dialects Other wire formats the agent speaks, in preference order after {@code dialect},
  *     each with its own base URL variable and {@code adds_path}.
+ * @param knows The providers a {@code native} agent recognizes by name, from {@code
+ *     provider.knows}. A {@code native} agent is told only a provider's name and endpoint, so one
+ *     it does not recognize would start and then fail inside the task; with a list, it is paired
+ *     only with the providers in it. Empty means the agent did not say, and is paired with every
+ *     provider, as before the list existed.
  */
 public record AgentProvider(
         String dialect,
@@ -38,7 +44,8 @@ public record AgentProvider(
         @Nullable String socketEnvironment,
         @Nullable String baseUrlEnvironment,
         boolean addsPath,
-        Map<String, Dialect> dialects) {
+        Map<String, Dialect> dialects,
+        List<String> knows) {
 
     /**
      * How the agent addresses one of the wire formats it speaks.
@@ -114,6 +121,36 @@ public record AgentProvider(
     }
 
     /**
+     * Constructor for an agent that lists no providers it knows.
+     *
+     * @param dialect Wire format spoken.
+     * @param defaultProvider Provider used when none is named.
+     * @param endpoint Endpoint shape the agent can address.
+     * @param socketEnvironment Variable naming the socket.
+     * @param baseUrlEnvironment Variable naming the URL.
+     * @param addsPath Whether the agent adds the dialect's path to its base URL itself.
+     * @param dialects Other wire formats spoken, in preference order.
+     */
+    public AgentProvider(
+            String dialect,
+            @Nullable String defaultProvider,
+            ProviderRoute.Endpoint endpoint,
+            @Nullable String socketEnvironment,
+            @Nullable String baseUrlEnvironment,
+            boolean addsPath,
+            Map<String, Dialect> dialects) {
+        this(
+                dialect,
+                defaultProvider,
+                endpoint,
+                socketEnvironment,
+                baseUrlEnvironment,
+                addsPath,
+                dialects,
+                List.of());
+    }
+
+    /**
      * Constructor with all data.
      *
      * @param dialect Wire format spoken.
@@ -123,6 +160,7 @@ public record AgentProvider(
      * @param baseUrlEnvironment Variable naming the URL.
      * @param addsPath Whether the agent adds the dialect's path to its base URL itself.
      * @param dialects Other wire formats spoken, in preference order.
+     * @param knows Providers a {@code native} agent recognizes, or empty when it does not say.
      */
     public AgentProvider {
         if (dialect == null || dialect.isBlank()) {
@@ -179,17 +217,49 @@ public record AgentProvider(
             }
         }
         dialects = Collections.unmodifiableMap(ordered);
+        knows = knows == null ? List.of() : List.copyOf(knows);
+        if (!knows.isEmpty() && !ProviderDefinition.NATIVE_DIALECT.equals(dialect)) {
+            // A list beside a dialect would be ignored in silence: such an agent is paired by the
+            // wire format, which says everything the list could.
+            throw new AgentException(
+                    "'provider.knows' is for an agent that speaks '"
+                            + ProviderDefinition.NATIVE_DIALECT
+                            + "', not '"
+                            + dialect
+                            + "'");
+        }
+        for (final String name : knows) {
+            if (name == null || name.isBlank()) {
+                throw new AgentException("'provider.knows' must not list a blank name");
+            }
+        }
+    }
+
+    /**
+     * Returns whether this agent recognizes a provider by its name.
+     *
+     * <p>Only a {@code native} agent can fail to: it is told the provider's name and endpoint and
+     * nothing else. An agent that lists nothing is taken to recognize every provider.
+     *
+     * @param provider The provider.
+     * @return {@code false} only for a {@code native} agent whose list leaves the provider out.
+     */
+    public boolean knows(final ProviderDefinition provider) {
+        return !ProviderDefinition.NATIVE_DIALECT.equals(dialect)
+                || knows.isEmpty()
+                || knows.contains(provider.name());
     }
 
     /**
      * Chooses the first dialect this agent speaks that the provider serves: {@link #dialect()}
-     * first, then {@link #dialects()} in declaration order.
+     * first, then {@link #dialects()} in declaration order. {@code native} is chosen only for a
+     * provider the agent {@link #knows(ProviderDefinition) knows}.
      *
      * @param provider The provider.
      * @return The chosen dialect name, or {@code null} when the provider serves none of them.
      */
     public @Nullable String dialectFor(final ProviderDefinition provider) {
-        if (provider.serves(dialect)) {
+        if (provider.serves(dialect) && knows(provider)) {
             return dialect;
         }
         for (final String candidate : dialects.keySet()) {
@@ -222,7 +292,8 @@ public record AgentProvider(
      * Returns whether this agent can drive the given provider.
      *
      * @param provider The provider.
-     * @return {@code true} when the provider serves a dialect this agent speaks.
+     * @return {@code true} when the provider serves a dialect this agent speaks, and for {@code
+     *     native}, when the agent knows it.
      */
     public boolean canDrive(ProviderDefinition provider) {
         return dialectFor(provider) != null;

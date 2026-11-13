@@ -91,7 +91,13 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
         UNKNOWN_PROVIDER,
 
         /** The provider is declared but does not serve the dialect this agent speaks. */
-        WRONG_DIALECT
+        WRONG_DIALECT,
+
+        /**
+         * The agent speaks {@code native} and lists the providers it knows, and this one is not
+         * among them: it would be told the name and nothing else, and fail inside the task.
+         */
+        UNKNOWN_TO_AGENT
     }
 
     /**
@@ -99,8 +105,8 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
      *
      * <p>Exists so that {@link #choose} and anything answering "could this start" reach the same
      * verdict from the same code. Without it a caller had to read the exception's message to find
-     * out which of the three happened, which is parsing prose for a decision - the thing this
-     * contract forbids everywhere else.
+     * out which of them happened, which is parsing prose for a decision - the thing this contract
+     * forbids everywhere else.
      *
      * @param selection The provider, or {@code null} when there is none to choose or the choice was
      *     refused.
@@ -153,6 +159,21 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
                     "No provider '" + wanted + "' is declared. Found: " + names(declared));
         }
         final String dialect = agent.provider().dialectFor(provider);
+        if (dialect == null && !agent.provider().knows(provider)) {
+            // Refused here rather than inside the task, where the agent would answer that it
+            // does not know the provider after everything was made for it.
+            return new Choice(
+                    null,
+                    Refusal.UNKNOWN_TO_AGENT,
+                    wanted,
+                    "'"
+                            + agent.name()
+                            + "' does not know the provider '"
+                            + wanted
+                            + "' - it knows "
+                            + String.join(", ", agent.provider().knows())
+                            + "; choose one of them with --provider");
+        }
         if (dialect == null) {
             // Named rather than attempted: the request would otherwise go out in a wire format the
             // provider does not serve and come back as a confusing model error.

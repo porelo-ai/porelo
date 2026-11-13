@@ -694,6 +694,62 @@ class AgentDefinitionReaderTest {
     }
 
     @Test
+    void theProvidersANativeAgentKnowsSurviveTheWire() {
+        // An installed agent reaches Porelo as JSON: a list lost there would pair the agent with
+        // every provider again, and the refusal of one it does not know would never come.
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
+                provider:
+                  default: anthropic
+                  dialect: native
+                  endpoint: url
+                  base_url_env: EXAMPLE_BASE_URL
+                  knows: [anthropic, openai]
+                """);
+
+        assertThat(definition.provider().knows()).containsExactly("anthropic", "openai");
+        assertThat(AgentDefinitionJson.read(AgentDefinitionJson.write(definition)))
+                .as("provider.knows survives AgentDefinitionJson both ways")
+                .isEqualTo(definition);
+    }
+
+    @Test
+    void refusesAKnowsListThatWouldBeIgnoredOrMisread() {
+        // Beside a dialect the list would change nothing, and a single word would be taken as one
+        // provider's name; either way the agent's author would believe something that is not so.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: openai
+                  endpoint: url
+                  base_url_env: EXAMPLE_BASE_URL
+                  knows: [openai]
+                """))
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("provider.knows")
+                .hasMessageContaining("native");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: native
+                  endpoint: url
+                  base_url_env: EXAMPLE_BASE_URL
+                  knows: any
+                """))
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("provider.knows")
+                .hasMessageContaining("list");
+    }
+
+    @Test
     void providerDialectsRoundTripThroughJson() {
         // An agent that speaks both an API-key dialect and a sign-in dialect declares the second
         // under provider.dialects, each with its own base URL variable and adds_path.

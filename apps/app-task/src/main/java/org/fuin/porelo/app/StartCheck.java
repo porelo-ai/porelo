@@ -115,6 +115,13 @@ public final class StartCheck {
         WRONG_DIALECT,
 
         /**
+         * The agent speaks each provider's own wire format and lists the providers it knows, and
+         * the one asked for is not among them. {@code detail} names the agent, the provider and the
+         * list.
+         */
+        UNKNOWN_TO_AGENT,
+
+        /**
          * The vault cannot be read, so this cannot be answered until somebody unlocks it. Never to
          * be shown as a missing credential: unlocking is the action, and telling somebody to store
          * a credential they already have is the one instruction that cannot help.
@@ -1949,6 +1956,7 @@ public final class StartCheck {
                         case NO_PROVIDER_CHOSEN -> Outcome.NO_PROVIDER_CHOSEN;
                         case UNKNOWN_PROVIDER -> Outcome.UNKNOWN_PROVIDER;
                         case WRONG_DIALECT -> Outcome.WRONG_DIALECT;
+                        case UNKNOWN_TO_AGENT -> Outcome.UNKNOWN_TO_AGENT;
                     },
                     agent.name(),
                     serving.wanted() == null ? "" : serving.wanted(),

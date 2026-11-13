@@ -1010,6 +1010,10 @@ type StartOutcome (
   UNKNOWN_PROVIDER,
   # The provider is declared but does not serve the dialect this agent speaks.
   WRONG_DIALECT,
+  # The agent speaks each provider's own wire format ('native') and lists the providers it knows,
+  # and the one asked for is not among them: it would be told only the name, and fail inside the
+  # task. 'detail' names the agent, the provider and the ones it knows.
+  UNKNOWN_TO_AGENT,
   # The vault cannot be read, so this question cannot be answered yet. NOT a missing credential:
   # the one thing that helps is unlocking, and telling somebody to store a secret they already
   # have is the instruction that cannot help them.

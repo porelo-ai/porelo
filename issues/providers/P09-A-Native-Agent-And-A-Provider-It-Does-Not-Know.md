@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "P09",
   "title": "A Native Agent And A Provider It Does Not Know",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 40,
@@ -64,3 +64,21 @@ can register a provider it does not know with that wire format, and an agent tha
   does not know the provider.
 - A provider in the agent's list is still given to it, and an agent that lists nothing behaves as it does today.
   Seen to fail: either refused.
+
+## Built (2026-11-13)
+
+- `AgentProvider` (`porelo-agent-api`) carries `knows`, read from `provider.knows` by `AgentDefinitionReader` and
+  carried by `AgentDefinitionJson`. A list only, and only beside `dialect: native`; a single word or a list
+  beside another dialect is refused, so `any` stays free for the reach. `dialectFor` chooses `native` only for a
+  provider the agent knows, so `canDrive`, `SelectedProvider.drivable`, `porelo agents --verbose` and
+  `porelo providers` pair a `native` agent only with those; an empty list keeps every provider.
+  `ProviderInventory` needed no change: it does not pair agents with providers.
+- `SelectedProvider.Refusal.UNKNOWN_TO_AGENT`, and `StartCheck.Outcome.UNKNOWN_TO_AGENT` with its value in
+  `StartOutcome` (`15-task.varlink`). The start takes it through `SelectedProvider.choose`, as `WRONG_DIALECT`,
+  and exits as that does (2 on a dry run).
+- Docs: `doc/credentials.md` ("Model providers") and the example definition in `agents/README.md`.
+- Step 5 is the agent repositories' own: each adds `knows:` to its definition's `provider` block once it takes
+  the new API version.
+- Step 7 is not in the suite: every scenario that starts a task names the stub, which speaks
+  `anthropic-messages`, so a scenario choosing a provider for Pi does not fit a feature file here. The refusal
+  and the pairing are held by unit tests (`SelectedProviderTest`, `AgentDefinitionReaderTest`).
