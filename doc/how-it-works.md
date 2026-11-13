@@ -129,6 +129,13 @@ porelo gate reject -p myproject backend   # discard it, and tell the task
 porelo gate approve -p myproject backend  # forward it upstream
 ```
 
+A review shows the whole diff or says where it was cut. One daemon reply holds at most 4 MiB, so a
+larger patch is cut at a file boundary, the files read first kept, and the reply names the files whose
+patch it leaves out and the `porelo gate review` command that prints all of it. Every changed file is
+still listed and ranked from the whole change: a dangerous file beyond the cut is still named dangerous.
+A review whose file list and log alone are too large is refused by name with the same command, rather
+than sent as if it were complete.
+
 In `guarded`, `approve` is the only command that sends work anywhere: `porelo approve` brings a
 checkout's task into that checkout as `porelo/<task>`, and `porelo gate approve` forwards a followed
 repository's work to its `upstream` - the immediate Git destination: the host's forge or a central or

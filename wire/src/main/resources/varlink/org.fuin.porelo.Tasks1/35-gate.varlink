@@ -255,8 +255,28 @@ method Review(
   # What the gate decided when the waiting commit arrived, as PendingPush.arrival says it. Absent when no
   # arrival of it is recorded, and from a daemon before this field.
   # Text for a person, shown and not parsed: today "accepted" or "accepted, unsigned", and an open set.
-  arrival: ?string
+  arrival: ?string,
+  # Present when diff is not the whole patch: the reply would not fit one message. diff then ends at a file
+  # boundary and never holds part of a file. files, their ranks and log stay whole; the ranking was made
+  # from the whole change. Absent when diff is whole, and from a daemon before this field.
+  cut: ?ReviewCut
 )
+
+# Where a Review's diff was cut to fit one message.
+type ReviewCut (
+  # Files whose patch is in diff, and files whose patch is not.
+  shownFiles: int,
+  omittedFiles: int,
+  # The omitted files' paths, in the diff's order: each is in Review.files with its rank.
+  omitted: []string,
+  # The command that prints the whole review, patch included, on the daemon's machine.
+  command: []string
+)
+
+# Review's file list, commits and log alone do not fit one message: nothing is sent rather than a list a
+# person would take for the whole. bytes is what that reply would take; command prints the whole review
+# on the daemon's machine.
+error ReviewTooLarge(name: string, bytes: int, limit: int, command: []string)
 
 # Forwards a pending push upstream. The only call in this interface that sends anything
 # anywhere, and it makes the caller name the branch rather than inferring one - except in a project

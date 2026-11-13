@@ -49,6 +49,13 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
             description = "Ref to compare against. Default: the branch the task started from.")
     private @Nullable String against;
 
+    @Option(
+            names = "--ignore-line-endings",
+            description =
+                    "Ignore whitespace at line endings in the patch, as git's --ignore-space-at-eol."
+                            + " The files, their counts and the log are unchanged.")
+    private boolean ignoreLineEndings;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -80,7 +87,7 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
                     against == null
                             ? TaskBase.reviewAgainst(context, project, name, gate)
                             : against;
-            final ReviewRanking.Review review = gate.rankedReview(name, base);
+            final ReviewRanking.Review review = gate.rankedReview(name, base, ignoreLineEndings);
             out.print(
                     ReviewText.render(
                             ReviewText.instruction(context.paths(), project.name(), name),

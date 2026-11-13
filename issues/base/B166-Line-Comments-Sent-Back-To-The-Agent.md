@@ -62,6 +62,9 @@ not needed.
 8. Update `MailboxGuide`, `doc/commands.md` and `doc/messages.md`. A reviewer sees the same store through the daemon,
    interface and IDE plugin. Preserve a comment's original revision; [B176](README.md#b176) adds relocation. The
    journal integrates with [B154](README.md#b154) when available without blocking the comment flow.
+9. Each SARIF consumer reports its own result-page completeness, apart from the patch cut `Review.cut` of
+   [B150](README.md#b150): a complete page is no evidence that a check or review is complete, and omitted results
+   never clear findings.
 
 ## Acceptance
 

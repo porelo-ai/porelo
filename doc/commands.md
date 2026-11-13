@@ -716,7 +716,7 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | Command | What it does |
 |---|---|
 | `porelo gate pending` | Lists waiting pushes and how long each has waited. |
-| `porelo gate review NAME` | Shows what a pending push would change. |
+| `porelo gate review NAME [--against=REF] [--ignore-line-endings]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. The full view when a window's review says its diff was cut. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
 | `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` refuses if the push moved since review. `--signed` merges it as a commit signed with your own git key. |
 | `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
@@ -727,6 +727,13 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | `porelo gate serve` | Serves the mirror for an agent to push to. Started per task. |
 
 All but `pending`, `protect` and `check` take `-p PROJECT` and `-r REPOSITORY`.
+
+A review the daemon sends (Tasks1 `Review`) is one message of at most 4 MiB. When the whole patch does not
+fit, its `diff` ends at a file boundary, never inside a file, and its `cut` says so: how many files' patches
+are shown and omitted, the omitted paths, and the `porelo gate review` command that prints the whole review
+on this machine. The file list, each file's rank and the log stay whole, and the ranking was made from the
+whole change before anything was cut. When even the review without its patch does not fit, the answer is
+the error `ReviewTooLarge`, with its size and the same command, never a shortened file list.
 `porelo gate pending --project default` lists waiting work of every repository in `default`.
 
 On the host's own forge, an amended approval may replace the task's branch only while its head is the last

@@ -827,6 +827,10 @@ public class GitGate {
      * shown as the task removing it. Two histories that never met are compared as they stand.
      */
     private List<String> compared(final String against, final String name) {
+        return comparedObjects(against, INCOMING + name);
+    }
+
+    private List<String> comparedObjects(final String against, final String head) {
         return runner.run(
                                 Command.of(
                                         List.of(
@@ -835,10 +839,10 @@ public class GitGate {
                                                 mirror.toString(),
                                                 "merge-base",
                                                 against,
-                                                INCOMING + name)))
+                                                head)))
                         .successful()
-                ? List.of(against + "..." + INCOMING + name)
-                : List.of(against, INCOMING + name);
+                ? List.of(against + "..." + head)
+                : List.of(against, head);
     }
 
     /**
@@ -916,8 +920,15 @@ public class GitGate {
                 compare
                         ? List.of("diff", "--no-renames")
                         : List.of("show", "--format=", "--no-renames");
+        // Pinned once: the ranking, the counts and the patch are read from the same objects, so a
+        // push that moves meanwhile cannot rank one change and show another, and whatever part of
+        // the patch a reply later shows, the ranking was made from the whole change.
+        final String pinned = gitIn("rev-parse", "--verify", INCOMING + name).trimmedOutput();
         final List<String> refs =
-                compare && against != null ? compared(against, name) : List.of(INCOMING + name);
+                compare && against != null
+                        ? comparedObjects(
+                                gitIn("rev-parse", "--verify", against).trimmedOutput(), pinned)
+                        : List.of(pinned);
         // Read with -z: without it git quotes a path holding a byte beyond ASCII, a '"' or a tab,
         // and the quoted name matched no dangerous place - a workflow ranked ordinary.
         final Map<String, int[]> counts =

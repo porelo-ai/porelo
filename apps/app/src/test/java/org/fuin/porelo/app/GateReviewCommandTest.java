@@ -33,6 +33,14 @@ class GateReviewCommandTest {
     }
 
     @Test
+    void theFullViewADaemonsCutReviewNamesRunsAndPrintsTheWholePatch(@TempDir Path dir)
+            throws Exception {
+        // Review's cut hands out this command for the whole patch; an option it names that the
+        // command did not know made the full view an error.
+        review(dir, false, false, "--against", "HEAD", "--ignore-line-endings", "--");
+    }
+
+    @Test
     void aReviewUsesTheStartingBranchAndLeavesItsEarlierChangesOut(@TempDir Path dir)
             throws Exception {
         review(dir, true, false);
@@ -44,7 +52,8 @@ class GateReviewCommandTest {
         review(dir, true, true);
     }
 
-    private void review(Path dir, boolean develop, boolean missing) throws Exception {
+    private void review(Path dir, boolean develop, boolean missing, String... options)
+            throws Exception {
         // Without --against it compared with 'main', which a repository on 'trunk' does not have:
         // the patch was the last commit's alone, and a person approved commits the review never
         // showed.
@@ -107,15 +116,18 @@ class GateReviewCommandTest {
         final picocli.CommandLine cli = PoreloCli.commandLine(context);
         cli.setOut(new PrintWriter(out));
         cli.setErr(new PrintWriter(err));
-        final int code =
-                cli.execute(
-                        "gate",
-                        "review",
-                        "-p",
-                        choice.project(),
-                        "--repository",
-                        choice.repository(),
-                        "writer");
+        final List<String> arguments =
+                new java.util.ArrayList<>(
+                        List.of(
+                                "gate",
+                                "review",
+                                "-p",
+                                choice.project(),
+                                "--repository",
+                                choice.repository()));
+        arguments.addAll(List.of(options));
+        arguments.add("writer");
+        final int code = cli.execute(arguments.toArray(String[]::new));
 
         if (missing) {
             assertThat(code).as("an incomplete review must not invite approval").isNotZero();

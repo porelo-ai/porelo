@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B150",
   "title": "The Whole Diff In Review",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 4,
@@ -55,7 +55,33 @@ bundles by name.
   change. Dependency, link and security findings beyond the displayed patch still hold the same controls.
 - Truncated SARIF pages show completeness independently of patch cuts, and omitted results never clear findings.
 
-## To be checked
+## Built
 
-- Measure the safe serialization budget and metadata-only worst case; choose named refusal versus pagination for
-  oversized metadata while retaining the additive contract and a complete inventory path.
+- **The cut.** `ReviewCut` in the daemon measures the reply as the server frames it: UTF-8 JSON with every escape, the
+  log, commits, instruction, files and the `{"parameters":…}` frame, against `VarlinkConnection.MAX_MESSAGE` (4 MiB,
+  now public). A reply that fits goes unchanged. Otherwise the patch is cut as a prefix in its dangerous-first order,
+  at a file boundary from `PatchFiles` in `gate`, which splits a patch at its `diff --git` lines and reads quoted
+  paths. No file is shown in part. `Review.cut` (`ReviewCut` in `35-gate.varlink`) gives `shownFiles`,
+  `omittedFiles`, every omitted path and `command`, the `porelo gate review` line that prints the whole review on the
+  machine, every name resolved. `gate review` gained `--ignore-line-endings`, so that command shows the same patch.
+- **The inventory.** `files`, their ranks and the log are never shortened. When they alone do not fit, the answer is
+  the named refusal `ReviewTooLarge(name, bytes, limit, command)`, chosen over pagination: it keeps the contract
+  additive, and the command is the complete inventory path. A single file over the budget gives a cut with
+  `shownFiles: 0`.
+- **Ranking on the whole change.** The cut is made after ranking, so a dangerous file beyond it keeps its rank and
+  reason. `GitGate.rankedReview` resolves the incoming head and the base to object ids once, so counts, ranking and
+  patch come from the same commits. Still unpinned: `log`, `made` (commits), `blobs` and the arrival verdict read the
+  moving incoming ref. The mapping of a rank to the risk classes C0-C3 is not built; it is
+  [B323](README.md#b323)'s.
+- **Point 5 moved to [B166](README.md#b166).** No SARIF consumer or result page exists yet: [B166](README.md#b166) is
+  in Backlog and [B291](README.md#b291)'s profile only accepted, so there was nothing to keep apart from the patch
+  cut. [B166](README.md#b166)'s Plan now carries it.
+- `doc/how-it-works.md` and `doc/commands.md` describe the cut, the full view and the refusal.
+- Tests: `GateReviewCutTest` (daemon, real git): a many-file push, an escaping-heavy one whose raw patch fits, one
+  dangerous lockfile over the limit, and commits whose messages alone overflow. Each failed before the change with
+  "A varlink message exceeded 4194304 bytes", the refusal case with the generic error
+  (`buildbox-porelo-2efad88bcfa7-20261113T181216Z.log`). `GateReviewCommandTest` failed on the unknown
+  `--ignore-line-endings` (`buildbox-porelo-d64db5df6a2f-20261113T181035Z.log`). After it, these and `ReviewCutTest`,
+  `PatchFilesTest`, `GitGateTest`, `ReviewRankingTest`, `VarlinkDeadlineTest`, `ReviewOutputTest`, `ReviewTextTest`,
+  `CommandsDocumentedTest`, `PoreloDaemonTest`, `InterfaceDescriptionTest` and `McpMethodsTest` pass, 309 tests,
+  0 skipped (`buildbox-porelo-dbc0e751dcaa-20261113T181429Z.log`).

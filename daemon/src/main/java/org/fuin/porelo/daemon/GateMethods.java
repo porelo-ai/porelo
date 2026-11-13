@@ -35,6 +35,41 @@ final class GateMethods {
                 throws java.io.IOException;
     }
 
+    /**
+     * The command that shows on this machine the whole review a {@code Review} call asked for: the
+     * same project, repository, upstream, base and line-ending switch, every name resolved.
+     */
+    static List<String> reviewCommand(
+            final Map<String, Object> parameters,
+            final PoreloContext context,
+            final String name,
+            final @org.jspecify.annotations.Nullable String against) {
+        final org.fuin.porelo.core.project.Project project =
+                GateSupport.project(projectFile(parameters, context));
+        final List<String> command =
+                new java.util.ArrayList<>(
+                        List.of(
+                                "porelo",
+                                "gate",
+                                "review",
+                                "-p",
+                                project.name(),
+                                "-r",
+                                GateSupport.repository(project, text(parameters, "repository"))
+                                        .name()));
+        if (!text(parameters, "upstream").isEmpty()) {
+            command.addAll(List.of("--upstream", text(parameters, "upstream")));
+        }
+        if (against != null && !against.isBlank()) {
+            command.addAll(List.of("--against", against));
+        }
+        if (flag(parameters, "ignoreLineEndings")) {
+            command.add("--ignore-line-endings");
+        }
+        command.addAll(List.of("--", name));
+        return List.copyOf(command);
+    }
+
     static void pushToCentral(GatheredPush push, VarlinkServer.Replies replies)
             throws java.io.IOException {
         try {
@@ -426,7 +461,12 @@ final class GateMethods {
                     if (arrival != null) {
                         reply.put("arrival", arrival);
                     }
-                    replies.last(reply);
+                    replies.last(
+                            ReviewCut.fitted(
+                                    reply,
+                                    name,
+                                    reviewCommand(parameters, context, name, against),
+                                    org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE));
                 });
 
         server.method(

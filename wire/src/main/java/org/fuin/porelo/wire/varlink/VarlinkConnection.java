@@ -26,8 +26,11 @@ import org.jspecify.annotations.Nullable;
  */
 public class VarlinkConnection implements AutoCloseable {
 
-    /** Largest message accepted from a peer. */
-    static final int MAX_MESSAGE = 4 * 1024 * 1024;
+    /**
+     * Largest message accepted from a peer: its JSON's UTF-8 bytes, without the NUL that ends it.
+     * Public so a sender can fit a reply to it rather than send one its peer refuses.
+     */
+    public static final int MAX_MESSAGE = 4 * 1024 * 1024;
 
     private final SocketChannel channel;
 
