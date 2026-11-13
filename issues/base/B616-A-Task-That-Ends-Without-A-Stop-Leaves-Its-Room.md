@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B616",
   "title": "A Task That Ends Without A Stop Leaves Its Room",
-  "state": "Accepted",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 20,
