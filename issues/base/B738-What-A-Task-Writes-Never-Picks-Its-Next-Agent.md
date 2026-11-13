@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B738",
   "title": "What A Task Writes Never Picks Its Next Agent",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 10,
