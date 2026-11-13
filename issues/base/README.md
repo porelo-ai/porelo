@@ -163,7 +163,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped | - |
 | <a id="b149"></a>[B149](B149-A-Local-Provider-Template.md) | M | - | http only for loopback upstreams, a broker route with no credential, and two templates: `providers/local.yaml` on `127.0.0.1` and `providers/organisation.yaml` over https; the task reaches the host port through the broker. | - |
 | <a id="b98"></a>[B98](B98-The-Image-A-Signature-Names.md) | M | - | A warning on a tag-only `base_image`, a tag-only organization project refused until allowed once, the base digest as an image label, a changed digest noted at start, an optional per-project signature policy, the default project pinned. | - |
 | <a id="b99"></a>[B99](B99-Packages-Signed-And-Checked.md) | L | - | RPMs and the setup script signed in CI with the Debian repository's key, one shared `check-signed` in the release tools, a version pointer, `gpgcheck=1` everywhere from the next joint release. | - |
@@ -297,6 +296,7 @@ from its side, as *blocked by*.
 | <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. |
 | <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. |
 | <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. |
+| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped |
 
 ## Review
 

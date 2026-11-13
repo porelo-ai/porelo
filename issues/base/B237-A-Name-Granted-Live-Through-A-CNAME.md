@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B237",
   "title": "A Name Granted Live Through A CNAME",
-  "state": "Estimated",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 37,
