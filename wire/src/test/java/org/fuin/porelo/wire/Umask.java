@@ -45,9 +45,16 @@ final class Umask {
         final int before = set(mask);
         try {
             body.run();
-        } finally {
-            set(before);
+        } catch (Exception | Error ex) {
+            // The body's failure is what the test reports; one putting the umask back goes with it.
+            try {
+                set(before);
+            } catch (RuntimeException restoring) {
+                ex.addSuppressed(restoring);
+            }
+            throw ex;
         }
+        set(before);
     }
 
     private static int set(final int mask) {

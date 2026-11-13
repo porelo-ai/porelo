@@ -209,7 +209,7 @@ class WholeSuiteProfileTest {
                         "GitTreeStoreTest.java");
         assertThat(excluded(surefire, plain))
                 .as("the tags a build without -P%s leaves out", PROFILE)
-                .contains(SLOW);
+                .containsExactlyInAnyOrder(SLOW, SECOND_ACCOUNT);
 
         final Element whole =
                 profile(pom, PROFILE)

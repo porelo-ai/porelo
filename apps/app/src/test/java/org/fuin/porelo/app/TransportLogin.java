@@ -22,12 +22,21 @@ final class TransportLogin implements BeforeEachCallback, AfterEachCallback {
 
     @Override
     public void beforeEach(final ExtensionContext context) {
-        context.getStore(HERE).put("login", System.getProperty("user.name", ""));
+        final String login = System.getProperty("user.name");
+        if (login != null) {
+            context.getStore(HERE).put("login", login);
+        }
         System.setProperty("user.name", LOGIN);
     }
 
     @Override
     public void afterEach(final ExtensionContext context) {
-        System.setProperty("user.name", context.getStore(HERE).get("login", String.class));
+        // A login that was not set is cleared again, not left as an empty one.
+        final String login = context.getStore(HERE).remove("login", String.class);
+        if (login == null) {
+            System.clearProperty("user.name");
+        } else {
+            System.setProperty("user.name", login);
+        }
     }
 }

@@ -55,6 +55,16 @@ Built as planned.
   run as one account with another reached over ssh on the loopback, its first run failed on the test's own
   expectation that the peer's uid is named. `SocketPeer` gives `-1` for anybody but its own account, by contract.
   The test now holds that and that the peer is not this account, and it passes there.
+- **After the reading.**
+  - The second-account test waits for the other account's connection for at most 30 s, then fails with what that
+    account said.
+  - `WholeSuiteProfileTest` pins the default exclusion to `slow` and `second-account` exactly.
+  - `DirectoriesTest` is `@Isolated`, since the umask is the process's. `Umask.under` keeps the body's failure, with
+    a failure to restore attached to it. The cases compare with the mode the file system kept, and skip where a
+    default ACL decides the mode instead of the umask.
+  - `TransportLogin` clears a login that was not set, instead of leaving it empty.
+  - `TransportLoginExtensionTest` runs under `Alex` and fails without the extension (seen red).
+  - The second-account test still runs only by hand, on a machine with two accounts.
 - **Locally on this commit.** The whole reactor's `install` under umask 002 with the real login is green, with 9538
   tests. Under a faked `user.name` of `Alex`, all modules up to `git-tree` pass. Beyond them the only failures come
   from the faking itself: lookups of the owner by `user.name` (`TreeRepository`, `host whoami`, the daemon's

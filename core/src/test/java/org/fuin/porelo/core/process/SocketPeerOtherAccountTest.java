@@ -63,7 +63,7 @@ class SocketPeerOtherAccountTest {
                                         + "time.sleep(30)\n")
                                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             }
-            try (SocketChannel accepted = listener.accept()) {
+            try (SocketChannel accepted = accepted(listener, caller)) {
                 final var peer = SocketPeer.read(accepted);
 
                 // The uid of anybody else is not passed on: -1, never this account's.
@@ -78,6 +78,31 @@ class SocketPeerOtherAccountTest {
                 caller.destroyForcibly();
             }
         }
+    }
+
+    /**
+     * The other account's connection, within half a minute: one that cannot connect fails the run
+     * with what it said, instead of holding it.
+     */
+    private static SocketChannel accepted(final ServerSocketChannel listener, final Process caller)
+            throws Exception {
+        listener.configureBlocking(false);
+        final long until = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+        while (System.nanoTime() < until) {
+            final SocketChannel accepted = listener.accept();
+            if (accepted != null) {
+                accepted.configureBlocking(true);
+                return accepted;
+            }
+            if (!caller.isAlive()) {
+                break;
+            }
+            Thread.sleep(50);
+        }
+        caller.destroyForcibly();
+        throw new AssertionError(
+                "the other account did not connect; it said: "
+                        + new String(caller.getInputStream().readAllBytes()));
     }
 
     private static Process start(final List<String> prefix, final List<String> command)

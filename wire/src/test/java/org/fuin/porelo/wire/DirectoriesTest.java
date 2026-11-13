@@ -14,6 +14,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for {@link Directories}, each under a umask the test sets: under {@code 022} the system
  * keeps the group's write out by itself, so only {@code 002} shows what {@code Directories} does.
  */
+// The umask is the process's: no other test may make a file while one of these runs.
+@org.junit.jupiter.api.parallel.Isolated
 class DirectoriesTest {
 
     @ParameterizedTest(name = "umask {0}")
@@ -66,6 +68,17 @@ class DirectoriesTest {
         // What the two tests above stand on: without Directories, 002 lets the group write, so a
         // test passing under it is a test of Directories and not of the umask.
         Umask.under(
+                0022,
+                () ->
+                        org.junit.jupiter.api.Assumptions.assumeTrue(
+                                PosixFilePermissions.toString(
+                                                Files.getPosixFilePermissions(
+                                                        Files.createDirectory(
+                                                                dir.resolve("probe"))))
+                                        .equals("rwxr-xr-x"),
+                                "a default ACL on the temporary directory, not the umask, decides"
+                                        + " the mode here"));
+        Umask.under(
                 0002,
                 () ->
                         assertThat(
@@ -84,12 +97,15 @@ class DirectoriesTest {
                     final Path shared = Files.createDirectory(dir.resolve("shared"));
                     Files.setPosixFilePermissions(
                             shared, PosixFilePermissions.fromString("rwxrwxr-x"));
+                    // As the file system keeps it: a default ACL may have its say.
+                    final String chosen =
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(shared));
 
                     Directories.create(shared.resolve("below"));
 
                     // Somebody else's choice for a directory this did not make is theirs.
                     assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(shared)))
-                            .isEqualTo("rwxrwxr-x");
+                            .isEqualTo(chosen);
                     assertThat(
                                     PosixFilePermissions.toString(
                                             Files.getPosixFilePermissions(shared.resolve("below"))))
