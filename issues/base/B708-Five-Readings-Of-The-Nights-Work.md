@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B708",
   "title": "Five Readings Of The Night's Work",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 62,
