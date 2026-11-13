@@ -45,6 +45,49 @@ public interface FetchAccess {
             return List.of();
         }
 
+        /**
+         * Returns each value this lease hands git that git, or the forge through git, could say
+         * back, in every form it may be said: the token, URL-encoded, and as a Basic authorization.
+         * Whatever git writes is cleared of them before anything else is done with it.
+         *
+         * @return The values, empty when nothing secret is lent.
+         */
+        default java.util.Set<String> lent() {
+            return java.util.Set.of();
+        }
+
+        /**
+         * Returns a secret in each form git or curl may write it: as it is, URL-encoded, and as the
+         * Basic authorization of the user and the secret, with and without its padding.
+         *
+         * @param user The user git sends with it, or {@code null} for none.
+         * @param secret The secret.
+         * @return The forms, empty for a blank secret.
+         */
+        static java.util.Set<String> formsOf(
+                final @org.jspecify.annotations.Nullable String user, final String secret) {
+            final java.util.Set<String> forms = new java.util.LinkedHashSet<>();
+            for (final String value : java.util.List.of(secret, secret.strip())) {
+                if (value.isBlank()) {
+                    continue;
+                }
+                forms.add(value);
+                forms.add(
+                        java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8));
+                forms.add(
+                        java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8)
+                                .replace("+", "%20"));
+                final String basic =
+                        java.util.Base64.getEncoder()
+                                .encodeToString(
+                                        ((user == null ? "" : user) + ":" + value)
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                forms.add(basic);
+                forms.add(basic.replace("=", ""));
+            }
+            return java.util.Set.copyOf(forms);
+        }
+
         @Override
         default void close() {}
     }

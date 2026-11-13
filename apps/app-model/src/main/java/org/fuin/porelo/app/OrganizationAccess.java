@@ -80,6 +80,11 @@ public final class OrganizationAccess {
                 }
 
                 @Override
+                public java.util.Set<String> lent() {
+                    return credential.secretsLent();
+                }
+
+                @Override
                 public void close() {
                     credential.close();
                 }

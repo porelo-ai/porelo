@@ -87,6 +87,122 @@ class OrgProposalAccessTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "HTTPS_PROXY",
+                "ALL_PROXY",
+                "https_proxy",
+                "http_proxy",
+                "NO_PROXY",
+                "CURL_CA_BUNDLE",
+                "SSL_CERT_FILE",
+                "HOME",
+                "XDG_CONFIG_HOME",
+                "PATH",
+                "GIT_TRACE",
+                "PORELO_VAULT"
+            })
+    void aTokenDeclaredInAVariableGitOrCurlReadsIsNeverHandedToGit(final String name)
+            throws Exception {
+        // With a token in HTTPS_PROXY git said "Unsupported proxy syntax in '<the token>'".
+        String previous = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
+        try {
+            PoreloContext machine = declared(name, "lent-token:bad");
+            try (var lease =
+                    OrganizationAccess.lent(machine, "")
+                            .lend("https://forge.example.org/acme/organization.git")) {
+                assertThat(lease.environment()).doesNotContainValue("lent-token:bad");
+            }
+        } finally {
+            if (previous == null) System.clearProperty(PoreloBinary.NAMED);
+            else System.setProperty(PoreloBinary.NAMED, previous);
+        }
+    }
+
+    @Test
+    void aLeaseNamesTheTokenItLentInEachForm() throws Exception {
+        String previous = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
+        try {
+            PoreloContext machine = declared("FORGE_TOKEN", "lent-token");
+            try (var lease =
+                    OrganizationAccess.lent(machine, "")
+                            .lend("https://forge.example.org/acme/organization.git")) {
+                assertThat(lease.lent())
+                        .as("what git could say back is known to whoever reads git's words")
+                        .contains(
+                                "lent-token",
+                                java.util.Base64.getEncoder()
+                                        .encodeToString(
+                                                "x-access-token:lent-token"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8)));
+            }
+            try (var lease =
+                    OrgProposalAccess.lent(
+                                    machine,
+                                    ForgeAddress.of(
+                                            "https://forge.example.org/acme/organization.git"))
+                            .lend("https://forge.example.org/alice/organization.git")) {
+                assertThat(lease.lent()).as("the fork's lease names it too").contains("lent-token");
+            }
+        } finally {
+            if (previous == null) System.clearProperty(PoreloBinary.NAMED);
+            else System.setProperty(PoreloBinary.NAMED, previous);
+        }
+    }
+
+    @Test
+    void aLeaseNamesATokenLentFromAFile() throws Exception {
+        String previous = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
+        try {
+            Path file = dir.resolve("token");
+            Files.writeString(file, "lent-token\n");
+            PoreloContext machine =
+                    new PoreloContext(
+                            new ProcessCommandRunner(),
+                            new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                            args -> 0,
+                            name -> null);
+            Path declarations = machine.paths().xdg().config().resolve("credentials.yml");
+            Files.createDirectories(declarations.getParent());
+            Files.writeString(
+                    declarations,
+                    "credentials:\n  - match: https://forge.example.org/acme/\n    kind: token\n    source: file\n    file: "
+                            + file
+                            + "\n");
+            try (var lease =
+                    OrganizationAccess.lent(machine, "")
+                            .lend("https://forge.example.org/acme/organization.git")) {
+                assertThat(lease.lent()).contains("lent-token");
+            }
+        } finally {
+            if (previous == null) System.clearProperty(PoreloBinary.NAMED);
+            else System.setProperty(PoreloBinary.NAMED, previous);
+        }
+    }
+
+    private PoreloContext declared(final String variable, final String value) throws Exception {
+        PoreloContext machine =
+                new PoreloContext(
+                        new ProcessCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        args -> 0,
+                        name -> variable.equals(name) ? value : null);
+        Path declarations = machine.paths().xdg().config().resolve("credentials.yml");
+        Files.createDirectories(declarations.getParent());
+        Files.writeString(
+                declarations,
+                "credentials:\n  - match: https://forge.example.org/acme/\n    kind: token\n    source: env\n    env: "
+                        + variable
+                        + "\n");
+        return machine;
+    }
+
     PoreloContext context() throws Exception {
         PoreloContext machine =
                 new PoreloContext(

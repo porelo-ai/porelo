@@ -244,6 +244,13 @@ public class ProcessCommandRunner implements CommandRunner {
 
         private long cut;
 
+        /**
+         * Whether the cut fell inside a line, whose rest then opens what is kept: without its start
+         * it lost what said whose words it was, such as a forge's {@code remote:}, so it is not
+         * kept.
+         */
+        private boolean cutMidLine;
+
         private volatile @org.jspecify.annotations.Nullable String text;
 
         /** The longest line handed over; cut, a secret in it would pass redaction line by line. */
@@ -296,6 +303,7 @@ public class ProcessCommandRunner implements CommandRunner {
                         if (collected.size() > 2 * KEPT) {
                             final byte[] all = collected.toByteArray();
                             cut += all.length - KEPT;
+                            cutMidLine = all[all.length - KEPT - 1] != '\n';
                             collected.reset();
                             collected.write(all, all.length - KEPT, KEPT);
                         }
@@ -330,8 +338,21 @@ public class ProcessCommandRunner implements CommandRunner {
 
         private String snapshot() {
             synchronized (collected) {
-                final String kept = collected.toString(StandardCharsets.UTF_8);
-                return cut == 0 ? kept : "[" + cut + " bytes cut before this]\n" + kept;
+                if (cut == 0) {
+                    return collected.toString(StandardCharsets.UTF_8);
+                }
+                final byte[] all = collected.toByteArray();
+                int from = 0;
+                if (cutMidLine) {
+                    while (from < all.length && all[from] != '\n') {
+                        from++;
+                    }
+                    from = Math.min(from + 1, all.length);
+                }
+                return "["
+                        + (cut + from)
+                        + " bytes cut before this]\n"
+                        + new String(all, from, all.length - from, StandardCharsets.UTF_8);
             }
         }
     }

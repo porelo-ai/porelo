@@ -67,6 +67,9 @@ public final class FollowCredential implements AutoCloseable {
     /** Whether anything was lent, rather than only the destination's policy given. */
     private final boolean lending;
 
+    /** Each secret lent, in each form git may say it back. */
+    private final java.util.Set<String> secrets;
+
     private FollowCredential(
             final Map<String, String> environment,
             final @Nullable SshAgentServer agent,
@@ -81,11 +84,49 @@ public final class FollowCredential implements AutoCloseable {
             final @Nullable Path socket,
             final boolean vaultShut,
             final boolean lending) {
+        this(environment, agent, socket, vaultShut, lending, java.util.Set.of());
+    }
+
+    private FollowCredential(
+            final Map<String, String> environment,
+            final @Nullable SshAgentServer agent,
+            final @Nullable Path socket,
+            final boolean vaultShut,
+            final boolean lending,
+            final java.util.Set<String> secrets) {
         this.environment = environment;
         this.agent = agent;
         this.socket = socket;
         this.vaultShut = vaultShut;
         this.lending = lending;
+        this.secrets = java.util.Set.copyOf(secrets);
+    }
+
+    /**
+     * Returns this lease, knowing the secret it hands git, when it hands git anything.
+     *
+     * @param context The machine, whose environment a username may come from.
+     * @param credential The record, naming the username git sends.
+     * @param secret The value, or {@code null} when it cannot be read here.
+     * @return The lease.
+     */
+    private FollowCredential holding(
+            final PoreloContext context,
+            final Credential credential,
+            final @Nullable String secret) {
+        if (secret == null || environment.isEmpty()) {
+            return this;
+        }
+        final String user = userOf(context, credential);
+        return new FollowCredential(
+                environment,
+                agent,
+                socket,
+                vaultShut,
+                lending,
+                org.fuin.porelo.organization.gittree.FetchAccess.Lease.formsOf(
+                        // The helper's own default when the record names no user.
+                        user == null ? "x-access-token" : user, secret));
     }
 
     /**
@@ -217,7 +258,8 @@ public final class FollowCredential implements AutoCloseable {
                 credential.agent,
                 credential.socket,
                 credential.vaultShut,
-                credential.lending);
+                credential.lending,
+                credential.secrets);
     }
 
     private static FollowCredential credentialFor(
@@ -338,7 +380,15 @@ public final class FollowCredential implements AutoCloseable {
                     null,
                     false);
         }
-        return helper(context, credential, url, "--file", credential.id());
+        String secret;
+        try {
+            secret = Files.readString(Path.of(credential.id()));
+        } catch (final IOException | RuntimeException ex) {
+            // The helper reads it again, and says so to git if it cannot.
+            secret = null;
+        }
+        return helper(context, credential, url, "--file", credential.id())
+                .holding(context, credential, secret);
     }
 
     private static FollowCredential fromEnvironment(
@@ -359,7 +409,8 @@ public final class FollowCredential implements AutoCloseable {
         }
         final Map<String, String> named = new java.util.LinkedHashMap<>(lent.environment);
         named.put(VARIABLE, credential.id());
-        return new FollowCredential(named, null, null, false);
+        return new FollowCredential(named, null, null, false)
+                .holding(context, credential, context.environment().apply(credential.id()));
     }
 
     private static FollowCredential fromVault(
@@ -383,7 +434,8 @@ public final class FollowCredential implements AutoCloseable {
             // not reach: lent, the fetch failed for no reason anybody was told.
             return opensOnlyHere(context)
                     ? new FollowCredential(Map.of(), null, null, true)
-                    : helper(context, credential, url, "--entry", credential.id());
+                    : helper(context, credential, url, "--entry", credential.id())
+                            .holding(context, credential, held.value());
         }
         final org.fuin.porelo.vault.AgentKey key;
         try {
@@ -520,14 +572,90 @@ public final class FollowCredential implements AutoCloseable {
      */
     @Nullable String variable() {
         final String name = environment.get(VARIABLE);
-        // Git, ssh and the loader read these names themselves, and git echoes a value it cannot
-        // take: a token in GIT_TRACE would be on its standard error, and so in a refusal.
-        return name == null
-                        || name.startsWith("GIT_")
-                        || name.startsWith("SSH_")
-                        || name.startsWith("LD_")
-                ? null
-                : name;
+        // Git, ssh, libcurl and the loader read these names themselves, and echo a value they
+        // cannot take: a token in GIT_TRACE or HTTPS_PROXY would be on git's standard error, and
+        // so in a refusal.
+        return name == null || steersGit(name) ? null : name;
+    }
+
+    /** Names read whole by git, ssh, libcurl, the TLS libraries, the shell or the loader. */
+    private static final java.util.Set<String> STEERING =
+            java.util.Set.of(
+                    "NO_PROXY",
+                    "HOME",
+                    "PATH",
+                    "SHELL",
+                    "ENV",
+                    "IFS",
+                    "CDPATH",
+                    "TMPDIR",
+                    "TERM",
+                    "LANG",
+                    "LANGUAGE",
+                    "TZ",
+                    "TZDIR",
+                    "USER",
+                    "LOGNAME",
+                    "EMAIL",
+                    "EDITOR",
+                    "VISUAL",
+                    "PAGER",
+                    "LESS",
+                    "NETRC",
+                    "DISPLAY",
+                    "WAYLAND_DISPLAY",
+                    "GCONV_PATH",
+                    "LOCPATH",
+                    "NLSPATH",
+                    "HOSTALIASES",
+                    "RES_OPTIONS",
+                    "LOCALDOMAIN",
+                    "SUDO_ASKPASS",
+                    "DBUS_SESSION_BUS_ADDRESS",
+                    PoreloPaths.VAULT_VARIABLE);
+
+    /** Prefixes of names those programs read. */
+    private static final List<String> STEERING_PREFIXES =
+            List.of(
+                    "GIT_",
+                    "SSH_",
+                    "LD_",
+                    "DYLD_",
+                    "CURL_",
+                    "SSL_",
+                    "SSLKEYLOG",
+                    "OPENSSL_",
+                    "GNUTLS_",
+                    "NSS_",
+                    "KRB5",
+                    "GSS",
+                    "GNUPG",
+                    "GPG_",
+                    "XDG_",
+                    "LC_",
+                    "MALLOC_",
+                    "GLIBC_",
+                    "BASH_",
+                    "PERL",
+                    "PYTHON",
+                    "PORELO_GIT_");
+
+    /**
+     * Tells whether a variable's name is one git, or a program git starts, reads itself, so that a
+     * token under it would steer them rather than wait for the helper. Any case: libcurl reads
+     * {@code https_proxy} as well as {@code HTTPS_PROXY}.
+     *
+     * @param name The name a person declared.
+     * @return {@code true} when a token is never handed to git under it.
+     */
+    static boolean steersGit(final String name) {
+        if (!name.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+            return true;
+        }
+        final String upper = name.toUpperCase(java.util.Locale.ROOT);
+        return STEERING.contains(upper)
+                || upper.endsWith("_PROXY")
+                || STEERING_PREFIXES.stream().anyMatch(upper::startsWith);
     }
 
     /**
@@ -546,6 +674,15 @@ public final class FollowCredential implements AutoCloseable {
         }
         if (configured != null) arguments.addAll(List.of("-c", configured));
         return List.copyOf(arguments);
+    }
+
+    /**
+     * Returns each value lent that git could say back, in each form it may say it.
+     *
+     * @return The values, empty when no secret was lent.
+     */
+    java.util.Set<String> secretsLent() {
+        return secrets;
     }
 
     /**

@@ -306,7 +306,7 @@ final class TreeRepository implements AutoCloseable {
             final CommandResult asked = git(lease.environment(), arguments.toArray(String[]::new));
             if (!asked.successful()) {
                 throw GitTreeStore.Unreachable.fromGit(
-                        "the repository cannot be reached", asked.standardError());
+                        "the repository cannot be reached", asked.standardError(), lease.lent());
             }
             return asked.standardOutput()
                     .lines()
@@ -441,7 +441,9 @@ final class TreeRepository implements AutoCloseable {
                 }
                 if (!asked.successful()) {
                     throw GitTreeStore.Unreachable.fromGit(
-                            "cannot read the organization's repository", asked.standardError());
+                            "cannot read the organization's repository",
+                            asked.standardError(),
+                            lease.lent());
                 }
                 if (!asked.standardOutput().isBlank()) {
                     clone.close();
@@ -482,7 +484,9 @@ final class TreeRepository implements AutoCloseable {
             }
             if (!fetched.successful()) {
                 throw GitTreeStore.Unreachable.fromGit(
-                        "cannot read the organization's repository", fetched.standardError());
+                        "cannot read the organization's repository",
+                        fetched.standardError(),
+                        lease.lent());
             }
         }
     }

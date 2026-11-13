@@ -100,12 +100,31 @@ public final class GitTreeStore {
          * @return It.
          */
         public static Unreachable fromGit(final String lead, final String standardError) {
-            // User information is left out before the words are cut: a cut through an address
-            // would leave its user and secret without the '@' that marks them.
+            return fromGit(lead, standardError, java.util.Set.of());
+        }
+
+        /**
+         * Creates one from what git wrote on its standard error, first clearing every value lent to
+         * that git run, then keeping only git's own lines.
+         *
+         * @param lead What a person reads before git's words.
+         * @param standardError What git wrote.
+         * @param lent What the run was lent, in each form it may be said, as {@link
+         *     FetchAccess.Lease#lent()} names it.
+         * @return It.
+         */
+        public static Unreachable fromGit(
+                final String lead,
+                final String standardError,
+                final java.util.Collection<String> lent) {
+            // What was lent goes first, by value: git quotes the forge in more shapes than any
+            // filter of its lines knows. The filter stays as a second layer. User information is
+            // left out before the words are cut: a cut through an address would leave its user and
+            // secret without the '@' that marks them.
             final String own =
                     org.fuin.porelo.vault.RegistryText.printable(
                             ForgeAddress.withoutUserinfoIn(
-                                    TreeRepository.gitsOwnWords(standardError)
+                                    TreeRepository.gitsOwnWords(withoutLent(standardError, lent))
                                             .replace("\n", "; ")));
             if (own.isEmpty()) {
                 return new Unreachable(lead);
@@ -115,6 +134,26 @@ public final class GitTreeStore {
         }
 
         private static final int SAID = 400;
+
+        /** Stands where a value lent to git was. */
+        private static final String REMOVED = "[a lent value]";
+
+        /**
+         * Removes every lent value from what git wrote, the longest first, so that no form of a
+         * value is left half removed by a shorter one inside it.
+         */
+        private static String withoutLent(
+                final String standardError, final java.util.Collection<String> lent) {
+            String said = standardError;
+            for (final String value :
+                    lent.stream()
+                            .filter(each -> !each.isBlank())
+                            .sorted(java.util.Comparator.comparingInt(String::length).reversed())
+                            .toList()) {
+                said = said.replace(value, REMOVED);
+            }
+            return said;
+        }
 
         private static Cause causeOf(final String said) {
             if (said.contains("Host key verification failed")

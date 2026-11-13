@@ -68,3 +68,12 @@ drops them the same way. `porelo project sign` runs this in its own process; por
   reads itself (`GIT_`, `SSH_`, `LD_`) is never handed to git under that name. Each has a test that failed before.
 - Kept, from that reading: the credential helper does not hold a line to git's 65,535 bytes; git took longer lines,
   and no value leaks.
+- Codex read that again and found three more Reds, fixed: git's words dropped only lines of known shapes, so a forge
+  that echoed the lent value in another line ("protocol error: unexpected '...'", a second line after `ERR`) still
+  put it in the refusal. Each lease now names the values it lent: the token as is, stripped, URL-encoded and as
+  Basic. These are taken out of git's words before anything else reads them. The variable guard now also refuses
+  names that steer git's transport or the process (`*_PROXY`, `NO_PROXY`, `CURL_`, `SSL_`, `XDG_`, `HOME`, `PATH`
+  and the like). And a standard error tail cut midway into a line keeps none of that line, so a token at its end
+  cannot outlive the cut. Each has a test that failed before.
+- Kept: the guard is a list of refused names, not one allowed prefix; `credentials declare --env` takes any name
+  today, and names such as `GITHUB_TOKEN` stay usable.

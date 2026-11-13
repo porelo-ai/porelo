@@ -332,20 +332,42 @@ class ProcessCommandRunnerTest {
     void outputBeyondItsLimitIsKeptAsItsEndNotHeldWhole() {
 
         // Collected without a limit, what a hostile server made git print could run the daemon out
-        // of memory.
+        // of memory. END stands on a line of its own: the line the cut falls in is not kept.
         final CommandResult result =
                 new ProcessCommandRunner(java.time.Duration.ofSeconds(30))
                         .run(
                                 Command.of(
                                         "sh",
                                         "-c",
-                                        "head -c 40000000 /dev/zero | tr '\\0' 'x'; echo END"));
+                                        "head -c 40000000 /dev/zero | tr '\\0' 'x'; echo; echo END"));
 
         org.assertj.core.api.Assertions.assertThat(result.standardOutput().length())
                 .isLessThan(20_000_000);
         org.assertj.core.api.Assertions.assertThat(result.standardOutput())
                 .contains("cut")
                 .endsWith("END\n");
+    }
+
+    @Test
+    void aTailCutMidwayThroughALineKeepsNoneOfThatLine() {
+        // Cut midway through a forge's "remote:" line, the tail began with what the forge said and
+        // without the prefix that marks it as the forge's.
+        final CommandResult result =
+                new ProcessCommandRunner(Duration.ofSeconds(30))
+                        .run(
+                                Command.of(
+                                        "sh",
+                                        "-c",
+                                        "{ printf 'remote: '; head -c 20000000 /dev/zero | tr '\\0'"
+                                                + " 'x'; echo ' lent-token'; echo 'fatal: the end';"
+                                                + " } >&2"));
+
+        assertThat(result.standardError())
+                .as("the cut is said")
+                .contains("cut")
+                .doesNotContain("lent-token")
+                .doesNotContain("x")
+                .endsWith("fatal: the end\n");
     }
 
     @Test
