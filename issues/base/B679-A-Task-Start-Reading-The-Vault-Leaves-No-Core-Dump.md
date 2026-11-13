@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B679",
   "title": "A Task Start Reading The Vault Leaves No Core Dump",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 40,
