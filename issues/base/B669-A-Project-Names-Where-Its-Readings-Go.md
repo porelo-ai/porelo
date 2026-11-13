@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B669",
   "title": "A Project Names Where Its Readings Go",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 22,

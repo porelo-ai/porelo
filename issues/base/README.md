@@ -224,7 +224,6 @@ from its side, as *blocked by*.
 | <a id="b717"></a>[B717](B717-A-Task-Started-Without-A-Certificate-On-A-Host-In-Test-Mode.md) | M | - | On a host whose root switched on `start-uncertified`, `porelo task start` starts a task without a certificate after a clear warning and a yes, `--yes` answering it for scripts, and the host accepts such a start only while that switch is on. | 0 |
 | <a id="b617"></a>[B617](B617-An-Undecided-Organization-Read-Says-What-It-Waits-For.md) | M | - | A walk the identity source cannot decide keeps its words: `stale_why` `incomplete` names the commit that waits and what it waits for (the forge's key list, the founder's ownership, a card not vouched for) in `said` and a warning. | - |
 | <a id="b668"></a>[B668](B668-A-Task-Proposes-An-Idea.md) | M | - | A task proposes an idea for itself over its own task socket, where the project file allows it, with Tasks1.ProposeIdea(title, whatMustBeTrue); the idea is kept with the task and offered on its List and Watch row. | 0 |
-| <a id="b669"></a>[B669](B669-A-Project-Names-Where-Its-Readings-Go.md) | S | - | project.yml takes an optional readings.directory, a repository's porelo.yml may give its own, relative to the repository root without '..' or a leading '/', default 'readings'; a bad one is refused when the file is read. | 0 |
 | <a id="b670"></a>[B670](B670-A-Task-Is-Not-Given-Its-Issue-Prefixes.md) | XS | [B668](README.md#b668) | A task is no longer given PORELO_ISSUE_PREFIXES; the shared rule in each AGENTS.md says how issues are named instead. | 0 |
 | <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. | - |
 | <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. | - |
@@ -299,9 +298,10 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
+| <a id="b669"></a>[B669](B669-A-Project-Names-Where-Its-Readings-Go.md) | S | - | project.yml takes an optional readings.directory, a repository's porelo.yml may give its own, relative to the repository root without '..' or a leading '/', default 'readings'; a bad one is refused when the file is read. | 0 |
 
 ## Review
 
