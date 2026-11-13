@@ -70,6 +70,9 @@ class ContainerNameShapeTest {
                             "apps/app-model/src/main/java/org/fuin/porelo/app/TaskNames.java",
                             "a repository's name, whose 'porelo-' a task named after it drops"),
                     Map.entry(
+                            "acceptance/legs/src/main/java/org/fuin/porelo/legs/Leg.java",
+                            "the AppArmor profile 'porelo-task' the leg checks is loaded"),
+                    Map.entry(
                             "apps/app-task/src/main/java/org/fuin/porelo/app/CommandMask.java",
                             "a token Porelo issues, 'porelo_<kind>_<value>', masked in a command"));
 
