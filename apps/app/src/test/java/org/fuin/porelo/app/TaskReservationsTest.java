@@ -549,6 +549,109 @@ class TaskReservationsTest {
     }
 
     @Test
+    void reservingARetiredNameDeletesItsLeftoverMailbox() throws Exception {
+        final PoreloContext context = context();
+        final String container = org.fuin.porelo.runtime.ContainerName.encoded("web", "x", 1000);
+        final TaskReservations reservations = new TaskReservations(context);
+        try (final var original = reservations.reserve("web", "x", container, "first")) {}
+        reservations.retire(container);
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        mailbox.create();
+        Files.writeString(mailbox.inboxCur().resolve("old-message.json"), "{}");
+        Files.writeString(mailbox.rejected().resolve("old-original.json"), "{}");
+
+        try (final var next = reservations.start("web", "x", container)) {
+            assertThat(mailbox.root())
+                    .as("a new reservation takes none of the removed task's mailbox")
+                    .doesNotExist();
+            assertThat(next.attempt())
+                    .as("the new task holds an attempt of its own")
+                    .isNotEqualTo("first");
+        }
+    }
+
+    @Test
+    void aRetiredMailboxThatCannotBeDeletedRefusesTheStartWithRecoveryGuidance() throws Exception {
+        final PoreloContext context = context();
+        final String container = org.fuin.porelo.runtime.ContainerName.encoded("web", "x", 1000);
+        final TaskReservations reservations = new TaskReservations(context);
+        try (final var original = reservations.reserve("web", "x", container, "first")) {}
+        reservations.retire(container);
+        final Path stuck = undeletable(context, container);
+        final Path project =
+                Files.writeString(
+                        dir.resolve("project.yml"),
+                        "project: {name: web, security_class: guarded}\nimage: {from: 'ubuntu:24.04'}\n");
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("web", project);
+        final var cli = PoreloCli.commandLine(context);
+        final java.io.StringWriter said = new java.io.StringWriter();
+        cli.setOut(new java.io.PrintWriter(java.io.Writer.nullWriter()));
+        cli.setErr(new java.io.PrintWriter(said, true));
+        try {
+            assertThatThrownBy(() -> reservations.start("web", "x", container))
+                    .as("the reservation reports a failed mailbox cleanup")
+                    .isInstanceOf(java.io.IOException.class)
+                    .hasMessageContaining("mailbox")
+                    .hasMessageContaining("porelo prune")
+                    .hasMessageNotContaining(
+                            context.paths().messaging().mailbox(container).toString());
+            assertThat(
+                            cli.execute(
+                                    "task",
+                                    "start",
+                                    "x",
+                                    "-p",
+                                    "web",
+                                    "--repository",
+                                    "web",
+                                    "--attach",
+                                    "shell",
+                                    "--no-input"))
+                    .as("a leftover mailbox must refuse before a new task is made: %s", said)
+                    .isEqualTo(70);
+            assertThat(said.toString())
+                    .as("the refusal names the kind and recovery command without exposing paths")
+                    .contains("mailbox", "porelo prune")
+                    .doesNotContain(context.paths().messaging().mailbox(container).toString())
+                    .doesNotContain(stuck.toString());
+            assertThat(reservations.removed(container))
+                    .as("a failed cleanup leaves the name retired for prune or another start")
+                    .isTrue();
+            assertThat(runner.lines())
+                    .as("a refusal must not build or create a container")
+                    .noneMatch(
+                            line ->
+                                    line.contains("podman create")
+                                            || line.contains("podman build"));
+        } finally {
+            Files.setPosixFilePermissions(
+                    stuck, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+        try (final var next = reservations.start("web", "x", container)) {
+            assertThat(context.paths().messaging().mailbox(container))
+                    .as("repairing the leftover lets a later reservation clean it and proceed")
+                    .doesNotExist();
+        }
+    }
+
+    @Test
+    void anotherOwnerCannotDeleteARetiredTasksLeftoverMailbox() throws Exception {
+        final PoreloContext context = context();
+        final String container = org.fuin.porelo.runtime.ContainerName.contract("web", "app-x");
+        final TaskReservations reservations = new TaskReservations(context);
+        try (final var original = reservations.reserve("web", "app-x", container, "first")) {}
+        reservations.retire(container);
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        mailbox.create();
+        final Path message = Files.writeString(mailbox.inboxCur().resolve("message.json"), "{}");
+
+        assertThatThrownBy(() -> reservations.start("web-app", "x", container))
+                .as("historical ownership must be checked before cleanup")
+                .isInstanceOf(TaskReservations.ContainerNameTaken.class);
+        assertThat(message).as("another owner's conversation is left alone").hasContent("{}");
+    }
+
+    @Test
     void aRetryCannotFollowAReplacedMailboxLink() throws Exception {
         final PoreloContext context = context();
         final TaskReservations reservations = new TaskReservations(context);

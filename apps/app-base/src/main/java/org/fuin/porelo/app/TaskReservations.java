@@ -87,6 +87,20 @@ public final class TaskReservations {
         }
     }
 
+    /** A retired task's leftover mailbox could not be removed before a new reservation. */
+    public static final class MailboxNotDeleted extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        /** The safe refusal, naming the leftover's kind and how to clear it. */
+        public static final String DETAIL =
+                "could not delete the retired task's leftover mailbox; run 'porelo prune' and"
+                        + " start again";
+
+        private MailboxNotDeleted(final IOException cause) {
+            super(DETAIL, cause);
+        }
+    }
+
     private enum Stage {
         RESERVED,
         CREATED,
@@ -260,11 +274,15 @@ public final class TaskReservations {
                                 LinkOption.NOFOLLOW_LINKS)
                         || Files.exists(
                                 context.paths().tasks().taskRecord(container),
-                                LinkOption.NOFOLLOW_LINKS)
-                        || Files.exists(
-                                context.paths().messaging().mailbox(container),
                                 LinkOption.NOFOLLOW_LINKS)) {
                     throw taken(project, task, container, old);
+                }
+                // Still under the name lock: no new task may inherit the removed task's mail,
+                // and no other start may claim the name between this delete and publication.
+                try {
+                    new Mailbox(context.paths().messaging().mailbox(container)).delete();
+                } catch (final IOException ex) {
+                    throw new MailboxNotDeleted(ex);
                 }
                 final Claim fresh =
                         new Claim(

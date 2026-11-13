@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B690",
   "title": "A New Start Of A Retired Name Takes No Old Mailbox",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 44,
@@ -37,3 +37,18 @@ deleted before the start, or the start is refused, naming the leftover and how t
 ## Acceptance
 
 - A start of a retired name never sees the removed task's mail; a test fails while it does.
+
+## Built
+
+`TaskReservations` removes a retired name's leftover mailbox while it still holds the name lock,
+before the new reservation is published, so no new task inherits the old task's mail and no other
+start can claim the name in between. If the mailbox cannot be removed, the start is refused with
+`MailboxNotDeleted`: `TaskLaunch` exits 70, and the message names `porelo prune`. The retired claim
+stays.
+
+Tests (apps/app): `TaskReservationsTest.reservingARetiredNameDeletesItsLeftoverMailbox`,
+`aRetiredMailboxThatCannotBeDeletedRefusesTheStartWithRecoveryGuidance`,
+`anotherOwnerCannotDeleteARetiredTasksLeftoverMailbox`, and
+`TaskRunCommandTest.aNewStartOfARetiredNameSeesNoOldMailOrRefusedOriginals`. Red on the base with
+only the tests changed: 2 failures and 1 error in 455 tests. Green on the change: 455 tests, 0
+failures.

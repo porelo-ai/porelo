@@ -459,6 +459,43 @@ class TaskRunCommandTest {
                 .noneMatch(line -> line.contains("podman create") || line.contains("podman build"));
     }
 
+    @Test
+    void aNewStartOfARetiredNameSeesNoOldMailOrRefusedOriginals(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        final String projectName = projectFile(dir, MINIMAL);
+        final var project =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        ProjectSource.require(context, projectName));
+        final String container = context.tasks().containerName(project, "shell");
+        final TaskReservations reservations = new TaskReservations(context);
+        try (final var original = reservations.reserve("uc", "shell", container, "first")) {}
+        reservations.retire(container);
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        mailbox.create();
+        final Path message =
+                Files.writeString(mailbox.inboxCur().resolve("old-message.json"), "{}");
+        final Path original =
+                Files.writeString(mailbox.rejected().resolve("old-original.json"), "{}");
+        new MessageRecord(mailbox).append(MessageRecord.TAKEN, "old-message.json", "old", "signed");
+
+        final int code =
+                startAt(context, true, "--attach", "shell", "--no-gate", "-p", projectName);
+
+        assertThat(code).as("the retired task's name can start anew: %s", err).isZero();
+        assertThat(mailbox.root()).as("the new task has its own mailbox").isDirectory();
+        assertThat(message).as("the new task cannot read the old task's mail").doesNotExist();
+        assertThat(original)
+                .as("the removed task's refused originals do not reach the new task")
+                .doesNotExist();
+        assertThat(mailbox.record().resolve(MessageRecord.FILE))
+                .as("the old conversation record is not inherited either")
+                .doesNotExist();
+        assertThat(runner.lines())
+                .as("a successful reservation reaches container creation")
+                .anyMatch(line -> line.contains("podman create"));
+    }
+
     private static final String MINIMAL =
             """
             project:
