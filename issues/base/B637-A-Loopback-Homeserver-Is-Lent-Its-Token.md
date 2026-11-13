@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B637",
   "title": "A Loopback Homeserver Is Lent Its Token",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Low",
   "rank": 1,
