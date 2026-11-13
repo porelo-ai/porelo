@@ -34,6 +34,173 @@ class HostFollowProjectsTest {
         return (Map<String, Object>) value;
     }
 
+    private List<Integer> keeps() {
+        return java.util.stream.IntStream.range(0, f.commands.size())
+                .filter(i -> f.commands.get(i).contains("keep-room"))
+                .boxed()
+                .toList();
+    }
+
+    private Map<String, Object> namesAt(int index) {
+        final var input = row(HostJson.parse(f.inputs.get(index)));
+        assertThat(row(input.get("secrets")))
+                .containsExactlyEntriesOf(
+                        Map.of("PORELO_MATRIX_ADMIN_TOKEN", "matrix-private-token"));
+        return row(row(input.getOrDefault("settings", Map.of())).getOrDefault("names", Map.of()));
+    }
+
+    // Swapped or split names can create another person's account before their first sign-in.
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"Bob", "Bob, B=One", "Bob \"B\" \\ {\"secrets\"=false}", " Bob, B=One "})
+    void admittedNamesReachOnlyTheirOwnLoginsOnStdin(String display) throws Exception {
+        gate();
+        f.person(1).put("name", display);
+        f.person(2).put("name", "Charlie Chosen");
+        f.run();
+        final int index = keeps().getLast();
+        assertThat(namesAt(index))
+                .containsExactlyInAnyOrderEntriesOf(
+                        Map.of("bob", display.strip(), "charlie", "Charlie Chosen"));
+        assertThat(f.commands.get(index)).containsSequence("--persons", "bob,charlie");
+        assertThat(f.commands.toString() + f.journal)
+                .doesNotContain(display, "Charlie Chosen", "matrix-private-token");
+        assertThat(row(((List<?>) f.applied().get("persons")).get(1)))
+                .containsEntry("name", display.strip());
+    }
+
+    // A chosen name must never keep a locked or revoked account in the room.
+    @ParameterizedTest
+    @ValueSource(strings = {"revoked", "locked"})
+    void excludedPeopleLeaveBothRoomInputs(String exclusion) throws Exception {
+        gate();
+        f.person(1).put("name", "Bob Chosen");
+        f.person(2).put("name", "Charlie Chosen");
+        f.run();
+        if (exclusion.equals("revoked")) {
+            f.person(1).put("revoked", true);
+        } else {
+            row(((List<?>) f.project().get("members")).getFirst()).put("locked", true);
+        }
+        f.next("b");
+        f.run();
+        final int index = keeps().getLast();
+        assertThat(f.commands.get(index)).containsSequence("--persons", "charlie");
+        assertThat(namesAt(index)).containsExactlyEntriesOf(Map.of("charlie", "Charlie Chosen"));
+    }
+
+    // An older applied row must not manufacture a display name from the login.
+    @Test
+    void olderRowsWithoutNamesKeepMembershipWithoutInventingNames() throws Exception {
+        gate();
+        f.run();
+        assertThat(namesAt(keeps().getLast())).isEmpty();
+        assertThat(f.commands.get(keeps().getLast())).containsSequence("--persons", "bob,charlie");
+    }
+
+    // Padded names must not exceed transport input limits and permanently spare removed members.
+    @Test
+    void aPaddedNameCannotStopRoomMembershipReconciliation() throws Exception {
+        gate();
+        f.run();
+        f.person(1).put("name", "Bob" + "\u2000".repeat(180_000));
+        f.person(2).put("revoked", true);
+        f.next("b");
+        f.override =
+                argv -> {
+                    if (!argv.contains("keep-room")) return null;
+                    return f.inputs.getLast().length() > 1024 * 1024
+                            ? new HostPrograms.Result(78, "")
+                            : new HostPrograms.Result(0, "{\"room\":\"!alpha:host\"}");
+                };
+        f.run();
+        assertThat(f.item()).doesNotContainKey("room_refused");
+        final int index = keeps().getLast();
+        assertThat(f.inputs.get(index).length()).isLessThan(1024);
+        assertThat(namesAt(index)).containsExactlyEntriesOf(Map.of("bob", "Bob"));
+        assertThat(f.commands.get(index)).containsSequence("--persons", "bob");
+        assertThat(new HostRecords(f.host).read().get("charlie").locked()).isTrue();
+        f.run();
+        assertThat(keeps()).hasSize(3);
+    }
+
+    // A malformed display must not block a different person's access removal or leak its value.
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "",
+                " ",
+                "Bad:Name",
+                "Bad@Name",
+                "Bad\u0001Name",
+                "Bad\u200dName",
+                "TOO_LONG",
+                "NOT_TEXT",
+                "VERY_LONG"
+            })
+    void invalidNamesDoNotPreventRevocationOrMembership(String invalid) throws Exception {
+        gate();
+        final Object display =
+                invalid.equals("TOO_LONG")
+                        ? "X".repeat(65)
+                        : invalid.equals("NOT_TEXT")
+                                ? Map.of("bad", "value")
+                                : invalid.equals("VERY_LONG")
+                                        ? "\u2000".repeat(180_000) + "Bad:Name"
+                                        : invalid;
+        f.person(1).put("name", display);
+        f.person(2).put("revoked", true);
+        f.run();
+        assertThat(new HostRecords(f.host).read().get("charlie").locked()).isTrue();
+        final int index = keeps().getLast();
+        assertThat(f.commands.get(index)).containsSequence("--persons", "bob");
+        assertThat(namesAt(index)).isEmpty();
+        assertThat(f.item().get("why")).asString().contains("name", "refused");
+        assertThat(f.journal.toString()).contains("name", "refused");
+        if (!invalid.isBlank()) {
+            assertThat(f.journal.toString() + f.item().get("why"))
+                    .doesNotContain(display.toString());
+        }
+    }
+
+    // A permanent naming refusal must not freeze membership or loop with the same rejected input.
+    @Test
+    void aTransportNameRefusalStillReconcilesAndRetriesOnlyChangedNames() throws Exception {
+        gate();
+        f.person(1).put("name", "Bob Chosen");
+        f.person(2).put("revoked", true);
+        f.override =
+                argv -> {
+                    if (!argv.contains("keep-room")) return null;
+                    final var names = namesAt(f.commands.size() - 1);
+                    return names.isEmpty()
+                            ? new HostPrograms.Result(0, "{\"room\":\"!alpha:host\"}")
+                            : new HostPrograms.Result(
+                                    64,
+                                    "Bob Chosen matrix-private-token",
+                                    "Bob Chosen matrix-private-token");
+                };
+        f.run();
+        assertThat(keeps()).hasSize(2);
+        assertThat(namesAt(keeps().getFirst())).containsEntry("bob", "Bob Chosen");
+        assertThat(namesAt(keeps().getLast())).isEmpty();
+        assertThat(f.commands.get(keeps().getLast())).containsSequence("--persons", "bob");
+        assertThat(publication()).containsEntry("room", "!alpha:host");
+        assertThat(f.item().get("why")).asString().contains("names", "refused", "64");
+        assertThat(f.journal.toString())
+                .contains("names", "refused")
+                .doesNotContain("Bob Chosen", "matrix-private-token");
+        f.run();
+        assertThat(keeps()).hasSize(3);
+        assertThat(namesAt(keeps().getLast())).isEmpty();
+        f.person(1).put("name", "Robert Chosen");
+        f.next("b");
+        f.override = argv -> null;
+        f.run();
+        assertThat(namesAt(keeps().getLast())).containsEntry("bob", "Robert Chosen");
+        assertThat(f.item()).containsEntry("why", null);
+    }
+
     private void item(Map<String, Object> change) throws Exception {
         final var entries = f.progress();
         final var item = row(entries.get("alpha"));

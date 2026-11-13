@@ -130,6 +130,14 @@ final class FollowState {
                         65, name + ": the organization's key or login belongs to another account");
             }
             final var person = object(row);
+            person.remove("name_refused");
+            if (person.get("name") != null) {
+                final String display = FollowRooms.display(person.get("name"));
+                person.put("name", display);
+                if (display == null) {
+                    person.put("name_refused", true);
+                }
+            }
             person.put("ssh", ssh);
             persons.add(person);
         }

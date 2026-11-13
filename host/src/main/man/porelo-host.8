@@ -560,6 +560,19 @@ Repositories without a project-file key keep repository <forge-name> <central-ht
 The person's command checks every selected central receive endpoint using its
 checked curl and CA before pushing. A central HTTP 401 names the forge and status,
 returns nonzero, and requests no replacement token.
+.PP
+Admitted persons' chosen names come from their verified organization cards and go
+to keep-room as settings.names on JSON standard input beside its administrator
+credential, never in arguments. Missing names stay absent. Names do not affect
+admission or account ownership. The transport names only missing or unnamed
+accounts and preserves any existing nonempty display name.
+.PP
+Invalid display names are reported by login without their values; membership
+still reconciles. A transport name refusal (64) retries membership without names
+and suppresses the unchanged rejected name map on later follows. Changed names
+are tried again. Room configuration refusal (78) leaves the room alone, while
+transient refusal (75) is retried. These operations use the existing gate account
+and require no additional sudo rule.
 .SS org refresh
 Follow immediately from the window over root's SSH connection. The central token
 arrives on standard input alone, at most 4096 bytes, for adding the host's read key

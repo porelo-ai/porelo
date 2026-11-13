@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B591",
   "title": "The Room Receives A Person's Chosen Name",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
@@ -60,3 +60,19 @@ has `name`, but `organization/git-tree`'s `GitTreeOffline.persons` omits it from
 
 - Confirm the installed transport advertises or documents the `settings.names` contract before machine acceptance;
   measure the host's permanent-refusal handling for an invalid display name without treating a name as admission.
+
+## Built
+
+- `GitTreeOffline.persons` includes the verified card's `name`. `FollowState` keeps a valid, stripped display name
+  in its applied row, or a refusal marker for invalid display data, without refusing identity checks or revocations.
+  Rows without a name stay readable; no display name is made from a login.
+- `FollowProjects` pairs the applied names with exactly the logins `FollowPeople.readerLogins` admits after card
+  locks. `FollowRooms` hands them and the existing secrets as JSON on stdin to `keep-room`; `--persons` stays the
+  login list, and no name enters an argument.
+- A transport exit 64 with names is retried for membership alone; a fingerprint of the refused names keeps unchanged
+  ones from being sent again without keeping their values, and a changed name is tried again. Neither a padded nor an
+  invalid name stops a later reconciliation.
+- Red first in `HostFollowProjectsTest` (stdin per admitted login, commas and equals in one name, locks and
+  revocations, older rows, invalid names, a refusal that echoes the name and token) and `GitTreeOfflineContractTest`
+  (a signed card's name that differs from its login).
+- The real room on an installed host with its transport is machine acceptance, not covered by these tests.

@@ -40,6 +40,22 @@ A project gets its conversation from a transport named under `mail.transports` i
 [project file](project-file.md), or by its host's file where the project file names no homeserver or room; for
 Matrix, the project's conversation is one room.
 
+On a host following an organization, each admitted person's chosen name comes from their verified
+organization card. The host pairs names only with the logins admitted after card locks, and passes
+them as `settings.names` on `keep-room`'s JSON stdin beside the administrator credential. Names never
+grant admission or change the login that owns an account. Older person rows without names remain
+readable; the host invents no name from a login.
+
+The transport makes a named missing account with that name and names an existing account only if it
+has no name. Any nonempty name the person sets in their Matrix client survives subsequent follows.
+A display name must contain 1 to 64 characters after trimming, without control or format characters,
+`@` or `:`; commas, equals signs, quotes and backslashes are ordinary name characters. The host
+reports invalid names by login without printing their values and reconciles membership with the
+remaining names. If the transport refuses names with exit 64, the host reports the refusal and
+reconciles the same admitted logins without names. Later follows keep reconciling membership and
+retry those names only after the supplied name map changes. A transport configuration refusal
+(exit 78) still leaves the room alone; a transient refusal (exit 75) is retried on the next follow.
+
 ```yaml
 mail:
   transports:

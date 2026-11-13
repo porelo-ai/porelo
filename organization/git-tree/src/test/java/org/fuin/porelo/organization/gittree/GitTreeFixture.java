@@ -281,6 +281,20 @@ final class GitTreeFixture implements OrganizationFixture, OfflineFixture {
         commit(nameOf(login));
     }
 
+    void fileCardNamed(final String login, final String display) throws IOException {
+        write(
+                "people/" + login + ".card",
+                PersonCard.write(
+                        login,
+                        display,
+                        "",
+                        keyNamed(nameOf(login)),
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2030, 1, 1),
+                        null));
+        commit(nameOf(login));
+    }
+
     @Override
     public void fileCardWithKeyOf(final String login, final String holder) throws IOException {
         forge.keys.put(login, List.of(key(holder)));

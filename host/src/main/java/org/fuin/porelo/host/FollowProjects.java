@@ -457,13 +457,8 @@ final class FollowProjects {
                     item.put("gate", FollowRooms.installed(c));
                     if (Boolean.TRUE.equals(item.get("gate"))
                             && !Boolean.TRUE.equals(item.get("room_refused"))) {
-                        item.putAll(
-                                FollowRooms.room(
-                                        c,
-                                        "keep-room",
-                                        name,
-                                        new FollowPeople(c)
-                                                .readerLogins(project).stream().sorted().toList()));
+                        keepRoom(applied, project, item);
+                        item.put("why", why(item, project));
                     }
                     if (forgeError != null) {
                         throw forgeError;
@@ -507,6 +502,61 @@ final class FollowProjects {
         }
     }
 
+    private void keepRoom(
+            Map<String, @Nullable Object> applied,
+            Map<String, @Nullable Object> project,
+            Map<String, @Nullable Object> item)
+            throws IOException {
+        final String name = string(project.get("project"));
+        final var persons = new FollowPeople(c).readerLogins(project).stream().sorted().toList();
+        final var names = FollowRooms.names(applied, persons);
+        final String fingerprint;
+        try {
+            fingerprint =
+                    java.util.HexFormat.of()
+                            .formatHex(
+                                    MessageDigest.getInstance("SHA-256")
+                                            .digest(
+                                                    ProjectRecords.pythonJson(names.values(), false)
+                                                            .getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is required by the JDK", ex);
+        }
+        final List<String> refusals = new ArrayList<>();
+        if (!names.refused().isEmpty()) {
+            refusals.add(
+                    "room names refused for "
+                            + String.join(", ", names.refused())
+                            + ": each must be text of 1 to 64 characters without control or format characters, '@' or ':'");
+        }
+        final boolean refused = fingerprint.equals(item.get("room_names_refused"));
+        if (!refused) {
+            item.remove("room_names_refused");
+        }
+        try {
+            item.putAll(
+                    FollowRooms.room(
+                            c, "keep-room", name, persons, refused ? Map.of() : names.values()));
+        } catch (HostRefusal ex) {
+            if (ex.exitCode() != 64) {
+                throw ex;
+            }
+            // A display refusal must never spare a member whose access was removed.
+            item.put("room_names_refused", fingerprint);
+            item.putAll(FollowRooms.room(c, "keep-room", name, persons));
+        } finally {
+            if (item.containsKey("room_names_refused")) {
+                refusals.add(
+                        "the transport refused the room names (exit 64); membership is retried without names until they change");
+            }
+            final String why = refusals.isEmpty() ? null : String.join("; ", refusals);
+            item.put("room_names_why", why);
+            if (why != null) {
+                c.err.println("porelo-host: " + name + ": " + why);
+            }
+        }
+    }
+
     static @Nullable String why(
             Map<String, @Nullable Object> item, Map<String, @Nullable Object> project) {
         final Map<String, List<String>> grouped = new LinkedHashMap<>();
@@ -530,7 +580,8 @@ final class FollowProjects {
                         project.get("why"),
                         item.get("file_refused"),
                         item.get("advance_refused"),
-                        item.get("named_refused"))) {
+                        item.get("named_refused"),
+                        item.get("room_names_why"))) {
             if (value instanceof String text && !text.isEmpty()) {
                 words.add(text);
             }

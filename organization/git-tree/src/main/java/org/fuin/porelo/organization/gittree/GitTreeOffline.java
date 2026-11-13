@@ -156,6 +156,7 @@ public final class GitTreeOffline implements OfflineOrganization {
                     && (person.revoked() || Organization.TRUSTED.equals(person.state()))) {
                 final Map<String, Object> row = new LinkedHashMap<>();
                 row.put("login", person.login());
+                row.put("name", person.name());
                 row.put("key", person.key());
                 row.put("expires", person.expires().toString());
                 row.put("revoked", person.revoked());
