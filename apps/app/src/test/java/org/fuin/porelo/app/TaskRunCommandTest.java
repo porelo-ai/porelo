@@ -4074,7 +4074,7 @@ class TaskRunCommandTest {
         Files.writeString(
                 helpers,
                 "#!/bin/sh\n"
-                        + OwnPorelo.WATCHER
+                        + OwnPorelo.watcher(HelperStandIn.registry(directory), true)
                         + "if [ \"$1\" = gate ] && [ \"$2\" = serve ]; then\n"
                         + HelperStandIn.lines(HelperStandIn.registry(directory), false)
                         + "fi\n"
@@ -4209,6 +4209,98 @@ class TaskRunCommandTest {
                 new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
                         .forget();
             }
+        }
+    }
+
+    @Test
+    void aStartWhoseBrokerNeverRecordsItsPidFailsAndLeavesItNotRunning(@TempDir Path dir)
+            throws IOException {
+
+        // Taken as up once its token was there, a broker that never recorded its pid let the start
+        // answer 0, and nothing that cleans up by the pid files ever found it.
+        final PoreloContext context = brokeredContext(dir);
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(
+                PoreloBinary.NAMED, broker(helpers, true, ownPorelo, false, false).toString());
+        try {
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--no-gate");
+
+            assertThat(started)
+                    .as("a broker that never recorded its pid fails the start: %s", err)
+                    .isEqualTo(70);
+            assertThat(err.toString()).contains("the credential proxy did not come up");
+            assertThat(HelperStandIn.started(helpers)).as("its broker was started").isEqualTo(1);
+            assertThat(HelperStandIn.anyRunning(helpers))
+                    .as("and is not left running: %s", out)
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            // What the start's opening cached, as the account's keyring would have kept it.
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
+    @Test
+    void aStartWhoseWatcherNeverRecordsItsPidFailsAndLeavesNoHelperRunning(@TempDir Path dir)
+            throws IOException {
+
+        // Taken as up once it listened, a watcher that never recorded its pid let the start answer
+        // 0, and nothing that cleans up by the pid files ever found it.
+        final PoreloContext context = countingContext(dir);
+        final Path directory = Files.createDirectories(dir.resolve("helpers"));
+        final Path helpers = directory.resolve("porelo");
+        // Every other helper comes up; the watcher listens and never records its pid.
+        Files.writeString(
+                helpers,
+                "#!/bin/sh\n"
+                        + OwnPorelo.watcher(HelperStandIn.registry(directory), false)
+                        + HelperStandIn.lines(HelperStandIn.registry(directory), true));
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("{{.State.Pid}}", "4242");
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
+        try {
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--clearance",
+                            "prompt");
+
+            assertThat(started)
+                    .as("a watcher that never recorded its pid fails the start: %s", err)
+                    .isEqualTo(70);
+            assertThat(err.toString()).contains("the clearance watcher did not come up");
+            assertThat(HelperStandIn.started(directory))
+                    .as("its helpers were started: %s", out)
+                    .isGreaterThanOrEqualTo(2);
+            assertThat(HelperStandIn.anyRunning(directory))
+                    .as("and nothing the start made is left running")
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(directory);
         }
     }
 
@@ -4540,6 +4632,20 @@ class TaskRunCommandTest {
      */
     private static Path broker(Path helpers, boolean givesToken, String ownPorelo, boolean stubborn)
             throws IOException {
+        return broker(helpers, givesToken, ownPorelo, stubborn, true);
+    }
+
+    /**
+     * A porelo whose {@code vault serve} is a stand-in, as {@link #broker(Path, boolean, String,
+     * boolean)} makes it, that writes its {@code --pid-file} only when {@code recordsItsPid}.
+     */
+    private static Path broker(
+            Path helpers,
+            boolean givesToken,
+            String ownPorelo,
+            boolean stubborn,
+            boolean recordsItsPid)
+            throws IOException {
         final Path program = helpers.resolve("brokering-porelo");
         Files.writeString(
                 program,
@@ -4562,7 +4668,7 @@ class TaskRunCommandTest {
                         .formatted(
                                 givesToken ? "echo stand-in-token > \"$argument\"" : ":",
                                 stubborn ? "trap '' TERM" : "",
-                                HelperStandIn.lines(HelperStandIn.registry(helpers), true),
+                                HelperStandIn.lines(HelperStandIn.registry(helpers), recordsItsPid),
                                 shellArgument(ownPorelo)));
         Files.setPosixFilePermissions(
                 program, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
@@ -4718,8 +4824,8 @@ class TaskRunCommandTest {
     }
 
     /**
-     * Writes a {@code porelo} whose helpers are stand-ins: a watcher that makes its socket and
-     * exits, and every other helper one that records its pid and blocks until the test stops it.
+     * Writes a {@code porelo} whose helpers are stand-ins: a watcher that makes its socket, and
+     * every helper one that records its pid and blocks until the test stops it.
      */
     private static Path helperStandIns(Path dir) throws IOException {
         final Path directory = Files.createDirectories(dir.resolve("helpers"));
@@ -4727,7 +4833,7 @@ class TaskRunCommandTest {
         Files.writeString(
                 helpers,
                 "#!/bin/sh\n"
-                        + OwnPorelo.WATCHER
+                        + OwnPorelo.watcher(HelperStandIn.registry(directory), true)
                         + HelperStandIn.lines(HelperStandIn.registry(directory), true));
         Files.setPosixFilePermissions(
                 helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));

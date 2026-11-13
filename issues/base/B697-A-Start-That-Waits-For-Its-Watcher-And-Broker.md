@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B697",
   "title": "A Start That Waits For Its Watcher And Broker",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 51,
@@ -34,3 +34,27 @@ that helper, cleans up and ends 70, naming the helper.
 ## Acceptance
 
 - A start with a watcher or broker that never comes up ends 70 with nothing left; a test fails while it goes on.
+
+## Built
+
+By the start commit, a watcher that never listened and a broker that never wrote its token already ended the start
+with 70. What was missing was waiting for each helper's pid, as the gate and the relay are waited for.
+
+- `ClearanceWiring.startClearance`: once the watcher's socket is there, the start waits through `HelperPid.await` for
+  `state/watcher.pid`, within `GateWiring.HELPER_PATIENCE`. The deadline is counted from the watcher's start. With no
+  pid, the watcher is ended through its handle and the start says "the clearance watcher did not come up". It then
+  ends 70 with its cleanup. The wait for the socket stays, since the watcher misses connections made before it
+  listens.
+- `CredentialWiring.startVault`: once the broker's token is there, the start waits for `state/vault.pid` in the same
+  way. With no pid, the broker is ended, and the start says "the credential proxy did not come up" and ends 70 through
+  `BrokerDown`.
+- Tests:
+  - `OwnPorelo.watcher(registry, recordsItsPid)` replaces the fixed stand-in; `broker(...)` takes `recordsItsPid`.
+  - New: `aStartWhoseBrokerNeverRecordsItsPidFailsAndLeavesItNotRunning` and
+    `aStartWhoseWatcherNeverRecordsItsPidFailsAndLeavesNoHelperRunning`. Each helper ignores TERM, and nothing is left
+    running.
+  - Both failed on the build box before the change (`buildbox-porelo-d46155ba8b9d-20261113T171002Z.log`) and pass
+    after it (`buildbox-porelo-7f42217a4606-20261113T171238Z.log`). The green run covers TaskRunCommandTest (287
+    tests), StartCheckTest and the wiring tests, with 0 skipped.
+- Not covered: the repository broker (`startRepositories`) still waits only for its socket, and a start goes on
+  without it when it fails. That is filed apart.

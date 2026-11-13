@@ -166,7 +166,13 @@ final class ClearanceWiring {
             // Returned only once it listens: it follows the event log from where it starts, so a
             // connection the agent makes before then is dropped and never seen - measured, when the
             // watcher's start began to go through the user manager and took a round trip longer.
-            if (!listening(state.resolve("clearance.sock"), WATCHER_PATIENCE, watcher::isAlive)) {
+            // Its pid as the gate's and the relay's, from its start: it records it once it
+            // listens, and one that never does is found by nothing that cleans up by the pid files.
+            final long recorded =
+                    org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
+            if (!listening(state.resolve("clearance.sock"), WATCHER_PATIENCE, watcher::isAlive)
+                    || org.fuin.porelo.wire.HelperPid.await(state.resolve("watcher.pid"), recorded)
+                            .isEmpty()) {
                 // Ended here, by its own handle, and the start fails: a watcher that never
                 // listened left the task with nobody to ask about a blocked connection, and ran on.
                 org.fuin.porelo.wire.HelperPid.end(watcher.toHandle(), GateWiring.HELPER_GRACE);

@@ -22,7 +22,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * <p><strong>All but the clearance watcher.</strong> A watcher follows its events file until
  * something stops it: one whose pid file was not yet written when a test's teardown looked, or one
  * a test leaves running on purpose, outlived the JVM and never exited. The stand-in does what a
- * start waits for, making the socket a watcher listens on, and exits.
+ * start waits for, making the socket a watcher listens on and recording its pid, as a {@link
+ * HelperStandIn} stopped after each test.
  *
  * <p><strong>And but the gate.</strong> This build's {@code gate serve} served whatever project of
  * that name the account itself has; a start waits for its gate's pid, so the gate is a {@link
@@ -30,17 +31,26 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  */
 final class OwnPorelo implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
 
-    /** Answers {@code shield watch} by making its {@code --socket} and exiting. */
-    static final String WATCHER =
-            """
-            if [ "$1" = shield ] && [ "$2" = watch ]; then
-              while [ $# -gt 1 ]; do
-                [ "$1" = --socket ] && : > "$2"
-                shift
-              done
-              exit 0
-            fi
-            """;
+    /**
+     * Returns the lines that answer {@code shield watch} by making its {@code --socket}, then
+     * standing in as a {@link HelperStandIn} does.
+     *
+     * @param registry Where the stand-in records itself.
+     * @param recordsItsPid Whether it writes its {@code --pid-file}.
+     * @return The lines, which end the program for a watcher.
+     */
+    static String watcher(final Path registry, final boolean recordsItsPid) {
+        return """
+               if [ "$1" = shield ] && [ "$2" = watch ]; then
+                 previous=
+                 for argument; do
+                   [ "$previous" = --socket ] && : > "$argument"
+                   previous=$argument
+                 done
+               """
+                + HelperStandIn.lines(registry, recordsItsPid)
+                + "fi\n";
+    }
 
     private @org.jspecify.annotations.Nullable Path directory;
 
@@ -52,7 +62,7 @@ final class OwnPorelo implements BeforeAllCallback, AfterAllCallback, AfterEachC
         Files.writeString(
                 launcher,
                 "#!/bin/sh\n"
-                        + WATCHER
+                        + watcher(HelperStandIn.registry(directory), true)
                         + "if [ \"$1\" = gate ] && [ \"$2\" = serve ]; then\n"
                         + HelperStandIn.lines(HelperStandIn.registry(directory), true)
                         + "fi\n"

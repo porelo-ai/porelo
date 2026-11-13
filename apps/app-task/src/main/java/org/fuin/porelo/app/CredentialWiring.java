@@ -644,8 +644,14 @@ final class CredentialWiring {
             throw new BrokerDown("could not start the credential proxy");
         }
 
+        // From its start, as the gate's and the relay's patience runs from theirs.
+        final long recorded = org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
         final String token = awaitToken(socket, tokenFile);
-        if (token == null) {
+        // Recorded before its token is published; a broker whose pid is not there is one nothing
+        // that cleans up by the pid files finds, and the start that went on left it running.
+        if (token == null
+                || org.fuin.porelo.wire.HelperPid.await(state.resolve("vault.pid"), recorded)
+                        .isEmpty()) {
             // Ended here, by its own handle: it may never have recorded its pid, and then nothing
             // that cleans up by the pid files finds it.
             org.fuin.porelo.wire.HelperPid.end(broker.toHandle(), GateWiring.HELPER_GRACE);
