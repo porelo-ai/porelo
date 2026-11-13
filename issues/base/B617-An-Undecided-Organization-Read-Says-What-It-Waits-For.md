@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B617",
   "title": "An Undecided Organization Read Says What It Waits For",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 20,
