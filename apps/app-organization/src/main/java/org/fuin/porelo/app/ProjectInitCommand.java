@@ -55,8 +55,15 @@ public class ProjectInitCommand extends OrgReading {
     /** Asks the installed plugin; tests can exercise refusals without a socket. */
     EcosystemDetector detector = EcosystemDetector.INSTALLED;
 
+    /** Asks a person at a terminal whether to store a credential the draft names; tests answer. */
+    Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
+
+    /** The machine the answer was made on, for the offers that follow a person's reading. */
+    private @Nullable PoreloContext proposedOn;
+
     @Override
     Map<String, @Nullable Object> answer(PoreloContext machine) throws IOException {
+        proposedOn = machine;
         if (yes && project == null) throw new Refused(Refused.USAGE, "--yes needs --project", null);
         if (project != null) {
             final String cramped = ProjectProposal.crampedProject(project);
@@ -149,5 +156,94 @@ public class ProjectInitCommand extends OrgReading {
             line("entry: add this to the project.yml of the project's own repository:");
             for (final String each : entry.stripTrailing().split("\n", -1)) line(each);
         }
+        // Only here, where a person reads the answer: with --json a program reads it, and nobody
+        // is asked.
+        final PoreloContext machine = proposedOn;
+        if (machine != null) offerCredentials(machine, answer);
+    }
+
+    /**
+     * Offers each credential the draft names and the vault does not hold yet, once, at a terminal:
+     * accepted, the command that stores it runs on this terminal - {@code porelo vault put} or a
+     * declared credential's own - and reads the value itself, without echo. The value never passes
+     * through this command, so it is in no answer, line or argument here.
+     *
+     * @param machine The machine.
+     * @param answer The answer the person read.
+     */
+    private void offerCredentials(
+            final PoreloContext machine, final Map<String, @Nullable Object> answer) {
+        if (asker == Offer.Asker.NOBODY) return;
+        final List<String> ids = new ArrayList<>();
+        if (answer.get("credentials_needed") instanceof List<?> needed)
+            for (final Object each : needed)
+                if (each instanceof Map<?, ?> credential
+                        && credential.get("id") instanceof String id) ids.add(id);
+        if (ids.isEmpty()) return;
+        final var held = machine.readableCredentials();
+        if (held.isEmpty()) {
+            // Not an error: the proposal stands, and storing waits until the vault is open.
+            saying(
+                    "the vault is locked or does not open, so no credential is offered; unlock it"
+                            + " with 'porelo vault unlock', then run 'porelo vault put <id>'");
+            return;
+        }
+        for (final String id : ids) {
+            if (held.get().containsKey(id)) continue;
+            final List<String> command = storeCommand(machine, id);
+            if (command == null) continue;
+            final String said = "porelo " + String.join(" ", command);
+            final String given = asker.ask("'" + id + "' is not in the vault. Store it now? [y/N]");
+            if (given == null) return;
+            final String chosen = given.strip().toLowerCase(java.util.Locale.ROOT);
+            if (!chosen.equals("y") && !chosen.equals("yes")) continue;
+            if (command.contains("--from-file")) {
+                // A key is a file and cannot be typed: its path is asked, as credentials check
+                // asks it.
+                final String path = asker.ask("Path of the private key to store:");
+                if (path == null || path.isBlank()) {
+                    saying("'" + id + "' was not stored; run '" + said + "'");
+                    continue;
+                }
+                command.set(command.size() - 1, path.strip());
+            }
+            final List<String> run = new ArrayList<>(List.of(PoreloBinary.path()));
+            run.addAll(command);
+            if (machine.exec().applyAsInt(run) != 0)
+                saying("'" + id + "' was not stored; run '" + said + "'");
+        }
+    }
+
+    /**
+     * Returns the arguments after {@code porelo} that store a credential here: its declared
+     * record's, else {@code vault put}'s; a key's ends in {@code --from-file} and a path to fill.
+     *
+     * @param machine The machine.
+     * @param id The credential's id.
+     * @return The arguments, or {@code null} when the value is not this machine's vault's to hold.
+     */
+    private static @Nullable List<String> storeCommand(
+            final PoreloContext machine, final String id) {
+        List<org.fuin.porelo.core.credential.Credential> declarations;
+        try {
+            declarations = machine.credentialRegistry().all();
+        } catch (final RuntimeException ex) {
+            // A registry that cannot be read is the start's to report, as vault put leaves it.
+            declarations = List.of();
+        }
+        for (final org.fuin.porelo.core.credential.Credential declared : declarations) {
+            if (!declared.id().equals(id)) continue;
+            final List<String> arguments =
+                    CredentialDeclarations.argumentsOf(
+                            CredentialDeclarations.storeCommandFor(declared));
+            if (arguments.isEmpty()) return null;
+            final List<String> command = new ArrayList<>(arguments.subList(1, arguments.size()));
+            if (declared.kind() == org.fuin.porelo.core.credential.Credential.Kind.SSH_KEY) {
+                command.add("--from-file");
+                command.add("<path>");
+            }
+            return command;
+        }
+        return new ArrayList<>(List.of("vault", "put", id));
     }
 }

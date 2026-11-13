@@ -26,12 +26,13 @@ class ProjectInitCommandTest {
     boolean localDetection;
     final ProcessCommandRunner runner = new ProcessCommandRunner();
     java.util.function.UnaryOperator<String> environment = key -> null;
+    java.util.function.ToIntFunction<List<String>> exec = args -> 0;
 
     PoreloContext context() {
         return new PoreloContext(
                 runner,
                 new PoreloPaths(XdgPaths.of(key -> null, directory), directory.resolve("bin")),
-                args -> 0,
+                exec,
                 environment);
     }
 
@@ -416,6 +417,217 @@ class ProjectInitCommandTest {
         assertThat(snapshot(checkout))
                 .as("detection leaves every checkout byte alone")
                 .isEqualTo(before);
+    }
+
+    /** A made-up value typed for the credential the stand-in adapter names. */
+    static final String TYPED = "typed-sentinel-not-a-secret";
+
+    static final char[] VAULT_PASSPHRASE = "correct horse".toCharArray();
+
+    final List<List<String>> ran = new java.util.ArrayList<>();
+    final List<String> asked = new java.util.ArrayList<>();
+    final StringWriter commandSaid = new StringWriter();
+
+    @org.junit.jupiter.api.AfterEach
+    void forgetPassphrase() {
+        PoreloContext.forgetAsked();
+    }
+
+    /** A vault holding {@code held}, opened for this process as a typed passphrase opens it. */
+    void vault(boolean open, String... held) {
+        final Map<String, org.fuin.porelo.vault.VaultEntry> entries = new java.util.HashMap<>();
+        for (String each : held) entries.put(each, org.fuin.porelo.vault.VaultEntry.of("held"));
+        context().vault().write(entries, VAULT_PASSPHRASE);
+        if (open)
+            assertThat(
+                            context()
+                                    .asking(prompt -> VAULT_PASSPHRASE.clone())
+                                    .openerAsking(false, new PrintWriter(new StringWriter())))
+                    .isPresent();
+    }
+
+    /** Runs a command as this terminal would: the person types {@link #TYPED} into it. */
+    void typing() {
+        exec =
+                command -> {
+                    ran.add(List.copyOf(command));
+                    final var line =
+                            PoreloCli.commandLine(
+                                    context()
+                                            .reading(
+                                                    new StandardInput(
+                                                            new java.io.ByteArrayInputStream(
+                                                                    (TYPED + "\n")
+                                                                            .getBytes(
+                                                                                    java.nio.charset
+                                                                                            .StandardCharsets
+                                                                                            .UTF_8)),
+                                                            false)));
+                    line.setOut(new PrintWriter(commandSaid, true));
+                    line.setErr(new PrintWriter(commandSaid, true));
+                    return line.execute(command.subList(1, command.size()).toArray(String[]::new));
+                };
+    }
+
+    /** Runs an init at a terminal whose person answers every question with {@code answer}. */
+    int initAnswering(Path checkout, StringWriter said, String answer, String... args) {
+        localDetection = true;
+        final var line = PoreloCli.commandLine(context());
+        final ProjectInitCommand init =
+                (ProjectInitCommand)
+                        line.getSubcommands()
+                                .get("project")
+                                .getSubcommands()
+                                .get("init")
+                                .getCommand();
+        init.detector =
+                (plugin, directory, home) -> new FakePlugin(plugin.name()).detect(directory, home);
+        init.asker =
+                question -> {
+                    asked.add(question);
+                    return answer;
+                };
+        line.setOut(new PrintWriter(said, true));
+        line.setErr(new PrintWriter(said, true));
+        final var all = new java.util.ArrayList<>(List.of("project", "init", checkout.toString()));
+        all.addAll(List.of(args));
+        return line.execute(all.toArray(String[]::new));
+    }
+
+    Map<String, org.fuin.porelo.vault.VaultEntry> vaultHolds() {
+        return context()
+                .vault()
+                .read(org.fuin.porelo.vault.VaultFile.Opener.passphrase(VAULT_PASSPHRASE.clone()));
+    }
+
+    @Test
+    void aNamedCredentialAcceptedIsStoredAsVaultPutStoresItAndItsValueIsSaidNowhere()
+            throws Exception {
+        install("healthy");
+        final Path checkout = checkout("https://example.org/sample.git");
+        vault(true, "a");
+        typing();
+        final StringWriter said = new StringWriter();
+
+        assertThat(initAnswering(checkout, said, "y"))
+                .as("the proposal succeeds: %s", said)
+                .isZero();
+
+        assertThat(asked)
+                .as("the credential the draft names is offered once")
+                .singleElement()
+                .satisfies(
+                        question -> assertThat(question).contains("'private'").endsWith("[y/N]"));
+        assertThat(vaultHolds().get("private"))
+                .as("stored under its id, as vault put stores it")
+                .isNotNull()
+                .extracting(org.fuin.porelo.vault.VaultEntry::value)
+                .isEqualTo(TYPED);
+        assertThat(ran)
+                .as("vault put itself, run on this terminal")
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.subList(1, command.size()))
+                                        .containsExactly("vault", "put", "private"));
+        assertThat(String.join(" ", ran.getFirst()))
+                .as("the value is on no command line")
+                .doesNotContain(TYPED);
+        assertThat(said.toString())
+                .as("the draft and every line said hold the id only")
+                .contains("private")
+                .doesNotContain(TYPED);
+        assertThat(commandSaid.toString()).as("vault put says nothing of it").doesNotContain(TYPED);
+        assertThat(Json.write(answer(checkout)))
+                .as("the answer holds the id only")
+                .contains("private")
+                .doesNotContain(TYPED);
+    }
+
+    @Test
+    void aDeclaredCredentialIsStoredByItsOwnStoreCommand() throws Exception {
+        install("healthy");
+        final Path checkout = checkout("https://example.org/sample.git");
+        vault(true, "a");
+        new CredentialDeclarations(context())
+                .declare(
+                        new org.fuin.porelo.core.credential.Credential(
+                                "private",
+                                org.fuin.porelo.core.credential.Credential.Kind.TOKEN,
+                                "https://repo.example.org",
+                                null,
+                                "git",
+                                org.fuin.porelo.core.credential.Credential.Source.VAULT));
+        typing();
+
+        assertThat(initAnswering(checkout, new StringWriter(), "y")).isZero();
+
+        assertThat(ran)
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.subList(1, command.size()))
+                                        .containsExactly(
+                                                "vault", "put", "private", "--type", "token"));
+        assertThat(vaultHolds().get("private"))
+                .isNotNull()
+                .extracting(org.fuin.porelo.vault.VaultEntry::type)
+                .isEqualTo("token");
+    }
+
+    @Test
+    void aDeclinedOfferStoresNothing() throws Exception {
+        install("healthy");
+        final Path checkout = checkout("https://example.org/sample.git");
+        vault(true, "a");
+        typing();
+
+        assertThat(initAnswering(checkout, new StringWriter(), "n")).isZero();
+
+        assertThat(asked).as("offered once").hasSize(1);
+        assertThat(ran).as("nothing run").isEmpty();
+        assertThat(vaultHolds()).as("nothing stored").containsOnlyKeys("a");
+    }
+
+    @Test
+    void aCredentialTheVaultHoldsIsNotOffered() throws Exception {
+        install("healthy");
+        final Path checkout = checkout("https://example.org/sample.git");
+        vault(true, "private");
+        typing();
+
+        assertThat(initAnswering(checkout, new StringWriter(), "y")).isZero();
+
+        assertThat(asked).as("nothing to offer").isEmpty();
+        assertThat(ran).isEmpty();
+    }
+
+    @Test
+    void aLockedVaultIsSaidAndNothingIsOffered() throws Exception {
+        install("healthy");
+        final Path checkout = checkout("https://example.org/sample.git");
+        vault(false, "a");
+        typing();
+        final StringWriter said = new StringWriter();
+
+        assertThat(initAnswering(checkout, said, "y")).as("a locked vault is no error").isZero();
+
+        assertThat(asked).as("nothing offered").isEmpty();
+        assertThat(ran).isEmpty();
+        assertThat(said.toString()).contains("vault is locked");
+    }
+
+    @Test
+    void withJsonNothingIsOffered() throws Exception {
+        install("healthy");
+        final Path checkout = checkout("https://example.org/sample.git");
+        vault(true, "a");
+        typing();
+
+        assertThat(initAnswering(checkout, new StringWriter(), "y", "--json")).isZero();
+
+        assertThat(asked).as("a program reads the answer; nobody is asked").isEmpty();
+        assertThat(ran).isEmpty();
     }
 
     void install(String name) throws Exception {
