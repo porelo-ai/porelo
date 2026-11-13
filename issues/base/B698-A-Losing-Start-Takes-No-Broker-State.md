@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B698",
   "title": "A Losing Start Takes No Broker State",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 52,
