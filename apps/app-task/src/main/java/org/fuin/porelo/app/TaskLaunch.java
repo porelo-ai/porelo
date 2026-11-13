@@ -3898,12 +3898,20 @@ public final class TaskLaunch {
                 return cleanUp(runner, container, 70, false, out, err);
             }
 
+            // Before the gate, which is told whether it started: a watch that did not left the
+            // gate expecting a build report that never came, and the agent waited for it.
+            final org.fuin.porelo.core.project.Builds hostBuilds =
+                    BuildsWiring.hostBuilds(project, host.present(), projects);
+            final BuildsWiring buildsWiring = new BuildsWiring(context, this::recordHelper);
+            buildsWiring.owned = ownHelpers::add;
+            final boolean buildsWatched =
+                    buildsWiring.start(
+                            project, repository, container, forgeBranch, hostBuilds, out, err);
+
             if (workspace != null) {
                 if (!gate().reading(reads)
-                        .followingBuilds(
-                                BuildsWiring.follows(
-                                        project,
-                                        BuildsWiring.hostBuilds(project, host.present(), projects)))
+                        .followingBuilds(BuildsWiring.follows(project, hostBuilds))
+                        .watchingBuilds(buildsWatched)
                         .startGate(
                                 runner,
                                 workspace,
@@ -3952,15 +3960,6 @@ public final class TaskLaunch {
             if (!clearance().startClearance(runner, project, container, out, err)) {
                 return cleanUp(runner, container, 70, false, out, err);
             }
-            new BuildsWiring(context, this::recordHelper)
-                    .start(
-                            project,
-                            repository,
-                            container,
-                            forgeBranch,
-                            BuildsWiring.hostBuilds(project, host.present(), projects),
-                            out,
-                            err);
             // A host's two refusals, its kept key and its forge token, before anything records the
             // task as one to bring back: refused after, the next start resumed it without either.
             // A start refused here is removed, not kept, since nobody worked in it yet.

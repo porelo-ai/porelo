@@ -122,6 +122,36 @@ class GateUnbuiltPushTest {
     }
 
     @Test
+    void aPushPassedOnWhoseBuildWatchDidNotStartIsAnsweredAtOnceWithWhy() throws IOException {
+        // The project follows builds, but no watch reports them; the agent waited for one.
+        final GitGate gate = new GitGate(runner, mirror, GateMode.ONLINE, upstream.toString());
+        gate.initialize();
+        final TaskToken token = TaskToken.mint();
+        try (GitHttpServer server =
+                serving(
+                        token,
+                        new GitHttpServer.Upstream() {
+                            @Override
+                            public void refresh() {
+                                gate.refresh();
+                            }
+
+                            @Override
+                            public @Nullable String passOn(final String ref, final String commit) {
+                                return gate.passOn("porelo/" + TASK, commit);
+                            }
+                        },
+                        UnbuiltPush.why(true, true, false))) {
+            final String commit = pushed(server, token);
+
+            assertThat(handed.get("build-" + commit.substring(0, 12) + ".txt"))
+                    .as("passed on, and its watch did not start")
+                    .contains("verdict: none\n")
+                    .contains("detail: " + UnbuiltPush.UNWATCHED + "\n");
+        }
+    }
+
+    @Test
     void aPushThatIsRefusedHandsInNothing() throws IOException {
         final GitGate gate = new GitGate(runner, mirror, GateMode.GATEKEEPING, upstream.toString());
         gate.initialize();
@@ -166,6 +196,12 @@ class GateUnbuiltPushTest {
         assertThat(UnbuiltPush.why(false, false)).isEqualTo(UnbuiltPush.HELD);
         assertThat(UnbuiltPush.why(true, false)).isEqualTo(UnbuiltPush.NO_BUILDS);
         assertThat(UnbuiltPush.why(true, true)).as("the build watch hands in its verdict").isNull();
+        assertThat(UnbuiltPush.why(true, true, false))
+                .as("a project that follows builds whose watch did not start")
+                .isEqualTo(UnbuiltPush.UNWATCHED);
+        assertThat(UnbuiltPush.why(true, false, false)).isEqualTo(UnbuiltPush.NO_BUILDS);
+        assertThat(UnbuiltPush.why(false, true, false)).isEqualTo(UnbuiltPush.HELD);
+        assertThat(UnbuiltPush.why(true, true, true)).isNull();
     }
 
     private GitHttpServer serving(

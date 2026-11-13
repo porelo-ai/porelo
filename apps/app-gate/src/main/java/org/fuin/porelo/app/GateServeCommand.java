@@ -140,6 +140,13 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private boolean noBuilds;
 
     @Option(
+            names = "--builds-unwatched",
+            description =
+                    "The project follows builds, but the task's build watch did not start: a push"
+                            + " passed on is told at once that no build of it is reported.")
+    private boolean buildsUnwatched;
+
+    @Option(
             names = "--seconds",
             paramLabel = "<n>",
             description = "Stop after this long. Zero means run until killed.")
@@ -387,7 +394,8 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                     final String task = ref.substring(GitGate.INCOMING.length());
                     server.signing(signing(context, project.name(), task));
                 }
-                final String unbuilt = UnbuiltPush.why(through != null, !noBuilds);
+                final String unbuilt =
+                        UnbuiltPush.why(through != null, !noBuilds, !buildsUnwatched);
                 if (ref != null && ref.startsWith(GitGate.INCOMING) && unbuilt != null) {
                     // No build report comes while the task runs: said at the push, so the agent
                     // does not wait for one.

@@ -1213,6 +1213,7 @@ public final class TaskControl {
         } catch (IOException ex) {
             problems.add("could not prepare the deferred builds reader: " + ex.getMessage());
         }
+        recorded = buildsWatched(recorded);
         if (recorded.helpers().isEmpty()) {
             context.podman().start(container);
             context.tasks().trustCertificates(container);
@@ -1358,6 +1359,32 @@ public final class TaskControl {
         }
         McpWiring.stop(context, container);
         return clean;
+    }
+
+    /**
+     * Tells the gate whether the build watch comes back with the task, as a start tells it once the
+     * watch started or not: a reader deferred at the start reports the pushes of this run, and a
+     * task whose watch never started is told at each push that no build of it is reported.
+     *
+     * @param recorded The helpers this resume starts.
+     * @return The same, with the gate's command line set to match.
+     */
+    static TaskHelpers buildsWatched(final TaskHelpers recorded) {
+        final boolean watched =
+                recorded.helpers().stream()
+                        .anyMatch(helper -> TaskBuilds.HELPER.equals(helper.name()));
+        final List<TaskHelpers.Helper> helpers = new ArrayList<>();
+        for (final TaskHelpers.Helper helper : recorded.helpers()) {
+            helpers.add(
+                    "gate".equals(helper.name())
+                            ? new TaskHelpers.Helper(
+                                    helper.name(),
+                                    GateWiring.watching(helper.command(), watched),
+                                    helper.environment(),
+                                    helper.phase())
+                            : helper);
+        }
+        return new TaskHelpers(List.copyOf(helpers));
     }
 
     /** A stored token enables the reader a previous start could only defer. */

@@ -21,8 +21,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Here and not in the build watch, because only the gate sees a push it holds: the watch asks
  * the forge, which a held push reaches only when a person passes it on, and a project that follows
- * no builds has no watch at all. A push passed on and built later is followed by the watch, which
- * hands in the same file name and so replaces this one.
+ * no builds has no watch at all, and a task whose watch did not start has none either. A push
+ * passed on and built later is followed by the watch, which hands in the same file name and so
+ * replaces this one.
  */
 public final class UnbuiltPush implements GitHttpServer.Taken {
 
@@ -33,6 +34,14 @@ public final class UnbuiltPush implements GitHttpServer.Taken {
     /** Why a push passed on at once is not reported on either. */
     public static final String NO_BUILDS =
             "this project follows no builds; no build of this push is reported";
+
+    /**
+     * Why a push passed on at once is not reported on although the project follows its builds: the
+     * task's build watch did not start.
+     */
+    public static final String UNWATCHED =
+            "the watch that reports this task's builds did not start; no build of this push is"
+                    + " reported";
 
     /** The verdict of a push no build of which is reported while the task runs. */
     static final String NONE = "none";
@@ -84,10 +93,28 @@ public final class UnbuiltPush implements GitHttpServer.Taken {
      * @return The reason, or {@code null}.
      */
     public static @Nullable String why(final boolean passedOn, final boolean followsBuilds) {
+        return why(passedOn, followsBuilds, true);
+    }
+
+    /**
+     * Returns why a task's push is not built while it runs, or {@code null} when a build watch
+     * reports on it.
+     *
+     * @param passedOn Whether the gate passes a push on at once.
+     * @param followsBuilds Whether the project follows the builds of what is passed on.
+     * @param watched Whether the task's build watch started; a project that follows builds is told
+     *     nothing of them without it.
+     * @return The reason, or {@code null}.
+     */
+    public static @Nullable String why(
+            final boolean passedOn, final boolean followsBuilds, final boolean watched) {
         if (!passedOn) {
             return HELD;
         }
-        return followsBuilds ? null : NO_BUILDS;
+        if (!followsBuilds) {
+            return NO_BUILDS;
+        }
+        return watched ? null : UNWATCHED;
     }
 
     @Override

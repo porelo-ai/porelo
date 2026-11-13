@@ -55,6 +55,21 @@ final class GateWiring {
         return this;
     }
 
+    /** Whether the task's build watch started, where its project follows builds. */
+    private boolean watchesBuilds = true;
+
+    /**
+     * Says whether the task's build watch started: where it did not, a project that follows builds
+     * is told nothing of them, and the gate says so at the push as for one that follows none.
+     *
+     * @param watched Whether the watch started.
+     * @return This wiring.
+     */
+    GateWiring watchingBuilds(final boolean watched) {
+        this.watchesBuilds = watched;
+        return this;
+    }
+
     /**
      * Constructor with what the run decided.
      *
@@ -247,6 +262,49 @@ final class GateWiring {
             final @Nullable Certified certified,
             final java.util.List<String> reads,
             final boolean followsBuilds) {
+        return serving(
+                project,
+                bind,
+                port,
+                state,
+                taskName,
+                repository,
+                forgeBranch,
+                certified,
+                reads,
+                followsBuilds,
+                true);
+    }
+
+    /**
+     * Returns the command that serves a task's gate, telling it whether the builds of what it
+     * passes on are followed and whether the task's build watch started.
+     *
+     * @param project The task's project.
+     * @param bind Where the gate listens.
+     * @param port Its port.
+     * @param state The task's runtime state.
+     * @param taskName The task's own name.
+     * @param repository Which repository of the project, or {@code null} for its own.
+     * @param forgeBranch The task's branch at the forge, or {@code null} for {@code porelo/<task>}.
+     * @param certified What its arrivals are judged by, or {@code null}.
+     * @param reads The tasks whose landed work it reads; none for every other task.
+     * @param followsBuilds Whether the project follows the builds of what it passes on.
+     * @param watched Whether the task's build watch started.
+     * @return The command.
+     */
+    static java.util.List<String> serving(
+            final org.fuin.porelo.core.project.Project project,
+            final String bind,
+            final int port,
+            final java.nio.file.Path state,
+            final String taskName,
+            final @Nullable String repository,
+            final @Nullable String forgeBranch,
+            final @Nullable Certified certified,
+            final java.util.List<String> reads,
+            final boolean followsBuilds,
+            final boolean watched) {
         final java.util.List<String> command =
                 new java.util.ArrayList<>(
                         java.util.List.of(
@@ -289,6 +347,10 @@ final class GateWiring {
             if (!followsBuilds) {
                 // On the recorded command line too: a resumed task's pushes are answered as before.
                 command.add("--no-builds");
+            } else if (!watched) {
+                // Followed, but nothing reports them: told at the push as well, and on the recorded
+                // command line, which a resume sets again by whether the watch is recorded.
+                command.add(BUILDS_UNWATCHED);
             }
         }
         if (certified != null) {
@@ -312,6 +374,27 @@ final class GateWiring {
             command.add(repository);
         }
         return command;
+    }
+
+    /** The gate's option for a task whose project follows builds and whose watch did not start. */
+    static final String BUILDS_UNWATCHED = "--builds-unwatched";
+
+    /**
+     * Returns a gate's recorded command line, told whether the task's build watch runs: only a gate
+     * that passes on at once in a project that follows builds is told.
+     *
+     * @param command The gate's command as recorded.
+     * @param watched Whether the task's build watch is among its helpers.
+     * @return The command to start it with.
+     */
+    static java.util.List<String> watching(
+            final java.util.List<String> command, final boolean watched) {
+        final java.util.List<String> result = new java.util.ArrayList<>(command);
+        result.remove(BUILDS_UNWATCHED);
+        if (!watched && result.contains("--pass-on") && !result.contains("--no-builds")) {
+            result.add(BUILDS_UNWATCHED);
+        }
+        return java.util.List.copyOf(result);
     }
 
     /** How long a start waits for a helper to record its pid. */
@@ -349,7 +432,8 @@ final class GateWiring {
                         forgeBranch,
                         certified,
                         reads,
-                        followsBuilds);
+                        followsBuilds,
+                        watchesBuilds);
 
         try {
             final ProcessBuilder builder =

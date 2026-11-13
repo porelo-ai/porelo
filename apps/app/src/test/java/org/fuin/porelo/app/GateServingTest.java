@@ -95,6 +95,169 @@ class GateServingTest {
     }
 
     @Test
+    void anOnlineTasksGateWhoseBuildWatchDidNotStartIsToldThatNothingReportsItsPushes() {
+
+        // The project named builds, the watch did not start, and the gate still let the agent
+        // wait for a report that never came.
+        final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
+
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                true,
+                                false))
+                .contains("--pass-on", GateWiring.BUILDS_UNWATCHED)
+                .doesNotContain("--no-builds");
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                true,
+                                true))
+                .as("the build watch reports on it")
+                .doesNotContain(GateWiring.BUILDS_UNWATCHED, "--no-builds");
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                false,
+                                false))
+                .as("a project that follows no builds is told so, and nothing more")
+                .contains("--no-builds")
+                .doesNotContain(GateWiring.BUILDS_UNWATCHED);
+        assertThat(
+                        GateWiring.serving(
+                                project("guarded"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                true,
+                                false))
+                .as("a held push is answered as held, whatever follows the builds")
+                .doesNotContain(GateWiring.BUILDS_UNWATCHED);
+    }
+
+    @Test
+    void aResumedTasksGateIsToldWhetherItsBuildWatchComesBack() {
+
+        // On a resume the same as at a start: the gate follows the watch the resume starts, which a
+        // reader deferred at the start may have joined, and which a task started before may lack.
+        final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
+        final java.util.List<String> followed =
+                GateWiring.serving(
+                        project("online"),
+                        "127.0.0.1",
+                        9418,
+                        state,
+                        "shell",
+                        null,
+                        null,
+                        null,
+                        java.util.List.of(),
+                        true,
+                        true);
+        final java.util.List<String> unwatched =
+                GateWiring.serving(
+                        project("online"),
+                        "127.0.0.1",
+                        9418,
+                        state,
+                        "shell",
+                        null,
+                        null,
+                        null,
+                        java.util.List.of(),
+                        true,
+                        false);
+        final TaskHelpers.Helper watch =
+                new TaskHelpers.Helper(
+                        TaskBuilds.HELPER,
+                        java.util.List.of("porelo", "task", "watch-builds"),
+                        java.util.Map.of(),
+                        TaskHelpers.AFTER);
+
+        assertThat(gate(TaskControl.buildsWatched(helpers(followed))))
+                .as("a gate recorded with a watch that is not")
+                .contains(GateWiring.BUILDS_UNWATCHED);
+        assertThat(gate(TaskControl.buildsWatched(helpers(unwatched, watch))))
+                .as("a reader deferred at the start comes back with this resume")
+                .doesNotContain(GateWiring.BUILDS_UNWATCHED);
+        assertThat(gate(TaskControl.buildsWatched(helpers(followed, watch))))
+                .as("a gate whose watch comes back is left as it was")
+                .isEqualTo(followed);
+        final java.util.List<String> none =
+                GateWiring.serving(
+                        project("online"),
+                        "127.0.0.1",
+                        9418,
+                        state,
+                        "shell",
+                        null,
+                        null,
+                        null,
+                        java.util.List.of(),
+                        false,
+                        true);
+        assertThat(gate(TaskControl.buildsWatched(helpers(none))))
+                .as("a project that follows no builds is told so, and nothing more")
+                .isEqualTo(none);
+        final java.util.List<String> held =
+                GateWiring.serving(
+                        project("guarded"), "127.0.0.1", 9418, state, "shell", null, null);
+        assertThat(gate(TaskControl.buildsWatched(helpers(held))))
+                .as("a held push is answered as held")
+                .isEqualTo(held);
+    }
+
+    private static TaskHelpers helpers(
+            final java.util.List<String> gate, final TaskHelpers.Helper... others) {
+        final java.util.List<TaskHelpers.Helper> all = new java.util.ArrayList<>();
+        all.add(
+                new TaskHelpers.Helper(
+                        "gate",
+                        gate,
+                        java.util.Map.of("PORELO_GATE_TOKEN", "x"),
+                        TaskHelpers.AFTER));
+        all.addAll(java.util.List.of(others));
+        return new TaskHelpers(java.util.List.copyOf(all));
+    }
+
+    private static java.util.List<String> gate(final TaskHelpers helpers) {
+        return helpers.helpers().stream()
+                .filter(helper -> "gate".equals(helper.name()))
+                .findFirst()
+                .orElseThrow()
+                .command();
+    }
+
+    @Test
     void aCertifiedTasksGateJudgesItsArrivalsAndAnUncertifiedOnesIsNotToldTo() {
         final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
 

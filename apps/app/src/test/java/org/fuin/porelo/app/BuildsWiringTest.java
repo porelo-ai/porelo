@@ -230,6 +230,48 @@ class BuildsWiringTest {
     }
 
     @Test
+    void aStartWhoseBuildWatchDoesNotStartSaysSoForItsGate() throws Exception {
+        // A project that follows builds whose watch did not start: its gate is told so, and
+        // tells the agent at each push that no build of it is reported.
+        final PoreloContext context = context();
+        final var project =
+                ProjectReader.read(
+                        Files.writeString(
+                                dir.resolve("project.yml"),
+                                """
+                                project:
+                                  name: demo
+                                  security_class: online
+                                  upstream: https://forge.example/demo.git
+                                image:
+                                  from: ubuntu:24.04
+                                builds:
+                                  forge: no-such-forge
+                                  credential: forge-read
+                                """));
+        final StringWriter error = new StringWriter();
+
+        final boolean watched =
+                new BuildsWiring(
+                                context,
+                                (name, command, environment, phase) -> {
+                                    throw new AssertionError("no reader is installed");
+                                })
+                        .start(
+                                project,
+                                project.repository("demo"),
+                                "porelo-demo-fix",
+                                "porelo/fix",
+                                null,
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(error));
+
+        assertThat(BuildsWiring.follows(project, null)).as("the project follows builds").isTrue();
+        assertThat(watched).as("but no watch reports them").isFalse();
+        assertThat(error.toString()).contains("not told what its builds did");
+    }
+
+    @Test
     void anOlderBuildProblemDoesNotBecomeAMissingCredential() throws Exception {
         // Text from an older record must not cause a client to rotate an unrelated credential.
         final PoreloContext context = context();

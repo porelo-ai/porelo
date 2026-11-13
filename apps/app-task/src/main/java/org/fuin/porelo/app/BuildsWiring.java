@@ -25,6 +25,9 @@ final class BuildsWiring {
 
     private final CredentialWiring.Recorder recorder;
 
+    /** Told of the helper this start made, so a start that fails after it ends it. */
+    java.util.function.Consumer<ProcessHandle> owned = handle -> {};
+
     /**
      * Constructor.
      *
@@ -90,8 +93,10 @@ final class BuildsWiring {
      * @param hostBuilds What this task's host names, or {@code null} off a host or without builds.
      * @param out Where progress goes.
      * @param err Where a reason it was not started goes.
+     * @return Whether the helper started: without it no build of the task is reported, though its
+     *     project follows them.
      */
-    void start(
+    boolean start(
             final Project project,
             final Repository repository,
             final String container,
@@ -102,7 +107,7 @@ final class BuildsWiring {
         final Builds own = project.builds();
         final Builds selected = own == null ? hostBuilds : own;
         if (selected == null || !follows(project, hostBuilds)) {
-            return;
+            return false;
         }
         // A guarded task gains only the failed logs it needs to repair its work.
         final Builds builds =
@@ -119,7 +124,7 @@ final class BuildsWiring {
             err.println(
                     "porelo: the task has no upstream branch, so it is not told what its builds did");
             err.flush();
-            return;
+            return false;
         }
         final List<String> command =
                 new ArrayList<>(command(context, container, branch, upstream, builds));
@@ -139,7 +144,7 @@ final class BuildsWiring {
             err.println("porelo: " + problem);
             err.flush();
             said(container, selected.forge(), problem, missing, command);
-            return;
+            return false;
         }
         try {
             InstalledBuildReader.find(
@@ -153,16 +158,18 @@ final class BuildsWiring {
                     "porelo: " + ex.getMessage() + " This task is not told what its builds did.");
             err.flush();
             said(container, builds.forge(), String.valueOf(ex.getMessage()));
-            return;
+            return false;
         }
         final Path state = context.paths().tasks().containerState(container);
         try {
-            new ProcessBuilder(
-                            org.fuin.porelo.core.process.Scope.around(
-                                    "porelo " + container + " " + HELPER, command))
-                    .redirectErrorStream(true)
-                    .redirectOutput(state.resolve(HELPER + ".log").toFile())
-                    .start();
+            final Process started =
+                    new ProcessBuilder(
+                                    org.fuin.porelo.core.process.Scope.around(
+                                            "porelo " + container + " " + HELPER, command))
+                            .redirectErrorStream(true)
+                            .redirectOutput(state.resolve(HELPER + ".log").toFile())
+                            .start();
+            owned.accept(started.toHandle());
             recorder.record(HELPER, command, Map.of(), TaskHelpers.AFTER);
             said(container, builds.forge(), "");
             out.println(
@@ -180,6 +187,8 @@ final class BuildsWiring {
                                 + builds.credential()
                                 + "'");
             }
+            out.flush();
+            return true;
         } catch (java.io.IOException ex) {
             err.println(
                     "porelo: the builds helper did not start ("
@@ -193,6 +202,7 @@ final class BuildsWiring {
         }
         out.flush();
         err.flush();
+        return false;
     }
 
     /**

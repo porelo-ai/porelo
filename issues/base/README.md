@@ -274,14 +274,13 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
-| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. | - |
-| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. | - |
-| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. | - |
-| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. | - |
-| <a id="b712"></a>[B712](B712-An-Unknown-Build-Where-A-Watch-Never-Starts.md) | S | - | A task whose project follows builds, but whose build watch did not start, tells its agent at each push that no build will be reported, as a project that follows no builds does. | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. |
+| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. |
+| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. |
+| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. |
 
 ## Review
 
@@ -456,6 +455,7 @@ from its side, as *blocked by*.
 | <a id="b497"></a>[B497](B497-A-Forge-Token-Lent-For-One-Command.md) | XS | - | The gate and a start ask the host's helper for a token lent for one command, leaving the person's token valid; needs `porelo-host` from `2b17e7e`. | - |
 | <a id="b504"></a>[B504](B504-An-Unknown-Project-Removed-From-The-Window.md) | XS | - | `RemoveProject` previews and removes a project the machine lists but has no file for, instead of `NoSuchProject`. | - |
 | <a id="b502"></a>[B502](B502-What-A-Machine-Lets-A-Task-Reach.md) | M | - | `Reach` answers `doc/reach.md`'s rows with this machine's values, and per task where it was widened or narrowed. | - |
+| <a id="b712"></a>[B712](B712-An-Unknown-Build-Where-A-Watch-Never-Starts.md) | S | - | A task whose project follows builds, but whose build watch did not start, tells its agent at each push that no build will be reported, as a project that follows no builds does. | 0 |
 | <a id="b501"></a>[B501](B501-Matrix-In-Doctor.md) | S | - | `doctor` says whether the machine can carry its projects' messages: the transport installed, a local homeserver answering. | - |
 | <a id="b500"></a>[B500](B500-Tighten-Over-The-Socket.md) | S | - | `Tighten` with a dry run answers what `porelo tighten` changes, over the socket. | - |
 | <a id="b499"></a>[B499](B499-A-Vault-Entry-Removed-And-Replaced-Over-The-Socket.md) | M | - | `CredentialRemove` and `CredentialReplace` remove an entry's secret and replace its value over the socket, the value never logged or answered. | - |
