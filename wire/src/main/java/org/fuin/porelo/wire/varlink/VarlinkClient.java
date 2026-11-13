@@ -1,6 +1,7 @@
 package org.fuin.porelo.wire.varlink;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
@@ -32,15 +33,34 @@ public class VarlinkClient implements AutoCloseable {
      * @throws VarlinkException If the socket cannot be reached.
      */
     public VarlinkClient(Path socket) {
-        this(socket, channel -> {});
+        this(socket, channel -> {}, DEFAULT_DEADLINE);
+    }
+
+    /**
+     * Connects to a varlink service, waiting at most a given time for the connection.
+     *
+     * @param socket Path of the socket.
+     * @param connectWithin How long the connect may take: a socket whose backlog is full holds a
+     *     connect until somebody accepts.
+     * @throws VarlinkException If the socket cannot be reached, or not in time.
+     */
+    public VarlinkClient(Path socket, Duration connectWithin) {
+        this(socket, channel -> {}, connectWithin);
     }
 
     /** Connects and verifies the kernel peer before any request bytes can be sent. */
     public VarlinkClient(Path socket, java.util.function.Consumer<SocketChannel> verify) {
+        this(socket, verify, DEFAULT_DEADLINE);
+    }
+
+    private VarlinkClient(
+            Path socket,
+            java.util.function.Consumer<SocketChannel> verify,
+            Duration connectWithin) {
         try {
             final SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX);
             try {
-                channel.connect(UnixDomainSocketAddress.of(socket));
+                connect(channel, UnixDomainSocketAddress.of(socket), connectWithin);
                 verify.accept(channel);
                 connection = new VarlinkConnection(channel);
             } catch (IOException | RuntimeException | Error ex) {
@@ -83,6 +103,29 @@ public class VarlinkClient implements AutoCloseable {
         try {
             send(method, parameters, false);
             final Map<String, Object> reply = receive(method, deadline);
+            if (reply == null) {
+                throw new VarlinkException("The service closed the connection without replying");
+            }
+            return replyParameters(reply);
+        } catch (IOException ex) {
+            throw new VarlinkException("Call to " + method + " failed", ex);
+        }
+    }
+
+    /**
+     * Calls a method once and waits for its reply as long as it takes, for a method whose answer
+     * waits for a person: a clearance report is answered when the operator decides, or when the
+     * watcher's own question time runs out.
+     *
+     * @param method Fully qualified method name.
+     * @param parameters Call parameters.
+     * @return The reply parameters.
+     * @throws VarlinkException If the peer returns an error or closes early.
+     */
+    public Map<String, Object> callAwaitingAPerson(String method, Map<String, Object> parameters) {
+        try {
+            send(method, parameters, false);
+            final Map<String, Object> reply = connection.receive();
             if (reply == null) {
                 throw new VarlinkException("The service closed the connection without replying");
             }
@@ -155,20 +198,67 @@ public class VarlinkClient implements AutoCloseable {
         }
     }
 
-    /** Reads one reply within a deadline, closing the connection when none came. */
+    /**
+     * Reads one reply within a deadline, closing the connection when none came or the wait was
+     * interrupted: either way the answer may still come, and would be read as the next call's.
+     */
     private @Nullable Map<String, Object> receive(String method, Duration deadline)
             throws IOException {
         try {
             return connection.receive(deadline);
-        } catch (SocketTimeoutException ex) {
+        } catch (InterruptedIOException ex) {
             try {
                 connection.close();
             } catch (IOException closing) {
                 ex.addSuppressed(closing);
             }
-            final VarlinkTimeoutException timeout = new VarlinkTimeoutException(method, deadline);
+            if (ex instanceof SocketTimeoutException) {
+                final VarlinkTimeoutException timeout =
+                        new VarlinkTimeoutException(method, deadline);
+                timeout.initCause(ex);
+                throw timeout;
+            }
+            throw ex;
+        }
+    }
+
+    /**
+     * Connects a channel, giving up after a time: a blocking connect has no limit of its own, so it
+     * runs on a thread of its own, and closing the channel ends it.
+     */
+    private static void connect(
+            SocketChannel channel, UnixDomainSocketAddress address, Duration within)
+            throws IOException {
+        final java.util.concurrent.FutureTask<Boolean> connecting =
+                new java.util.concurrent.FutureTask<>(() -> channel.connect(address));
+        Thread.ofVirtual().name("porelo-varlink-connect").start(connecting);
+        try {
+            connecting.get(within.toNanos(), java.util.concurrent.TimeUnit.NANOSECONDS);
+        } catch (java.util.concurrent.TimeoutException ex) {
+            channel.close();
+            final SocketTimeoutException timeout =
+                    new SocketTimeoutException("No connection within " + within.toMillis() + " ms");
             timeout.initCause(ex);
             throw timeout;
+        } catch (InterruptedException ex) {
+            channel.close();
+            Thread.currentThread().interrupt();
+            final InterruptedIOException interrupted =
+                    new InterruptedIOException("Interrupted while connecting");
+            interrupted.initCause(ex);
+            throw interrupted;
+        } catch (java.util.concurrent.ExecutionException ex) {
+            final Throwable cause = ex.getCause();
+            if (cause instanceof IOException io) {
+                throw io;
+            }
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IOException(String.valueOf(cause), cause);
         }
     }
 

@@ -905,8 +905,10 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * @return Its version.
      */
     static String versionAt(java.nio.file.Path socket) {
+        // The connect bounded too: a daemon whose backlog is full holds it until somebody accepts.
         try (org.fuin.porelo.wire.varlink.VarlinkClient client =
-                new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
+                new org.fuin.porelo.wire.varlink.VarlinkClient(
+                        socket, java.time.Duration.ofSeconds(5))) {
             return String.valueOf(
                     client.call(
                                     "org.varlink.service.GetInfo",

@@ -109,7 +109,10 @@ public class ShieldReadCommand implements Callable<Integer> {
             BlockedConnection event,
             PrintWriter err) {
         try {
-            client.call(
+            // Answered when the operator decides or the watcher's question runs out, which it
+            // sets itself (60 s by default): a deadline of the client's own cut that wait off and
+            // closed the connection every later report needs.
+            client.callAwaitingAPerson(
                     org.fuin.porelo.clearance.ClearanceService.INTERFACE + ".Report",
                     java.util.Map.of(
                             "prefix", event.prefix(),

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -304,6 +305,135 @@ class VarlinkTest {
                     .hasMessageContaining(INTERFACE + ".Quiet");
         } finally {
             again.countDown();
+        }
+    }
+
+    /**
+     * A service that accepts, reads the call, and answers it only once the test lets it.
+     *
+     * @param socket Where it listens.
+     * @param released Counted down by the test when the late answer may go.
+     * @return The bound channel, closed by the test.
+     */
+    private static java.nio.channels.ServerSocketChannel late(
+            final Path socket, final java.util.concurrent.CountDownLatch released)
+            throws IOException {
+        final java.nio.channels.ServerSocketChannel channel =
+                java.nio.channels.ServerSocketChannel.open(java.net.StandardProtocolFamily.UNIX);
+        channel.bind(java.net.UnixDomainSocketAddress.of(socket));
+        Thread.ofPlatform()
+                .daemon()
+                .start(
+                        () -> {
+                            try (java.nio.channels.SocketChannel client = channel.accept()) {
+                                client.read(java.nio.ByteBuffer.allocate(4096));
+                                released.await();
+                                client.write(
+                                        java.nio.ByteBuffer.wrap(
+                                                "{\"parameters\":{\"late\":true}}\0"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8)));
+                                client.read(java.nio.ByteBuffer.allocate(4096));
+                            } catch (IOException | InterruptedException ex) {
+                                // The test is over.
+                            }
+                        });
+        return channel;
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(10)
+    void anInterruptedCallClosesTheConnectionSoItsLateAnswerIsNoOtherCallsAnswer(@TempDir Path dir)
+            throws Exception {
+
+        // The interrupt left the connection open: the abandoned call's answer, arriving later,
+        // was read as the next call's.
+        final java.util.concurrent.CountDownLatch released =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicReference<@Nullable Object> first =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicReference<@Nullable Object> next =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        try (var service = late(dir.resolve("late.sock"), released);
+                VarlinkClient client = new VarlinkClient(dir.resolve("late.sock"))) {
+            final Thread caller =
+                    Thread.ofPlatform()
+                            .daemon()
+                            .start(
+                                    () -> {
+                                        try {
+                                            first.set(
+                                                    client.call(
+                                                            INTERFACE + ".Slow",
+                                                            Map.of(),
+                                                            java.time.Duration.ofSeconds(5)));
+                                        } catch (RuntimeException ex) {
+                                            first.set(ex);
+                                        }
+                                        Thread.interrupted();
+                                        released.countDown();
+                                        try {
+                                            Thread.sleep(200);
+                                            next.set(
+                                                    client.call(
+                                                            INTERFACE + ".Next",
+                                                            Map.of(),
+                                                            java.time.Duration.ofSeconds(2)));
+                                        } catch (RuntimeException | InterruptedException ex) {
+                                            next.set(ex);
+                                        }
+                                    });
+            Thread.sleep(300);
+            caller.interrupt();
+            assertThat(caller.join(java.time.Duration.ofSeconds(8))).isTrue();
+
+            assertThat(first.get())
+                    .as("the interrupted call ends as a failed call")
+                    .isInstanceOf(VarlinkException.class);
+            assertThat(next.get())
+                    .as("the next call never reads the interrupted call's answer")
+                    .isInstanceOf(VarlinkException.class);
+        } finally {
+            released.countDown();
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(10)
+    void aConnectToASocketThatAcceptsNoMoreEndsAtItsConnectDeadline(@TempDir Path dir)
+            throws Exception {
+
+        // A listening socket whose backlog is full holds a blocking connect for as long as nobody
+        // accepts: the doctor's daemon probe and an agent's Find waited there without end.
+        final Path socket = dir.resolve("full.sock");
+        final List<VarlinkClient> held = new ArrayList<>();
+        try (java.nio.channels.ServerSocketChannel full =
+                java.nio.channels.ServerSocketChannel.open(java.net.StandardProtocolFamily.UNIX)) {
+            full.bind(java.net.UnixDomainSocketAddress.of(socket), 1);
+            VarlinkException refused = null;
+            long took = 0;
+            for (int i = 0; i < 10 && refused == null; i++) {
+                final long started = System.nanoTime();
+                try {
+                    held.add(new VarlinkClient(socket, java.time.Duration.ofMillis(200)));
+                } catch (VarlinkException ex) {
+                    refused = ex;
+                    took = System.nanoTime() - started;
+                }
+            }
+
+            assertThat(refused)
+                    .as("a connect nobody takes ends")
+                    .isNotNull()
+                    .hasMessageContaining(socket.toString());
+            assertThat(java.time.Duration.ofNanos(took))
+                    .as("at its connect deadline, not long after")
+                    .isLessThan(java.time.Duration.ofSeconds(2));
+        } finally {
+            for (VarlinkClient client : held) {
+                client.close();
+            }
         }
     }
 

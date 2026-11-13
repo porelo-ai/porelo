@@ -497,7 +497,7 @@ public class InstalledAgent implements AutoCloseable {
     public List<Finding> find(final Path configDirectory) {
         return described(
                 () -> {
-                    try (VarlinkClient own = new VarlinkClient(socket)) {
+                    try (VarlinkClient own = new VarlinkClient(socket, READY_DEADLINE)) {
                         return switch (optional(
                                 own,
                                 AgentProtocol.FIND,
