@@ -10,7 +10,7 @@
   "priority": "High",
   "rank": 10,
   "blockedBy": [],
-  "covers": "A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form; project `porelo` takes the separator too",
+  "covers": "A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form; project `porelo`'s tasks are `porelo_<task>`, and what assumes a `porelo-` beginning takes both",
   "openQuestions": 0
 }
 ```
@@ -27,7 +27,7 @@ name - the vault's `task/<container>/` entries (route tokens, a transport's task
 clearance decisions, the mailbox - and a transport keys a task's account by the `--task` it is given, which is the
 container's name. What of it outlives a removal is read below.
 
-**Why this size.** M: the separator is built; what is left touches the task start, the transport's enrollment,
+**Why this size.** M, at its upper end: the separator is built; what is left touches the task start, the transport's enrollment,
 the host's task records (a record's key and a token's name on the host), docs and four acceptance stories, with
 tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
 
@@ -66,11 +66,27 @@ tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
   project short name `<project>-a`.
 - `StartCheck`, `TaskCertifyCommand` and the window label read the task from the identity or the labels;
   `taskFrom`/`taskIn` keep only the legacy fallback where no identity exists.
-- Project `porelo` takes the separator too (the operator, 2026-11-13): `ContainerName.encoded` names its new task
-  `porelo-porelo_<task>` (or `porelo-<project short>_<task>`), with no form without `_`. Its special form and the
-  reservation of `login-<digits>` for project `porelo`'s new tasks go, since no new task name can then meet the
-  login containers' `porelo-login-<digits>`. A task made before under `porelo-<task>` keeps its name through its
-  identity. Red: a new task `pi` of project `porelo` is `porelo-porelo_pi`.
+- Project `porelo` takes the separator too, shortened where the two first words are the same (the operator,
+  2026-11-13): its new task is `porelo_<task>` (`porelo_pi`), every other project's `porelo-<project>_<task>` or
+  `porelo-<short>_<task>`. `porelo_` comes only from project `porelo`, and old names hold no `_`, so the forms stay
+  disjoint. `ContainerName.encoded` makes it; its special form `porelo-<task>` and the reservation of
+  `login-<digits>` for project `porelo`'s new tasks go, since `porelo_login-1` cannot meet a login container.
+  A task made before keeps its name through its identity. Red: a new task `pi` of project `porelo` is `porelo_pi`.
+- What assumes every task container begins `porelo-` takes both beginnings, through one predicate and one pattern
+  in `ContainerName` (`isPorelo`, and a `NAME_PATTERN` for `porelo[-_][a-z0-9_-]+`) in place of the inline ones.
+  Read on 2026-11-13:
+  - `ContainerName.isPorelo` (`startsWith(PREFIX)`), and through it `isTask`, with 35 callers: the inventory,
+    cleanup, task list, attach and stop. A `porelo_` task would be no task at all.
+  - The inline pattern `porelo-[a-z0-9_-]+`: `TaskIdentities` (4 places), `TaskHistory`, `TaskReservations`,
+    `TaskTarget`, `TransportLifecycle` (2), `TalkPassCommand`, `TaskMethods` (daemon), and `McpTaskSockets`'
+    socket name pattern.
+  - `startsWith(ContainerName.PREFIX)` on a request's task: `TaskLaunch` and `McpTaskSockets`; and
+    `TaskLogsCommand`'s check of a spelled name.
+  - The acceptance kit's `LoopWatch` (`podman ps --filter name=^porelo-`) and `ReadySteps`' expected name.
+  - Not affected: the host's records and tokens (`porelo-<login>` is a forge identity, not a container), the
+    SELinux module (types, no names), helper ids (`porelo-<uuid>`), and the person-card login checks.
+  - The transport's contract name stays `porelo-<project>-<task>` (`ContainerName.contract`), as decided.
+  Red: a `porelo_pi` container is listed, attached, stopped, cleaned up and given its MCP socket.
 - The host: a task's record and forge token kept by project and task is built by [B735](README.md#b735). Records
   and tokens under the old key are left to end with their tasks, and new tasks use the new key (the operator,
   2026-11-13). Nothing is moved.
@@ -83,11 +99,13 @@ tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
 - Two projects' tasks of one name and one person on a host each keep their record and token through the other's end.
 - Project `porelo`'s task made before as `porelo-<task>` and a short-named project's task are brought back by name
   outside a checkout.
-- A new task of project `porelo` is `porelo-porelo_<task>`; no new task's name is without the separator.
+- A new task of project `porelo` is `porelo_<task>`; every other new task's name is `porelo-<project or short>_<task>`.
+- No code path takes a task container to begin with `porelo-` alone; `porelo_pi` is a task everywhere one is.
 
 ## Answered
 
-- Project `porelo` takes the separator too: no name without it (the operator, 2026-11-13).
+- Project `porelo` takes the separator too, its two first words shortened to one: `porelo_<task>` (the operator,
+  2026-11-13).
 - The host's records and forge tokens under the old key are left to end with their tasks, while new tasks use the
   new key, as [B735](README.md#b735) builds it (the operator, 2026-11-13).
 

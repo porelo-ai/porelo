@@ -10,7 +10,7 @@
   "priority": "Medium",
   "rank": 4,
   "blockedBy": [],
-  "covers": "A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority."
+  "covers": "A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority."
 }
 ```
 
@@ -22,9 +22,13 @@ it (the operator's decision of 2026-11-09 on the open points of wave 2, point 6:
 
 High priority (the operator, 2026-11-09).
 
-**What must be true.** A task of repository `porelo-pi` in project `porelo` is the container `porelo-pi`, not
+**What must be true.** A task of repository `porelo-pi` in project `porelo` is the container `porelo_pi`, not
 `porelo-porelo-pi`; tasks made before keep working (attach, resume, stop, their mail, vault entries, sockets), and no
 two projects can make one container name.
+
+The form changed on 2026-11-13 (the operator): project `porelo`'s tasks are `porelo_<task>`, every other project's
+`porelo-<project>_<task>`; it is built by [B246](README.md#b246). The design below still names the earlier
+`porelo-<task>` for project `porelo`.
 
 ## Plan
 
