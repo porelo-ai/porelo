@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B706",
   "title": "An Undeclared Address Asked About In The List",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 60,
