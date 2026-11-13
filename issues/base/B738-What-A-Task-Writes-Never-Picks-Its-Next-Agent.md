@@ -74,4 +74,4 @@ between starts is [B742](README.md#b742).
     `buildbox-porelo-720782e01a3c-20261113T172152Z.log`): core 133, runtime 106 and apps/app 377 tests, 0 skipped.
 - **So, for pi and stub:** a `pi` or `porelo-stub-cli` left in `$XDG_BIN_HOME`, or a variable set in `.bashrc` or
   `.profile`, changes nothing in the next start, unattended or attached. claude, omp, codex and agy install their
-  binary under `/home/agent`, so the agent can still overwrite it itself (B741).
+  binary under `/home/agent`, so the agent can still overwrite it itself ([B741](README.md#b741)).
