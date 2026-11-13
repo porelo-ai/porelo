@@ -94,9 +94,31 @@ public final class MessagePass {
         // One pass at a time per mailbox, whoever runs it: the daemon's and a 'talk pass' ran over
         // one queue at once, sent a message twice, and the slower one's move failed halfway through
         // its pass.
-        return FileLocks.holding(
-                mailbox.root().resolve(PASS_LOCK),
-                () -> runHeld(mailbox, mail, own, signers, moderation));
+        // Inside the mailbox, whose directory the lock never makes: a pass for a task removed
+        // meanwhile made its mailbox again, and its retired name stayed taken.
+        try {
+            return FileLocks.holdingInside(
+                    mailbox.root().resolve(PASS_LOCK),
+                    () -> runHeld(mailbox, mail, own, signers, moderation));
+        } catch (final java.nio.file.NoSuchFileException ex) {
+            if (!mailbox.gone()) {
+                throw ex;
+            }
+            // Removed before or during the pass: nothing more is moved, recorded or told.
+            return removed();
+        }
+    }
+
+    /** What a pass over a mailbox that is gone did: nothing. */
+    private static Report removed() {
+        return new Report(
+                List.of(),
+                new MessageFiltering.Outcome(false, 0, "the task was removed"),
+                new MessageDispatch.Outcome(Map.of(), List.of(), Map.of()),
+                Map.of(),
+                new MessageDelivery.Outcome(List.of(), List.of(), List.of()),
+                List.of(),
+                new TransportPoll.Outcome(Map.of(), Map.of()));
     }
 
     /**

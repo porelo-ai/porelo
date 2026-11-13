@@ -37,6 +37,24 @@ class MessagePassTest {
         return mailbox;
     }
 
+    @Test
+    void a_pass_over_a_removed_tasks_mailbox_makes_no_mailbox_again(@TempDir final Path dir)
+            throws IOException {
+        // The daemon passes over the mailboxes it found: one removed since got its root back as
+        // the pass's lock, and the task's retired name stayed taken.
+        final Mailbox mailbox = mailbox(dir);
+        mailbox.delete();
+
+        final MessagePass.Report report =
+                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                        .run(mailbox, mail, () -> key, PeerKeys.NONE, undecided(dir));
+
+        assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
+        assertThat(report.taken()).isEmpty();
+        assertThat(report.delivered().delivered()).isEmpty();
+        assertThat(runner.invocations()).isEmpty();
+    }
+
     /**
      * The property the order exists for: a machine whose filter is missing sends nothing at all,
      * and the message is still in the mailbox afterwards rather than lost.

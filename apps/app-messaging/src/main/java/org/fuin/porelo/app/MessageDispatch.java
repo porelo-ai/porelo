@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Mail;
-import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -141,7 +140,8 @@ public final class MessageDispatch {
                 continue;
             }
             final Path active = mailbox.queueActive(peer.transport());
-            Directories.create(active);
+            // Never the mailbox again, if its task was removed during the pass.
+            mailbox.ensure(active);
             // The destination is written down here rather than resolved again at send time: the
             // peer table can change between the two, and a message must go where it was addressed
             // when it was accepted.

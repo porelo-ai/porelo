@@ -260,8 +260,15 @@ final class TransportConversations {
                 }
                 if ("read".equals(TransportDescription.of(context.runner(), adapter).confirms())) {
                     for (final Member member : group) {
-                        marked.addAll(markRead(adapter, member, failures));
-                        askRead(adapter, member, failures);
+                        try {
+                            marked.addAll(markRead(adapter, member, failures));
+                            askRead(adapter, member, failures);
+                        } catch (final java.nio.file.NoSuchFileException ex) {
+                            if (!member.mailbox().gone()) {
+                                throw ex;
+                            }
+                            // Removed while its transport was asked: the others go on.
+                        }
                     }
                 }
             } catch (IOException ex) {
@@ -294,7 +301,10 @@ final class TransportConversations {
                 markRead(adapter, member, failures);
                 askRead(adapter, member, failures);
             } catch (IOException ex) {
-                failures.add(String.valueOf(ex.getMessage()));
+                if (!(ex instanceof java.nio.file.NoSuchFileException && member.mailbox().gone())) {
+                    // A task removed while its transport was asked is no failure.
+                    failures.add(String.valueOf(ex.getMessage()));
+                }
             }
         }
         return failures;
@@ -755,42 +765,55 @@ final class TransportConversations {
                                 + project
                                 + " on this machine is to read it");
             }
+            int reached = 0;
             for (final Member to : readers) {
-                to.mailbox().ensure(to.mailbox().inbound());
-                if (person != null) {
+                try {
+                    to.mailbox().ensure(to.mailbox().inbound());
+                    if (person != null) {
+                        Files.writeString(
+                                to.mailbox()
+                                        .inbound()
+                                        .resolve(name + MessageDelivery.PERSON_SUFFIX),
+                                person,
+                                StandardCharsets.UTF_8);
+                    } else if (Files.isRegularFile(signature)) {
+                        Files.copy(
+                                signature,
+                                to.mailbox().inbound().resolve(name + ".sig"),
+                                StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    // The message last, through a neighbour and a rename, so a task's pass never
+                    // sees a
+                    // message whose companion is still on its way, nor half of one.
+                    final Path staged = to.mailbox().inbound().resolve("." + name + ".tmp");
+                    if (bytes != null) {
+                        Files.write(staged, bytes);
+                    } else {
+                        Files.copy(message, staged, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    Files.move(
+                            staged,
+                            to.mailbox().inbound().resolve(name),
+                            StandardCopyOption.REPLACE_EXISTING,
+                            StandardCopyOption.ATOMIC_MOVE);
+                    to.mailbox().ensure(to.mailbox().record());
                     Files.writeString(
-                            to.mailbox().inbound().resolve(name + MessageDelivery.PERSON_SUFFIX),
-                            person,
-                            StandardCharsets.UTF_8);
-                } else if (Files.isRegularFile(signature)) {
-                    Files.copy(
-                            signature,
-                            to.mailbox().inbound().resolve(name + ".sig"),
-                            StandardCopyOption.REPLACE_EXISTING);
+                            to.mailbox().record().resolve(ARRIVED),
+                            name + "\n",
+                            StandardCharsets.UTF_8,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.APPEND);
+                    handed.merge(name, to.container(), (was, also) -> was + ", " + also);
+                    reached++;
+                } catch (final java.nio.file.NoSuchFileException ex) {
+                    if (!to.mailbox().gone()) {
+                        throw ex;
+                    }
+                    // Removed since the members were found: that reader is none, and the others
+                    // still get it - the group's pass goes on.
                 }
-                // The message last, through a neighbour and a rename, so a task's pass never sees a
-                // message whose companion is still on its way, nor half of one.
-                final Path staged = to.mailbox().inbound().resolve("." + name + ".tmp");
-                if (bytes != null) {
-                    Files.write(staged, bytes);
-                } else {
-                    Files.copy(message, staged, StandardCopyOption.REPLACE_EXISTING);
-                }
-                Files.move(
-                        staged,
-                        to.mailbox().inbound().resolve(name),
-                        StandardCopyOption.REPLACE_EXISTING,
-                        StandardCopyOption.ATOMIC_MOVE);
-                to.mailbox().ensure(to.mailbox().record());
-                Files.writeString(
-                        to.mailbox().record().resolve(ARRIVED),
-                        name + "\n",
-                        StandardCharsets.UTF_8,
-                        StandardOpenOption.CREATE,
-                        StandardOpenOption.APPEND);
-                handed.merge(name, to.container(), (was, also) -> was + ", " + also);
             }
-            if (readers.isEmpty()) {
+            if (reached == 0) {
                 dropped++;
             }
             Files.deleteIfExists(message);

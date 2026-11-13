@@ -52,10 +52,19 @@ public class TalkTellCommand implements Callable<Integer>, PoreloFactory.Context
             err.flush();
             return 1;
         }
-        out.println(
-                "told      "
-                        + new PersonNote().tell(mailbox, text, null)
-                        + " - in the task's inbox now");
+        final String told;
+        try {
+            told = new PersonNote().tell(mailbox, text, null);
+        } catch (final java.nio.file.NoSuchFileException ex) {
+            if (!mailbox.gone()) {
+                throw ex;
+            }
+            // Removed since it was looked at: its mailbox is not made again for the note.
+            err.println("porelo: " + container + " has no mailbox");
+            err.flush();
+            return 1;
+        }
+        out.println("told      " + told + " - in the task's inbox now");
         // A person's word to this one task: its agent at rest is told it is there, as for a message
         // that names it.
         if (new AgentWake(context).announce(mailbox, container, null)) {

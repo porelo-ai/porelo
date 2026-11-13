@@ -732,4 +732,69 @@ class AgentWakeTest {
                 .as("the same file, delivered by the account, wakes it")
                 .isTrue();
     }
+
+    @Test
+    void aWakeForATaskRemovedAtItsLockMakesNoMailboxAgain() throws Exception {
+        // The wake found the mailbox there and went for its lock; the task was removed in between,
+        // and taking the lock made mail/<container>/record again, which kept its name taken.
+        final PoreloContext context = context();
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-review"));
+        mailbox.create();
+        final java.util.concurrent.CountDownLatch holding =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicReference<Thread> waking =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final Thread remover =
+                new Thread(
+                        () -> {
+                            try {
+                                FileLocks.holding(
+                                        mailbox.record().resolve(".wake.lock"),
+                                        () -> {
+                                            holding.countDown();
+                                            Races.waitsAtTheLock(waking);
+                                            mailbox.delete();
+                                            return Boolean.TRUE;
+                                        });
+                            } catch (final IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                        });
+        remover.start();
+        holding.await();
+        final boolean[] woken = {true};
+        final Thread wake =
+                new Thread(
+                        () ->
+                                woken[0] =
+                                        new AgentWake(context)
+                                                .announce(
+                                                        mailbox,
+                                                        "porelo-p-review",
+                                                        "p",
+                                                        () -> true));
+        waking.set(wake);
+        wake.start();
+        wake.join(10_000);
+        remover.join(10_000);
+
+        assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
+        assertThat(woken[0]).as("nobody woken").isFalse();
+    }
+
+    @Test
+    void aLateWakeForARemovedTaskMakesNoRecordOfIt() {
+        // Its removal took its mailbox, its state and its record; a pass that still knew it made
+        // its record's directory again to take the wake's lock.
+        final PoreloContext context = context();
+        final String task = "porelo-p-gone";
+
+        assertThat(new AgentWake(context).announceFiles(task, line -> true))
+                .as("nobody to wake")
+                .isFalse();
+        assertThat(context.paths().tasks().taskRecord(task))
+                .as("no record made again")
+                .doesNotExist();
+        assertThat(context.paths().messaging().mailbox(task)).doesNotExist();
+    }
 }

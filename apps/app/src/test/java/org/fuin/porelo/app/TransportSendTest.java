@@ -37,6 +37,39 @@ class TransportSendTest {
     }
 
     @Test
+    void a_task_removed_while_its_transport_ran_gets_no_mailbox_again(@TempDir final Path dir)
+            throws IOException {
+        // The task was removed while its transport ran: moving the message to wait for the next
+        // try made the mailbox again, and the task's retired name stayed taken.
+        final Mailbox mailbox = queued(dir);
+        final FakeCommandRunner removing =
+                new FakeCommandRunner() {
+                    @Override
+                    public org.fuin.porelo.core.process.CommandResult run(
+                            final org.fuin.porelo.core.process.Command command) {
+                        if (command.arguments().contains("send")) {
+                            try {
+                                mailbox.delete();
+                            } catch (final IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                        }
+                        return super.run(command);
+                    }
+                };
+        // Deferred, so the message moves to a queue of the mailbox rather than beside a receipt.
+        removing.failing("send", TransportSend.TEMPORARY, "not now");
+        final TransportDirectory transports = withAdapter(dir);
+
+        final Throwable thrown =
+                org.assertj.core.api.Assertions.catchThrowable(
+                        () -> new TransportSend(removing, transports).send(mailbox, "local"));
+
+        assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
+        assertThat(thrown).isInstanceOf(java.nio.file.NoSuchFileException.class);
+    }
+
+    @Test
     void a_message_the_transport_took_moves_to_sent_with_its_receipt(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = queued(dir);

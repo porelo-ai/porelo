@@ -62,6 +62,19 @@ free the name: the late write comes after it.
 - Red first: `MessageRecordTest`, `TransportConversationsTest` and `TaskReservationsTest` each failed before. Three
   `MachineTransportsTest` fixtures now make the task's mailbox, as a start does; they had relied on `handOut` making it.
 - doc/messages.md says where the kept record goes.
+- After the reading: every lock inside a mailbox (`.record.lock`, `.wake.lock`, `.pass.lock`) is taken with
+  `FileLocks.holdingInside`, which makes the lock file but never its folder, so a removal between the check and the
+  lock is not undone. `PersonNote`, `MessageSay`, `MessageDispatch`, `MessageRelease` and `TransportSend` make their
+  folders through `Mailbox.ensure`, which also refuses a link at any path component; `Mailbox.gone()` tells their
+  callers the task was removed.
+- The record is copied first on both removal paths and under its own lock; a failed copy removes its half and says the
+  removal can be run again. `mail-archive/` and everything in it is the account's alone (0700, files 0600) from its
+  making. A late wake for a task with no mailbox, record or container state makes no record of it.
+- Red first for each: `MessageRecordTest`, `AgentWakeTest`, `MessagePassTest`, `MessageReleaseTest`, `MessageSayTest`,
+  `PersonNoteTest`, `TransportSendTest`, `TaskReservationsTest`, `TransportConversationsTest` and `MailboxTest`; a
+  test helper lands the removal while the writer waits at its lock. Not tested on their own: the small "no mailbox"
+  answers of `TaskRefresh`, `talk tell`, `talk say` and the rejected-work note. Left open: a line appended after the
+  copy and before the delete is not in the archive.
 
 ## Acceptance
 

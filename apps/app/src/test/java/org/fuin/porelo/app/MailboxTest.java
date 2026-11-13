@@ -332,4 +332,65 @@ class MailboxTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+
+    @Test
+    void ensure_makes_each_missing_directory_inside_an_existing_mailbox() throws IOException {
+        // A mailbox of an older version lacks its record's answers: made one level at a time, the
+        // host's alone as everything outside the box is.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path answers = mailbox.record().resolve("answers");
+        Files.delete(mailbox.record());
+
+        assertThat(mailbox.ensure(answers)).isEqualTo(answers);
+
+        assertThat(answers).isDirectory();
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(mailbox.record())))
+                .isEqualTo("rwx------");
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(answers)))
+                .isEqualTo("rwx------");
+        assertThat(mailbox.ensure(answers)).as("twice is no error").isEqualTo(answers);
+    }
+
+    @Test
+    void ensure_makes_no_mailbox_that_is_gone() throws IOException {
+        // A writer late for a removed task made its mailbox again, and its name stayed taken.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        mailbox.delete();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> mailbox.ensure(mailbox.record()))
+                .isInstanceOf(java.nio.file.NoSuchFileException.class);
+        assertThat(mailbox.root()).doesNotExist();
+    }
+
+    @Test
+    void ensure_takes_nothing_outside_the_mailbox_nor_the_mailbox_itself() throws IOException {
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> mailbox.ensure(mailbox.root()))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> mailbox.ensure(temp.resolve("elsewhere")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(temp.resolve("elsewhere")).doesNotExist();
+    }
+
+    @Test
+    void ensure_refuses_a_link_where_a_directory_of_the_mailbox_should_be() throws IOException {
+        // Accepted, the writer wrote through it, wherever it pointed.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path elsewhere = Files.createDirectories(temp.resolve("elsewhere"));
+        Files.delete(mailbox.record());
+        Files.createSymbolicLink(mailbox.record(), elsewhere);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> mailbox.ensure(mailbox.record().resolve("answers")))
+                .as("refused, naming the link")
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining(mailbox.record().toString());
+        assertThat(elsewhere).as("nothing made where it points").isEmptyDirectory();
+    }
 }

@@ -293,7 +293,7 @@ public final class AgentWake {
             // typed it twice, and the second Enter broke into the turn the first had started
             // (2026-10-04).
             mailbox.ensure(mailbox.record());
-            return FileLocks.holding(
+            return FileLocks.holdingInside(
                     mailbox.record().resolve(".wake.lock"),
                     () -> announceHeld(mailbox, container, project, waking));
         } catch (final IOException | RuntimeException ex) {
@@ -449,10 +449,15 @@ public final class AgentWake {
             if (records.equals(mailbox.record())) {
                 // Never the mailbox again, if its task was removed meanwhile.
                 mailbox.ensure(records);
+            } else if (!Files.isDirectory(records, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    && !Files.isDirectory(context.paths().tasks().containerState(container))) {
+                // Its removal took its records: a late wake for a removed task makes none again,
+                // and has nobody to wake.
+                return false;
             } else {
                 Directories.create(records);
             }
-            return FileLocks.holding(
+            return FileLocks.holdingInside(
                     records.resolve(".wake.lock"),
                     () -> {
                         try {

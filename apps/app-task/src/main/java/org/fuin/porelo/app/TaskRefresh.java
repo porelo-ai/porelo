@@ -189,6 +189,15 @@ public final class TaskRefresh {
                 new PersonNote().moved(mailbox, moved);
                 new AgentWake(context).announce(mailbox, summary.name(), null);
                 told = true;
+            } catch (java.nio.file.NoSuchFileException ex) {
+                if (!mailbox.gone()) {
+                    return new Result(
+                            Outcome.MOVED,
+                            Map.copyOf(moved),
+                            "its agent could not be told: " + ex.getMessage(),
+                            false);
+                }
+                // Removed since its mailbox was found: nobody to tell, as for a task without one.
             } catch (java.io.IOException ex) {
                 return new Result(
                         Outcome.MOVED,

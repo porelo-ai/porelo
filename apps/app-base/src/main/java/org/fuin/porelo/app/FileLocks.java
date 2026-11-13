@@ -51,6 +51,30 @@ final class FileLocks {
      * @throws IOException Locking, reading or writing failed.
      */
     static <T> T holding(final Path lock, final Locked<T> locked) throws IOException {
+        return holding(lock, locked, true);
+    }
+
+    /**
+     * Runs something while holding the lock on a file in a directory that must exist: the lock file
+     * is made if it is not there, its directory never.
+     *
+     * <p>For a lock inside a task's mailbox. Making the lock's parents made a removed task's
+     * mailbox again when its removal came between a writer's check and its lock, and the task's
+     * retired name stayed taken while the mailbox was there.
+     *
+     * @param <T> What it answers.
+     * @param lock The lock file.
+     * @param locked What runs.
+     * @return Its answer.
+     * @throws NoSuchFileException The lock's directory is gone.
+     * @throws IOException Locking, reading or writing failed.
+     */
+    static <T> T holdingInside(final Path lock, final Locked<T> locked) throws IOException {
+        return holding(lock, locked, false);
+    }
+
+    private static <T> T holding(final Path lock, final Locked<T> locked, final boolean parents)
+            throws IOException {
         final ReentrantLock here =
                 HELD.computeIfAbsent(
                         lock.toAbsolutePath().normalize(), path -> new ReentrantLock());
@@ -59,13 +83,16 @@ final class FileLocks {
             if (here.getHoldCount() > 1) {
                 return locked.run();
             }
-            Directories.create(lock.toAbsolutePath().getParent());
+            if (parents) {
+                Directories.create(lock.toAbsolutePath().getParent());
+            }
             while (true) {
                 final Object before;
                 try {
                     before = fileKey(lock);
                 } catch (NoSuchFileException ex) {
                     try {
+                        // Fails with NoSuchFileException once its directory is gone.
                         Files.createFile(lock);
                     } catch (FileAlreadyExistsException createdMeanwhile) {
                         // Another process made it; read its identity on the next pass.

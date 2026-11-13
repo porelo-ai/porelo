@@ -143,4 +143,57 @@ class MessageRecordTest {
                 .isInstanceOf(java.nio.file.NoSuchFileException.class);
         assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
     }
+
+    @Test
+    void a_removal_between_the_check_and_the_lock_is_not_undone(@TempDir final Path dir)
+            throws Exception {
+        // The append found the mailbox there and went for its lock; the task was removed in
+        // between, and taking the lock made mail/<container>/record again. Here the removal waits
+        // in the lock's holder until the append stands at the lock, past its check.
+        final Mailbox mailbox = mailbox(dir);
+        final Path lock = mailbox.record().resolve(".record.lock");
+        final java.util.concurrent.CountDownLatch holding =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicReference<Thread> appender =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicReference<Throwable> answer =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final Thread remover =
+                new Thread(
+                        () -> {
+                            try {
+                                FileLocks.holding(
+                                        lock,
+                                        () -> {
+                                            holding.countDown();
+                                            Races.waitsAtTheLock(appender);
+                                            mailbox.delete();
+                                            return Boolean.TRUE;
+                                        });
+                            } catch (final IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                        });
+        remover.start();
+        holding.await();
+        final Thread append =
+                new Thread(
+                        () -> {
+                            try {
+                                new MessageRecord(mailbox)
+                                        .append(MessageRecord.READ, "m-1.json", "m-1", "", "", "");
+                            } catch (final Throwable ex) {
+                                answer.set(ex);
+                            }
+                        });
+        appender.set(append);
+        append.start();
+        append.join(10_000);
+        remover.join(10_000);
+
+        assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
+        assertThat(answer.get())
+                .as("nothing is recorded for a mailbox that went")
+                .isInstanceOf(java.nio.file.NoSuchFileException.class);
+    }
 }

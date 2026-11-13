@@ -537,16 +537,19 @@ public final class Mailbox {
      * the deleted mailbox again as its record, and the task's retired name stayed taken. Only
      * {@link #create()} makes a mailbox.
      *
+     * <p>A link where one of them should be is refused, not written through: what a writer puts
+     * there would land wherever it points.
+     *
      * @param directory A directory in this mailbox.
      * @return The directory.
      * @throws java.nio.file.NoSuchFileException The mailbox is gone.
-     * @throws IOException Making it failed.
+     * @throws IOException Making it failed, or one of them is a link or not a directory.
      */
     public Path ensure(final Path directory) throws IOException {
         if (!directory.startsWith(root) || directory.equals(root)) {
             throw new IllegalArgumentException(directory + " is not in the mailbox " + root);
         }
-        if (!Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+        if (gone()) {
             throw new java.nio.file.NoSuchFileException(
                     root.toString(), null, "the mailbox is gone");
         }
@@ -561,10 +564,26 @@ public final class Mailbox {
                 Files.createDirectory(at);
                 Files.setPosixFilePermissions(at, permissionsOf(at));
             } catch (final java.nio.file.FileAlreadyExistsException madeMeanwhile) {
-                // Another writer made it; a link there is refused by whoever opens it.
+                // Another writer made it, or something else is there.
+                if (!Files.isDirectory(at, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    throw new IOException(
+                            at + " is a link or not a directory; nothing is written through it",
+                            madeMeanwhile);
+                }
             }
         }
         return directory;
+    }
+
+    /**
+     * Returns whether this mailbox is gone as {@link #ensure(Path)} sees it: its root is no
+     * directory of its own, so nothing is made or written in it. A writer that fails with {@link
+     * java.nio.file.NoSuchFileException} and finds it gone came late to a removed task.
+     *
+     * @return {@code true} when its root is not a directory, or is a link.
+     */
+    public boolean gone() {
+        return !Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS);
     }
 
     /**

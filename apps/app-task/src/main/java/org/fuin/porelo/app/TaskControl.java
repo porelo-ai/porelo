@@ -277,6 +277,9 @@ public final class TaskControl {
                     () -> {
                         final TaskReservations.Owner pending = reservations.unmade(container);
                         if (pending == null) return removeExisting(container, rescue, force);
+                        // First, before anything is forgotten: a record that cannot be kept
+                        // leaves the task as it was, for a removal that tries again.
+                        keepRecord(container);
                         context.tasks().reapOrphans(container);
                         new TaskConversations(context)
                                 .retire(context, container, pending.project());
@@ -284,8 +287,6 @@ public final class TaskControl {
                         new TaskState(context).forget(container);
                         new TaskSession(context).forget(container);
                         new TaskSecrets(context).forget(container);
-                        // Kept before the mailbox goes; a copy that fails keeps the mailbox.
-                        archiveRecord(container);
                         retireDeleting(
                                 container, () -> new TaskResult(context.paths()).forget(container));
                         return new Stopped(
@@ -683,6 +684,9 @@ public final class TaskControl {
         }
         final boolean removed = purge && gone;
         if (removed) {
+            // First, before anything is forgotten: a record that cannot be kept leaves the task's
+            // records, so 'task remove' reaches it again and tries once more.
+            keepRecord(container);
             closeJournal(container);
             new TaskUsage(context).archive(container);
             if (identity != null) summary.ifPresent(task -> forgetOnline(task, identity));
@@ -730,12 +734,6 @@ public final class TaskControl {
                                 + ex.getMessage());
             }
             // The mailbox outlives the container on purpose, so this is the one place it ends.
-            try {
-                archiveRecord(container);
-            } catch (final java.io.IOException e) {
-                throw new java.io.UncheckedIOException(
-                        "Removed the task but could not delete its mailbox: " + container, e);
-            }
             retireDeleting(container, () -> {});
         }
         return new Stopped(
@@ -834,12 +832,37 @@ public final class TaskControl {
     }
 
     /**
+     * Keeps a task's record of its mail in the mail archive, or says that it could not.
+     *
+     * @param container The task being removed.
+     * @throws java.io.UncheckedIOException The record could not be copied; nothing of the task was
+     *     forgotten yet, and no part of a copy is left.
+     */
+    private void keepRecord(String container) {
+        try {
+            archiveRecord(container);
+        } catch (final IOException ex) {
+            throw new java.io.UncheckedIOException(
+                    "Could not copy the mail record of "
+                            + container
+                            + " into "
+                            + context.paths().messaging().archive()
+                            + " ("
+                            + ex.getMessage()
+                            + "); the task is not removed, and removing it again tries the copy"
+                            + " once more",
+                    ex);
+        }
+    }
+
+    /**
      * Keeps a removed task's record of its mail - the hash-chained log and what the transports
      * marked - in the mail archive, before its mailbox goes with it.
      *
      * <p>Outside the mailboxes: a retired name is taken while anything of its mailbox is left, and
-     * a record kept in it held the name of a task removed with signed, recorded mail. A record that
-     * cannot be kept stops the removal of the mailbox, so the evidence is never lost.
+     * a record kept in it held the name of a task removed with signed, recorded mail. Copied under
+     * the record's own lock, so a line the daemon appends meanwhile is in the copy whole or not at
+     * all. Owner-only from the moment each directory is made. A copy that fails is removed again.
      *
      * @param container The removed task.
      * @throws IOException The record could not be copied.
@@ -850,6 +873,25 @@ public final class TaskControl {
         if (!Files.isDirectory(record, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
+        try {
+            FileLocks.holdingInside(
+                    record.resolve(".record.lock"),
+                    () -> {
+                        copyRecord(container, record);
+                        return Boolean.TRUE;
+                    });
+        } catch (final java.nio.file.NoSuchFileException ex) {
+            if (Files.isDirectory(record, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                throw ex;
+            }
+            // Its record went meanwhile: nothing is left to keep.
+        }
+    }
+
+    private static final java.util.Set<java.nio.file.attribute.PosixFilePermission> OWNER_DIR =
+            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------");
+
+    private void copyRecord(String container, Path record) throws IOException {
         final List<Path> files;
         try (java.util.stream.Stream<Path> tree = Files.walk(record)) {
             files =
@@ -866,21 +908,61 @@ public final class TaskControl {
         if (files.isEmpty()) {
             return;
         }
+        final Path archive = context.paths().messaging().archive();
+        Directories.create(archive.getParent());
+        ownerOnly(archive);
         // Stamped, so a name started again and removed again keeps both.
         final String stamp =
                 java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssSSS'Z'")
                         .withZone(java.time.ZoneOffset.UTC)
                         .format(java.time.Instant.now());
-        final Path into = context.paths().messaging().archive().resolve(container + "-" + stamp);
-        Directories.create(context.paths().messaging().archive());
-        Files.createDirectory(into);
-        Files.setPosixFilePermissions(
-                into, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-        for (final Path file : files) {
-            final Path target = into.resolve(record.relativize(file).toString());
-            Directories.create(target.getParent());
-            Files.copy(file, target, java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
+        final Path into = archive.resolve(container + "-" + stamp);
+        Files.createDirectory(
+                into, java.nio.file.attribute.PosixFilePermissions.asFileAttribute(OWNER_DIR));
+        try {
+            Files.setPosixFilePermissions(into, OWNER_DIR);
+            for (final Path file : files) {
+                final Path target = into.resolve(record.relativize(file).toString());
+                makeOwnerOnly(
+                        into, java.util.Objects.requireNonNull(target.getParent(), "a parent"));
+                Files.copy(file, target, java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
+                Files.setPosixFilePermissions(
+                        target,
+                        java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+            }
+        } catch (final IOException | RuntimeException ex) {
+            // No half of a copy is left: a removal tried again makes a whole one.
+            deleteTree(into);
+            throw ex;
         }
+    }
+
+    /** Makes the directories from {@code into} down to {@code directory}, each owner-only. */
+    private static void makeOwnerOnly(Path into, Path directory) throws IOException {
+        Path at = into;
+        for (final Path name : into.relativize(directory)) {
+            at = at.resolve(name);
+            if (!Files.isDirectory(at, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                Files.createDirectory(
+                        at,
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(OWNER_DIR));
+                Files.setPosixFilePermissions(at, OWNER_DIR);
+            }
+        }
+    }
+
+    /** Makes the mail archive owner-only, from its making on: the names in it are the tasks'. */
+    private static void ownerOnly(Path archive) throws IOException {
+        try {
+            Files.createDirectory(
+                    archive,
+                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(OWNER_DIR));
+        } catch (final java.nio.file.FileAlreadyExistsException there) {
+            if (!Files.isDirectory(archive, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                throw new IOException(archive + " is a link or not a directory", there);
+            }
+        }
+        Files.setPosixFilePermissions(archive, OWNER_DIR);
     }
 
     private void deleteTree(Path directory) {

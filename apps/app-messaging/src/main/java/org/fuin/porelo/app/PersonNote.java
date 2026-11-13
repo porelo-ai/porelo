@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -66,8 +65,10 @@ public final class PersonNote {
 
         final String name = FILE_TIME.format(now) + "--" + id + ".json";
         mailbox.refuseLinks();
-        Directories.create(mailbox.inboxTmp());
-        Directories.create(mailbox.inboxNew());
+        // Never the mailbox again: a note for a task removed since its mailbox was found made it
+        // again, and its retired name stayed taken.
+        mailbox.ensure(mailbox.inboxTmp());
+        mailbox.ensure(mailbox.inboxNew());
         final Path staged = mailbox.inboxTmp().resolve(name);
         Files.writeString(staged, Json.write(note), StandardCharsets.UTF_8);
         mailbox.intoInbox(staged);
@@ -106,7 +107,15 @@ public final class PersonNote {
         if (!mailbox.exists()) {
             return false;
         }
-        new PersonNote().rejected(mailbox, work, reason);
+        try {
+            new PersonNote().rejected(mailbox, work, reason);
+        } catch (final java.nio.file.NoSuchFileException ex) {
+            if (!mailbox.gone()) {
+                throw ex;
+            }
+            // Removed since: told nobody, as for a task without a mailbox.
+            return false;
+        }
         return true;
     }
 

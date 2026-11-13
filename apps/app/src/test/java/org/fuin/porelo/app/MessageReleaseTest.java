@@ -22,6 +22,19 @@ class MessageReleaseTest {
     }
 
     @Test
+    void a_decision_for_a_removed_task_makes_no_mailbox_again(@TempDir final Path dir)
+            throws IOException {
+        // Its lock beside the pass's made the root of a removed task's mailbox again.
+        final Mailbox mailbox = held(dir, "m-9.json", "{\"messageId\":\"m-9\"}");
+        mailbox.delete();
+
+        final MessageRelease.Result result = release.decide(mailbox, "m-9", false);
+
+        assertThat(result.outcome()).isEqualTo(MessageRelease.Outcome.NO_SUCH_MESSAGE);
+        assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
+    }
+
+    @Test
     void a_released_message_goes_back_where_the_filter_left_it(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = held(dir, "m-1.json", "{\"messageId\":\"m-1\"}");

@@ -1418,6 +1418,33 @@ class TransportConversationsTest {
         assertThat(handed).as("handed to nobody").isEmpty();
     }
 
+    @Test
+    void aReaderGoneSinceTheMembersWereLookedAtIsSkippedAndTheOthersGetIt() throws IOException {
+        // One task's mailbox went between the look at the members and the hand-out: the failure
+        // ended the whole conversation's pass, and the others never got what came. Stand-in for
+        // the removal in between: a mailbox the look takes as there and the hand-out does not.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Path elsewhere = Files.createDirectories(dir.resolve("elsewhere"));
+        final Mailbox build = new Mailbox(dir.resolve("mail").resolve("porelo-p-build"));
+        Files.createSymbolicLink(build.root(), elsewhere);
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", List.of("review", "build"));
+        final Map<String, String> handed = new LinkedHashMap<>();
+        final List<String> said = new java.util.ArrayList<>();
+
+        TransportConversations.handOut(
+                inbound,
+                List.of(
+                        member("porelo-p-review", review, "p", "room"),
+                        member("porelo-p-build", build, "p", "room")),
+                handed,
+                said);
+
+        assertThat(review.inbound().resolve("$a.json")).as("the other reader has it").exists();
+        assertThat(handed).containsExactly(Map.entry("$a.json", "porelo-p-review"));
+        assertThat(elsewhere).as("nothing written for the gone one").isEmptyDirectory();
+    }
+
     private static Stream<Object> otherRecipients() {
         return Stream.of(
                 "someone-on-another-machine",

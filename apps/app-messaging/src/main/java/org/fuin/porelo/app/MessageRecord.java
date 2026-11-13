@@ -143,9 +143,10 @@ public final class MessageRecord {
         // once, both read the same last hash, and the record then said it had been changed when
         // nobody had.
         // Into a mailbox that exists only: a line written late for a removed task made its mailbox
-        // again, and its retired name stayed taken.
+        // again, and its retired name stayed taken. The lock makes no directory either, so a
+        // removal between the two is not undone.
         mailbox.ensure(mailbox.record());
-        FileLocks.holding(
+        FileLocks.holdingInside(
                 file.resolveSibling(".record.lock"),
                 () -> {
                     appendHeld(event, message, id, peer, detail, direction);

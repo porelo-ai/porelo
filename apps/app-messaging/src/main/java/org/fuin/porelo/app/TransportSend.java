@@ -12,7 +12,6 @@ import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
-import org.fuin.porelo.wire.Directories;
 
 /**
  * Hands queued messages to the transport that carries them.
@@ -145,7 +144,7 @@ public final class TransportSend {
             // has not lost anything, and installing it later is what makes the queue move.
             for (final Path message : queued(active)) {
                 deferred.add(message.getFileName().toString());
-                moveWithCompanions(message, waiting);
+                moveWithCompanions(mailbox, message, waiting);
             }
             return new Result(sent, deferred, refused);
         }
@@ -157,7 +156,7 @@ public final class TransportSend {
             // next pass.
             for (final Path message : queued(active)) {
                 deferred.add(message.getFileName().toString());
-                moveWithCompanions(message, waiting);
+                moveWithCompanions(mailbox, message, waiting);
             }
             return new Result(sent, deferred, refused);
         }
@@ -171,7 +170,7 @@ public final class TransportSend {
             final Path destination =
                     message.resolveSibling(name + MessageDispatch.DESTINATION_SUFFIX);
             if (!Files.isRegularFile(destination)) {
-                moveWithCompanions(message, mailbox.hold());
+                moveWithCompanions(mailbox, message, mailbox.hold());
                 refused.add(
                         new MessageDelivery.Held(
                                 name,
@@ -226,15 +225,15 @@ public final class TransportSend {
             if (result.successful()) {
                 final Path receipt = mailbox.sent().resolve(name + ".receipt.json");
                 Files.writeString(receipt, result.standardOutput(), StandardCharsets.UTF_8);
-                moveWithCompanions(message, mailbox.sent());
+                moveWithCompanions(mailbox, message, mailbox.sent());
                 sent.add(name);
             } else if (result.exitCode() == TEMPORARY) {
                 if (!waiting.equals(message.getParent())) {
-                    moveWithCompanions(message, waiting);
+                    moveWithCompanions(mailbox, message, waiting);
                 }
                 deferred.add(name);
             } else {
-                moveWithCompanions(message, mailbox.hold());
+                moveWithCompanions(mailbox, message, mailbox.hold());
                 refused.add(
                         new MessageDelivery.Held(
                                 name,
@@ -356,8 +355,10 @@ public final class TransportSend {
         return all;
     }
 
-    private void moveWithCompanions(final Path message, final Path target) throws IOException {
-        Directories.create(target);
+    private void moveWithCompanions(final Mailbox mailbox, final Path message, final Path target)
+            throws IOException {
+        // Never the mailbox again, if its task was removed while its transport ran.
+        mailbox.ensure(target);
         final String name = message.getFileName().toString();
         for (final String suffix : new String[] {".sig", MessageDispatch.DESTINATION_SUFFIX}) {
             final Path companion = message.resolveSibling(name + suffix);

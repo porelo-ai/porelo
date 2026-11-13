@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
-import org.fuin.porelo.wire.Directories;
 
 /**
  * Lets a person send a held message on its way, or refuse it for good.
@@ -225,9 +224,18 @@ public final class MessageRelease {
             final org.fuin.porelo.core.project.Mail mail)
             throws IOException {
         // Under the pass's lock: a release moved a file a pass was moving at the same time.
-        return FileLocks.holding(
-                mailbox.root().resolve(MessagePass.PASS_LOCK),
-                () -> decideHeld(mailbox, id, refuse, mail));
+        // Inside the mailbox, whose directory the lock never makes: nothing is held for a task
+        // removed meanwhile, and its mailbox is not made again.
+        try {
+            return FileLocks.holdingInside(
+                    mailbox.root().resolve(MessagePass.PASS_LOCK),
+                    () -> decideHeld(mailbox, id, refuse, mail));
+        } catch (final java.nio.file.NoSuchFileException ex) {
+            if (!mailbox.gone()) {
+                throw ex;
+            }
+            return new Result(Outcome.NO_SUCH_MESSAGE, "", "");
+        }
     }
 
     private Result decideHeld(
@@ -331,7 +339,7 @@ public final class MessageRelease {
                     NotDeliverable.SIGNATURE_MISSING);
         }
         final Path active = mailbox.queueActive(peer.transport());
-        Directories.create(active);
+        mailbox.ensure(active);
         Files.writeString(
                 active.resolve(name + MessageDispatch.DESTINATION_SUFFIX),
                 peer.destination(),
@@ -437,7 +445,7 @@ public final class MessageRelease {
             return new Result(Outcome.RELEASED, name, messageId, INWARD);
         }
         final Path target = refuse ? mailbox.rejected() : mailbox.accepted();
-        Directories.create(target);
+        mailbox.ensure(target);
         if (refuse) {
             // Written before the message moves: an answer that exists for a message still in 'hold'
             // is a repeat at worst, and a message gone with no answer is a sender left waiting.

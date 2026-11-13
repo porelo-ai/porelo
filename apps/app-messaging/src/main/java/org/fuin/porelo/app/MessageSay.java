@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -98,7 +97,8 @@ public final class MessageSay {
         // Through a dot file and a rename, the same discipline the agent is held to: a message is
         // complete exactly when it is renamed, and nothing here gets a shortcut.
         final Path staged = mailbox.person().resolve("." + name);
-        Directories.create(mailbox.person());
+        // Never the mailbox again, if its task was removed since it was found.
+        mailbox.ensure(mailbox.person());
         Files.writeString(staged, Json.write(message), StandardCharsets.UTF_8);
         Files.move(staged, mailbox.person().resolve(name), StandardCopyOption.ATOMIC_MOVE);
         return name;

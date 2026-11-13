@@ -176,15 +176,18 @@ class TaskReservationsTest {
         }
     }
 
-    /** Makes a mailbox whose delete fails: one of its directories holds a file and is read-only. */
+    /**
+     * Makes a mailbox whose delete fails: one of its directories holds a file and is read-only. Not
+     * its record, which the removal copies under a lock it takes inside it.
+     */
     private static Path undeletable(PoreloContext context, String container) throws Exception {
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
         mailbox.create();
-        Files.writeString(mailbox.record().resolve("entry"), "kept");
+        Files.writeString(mailbox.accepted().resolve("entry"), "kept");
         Files.setPosixFilePermissions(
-                mailbox.record(),
+                mailbox.accepted(),
                 java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
-        return mailbox.record();
+        return mailbox.accepted();
     }
 
     @Test
@@ -223,6 +226,137 @@ class TaskReservationsTest {
         try (var again = new TaskReservations(context).reserve("web", "x", container, "second")) {
             assertThat(again).as("the name is free for the next start").isNotNull();
         }
+    }
+
+    @Test
+    void aRecordThatCannotBeCopiedLeavesTheTaskRemovableAgain() throws Exception {
+        // The copy failed after the task's records were forgotten: the mailbox and the name stayed,
+        // and a second 'task remove' answered that it was no task.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final String id = "a".repeat(64);
+        try (var claim = new TaskReservations(context).reserve("web", "x", container, "first")) {
+            record(context, container, id);
+        }
+        final Mailbox mailbox = recorded(context, container);
+        final Path unreadable = mailbox.record().resolve("zz-unreadable");
+        Files.writeString(unreadable, "kept\n");
+        Files.setPosixFilePermissions(
+                unreadable, java.nio.file.attribute.PosixFilePermissions.fromString("---------"));
+        runner.answering("ps", container + "\tExited (0)\t\t\tweb\tguarded\tr\t\t" + id + "\n");
+        runner.answering("{{.Names}}", container + "\n");
+
+        assertThatThrownBy(() -> new TaskControl(context).remove(container, false, true))
+                .as("the words name the copy")
+                .hasMessageContaining("Could not copy the mail record of " + container);
+
+        assertThat(mailbox.record()).as("the mailbox is kept").isDirectory();
+        assertThat(archived(context)).as("no half of a copy is left").isEmpty();
+        assertThat(context.paths().tasks().taskRecord(container))
+                .as("nothing of the task was forgotten")
+                .isDirectory();
+
+        Files.setPosixFilePermissions(
+                unreadable, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+        assertThat(new TaskControl(context).remove(container, false, true).removed())
+                .as("removing it again tries the copy once more")
+                .isTrue();
+        assertThat(mailbox.root()).doesNotExist();
+        assertThat(archived(context))
+                .singleElement()
+                .satisfies(kept -> assertThat(kept.resolve("zz-unreadable")).hasContent("kept\n"));
+        runner.answering("ps", "");
+        runner.answering("{{.Names}}", "");
+        try (var again = new TaskReservations(context).reserve("web", "x", container, "second")) {
+            assertThat(again).as("the name is free for the next start").isNotNull();
+        }
+    }
+
+    @Test
+    void anUnfinishedStartsRecordThatCannotBeCopiedLeavesItRemovableAgain() throws Exception {
+        // A start that made no container yet: its records were forgotten before the copy failed,
+        // and a second removal no longer found it unfinished.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        try (var claim = new TaskReservations(context).reserve("web", "x", container, "first")) {}
+        final Mailbox mailbox = recorded(context, container);
+        final Path unreadable = mailbox.record().resolve("zz-unreadable");
+        Files.writeString(unreadable, "kept\n");
+        Files.setPosixFilePermissions(
+                unreadable, java.nio.file.attribute.PosixFilePermissions.fromString("---------"));
+        runner.answering("ps", "");
+        runner.answering("{{.Names}}", "");
+
+        assertThatThrownBy(() -> new TaskControl(context).remove(container, false, true))
+                .hasMessageContaining("Could not copy the mail record of " + container);
+        assertThat(mailbox.record()).as("the mailbox is kept").isDirectory();
+        assertThat(archived(context)).as("no half of a copy is left").isEmpty();
+
+        Files.setPosixFilePermissions(
+                unreadable, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+        assertThat(new TaskControl(context).remove(container, false, true).removed())
+                .as("still unfinished, and removed this time")
+                .isTrue();
+        assertThat(mailbox.root()).doesNotExist();
+        assertThat(archived(context)).hasSize(1);
+        try (var again = new TaskReservations(context).reserve("web", "x", container, "second")) {
+            assertThat(again).as("the name is free for the next start").isNotNull();
+        }
+    }
+
+    @Test
+    void theArchiveIsTheAccountsAloneFromItsMaking() throws Exception {
+        // Made with the umask's modes and closed afterwards, other accounts could list which tasks
+        // were removed, and read in the moment between.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final String id = "a".repeat(64);
+        try (var claim = new TaskReservations(context).reserve("web", "x", container, "first")) {
+            record(context, container, id);
+        }
+        final Mailbox mailbox = recorded(context, container);
+        final Path answers = Files.createDirectories(mailbox.record().resolve("answers"));
+        Files.writeString(answers.resolve("a-1.json"), "{}");
+        Files.setPosixFilePermissions(
+                answers.resolve("a-1.json"),
+                java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
+        runner.answering("ps", container + "\tExited (0)\t\t\tweb\tguarded\tr\t\t" + id + "\n");
+        runner.answering("{{.Names}}", container + "\n");
+
+        assertThat(new TaskControl(context).remove(container, false, true).removed()).isTrue();
+
+        final Path archive = context.paths().messaging().archive();
+        final Path kept = archived(context).getFirst();
+        assertThat(kept.resolve("answers/a-1.json")).as("its answers kept too").hasContent("{}");
+        for (final Path directory : List.of(archive, kept, kept.resolve("answers"))) {
+            assertThat(modes(directory)).as(directory.toString()).isEqualTo("rwx------");
+        }
+        for (final Path file :
+                List.of(kept.resolve(MessageRecord.FILE), kept.resolve("answers/a-1.json"))) {
+            assertThat(modes(file)).as(file.toString()).isEqualTo("rw-------");
+        }
+    }
+
+    private static Mailbox recorded(PoreloContext context, String container) throws Exception {
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        mailbox.create();
+        new MessageRecord(mailbox).append(MessageRecord.TAKEN, "m-1.json", "m-1", "signed");
+        return mailbox;
+    }
+
+    private static List<Path> archived(PoreloContext context) throws Exception {
+        final Path archive = context.paths().messaging().archive();
+        if (!Files.isDirectory(archive)) {
+            return List.of();
+        }
+        try (var found = Files.list(archive)) {
+            return found.toList();
+        }
+    }
+
+    private static String modes(Path path) throws Exception {
+        return java.nio.file.attribute.PosixFilePermissions.toString(
+                Files.getPosixFilePermissions(path, java.nio.file.LinkOption.NOFOLLOW_LINKS));
     }
 
     @Test

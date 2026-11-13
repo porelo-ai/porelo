@@ -80,7 +80,18 @@ public class TalkSayCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.flush();
             return 1;
         }
-        final String name = new MessageSay().write(mailbox, peer, kind, contextId, text);
+        final String name;
+        try {
+            name = new MessageSay().write(mailbox, peer, kind, contextId, text);
+        } catch (final java.nio.file.NoSuchFileException ex) {
+            if (!mailbox.gone()) {
+                throw ex;
+            }
+            // Removed since it was looked at: its mailbox is not made again for the message.
+            err.println("porelo: " + container + " has no mailbox");
+            err.flush();
+            return 1;
+        }
         out.println("written   " + name + " - the next pass puts it through the filter");
         out.flush();
         return 0;
