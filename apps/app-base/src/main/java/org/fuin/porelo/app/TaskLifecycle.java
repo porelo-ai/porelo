@@ -117,6 +117,30 @@ final class TaskLifecycle {
         return stopped;
     }
 
+    /**
+     * Ends every helper the state directory records, and the ones given, killing whatever ignores
+     * the signal once the grace has passed, and forgets the pid files.
+     *
+     * <p>For taking back a start or a resume that failed, where a helper only asked to go - one
+     * that came up and ignores {@code SIGTERM} - outlived the failure it was part of.
+     *
+     * @param stateDirectory The task's state directory.
+     * @param also Helpers held by handle, whether or not a pid file names them.
+     * @param grace How long they have to go once asked.
+     * @return Whether they and everything they started are gone.
+     */
+    static boolean endHelpers(
+            Path stateDirectory,
+            java.util.Collection<ProcessHandle> also,
+            java.time.Duration grace) {
+        final java.util.Set<ProcessHandle> helpers = new java.util.LinkedHashSet<>(also);
+        helpers.addAll(running(stateDirectory));
+        final boolean ended = org.fuin.porelo.wire.HelperPid.endAll(helpers, grace);
+        // Forgets the files; what they name is gone, or was asked once more.
+        stopHelpers(stateDirectory);
+        return ended;
+    }
+
     private static boolean isPidFile(Path file) {
         return file.getFileName().toString().endsWith(".pid");
     }

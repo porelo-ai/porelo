@@ -737,9 +737,10 @@ public class Podman {
      * did in it survive and can be resumed. Removing it is a separate decision.
      *
      * @param container Container name or id.
+     * @return Whether podman said it stopped; a stop it refused leaves the container as it was.
      */
-    public void stop(String container) {
-        runner.run(podman("stop", "--time", "5", target(container)));
+    public boolean stop(String container) {
+        return runner.run(podman("stop", "--time", "5", target(container))).successful();
     }
 
     /**

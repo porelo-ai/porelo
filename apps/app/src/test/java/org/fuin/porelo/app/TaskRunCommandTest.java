@@ -3881,6 +3881,113 @@ class TaskRunCommandTest {
         }
     }
 
+    @Test
+    void aStartWhoseFirstIdRecordFailsRemovesTheContainerItMadeAndEndsItsBroker(@TempDir Path dir)
+            throws Exception {
+
+        // Rolled back through the stop of a recorded task, a start whose first id record failed
+        // was refused for the record it had not written: its container stayed, recorded nowhere,
+        // and the broker it had started ran on.
+        final PoreloContext context = brokeredContext(dir);
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, broker(helpers, true, ownPorelo).toString());
+        ((StoppingCommandRunner) runner)
+                .beforeCreate(
+                        command -> {
+                            final String container =
+                                    command.arguments()
+                                            .get(command.arguments().indexOf("--name") + 1);
+                            try {
+                                // Where the id goes, a directory with something in it: as a full
+                                // filesystem, the first record fails.
+                                Files.createDirectories(
+                                        context.paths()
+                                                .tasks()
+                                                .containerState(container)
+                                                .resolve(org.fuin.porelo.wire.Sidecar.RECORDED_ID)
+                                                .resolve("taken"));
+                            } catch (IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                        });
+        try {
+            final int code =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--no-gate");
+
+            assertThat(code).as("the start fails: %s", err).isNotZero();
+            assertThat(HelperStandIn.started(helpers))
+                    .as("it had started its broker: %s", err)
+                    .isEqualTo(1);
+            assertThat(runner.lines())
+                    .as("the container it made is removed by the id its create gave back")
+                    .anyMatch(
+                            line ->
+                                    line.startsWith("podman rm")
+                                            && line.contains("0123456789abcdef"));
+            assertThat(HelperStandIn.anyRunning(helpers))
+                    .as("and its broker is not left running: %s", err)
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
+    @Test
+    void aStartThatFailsAfterItsBrokerCameUpKillsABrokerThatIgnoresTheSignal(@TempDir Path dir)
+            throws Exception {
+
+        // Its rollback only asked: a broker that came up and ignores SIGTERM outlived the start
+        // whose container then failed to start.
+        final PoreloContext context = brokeredContext(dir);
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, broker(helpers, true, ownPorelo, true).toString());
+        runner.failing("podman start", 125, "Error: the hook refused the start");
+        try {
+            final int code =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--no-gate");
+
+            assertThat(code).as("the start fails: %s", err).isNotZero();
+            assertThat(HelperStandIn.started(helpers))
+                    .as("its broker came up: %s", err)
+                    .isEqualTo(1);
+            assertThat(HelperStandIn.anyRunning(helpers))
+                    .as("and is ended, though it ignores SIGTERM: %s", err)
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
     /** A context whose preview agent is brokered, its credential in a vault the start opens. */
     private PoreloContext brokeredContext(Path dir) throws IOException {
         final PoreloContext context =
@@ -3905,6 +4012,15 @@ class TaskRunCommandTest {
      */
     private static Path broker(Path helpers, boolean givesToken, String ownPorelo)
             throws IOException {
+        return broker(helpers, givesToken, ownPorelo, false);
+    }
+
+    /**
+     * A porelo whose {@code vault serve} is a stand-in, as {@link #broker(Path, boolean, String)}
+     * makes it, that ignores {@code SIGTERM} when {@code stubborn}.
+     */
+    private static Path broker(Path helpers, boolean givesToken, String ownPorelo, boolean stubborn)
+            throws IOException {
         final Path program = helpers.resolve("brokering-porelo");
         Files.writeString(
                 program,
@@ -3920,11 +4036,13 @@ class TaskRunCommandTest {
                     previous=$argument
                   done
                 %s
+                %s
                 fi
                 exec %s "$@"
                 """
                         .formatted(
                                 givesToken ? "echo stand-in-token > \"$argument\"" : ":",
+                                stubborn ? "trap '' TERM" : "",
                                 HelperStandIn.lines(HelperStandIn.registry(helpers), true),
                                 shellArgument(ownPorelo)));
         Files.setPosixFilePermissions(

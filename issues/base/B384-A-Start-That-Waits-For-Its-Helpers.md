@@ -131,3 +131,30 @@ To be checked: not touched. The signal and teardown path of an attached start is
 - A start that loses the name to another ends the helpers it started itself, by their own handles.
 - The wait for a helper's pid runs on monotonic time.
 - Left as it was: a container that reports no pid still only warns about its watcher.
+
+## Built after the second reading (2026-11-13)
+
+- A helper whose id was taken by another process leads its ending to none of that process's children:
+  `HelperPid.descendants` lists a helper's children only while it is alive before and after the count, and the
+  stop's second census after the poststop hook uses it (`aHelperWhoseIdWasTakenLeadsToNoneOfTheNewHoldersChildren`).
+- A start whose first id record fails after the create removes the container by the id its create gave back and ends
+  its broker, rather than leaving both behind a stop that found no record
+  (`aStartWhoseFirstIdRecordFailsRemovesTheContainerItMadeAndEndsItsBroker`).
+- A resume whose container start throws (the hook refused it) rolls back the helpers it started before passing the
+  failure on (`aResumeWhoseContainerStartIsRefusedEndsTheHelpersItStartedForIt`).
+- `Podman.stop` (runtime) answers whether podman stopped the container; a resume whose rollback could not stop it
+  answers 70 with `NOT_TAKEN_BACK` and names what may still run, never "nothing left running"
+  (`aResumeWhoseContainerCannotBeStoppedAgainDoesNotSayNothingRuns`).
+- A failed start or resume ends every helper, the ones already up included, killing what ignores SIGTERM after the
+  grace (`TaskLifecycle.endHelpers`, app-base; `aResumeThatFailsKillsAHelperThatWasUpAndIgnoresTheSignal`,
+  `aStartThatFailsAfterItsBrokerCameUpKillsABrokerThatIgnoresTheSignal`).
+- `HelperPid.endAll` counts what the helpers start again until a count finds nothing new, so a child started by a
+  SIGTERM handler is ended too (`aChildTheHelperStartsWhileItIsAskedToGoIsEndedToo`).
+
+Left as Yellows:
+- A container started by an independent `podman start` while a resume waits for its BEFORE helpers is taken as this
+  resume's, and its rollback can stop it; cooperating Porelo resumes are serialized by the resume lock.
+- `ClearanceWiring:133` still lets a `--no-gate --clearance prompt` start go on without a watcher when the container's
+  pid cannot be found.
+- `RecognizedTasksTest:157` (an invalid id) is green on the base by design: `Sidecar.recordId` already refused it; it
+  guards against that check moving, not a fix here.

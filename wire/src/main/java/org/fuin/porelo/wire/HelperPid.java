@@ -67,6 +67,26 @@ public final class HelperPid {
     }
 
     /**
+     * Returns what a helper started, while it is still the process its handle names.
+     *
+     * <p>Asked of a helper that exited, the runtime lists the children of whatever holds its id
+     * now: they started after the helper did, so they pass its start-time filter, and signalling
+     * them ends what nobody asked to touch. So the helper is checked first, and again once its
+     * descendants are taken: alive before and after, it held its id throughout, and what was listed
+     * is its own.
+     *
+     * @param helper The helper.
+     * @return Its descendants, or none when it is gone or its id belongs to something else.
+     */
+    public static java.util.List<ProcessHandle> descendants(final ProcessHandle helper) {
+        if (!helper.isAlive()) {
+            return java.util.List.of();
+        }
+        final java.util.List<ProcessHandle> found = helper.descendants().toList();
+        return helper.isAlive() ? found : java.util.List.of();
+    }
+
+    /**
      * Stops a helper and every process it started, those first.
      *
      * <p>A helper's own processes are not ended with it: a signal goes to one process, and a build
@@ -78,7 +98,7 @@ public final class HelperPid {
     public static void stop(final ProcessHandle helper) {
         // Taken before anything is signalled: a child whose parent is gone is no longer its
         // descendant.
-        final java.util.List<ProcessHandle> started = helper.descendants().toList();
+        final java.util.List<ProcessHandle> started = descendants(helper);
         started.forEach(ProcessHandle::destroy);
         helper.destroy();
     }
@@ -96,18 +116,93 @@ public final class HelperPid {
      * @return Whether it and everything it started are gone.
      */
     public static boolean end(final ProcessHandle helper, final java.time.Duration grace) {
-        // Taken before anything is signalled: a child whose parent is gone is no longer its
-        // descendant, and could not be killed below.
-        final java.util.List<ProcessHandle> all =
-                new java.util.ArrayList<>(helper.descendants().toList());
-        all.add(helper);
-        all.forEach(ProcessHandle::destroy);
-        if (gone(all, grace)) {
-            return true;
+        return endAll(java.util.List.of(helper), grace);
+    }
+
+    /**
+     * Ends several helpers as {@link #end} ends one, against one grace.
+     *
+     * <p>What they start is counted again until a count finds nothing new: one census taken before
+     * the signal missed the child a helper's {@code SIGTERM} handler started, and killing the
+     * helper then left that child running with nobody to name it.
+     *
+     * @param helpers The helpers.
+     * @param grace How long they have to go once asked.
+     * @return Whether they and everything they started are gone.
+     */
+    public static boolean endAll(
+            final java.util.Collection<ProcessHandle> helpers, final java.time.Duration grace) {
+        final java.util.Set<ProcessHandle> started = new java.util.LinkedHashSet<>();
+        census(helpers, started).forEach(ProcessHandle::destroy);
+        helpers.forEach(ProcessHandle::destroy);
+        final long until = System.nanoTime() + grace.toNanos();
+        while (anyAlive(helpers, started)) {
+            if (System.nanoTime() - until >= 0 || !pause()) {
+                return kill(helpers, started);
+            }
+            census(helpers, started).forEach(ProcessHandle::destroy);
         }
-        all.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
+        return true;
+    }
+
+    /** Kills what still runs: what they started until a count finds nothing new, then them. */
+    private static boolean kill(
+            final java.util.Collection<ProcessHandle> helpers,
+            final java.util.Set<ProcessHandle> started) {
+        final long until = System.nanoTime() + KILLED.toNanos();
+        java.util.List<ProcessHandle> fresh;
+        do {
+            fresh = census(helpers, started);
+            started.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
+        } while (!fresh.isEmpty() && System.nanoTime() - until < 0);
+        helpers.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
+        final java.util.List<ProcessHandle> all = new java.util.ArrayList<>(started);
+        all.addAll(helpers);
         return gone(all, KILLED);
     }
+
+    /**
+     * Adds what the helpers, and what they started that still runs, have started since the last
+     * count.
+     *
+     * @return What this count found that the last did not.
+     */
+    private static java.util.List<ProcessHandle> census(
+            final java.util.Collection<ProcessHandle> helpers,
+            final java.util.Set<ProcessHandle> started) {
+        final java.util.List<ProcessHandle> roots = new java.util.ArrayList<>(helpers);
+        roots.addAll(started);
+        final java.util.List<ProcessHandle> fresh = new java.util.ArrayList<>();
+        for (final ProcessHandle root : roots) {
+            for (final ProcessHandle found : descendants(root)) {
+                if (started.add(found)) {
+                    fresh.add(found);
+                }
+            }
+        }
+        return fresh;
+    }
+
+    private static boolean anyAlive(
+            final java.util.Collection<ProcessHandle> helpers,
+            final java.util.Set<ProcessHandle> started) {
+        return helpers.stream().anyMatch(ProcessHandle::isAlive)
+                || started.stream().anyMatch(ProcessHandle::isAlive);
+    }
+
+    /** Waits one poll; {@code false} when interrupted. */
+    private static boolean pause() {
+        try {
+            Thread.sleep(POLL);
+            return true;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /** How often what is being ended is counted and looked at again. */
+    private static final java.time.Duration POLL = java.time.Duration.ofMillis(50);
 
     /** How long a killed helper has to be gone; the kernel does not refuse a kill. */
     private static final java.time.Duration KILLED = java.time.Duration.ofSeconds(2);

@@ -268,6 +268,29 @@ public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.Conte
                 err.flush();
                 return 70;
             }
+            case NOT_TAKEN_BACK -> {
+                // Not "nothing left running": a rollback whose stop podman refused said so while
+                // the container ran.
+                for (final String problem : result.problems()) {
+                    err.println("porelo: " + problem);
+                }
+                err.println(
+                        "porelo: "
+                                + container
+                                + " was not resumed: "
+                                + result.started()
+                                + " of "
+                                + result.recorded()
+                                + " helpers came up, and what was said above may still run;"
+                                + " stop it with 'porelo task stop "
+                                + container
+                                + "'");
+                if (result.state() != null) {
+                    err.println("       logs in " + result.state());
+                }
+                err.flush();
+                return 70;
+            }
             default -> {
                 // Resumed.
             }

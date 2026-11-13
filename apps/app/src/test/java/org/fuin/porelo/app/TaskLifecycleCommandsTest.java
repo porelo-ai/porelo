@@ -1425,6 +1425,135 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aResumeWhoseContainerStartIsRefusedEndsTheHelpersItStartedForIt(@TempDir Path dir)
+            throws Exception {
+
+        // Thrown past the rollback, a refused container start answered 70 while the broker
+        // started for it ran on, and no poststop hook ever came to reap it.
+        final PoreloContext context = context(dir);
+        stoppedTask(context);
+        runner.answering("container inspect", "4711");
+        runner.failing("podman start", 125, "Error: the hook refused the start");
+        final Path state = stateOf("porelo-uc-shell-1");
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "vault",
+                                        comesUp(state, "vault"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.BEFORE)))
+                .writeTo(state);
+
+        int code;
+        try {
+            code = resume(context, "porelo-uc-shell-1");
+        } catch (RuntimeException ex) {
+            // What the command's handler answers 70 for.
+            code = 70;
+        }
+
+        assertThat(code).as("the resume fails: %s", out).isEqualTo(70);
+        assertThat(HelperStandIn.started(root.resolve("helpers")))
+                .as("its broker came up first")
+                .isEqualTo(1);
+        assertThat(HelperStandIn.running(root.resolve("helpers")))
+                .as("and is not left running")
+                .isZero();
+    }
+
+    @Test
+    void aResumeWhoseContainerCannotBeStoppedAgainDoesNotSayNothingRuns(@TempDir Path dir)
+            throws Exception {
+
+        // Its stop's failure dropped, a rollback whose 'podman stop' answered 125 still said
+        // nothing of the task was left running, while its container was.
+        final PoreloContext context = context(dir);
+        stoppedTask(context);
+        runner.answering("container inspect", "4711");
+        runner.failing("podman stop", 125, "Error: the container did not stop");
+        final Path state = stateOf("porelo-uc-shell-1");
+        final Path silent = HelperStandIn.write(root.resolve("helpers"), false);
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "gate",
+                                        java.util.List.of(
+                                                silent.toString(),
+                                                "--pid-file",
+                                                state.resolve("gate.pid").toString()),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
+                .writeTo(state);
+
+        assertThat(resume(context, "porelo-uc-shell-1"))
+                .as("the resume fails: %s", out)
+                .isEqualTo(70);
+        assertThat(err.toString())
+                .as("and says its container may still run")
+                .doesNotContain("nothing of it left running")
+                .contains("porelo-uc-shell-1 could not be stopped");
+    }
+
+    @Test
+    void aResumeThatFailsKillsAHelperThatWasUpAndIgnoresTheSignal(@TempDir Path dir)
+            throws Exception {
+
+        // Only asked to go, a watcher still running from before ignored SIGTERM and outlived a
+        // resume that failed for another helper.
+        final PoreloContext context = context(dir);
+        stoppedTask(context);
+        runner.answering("container inspect", "4711");
+        final Path state = stateOf("porelo-uc-shell-1");
+        final Path helpers = root.resolve("helpers");
+        final Path silent = HelperStandIn.write(helpers, false);
+        final Path stubborn = helpers.resolve("stubborn-stand-in");
+        Files.writeString(
+                stubborn,
+                "#!/bin/sh\ntrap '' TERM\n"
+                        + HelperStandIn.lines(HelperStandIn.registry(helpers), true));
+        Files.setPosixFilePermissions(
+                stubborn, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final Process running =
+                new ProcessBuilder(
+                                stubborn.toString(),
+                                "--pid-file",
+                                state.resolve("watcher.pid").toString())
+                        .start();
+        try {
+            final long deadline =
+                    org.fuin.porelo.wire.HelperPid.deadline(java.time.Duration.ofSeconds(10));
+            assertThat(org.fuin.porelo.wire.HelperPid.await(state.resolve("watcher.pid"), deadline))
+                    .as("the watcher is up before the resume")
+                    .isPresent();
+            new TaskHelpers(
+                            java.util.List.of(
+                                    new TaskHelpers.Helper(
+                                            "watcher",
+                                            comesUp(state, "watcher", "--pid", "1"),
+                                            java.util.Map.of(),
+                                            TaskHelpers.AFTER),
+                                    new TaskHelpers.Helper(
+                                            "gate",
+                                            java.util.List.of(
+                                                    silent.toString(),
+                                                    "--pid-file",
+                                                    state.resolve("gate.pid").toString()),
+                                            java.util.Map.of(),
+                                            TaskHelpers.AFTER)))
+                    .writeTo(state);
+
+            assertThat(resume(context, "porelo-uc-shell-1"))
+                    .as("the gate never came up: %s", out)
+                    .isEqualTo(70);
+            assertThat(running.isAlive())
+                    .as("and the watcher that was up, though it ignores SIGTERM, is ended")
+                    .isFalse();
+        } finally {
+            running.destroyForcibly();
+        }
+    }
+
+    @Test
     void aResumeWhoseSocketHelperNeverComesUpStartsNoContainer(@TempDir Path dir) throws Exception {
 
         // The container was started whatever came of its broker, and a resume that answered 70

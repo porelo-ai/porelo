@@ -124,6 +124,132 @@ class HelperPidTest {
     }
 
     @Test
+    void aHelperWhoseIdWasTakenLeadsToNoneOfTheNewHoldersChildren() throws Exception {
+
+        // An exited helper's id, taken by another process: asked for the stale handle's
+        // descendants, the runtime lists the new holder's children, started after the helper and
+        // so passing its start-time filter, and signalling them ended what nobody asked to touch.
+        final Process replacement = new ProcessBuilder("/bin/sh", "-c", "sleep 60 & wait").start();
+        try {
+            Thread.sleep(300);
+            final ProcessHandle child = replacement.toHandle().children().findFirst().orElseThrow();
+            final ProcessHandle stale = new Stale(replacement.toHandle());
+
+            assertThat(HelperPid.descendants(stale)).as("nothing is the stale helper's").isEmpty();
+            HelperPid.stop(stale);
+            assertThat(HelperPid.end(stale, java.time.Duration.ofMillis(300)))
+                    .as("a helper that is gone is ended")
+                    .isTrue();
+            assertThat(child.isAlive()).as("and the new holder's child runs on").isTrue();
+            assertThat(replacement.isAlive()).as("as does the new holder").isTrue();
+        } finally {
+            replacement.toHandle().descendants().forEach(ProcessHandle::destroyForcibly);
+            replacement.destroyForcibly();
+        }
+    }
+
+    @Test
+    void aChildTheHelperStartsWhileItIsAskedToGoIsEndedToo(@TempDir Path dir) throws Exception {
+
+        // One census taken before the signal: a helper whose SIGTERM handler started a child and
+        // waited for it was killed, end answered that everything was gone, and the child ran on.
+        final Path late = dir.resolve("late.pid");
+        final Process helper =
+                new ProcessBuilder(
+                                "/bin/sh",
+                                "-c",
+                                "trap 'sleep 60 & echo $! > "
+                                        + late
+                                        + "; wait' TERM;"
+                                        + " sleep 60 & wait")
+                        .start();
+        try {
+            Thread.sleep(300);
+
+            assertThat(HelperPid.end(helper.toHandle(), java.time.Duration.ofMillis(500)))
+                    .as("ended, with what it started on the way out")
+                    .isTrue();
+            assertThat(helper.isAlive()).as("the helper").isFalse();
+            final long pid = Long.parseLong(Files.readString(late, StandardCharsets.UTF_8).strip());
+            assertThat(ProcessHandle.of(pid).filter(ProcessHandle::isAlive))
+                    .as("the child its handler started")
+                    .isEmpty();
+        } finally {
+            if (Files.exists(late)) {
+                final String pid = Files.readString(late, StandardCharsets.UTF_8).strip();
+                if (!pid.isEmpty()) {
+                    ProcessHandle.of(Long.parseLong(pid))
+                            .filter(handle -> handle.info().command().orElse("").endsWith("sleep"))
+                            .ifPresent(ProcessHandle::destroyForcibly);
+                }
+            }
+            helper.destroyForcibly();
+        }
+    }
+
+    /**
+     * A handle whose process exited and whose id another process now holds: alive no longer, and
+     * signalling it reaches nothing, but the runtime lists the new holder's children as its own.
+     */
+    private record Stale(ProcessHandle holder) implements ProcessHandle {
+
+        @Override
+        public long pid() {
+            return holder.pid();
+        }
+
+        @Override
+        public java.util.Optional<ProcessHandle> parent() {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.stream.Stream<ProcessHandle> children() {
+            return holder.children();
+        }
+
+        @Override
+        public java.util.stream.Stream<ProcessHandle> descendants() {
+            return holder.descendants();
+        }
+
+        @Override
+        public Info info() {
+            return holder.info();
+        }
+
+        @Override
+        public java.util.concurrent.CompletableFuture<ProcessHandle> onExit() {
+            return java.util.concurrent.CompletableFuture.completedFuture(this);
+        }
+
+        @Override
+        public boolean supportsNormalTermination() {
+            return true;
+        }
+
+        @Override
+        public boolean destroy() {
+            return false;
+        }
+
+        @Override
+        public boolean destroyForcibly() {
+            return false;
+        }
+
+        @Override
+        public boolean isAlive() {
+            return false;
+        }
+
+        @Override
+        public int compareTo(final ProcessHandle other) {
+            return Long.compare(pid(), other.pid());
+        }
+    }
+
+    @Test
     void theRecordIsOwnerOnly(@TempDir Path dir) throws Exception {
         final Path file = dir.resolve("helper.pid");
         HelperPid.record(file);

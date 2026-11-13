@@ -1978,7 +1978,8 @@ public final class TaskLaunch {
                         case NEEDS_VAULT -> "NEEDS_VAULT";
                         case PREDATES_RESTART, TOKENS_NOT_KEPT -> "PREDATES_RESTART";
                         case ALREADY_RUNNING -> "RUNNING";
-                        case RESUMED, NO_HELPERS_RECORDED, HELPERS_INCOMPLETE -> "RESUME";
+                        case RESUMED, NO_HELPERS_RECORDED, HELPERS_INCOMPLETE, NOT_TAKEN_BACK ->
+                                "RESUME";
                         default -> null;
                     });
         } catch (CommandException ex) {
@@ -6209,6 +6210,85 @@ public final class TaskLaunch {
     }
 
     private int cleanUpOrFail(
+            TaskRunner runner,
+            String container,
+            int code,
+            boolean keep,
+            PrintWriter out,
+            PrintWriter err) {
+        final boolean failedOwn = launching && !handedOver && code != 0;
+        if (!failedOwn) {
+            return cleanUpRecorded(runner, container, code, keep, out, err);
+        }
+        final String onDisk = context.recordedId(container);
+        final String made = createdId;
+        if (made != null && !made.equals(onDisk)) {
+            return removeUnrecorded(container, made, onDisk == null, code, err);
+        }
+        // The helpers it leaves, taken before its stop reaps them by their pid files and forgets
+        // those: a stop only asks, and a broker that came up and ignores SIGTERM outlived the
+        // start that failed after it. The state's only when the name's record is this start's.
+        final java.util.Set<ProcessHandle> helpers = new java.util.LinkedHashSet<>(ownHelpers);
+        if (made != null || onDisk == null) {
+            helpers.addAll(
+                    TaskLifecycle.running(context.paths().tasks().containerState(container)));
+        }
+        try {
+            return cleanUpRecorded(runner, container, code, keep, out, err);
+        } finally {
+            if (!org.fuin.porelo.wire.HelperPid.endAll(helpers, GateWiring.HELPER_GRACE)) {
+                err.println("porelo: still running: a helper of " + container);
+                err.flush();
+            }
+        }
+    }
+
+    /**
+     * Removes the container a failed start made when the name's record does not name it: the first
+     * id record failed after the create. Every stop of a task resolves it from that record, and
+     * refused this one, so the container stayed, recorded nowhere, and the broker the start had
+     * started ran on. Removed by the id its create gave back, and its helpers ended by the handles
+     * it holds, and by its pid files when no record names another start.
+     *
+     * @param container The task.
+     * @param made The id its create gave back.
+     * @param unrecorded Whether no record names any container for the name.
+     * @param code The start's failure.
+     * @param err Where what survived is said.
+     * @return The start's failure.
+     */
+    private int removeUnrecorded(
+            final String container,
+            final String made,
+            final boolean unrecorded,
+            final int code,
+            final PrintWriter err) {
+        final boolean ended =
+                unrecorded
+                        ? TaskLifecycle.endHelpers(
+                                context.paths().tasks().containerState(container),
+                                ownHelpers,
+                                GateWiring.HELPER_GRACE)
+                        : org.fuin.porelo.wire.HelperPid.endAll(
+                                ownHelpers, GateWiring.HELPER_GRACE);
+        context.podman().remove(made);
+        if (context.podman().stateOf(made)
+                != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT) {
+            err.println("porelo: still running: container " + container + " (" + made + ")");
+        }
+        if (!ended) {
+            err.println("porelo: still running: a helper of " + container);
+        }
+        err.flush();
+        if (unrecorded) {
+            McpWiring.stop(context, container);
+            // Made and gone again: what the start made for it goes as for one podman never made.
+            forgetUnmade(container, err);
+        }
+        return code;
+    }
+
+    private int cleanUpRecorded(
             TaskRunner runner,
             String container,
             int code,

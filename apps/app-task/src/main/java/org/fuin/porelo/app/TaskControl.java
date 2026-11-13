@@ -102,7 +102,13 @@ public final class TaskControl {
          * locked or absent when it started - so the container's credentials cannot be matched
          * again.
          */
-        TOKENS_NOT_KEPT
+        TOKENS_NOT_KEPT,
+
+        /**
+         * A resume failed and could not take itself back: a helper or the container it started may
+         * still run.
+         */
+        NOT_TAKEN_BACK
     }
 
     /**
@@ -573,7 +579,11 @@ public final class TaskControl {
         // What they started, taken before the stop as the stop takes it: a child whose parent is
         // gone is no longer its descendant, and a forced removal kills those that outlive SIGTERM.
         final java.util.Set<ProcessHandle> started = new java.util.LinkedHashSet<>();
-        if (force) helpers.stream().flatMap(ProcessHandle::descendants).forEach(started::add);
+        if (force) {
+            helpers.stream()
+                    .map(org.fuin.porelo.wire.HelperPid::descendants)
+                    .forEach(started::addAll);
+        }
 
         // Counted before the container goes, because afterwards there is nothing left to ask.
         final long discarded = purge ? context.podman().addedPaths(container) : 0;
@@ -587,8 +597,14 @@ public final class TaskControl {
             context.podman().stop(id);
         }
 
-        // Taken again: a helper may have started another process while the container went.
-        if (force) helpers.stream().flatMap(ProcessHandle::descendants).forEach(started::add);
+        // Taken again: a helper may have started another process while the container went. Only
+        // of a helper that is still the one counted: the poststop hook may have reaped it by now,
+        // and asked of its id, the runtime lists the children of whatever holds that id next.
+        if (force) {
+            helpers.stream()
+                    .map(org.fuin.porelo.wire.HelperPid::descendants)
+                    .forEach(started::addAll);
+        }
         TaskLifecycle.stopHelpers(state);
         // Its porelo-mcp went with the helpers; the daemon socket opened for it and the socket it
         // bound go here, which no hook knows of.
@@ -1080,9 +1096,10 @@ public final class TaskControl {
         if (started < before) {
             // Not started without them: a container whose broker never came up ran with nothing
             // behind its socket, and the resume that answered 70 left it so.
-            unwind(container, state, own, false);
             return new Resumed(
-                    Outcome.HELPERS_INCOMPLETE,
+                    unwind(container, state, own, false, problems)
+                            ? Outcome.HELPERS_INCOMPLETE
+                            : Outcome.NOT_TAKEN_BACK,
                     started,
                     recorded.helpers().size(),
                     drift,
@@ -1090,30 +1107,44 @@ public final class TaskControl {
                     List.copyOf(problems));
         }
 
-        context.podman().start(container);
-        context.tasks().trustCertificates(container);
-        context.tasks().startScreenWriter(container);
+        // Guarded from here on: a container start the hook refused threw past the rollback, and
+        // the broker started for it ran on with no poststop hook ever coming to reap it.
+        boolean containerStarted = false;
+        try {
+            context.podman().start(container);
+            containerStarted = true;
+            context.tasks().trustCertificates(container);
+            context.tasks().startScreenWriter(container);
 
-        final long pid = context.podman().pidOf(container).orElse(0L);
-        if (pid <= 0) {
-            problems.add("the container did not come up; see " + state);
-            unwind(container, state, own, true);
-            return new Resumed(
-                    Outcome.HELPERS_INCOMPLETE,
-                    started,
-                    recorded.helpers().size(),
-                    drift,
-                    logs,
-                    List.copyOf(problems));
+            final long pid = context.podman().pidOf(container).orElse(0L);
+            if (pid <= 0) {
+                problems.add("the container did not come up; see " + state);
+                return new Resumed(
+                        unwind(container, state, own, true, problems)
+                                ? Outcome.HELPERS_INCOMPLETE
+                                : Outcome.NOT_TAKEN_BACK,
+                        started,
+                        recorded.helpers().size(),
+                        drift,
+                        logs,
+                        List.copyOf(problems));
+            }
+
+            started += start(recorded, TaskHelpers.AFTER, pid, state, problems, own);
+        } catch (RuntimeException ex) {
+            final List<String> left = new ArrayList<>();
+            if (!unwind(container, state, own, containerStarted, left)) {
+                left.forEach(problem -> System.err.println("porelo: " + problem));
+            }
+            throw ex;
         }
-
-        started += start(recorded, TaskHelpers.AFTER, pid, state, problems, own);
         if (started < recorded.helpers().size()) {
             // Left up, a task missing its gate or its watcher ran on, and the next resume answered
             // that it was already running without ever starting what was missing.
-            unwind(container, state, own, true);
             return new Resumed(
-                    Outcome.HELPERS_INCOMPLETE,
+                    unwind(container, state, own, true, problems)
+                            ? Outcome.HELPERS_INCOMPLETE
+                            : Outcome.NOT_TAKEN_BACK,
                     started,
                     recorded.helpers().size(),
                     drift,
@@ -1152,25 +1183,35 @@ public final class TaskControl {
      * <p>Under the task's resume lock, and the state is the task's own: no other start of it writes
      * there while this holds the lock.
      *
+     * <p>Every helper is ended as one that did not come up is, killed once its grace has passed:
+     * one still running from before, which this resume counted and did not start, was only asked,
+     * and a watcher that ignores {@code SIGTERM} outlived another helper's failed resume.
+     *
      * @param container The task.
      * @param state Its state directory.
      * @param own The helpers this resume started.
      * @param containerStarted Whether this resume started the container.
+     * @param problems Where what is left running is said.
+     * @return Whether nothing of the task is left running.
      */
-    private void unwind(
+    private boolean unwind(
             final String container,
             final Path state,
             final List<ProcessHandle> own,
-            final boolean containerStarted) {
-        for (final ProcessHandle helper : own) {
-            org.fuin.porelo.wire.HelperPid.end(helper, GateWiring.HELPER_GRACE);
+            final boolean containerStarted,
+            final List<String> problems) {
+        boolean clean = TaskLifecycle.endHelpers(state, own, GateWiring.HELPER_GRACE);
+        if (!clean) {
+            problems.add("a helper of " + container + " could not be ended and may still run");
         }
-        if (containerStarted) {
-            context.podman().stop(container);
+        // Checked: a stop podman refused was reported as done, and the resume said nothing of the
+        // task was left running while its container was.
+        if (containerStarted && !context.podman().stop(container)) {
+            problems.add(container + " could not be stopped and may still run");
+            clean = false;
         }
-        // One that was still running from before, which this resume counted and did not start.
-        TaskLifecycle.stopHelpers(state);
         McpWiring.stop(context, container);
+        return clean;
     }
 
     /** A stored token enables the reader a previous start could only defer. */
