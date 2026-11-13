@@ -231,7 +231,9 @@ public class VarlinkClient implements AutoCloseable {
             throws IOException {
         final java.util.concurrent.FutureTask<Boolean> connecting =
                 new java.util.concurrent.FutureTask<>(() -> channel.connect(address));
-        Thread.ofVirtual().name("porelo-varlink-connect").start(connecting);
+        // A platform thread: on a virtual one the JDK connects without blocking, and a Unix
+        // socket whose backlog is full then refuses at once (EAGAIN) instead of waiting.
+        Thread.ofPlatform().daemon().name("porelo-varlink-connect").start(connecting);
         try {
             connecting.get(within.toNanos(), java.util.concurrent.TimeUnit.NANOSECONDS);
         } catch (java.util.concurrent.TimeoutException ex) {
