@@ -398,39 +398,22 @@ record AllowedSigner(String principal, String key, List<String> options) {
      * Whether options are ones ssh-keygen knows as given: {@code cert-authority}, and {@code
      * namespaces}, {@code valid-after} and {@code valid-before} each once with a quoted value, a
      * time for the latter two, parted by commas.
+     *
+     * <p>As ssh-keygen walks them, an option may be empty, before the first comma or between two;
+     * only a comma that ends the options, a lone one too, is refused.
      */
     private static boolean options(final String text) {
         final java.util.Set<String> seen = new java.util.HashSet<>();
         int at = 0;
-        while (true) {
-            final String rest = text.substring(at);
-            final Matcher option = OPTION.matcher(rest);
-            if (!option.lookingAt()) {
-                return false;
-            }
-            final String name = option.group(1);
-            if (name == null) {
-                at += option.end();
-            } else {
-                if (!seen.add(name.toLowerCase(java.util.Locale.ROOT))) {
+        while (at < text.length()) {
+            final Matcher option = OPTION.matcher(text.substring(at));
+            // Where no option opens, the option is empty, which a comma must then end.
+            if (option.lookingAt()) {
+                final int end = option(text.substring(at), option, seen);
+                if (end < 0) {
                     return false;
                 }
-                final StringBuilder value = new StringBuilder();
-                int end = option.end();
-                while (end < rest.length() && rest.charAt(end) != '"') {
-                    if (escapedQuote(rest, end)) {
-                        end++;
-                    }
-                    value.append(rest.charAt(end));
-                    end++;
-                }
-                if (end == rest.length()) {
-                    return false;
-                }
-                if (!"namespaces".equalsIgnoreCase(name) && !TIME.matcher(value).matches()) {
-                    return false;
-                }
-                at += end + 1;
+                at += end;
             }
             if (at == text.length()) {
                 return true;
@@ -440,6 +423,38 @@ record AllowedSigner(String principal, String key, List<String> options) {
             }
             at++;
         }
+        return true;
+    }
+
+    /**
+     * Where an option ssh-keygen knows ends in the text it opens, or -1 when its value is not one
+     * ssh-keygen reads, or the option was given before.
+     */
+    private static int option(
+            final String rest, final Matcher option, final java.util.Set<String> seen) {
+        final String name = option.group(1);
+        if (name == null) {
+            return option.end();
+        }
+        if (!seen.add(name.toLowerCase(java.util.Locale.ROOT))) {
+            return -1;
+        }
+        final StringBuilder value = new StringBuilder();
+        int end = option.end();
+        while (end < rest.length() && rest.charAt(end) != '"') {
+            if (escapedQuote(rest, end)) {
+                end++;
+            }
+            value.append(rest.charAt(end));
+            end++;
+        }
+        if (end == rest.length()) {
+            return -1;
+        }
+        if (!"namespaces".equalsIgnoreCase(name) && !TIME.matcher(value).matches()) {
+            return -1;
+        }
+        return end + 1;
     }
 
     private static void write(final Path check, final List<String> entries) {

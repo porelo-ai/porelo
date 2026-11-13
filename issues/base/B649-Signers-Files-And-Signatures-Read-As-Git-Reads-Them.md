@@ -62,6 +62,12 @@ test shows git's own reading; the keys are throwaway ones made in the test's dir
   refuses the whole file. Red first: `AllowedSignerTest` skipped a valid line whose check failed that way, and skipped
   an rsa line ssh-keygen calls invalid; with the first fix alone it refused the whole file over an ed25519 blob with
   trailing bytes, a short key or a security key without its application, each a line git skips.
+- **An empty option.** ssh-keygen parses an empty option before the first comma or between two
+  (`bob ,cert-authority K`, `bob cert-authority,,namespaces="git" K`) and refuses only a comma that ends the options, a
+  lone one too ("unexpected end-of-options"); Porelo's reading walks options the same way. Red first:
+  `AllowedSignerTest` skipped `!alice ,cert-authority K` whose check failed as `bad options: (null)`, dropping the
+  revocation, where it now refuses the file. A check refusing a line's key where Porelo reads that key whole, or finds
+  the line malformed by its options, refuses the file too.
 - **A carriage return before a principal's line feed.** git drops one carriage return before each line feed of
   ssh-keygen's `find-principals` output, so a principal `"demo\r"` is verified as `demo`. The gate splits that output
   the same way. Red first: `CommitVerifyCommandTest` accepted a commit by `"demo\r"` that git refuses.

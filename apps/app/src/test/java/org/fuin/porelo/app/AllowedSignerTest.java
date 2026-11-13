@@ -188,6 +188,94 @@ class AllowedSignerTest {
     }
 
     /**
+     * ssh-keygen parses an empty option between commas or before the first, refusing only a comma
+     * that ends the options, so a line Porelo reads alike whose check answers a failed allocation
+     * refuses the file rather than dropping its revocation.
+     */
+    @Test
+    void refuses_the_file_when_ssh_keygen_refuses_a_line_whose_empty_options_it_parses()
+            throws Exception {
+        final String key = keygen("alice");
+        assertThat(keygenMatches(signers("bob ,cert-authority " + key + "\n")))
+                .as("ssh-keygen parses an empty first option")
+                .isZero();
+        assertThat(keygenMatches(signers("bob cert-authority,,namespaces=\"git\" " + key + "\n")))
+                .as("and an empty option between two")
+                .isZero();
+        for (final String options : List.of("cert-authority,", ",")) {
+            assertThat(keygenMatches(signers("bob " + options + " " + key + "\n")))
+                    .as("but refuses %s", options)
+                    .isEqualTo(252);
+        }
+        final Path signers =
+                signers(
+                        "!alice ,cert-authority "
+                                + key
+                                + "\nbob "
+                                + key
+                                + "\nz bogus-option "
+                                + key
+                                + "\n");
+        final org.fuin.porelo.core.process.CommandRunner failing =
+                refusingTheFirstLine(signers, "bad options: (null)");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                AllowedSigner.read(
+                                        failing,
+                                        signers,
+                                        KEYGEN,
+                                        Files.createTempDirectory(dir, "scratch-")))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("could not be checked");
+    }
+
+    /**
+     * A key refusal skips a line only where Porelo's own reading finds its key malformed: a line it
+     * reads whole, or finds malformed by its options, refuses the file.
+     */
+    @Test
+    void refuses_the_file_when_ssh_keygen_refuses_the_key_of_a_line_whose_key_is_read_here()
+            throws Exception {
+        final String key = keygen("alice");
+        for (final String first : List.of("!alice ", "z bogus-option ")) {
+            final Path signers =
+                    signers(first + key + "\nbob " + key + "\nz bogus-option " + key + "\n");
+            final org.fuin.porelo.core.process.CommandRunner failing =
+                    refusingTheFirstLine(signers, "invalid key");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    AllowedSigner.read(
+                                            failing,
+                                            signers,
+                                            KEYGEN,
+                                            Files.createTempDirectory(dir, "scratch-")))
+                    .as("the first line %s", first)
+                    .isInstanceOf(java.io.IOException.class)
+                    .hasMessageContaining("could not be checked");
+        }
+    }
+
+    /**
+     * Runs ssh-keygen, but answers the check of a file's first line alone, asked after the whole
+     * file, with a refusal to parse it for a reason.
+     */
+    private org.fuin.porelo.core.process.CommandRunner refusingTheFirstLine(
+            final Path signers, final String reason) {
+        final java.util.concurrent.atomic.AtomicInteger calls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        return command ->
+                calls.incrementAndGet() == 2
+                        ? new CommandResult(
+                                command,
+                                252,
+                                "",
+                                command.arguments().getLast() + ":1: " + reason + "\n")
+                        : runner.run(command);
+    }
+
+    /**
      * ssh-keygen refuses an ed25519 key whose blob is not exactly its fields, and git skips that
      * line; Porelo reads such a blob as ssh-keygen does and skips the same line.
      */
