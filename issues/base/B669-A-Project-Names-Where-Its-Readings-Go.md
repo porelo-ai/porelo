@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B669",
   "title": "A Project Names Where Its Readings Go",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 22,
@@ -40,3 +40,16 @@ Read in the code on 2026-11-12: neither `project.yml` nor `porelo.yml` has a `re
 - `readings.directory: ../x` is refused when the file is read. Seen red first.
 - A repository whose `porelo.yml` names its own directory gets that one, and every other repository gets the project's
   or the default.
+
+## Done
+
+- `project.yml` takes an optional top-level `readings: {directory: <path>}`; a repository's `porelo.yml` may name its
+  own, which wins for that repository, and is asked of the machine like its other settings. Without either the
+  directory is `readings`.
+- The file check refuses an empty directory, a leading `/`, a `..` segment and a control character, naming
+  `readings.directory`, when the file is read.
+- A task is told its directory in `PORELO_READINGS_DIRECTORY`, beside its other settings. The key is described with
+  the project's other keys, and `doc/project-file.md` shows it once with its default.
+- Red first: `ReadingsDirectoryTest` (11) failed 7 without the check, and the two `TaskRunCommandTest` cases failed
+  before the task was told. Locally on this commit `-pl apps/app -am install` (4618 in app), the root's `validate`
+  and `-Pdocuments test` are green.

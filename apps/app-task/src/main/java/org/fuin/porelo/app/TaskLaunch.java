@@ -38,6 +38,12 @@ public final class TaskLaunch {
     public static final String ISSUE_PREFIXES = "PORELO_ISSUE_PREFIXES";
 
     /**
+     * The variable a task is told in where a reading of an issue writes its findings, relative to
+     * its repository's root.
+     */
+    public static final String READINGS_DIRECTORY = "PORELO_READINGS_DIRECTORY";
+
+    /**
      * What to start, as the operator asked for it.
      *
      * @param task Task name, which becomes the ref an agent pushes to.
@@ -3695,6 +3701,9 @@ public final class TaskLaunch {
             // The issue prefixes the task's repository owns, so its agent names and cites issues as
             // the repository does; empty where the repository names none.
             environmentCache.put(ISSUE_PREFIXES, String.join(",", repository.issues()));
+            // Where a reading of an issue writes its findings, so the agent and the planner read
+            // one value: the repository's own file's, the project's, or the default.
+            environmentCache.put(READINGS_DIRECTORY, project.readingsDirectory());
             // The values it was started with, each under its declaration's variable; one declared
             // 'env: none' stays out. Fixed with the container, so a resume cannot change one.
             for (final var parameter : project.parameters().declared().values()) {

@@ -80,7 +80,8 @@ final class Sections {
                         MCP,
                         "providers",
                         "tool_repositories",
-                        "extensions"));
+                        "extensions",
+                        "readings"));
         keys.put(
                 "project",
                 List.of(
@@ -119,6 +120,7 @@ final class Sections {
         keys.put(MCP, List.of("methods", "agents", "tasks", "minutes"));
         keys.put("providers.<name>", List.of("model", "label"));
         keys.put(TOOL_REPOSITORY, List.of("ecosystem", "name", "url", "credential"));
+        keys.put("readings", List.of("directory"));
     }
 
     /**

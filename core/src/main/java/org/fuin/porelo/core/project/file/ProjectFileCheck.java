@@ -173,6 +173,33 @@ public final class ProjectFileCheck {
         return List.copyOf(check.faults);
     }
 
+    /**
+     * Holds the readings directory inside the repository: a reading writes its findings there, so a
+     * path that leaves it would write where no review of the repository looks.
+     */
+    private void readings(final Readings readings) {
+        final String directory = readings.directory();
+        if (directory == null) {
+            return;
+        }
+        final String path = "readings.directory";
+        if (directory.isBlank()) {
+            fault(path, "'" + path + "' is empty; leave it out for the default 'readings'");
+        } else if (directory.startsWith("/")) {
+            fault(
+                    path,
+                    "'"
+                            + path
+                            + "' is relative to the repository's root, not '"
+                            + shown(directory)
+                            + "'");
+        } else if (java.util.Arrays.asList(directory.split("/", -1)).contains("..")) {
+            fault(path, "'" + path + "' leaves the repository: '" + shown(directory) + "'");
+        } else if (directory.chars().anyMatch(Character::isISOControl)) {
+            fault(path, "'" + path + "' holds a control character: '" + shown(directory) + "'");
+        }
+    }
+
     private void fault(final String path, final String message) {
         if (faults.size() > Binding.MOST) {
             return;
@@ -217,6 +244,9 @@ public final class ProjectFileCheck {
             fault(
                     "base_branch",
                     "'base_branch' names no branch: '" + shown(file.baseBranch()) + "'");
+        }
+        if (file.readings() != null) {
+            readings(file.readings());
         }
         credentials(file.credentials(), label, securityClass);
         repositories(file, label, securityClass);

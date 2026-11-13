@@ -281,6 +281,12 @@ extensions:
     mirrorOf:
       corp: "*"                    # this repository stands in for every other
 
+# Optional. Where a reading of an issue writes its findings, <directory>/<ISSUE>-reading-<round>.md:
+# relative to the repository's root and inside it, so no '..' and no leading '/'. A repository's own
+# porelo.yml may name its own. A task is told it in PORELO_READINGS_DIRECTORY.
+readings:
+  directory: "readings"            # the default
+
 # Optional. Gives each task of this project an MCP endpoint, through which it starts, lists and
 # stops tasks within these limits; without it a task gets none. See "A task's MCP endpoint" below.
 # mcp:

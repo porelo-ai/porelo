@@ -42,6 +42,9 @@ package org.fuin.porelo.core.project;
  *     the file declares none.
  * @param extensions The block the file keeps for each ecosystem adapter, by the adapter's name,
  *     which Porelo passes on and never reads; empty when it keeps none.
+ * @param readingsDirectory Where a reading of an issue writes its findings, relative to the
+ *     repository's root: a repository's own file's, else the project's, else {@value
+ *     #READINGS_DEFAULT}.
  */
 public record Project(
         String name,
@@ -67,7 +70,11 @@ public record Project(
         java.util.Map<String, ModelDefault> providers,
         @org.jspecify.annotations.Nullable String shortName,
         java.util.List<ToolRepository> toolRepositories,
-        java.util.Map<String, java.util.Map<String, Object>> extensions) {
+        java.util.Map<String, java.util.Map<String, Object>> extensions,
+        String readingsDirectory) {
+
+    /** Where a reading writes its findings when no file names a directory. */
+    public static final String READINGS_DEFAULT = "readings";
 
     /**
      * Constructor for a project whose tools reach no repository of their own.
@@ -142,7 +149,89 @@ public record Project(
                 providers,
                 shortName,
                 java.util.List.of(),
-                java.util.Map.of());
+                java.util.Map.of(),
+                READINGS_DEFAULT);
+    }
+
+    /**
+     * Constructor for a project whose files name no readings directory.
+     *
+     * @param name Short name.
+     * @param description Human-readable description.
+     * @param securityClass Trust level.
+     * @param baseImage Base image.
+     * @param imageSnippet Extra build lines, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What the project's own tooling may reach.
+     * @param packageSources Where apt fetches from, or {@code null} for the default.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     * @param imageVariant The repository whose own image this is, or {@code null}.
+     * @param parameters What a start may be given.
+     * @param nickname The name its own repository's agent goes by, or {@code null}.
+     * @param branch How a task's branch at its forge is named, or {@code null}.
+     * @param review Whether a merge in its own repository needs approval.
+     * @param imageEnv Variables its own image sets.
+     * @param baseBranch Starting branch, or {@code null}.
+     * @param providers The model each provider's tasks run on, by provider.
+     * @param shortName Optional container spelling, or {@code null}.
+     * @param toolRepositories The repositories its build tools reach.
+     * @param extensions The block the file keeps for each ecosystem adapter.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname,
+            @org.jspecify.annotations.Nullable BranchScheme branch,
+            String review,
+            java.util.Map<String, String> imageEnv,
+            @org.jspecify.annotations.Nullable String baseBranch,
+            java.util.Map<String, ModelDefault> providers,
+            @org.jspecify.annotations.Nullable String shortName,
+            java.util.List<ToolRepository> toolRepositories,
+            java.util.Map<String, java.util.Map<String, Object>> extensions) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                providers,
+                shortName,
+                toolRepositories,
+                extensions,
+                READINGS_DEFAULT);
     }
 
     /** Constructor for a project without a short spelling. */
@@ -1212,7 +1301,8 @@ public record Project(
                 providers,
                 shortName,
                 toolRepositories,
-                extensions);
+                extensions,
+                readingsDirectory);
     }
 
     /**
@@ -1246,7 +1336,43 @@ public record Project(
                 each,
                 shortName,
                 toolRepositories,
-                extensions);
+                extensions,
+                readingsDirectory);
+    }
+
+    /**
+     * Returns this project with another readings directory, as its files name it.
+     *
+     * @param directory Where a reading writes its findings, relative to the repository's root.
+     * @return The project.
+     */
+    public Project withReadingsDirectory(final String directory) {
+        return new Project(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                providers,
+                shortName,
+                toolRepositories,
+                extensions,
+                directory);
     }
 
     /**
@@ -1393,6 +1519,7 @@ public record Project(
                 providers,
                 shortName,
                 toolRepositories,
-                extensions);
+                extensions,
+                readingsDirectory);
     }
 }

@@ -103,7 +103,16 @@ final class FileBinder {
                 mcp(b, top.get("mcp")),
                 providers,
                 toolRepositories,
-                extensions);
+                extensions,
+                readings(b, top.get("readings")));
+    }
+
+    private static @Nullable Readings readings(final Binding b, final @Nullable Node node) {
+        final Map<String, Node> s = b.section(node, "readings", "readings");
+        if (s == null) {
+            return null;
+        }
+        return new Readings(b.text(s.get("directory"), "readings.directory"));
     }
 
     private static @Nullable ProviderEntry provider(

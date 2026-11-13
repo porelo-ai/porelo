@@ -635,6 +635,23 @@ final class ProjectSchema {
                                     + " passes to it unread; they widen nothing a task reaches.",
                             "map",
                             "",
+                            false),
+                    key(
+                            "",
+                            "readings",
+                            "Where a reading of an issue writes its findings.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "readings",
+                            "directory",
+                            "The directory a reading writes its findings into, relative to the"
+                                    + " repository and inside it; a repository's porelo.yml may"
+                                    + " name its own. A task is told it in"
+                                    + " PORELO_READINGS_DIRECTORY.",
+                            "string",
+                            Project.READINGS_DEFAULT,
                             false));
 
     private ProjectSchema() {}

@@ -283,7 +283,8 @@ public final class ProjectReader {
                 providers(file, Map.of()),
                 info.shortName(),
                 toolRepositories(file),
-                extensions(file));
+                extensions(file),
+                readingsDirectory(file));
     }
 
     private static List<ToolRepository> toolRepositories(final ProjectFile file) {
@@ -314,6 +315,19 @@ public final class ProjectReader {
                             read.put(adapter, java.util.Collections.unmodifiableMap(values));
                         });
         return read;
+    }
+
+    /**
+     * Returns where a reading writes its findings: the file's directory, else the default. A
+     * repository's own file is merged into the file before, so its directory wins.
+     *
+     * @param file The file, checked.
+     */
+    private static String readingsDirectory(final ProjectFile file) {
+        final org.fuin.porelo.core.project.file.Readings readings = file.readings();
+        return readings == null || readings.directory() == null
+                ? Project.READINGS_DEFAULT
+                : Objects.requireNonNull(readings.directory(), "checked: readings.directory");
     }
 
     /**
