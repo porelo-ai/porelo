@@ -158,6 +158,8 @@ type TalkEvent (
   # its key is believed and nothing here verified the sending task's project, "" otherwise. Read from what
   # the pass checked, never from the message; a sender that leaves a mark out is not certified by that.
   # Absent from a daemon before this field.
+  # An open set: today "unsigned", "unverified" or "". A reader shows a value it does not know as given, never as
+  # trusted.
   mark: ?string
 )
 

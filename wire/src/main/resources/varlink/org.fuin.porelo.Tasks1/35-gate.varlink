@@ -132,6 +132,7 @@ type PendingPush (
   # task's certificate judged it, "accepted, unsigned" when the task has none and nothing could judge it. A
   # checker's verdict, never the task's word. Absent when no arrival of this commit is recorded, and from a
   # daemon before this field.
+  # Text for a person, shown and not parsed: today "accepted" or "accepted, unsigned", and an open set.
   arrival: ?string
 )
 
@@ -253,6 +254,7 @@ method Review(
   asked: ?string,
   # What the gate decided when the waiting commit arrived, as PendingPush.arrival says it. Absent when no
   # arrival of it is recorded, and from a daemon before this field.
+  # Text for a person, shown and not parsed: today "accepted" or "accepted, unsigned", and an open set.
   arrival: ?string
 )
 
