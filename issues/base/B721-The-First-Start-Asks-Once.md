@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B721",
   "title": "The First Start Asks Once",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 6,
