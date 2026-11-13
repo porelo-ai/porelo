@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B506",
   "title": "An Agent Waiting On A Person",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "Medium",
   "rank": 17,
