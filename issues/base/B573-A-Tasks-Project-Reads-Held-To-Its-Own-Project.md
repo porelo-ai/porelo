@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B573",
   "title": "A Task's Project Reads Held To Its Own Project",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "High",
   "rank": 1,

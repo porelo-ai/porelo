@@ -130,7 +130,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b573"></a>[B573](B573-A-Tasks-Project-Reads-Held-To-Its-Own-Project.md) | S | - | A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high. | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b271"></a>[B271](B271-A-Login-Is-Cancelled-From-Its-Own-Terminal.md) | M | - | `porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero; Ctrl-] twice, Porelo's own detach key, stops it whatever the agent does with Ctrl-C | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
@@ -220,6 +219,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b573"></a>[B573](B573-A-Tasks-Project-Reads-Held-To-Its-Own-Project.md) | S | - | A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high. | 0 |
 | <a id="b725"></a>[B725](B725-The-Way-To-Leave-A-Task-Always-On-Its-Status-Line.md) | S | - | A task's tmux status line always shows how to leave without ending the task ("Ctrl+b d: leave, the task goes on"), naming the prefix actually in force when the person's own tmux.conf sets another. | 0 |
 | <a id="b726"></a>[B726](B726-A-Start-Without-A-Name-Offers-The-Checkouts-Own-Task.md) | M | - | `porelo task start` with no name, in a checkout whose repository has a running or stopped task of this person, offers to attach to the running one or start the stopped one again before it starts a new task; without a terminal it starts nothing and names them with their commands. | 0 |
 | <a id="b617"></a>[B617](B617-An-Undecided-Organization-Read-Says-What-It-Waits-For.md) | M | - | A walk the identity source cannot decide keeps its words: `stale_why` `incomplete` names the commit that waits and what it waits for (the forge's key list, the founder's ownership, a card not vouched for) in `said` and a warning. | - |
