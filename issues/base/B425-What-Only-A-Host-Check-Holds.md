@@ -7,7 +7,7 @@
   "title": "What Only A Host Check Holds",
   "state": "Accepted",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 2,
   "blockedBy": [],
   "covers": "A unit test holds what only a host check held: `porelod`'s host forge rule and the gate's refusal of another upstream; a removal with the vault shut says the task's forge token stays until the host's sweep."

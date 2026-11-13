@@ -7,7 +7,7 @@
   "title": "How Far Something That Got Through Can Get",
   "state": "Analyzed",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 30,
   "blockedBy": ["B26"],
   "covers": "An origin field in the agent definition, applied by hand-in to every delivery, and a `podman diff` count kept at removal."

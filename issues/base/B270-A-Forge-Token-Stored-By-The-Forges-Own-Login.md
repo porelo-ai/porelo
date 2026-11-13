@@ -7,7 +7,7 @@
   "title": "A Forge Token Stored By The Forge's Own Login",
   "state": "Accepted",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 8,
   "blockedBy": [],
   "covers": "A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; at GitHub a public GitHub App with user access tokens and their refresh, after the trial moves"

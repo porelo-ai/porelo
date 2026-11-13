@@ -7,7 +7,7 @@
   "title": "Acceptance Legs In Less Wall Time",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 72,
   "blockedBy": [],
   "covers": "The acceptance legs take ~5–6 min less wall time with the same scenarios and guards: split `task-guarded.feature`'s ~3 min single-thread tail across accounts, pass `-Dsurefire.skip=true` in `Leg.java`'s two suite passes (~1:45 min), and parallelize or batch `TerminalSteps.java`'s `@AfterAll` project and container removal (~2 min)"

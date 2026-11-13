@@ -7,7 +7,7 @@
   "title": "A Task Has Its Work Built on a Declared Kind",
   "state": "Idea",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 75,
   "blockedBy": ["B253"],
   "covers": "A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused"

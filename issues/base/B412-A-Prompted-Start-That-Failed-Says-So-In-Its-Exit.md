@@ -7,7 +7,7 @@
   "title": "A Prompted Start That Failed Says So In Its Exit",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 25,
   "blockedBy": [],
   "covers": "`task start -P` whose agent ended with an error exits non-zero, where it exits 0 today"

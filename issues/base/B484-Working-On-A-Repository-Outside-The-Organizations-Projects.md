@@ -7,7 +7,7 @@
   "title": "Working On A Repository Outside The Organization's Projects",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 9,
   "blockedBy": [],
   "covers": "How a repository of none of the organization's projects is worked on in the default project, alike on a laptop and on a host with or without its forge: first one of the person's own, pushed to; then someone else's, through a fork. Open question for the operator."

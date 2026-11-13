@@ -7,7 +7,7 @@
   "title": "A Task's Trust And Limits Measured Where Not Yet Seen",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 59,
   "blockedBy": [],
   "covers": "The task authority checked with git, Node and two concurrent tasks on an SELinux host, and a task's limits with `native-image` and on Fedora, where the rented-host test did not reach"

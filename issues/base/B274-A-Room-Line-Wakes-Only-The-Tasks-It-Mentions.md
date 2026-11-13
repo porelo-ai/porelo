@@ -7,7 +7,7 @@
   "title": "A Room Line Wakes Only The Tasks It Mentions",
   "state": "Accepted",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 7,
   "blockedBy": [],
   "covers": "A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention"

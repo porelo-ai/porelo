@@ -7,7 +7,7 @@
   "title": "A Token Ceiling Per Task",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 6,
   "blockedBy": [],
   "covers": "A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it."

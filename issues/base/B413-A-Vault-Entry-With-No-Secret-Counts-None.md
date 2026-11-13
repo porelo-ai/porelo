@@ -7,7 +7,7 @@
   "title": "A Vault Entry With No Secret Counts None",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 26,
   "blockedBy": [],
   "covers": "`vault list` names no length for an entry with no secret, where a public client's grant reads `1 characters`"

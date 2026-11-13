@@ -7,7 +7,7 @@
   "title": "What The Write Contract Does Not Yet Hold",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 36,
   "blockedBy": [],
   "covers": "What a store could do and still pass the write contract: five operations with role checks to extend, the source's silence, the last admin, backups and reasons never asserted"

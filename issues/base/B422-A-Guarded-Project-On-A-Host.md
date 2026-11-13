@@ -7,7 +7,7 @@
   "title": "A Guarded Project On A Host",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 20,
   "blockedBy": [],
   "covers": "A guarded project on a host has a way to hand its work to the host's forge, or is refused before a task starts: `gate approve` pushes to a protected `main` today."

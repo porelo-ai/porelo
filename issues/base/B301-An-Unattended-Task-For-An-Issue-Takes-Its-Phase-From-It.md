@@ -7,7 +7,7 @@
   "title": "An Unattended Task For An Issue Takes Its Phase From It",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 56,
   "blockedBy": [],
   "covers": "An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else"

@@ -7,7 +7,7 @@
   "title": "A Kernel Of Its Own For A Task",
   "state": "Estimated",
   "size": "XL",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 27,
   "blockedBy": [],
   "covers": "A kernel of its own for a task; splits into a krun/KVM experiment (M) that also measures snapshot and restore, a doctor probe (S), and an opt-in adoption (L) decided on the measurements and only if the ruleset fails closed."

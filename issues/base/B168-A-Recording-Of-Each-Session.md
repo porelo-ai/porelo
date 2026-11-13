@@ -7,7 +7,7 @@
   "title": "A Recording Of Each Session",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 31,
   "blockedBy": [],
   "covers": "A session recording by a read-only tmux control-mode client run from the host, a `.cast` outside the task (an unattended run's `task.log`), kept 30 days, at most 64 MiB, `task replay`."

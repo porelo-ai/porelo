@@ -7,7 +7,7 @@
   "title": "A Nickname For Each Agent",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 25,
   "blockedBy": [],
   "covers": "The label becomes a one-word nickname, unique in its project: `@label`, `you` in the card, `--display` and `rename`."

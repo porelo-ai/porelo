@@ -7,7 +7,7 @@
   "title": "Credentials The Broker Has To Fetch",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 18,
   "blockedBy": [],
   "covers": "`client_credentials` end to end against a stand-in; then it rests until a service needs `private_key_jwt` or mTLS."

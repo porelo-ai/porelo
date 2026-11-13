@@ -7,7 +7,7 @@
   "title": "A Log Read Back In Windows",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 32,
   "blockedBy": [],
   "covers": "`Tail` gets `before` to read back in windows, and a cap per line reported in `cut`."

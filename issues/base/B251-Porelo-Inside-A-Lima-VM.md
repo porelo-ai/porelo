@@ -7,7 +7,7 @@
   "title": "Porelo Inside a Lima VM",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 78,
   "blockedBy": [],
   "covers": "Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there"

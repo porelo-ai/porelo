@@ -7,7 +7,7 @@
   "title": "A Failed Continuation Is Forgotten",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 71,
   "blockedBy": [],
   "covers": "A continuation that fails without naming a session forgets the recorded one, so the next start is fresh and says so"

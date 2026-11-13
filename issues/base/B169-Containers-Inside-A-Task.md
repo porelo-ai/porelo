@@ -7,7 +7,7 @@
   "title": "Containers Inside A Task",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 32,
   "blockedBy": [],
   "covers": "The nested-container assessment first, measured on both legs; then an opt-in `image.nested_containers`, never for `guarded`, and only on a task's own kernel if the assessment says so."

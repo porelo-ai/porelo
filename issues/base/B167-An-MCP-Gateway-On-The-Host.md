@@ -7,7 +7,7 @@
   "title": "An MCP Gateway On The Host",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 30,
   "blockedBy": [],
   "covers": "An MCP gateway on the broker for servers over HTTP only: `kind: mcp`, JSON-RPC `tools/list` and `tools/call` read, tool lists compared per tool, `mcp.log`, a project `mcp:` list."

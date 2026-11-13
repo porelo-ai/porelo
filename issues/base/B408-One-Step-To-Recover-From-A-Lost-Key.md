@@ -7,7 +7,7 @@
   "title": "One Step To Recover From A Lost Key",
   "state": "Idea",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 28,
   "blockedBy": ["B407"],
   "covers": "After 0.7: an owner recovers a lost key in one step, with a listing of what it signed, a confirm that can leave a point out, and resuming by id"

@@ -7,7 +7,7 @@
   "title": "A Credential With No Expiry Said So",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 15,
   "blockedBy": [],
   "covers": "Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`.",

@@ -7,7 +7,7 @@
   "title": "The Changelog Entry A Change Has To Bring",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 15,
   "blockedBy": [],
   "covers": "A check that a change brings a changelog entry, proposed to logchange first, else a plugin of our own, bound in `porelo-parent` for every Maven repository and a step of its own in `porelo-frontend`, keeping the old script's three rules."

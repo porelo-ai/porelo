@@ -7,7 +7,7 @@
   "title": "A Sign-In Collected on No Disk",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 79,
   "blockedBy": [],
   "covers": "A sign-in made in a login container reaches the vault without lying in plaintext on a disk, where today it passes through the container's layer and the host's temporary directory"

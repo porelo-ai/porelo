@@ -7,7 +7,7 @@
   "title": "A Bound On What A Task Writes To This Disk",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 3,
   "blockedBy": [],
   "covers": "The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on."

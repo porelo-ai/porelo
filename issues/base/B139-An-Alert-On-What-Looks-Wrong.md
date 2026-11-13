@@ -7,7 +7,7 @@
   "title": "An Alert On What Looks Wrong",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 7,
   "blockedBy": [],
   "covers": "Baselines first, then alerts on body size, clearance attempts and odd DNS names, to the desktop and `Watch`; per project alert only or stop with the token revoked."

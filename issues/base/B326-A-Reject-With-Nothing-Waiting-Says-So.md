@@ -7,7 +7,7 @@
   "title": "A Reject With Nothing Waiting Says So",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 48,
   "blockedBy": [],
   "covers": "A reject of a name with nothing waiting says so and tells no task its work was discarded"

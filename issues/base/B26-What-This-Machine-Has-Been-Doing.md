@@ -7,7 +7,7 @@
   "title": "What This Machine Has Been Doing",
   "state": "Analyzed",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 24,
   "blockedBy": [],
   "covers": "A durable per-account event journal with a cursor and caps, written from many places, `Events()` and a command; one log with [B154](README.md#b154)'s."

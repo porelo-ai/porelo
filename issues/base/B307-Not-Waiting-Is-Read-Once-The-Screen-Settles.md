@@ -7,7 +7,7 @@
   "title": "Not Waiting Is Read Once The Screen Settles",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 54,
   "blockedBy": [],
   "covers": "The kit's \"not waiting\" step lets the screen settle after a key before it judges, and fails only on waiting read again after not waiting, as \"waiting\" already waits"

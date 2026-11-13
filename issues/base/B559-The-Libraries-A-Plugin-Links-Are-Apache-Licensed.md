@@ -7,7 +7,7 @@
   "title": "The Libraries A Plugin Links Are Apache-Licensed",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 12,
   "blockedBy": [],
   "covers": "`porelo-agent-api`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-wire` and the varlink definitions are Apache-2.0, checked by the build; the rest stays GPL-3.0-or-later."

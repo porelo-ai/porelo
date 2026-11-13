@@ -7,7 +7,7 @@
   "title": "What Clearing Leaves For A Person",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 13,
   "blockedBy": [],
   "covers": "`clear` names every left deploy key the vault holds, readable project or not; unreviewed gate refs and unpushed task work are listed before removal."

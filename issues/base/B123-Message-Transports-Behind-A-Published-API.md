@@ -7,7 +7,7 @@
   "title": "Message Transports Behind A Published API",
   "state": "Estimated",
   "size": "XL",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 4,
   "blockedBy": [],
   "covers": "`porelo-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract."

@@ -7,7 +7,7 @@
   "title": "A Trust Record That Keeps Who Could Sign When",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 43,
   "blockedBy": [],
   "covers": "The organization's trust record keeps who could sign at each change, so its check judges every signer as the walk does"

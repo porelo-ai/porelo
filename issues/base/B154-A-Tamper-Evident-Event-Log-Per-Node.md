@@ -7,7 +7,7 @@
   "title": "A Tamper-Evident Event Log Per Node",
   "state": "Backlog",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 11,
   "blockedBy": [],
   "covers": "One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it"

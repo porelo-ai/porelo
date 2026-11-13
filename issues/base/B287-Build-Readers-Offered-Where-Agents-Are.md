@@ -7,7 +7,7 @@
   "title": "Build Readers Offered Where Agents Are",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 69,
   "blockedBy": [],
   "covers": "`porelo-setup.sh --list` and the daemon's `Installable` offer build readers, read from a virtual `porelo-build-reader` the reader packages provide, as kind `build-reader`"

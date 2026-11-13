@@ -7,7 +7,7 @@
   "title": "The Narrowed Message Schema Enforced",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 19,
   "blockedBy": [],
   "covers": "One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again."

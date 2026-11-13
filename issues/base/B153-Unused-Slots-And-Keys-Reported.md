@@ -7,7 +7,7 @@
   "title": "Unused Slots And Keys Reported",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 22,
   "blockedBy": [],
   "covers": "Doctor reports left deploy keys, and device slots and lent credentials unused for 45 days (a setting in a new account-wide `config.yml`); last use recorded where credentials are lent; only what Porelo lends or opens with locked, where the settings ask."

@@ -7,7 +7,7 @@
   "title": "Handing Artifacts Between Tasks",
   "state": "Estimated",
   "size": "XL",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 5,
   "blockedBy": [],
   "covers": "Artifacts over the message transport; splits into the design redone, a gate blob threshold, transport verbs, a drop directory, delivery by hand-in, withdrawal."

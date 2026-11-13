@@ -7,7 +7,7 @@
   "title": "A Plain Git Credential Goes To Any Host A Project Names",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 35,
   "blockedBy": [],
   "covers": "A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names."

@@ -7,7 +7,7 @@
   "title": "A Start Judged On A Real Machine",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 32,
   "blockedBy": [],
   "covers": "The acceptance suite walks a start of an organization's project through the judgment on a real machine, signed, unsigned, wrong role and revoked"

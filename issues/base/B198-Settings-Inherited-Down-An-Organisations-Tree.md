@@ -7,7 +7,7 @@
   "title": "Settings Inherited Down An Organisation's Tree",
   "state": "Accepted",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 13,
   "blockedBy": [],
   "covers": "Teams, settings and locks as new paths in the organization's signed tree pass settings down to projects; `fixed` and `narrow-only` locks nothing below can undo, `project show --resolved`; an organisation's allowed providers are one locked setting of it."

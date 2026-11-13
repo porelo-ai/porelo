@@ -7,7 +7,7 @@
   "title": "Messages Over Matrix, The Porelo Half",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 29,
   "blockedBy": [],
   "covers": "The machine in the account's name, so one login on two machines stays apart; the transport account kept per homeserver, not per scheme; a registration token by `vault put`; docs; a walk on two machines."

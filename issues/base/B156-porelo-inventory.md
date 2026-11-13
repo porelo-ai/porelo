@@ -7,7 +7,7 @@
   "title": "porelo inventory",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 24,
   "blockedBy": [],
   "covers": "`porelo inventory` (text, `--json`, a daemon method) lists the account, agents, providers, credentials with the projects they serve, slots, deploy keys, last use and models."

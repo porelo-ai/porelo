@@ -7,7 +7,7 @@
   "title": "A Forge That Refuses A Host's Read Key Says Why",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 21,
   "blockedBy": [],
   "covers": "A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it"

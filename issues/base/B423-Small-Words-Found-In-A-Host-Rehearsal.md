@@ -7,7 +7,7 @@
   "title": "Small Words Found In A Host Rehearsal",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 19,
   "blockedBy": [],
   "covers": "Five small wrong words noted in a rehearsal on a host: a lambda in a passphrase refusal, a probe's words, a missing `--json`, a `.tmp` warning, four characters of a token in `gate.log`."

@@ -7,7 +7,7 @@
   "title": "AI Provenance In The Commit",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 9,
   "blockedBy": [],
   "covers": "A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them."

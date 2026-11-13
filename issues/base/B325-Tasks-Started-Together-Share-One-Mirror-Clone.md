@@ -7,7 +7,7 @@
   "title": "Tasks Started Together Share One Mirror Clone",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 49,
   "blockedBy": [],
   "covers": "Two tasks of one repository started at once both get the git gate; the mirror is cloned once"

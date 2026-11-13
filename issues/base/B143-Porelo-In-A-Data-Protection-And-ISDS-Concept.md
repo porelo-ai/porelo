@@ -7,7 +7,7 @@
   "title": "Porelo In A Data Protection And ISDS Concept",
   "state": "Estimated",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 20,
   "blockedBy": [],
   "covers": "`doc/data-protection.md` in the chapters of the federal ISDS concept template: what Porelo provides and what the organisation regulates per chapter, what to back up; headings and paths checked by a documents test."

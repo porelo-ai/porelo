@@ -7,7 +7,7 @@
   "title": "A Secret Scan Of The Workspace At Start",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 8,
   "blockedBy": [],
   "covers": "A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write."

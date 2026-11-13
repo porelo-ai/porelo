@@ -7,7 +7,7 @@
   "title": "An Online Task On A Host With No Forge Passes On To Its Upstream",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 37,
   "blockedBy": [],
   "covers": "An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there."

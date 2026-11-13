@@ -7,7 +7,7 @@
   "title": "A Provider's Refusal Reaches The Person",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 24,
   "blockedBy": [],
   "covers": "A provider's error the proxy can check reaches the person, where JSON labelled `text/plain` is withheld today and `model_not_supported` is never read"

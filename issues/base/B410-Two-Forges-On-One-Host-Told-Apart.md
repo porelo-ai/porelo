@@ -7,7 +7,7 @@
   "title": "Two Forges On One Host Told Apart",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 27,
   "blockedBy": [],
   "covers": "An address on another port of a host is not taken for the same repository, and a person is told which forge their work goes to"

@@ -7,7 +7,7 @@
   "title": "The Providers A Project Allows",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 26,
   "blockedBy": [],
   "covers": "`providers:` in `project.yml`; the start check refuses a provider not on the list, naming the allowed ones, for the CLI and the daemon."

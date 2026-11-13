@@ -7,7 +7,7 @@
   "title": "A Wall-Clock Limit For Unattended Runs",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 21,
   "blockedBy": [],
   "covers": "`limits.minutes` in the project file, which `--minutes` may only shorten; a deadline inside the container plus a real `task stop`, held back while a person is attached and taken when they detach; the reason in status; measurement first."

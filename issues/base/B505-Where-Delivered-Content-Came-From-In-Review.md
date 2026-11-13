@@ -7,7 +7,7 @@
   "title": "Where Delivered Content Came From, In Review",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 7,
   "blockedBy": ["B467"],
   "covers": "`Review` names where each file Porelo delivered into the task came from."

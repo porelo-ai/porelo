@@ -7,7 +7,7 @@
   "title": "Talking Between Tasks",
   "state": "Backlog",
   "size": "XL",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 22,
   "blockedBy": ["B86"],
   "covers": "Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L)."

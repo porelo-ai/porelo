@@ -7,7 +7,7 @@
   "title": "An Owner's Signature Counts For A Project's Files",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 29,
   "blockedBy": [],
   "covers": "After 0.7: an owner's signature counts for a project's `repository.yml`, `members.yml` and `project.yml`, host files kept out"

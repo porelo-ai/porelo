@@ -7,7 +7,7 @@
   "title": "A Waiting Host Approval Outlives Its Task's Removal",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 10,
   "blockedBy": [],
   "covers": "Work waiting at a host's gate can still be approved as its task after the task is removed, or the removal says it cannot and how else; the forge token's lifetime is decided first."

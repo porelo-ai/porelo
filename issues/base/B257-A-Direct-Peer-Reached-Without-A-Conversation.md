@@ -7,7 +7,7 @@
   "title": "A Direct Peer Reached Without A Conversation",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 80,
   "blockedBy": [],
   "covers": "A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it"

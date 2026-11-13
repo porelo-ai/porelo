@@ -7,7 +7,7 @@
   "title": "A Project's Declared Parameters Reach An Interface",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 57,
   "blockedBy": [],
   "covers": "`Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start`"

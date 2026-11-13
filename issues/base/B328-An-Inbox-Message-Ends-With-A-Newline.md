@@ -7,7 +7,7 @@
   "title": "An Inbox Message Ends With A Newline",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 47,
   "blockedBy": [],
   "covers": "A message delivered into a task's inbox ends with a newline, so `cat` of it leaves the prompt on its own line"

@@ -7,7 +7,7 @@
   "title": "A Machine Sets Its Own Transport Settings",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 53,
   "blockedBy": [],
   "covers": "A machine sets for itself what a transport lists - for Matrix its homeserver, room, CA and registration token - over the signed project file's, so one project file serves machines on different servers; split from [B304](#b304)"

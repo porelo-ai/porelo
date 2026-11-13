@@ -7,7 +7,7 @@
   "title": "The Event Log Has A Copy Off The Machine",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 11,
   "blockedBy": ["B154"],
   "covers": "Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event."

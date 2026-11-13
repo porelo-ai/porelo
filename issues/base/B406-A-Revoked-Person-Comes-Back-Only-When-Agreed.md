@@ -7,7 +7,7 @@
   "title": "A Revoked Person Comes Back Only When Agreed",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 30,
   "blockedBy": [],
   "covers": "After a revoke, a person comes back only when an owner or admin agrees; a new key at the forge and *Add me* alone do not bring them back"

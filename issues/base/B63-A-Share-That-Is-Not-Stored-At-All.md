@@ -7,7 +7,7 @@
   "title": "A Share That Is Not Stored At All",
   "state": "Estimated",
   "size": "XL",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 28,
   "blockedBy": [],
   "covers": "A share not stored at all; splits into a token measurement (S), FIDO2 enrolment (L), TPM2 (L), and proving what protected an unlock, an unproven slot shown as USER_SCOPED (L)."

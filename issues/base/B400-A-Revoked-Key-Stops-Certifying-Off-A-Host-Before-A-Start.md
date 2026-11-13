@@ -7,7 +7,7 @@
   "title": "A Revoked Key Stops Certifying Off A Host Before A Start",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 34,
   "blockedBy": [],
   "covers": "Off a host, a key revoked in the organization stops being believed as a certifier of messages soon after, not only at the project's next start"

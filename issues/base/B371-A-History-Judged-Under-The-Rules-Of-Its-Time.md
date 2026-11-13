@@ -7,7 +7,7 @@
   "title": "A History Judged Under The Rules Of Its Time",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 24,
   "blockedBy": [],
   "covers": "A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed"

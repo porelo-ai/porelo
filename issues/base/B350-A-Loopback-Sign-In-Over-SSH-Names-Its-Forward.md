@@ -7,7 +7,7 @@
   "title": "A Loopback Sign-In Over SSH Names Its Forward",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 46,
   "blockedBy": [],
   "covers": "A `loopback` sign-in over SSH runs: Porelo names the callback port and the interface shows the one `ssh -L` line to open first"

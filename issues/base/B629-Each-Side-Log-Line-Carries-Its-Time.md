@@ -7,7 +7,7 @@
   "title": "Each Side Log Line Carries Its Time",
   "state": "Backlog",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 32,
   "blockedBy": [],
   "covers": "Each line a task's side process writes to gate.log, vault.log, relay.log or clearance.log starts with the time it was written, and Tasks1 `Tail` answers that time beside each line, null for a line without one, for the window's one timeline of a piece of work."

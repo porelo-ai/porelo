@@ -7,7 +7,7 @@
   "title": "A Message Record Without A Chain",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 17,
   "blockedBy": ["B154"],
   "covers": "Drop `previous` and `hash` from `MessageRecord`, remove `porelo talk verify`, its rows and scenario, and update the docs and the decision."

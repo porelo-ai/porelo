@@ -7,7 +7,7 @@
   "title": "The Logs Checked And Documented",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 23,
   "blockedBy": [],
   "covers": "A `doc/logs.md` page for every log; tests show the broker and gate logs hold no secret and every log file is `rw-------`; `task.log` cut after 30 days (a setting)."

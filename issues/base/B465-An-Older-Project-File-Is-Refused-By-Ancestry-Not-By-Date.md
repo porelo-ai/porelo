@@ -7,7 +7,7 @@
   "title": "An Older Project File Is Refused By Ancestry, Not By Date",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 13,
   "blockedBy": [],
   "covers": "A machine remembers the project file's commit it accepted and refuses a later one that does not descend from it, so a file signed in the same second as a newer one cannot come back."

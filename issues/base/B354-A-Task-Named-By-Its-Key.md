@@ -7,7 +7,7 @@
   "title": "A Task Named By Its Key",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 45,
   "blockedBy": [],
   "covers": "A task's name carries a short suffix from its key's fingerprint, unique per login, so a name names one task key"

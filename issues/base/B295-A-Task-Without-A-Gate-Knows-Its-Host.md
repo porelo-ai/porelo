@@ -7,7 +7,7 @@
   "title": "A Task Without A Gate Knows Its Host",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 58,
   "blockedBy": [],
   "covers": "A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about"

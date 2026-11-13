@@ -7,7 +7,7 @@
   "title": "The Person's Own Files Read Only As Themselves",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 42,
   "blockedBy": [],
   "covers": "Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory"

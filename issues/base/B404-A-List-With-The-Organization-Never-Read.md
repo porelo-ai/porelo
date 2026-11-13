@@ -7,7 +7,7 @@
   "title": "A List With The Organization Never Read",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 33,
   "blockedBy": [],
   "covers": "`project list` still shows a machine's own projects when its organization was never read and is out of reach"

@@ -7,7 +7,7 @@
   "title": "No Broker Address for a Task Without One",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 77,
   "blockedBy": [],
   "covers": "An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered"

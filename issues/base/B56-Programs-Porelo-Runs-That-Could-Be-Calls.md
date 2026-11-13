@@ -7,7 +7,7 @@
   "title": "Programs Porelo Runs That Could Be Calls",
   "state": "Analyzed",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 31,
   "blockedBy": [],
   "covers": "The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue."

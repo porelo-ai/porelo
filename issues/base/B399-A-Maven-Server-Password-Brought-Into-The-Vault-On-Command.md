@@ -7,7 +7,7 @@
   "title": "A Maven Server Password Brought Into The Vault On Command",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 38,
   "blockedBy": [],
   "covers": "A person brings one named Maven server's password from their own settings into the vault, at their explicit command"

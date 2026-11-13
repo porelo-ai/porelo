@@ -7,7 +7,7 @@
   "title": "Build2 Waits 60 Seconds When The Forge Names No Wait",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 44,
   "blockedBy": [],
   "covers": "When a forge names no wait, `Build2.RateLimited` answers `retryAfter: 60`, as `Review1` does, not 0"

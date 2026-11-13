@@ -7,7 +7,7 @@
   "title": "No Direct Chat Between Tasks",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 16,
   "blockedBy": [],
   "covers": "Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send."

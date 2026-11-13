@@ -7,7 +7,7 @@
   "title": "Every Task Run Kept, In One Timeline",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 15,
   "blockedBy": [],
   "covers": "Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it."

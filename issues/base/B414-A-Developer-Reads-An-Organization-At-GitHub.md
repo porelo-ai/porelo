@@ -7,7 +7,7 @@
   "title": "A Developer Reads An Organization At GitHub",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 23,
   "blockedBy": [],
   "covers": "At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's"

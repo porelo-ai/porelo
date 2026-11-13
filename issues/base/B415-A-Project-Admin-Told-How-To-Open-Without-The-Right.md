@@ -7,7 +7,7 @@
   "title": "A Project Admin Told How To Open Without The Right",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 22,
   "blockedBy": [],
   "covers": "`project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again"

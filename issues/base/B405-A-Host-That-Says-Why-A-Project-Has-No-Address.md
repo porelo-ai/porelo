@@ -7,7 +7,7 @@
   "title": "A Host That Says Why A Project Has No Address",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 31,
   "blockedBy": [],
   "covers": "A host carrying a project with no address says why: nobody opened it, or the file for its address stands refused"

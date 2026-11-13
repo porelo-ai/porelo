@@ -7,7 +7,7 @@
   "title": "A Cost Ceiling Per Task",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 14,
   "blockedBy": ["B138", "B191"],
   "covers": "A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value."

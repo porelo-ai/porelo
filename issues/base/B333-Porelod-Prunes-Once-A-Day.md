@@ -7,7 +7,7 @@
   "title": "Porelod Prunes Once A Day",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 81,
   "blockedBy": [],
   "covers": "`porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays"

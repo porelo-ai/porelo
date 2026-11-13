@@ -7,7 +7,7 @@
   "title": "A Person's Forge Token Replaced At Each Command",
   "state": "Accepted",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 3,
   "blockedBy": [],
   "covers": "`porelod`'s measuring asks the host's forge for one lent token per round, not one per repository; the host tool's lending switch already keeps a lend from taking the person's or another lend's token."

@@ -7,7 +7,7 @@
   "title": "The Organization Adapter Apart From Porelo",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 8,
   "blockedBy": [],
   "covers": "Everything about the organization and the source of its projects moves out of `porelo` into an organization adapter, an executable of its own asked across a process boundary; `porelo` keeps tasks, the machine, code repositories, a cache of project settings, and `default` and hand-written projects."

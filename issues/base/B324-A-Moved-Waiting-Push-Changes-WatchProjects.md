@@ -7,7 +7,7 @@
   "title": "A Moved Waiting Push Changes WatchProjects",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 50,
   "blockedBy": [],
   "covers": "A waiting push that moves to another commit changes a `WatchProjects` reply, though no count changes, so an interface sees the new work within seconds"
