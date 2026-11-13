@@ -137,6 +137,7 @@ would change the answer.
 | An admitted machine's token may lie in a file | accepted: `talk admit --into` writes it in the clear to a new owner-only file; the interface keeps it in its secrets file instead | [entry](#an-admitted-machines-token-may-lie-in-a-file) |
 | A homeserver's registration token lies on the host that needs it | accepted, a deliberate exception to no token on a server: from the person's vault or asked once, kept in the host's vault | [entry](#a-homeservers-registration-token-lies-on-the-host-that-needs-it) |
 | A socket's registration token is lent under the socket's path | `<entry>.unix:<path>`, derived and named by nobody; accepted: a path proves nothing about who listens | [entry](#a-sockets-registration-token-is-lent-under-the-sockets-path) |
+| A loopback homeserver's registration token is lent under its host and port | `<entry>.http:<host>:<port>` for plain http on `127.0.0.0/8`, `localhost` or `[::1]`; any other http lends nothing; accepted: a port proves nothing about who listens | [entry](#a-loopback-homeservers-registration-token-is-lent-under-its-host-and-port) |
 | The keys of a project's store lie on the host for its life | accepted, a deliberate exception to no token on a server: root-only until `down`, limited to the store's bucket | [entry](#the-keys-of-a-projects-store-lie-on-the-host-for-its-life) |
 | The signed project file names a shared server | homeserver, room, CA and token file come from the project file every machine follows; a machine sets none of them | [entry](#the-signed-project-file-names-a-shared-server) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
@@ -863,6 +864,18 @@ nothing of where the socket leads, and not a name in the project file, which wou
 **The exposure:** `https` proves the server and a path proves nothing, so whoever can bind that path receives the token.
 **Why it stays:** the person stores it for that path alone, and the tunnel's socket lies where only they can bind. **What
 would change it:** a transport that can tell who listens before it sends the token.
+
+## A loopback homeserver's registration token is lent under its host and port
+
+A person's own homeserver on this machine listens on plain http, `http://127.0.0.1:<port>` or `http://localhost:<port>`,
+and a project naming it must be lent its registration token as an https or socket one is. Its entry is
+`<entry>.http:<host>:<port>`, derived from the address: loopback in one spelling (`127.0.0.0/8` in dotted decimal,
+`localhost`, `[::1]`), the host in lower case, the port always given, `80` when the address names none. The port stays
+in the name, since another port is another listener, and `http:` keeps it apart from an https server on the same host,
+whose name is the host alone. Any other plain http address lends nothing: the token would cross the wire in the clear.
+**The exposure:** like a socket's path, a loopback port proves nothing about who listens, so whoever binds that port
+first receives the token. **Why it stays:** the person stores it for that port alone, and their homeserver holds it.
+**What would change it:** a transport that can tell who listens before it sends the token.
 
 ## The keys of a project's store lie on the host for its life
 

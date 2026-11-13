@@ -84,18 +84,26 @@ Porelo keeps no list of them:
 
 On such a verb Porelo looks in the person's vault under the name lower-cased, less `PORELO_`, with `_` as `-`:
 `matrix-registration-token`, with `.<server>` after it, the host of `mail.transports.<scheme>.homeserver`, or that
-setting whole when it is a Unix socket, as `matrix-registration-token.unix:/run/room.sock`. Only that
+setting whole when it is a Unix socket, as `matrix-registration-token.unix:/run/room.sock`, or `http:`, the host and
+the port when it is plain `http` on this machine's loopback, as `matrix-registration-token.http:127.0.0.1:8008`. Only that
 entry is lent, never a plain one: a project's file names the homeserver, so a plain entry would go to whatever server
 it chose. What it finds goes into that verb's `secrets` under `name`, and is not kept: a value the verb prints back
 under `secrets` or `account` is dropped, and it stays where the person put it with `porelo vault put`.
 
-- **Only a plain `https` homeserver or a Unix socket names a server:** an address with a user part, a query, a fragment or
-  a backslash, or one over `http`, lends nothing, since a client could read it as another host. A socket is `unix:` and an
-  absolute path of plain characters, spelled the one way; the token goes only to that path.
+- **Only a plain `https` homeserver, a Unix socket or plain `http` on loopback names a server:** an address with a user
+  part, a query, a fragment or a backslash, or one over `http` anywhere else, lends nothing, since a client could read it
+  as another host, and plain `http` crosses the wire in the clear. A socket is `unix:` and an absolute path of plain
+  characters, spelled the one way; the token goes only to that path.
+- **Loopback is `127.0.0.0/8` in dotted decimal, `localhost` or `[::1]`**, each spelled the one way: `http://127.1`,
+  `[0:0:0:0:0:0:0:1]` or an octet with a leading zero lends nothing. Its name keeps the port, `80` when the address
+  names none, since another port on loopback is another listener, and begins with `http:`, so it is never the name of an
+  `https` server on the same host: a token stored for `https://127.0.0.1` does not reach `http://127.0.0.1:8008`, nor
+  the other way round. Like a socket, loopback proves nothing about who listens: store one only for a port your own
+  homeserver holds.
 - **A socket proves nothing about who listens:** `https` proves the server, and a path only names a file, so the token
   reaches whoever holds it. Store one only for a path only you can bind. The room's name plays no part, since it says
   nothing of where a socket leads.
-- **The name leaves out the port:** two homeservers on one host share an entry, so they are lent the same token.
+- **An `https` name leaves out the port:** two homeservers on one host share an entry, so they are lent the same token.
 - **Nothing found:** `secrets` goes without it, and the transport refuses as it would have (78).
 - **A shut or unreadable vault:** 77, and the transport is not run.
 - **An entry with no `lent`, or one that is not a list of strings, lends nothing**; nor does a name other than a

@@ -282,7 +282,6 @@ from its side, as *blocked by*.
 | <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. |
 | <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. |
 | <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. |
-| <a id="b637"></a>[B637](B637-A-Loopback-Homeserver-Is-Lent-Its-Token.md) | S | - | porelo lends matrix-registration-token.<server> to a homeserver on loopback http, as it does to an https or Unix socket one, so a person's local homeserver can be named for a project; any other plain http address still lends nothing. |
 
 ## Review
 
@@ -515,6 +514,7 @@ from its side, as *blocked by*.
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | M | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault | - |
 | <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start | - |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | - |
+| <a id="b637"></a>[B637](B637-A-Loopback-Homeserver-Is-Lent-Its-Token.md) | S | - | porelo lends matrix-registration-token.<server> to a homeserver on loopback http, as it does to an https or Unix socket one, so a person's local homeserver can be named for a project; any other plain http address still lends nothing. | - |
 | <a id="b672"></a>[B672](B672-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The daily Shared rules check runs porelo-release's `issues check issues`, so an issue head that breaks the issue format is found within a day. | - |
 
 ## Finished

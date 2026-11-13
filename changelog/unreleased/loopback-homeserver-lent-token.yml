@@ -1,0 +1,2 @@
+title: "A homeserver on loopback http is lent its registration token under http:<host>:<port>, so a person's local homeserver can be named for a project; any other plain http address still lends nothing"
+type: added

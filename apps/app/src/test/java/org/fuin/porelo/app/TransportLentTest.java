@@ -57,6 +57,12 @@ class TransportLentTest {
     /** A homeserver on a socket, as a tunnel to it is bound on a host. */
     private static final String SOCKET = "unix:/run/porelo/room.sock";
 
+    /** A person's own homeserver on this machine's loopback, over plain http. */
+    private static final String LOOPBACK = "http://127.0.0.1:8008";
+
+    /** The entry named for {@link #LOOPBACK}. */
+    private static final String LOOPBACK_ENTRY = PLAIN + ".http:127.0.0.1:8008";
+
     @TempDir Path dir;
 
     private final FakeCommandRunner fake = new FakeCommandRunner();
@@ -377,6 +383,80 @@ class TransportLentTest {
 
         final int code = put.execute(PLAIN + "." + SOCKET, "--from-file", value.toString());
         lifecycle(context).setup("matrix", "p", Map.of("homeserver", SOCKET));
+
+        assertThat(code).as("porelo vault put: %s", printed).isZero();
+        assertThat(printed.toString()).as("printed").doesNotContain(TOKEN);
+        assertThat(secretsOf(" setup ")).as("what setup read").containsEntry(NAME, TOKEN);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "http://127.0.0.1:8008",
+                "http://127.0.0.1:8008/",
+                "http://127.0.0.1:8008/base",
+                "HTTP://127.0.0.1:8008"
+            })
+    void aTokenStoredForALoopbackHomeserverReachesIt(final String homeserver) throws Exception {
+        // A person's own homeserver on this machine: refused, it could not be named for a project.
+        final PoreloContext context = open(fake, Map.of(LOOPBACK_ENTRY, TOKEN));
+        transport(context, described(",\"lent\":[\"setup\"]"));
+
+        lifecycle(context).setup("matrix", "p", Map.of("homeserver", homeserver));
+
+        assertThat(secretsOf(" setup ")).as(homeserver).containsEntry(NAME, TOKEN);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "http://127.0.0.1:8009",
+                "http://127.0.0.2:8008",
+                "http://localhost:8008",
+                "https://127.0.0.1:8008",
+                "http://chat.example:8008",
+                "http://user@127.0.0.1:8008",
+                "http://127.0.0.1:8008@chat.example",
+            })
+    void aLoopbackHomeserversTokenReachesNoOtherServerOrPort(final String homeserver)
+            throws Exception {
+        // Another port of loopback is another listener, and plain http elsewhere is read on the
+        // way: either would hold the token the person stored for their own homeserver.
+        final PoreloContext context = open(fake, Map.of(LOOPBACK_ENTRY, TOKEN));
+        transport(context, described(",\"lent\":[\"setup\"]"));
+
+        lifecycle(context).setup("matrix", "p", Map.of("homeserver", homeserver));
+
+        assertThat(secretsOf(" setup ")).as(homeserver).doesNotContainKey(NAME);
+    }
+
+    @Test
+    void anHttpsServersTokenDoesNotReachLoopbackHttpOfTheSameHost() throws Exception {
+        // Stored for https on 127.0.0.1, which proves the server; plain http proves nothing.
+        final PoreloContext context = open(fake, Map.of(PLAIN + ".127.0.0.1", TOKEN));
+        transport(context, described(",\"lent\":[\"setup\"]"));
+
+        lifecycle(context).setup("matrix", "p", Map.of("homeserver", LOOPBACK));
+
+        assertThat(secretsOf(" setup ")).doesNotContainKey(NAME);
+    }
+
+    @Test
+    void anEntryPutWithTheCommandUnderTheLoopbackNameIsLent() throws Exception {
+        // The name holds colons: refused or hidden by the vault, a person could not lend a token to
+        // their own homeserver at all.
+        final PoreloContext context = open(fake, Map.of());
+        transport(context, described(",\"lent\":[\"setup\"]"));
+        final Path value = dir.resolve("value");
+        Files.writeString(value, TOKEN, StandardCharsets.UTF_8);
+        final picocli.CommandLine put =
+                new picocli.CommandLine(VaultPutCommand.class, new PoreloFactory(context));
+        final StringWriter printed = new StringWriter();
+        put.setOut(new PrintWriter(printed));
+        put.setErr(new PrintWriter(printed));
+
+        final int code = put.execute(LOOPBACK_ENTRY, "--from-file", value.toString());
+        lifecycle(context).setup("matrix", "p", Map.of("homeserver", LOOPBACK));
 
         assertThat(code).as("porelo vault put: %s", printed).isZero();
         assertThat(printed.toString()).as("printed").doesNotContain(TOKEN);
@@ -772,6 +852,35 @@ class TransportLentTest {
         transport(context, described(",\"lent\":[\"setup\"]"));
 
         lifecycle(context).setup("matrix", "p", Map.of("homeserver", SOCKET));
+
+        assertThat(secretsOf(" setup ")).containsEntry(NAME, TOKEN);
+    }
+
+    @Test
+    void theEntryAProjectShowsForALoopbackHomeserverIsTheEntryItIsLent() throws Exception {
+        // Shown one way and looked for another, a person holds the token under the name they were
+        // told, and the transport goes without it.
+        final org.fuin.porelo.core.project.Project read =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        new java.io.StringReader(
+                                """
+                        project:
+                          name: "p"
+                          security_class: "guarded"
+                        image:
+                          from: "ubuntu:24.04"
+                        mail:
+                          transports:
+                            matrix:
+                              homeserver: "http://LocalHost:8008/"
+                        """),
+                        "project.yml");
+        final String shown = ProjectShowCommand.registrationEntry(read);
+        assertThat(shown).as("what the project shows").isEqualTo(PLAIN + ".http:localhost:8008");
+        final PoreloContext context = open(fake, Map.of(shown, TOKEN));
+        transport(context, described(",\"lent\":[\"setup\"]"));
+
+        lifecycle(context).setup("matrix", "p", Map.of("homeserver", "http://LocalHost:8008/"));
 
         assertThat(secretsOf(" setup ")).containsEntry(NAME, TOKEN);
     }
