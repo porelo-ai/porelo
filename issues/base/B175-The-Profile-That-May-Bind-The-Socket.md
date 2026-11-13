@@ -18,8 +18,8 @@
 **Why this size.** AppArmor cannot carry over the SELinux rule as written, so a design is decided first; then two profiles,
 the task's way into one, the package's scripts, `doctor`, and a scenario on the ubuntu leg. Re-estimated on 2026-11-13
 after the walk4 measurements: steps 1-8 are built, but the lock they build does not hold for path sockets, and step 9
-moves every socket a task reaches to an abstract name bound in the task's network namespace. What is left is still L
-and is to be split, the transport change of step 9 apart from its profile, `doctor` and leg parts.
+moves every socket a task reaches to an abstract name bound in the task's network namespace. What is left of step 9 is
+split into [B752](README.md#b752), [B753](README.md#b753), [B754](README.md#b754) and [B755](README.md#b755).
 
 **What must be true.** On a machine that confines programs by AppArmor rather than SELinux, a task connects only to a
 socket that one of Porelo's binaries bound, as the SELinux domain proposed by [B40](README.md#b40) requires,
@@ -114,7 +114,13 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
    Debian and Ubuntu section; `doc/decisions.md` an entry for the lock on the connecting side and for the self-entry.
 9. **The redesign: Porelo's in-task sockets become abstract names** (decided on the walk4 measurements of
    2026-11-13, see Built). A peer rule does not hold for a socket with a file path, which AppArmor judges by file
-   rules; it holds for an abstract one.
+   rules; it holds for an abstract one. Split into four issues:
+   - [B752](README.md#b752): the in-task sockets as abstract names bound in the task's namespace;
+   - [B753](README.md#b753): the rule and the abi line in `porelo-task`, with `AppArmorProfilesTest`;
+   - [B754](README.md#b754): `doctor`, and no wrapping for an account install;
+   - [B755](README.md#b755): the scenario on the ubuntu leg, installed machine-wide.
+
+   The design below is theirs.
    - The vault proxy, the ssh agent, the mailbox and the broker's socket a task reaches are bound as abstract names
      (`@porelo-...`) by the packaged `porelod`, inside each task's network namespace, which it joins with `setns`
      (user and network namespace of the container, as `nsenter -t <pid> -U -n --preserve-credentials` does). Abstract
