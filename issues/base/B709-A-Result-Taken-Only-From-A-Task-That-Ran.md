@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B709",
   "title": "A Result Taken Only From A Task That Ran",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 63,

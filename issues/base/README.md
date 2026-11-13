@@ -233,7 +233,6 @@ from its side, as *blocked by*.
 | <a id="b684"></a>[B684](B684-A-Private-Package-Repository-Is-Played-Through-As-A-Person-Would.md) | M | - | A script plays ST43 at the command line on the test VM as a person would: a task builds against an authenticated Nexus or Artifactory stand-in; the build tool's settings are written at the start and the credential stays in the vault, never inside the task. | - |
 | <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. | - |
 | <a id="b706"></a>[B706](B706-An-Undeclared-Address-Asked-About-In-The-List.md) | S | - | A task of a guarded project that reaches an address its project did not declare is listed waiting for that clearance question within seconds, and the watch names the question above its table. | 0 |
-| <a id="b709"></a>[B709](B709-A-Result-Taken-Only-From-A-Task-That-Ran.md) | S | - | A listing takes a task's result only once its container has run and stopped, never while it is created and not yet running, and a result a listing took as missing is taken again when the task ends. | 0 |
 | <a id="b710"></a>[B710](B710-No-Agent-Waits-For-A-Build-That-Never-Comes.md) | M | - | An agent whose push will not be built while its task runs, because the work waits at the gate for a person or the project follows no builds, is told so at once and does not wait for a build report. | 0 |
 | <a id="b591"></a>[B591](B591-The-Room-Receives-A-Persons-Chosen-Name.md) | M | [B550](README.md#b550) | The host carries admitted persons' chosen card names to `keep-room` in `settings.names` on stdin. | - |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. | - |
@@ -307,10 +306,11 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
-| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
+| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. | - |
+| <a id="b709"></a>[B709](B709-A-Result-Taken-Only-From-A-Task-That-Ran.md) | S | - | A listing takes a task's result only once its container has run and stopped, never while it is created and not yet running, and a result a listing took as missing is taken again when the task ends. | 0 |
 
 ## Review
 
