@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B737",
   "title": "A Task's Guide Names Its MCP Endpoint",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 10,
