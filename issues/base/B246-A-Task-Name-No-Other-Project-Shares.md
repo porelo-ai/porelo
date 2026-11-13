@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B246",
   "title": "A Task Name No Other Project Shares",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "High",
   "rank": 10,

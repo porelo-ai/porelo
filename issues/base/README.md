@@ -127,7 +127,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
-| <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | M | - | A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form; project `porelo`'s tasks are `porelo_<task>`, and what assumes a `porelo-` beginning takes both | 0 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | M | - | Every agent's start runs a binary the agent cannot change: claude, omp, codex and agy, which today install it under /home/agent, as pi and stub already do under /usr/local/bin. | 1 |
 | <a id="b742"></a>[B742](B742-A-Tasks-Tmux-Server-Starts-Fresh.md) | S | - | No setting an agent leaves in its tmux server (set-environment -g, default-shell, options) reaches the next start, which joins the `porelo` session. | 1 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
@@ -212,6 +211,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | M | - | A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form; project `porelo`'s tasks are `porelo_<task>`, and what assumes a `porelo-` beginning takes both | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
 | <a id="b166"></a>[B166](B166-Line-Comments-Sent-Back-To-The-Agent.md) | L | [B136](README.md#b136), [B150](README.md#b150), [B291](README.md#b291), [B292](README.md#b292), [B323](README.md#b323) | Host-stored SARIF comments/findings on lines, files or whole reviews; validated fixes, reject delivery, local replies and authenticated origin through the shared message path. | 0 |
