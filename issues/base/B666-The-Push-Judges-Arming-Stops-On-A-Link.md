@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B666",
   "title": "The Push Judge's Arming Stops On A Link",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 41,
