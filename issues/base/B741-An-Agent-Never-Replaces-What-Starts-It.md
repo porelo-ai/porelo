@@ -15,8 +15,8 @@
 }
 ```
 
-**Why this size.** S, Porelo's part only: the binary's path fixed at build and checked at each start. The adapters'
-part is theirs. Estimate: 45 minutes (Core's median for S).
+**Why this size.** S, Porelo's part only: an artifact a root step owns, and the binary's path fixed at build and
+checked at each start. The adapters' part is theirs. Estimate: 45 minutes (Core's median for S).
 
 **What must be true.** What an agent writes during a task never picks what Porelo starts as that agent next time.
 
@@ -40,6 +40,13 @@ path names it. `AgentDefinition.binary` is a bare name that each start looks up 
 The operator decided on 2026-11-13: each adapter installs its agent's binary as root, as pi does, and Porelo does not
 chown an agent's install. What stays Porelo's:
 
+- **An artifact a root step owns** (agents/api and the definition format; asked for by Smith, 2026-11-13): an
+  artifact may say `owner: root` (default `agent`, as today). `Agent.imageLayer()` renders the root ones, with the
+  same digest check, at the start of the root fragments, before `as_root`, so a root fragment can unpack them. The
+  rest are rendered as today. The reader refuses any other value, and a root artifact whose target is under
+  `/home/agent`. `porelo agents --supply-chain`, `unverifiedArtifacts()` and the adapters' pin checks see a root
+  artifact as any other. Red first in agents/api: a definition with a root artifact renders its download and check
+  before `as_root`, as root; `owner: nobody` and a root target under `/home/agent` are refused.
 - **At build:** after the agent's layers, Porelo resolves `AgentDefinition.binary` on root's `PATH` once. It records
   the absolute path and its resolved target in the image, as a label beside the recipe's.
 - **At each start, unattended or attached:** Porelo runs that absolute path, never a bare name. It refuses the start
