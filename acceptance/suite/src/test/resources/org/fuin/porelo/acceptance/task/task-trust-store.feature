@@ -72,17 +72,19 @@ Feature: A task trusts only the authority explicitly handed to it
                 podman cp "$fixture/server.pem" "$id:/tmp/task-server.pem"
                 podman cp "$fixture/server.key" "$id:/tmp/task-server.key"
                 podman cp "$fixture/serve.py" "$id:/tmp/task-serve.py"
+                # The fixture's server is not the agent: it runs as root and reads the key podman cp left
+                # root's. Only the agent's curl is under test.
                 echo "step $trust: start server" >&2
-                podman exec --user agent --detach "$id" sh -c 'python3 /tmp/task-serve.py > /tmp/task-serve.log 2>&1'
+                podman exec --user root --detach "$id" sh -c 'python3 /tmp/task-serve.py > /tmp/task-serve.log 2>&1'
                 ready=0
                 for attempt in $(seq 1 50); do
-                    if podman exec --user agent "$id" python3 -c "import socket; socket.create_connection(('127.0.0.1', 8443), 1).close()" 2>/dev/null; then
+                    if podman exec --user root "$id" python3 -c "import socket; socket.create_connection(('127.0.0.1', 8443), 1).close()" 2>/dev/null; then
                         ready=1
                         break
                     fi
                     sleep 0.1
                 done
-                if [ "$ready" != 1 ]; then echo "step $trust: server not ready" >&2; podman exec --user agent "$id" cat /tmp/task-serve.log >&2; exit 1; fi
+                if [ "$ready" != 1 ]; then echo "step $trust: server not ready" >&2; podman exec --user root "$id" cat /tmp/task-serve.log >&2; exit 1; fi
                 echo "step $trust: curl" >&2
                 code=0
                 podman exec --user agent "$id" curl --noproxy '*' --max-time 10 -sS -o /dev/null -w '%{http_code}' \

@@ -210,7 +210,7 @@ RUN command -v setpriv >/dev/null 2>&1 \
         'exec "$drop" --reuid=agent --regid=agent --init-groups -- "$@"' \
         > /etc/porelo/as-agent \
     && chmod 0755 /etc/porelo/as-agent \
-    && mkdir -p /run/porelo && chmod 0700 /run/porelo
+    && mkdir -p /run/porelo-tmux && chmod 0700 /run/porelo-tmux
 
 RUN mkdir -p /workspace && chown agent:agent /workspace
 
@@ -241,6 +241,6 @@ ENV PATH=/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="f5f9bbd1faab0fd5"
+LABEL org.fuin.porelo.recipe="e8a8f4e4ffce0008"
 LABEL org.fuin.porelo.security-class="guarded"
 LABEL org.fuin.porelo.settings=""

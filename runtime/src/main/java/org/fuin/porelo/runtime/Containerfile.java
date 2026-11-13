@@ -72,8 +72,12 @@ public final class Containerfile {
     /**
      * The directory of Porelo's tmux server: the container's root's alone, mode 0700, so the agent
      * cannot reach the socket in it.
+     *
+     * <p>Its own, beside {@code /run/porelo} rather than that directory: the agent's guide, mail,
+     * signing shim, screen and result are mounted under {@code /run/porelo}, and behind 0700 the
+     * agent reached none of them.
      */
-    public static final String TMUX_DIRECTORY = "/run/porelo";
+    public static final String TMUX_DIRECTORY = "/run/porelo-tmux";
 
     /**
      * The socket of Porelo's tmux server, given to every tmux call of Porelo's with {@code -S}.

@@ -300,7 +300,7 @@ public class WaitingSteps {
                     world.run(
                             "podman exec --user root "
                                     + Shell.quote(container)
-                                    + " tmux -S /run/porelo/tmux capture-pane -p -J");
+                                    + " tmux -S /run/porelo-tmux/tmux capture-pane -p -J");
             screen = pane.out();
             if (pane.status() == 0 && screen.contains(shown)) {
                 return;

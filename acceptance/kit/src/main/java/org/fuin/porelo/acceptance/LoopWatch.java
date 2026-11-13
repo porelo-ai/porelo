@@ -50,7 +50,7 @@ final class LoopWatch {
 
     private static final String HISTORY =
             " printf '\\036%s\\n' \"$c\";"
-                    + " podman exec --user root \"$c\" tmux -S /run/porelo/tmux capture-pane -p -J -S - -E -1 2>/dev/null || :;";
+                    + " podman exec --user root \"$c\" tmux -S /run/porelo-tmux/tmux capture-pane -p -J -S - -E -1 2>/dev/null || :;";
 
     /** Prints each task's history, tolerating a task that stopped after the listing. */
     static final String COMMAND = LIST + HISTORY + " done; exit 0";

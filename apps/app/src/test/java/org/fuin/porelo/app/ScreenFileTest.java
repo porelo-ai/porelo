@@ -68,7 +68,7 @@ class ScreenFileTest {
         final Path drawn = state.resolve("drawn.txt");
         Files.writeString(
                 bin.resolve("tmux"),
-                "#!/bin/sh\ncase \"$*\" in '-S /run/porelo/tmux capture-pane'*) ;; *) exit 1 ;;"
+                "#!/bin/sh\ncase \"$*\" in '-S /run/porelo-tmux/tmux capture-pane'*) ;; *) exit 1 ;;"
                         + " esac\n[ -s "
                         + drawn
                         + " ] || exit 1\ncat "

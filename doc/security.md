@@ -323,7 +323,7 @@ What the two capabilities do not give the agent:
 - A window of the session leaves root through the root-owned `/etc/porelo/as-agent`. After it,
   `CapPrm`, `CapEff` and `CapAmb` are 0 and `NoNewPrivs` is 1. The same holds for every exec of the
   agent's.
-- The server's socket is `/run/porelo/tmux`, in a directory only root reaches. The agent cannot
+- The server's socket is `/run/porelo-tmux/tmux`, in a directory only root reaches. The agent cannot
   connect, type into the session or set what the next server starts with.
 - What the server reads and runs (`/etc/porelo/tmux.conf`, the files it sources and `as-agent`) is
   root's alone. Each start checks every one of them, and every directory above them, for an owner

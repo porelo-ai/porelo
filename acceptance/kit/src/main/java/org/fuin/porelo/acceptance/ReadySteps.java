@@ -218,7 +218,7 @@ public class ReadySteps {
                 world.run(
                         "podman exec --user root "
                                 + Shell.quote(container)
-                                + " tmux -S /run/porelo/tmux capture-pane -p -J");
+                                + " tmux -S /run/porelo-tmux/tmux capture-pane -p -J");
         return pane.status() == 0 ? java.util.Optional.of(pane.out()) : java.util.Optional.empty();
     }
 

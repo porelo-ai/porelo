@@ -64,7 +64,7 @@ session. A1 (the operator's choice of 2026-11-13) moves that server to root and 
   `-f /etc/porelo/tmux.conf`. An option, hook, `set-environment -g`, `default-shell` or detached session left on that
   server ends with it, and the new server reads Porelo's configuration and podman's environment. A live session is
   joined and its server kept, so attach and resume go on working. `task attach` uses the same start.
-- **The server is root's.** Every tmux call of Porelo's is `--user root` and `tmux -S /run/porelo/tmux`:
+- **The server is root's.** Every tmux call of Porelo's is `--user root` and `tmux -S /run/porelo-tmux/tmux`:
   - the start, attach and resume (`sessionArguments`);
   - the session probe in `TaskSession` and the activity read in `AgentWaiting`, through `Podman.askSession`;
   - `screen`, `type` and `enter`;
@@ -140,3 +140,6 @@ session. A1 (the operator's choice of 2026-11-13) moves that server to root and 
     - 1: `TaskListingScreensTest`.
 
     In the acceptance kit, `LiveTaskStepsTest` 17 also passes.
+- Corrected after the legs went red (2026-11-14): the server's directory was `/run/porelo` itself, and at 0700 it hid
+  everything mounted under it from the agent: its guide, mail, signing shim, screen and result. The server now has
+  its own `/run/porelo-tmux`; `TaskRootOnlyDirectoryTest` holds that nothing handed to the agent lies under it.

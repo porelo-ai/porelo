@@ -938,7 +938,7 @@ class PodmanTest {
                         line ->
                                 assertThat(line)
                                         .contains(
-                                                "exec --user root box tmux -S /run/porelo/tmux send-keys -t "
+                                                "exec --user root box tmux -S /run/porelo-tmux/tmux send-keys -t "
                                                         + Containerfile.SESSION
                                                         + " -l A message waits; read it"))
                 .anySatisfy(
@@ -1246,9 +1246,9 @@ class PodmanTest {
         assertThat(started.exit()).as(started.said()).isZero();
         assertThat(started.asked())
                 .containsExactly(
-                        "-S /run/porelo/tmux has-session -t porelo",
-                        "-S /run/porelo/tmux kill-server",
-                        "-S /run/porelo/tmux -f "
+                        "-S /run/porelo-tmux/tmux has-session -t porelo",
+                        "-S /run/porelo-tmux/tmux kill-server",
+                        "-S /run/porelo-tmux/tmux -f "
                                 + Containerfile.TMUX_CONF
                                 + " new-session -A -s porelo "
                                 + Containerfile.AS_AGENT
@@ -1263,8 +1263,8 @@ class PodmanTest {
         assertThat(started.exit()).as(started.said()).isZero();
         assertThat(started.asked())
                 .containsExactly(
-                        "-S /run/porelo/tmux has-session -t porelo",
-                        "-S /run/porelo/tmux -f "
+                        "-S /run/porelo-tmux/tmux has-session -t porelo",
+                        "-S /run/porelo-tmux/tmux -f "
                                 + Containerfile.TMUX_CONF
                                 + " new-session -A -s porelo "
                                 + Containerfile.AS_AGENT
@@ -1346,7 +1346,7 @@ class PodmanTest {
                         line ->
                                 assertThat(line)
                                         .contains(
-                                                "exec --user root box tmux -S /run/porelo/tmux "));
+                                                "exec --user root box tmux -S /run/porelo-tmux/tmux "));
     }
 
     @Test
