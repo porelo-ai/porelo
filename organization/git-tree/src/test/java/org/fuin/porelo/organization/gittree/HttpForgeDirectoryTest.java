@@ -687,6 +687,85 @@ class HttpForgeDirectoryTest {
     }
 
     @Test
+    void aRateLimitSaysSoAndAnAnswerAfterItSaysNothing() {
+
+        replies.put("/alice.keys", Reply.with(403, "secret words", "X-RateLimit-Remaining", "0"));
+        replies.put("/bob.keys", Reply.of(429, "slow down"));
+        replies.put("/carol.keys", Reply.of(200, ONE + "\n"));
+        final HttpForgeDirectory forge = forgejo(null);
+
+        assertThat(forge.keys("alice")).isEmpty();
+        assertThat(forge.cannotSay()).contains("rate limited");
+        assertThat(forge.keys("bob")).isEmpty();
+        assertThat(forge.cannotSay()).contains("rate limited");
+        assertThat(forge.keys("carol")).isPresent();
+        assertThat(forge.cannotSay()).as("the last question was answered").isEmpty();
+    }
+
+    @Test
+    void eachWayAKeyListCannotBeSaidHasItsOwnKind() {
+
+        replies.put("/alice.keys", Reply.of(500, "boom"));
+        replies.put("/bob.keys", Reply.of(302, ""));
+        final byte[] over = new byte[HttpForgeDirectory.LIMIT + 1];
+        java.util.Arrays.fill(over, (byte) '\n');
+        replies.put("/carol.keys", new Reply(200, over, 0));
+        final HttpForgeDirectory forge = forgejo(null);
+
+        assertThat(forge.keys("alice")).isEmpty();
+        assertThat(forge.cannotSay()).contains("another status");
+        assertThat(forge.keys("bob")).isEmpty();
+        assertThat(forge.cannotSay()).as("a redirect is not followed").contains("another status");
+        assertThat(forge.keys("carol")).isEmpty();
+        assertThat(forge.cannotSay()).contains("an answer that does not read");
+        assertThat(forge.keys("nobody-answers-this")).isEmpty();
+        assertThat(forge.cannotSay()).contains("another status");
+    }
+
+    @Test
+    void aForgeOutOfReachSaysNoAnswer() throws IOException {
+
+        final int closed;
+        try (ServerSocket socket = new ServerSocket(0)) {
+            closed = socket.getLocalPort();
+        }
+        final HttpForgeDirectory unreachable =
+                new HttpForgeDirectory(
+                        URI.create("http://127.0.0.1:" + closed),
+                        null,
+                        null,
+                        client,
+                        Duration.ofSeconds(10));
+
+        assertThat(unreachable.keys("alice")).isEmpty();
+        assertThat(unreachable.cannotSay()).contains("no answer");
+    }
+
+    @Test
+    void anOwnershipWithoutATokenOrThatTheTokenCannotSeeSaysWhich() {
+
+        replies.put("/api/orgs/acme/memberships/outsider", Reply.of(404, "Not Found"));
+        replies.put(
+                "/api/orgs/acme/memberships/alice",
+                Reply.with(403, "{}", "X-RateLimit-Remaining", "0"));
+
+        final HttpForgeDirectory none = gitHub(null);
+        assertThat(none.owns("acme", "alice")).isEmpty();
+        assertThat(none.cannotSay()).contains("no token for the organisation's members");
+
+        final HttpForgeDirectory member = gitHub(TOKEN);
+        assertThat(member.owns("acme", "outsider")).isEmpty();
+        assertThat(member.cannotSay()).contains("the token cannot see the organisation's members");
+        assertThat(member.owns("acme", "alice")).isEmpty();
+        assertThat(member.cannotSay()).contains("rate limited");
+
+        replies.put("/api/v1/users/alice/orgs/acme/permissions", Reply.of(403, "Forbidden"));
+        final HttpForgeDirectory forgejo = forgejo(TOKEN);
+        assertThat(forgejo.owns("acme", "alice")).isEmpty();
+        assertThat(forgejo.cannotSay()).contains("the token cannot see the organisation's members");
+    }
+
+    @Test
     void ownsCannotSayWithoutAToken() {
 
         // Without a token GitHub hides private memberships: a no would then be wrong.

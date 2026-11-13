@@ -138,9 +138,14 @@ final class OrgAccess {
         /** The kept state was shown, and a check runs after the answer. */
         static final StaleWhy KEPT = new StaleWhy("kept", null, null);
 
-        /** The check could not judge everything new. */
-        static StaleWhy incomplete() {
-            return new StaleWhy("incomplete", null, Instant.now().toString());
+        /**
+         * The check could not judge everything new; it says where it waits, in Porelo's own words.
+         */
+        static StaleWhy incomplete(final OrganizationQuestions answers) {
+            return new StaleWhy(
+                    "incomplete",
+                    answers.waiting().map(OrganizationQuestions.Waiting::said).orElse(null),
+                    Instant.now().toString());
         }
 
         /**

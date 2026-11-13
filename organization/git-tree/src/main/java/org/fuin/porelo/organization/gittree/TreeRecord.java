@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.project.AddressForm;
 import org.fuin.porelo.organization.Organization;
+import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
@@ -26,16 +27,34 @@ import org.jspecify.annotations.Nullable;
  * @param model What was accepted.
  * @param refusals What was refused, the latest last.
  * @param checkedAt When a complete fresh read checked this state, or null for an older record.
+ * @param waiting Where a walk that did not reach the tip waits, or {@code null}.
  */
 record TreeRecord(
         @Nullable String commit,
         TreeModel model,
         List<Organization.Refusal> refusals,
-        @Nullable Instant checkedAt) {
+        @Nullable Instant checkedAt,
+        OrganizationQuestions.@Nullable Waiting waiting) {
 
     TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Refusal> refusals) {
-        this(commit, model, refusals, null);
+        this(commit, model, refusals, null, null);
     }
+
+    TreeRecord(
+            @Nullable String commit,
+            TreeModel model,
+            List<Organization.Refusal> refusals,
+            @Nullable Instant checkedAt) {
+        this(commit, model, refusals, checkedAt, null);
+    }
+
+    /** The words a walk waits with: only these are kept, so a record quotes nothing else. */
+    static final Set<String> WAITS =
+            Set.of(
+                    "the identity source could not say that the founder owns the organisation",
+                    "the identity source could not say that the founding key is the founder's",
+                    "the identity source could not say whose card this is",
+                    "the identity source has not vouched for the signer's card");
 
     private static final Pattern OBJECT = Pattern.compile("[0-9a-f]{40}([0-9a-f]{24})?");
 
@@ -82,6 +101,13 @@ record TreeRecord(
         record.put("hosts", hosts);
         if (model.organizationAdmins() != null) {
             record.put("organization_admins", model.organizationAdmins());
+        }
+        if (waiting != null) {
+            final Map<String, Object> step = new LinkedHashMap<>();
+            step.put("commit", waiting.revision());
+            step.put("words", waiting.words());
+            step.put("kind", waiting.kind());
+            record.put("waiting", step);
         }
         record.put(
                 "refusals",
@@ -243,16 +269,35 @@ record TreeRecord(
                             string(refusal.get("path"), "refusals"),
                             string(refusal.get("why"), "refusals")));
         }
+        final OrganizationQuestions.Waiting waiting = waiting(record.get("waiting"));
         final Object listed = record.get("organization_admins");
         if (listed == null) {
-            return new TreeRecord(commit, model, refusals, checkedAt);
+            return new TreeRecord(commit, model, refusals, checkedAt, waiting);
         }
         final List<String> logins = new ArrayList<>();
         for (final Object each : list(listed, "organization_admins")) {
             logins.add(login(each, "organization_admins"));
         }
         return new TreeRecord(
-                commit, model.withOrganizationAdmins(List.copyOf(logins)), refusals, checkedAt);
+                commit,
+                model.withOrganizationAdmins(List.copyOf(logins)),
+                refusals,
+                checkedAt,
+                waiting);
+    }
+
+    private static OrganizationQuestions.@Nullable Waiting waiting(final @Nullable Object value) {
+        if (value == null) {
+            return null;
+        }
+        final Map<?, ?> step = map(value, "waiting");
+        final String commit = string(step.get("commit"), "waiting");
+        require(OBJECT.matcher(commit).matches(), "waiting");
+        final String words = string(step.get("words"), "waiting");
+        require(WAITS.contains(words), "waiting");
+        final Object kind = step.get("kind");
+        require(kind == null || HttpForgeDirectory.KINDS.contains(kind), "waiting");
+        return new OrganizationQuestions.Waiting(commit, words, (String) kind);
     }
 
     private static TreeFiles.Owner owner(final Map<?, ?> entry) {

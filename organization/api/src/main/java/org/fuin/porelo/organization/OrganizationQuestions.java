@@ -384,6 +384,39 @@ public interface OrganizationQuestions {
     }
 
     /**
+     * Where a read that did not reach the newest state waits, and what for. Nothing in it is the
+     * forge's: the words and the kind are Porelo's own and the revision is a hash.
+     *
+     * @param revision The revision the read could not decide.
+     * @param words What it waits for.
+     * @param kind Why the identity source could not say, or {@code null} when it was not asked.
+     */
+    record Waiting(String revision, String words, @Nullable String kind) {
+
+        /**
+         * Returns the words to show: {@code waits at <short revision>: <words> (<kind>)}.
+         *
+         * @return The words.
+         */
+        public String said() {
+            return "waits at "
+                    + revision.substring(0, Math.min(12, revision.length()))
+                    + ": "
+                    + words
+                    + (kind == null ? "" : " (" + kind + ")");
+        }
+    }
+
+    /**
+     * Returns where a read that is not {@link #whole()} waits.
+     *
+     * @return The step it waits at, or empty when it reached the newest state or cannot say.
+     */
+    default Optional<Waiting> waiting() {
+        return Optional.empty();
+    }
+
+    /**
      * Returns what the read has to say of itself, in words to show.
      *
      * @return The warnings.

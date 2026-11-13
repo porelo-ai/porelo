@@ -108,7 +108,7 @@ public class OrgRefreshCommand extends OrgReading {
                                 receipt(
                                         receipt,
                                         result,
-                                        read.whole() ? null : OrgAccess.StaleWhy.incomplete());
+                                        read.whole() ? null : OrgAccess.StaleWhy.incomplete(read));
                                 if (!read.whole()) throw failed();
                                 return outcome(result);
                             } catch (GitTreeStore.Unreachable ex) {

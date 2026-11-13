@@ -56,4 +56,15 @@ public interface IdentitySource {
      *     say.
      */
     Optional<Boolean> owns(String organisation, String login);
+
+    /**
+     * Returns why the last question asked on this thread could not be answered, in Porelo's own
+     * words and never the forge's: one of a few fixed kinds such as {@code no answer} or {@code
+     * rate limited}.
+     *
+     * @return The kind, or empty when the last question was answered or the source does not say.
+     */
+    default Optional<String> cannotSay() {
+        return Optional.empty();
+    }
 }

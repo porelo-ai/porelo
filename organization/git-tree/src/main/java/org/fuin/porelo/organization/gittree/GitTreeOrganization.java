@@ -22,6 +22,8 @@ import org.jspecify.annotations.Nullable;
  * @param refusals What the walk refused, the latest last.
  * @param warnings What the read has to say of itself.
  * @param description The words for the organization.
+ * @param whole Whether the walk reached the newest state.
+ * @param stoppedAt Where a walk that did not reach the newest state waits, or {@code null}.
  */
 record GitTreeOrganization(
         @Nullable String revision,
@@ -29,13 +31,29 @@ record GitTreeOrganization(
         List<Organization.Refusal> refusals,
         List<String> warnings,
         Description description,
-        boolean whole)
+        boolean whole,
+        @Nullable Waiting stoppedAt)
         implements OrganizationQuestions {
 
     GitTreeOrganization {
         model = model.copy();
         refusals = List.copyOf(refusals);
         warnings = List.copyOf(warnings);
+    }
+
+    GitTreeOrganization(
+            final @Nullable String revision,
+            final TreeModel model,
+            final List<Organization.Refusal> refusals,
+            final List<String> warnings,
+            final Description description,
+            final boolean whole) {
+        this(revision, model, refusals, warnings, description, whole, null);
+    }
+
+    @Override
+    public Optional<Waiting> waiting() {
+        return Optional.ofNullable(stoppedAt);
     }
 
     @Override

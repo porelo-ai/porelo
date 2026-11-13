@@ -58,14 +58,25 @@ class GitTreeStoreTest {
         final Map<String, List<String>> keys = new HashMap<>();
         final Map<String, Boolean> owners = new HashMap<>();
 
+        /** Why the last question went unanswered, as a directory would say it. */
+        private @Nullable String unanswered;
+
         @Override
         public Optional<Keys> keys(final String login) {
+            unanswered = keys.containsKey(login) ? null : "no answer";
             return Optional.ofNullable(keys.get(login)).map(listed -> new Keys(listed, true));
         }
 
         @Override
         public Optional<Boolean> owns(final String organisation, final String login) {
+            unanswered =
+                    owners.containsKey(login) ? null : "no token for the organisation's members";
             return Optional.ofNullable(owners.get(login));
+        }
+
+        @Override
+        public Optional<String> cannotSay() {
+            return Optional.ofNullable(unanswered);
         }
     }
 
@@ -244,6 +255,68 @@ class GitTreeStoreTest {
 
         assertThat(answers.isOrganizationOwner("mia")).as("nothing is accepted yet").isFalse();
         assertThat(answers.revision()).as("the next read judges the commit again").isNull();
+    }
+
+    @Test
+    void aFoundingWhoseOwnershipTheSourceCannotSayWaitsForThatOwnership() throws Exception {
+        forge.keys.put("mia", List.of(key("mia")));
+        write("owners.yml", owners("mia"));
+        final String founding = commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.whole()).isFalse();
+        assertThat(answers.waiting())
+                .contains(
+                        new OrganizationQuestions.Waiting(
+                                founding,
+                                "the identity source could not say that the founder owns the"
+                                        + " organisation",
+                                "no token for the organisation's members"));
+        assertThat(answers.getWarnings()).contains(answers.waiting().orElseThrow().said());
+    }
+
+    @Test
+    void aFoundingWhoseKeyTheSourceCannotSayWaitsForTheFoundersKeys() throws Exception {
+        forge.owners.put("mia", true);
+        write("owners.yml", owners("mia"));
+        final String founding = commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.waiting())
+                .contains(
+                        new OrganizationQuestions.Waiting(
+                                founding,
+                                "the identity source could not say that the founding key is the"
+                                        + " founder's",
+                                "no answer"));
+    }
+
+    @Test
+    void aSignerWhoseCardIsNotVouchedForWaitsAtItsCommitAndAKeptRecordStillSaysSo()
+            throws Exception {
+        founded();
+        write("projects/demo/card", "name: demo\nadmin: alice\n");
+        commit("mia");
+        write("people/alice.card", card("alice", "alice"));
+        commit("alice");
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        final String tip = commit("alice");
+        final OrganizationQuestions.Waiting waiting =
+                new OrganizationQuestions.Waiting(
+                        tip, "the identity source has not vouched for the signer's card", null);
+
+        assertThat(keeping().read(forge).waiting()).contains(waiting);
+
+        final OrganizationQuestions kept = keeping().last().orElseThrow();
+        assertThat(kept.waiting()).as("the kept record says where it waits").contains(waiting);
+        assertThat(kept.getWarnings()).contains(waiting.said());
+
+        forge.keys.put("alice", List.of(key("alice")));
+        final OrganizationQuestions whole = keeping().read(forge);
+        assertThat(whole.waiting()).as("a read that reached the tip waits for nothing").isEmpty();
+        assertThat(keeping().last().orElseThrow().waiting()).isEmpty();
     }
 
     @Test

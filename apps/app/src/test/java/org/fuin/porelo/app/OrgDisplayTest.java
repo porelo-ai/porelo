@@ -355,6 +355,20 @@ class OrgDisplayTest {
         assertThat(((Map<?, ?>) Json.parse(Files.readString(record))).get("checked_at"))
                 .as("an incomplete check does not erase the last successful one")
                 .isEqualTo(before);
+        final String said =
+                "waits at "
+                        + organization.git("rev-parse", "HEAD").strip().substring(0, 12)
+                        + ": the identity source has not vouched for the signer's card";
+        final Map<?, ?> why = (Map<?, ?>) answer().get("stale_why");
+        assertThat(why.get("cause")).isEqualTo("incomplete");
+        assertThat(why.get("said"))
+                .as("the person is told what the read waits for")
+                .isEqualTo(said);
+        assertThat(String.valueOf(answer().get("warnings"))).contains(said);
+
+        out.getBuffer().setLength(0);
+        assertThat(run("org", "--refresh")).isZero();
+        assertThat(out.toString()).contains("Stale because: ").contains(said);
     }
 
     // A cached absence must not permanently hide a newly created project from its member.

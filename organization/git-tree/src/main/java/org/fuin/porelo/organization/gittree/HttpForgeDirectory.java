@@ -79,6 +79,28 @@ public final class HttpForgeDirectory implements IdentitySource {
 
     private final Duration timeout;
 
+    private static final String NO_ANSWER = "no answer";
+
+    private static final String RATE_LIMITED = "rate limited";
+
+    private static final String ANOTHER_STATUS = "another status";
+
+    private static final String UNREADABLE = "an answer that does not read";
+
+    private static final String NO_TOKEN = "no token for the organisation's members";
+
+    private static final String BLIND_TOKEN = "the token cannot see the organisation's members";
+
+    /** Every kind {@link #cannotSay()} answers: Porelo's own words, never the forge's. */
+    static final Set<String> KINDS =
+            Set.of(NO_ANSWER, RATE_LIMITED, ANOTHER_STATUS, UNREADABLE, NO_TOKEN, BLIND_TOKEN);
+
+    /** Why the last question on this thread went unanswered; one walk asks on one thread. */
+    private final ThreadLocal<@Nullable String> unanswered = new ThreadLocal<>();
+
+    /** Whether the last answer on this thread that came back as none was over the bound. */
+    private final ThreadLocal<@Nullable Boolean> tooLong = new ThreadLocal<>();
+
     /**
      * Creates the directory of a forge.
      *
@@ -432,6 +454,7 @@ public final class HttpForgeDirectory implements IdentitySource {
     }
 
     private Optional<Keys> lists(final String login, final @Nullable String wanted) {
+        unanswered.remove();
         final String name = name(login, "login");
         final Answer page = get(forge + "/" + name + ".keys", null);
         if (page != null && page.status() == 404) {
@@ -439,6 +462,9 @@ public final class HttpForgeDirectory implements IdentitySource {
             return Optional.of(new Keys(List.of(), true));
         }
         final Optional<List<String>> listed = keyList(page, false);
+        if (listed.isEmpty()) {
+            unanswered.set(kind(page));
+        }
         if (listed.isEmpty() || api == null) {
             return listed.map(keys -> new Keys(keys, true));
         }
@@ -447,9 +473,10 @@ public final class HttpForgeDirectory implements IdentitySource {
             // The page vouches for the key already; the API's rate limit is not spent on it.
             return Optional.of(onPage);
         }
-        final Optional<List<String>> signing =
-                keyList(get(api + "/users/" + name + "/ssh_signing_keys", null), true);
+        final Answer signingPage = get(api + "/users/" + name + "/ssh_signing_keys", null);
+        final Optional<List<String>> signing = keyList(signingPage, true);
         if (signing.isEmpty()) {
+            unanswered.set(kind(signingPage));
             // The page still vouches for what it lists; what it does not list may be a signing
             // key GitHub did not say, so it proves nothing missing.
             return Optional.of(onPage);
@@ -461,12 +488,36 @@ public final class HttpForgeDirectory implements IdentitySource {
 
     @Override
     public Optional<Boolean> owns(final String organisation, final String login) {
+        unanswered.remove();
         final String org = name(organisation, "organisation");
         final String name = name(login, "login");
         if (token == null) {
+            unanswered.set(NO_TOKEN);
             return Optional.empty();
         }
         return api != null ? gitHubOwns(api, token, org, name) : forgejoOwns(token, org, name);
+    }
+
+    @Override
+    public Optional<String> cannotSay() {
+        return Optional.ofNullable(unanswered.get());
+    }
+
+    /** Why an answer, or its absence, says nothing: from its status and headers alone. */
+    private String kind(final @Nullable Answer answer) {
+        if (answer == null) {
+            return Boolean.TRUE.equals(tooLong.get()) ? UNREADABLE : NO_ANSWER;
+        }
+        if (answer.status() == 429 || answer.status() == 403 && answer.rateLimited()) {
+            return RATE_LIMITED;
+        }
+        return answer.status() == 200 ? UNREADABLE : ANOTHER_STATUS;
+    }
+
+    /** Says why, and that it cannot say. */
+    private Optional<Boolean> cannot(final String kind) {
+        unanswered.set(kind);
+        return Optional.empty();
     }
 
     @Override
@@ -487,13 +538,16 @@ public final class HttpForgeDirectory implements IdentitySource {
         final boolean seesAll = own != null && own.status() == 200 && activeAdmin(own.body());
         final Answer answer = get(api + "/orgs/" + org + "/memberships/" + name, authorization);
         if (answer == null) {
-            return Optional.empty();
+            return cannot(kind(null));
         }
         if (answer.status() == 404 && (seesAll || installedOn(api, authorization, org))) {
             return Optional.of(false);
         }
+        if (answer.status() == 404) {
+            return cannot(BLIND_TOKEN);
+        }
         if (answer.status() != 200 || !(json(answer.body()) instanceof Map<?, ?>)) {
-            return Optional.empty();
+            return cannot(kind(answer));
         }
         return Optional.of(activeAdmin(answer.body()));
     }
@@ -529,11 +583,15 @@ public final class HttpForgeDirectory implements IdentitySource {
                         forge + "/api/v1/users/" + name + "/orgs/" + org + "/permissions",
                         "token " + token);
         // A 404 or 403 is also what a token answers that may not see the organisation.
+        if (answer != null
+                && (answer.status() == 404 || answer.status() == 403 && !answer.rateLimited())) {
+            return cannot(BLIND_TOKEN);
+        }
         if (answer == null
                 || answer.status() != 200
                 || !(json(answer.body()) instanceof Map<?, ?> permissions)
                 || !(permissions.get("is_owner") instanceof Boolean owner)) {
-            return Optional.empty();
+            return cannot(kind(answer));
         }
         return Optional.of(owner);
     }
@@ -588,6 +646,7 @@ public final class HttpForgeDirectory implements IdentitySource {
      * @return The answer, or {@code null} when none came whole.
      */
     private @Nullable Answer get(final String url, final @Nullable String authorization) {
+        tooLong.remove();
         final HttpRequest.Builder request =
                 HttpRequest.newBuilder(URI.create(url))
                         .timeout(timeout)
@@ -607,18 +666,26 @@ public final class HttpForgeDirectory implements IdentitySource {
             final HttpResponse<byte[]> response =
                     pending.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             final java.net.http.HttpHeaders headers = response.headers();
+            final boolean rateLimited =
+                    headers.firstValue("X-RateLimit-Remaining").filter("0"::equals).isPresent()
+                            || headers.firstValue("Retry-After").isPresent();
             return new Answer(
                     response.statusCode(),
                     response.body(),
                     headers.allValues("X-OAuth-Scopes"),
                     // A rate limit or an organization's single sign-on refuses too, with a 403.
-                    headers.firstValue("X-RateLimit-Remaining").filter("0"::equals).isPresent()
-                            || headers.firstValue("Retry-After").isPresent()
-                            || headers.firstValue("X-GitHub-SSO").isPresent());
+                    rateLimited || headers.firstValue("X-GitHub-SSO").isPresent(),
+                    rateLimited);
         } catch (TimeoutException ex) {
             pending.cancel(true);
             return null;
         } catch (ExecutionException ex) {
+            // The client may wrap what the body's reader gave up with.
+            for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
+                if (cause instanceof OverTheBound) {
+                    tooLong.set(Boolean.TRUE);
+                }
+            }
             return null;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -660,10 +727,24 @@ public final class HttpForgeDirectory implements IdentitySource {
         return value;
     }
 
+    /** An answer longer than {@link #LIMIT}, which is not read. */
+    private static final class OverTheBound extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        OverTheBound() {
+            super("the answer is over " + LIMIT + " bytes");
+        }
+    }
+
     /** A status and the whole body that came with it. */
-    private record Answer(int status, byte[] body, List<String> scopes, boolean notThePermission) {
+    private record Answer(
+            int status,
+            byte[] body,
+            List<String> scopes,
+            boolean notThePermission,
+            boolean rateLimited) {
         Answer(final int status, final byte[] body) {
-            this(status, body, List.of(), false);
+            this(status, body, List.of(), false, false);
         }
     }
 
@@ -697,8 +778,7 @@ public final class HttpForgeDirectory implements IdentitySource {
                     if (subscription != null) {
                         subscription.cancel();
                     }
-                    result.completeExceptionally(
-                            new IllegalStateException("the answer is over " + LIMIT + " bytes"));
+                    result.completeExceptionally(new OverTheBound());
                     return;
                 }
                 final byte[] bytes = new byte[each.remaining()];

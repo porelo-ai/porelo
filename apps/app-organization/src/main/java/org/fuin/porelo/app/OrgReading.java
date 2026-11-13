@@ -56,7 +56,7 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
                             null,
                             reading.stale() && reading.why() != null
                                     ? reading.why()
-                                    : OrgAccess.StaleWhy.incomplete());
+                                    : OrgAccess.StaleWhy.incomplete(reading.answers()));
         }
         displayed = reading;
         refreshAfter = !refresh && reading.stale();

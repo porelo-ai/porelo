@@ -420,7 +420,7 @@ public final class GitTreeStore {
         final TreeRecord kept = kept(warnings);
         return kept == null
                 ? Optional.empty()
-                : Optional.of(new Checked(answers(kept, warnings), kept.checkedAt()));
+                : Optional.of(new Checked(answers(kept, warnings, true), kept.checkedAt()));
     }
 
     private OrganizationQuestions walk(
@@ -571,10 +571,22 @@ public final class GitTreeStore {
         return answers(walked, warnings, true);
     }
 
+    /** The answers; a walk that waits says so in its warnings too, a kept one as well. */
     private OrganizationQuestions answers(
             final TreeRecord walked, final List<String> warnings, final boolean whole) {
+        final OrganizationQuestions.Waiting waiting = walked.waiting();
+        final List<String> said = new ArrayList<>(warnings);
+        if (waiting != null) {
+            said.add(waiting.said());
+        }
         return new GitTreeOrganization(
-                walked.commit(), walked.model(), walked.refusals(), warnings, description, whole);
+                walked.commit(),
+                walked.model(),
+                walked.refusals(),
+                said,
+                description,
+                whole,
+                waiting);
     }
 
     /** The record to go on from: none for a revision before it, or when a card it held changed. */
@@ -668,7 +680,8 @@ public final class GitTreeStore {
                                     record.commit(),
                                     record.model(),
                                     record.refusals(),
-                                    whole ? Instant.now() : null)
+                                    whole ? Instant.now() : null,
+                                    whole ? null : record.waiting())
                             .toJson(repository),
                     StandardCharsets.UTF_8);
             Files.move(

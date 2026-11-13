@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B617",
   "title": "An Undecided Organization Read Says What It Waits For",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 20,
@@ -83,3 +83,29 @@ Read on `main` at 3396b7108.
 ## Estimate
 
 M, est=79 (p80 129) by the median velocity. There are no open questions.
+
+## Done
+
+Built as planned.
+
+- **The walk keeps where it stops.** `TreeWalk`'s `Undecided` carries the identity source's kind beside its words, and
+  the first one becomes the walk's `Waiting` (the revision, the words, the kind). The founding's two causes have words
+  of their own: "the identity source could not say that the founder owns the organisation" and "... that the
+  founding key is the founder's". A card not vouched for yet has no kind, since the source is not asked there.
+- **The source says why.** `IdentitySource.cannotSay()` is new and empty by default. `HttpForgeDirectory` keeps, per
+  thread, why its last question went unanswered: `no answer`, `rate limited` (429, or 403 with the limit spent),
+  `another status` (a redirect too), `an answer that does not read` (one over the bound too), `no token for the
+  organisation's members`, `the token cannot see the organisation's members` (GitHub's 404 to a token that does not
+  see every membership, Forgejo's 404 or 403). An answered question clears it. Only these fixed words come out.
+- **The answer and the record.** `OrganizationQuestions.waiting()` is new and empty by default; in the API the step's
+  hash is a `revision`, as the boundary test holds. `GitTreeOrganization` answers it and `GitTreeStore` adds its words
+  to the warnings. An incomplete walk kept as the record keeps its waiting step, read back only with one of the four
+  words and one of the six kinds; a whole one keeps none.
+- **The display.** `stale_why.said` for `incomplete` is `waits at <short revision>: <words> (<kind>)`, from
+  `org --refresh` and from the background refresh's receipt, so the kept display after it says it too; the text
+  form's "Stale because:" line carries it. `doc/commands.md` says so; changelog under *Changed*.
+- **Red first.** With the two API defaults alone, the two founding cases and the card case in `GitTreeStoreTest`, the
+  four kind cases in `HttpForgeDirectoryTest` and `OrgDisplayTest`'s incomplete refresh failed; all pass now.
+- **Locally on this commit.** organization/api, organization/git-tree (375, and `GitTreeStoreTest` whole with the
+  slow tag, 207), apps/app-organization and apps/app (4662) passed whole, one at a time, and so did the root's
+  `validate` and `-Pdocuments test`.

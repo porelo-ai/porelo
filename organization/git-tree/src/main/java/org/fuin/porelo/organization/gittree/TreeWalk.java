@@ -118,10 +118,20 @@ final class TreeWalk {
     private static final class Undecided extends Exception {
         private static final long serialVersionUID = 1L;
 
-        Undecided(final String why) {
+        /** Why the identity source could not say, or {@code null} when it was not asked. */
+        private final @Nullable String kind;
+
+        Undecided(final String why, final @Nullable String kind) {
             super(why, null, false, false);
+            this.kind = kind;
         }
     }
+
+    /** Where the walk stopped and what for, or {@code null} while it did not stop. */
+    private OrganizationQuestions.@Nullable Waiting waiting;
+
+    /** Why the identity source could not say the last key list asked for, or {@code null}. */
+    private @Nullable String heard;
 
     TreeWalk(
             final TreeRepository repository,
@@ -192,7 +202,7 @@ final class TreeWalk {
                             + (reached == null ? "the first commit, accepting nothing" : reached),
                     reached);
         }
-        return new TreeRecord(reached, model, refusals);
+        return new TreeRecord(reached, model, refusals, null, stopped ? waiting : null);
     }
 
     /**
@@ -337,6 +347,9 @@ final class TreeWalk {
             } catch (Refused refusal) {
                 refuse(commit, path, String.valueOf(refusal.getMessage()));
             } catch (Undecided undecided) {
+                waiting =
+                        new OrganizationQuestions.Waiting(
+                                commit, String.valueOf(undecided.getMessage()), undecided.kind);
                 model = before;
                 refusals.clear();
                 refusals.addAll(refusedBefore);
@@ -540,6 +553,7 @@ final class TreeWalk {
             return;
         }
         final Optional<Boolean> owns = identities.owns(organisation, founder.login());
+        final String ownership = owns.isEmpty() ? identities.cannotSay().orElse(null) : null;
         if (owns.isPresent() && !owns.orElseThrow()) {
             throw new Refused(founder.login() + " does not own " + organisation);
         }
@@ -552,8 +566,15 @@ final class TreeWalk {
                             + founder.login();
             throw new Refused("no key " + signer + " is listed for " + founder.login());
         }
-        if (owns.isEmpty() || state.equals(Organization.FIRST_SEEN)) {
-            throw new Undecided("the identity source could not say who founded it");
+        if (owns.isEmpty()) {
+            throw new Undecided(
+                    "the identity source could not say that the founder owns the organisation",
+                    ownership);
+        }
+        if (state.equals(Organization.FIRST_SEEN)) {
+            throw new Undecided(
+                    "the identity source could not say that the founding key is the founder's",
+                    heard);
         }
     }
 
@@ -736,7 +757,7 @@ final class TreeWalk {
         }
         final String state = trust(login, card.fingerprint());
         if (state.equals(Organization.FIRST_SEEN)) {
-            throw new Undecided("the identity source could not say whose card this is");
+            throw new Undecided("the identity source could not say whose card this is", heard);
         }
         return state.equals(Organization.TRUSTED) ? state : null;
     }
@@ -907,6 +928,7 @@ final class TreeWalk {
     /** What the identity source says about this key alone. */
     private String listed(final String login, final String fingerprint) {
         final Optional<IdentitySource.Keys> keys = identities.keys(login, fingerprint);
+        heard = identities.cannotSay().orElse(null);
         if (keys.isEmpty()) {
             return Organization.FIRST_SEEN;
         }
@@ -1254,7 +1276,7 @@ final class TreeWalk {
             return false;
         }
         if (person.state().equals(Organization.FIRST_SEEN)) {
-            throw new Undecided("the identity source has not vouched for the signer's card");
+            throw new Undecided("the identity source has not vouched for the signer's card", null);
         }
         return person.state().equals(Organization.TRUSTED);
     }

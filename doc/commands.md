@@ -817,7 +817,12 @@ can render the first answer and then replace it with the `--refresh` answer, usi
 state kept here, a check runs after the answer), `host-key` (the forge's ssh host key is not trusted here), `key-refused`
 (the forge refused the key or credential offered), `no-network`, `timeout`, `unreachable`, `incomplete` (the check
 could not judge everything new) or `failed`; `said` is git's own lines, never what the forge said through it, or
-`null`; `at` is when the check was tried. A kept answer gives the cause of the last display refresh that failed after
+`null`. For `incomplete`, `said` is where the check waits and what for, in Porelo's own words, as
+`waits at <short commit>: <what> (<why the forge could not say>)`: the founder's ownership or key, whose card a card is,
+or a signer's card not vouched for yet; the part in brackets is one of `no answer`, `rate limited`, `another status`,
+`an answer that does not read`, `no token for the organisation's members` or `the token cannot see the organisation's
+members`, and is left out when the forge was not asked. The same words are among the `warnings`. `at` is when the
+check was tried. A kept answer gives the cause of the last display refresh that failed after
 its check. A stale `project show` answers its repositories `cannot-say` with a `why`.
 A cached project answer uses no old signing key to judge newly fetched project content: use `project show PROJECT
 --refresh` for its repository details. Refresh failures are recorded in `$XDG_STATE_HOME/porelo/organization/refresh.log`;
