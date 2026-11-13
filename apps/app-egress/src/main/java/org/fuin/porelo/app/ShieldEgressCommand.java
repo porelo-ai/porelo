@@ -88,6 +88,7 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
             paramLabel = "<name>",
             description =
                     "Change what this RUNNING task may reach, rather than the project file."
+                            + " The task as 'porelo task list' shows it, or its container's name."
                             + " Takes effect without stopping it.")
     private @Nullable String task;
 

@@ -1,0 +1,2 @@
+title: "porelo shield egress --task and the daemon's WidenTask and NarrowTask take the task's name as porelo task list shows it, as well as its container's name"
+type: fixed

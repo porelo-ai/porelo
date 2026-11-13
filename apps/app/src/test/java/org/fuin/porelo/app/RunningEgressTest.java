@@ -440,4 +440,125 @@ class RunningEgressTest {
         assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE))).isEqualTo(servers);
         assertThat(runner.lines()).noneMatch(line -> line.startsWith("kill"));
     }
+
+    /** The id podman and the task's record agree on, which is what lets a task be found by name. */
+    private static final String ID = "a".repeat(64);
+
+    /**
+     * A running task as {@code porelo task start} leaves one today: a container spelled from its
+     * project and its name, labelled and recorded so that the name the task list shows finds it.
+     */
+    private Path listedTask(String container, String project, String name) throws IOException {
+        final Path state = task(container, "guarded");
+        runner.answering(
+                "ps",
+                container
+                        + "\tUp 4 minutes\t1788500000\t0\t"
+                        + project
+                        + "\tguarded\t\t\t"
+                        + ID
+                        + "\t"
+                        + name
+                        + "\n");
+        new Sidecar(
+                        Sidecar.VERSION,
+                        project,
+                        "guarded",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString(),
+                        name,
+                        null,
+                        null)
+                .writeTo(state.resolve("sidecar.json"));
+        Sidecar.recordId(state, ID);
+        return state;
+    }
+
+    @Test
+    void widensATaskByTheNameTheTaskListShows(@TempDir Path dir) throws IOException {
+        // Filed from a VM run: 'task status cnt-2' found the task, '--task cnt-2' answered that no
+        // running task had that name, and only the container's name worked.
+        final PoreloContext context = context(dir);
+        final Path state = listedTask("porelo-uc_cnt-2", "uc", "cnt-2");
+
+        final RunningEgress.Effect effect =
+                new RunningEgress(context)
+                        .widen(
+                                "cnt-2",
+                                List.of("docs.example.test"),
+                                RunningEgress.Scope.RUN,
+                                false);
+
+        assertThat(effect.outcome())
+                .as("%s", effect.detail())
+                .isEqualTo(RunningEgress.Outcome.WIDENED);
+        assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE)))
+                .contains("server=/docs.example.test/192.0.2.53");
+        assertThat(GrantedNames.all(state)).containsExactly("docs.example.test");
+        assertThat(runner.lines()).anyMatch(line -> line.equals("kill -HUP " + RESOLVER));
+    }
+
+    @Test
+    void widensATaskByItsContainersNameAsBefore(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path state = listedTask("porelo-uc_cnt-2", "uc", "cnt-2");
+
+        assertThat(
+                        new RunningEgress(context)
+                                .widen(
+                                        "porelo-uc_cnt-2",
+                                        List.of("docs.example.test"),
+                                        RunningEgress.Scope.RUN,
+                                        false)
+                                .outcome())
+                .isEqualTo(RunningEgress.Outcome.WIDENED);
+        assertThat(GrantedNames.all(state)).containsExactly("docs.example.test");
+    }
+
+    @Test
+    void narrowsATaskByTheNameTheTaskListShows(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path state = listedTask("porelo-uc_cnt-2", "uc", "cnt-2");
+        new RunningEgress(context)
+                .widen("porelo-uc_cnt-2", List.of("example.test"), RunningEgress.Scope.RUN, false);
+
+        final RunningEgress.Withdrawal taken =
+                new RunningEgress(context)
+                        .narrow("cnt-2", List.of("example.test"), RunningEgress.Scope.RUN, false);
+
+        assertThat(taken.outcome())
+                .as("%s", taken.detail())
+                .isEqualTo(RunningEgress.Outcome.NARROWED);
+        assertThat(taken.closes()).containsExactly("example.test");
+        assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE)))
+                .doesNotContain("server=/example.test/");
+        assertThat(GrantedNames.all(state)).doesNotContain("example.test");
+    }
+
+    @Test
+    void aNameNoRunningTaskHasIsRefusedEitherWay(@TempDir Path dir) throws IOException {
+        // Found by name or not at all: a name no task has must not reach some other task's files.
+        final PoreloContext context = context(dir);
+        final Path state = listedTask("porelo-uc_cnt-2", "uc", "cnt-2");
+
+        final RunningEgress.Effect widened =
+                new RunningEgress(context)
+                        .widen(
+                                "cnt-3",
+                                List.of("docs.example.test"),
+                                RunningEgress.Scope.RUN,
+                                false);
+        final RunningEgress.Withdrawal narrowed =
+                new RunningEgress(context)
+                        .narrow("cnt-3", List.of("declared.test"), RunningEgress.Scope.RUN, false);
+
+        assertThat(widened.outcome()).isEqualTo(RunningEgress.Outcome.NOT_RUNNING);
+        assertThat(widened.detail()).isEqualTo("no running task called cnt-3");
+        assertThat(narrowed.outcome()).isEqualTo(RunningEgress.Outcome.NOT_RUNNING);
+        assertThat(narrowed.detail()).isEqualTo("no running task called cnt-3");
+        assertThat(GrantedNames.all(state)).isEmpty();
+        assertThat(runner.lines()).noneMatch(line -> line.startsWith("kill"));
+    }
 }

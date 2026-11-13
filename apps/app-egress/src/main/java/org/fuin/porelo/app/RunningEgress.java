@@ -153,13 +153,17 @@ public final class RunningEgress {
     /**
      * Grants names to a running task, and optionally says what to write into its project file.
      *
-     * @param container Container name.
+     * @param given The task, by the name 'porelo task list' shows or by its container's.
      * @param names Host names to grant.
      * @param scope How far the change goes.
      * @param dryRun Whether to stop before changing anything.
      * @return What it did, or why it did nothing.
      */
-    public Effect widen(String container, List<String> names, Scope scope, boolean dryRun) {
+    public Effect widen(String given, List<String> names, Scope scope, boolean dryRun) {
+
+        // By the name 'porelo task list' shows or by its container's, as every task command takes
+        // a task; a name no task has stays as given, and is refused below as no running task.
+        final String container = TaskTarget.spelled(context, given);
 
         final TaskInventory.Task task =
                 new TaskInventory(context)
@@ -168,7 +172,7 @@ public final class RunningEgress {
                                 .findFirst()
                                 .orElse(null);
         if (task == null || !task.running()) {
-            return Effect.refused(Outcome.NOT_RUNNING, "no running task called " + container);
+            return Effect.refused(Outcome.NOT_RUNNING, "no running task called " + given);
         }
         if (DefaultProject.is(task.project())) {
             return Effect.refused(Outcome.REFUSED_BY_CLASS, EgressControl.DEFAULT_REFUSED);
@@ -317,13 +321,17 @@ public final class RunningEgress {
      * or plain round-robin answers Porelo and the container differently, and the addresses that
      * differ are exactly the ones a withdrawal would leave open.
      *
-     * @param container Container name.
+     * @param given The task, by the name 'porelo task list' shows or by its container's.
      * @param names Names to take back.
      * @param scope This run, or this run and the project file.
      * @param dryRun Whether to report rather than apply.
      * @return What happened.
      */
-    public Withdrawal narrow(String container, List<String> names, Scope scope, boolean dryRun) {
+    public Withdrawal narrow(String given, List<String> names, Scope scope, boolean dryRun) {
+
+        // By the name 'porelo task list' shows or by its container's, as every task command takes
+        // a task; a name no task has stays as given, and is refused below as no running task.
+        final String container = TaskTarget.spelled(context, given);
 
         final TaskInventory.Task task =
                 new TaskInventory(context)
@@ -332,7 +340,7 @@ public final class RunningEgress {
                                 .findFirst()
                                 .orElse(null);
         if (task == null || !task.running()) {
-            return Withdrawal.refused(Outcome.NOT_RUNNING, "no running task called " + container);
+            return Withdrawal.refused(Outcome.NOT_RUNNING, "no running task called " + given);
         }
 
         // No class refusal here, and deliberately: an offline project has granted nothing, so this

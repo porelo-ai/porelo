@@ -563,7 +563,7 @@ What a task may resolve and reach. See [the firewall](security.md) and [DNS](sec
 
 | Command | What it does |
 |---|---|
-| `porelo shield egress` | Shows what a project may reach, and for adding or removing sets and hosts the hosts it opens or closes and the `egress` section to write: Porelo changes no project file that exists, so without `--dry-run` that is refused, exit 2. With `--task` it changes the running task; `--also-project` adds the section for the file. |
+| `porelo shield egress` | Shows what a project may reach, and for adding or removing sets and hosts the hosts it opens or closes and the `egress` section to write: Porelo changes no project file that exists, so without `--dry-run` that is refused, exit 2. With `--task` it changes the running task, named as `porelo task list` shows it or by its container's name; `--also-project` adds the section for the file. |
 | `porelo shield sets` | Lists the egress sets a project can name in `project.yml`. |
 | `porelo shield subscribe` | Follows the blocked connections a running watcher reports. |
 | `porelo shield read` | Reads blocked connections from the firewall log. Started per task. |
