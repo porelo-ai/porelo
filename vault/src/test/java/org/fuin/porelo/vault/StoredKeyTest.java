@@ -65,4 +65,48 @@ class StoredKeyTest {
 
         assertThatThrownBy(() -> StoredKey.of(text, "a key")).isInstanceOf(VaultException.class);
     }
+
+    @org.junit.jupiter.api.Test
+    void theArmourLineAloneIsUnreadableNotTheWrongAlgorithm() {
+
+        // What a key pasted at the prompt arrived as, when the prompt read one line: called "not
+        // Ed25519", with a conversion that could not help, and an option 'vault put' does not have.
+        assertThatThrownBy(() -> StoredKey.of("-----BEGIN OPENSSH PRIVATE KEY-----", "a key"))
+                .isInstanceOf(VaultException.class)
+                .hasMessageContaining("cannot be read as an OpenSSH key")
+                .hasMessageContaining("incomplete or damaged")
+                .hasMessageContaining("--from-file")
+                .hasMessageNotContaining("not Ed25519")
+                .hasMessageNotContaining("--file ");
+    }
+
+    @org.junit.jupiter.api.Test
+    void aKeyOfAnotherAlgorithmIsStillCalledSoAndNamesTheOptionPutHas(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // ssh-keygen writes an ECDSA key in OpenSSH's wrapping, which reads but is not Ed25519.
+        final java.nio.file.Path file = dir.resolve("id_ecdsa");
+        final Process process =
+                new ProcessBuilder(
+                                "ssh-keygen",
+                                "-q",
+                                "-t",
+                                "ecdsa",
+                                "-N",
+                                "",
+                                "-C",
+                                "test@porelo",
+                                "-f",
+                                file.toString())
+                        .redirectErrorStream(true)
+                        .start();
+        org.assertj.core.api.Assertions.assertThat(process.waitFor()).as("ssh-keygen").isZero();
+        final String key = java.nio.file.Files.readString(file);
+
+        assertThatThrownBy(() -> StoredKey.of(key, "a key"))
+                .isInstanceOf(VaultException.class)
+                .hasMessageContaining("not Ed25519")
+                .hasMessageContaining("--from-file")
+                .hasMessageNotContaining("--file ");
+    }
 }

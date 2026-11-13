@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B228",
   "title": "A Key Pasted At The Prompt Is Read Whole",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 35,
@@ -59,3 +59,26 @@ Read in the code on 2026-10-20 (`apps/app-vault`, `vault`).
 ## Decided by the operator (2026-11-12)
 
 - To Backlog, priority unchanged.
+
+## Built (2026-11-13)
+
+- **`VaultPutCommand.readValue`** takes a second terminal reader, `typedOn`, which `valueFrom` makes
+  `Console.readPassword()` with no prompt. A first typed line starting with `-----BEGIN` is followed by those reads,
+  each appended with a newline as the file holds it, until a line starting with `-----END`. The result is the same
+  text a pipe hands over. At most 200 lines are read. A paste that ends or runs past the bound without its end line
+  throws a `VaultException` naming the lines read and `--from-file`. `call()` prints it and exits 65 before anything
+  is stored. Every line read is wiped, and so is the builder on a refusal. The three-argument `readValue` that
+  `HostStopSecretsCommand` and the tests call stays as it was.
+- **`StoredKey.fromFile`**: when `describe` answers `null`, the key is refused as "cannot be read as an OpenSSH key; it
+  is incomplete or damaged" before any algorithm is judged. The "not Ed25519" refusal now names `--from-file <file>`
+  instead of `--file`.
+- `doc/credentials.md` says that a pasted key is read to its end line and that a paste cut short is refused.
+- Tests: `VaultPutCommandTest` has three new tests. A key ssh-keygen writes into the test's temp dir, typed line by
+  line, gives the same text and the same stored value as the piped file, and every line is wiped. Armour plus one
+  line and then nothing is refused as incomplete after 2 lines. A paste with no end is refused at 200 lines.
+  `StoredKeyTest` has two: the armour line alone is unreadable, not "not Ed25519", and an ssh-keygen ECDSA key is
+  still "not Ed25519" and names `--from-file`. The value comparisons assert a verdict, so a failure prints no key.
+- Not measured here: the acceptance's run in a real terminal on the ubuntu VM. It would check three things. An
+  Ed25519 key and an OpenSSH-wrapped RSA key pasted at `porelo vault put` are each stored as `--from-file` stores
+  the same file (`unchanged NAME` on a second put by file). Each continuation line is read with no prompt and no
+  echo. A paste cut before its end line is refused as incomplete, and the vault file is unchanged.

@@ -109,6 +109,9 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                                 tty == null
                                         ? new char[0]
                                         : tty.readPassword("%s", prompt(name, kind)),
+                        // A pasted key's further lines: asked again, the prompt would land
+                        // between them.
+                        () -> tty == null ? null : tty.readPassword(),
                         new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))),
                 kind);
     }
@@ -607,13 +610,43 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     static String readValue(
             boolean interactive, java.util.function.Supplier<char[]> typed, BufferedReader piped)
             throws IOException {
+        return readValue(interactive, typed, typed, piped);
+    }
+
+    /**
+     * Reads the credential, and at a terminal reads a pasted key file to its last line.
+     *
+     * <p><strong>{@code readPassword} reads one line.</strong> A key pasted at the prompt therefore
+     * arrived as its {@code -----BEGIN} line alone, and the vault called that a key of the wrong
+     * algorithm. A first line that is armour is now followed by further reads, with no prompt, to
+     * the {@code -----END} line - the same text a pipe or {@code --from-file} hands over.
+     *
+     * @param interactive Whether a person is typing at a terminal.
+     * @param typed Reads the first line without echo, with the prompt. Called only when {@code
+     *     interactive}.
+     * @param typedOn Reads each further line of a pasted key without echo and without a prompt.
+     * @param piped Standard input. Read only when not {@code interactive}.
+     * @return The value, stripped, or empty when there was none; a key file whole.
+     * @throws IOException If standard input cannot be read.
+     * @throws VaultException If a pasted key ends, or runs past {@value #PASTED_KEY_LINES} lines,
+     *     before its {@code -----END} line; nothing is stored then.
+     */
+    static String readValue(
+            boolean interactive,
+            java.util.function.Supplier<char[]> typed,
+            java.util.function.Supplier<char[]> typedOn,
+            BufferedReader piped)
+            throws IOException {
         if (interactive) {
             final char[] secret = typed.get();
             if (secret == null) {
                 return "";
             }
             try {
-                return new String(secret).strip();
+                if (!new String(secret).strip().startsWith("-----BEGIN")) {
+                    return new String(secret).strip();
+                }
+                return pastedKey(secret, typedOn);
             } finally {
                 // The String is what gets stored, so this only shortens one copy's life. Worth
                 // doing anyway: it is the copy that exists for no reason after this point.
@@ -638,6 +671,50 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             return whole.toString();
         }
         return line.strip();
+    }
+
+    /** More lines than any key file has: a paste that never ends is not read forever. */
+    static final int PASTED_KEY_LINES = 200;
+
+    /**
+     * Reads a key pasted at the prompt on to its {@code -----END} line, laid out as the file is.
+     *
+     * @param first The armour line, already read; the caller wipes it.
+     * @param typedOn Reads the next line without echo or prompt; {@code null} at end of input.
+     * @return The key file's text, each line ended by a newline.
+     * @throws VaultException If the paste ends or runs past the bound first.
+     */
+    private static String pastedKey(
+            final char[] first, final java.util.function.Supplier<char[]> typedOn) {
+        final StringBuilder whole = new StringBuilder().append(first).append('\n');
+        int read = 1;
+        while (read < PASTED_KEY_LINES) {
+            final char[] next = typedOn.get();
+            if (next == null) {
+                break;
+            }
+            read++;
+            try {
+                whole.append(next).append('\n');
+                if (new String(next).strip().startsWith("-----END")) {
+                    return whole.toString();
+                }
+            } finally {
+                java.util.Arrays.fill(next, '\0');
+            }
+        }
+        // Nothing is stored, so the lines read are not kept either.
+        for (int at = 0; at < whole.length(); at++) {
+            whole.setCharAt(at, '\0');
+        }
+        throw new VaultException(
+                "the key pasted at the prompt is incomplete: "
+                        + read
+                        + (read == 1 ? " line" : " lines")
+                        + " read"
+                        + (read >= PASTED_KEY_LINES ? ", the most a key has," : "")
+                        + " and no -----END line; nothing was stored. Paste it whole, or store the"
+                        + " file with --from-file <file>.");
     }
 
     @Override
@@ -668,12 +745,18 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 err.flush();
                 return 2;
             }
-            value =
-                    valueFrom(
-                            name,
-                            context.input().terminal() ? console : null,
-                            context.input().stream(),
-                            type);
+            try {
+                value =
+                        valueFrom(
+                                name,
+                                context.input().terminal() ? console : null,
+                                context.input().stream(),
+                                type);
+            } catch (final VaultException ex) {
+                err.println("porelo: " + ex.getMessage());
+                err.flush();
+                return 65;
+            }
         } else {
             // The machine reads its own disk. This is what lets an interface offer "use the key
             // that is already here" without the value crossing a socket or a person retyping it.

@@ -1,0 +1,2 @@
+title: "A private key pasted at `porelo vault put`'s prompt is read whole, up to its `-----END` line, and stored as `--from-file` stores the same file; a paste that ends, or runs past 200 lines, without that line is refused as incomplete and nothing is stored, and a key that cannot be read is called incomplete or damaged rather than a key that is not Ed25519, with the refusal naming `--from-file`"
+type: fixed

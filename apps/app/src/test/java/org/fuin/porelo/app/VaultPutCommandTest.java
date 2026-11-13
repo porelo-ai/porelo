@@ -690,4 +690,121 @@ class VaultPutCommandTest {
 
         assertThat(directory).as("the key and its directory are gone").doesNotExist();
     }
+
+    /** A key ssh-keygen writes into the test's own directory: never a key anybody uses. */
+    private static String keygen(final java.nio.file.Path dir, final String type)
+            throws IOException, InterruptedException {
+        final java.nio.file.Path file = dir.resolve("id_" + type);
+        final Process process =
+                new ProcessBuilder(
+                                "ssh-keygen",
+                                "-q",
+                                "-t",
+                                type,
+                                "-N",
+                                "",
+                                "-C",
+                                "test@porelo",
+                                "-f",
+                                file.toString())
+                        .redirectErrorStream(true)
+                        .start();
+        assertThat(process.waitFor()).as("ssh-keygen").isZero();
+        return java.nio.file.Files.readString(file);
+    }
+
+    /** A terminal handing out one line per read, as Console.readPassword does with a paste. */
+    private static java.util.function.Supplier<char[]> lines(final java.util.List<char[]> handed) {
+        final java.util.Iterator<char[]> each = handed.iterator();
+        return () -> each.hasNext() ? each.next() : null;
+    }
+
+    private static java.util.List<char[]> linesOf(final String text) {
+        return text.lines().map(String::toCharArray).toList();
+    }
+
+    @Test
+    void aKeyPastedAtThePromptIsStoredAsThePipedKeyIs(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // Read one line, a pasted key was its armour line alone, and the vault then called it a
+        // key of the wrong algorithm.
+        final String file = keygen(dir, "ed25519");
+        final java.util.List<char[]> handed = linesOf(file);
+        final boolean[] promptedAgain = {false};
+        final java.util.Iterator<char[]> rest = handed.subList(1, handed.size()).iterator();
+
+        final String typed =
+                VaultPutCommand.readValue(
+                        true,
+                        () -> handed.get(0),
+                        () -> rest.hasNext() ? rest.next() : null,
+                        forbidden());
+        final String piped =
+                VaultPutCommand.readValue(
+                        false,
+                        () -> {
+                            promptedAgain[0] = true;
+                            return null;
+                        },
+                        () -> null,
+                        new BufferedReader(new StringReader(file)));
+
+        // Compared as a verdict, never as values: a failure must not print the key.
+        assertThat(typed.equals(piped)).as("the same text as the file piped in").isTrue();
+        assertThat(
+                        org.fuin.porelo.vault.StoredKey.toStore(typed)
+                                .equals(org.fuin.porelo.vault.StoredKey.toStore(piped)))
+                .as("the same value stored")
+                .isTrue();
+        assertThat(promptedAgain[0]).as("the piped key asked the terminal").isFalse();
+        assertThat(handed)
+                .as("every line read is wiped")
+                .allSatisfy(line -> assertThat(line).containsOnly('\0'));
+    }
+
+    @Test
+    void aPasteThatStopsBeforeItsEndLineIsRefusedAsIncomplete() {
+
+        // A terminal that hands the armour and then nothing: storing the armour is what failed.
+        final char[] begin = "-----BEGIN OPENSSH PRIVATE KEY-----".toCharArray();
+        final char[] body = "b3BlbnNzaC1rZXktdjEAAAAA".toCharArray();
+
+        assertThatThrownBy(
+                        () ->
+                                VaultPutCommand.readValue(
+                                        true,
+                                        () -> begin,
+                                        lines(java.util.List.<char[]>of(body)),
+                                        forbidden()))
+                .isInstanceOf(org.fuin.porelo.vault.VaultException.class)
+                .hasMessageContaining("incomplete")
+                .hasMessageContaining("2 lines")
+                .hasMessageContaining("--from-file")
+                .hasMessageNotContaining("b3BlbnNz");
+        assertThat(begin).as("the armour line is wiped").containsOnly('\0');
+        assertThat(body).as("the line after it is wiped").containsOnly('\0');
+    }
+
+    @Test
+    void aPasteRunningPastTheBoundIsRefusedAsIncomplete() {
+
+        // A key is a few dozen lines; a terminal that never sends the end line is not read forever.
+        final int[] reads = {0};
+
+        assertThatThrownBy(
+                        () ->
+                                VaultPutCommand.readValue(
+                                        true,
+                                        () -> "-----BEGIN OPENSSH PRIVATE KEY-----".toCharArray(),
+                                        () -> {
+                                            reads[0]++;
+                                            return "AAAA".toCharArray();
+                                        },
+                                        forbidden()))
+                .isInstanceOf(org.fuin.porelo.vault.VaultException.class)
+                .hasMessageContaining("incomplete")
+                .hasMessageContaining("200 lines");
+        assertThat(reads[0]).as("lines read after the first").isEqualTo(199);
+    }
 }

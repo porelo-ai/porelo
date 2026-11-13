@@ -72,14 +72,24 @@ public final class StoredKey {
     private static AgentKey fromFile(final String text, final String comment) {
         if (OpenSshPrivateKey.looksLikeOne(text)) {
             final OpenSshPrivateKey.Described described = OpenSshPrivateKey.describe(text);
-            if (described != null && described.encrypted()) {
+            if (described == null) {
+                // Its armour and nothing that reads: a paste cut short arrived as the first line
+                // alone, and was called a key of the wrong algorithm, with a conversion that could
+                // not help.
+                throw new VaultException(
+                        "'"
+                                + comment
+                                + "' cannot be read as an OpenSSH key; it is incomplete or"
+                                + " damaged. Store the key file whole with --from-file <file>.");
+            }
+            if (described.encrypted()) {
                 throw new VaultException(
                         "'"
                                 + comment
                                 + "' is protected by a passphrase, and"
                                 + " nothing here can ask for one.");
             }
-            if (described != null && described.usable()) {
+            if (described.usable()) {
                 return new SigningKey(
                         Base64.getDecoder().decode(OpenSshPrivateKey.seedBase64(text)), comment);
             }
@@ -90,7 +100,7 @@ public final class StoredKey {
                             + comment
                             + "' is an OpenSSH-wrapped key that is not"
                             + " Ed25519. Convert it with 'ssh-keygen -p -m PEM -f <file>' and store it"
-                            + " again, or use it where it lies with --file.");
+                            + " again, or store the file with --from-file <file>.");
         }
         final String armour = OpenSshPrivateKey.armourOf(text);
         try {
