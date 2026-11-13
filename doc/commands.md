@@ -1034,10 +1034,13 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   credential by its id with the command that stores it, never its value. Asked without `more` it is refused with
   `StreamRequired`. `TakeProposal(project, repository, choice)` with `TOOLS`, `TOOLS_AND_DRAFT` or `NONE` records
   `ASKED`; `TOOLS` and `TOOLS_AND_DRAFT` write the tools found as the checkout's `.porelo.yml`, excluded in its
-  `.git/info/exclude` (see [the project file](project-file.md#a-repositorys-own-settings-in-default)), and under
+  `.git/info/exclude` (see [the project file](project-file.md#a-repositorys-own-settings-in-default)), or for a
+  repository added by address as `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml`, and under
   `TOOLS_AND_DRAFT` it answers the draft. A `.porelo.yml` already there is never written over: refused with
-  `NotProposable` (`configured`), nothing recorded. A repository added by address, or a project other than
-  `default`, is refused with `NotProposable` (`no-checkout`, `not-default`) and stays `UNASKED`. An older
+  `NotProposable` (`configured`), nothing recorded. A repository added by address is read from the gate mirror's
+  default branch, exported read-only into a private runtime directory removed after; one whose mirror holds no
+  default branch yet or whose checkout is gone, or a project other than `default`, is refused with `NotProposable`
+  (`no-checkout`, `not-default`) and stays `UNASKED`. An older
   daemon answers `MethodNotFound`, which a client reads as "this machine cannot propose".
 - Approved work in `default` reaches `origin` with your own ssh agent or key, or a token stored with
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a

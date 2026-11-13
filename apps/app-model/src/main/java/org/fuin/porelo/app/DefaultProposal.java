@@ -18,13 +18,18 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>The adapters are asked as {@code porelo project init} asks them</strong>, through
  * {@link ProjectProposal#propose}, so the two never differ. <strong>Only a checkout on this machine
  * is read</strong>, as the person sees it and never written; a repository added by address has only
- * its mirror, which is not read yet, and is refused as {@link #NO_CHECKOUT}. <strong>The answer is
- * recorded</strong>, so nothing asks again; taking the tools writes them through {@link ToolsDraft}
- * as the checkout's {@code .porelo.yml}, never over one that is there.
+ * its mirror, whose default branch is exported for the adapters and removed after ({@link
+ * MirrorTree}); one with no mirror or no default branch yet is refused as {@link #NO_CHECKOUT}.
+ * <strong>The answer is recorded</strong>, so nothing asks again; taking the tools writes them
+ * through {@link ToolsDraft}, as the checkout's {@code .porelo.yml} or, for a repository added by
+ * address, under the configuration directory, never over one that is there.
  */
 public final class DefaultProposal {
 
-    /** Why a repository cannot be read: it has no checkout on this machine. */
+    /**
+     * Why a repository cannot be read: its checkout on this machine is gone, or it was added by
+     * address and its mirror has no default branch to read yet.
+     */
     public static final String NO_CHECKOUT = "no-checkout";
 
     /** Why a repository cannot be read: its project is not {@value DefaultProject#NAME}. */
@@ -133,8 +138,17 @@ public final class DefaultProposal {
         final DefaultProject.Entry entry = proposable(project, repository);
         final @Nullable String upstream = upstream(entry);
         final ProjectProposal made = new ProjectProposal(entry.name(), upstream, null, null);
-        final List<String> notes =
-                made.propose(context, Path.of(entry.checkout()), detector, true, done);
+        final List<String> notes;
+        // A repository added by its address is read from its mirror's reviewed tree, removed after.
+        try (MirrorTree tree = exported(entry)) {
+            notes =
+                    made.propose(
+                            context,
+                            tree == null ? Path.of(entry.checkout()) : tree.directory(),
+                            detector,
+                            true,
+                            done);
+        }
         final Map<String, @Nullable Object> answer = made.answer();
         final Map<String, Object> wire = new LinkedHashMap<>();
         wire.put("repository", entry.name());
@@ -201,7 +215,16 @@ public final class DefaultProposal {
             // answer, and a draft that fails writes and records nothing.
             final ProjectProposal made =
                     new ProjectProposal(entry.name(), upstream(entry), null, null);
-            made.propose(context, Path.of(entry.checkout()), detector, true, done -> {});
+            // A repository added by its address is read from its mirror's export once, removed
+            // before the draft is written where its reader finds it.
+            try (MirrorTree tree = exported(entry)) {
+                made.propose(
+                        context,
+                        tree == null ? Path.of(entry.checkout()) : tree.directory(),
+                        detector,
+                        true,
+                        done -> {});
+            }
             final Map<String, @Nullable Object> answer = made.answer();
             try {
                 tools = ToolsDraft.of(made).write(context, entry);
@@ -252,11 +275,22 @@ public final class DefaultProposal {
                                 .filter(each -> each.name().equals(repository))
                                 .findFirst()
                                 .orElseThrow(() -> new NoSuchRepository(repository));
-        if (entry.source() != DefaultProject.Source.CHECKOUT
-                || !Files.isDirectory(Path.of(entry.checkout()))) {
+        if (entry.source() == DefaultProject.Source.REMOTE
+                ? !MirrorTree.exists(context, entry.name())
+                : !Files.isDirectory(Path.of(entry.checkout()))) {
             throw new NotProposable(NO_CHECKOUT);
         }
         return entry;
+    }
+
+    /** A repository added by its address, exported from its mirror; null for a checkout. */
+    private @Nullable MirrorTree exported(final DefaultProject.Entry entry)
+            throws NotProposable, IOException {
+        if (entry.source() != DefaultProject.Source.REMOTE) {
+            return null;
+        }
+        return MirrorTree.export(context, entry.name())
+                .orElseThrow(() -> new NotProposable(NO_CHECKOUT));
     }
 
     /**

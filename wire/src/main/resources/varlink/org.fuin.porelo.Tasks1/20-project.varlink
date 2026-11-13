@@ -502,10 +502,11 @@ type ProposedCredential (
 # Records the person's answer to a proposal for a repository of 'default': ASKED, whichever the
 # choice, so no interface asks again. TOOLS and TOOLS_AND_DRAFT ask the adapters again and write the
 # tools they found as the checkout's .porelo.yml, with a line in its .git/info/exclude so no tracked
-# file changes; nothing is written when they found none, and a .porelo.yml that is there is never
-# written over (NotProposable, reason configured). TOOLS_AND_DRAFT also answers the project.yml
-# draft, which the person files themselves. Nothing is recorded when any of it fails. Refused as
-# ProposeProject is, and the repository then stays UNASKED.
+# file changes, or for a repository added by address, read from its mirror's export, under
+# $XDG_CONFIG_HOME/porelo/projects/default/<repository>/; nothing is written when they found none,
+# and a .porelo.yml that is there is never written over (NotProposable, reason configured).
+# TOOLS_AND_DRAFT also answers the project.yml draft, which the person files themselves. Nothing is
+# recorded when any of it fails. Refused as ProposeProject is, and the repository then stays UNASKED.
 method TakeProposal(
   # The project: "default" alone.
   project: string,
@@ -521,9 +522,10 @@ method TakeProposal(
 )
 
 # ProposeProject or TakeProposal cannot read this repository: 'reason' is no-checkout (a repository
-# added by address, or whose checkout is gone - its mirror is not read yet), not-default (a project
-# other than 'default') or, from TakeProposal alone, configured (a .porelo.yml is where the tools
-# would be written). Nothing was written or recorded.
+# whose checkout is gone, or one added by address whose mirror holds no default branch yet - a
+# mirror's default branch is read in its place), not-default (a project other than 'default') or,
+# from TakeProposal alone, configured (a .porelo.yml is where the tools would be written). Nothing
+# was written or recorded.
 error NotProposable(reason: string)
 
 # Shows what nothing on this machine owns any more, and removes it with apply - what 'porelo prune'

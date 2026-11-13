@@ -62,12 +62,20 @@ class ProposalMethodsTest {
         @Override
         public Detection detect(final Path directory, final Path home) {
             final String name = ecosystem();
+            // The version a checkout's own file names, so a test sees which tree was read.
+            final Path own = directory.resolve(name + ".txt");
+            final String version;
+            try {
+                version = Files.isRegularFile(own) ? Files.readString(own).strip() : "25";
+            } catch (final java.io.IOException ex) {
+                throw new java.io.UncheckedIOException(ex);
+            }
             return new Detection(
                     List.of(
                             new Finding(
                                     Finding.Part.TOOLS,
                                     name + ".version",
-                                    "25",
+                                    version,
                                     name + ".txt",
                                     14,
                                     Finding.Origin.CHECKOUT,
@@ -413,6 +421,126 @@ class ProposalMethodsTest {
                                                                     + ".NotProposable"));
                     assertThat(proposalOf(client, "far")).isEqualTo("UNASKED");
                 });
+    }
+
+    /** Runs git on the host as a test's setup, with no account or system configuration. */
+    private static void git(final Path directory, final String... arguments) throws Exception {
+        final List<String> all =
+                new ArrayList<>(
+                        List.of("git", "-c", "user.name=T", "-c", "user.email=t@example.com"));
+        all.addAll(List.of(arguments));
+        final ProcessBuilder builder = new ProcessBuilder(all).directory(directory.toFile());
+        builder.environment().put("GIT_CONFIG_GLOBAL", "/dev/null");
+        builder.environment().put("GIT_CONFIG_NOSYSTEM", "1");
+        builder.redirectErrorStream(true);
+        final Process process = builder.start();
+        final String output = new String(process.getInputStream().readAllBytes());
+        assertThat(process.waitFor()).as(output).isZero();
+    }
+
+    /** The gate's mirror of 'far': its default branch says 21, a task's branch says 99. */
+    private Path farMirror() throws Exception {
+        final Path source = Files.createDirectories(dir.resolve("far-source"));
+        git(source, "init", "-q", "-b", "main", ".");
+        Files.writeString(source.resolve("maven.txt"), "21\n");
+        git(source, "add", "-A");
+        git(source, "commit", "-q", "-m", "reviewed");
+        git(source, "checkout", "-q", "-b", "porelo/task");
+        Files.writeString(source.resolve("maven.txt"), "99\n");
+        git(source, "commit", "-q", "-am", "a task's own");
+        git(source, "checkout", "-q", "main");
+        final Path mirror =
+                context.paths()
+                        .xdg()
+                        .data()
+                        .resolve("mirrors")
+                        .resolve("default")
+                        .resolve("far.git");
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--mirror", source.toString(), mirror.toString());
+        return mirror;
+    }
+
+    @Test
+    void aRepositoryAddedByAddressIsProposedFromItsMirrorsDefaultBranch() throws Exception {
+        farMirror();
+        serving(
+                client -> {
+                    final List<Map<String, Object>> replies = new ArrayList<>();
+                    client.callMore(
+                            PoreloDaemon.INTERFACE + ".ProposeProject",
+                            proposal("default", "far"),
+                            reply -> replies.add(reply));
+                    final Map<?, ?> last = (Map<?, ?>) replies.getLast().get("proposal");
+                    assertThat(last.get("repository")).isEqualTo("far");
+                    assertThat(last.get("upstream"))
+                            .isEqualTo("https://forge.example/acme/far.git");
+                    assertThat(String.valueOf(last.get("values")))
+                            .as("read from the mirror's default branch, not a task's")
+                            .contains("value=21")
+                            .doesNotContain("value=99");
+                    final var taken =
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".TakeProposal",
+                                    Map.of(
+                                            "project",
+                                            "default",
+                                            "repository",
+                                            "far",
+                                            "choice",
+                                            "TOOLS_AND_DRAFT"),
+                                    java.time.Duration.ofMinutes(2));
+                    assertThat(String.valueOf(taken.get("draft"))).contains("far");
+                    assertThat(proposalOf(client, "far"))
+                            .as("its tools draft is there now")
+                            .isEqualTo("CONFIGURED");
+                });
+        final Path trees = context.paths().xdg().runtime().resolve("mirror-trees");
+        if (Files.isDirectory(trees)) {
+            try (var left = Files.list(trees)) {
+                assertThat(left).as("every export removed after use").isEmpty();
+            }
+        }
+    }
+
+    @Test
+    void takingTheToolsOfARepositoryAddedByAddressWritesThemUnderTheConfiguration()
+            throws Exception {
+        farMirror();
+        serving(
+                client -> {
+                    final var reply =
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".TakeProposal",
+                                    Map.of(
+                                            "project",
+                                            "default",
+                                            "repository",
+                                            "far",
+                                            "choice",
+                                            "TOOLS"),
+                                    java.time.Duration.ofMinutes(2));
+                    assertThat(reply).doesNotContainKey("draft");
+                });
+        final Path written =
+                context.paths()
+                        .xdg()
+                        .config()
+                        .resolve("projects")
+                        .resolve("default")
+                        .resolve("far")
+                        .resolve(".porelo.yml");
+        assertThat(Files.readString(written))
+                .contains("MAVEN_HOME: /opt/maven")
+                .doesNotContain(SECRET);
+        assertThat(
+                        new DefaultProject(context)
+                                .entries().stream()
+                                        .filter(each -> each.name().equals("far"))
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .proposal())
+                .isEqualTo(DefaultProject.Proposal.ASKED);
     }
 
     @Test
