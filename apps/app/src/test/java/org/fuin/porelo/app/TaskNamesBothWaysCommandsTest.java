@@ -72,7 +72,11 @@ class TaskNamesBothWaysCommandsTest {
     @Test
     void everyTaskAndTalkCommandFindsItsTaskByEitherName() throws Exception {
         final List<String> commands = takingATask();
-        assertThat(commands).as("task and talk commands that take a task").isNotEmpty();
+        // A floor, not the exact count: a label changed so the walk no longer finds a command would
+        // otherwise drop it from the check without a word.
+        assertThat(commands)
+                .as("task and talk commands that take a task")
+                .hasSizeGreaterThanOrEqualTo(22);
 
         final List<String> failures = new ArrayList<>();
         for (final String command : commands) {
