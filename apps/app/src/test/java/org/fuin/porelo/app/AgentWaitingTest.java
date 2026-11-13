@@ -289,6 +289,175 @@ class AgentWaitingTest {
         assertThat(loaded).as("an agent updated under a running daemon is read again").hasValue(2);
     }
 
+    // --- rest, on two looks at the agent
+
+    private static final String AT_REST = "ready for the next turn\n";
+
+    private static final String AT_WORK = "ready for the next turn\nworking on it\n";
+
+    /** The resting asker, its screen captured by {@code runner}. */
+    private AgentWaiting resting(final org.fuin.porelo.core.process.CommandRunner captures) {
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                "XDG_DATA_HOME".equals(name)
+                                        ? dir.resolve("data").toString()
+                                        : null,
+                        dir);
+        return new AgentWaiting(
+                new PoreloContext(captures, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0),
+                clock,
+                () -> Map.of("asker", Optional.of(RESTING)));
+    }
+
+    private static org.fuin.porelo.core.process.CommandResult drawn(
+            final org.fuin.porelo.core.process.Command command, final String screen) {
+        return new org.fuin.porelo.core.process.CommandResult(command, 0, screen, "");
+    }
+
+    @Test
+    void aPagerOverARestingAgentIsNoSecondLookAtIt() {
+
+        // One look at rest, then a pager: rest was said without the agent being seen again.
+        final AgentWaiting waiting = resting(runner);
+        runner.answering("capture-pane", AT_REST);
+        assertThat(attached(waiting).turn()).isEqualTo(AgentWaiting.Turn.WORKING);
+
+        runner.answering("capture-pane", "some transcript\n(END)\n");
+        clock.move(AgentWaiting.SCREEN);
+        assertThat(attached(waiting).turn())
+                .as("a pager is no look at the agent, so it cannot confirm its rest")
+                .isEqualTo(AgentWaiting.Turn.WORKING);
+
+        runner.answering("capture-pane", AT_REST);
+        clock.move(AgentWaiting.SCREEN);
+        assertThat(attached(waiting).turn())
+                .as("a second look at the agent itself does")
+                .isEqualTo(AgentWaiting.Turn.AT_REST);
+    }
+
+    @Test
+    void aSlowCaptureDoesNotLetTwoLooksCloserThanTheWakesPauseConfirmRest() {
+
+        // A capture that took three seconds was timed at its start, so the next look, right after
+        // it, counted as one taken three seconds later.
+        final AgentWaiting waiting =
+                resting(
+                        command -> {
+                            if (command.toString().contains("capture-pane")) {
+                                clock.move(Duration.ofSeconds(3));
+                            }
+                            return drawn(command, AT_REST);
+                        });
+        assertThat(attached(waiting).turn()).isEqualTo(AgentWaiting.Turn.WORKING);
+
+        assertThat(attached(waiting).turn())
+                .as("the second look began as the first ended, not a pause later")
+                .isEqualTo(AgentWaiting.Turn.WORKING);
+    }
+
+    @Test
+    void anOlderRestingCaptureFinishingLateNeverUndoesANewerLookAtWork() throws Exception {
+
+        // Two reads of one task overlapped: the older, at rest, finished after the newer, at work,
+        // and put back the rest the work had broken.
+        final java.util.concurrent.atomic.AtomicInteger calls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.CountDownLatch slowStarted =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch slowMayEnd =
+                new java.util.concurrent.CountDownLatch(1);
+        final AgentWaiting waiting =
+                resting(
+                        command -> {
+                            if (!command.toString().contains("capture-pane")) {
+                                return drawn(command, "");
+                            }
+                            final int call = calls.incrementAndGet();
+                            if (call == 2) {
+                                slowStarted.countDown();
+                                try {
+                                    slowMayEnd.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                                } catch (final InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            }
+                            return drawn(command, call == 3 ? AT_WORK : AT_REST);
+                        });
+        assertThat(attached(waiting).turn()).isEqualTo(AgentWaiting.Turn.WORKING);
+
+        clock.move(AgentWaiting.SCREEN);
+        final Thread older = Thread.ofPlatform().start(() -> attached(waiting));
+        assertThat(slowStarted.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        clock.move(AgentWaiting.SCREEN);
+        final Thread newer = Thread.ofPlatform().start(() -> attached(waiting));
+        newer.join(500);
+        slowMayEnd.countDown();
+        older.join(5000);
+        newer.join(5000);
+
+        clock.move(AgentWaiting.SCREEN);
+        assertThat(attached(waiting).turn())
+                .as("rest begins again after the work the newer look saw")
+                .isEqualTo(AgentWaiting.Turn.WORKING);
+        assertThat(calls).as("every read looked once").hasValue(4);
+    }
+
+    @Test
+    void aHungCaptureIsGivenUpAndNotAskedAgainByTheSameListing() {
+
+        // One capture hung in its exec held the whole listing for the runner's ten minutes.
+        final java.util.concurrent.atomic.AtomicInteger asked =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final AgentWaiting waiting =
+                resting(
+                        command -> {
+                            if (command.toString().contains("capture-pane")) {
+                                asked.incrementAndGet();
+                                try {
+                                    Thread.sleep(Duration.ofSeconds(15));
+                                } catch (final InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            }
+                            return drawn(command, AT_REST);
+                        });
+        final List<AgentWaiting.Wanted> tasks =
+                List.of(
+                        new AgentWaiting.Wanted("porelo-p-1", true, "asker", "AGENT"),
+                        new AgentWaiting.Wanted("porelo-p-2", true, "asker", "AGENT"));
+
+        final long started = System.nanoTime();
+        waiting.readScreens(tasks);
+        for (final AgentWaiting.Wanted task : tasks) {
+            assertThat(waiting.about(task.container(), true, "asker", "AGENT", dir).turn())
+                    .as("a capture given up says nothing of the agent")
+                    .isEqualTo(AgentWaiting.Turn.CANNOT_SAY);
+        }
+        final Duration took = Duration.ofNanos(System.nanoTime() - started);
+
+        assertThat(took)
+                .as("the listing waits one capture's limit, not the hung exec")
+                .isLessThan(AgentWaiting.CAPTURE.plusSeconds(2));
+        assertThat(asked).as("each task asked once, and not again while describing").hasValue(2);
+    }
+
+    @Test
+    void aTaskMadeAgainUnderItsNameInheritsNoRestFromTheOneBefore() throws IOException {
+
+        // Removed and made again between two reads, the new task was said at rest by one look.
+        final AgentWaiting waiting = resting(runner);
+        runner.answering("capture-pane", AT_REST);
+        org.fuin.porelo.wire.Sidecar.recordId(dir, "aaaaaaaaaaaa");
+        assertThat(attached(waiting).turn()).isEqualTo(AgentWaiting.Turn.WORKING);
+
+        org.fuin.porelo.wire.Sidecar.recordId(dir, "bbbbbbbbbbbb");
+        clock.move(AgentWaiting.SCREEN);
+        assertThat(attached(waiting).turn())
+                .as("one look at the new container")
+                .isEqualTo(AgentWaiting.Turn.WORKING);
+    }
+
     // --- a declaration that stopped fitting
 
     @Test
@@ -367,7 +536,7 @@ class AgentWaitingTest {
     /** A clock a test moves. */
     private static final class MovingClock extends Clock {
 
-        private Instant now = Instant.parse("2026-09-29T08:00:00Z");
+        private volatile Instant now = Instant.parse("2026-09-29T08:00:00Z");
 
         void move(Duration by) {
             now = now.plus(by);

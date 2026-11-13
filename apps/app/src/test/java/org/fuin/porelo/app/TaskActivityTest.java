@@ -635,6 +635,38 @@ class TaskActivityTest {
     }
 
     @Test
+    void aClearanceQuestionPutDuringTheSecondLooksPauseStaysWaiting(@TempDir Path dir)
+            throws IOException {
+
+        // The question was read before the pause, so one put during it stood beside 'at rest'.
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory =
+                new TaskInventory(
+                        context,
+                        new AgentWaiting(
+                                context,
+                                clock,
+                                () -> java.util.Map.of("resting", java.util.Optional.of(RESTING)),
+                                time -> {
+                                    clock.move(time);
+                                    try {
+                                        new Waiting(state).asking("api.example.test:443");
+                                        draws(state, clock, "ready for the next turn\n");
+                                    } catch (IOException ex) {
+                                        throw new java.io.UncheckedIOException(ex);
+                                    }
+                                    return true;
+                                }));
+        draws(state, clock, "ready for the next turn\n");
+
+        assertThat(inventory.tasks().getFirst().activity())
+                .as("the question asked while the screen was looked at again")
+                .isEqualTo(TaskInventory.Activity.WAITING);
+    }
+
+    @Test
     void aStoppedAttachedTaskIsDeadWhateverItsScreenShowed(@TempDir Path dir) throws IOException {
 
         final PoreloContext context = context(dir);

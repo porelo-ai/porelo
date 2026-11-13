@@ -1751,6 +1751,17 @@ public final class TaskInventory {
         final java.time.Instant lastWrote = lastWrote(state);
         final boolean waitingAtGate =
                 waitingAtGate(waitingCache, project, summary.repository(), securityClass, profile);
+        final AgentWaiting.Derived derived =
+                agentWaiting == null
+                        ? AgentWaiting.Derived.NOTHING
+                        : agentWaiting.about(
+                                summary.name(),
+                                summary.running(),
+                                profile == null ? null : profile.agent(),
+                                profile == null ? null : profile.mode().name(),
+                                state);
+        // Asked after the screen, whose second look pauses: a question put during that pause wins
+        // over the rest the screen showed.
         final String question =
                 summary.running() ? org.fuin.porelo.wire.Waiting.about(state) : null;
         final String waitingFor =
@@ -1768,15 +1779,6 @@ public final class TaskInventory {
                                 summary.name(),
                                 summary.running(),
                                 profile == null ? null : profile.agent(),
-                                state);
-        final AgentWaiting.Derived derived =
-                agentWaiting == null
-                        ? AgentWaiting.Derived.NOTHING
-                        : agentWaiting.about(
-                                summary.name(),
-                                summary.running(),
-                                profile == null ? null : profile.agent(),
-                                profile == null ? null : profile.mode().name(),
                                 state);
         final Activity observed =
                 ended != null && summary.running()

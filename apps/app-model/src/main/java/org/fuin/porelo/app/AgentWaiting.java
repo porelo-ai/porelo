@@ -53,6 +53,12 @@ public final class AgentWaiting {
     static final Duration SCREEN = Duration.ofSeconds(3);
 
     /**
+     * How long one capture of a screen may take before it is given up as unread: a capture hung in
+     * {@code podman exec} held a whole listing for the runner's ten minutes.
+     */
+    static final Duration CAPTURE = Duration.ofSeconds(3);
+
+    /**
      * How long a declaration may be read against a task's screen without ever matching before it is
      * reported as unproven: an agent's wording changes with its version, and a rule that stopped
      * matching must not read as an agent that never waits.
@@ -172,23 +178,41 @@ public final class AgentWaiting {
     /**
      * One read of a screen.
      *
-     * @param at When.
+     * <p>Rest is timed conservatively: a look saw the screen at some moment between the start and
+     * the end of its capture, so the first look of a run of rest counts at its capture's end and a
+     * later one at its start, and two looks counted {@link Rest#LOOK} apart were really that far
+     * apart however slow a capture was.
+     *
+     * @param at When it was read, for how long it is kept.
      * @param screen What it says about waiting.
      * @param waitingFor What for, or "".
-     * @param restingSince Since when the reads of this screen have shown rest without a break, or
-     *     {@code null} when this one does not.
+     * @param restingSince The end of the first look of the unbroken run of looks at the agent that
+     *     showed rest, or {@code null} when the last look at the agent did not.
+     * @param looked The start of the last look that saw the agent itself, not a pager over it, or
+     *     {@code null} for none.
+     * @param identity The container id Porelo recorded for the task when it was read, or {@code
+     *     null} for none: a task removed and made again under its name inherits nothing.
      */
     private record Captured(
-            Instant at, Screen screen, String waitingFor, @Nullable Instant restingSince) {
+            Instant at,
+            Screen screen,
+            String waitingFor,
+            @Nullable Instant restingSince,
+            @Nullable Instant looked,
+            @Nullable String identity) {
 
-        Captured(Instant at, Screen screen, String waitingFor) {
-            this(at, screen, waitingFor, null);
-        }
-
-        Captured resting(@Nullable Instant since) {
-            return new Captured(at, screen, waitingFor, since);
+        static Captured unseen(final Instant at, final @Nullable String identity) {
+            return new Captured(at, Screen.UNSEEN, "", null, null, identity);
         }
     }
+
+    /**
+     * What one capture brought back.
+     *
+     * @param text The screen's text, or {@code null} when none was read.
+     * @param timedOut Whether the capture was given up after {@link #CAPTURE}.
+     */
+    private record Shown(@Nullable String text, boolean timedOut) {}
 
     private record Watched(Instant since, boolean matched) {}
 
@@ -207,6 +231,12 @@ public final class AgentWaiting {
     private final Map<String, Watched> watched = new ConcurrentHashMap<>();
 
     private final Map<String, LogRead> logs = new ConcurrentHashMap<>();
+
+    /**
+     * One per task: its screen is read, judged against what was read before and kept by one read at
+     * a time, so an older capture finishing late never puts back what a newer one reset.
+     */
+    private final Map<String, Object> reading = new ConcurrentHashMap<>();
 
     private final @Nullable Pause secondLook;
 
@@ -321,10 +351,14 @@ public final class AgentWaiting {
                 || screen.screen() == Screen.UNDECLARED) {
             return Turn.CANNOT_SAY;
         }
+        return restHeld(screen) ? Turn.AT_REST : Turn.WORKING;
+    }
+
+    /** Says whether two looks at the agent itself, {@link Rest#LOOK} apart, both showed rest. */
+    private static boolean restHeld(final Captured screen) {
         final Instant since = screen.restingSince();
-        return since != null && !since.plus(Rest.LOOK).isAfter(screen.at())
-                ? Turn.AT_REST
-                : Turn.WORKING;
+        final Instant looked = screen.looked();
+        return since != null && looked != null && !since.plus(Rest.LOOK).isAfter(looked);
     }
 
     /** How many screens {@link #readScreens} reads at once. */
@@ -389,109 +423,133 @@ public final class AgentWaiting {
             @Nullable Waiting declared,
             org.fuin.porelo.agent.api.@Nullable AtRest atRest,
             Path state) {
-        final Instant now = clock.instant();
         if (declared == null || declared.screen().isEmpty()) {
-            return new Captured(now, Screen.UNDECLARED, "");
+            return new Captured(clock.instant(), Screen.UNDECLARED, "", null, null, null);
         }
-        if (!running || !"AGENT".equals(mode)) {
-            // Only an attached agent has a screen; an unattended run writes records, and a shell is
-            // a person's.
-            screens.remove(container);
-            return new Captured(now, Screen.UNSEEN, "");
+        synchronized (reading.computeIfAbsent(container, name -> new Object())) {
+            final Instant now = clock.instant();
+            if (!running || !"AGENT".equals(mode)) {
+                // Only an attached agent has a screen; an unattended run writes records, and a
+                // shell is a person's.
+                screens.remove(container);
+                return Captured.unseen(now, null);
+            }
+            final String identity = org.fuin.porelo.wire.Sidecar.recordedId(state);
+            final Captured kept = screens.get(container);
+            final Captured before =
+                    kept == null || !java.util.Objects.equals(kept.identity(), identity)
+                            ? null
+                            : kept;
+            if (before != null && before.at().plus(SCREEN).isAfter(now)) {
+                return before;
+            }
+            Captured read = look(container, declared, atRest, before, identity, state);
+            if (secondLook != null
+                    && read.restingSince() != null
+                    && !restHeld(read)
+                    && secondLook.waits(Rest.LOOK)) {
+                // Rest seen, with no earlier look to hold it against: look again, as the wake
+                // does, rather than say rest of what may be a gap between two tool calls.
+                read = look(container, declared, atRest, read, identity, state);
+            }
+            screens.put(container, read);
+            return read;
         }
-        final Captured before = screens.get(container);
-        if (before != null && before.at().plus(SCREEN).isAfter(now)) {
-            return before;
-        }
-        Captured read = capture(container, declared, atRest, before, now, state);
-        final Instant firstRest = read.restingSince();
-        if (secondLook != null
-                && firstRest != null
-                && firstRest.equals(read.at())
-                && secondLook.waits(Rest.LOOK)) {
-            // Rest first seen now, with no earlier read to hold it against: look again, as the
-            // wake does, rather than say rest of what may be a gap between two tool calls.
-            read = capture(container, declared, atRest, read, clock.instant(), state);
-        }
-        screens.put(container, read);
-        return read;
     }
 
-    private Captured capture(
+    private Captured look(
             String container,
             Waiting declared,
             org.fuin.porelo.agent.api.@Nullable AtRest atRest,
             @Nullable Captured before,
-            Instant now,
+            @Nullable String identity,
             Path state) {
+        final Instant start = clock.instant();
+        final Shown shown = shown(container, state);
+        final Instant end = clock.instant();
+        final String text = shown.text();
+        if (text == null) {
+            // A capture given up is kept from when it was given up, so the listing that gave up
+            // does not wait for it a second time.
+            return Captured.unseen(shown.timedOut() ? end : start, identity);
+        }
+        final Waiting.Reading reading = declared.read(text);
+        return switch (reading.seen()) {
+            // A pager over the agent is still the agent's pane, and says nothing of the agent: keep
+            // what was last read of it, and never let the pager stand in for a look at it.
+            case NOT_ITS_SCREEN ->
+                    before == null
+                            ? Captured.unseen(start, identity)
+                            : new Captured(
+                                    start,
+                                    before.screen(),
+                                    before.waitingFor(),
+                                    before.restingSince(),
+                                    before.looked(),
+                                    identity);
+            case WAITING ->
+                    new Captured(
+                            start,
+                            Screen.WAITING,
+                            reading.waitingFor() == null ? "" : reading.waitingFor(),
+                            null,
+                            start,
+                            identity);
+            case NOT_WAITING ->
+                    new Captured(
+                            start,
+                            Screen.NOT_WAITING,
+                            "",
+                            !Rest.shows(text, declared, atRest)
+                                    ? null
+                                    : before != null && before.restingSince() != null
+                                            ? before.restingSince()
+                                            : end,
+                            start,
+                            identity);
+        };
+    }
+
+    /** Reads the screen: what the task wrote, or else a capture in the container, given a limit. */
+    private Shown shown(final String container, final Path state) {
         // What the task wrote, when its writer answers: a file, not a process in the container.
         final String written = ScreenFile.read(state, clock);
         if (written != null) {
-            return written.isEmpty()
-                    ? new Captured(now, Screen.UNSEEN, "")
-                    : judged(declared.read(written), before, now)
-                            .resting(restingSince(written, declared, atRest, before, now));
+            return new Shown(written.isEmpty() ? null : written, false);
         }
+        final java.util.concurrent.FutureTask<CommandResult> capture =
+                new java.util.concurrent.FutureTask<>(
+                        () ->
+                                context.podman()
+                                        .ask(
+                                                container,
+                                                Map.of(),
+                                                List.of(
+                                                        "tmux",
+                                                        "capture-pane",
+                                                        "-p",
+                                                        "-J",
+                                                        "-t",
+                                                        org.fuin.porelo.runtime.Containerfile
+                                                                .SESSION)));
+        // A platform thread of its own, so a capture that hangs is given up, and interrupted,
+        // which ends its process.
+        Thread.ofPlatform().daemon().name("porelo-capture-" + container).start(capture);
         final CommandResult drawn;
         try {
-            drawn =
-                    context.podman()
-                            .ask(
-                                    container,
-                                    Map.of(),
-                                    List.of(
-                                            "tmux",
-                                            "capture-pane",
-                                            "-p",
-                                            "-J",
-                                            "-t",
-                                            org.fuin.porelo.runtime.Containerfile.SESSION));
-        } catch (RuntimeException ex) {
-            return new Captured(now, Screen.UNSEEN, "");
+            drawn = capture.get(CAPTURE.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException ex) {
+            capture.cancel(true);
+            return new Shown(null, true);
+        } catch (InterruptedException ex) {
+            capture.cancel(true);
+            Thread.currentThread().interrupt();
+            return new Shown(null, false);
+        } catch (java.util.concurrent.ExecutionException ex) {
+            return new Shown(null, false);
         }
-        if (drawn.exitCode() != 0) {
-            // No session yet, or one that ended: nothing is drawn to read.
-            return new Captured(now, Screen.UNSEEN, "");
-        }
-        return judged(declared.read(drawn.standardOutput()), before, now)
-                .resting(restingSince(drawn.standardOutput(), declared, atRest, before, now));
-    }
-
-    /**
-     * Returns since when this screen and the reads before it showed rest, or {@code null} when it
-     * does not. A pager over the agent says nothing of it, so what was read of the agent stands.
-     */
-    private static @Nullable Instant restingSince(
-            String shown,
-            Waiting declared,
-            org.fuin.porelo.agent.api.@Nullable AtRest atRest,
-            @Nullable Captured before,
-            Instant now) {
-        if (declared.read(shown).seen() == Waiting.Seen.NOT_ITS_SCREEN) {
-            return before == null ? null : before.restingSince();
-        }
-        if (!Rest.shows(shown, declared, atRest)) {
-            return null;
-        }
-        return before != null && before.restingSince() != null ? before.restingSince() : now;
-    }
-
-    private static Captured judged(
-            final Waiting.Reading reading, final @Nullable Captured before, final Instant now) {
-        return switch (reading.seen()) {
-            case WAITING ->
-                    new Captured(
-                            now,
-                            Screen.WAITING,
-                            reading.waitingFor() == null ? "" : reading.waitingFor());
-            case NOT_WAITING -> new Captured(now, Screen.NOT_WAITING, "");
-            // A pager over the agent is still the agent's pane: keep what was last read of the
-            // agent itself.
-            case NOT_ITS_SCREEN ->
-                    before == null
-                            ? new Captured(now, Screen.UNSEEN, "")
-                            : new Captured(now, before.screen(), before.waitingFor());
-        };
+        // A non-zero exit: no session yet, or one that ended, so nothing is drawn to read.
+        return new Shown(drawn.exitCode() == 0 ? drawn.standardOutput() : null, false);
     }
 
     private boolean unproven(String container, Captured screen) {
