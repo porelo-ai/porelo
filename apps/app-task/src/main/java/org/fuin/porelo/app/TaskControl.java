@@ -1133,8 +1133,14 @@ public final class TaskControl {
             started += start(recorded, TaskHelpers.AFTER, pid, state, problems, own);
         } catch (RuntimeException ex) {
             final List<String> left = new ArrayList<>();
-            if (!unwind(container, state, own, containerStarted, left)) {
-                left.forEach(problem -> System.err.println("porelo: " + problem));
+            try {
+                if (!unwind(container, state, own, containerStarted, left)) {
+                    left.forEach(problem -> System.err.println("porelo: " + problem));
+                }
+            } catch (RuntimeException rollback) {
+                // The start's own failure is what the caller must hear; the rollback's goes with
+                // it.
+                ex.addSuppressed(rollback);
             }
             throw ex;
         }
