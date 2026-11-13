@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B724",
   "title": "A Default Repository Kept While A Task Works On It",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 54,
