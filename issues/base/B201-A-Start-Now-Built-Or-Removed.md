@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B201",
   "title": "A Start Now, Built Or Removed",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 36,
