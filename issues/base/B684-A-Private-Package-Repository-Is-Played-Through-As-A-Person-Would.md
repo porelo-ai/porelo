@@ -65,6 +65,8 @@ the run says so and falls back to `stub-ecosystem`, and the settings and Maven p
 
     scp acceptance/stories/st43.sh <account>@<test-vm>:
     ssh <account>@<test-vm> 'bash -l st43.sh --test-account' 2>&1 | tee st43.log
+- `--maven-adapter <deb>` installs the Maven ecosystem adapter with `sudo dpkg -i` when the machine has none, and
+  removes it at the end; an adapter already installed is left alone. So one go of the run is enough.
 
 ## Rules for a story test (operator, 2026-11-12)
 

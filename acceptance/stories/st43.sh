@@ -17,17 +17,23 @@
 # by standard input, never on a command line and never printed.
 #
 # Run it as the test account on the test machine, never as a person's own account:
-#     bash -l st43.sh --test-account [--expect-fail ISSUES]
+#     bash -l st43.sh --test-account [--expect-fail ISSUES] [--maven-adapter DEB]
+# --maven-adapter installs the Maven ecosystem adapter from that package with 'sudo dpkg -i' when the
+# machine has none, and removes it again at the end; an adapter already installed is left as it is.
 # --expect-fail names the issues not yet in Review, comma-separated (default none); a point waiting on
 # one of them is listed as an expected failure. Exit 0 when nothing failed unexpectedly, 1 otherwise,
 # 64 for wrong use.
 
 # The scripts sent into the task are single-quoted on purpose: they expand there, not here.
 # shellcheck disable=SC2016
+# The adapter install writes dpkg's output to the account's own file, not root's, on purpose.
+# shellcheck disable=SC2024
 set -u -o pipefail
 
 EXPECTED=""
 TEST_ACCOUNT=no
+MAVEN_DEB=""
+ADAPTER_INSTALLED=""
 usage() {
     awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
 }
@@ -45,6 +51,14 @@ while [ $# -gt 0 ]; do
     --test-account)
         TEST_ACCOUNT=yes
         shift
+        ;;
+    --maven-adapter)
+        [ $# -ge 2 ] || {
+            usage >&2
+            exit 64
+        }
+        MAVEN_DEB="$2"
+        shift 2
         ;;
     -h | --help)
         usage
@@ -196,6 +210,10 @@ cleanup() {
         porelo vault remove "$ENTRY" --without-revoking >/dev/null 2>&1
         porelo vault lock >/dev/null 2>&1
         read_ "the run's vault emptied, locked and removed"
+    fi
+    if [ -n "$ADAPTER_INSTALLED" ]; then
+        sudo -n dpkg -r "$ADAPTER_INSTALLED" >/dev/null 2>&1
+        read_ "the adapter package $ADAPTER_INSTALLED this run installed removed"
     fi
     rm -rf -- "$WORK"
 }
@@ -398,6 +416,22 @@ point "$([ "$code" = 0 ] && porelo vault list 2>/dev/null | grep -q -F -- "$ENTR
     "the credential is stored in the vault as $ENTRY, of type basic"
 point "$([ "$(count <"$WORK/vault.out")" = 0 ] && echo 0 || echo 1)" "" \
     "storing and listing the credential never prints it"
+
+if [ -n "$MAVEN_DEB" ]; then
+    step "Install the Maven adapter from $MAVEN_DEB unless the machine has one"
+    ADAPTER_PACKAGE=$(dpkg-deb -f "$MAVEN_DEB" Package 2>/dev/null)
+    if [ -z "$ADAPTER_PACKAGE" ]; then
+        read_ "$MAVEN_DEB is no package dpkg can read"
+    elif dpkg-query -W -f='${Status}' "$ADAPTER_PACKAGE" 2>/dev/null | grep -q 'install ok installed'; then
+        read_ "$ADAPTER_PACKAGE is installed already; left as it is"
+    elif sudo -n dpkg -i "$MAVEN_DEB" >"$WORK/adapter.out" 2>&1; then
+        ADAPTER_INSTALLED="$ADAPTER_PACKAGE"
+        read_ "$ADAPTER_PACKAGE installed for this run"
+    else
+        redact <"$WORK/adapter.out" | tail -n 5
+        read_ "dpkg could not install $ADAPTER_PACKAGE"
+    fi
+fi
 
 step "Find the Maven adapter the project names"
 porelo ecosystems --json >"$WORK/ecosystems.json" 2>&1
