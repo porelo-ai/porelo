@@ -210,6 +210,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b737"></a>[B737](B737-A-Tasks-Guide-Names-Its-MCP-Endpoint.md) | S | - | A task whose project gives it an MCP endpoint is told so in its guide: where it is, the token it holds, the methods it carries, and for ProposeIdea how to propose an idea and within which bounds, so any agent with a shell can use it. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
 | <a id="b717"></a>[B717](B717-A-Task-Started-Without-A-Certificate-On-A-Host-In-Test-Mode.md) | M | - | On a host whose root switched on `start-uncertified`, `porelo task start` starts a task without a certificate after a clear warning and a yes, `--yes` answering it for scripts, and the host accepts such a start only while that switch is on. | 0 |
