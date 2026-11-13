@@ -6,10 +6,14 @@ Feature: The task list that stays open
     the daemon's Watch says its task changed. Ctrl-C ends it, and the terminal it leaves is the one it found: its
     settings, the main screen and the cursor. Only a real terminal shows that, so it is asserted here.
 
-    The scenario removes its task at the end, as the other scenarios with a task do.
+    The scenario removes its task at the end, as the other scenarios with a task do. An agent's task is
+    started only with the agent's credential in the vault, so the scenario puts one in a vault of its own.
 
     Scenario: a stopped task's row changes in the open list, and Ctrl-C leaves the terminal as it was
-        Given a project called "watched" with a file in it
+        Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
+        And a vault of this scenario's own, unlocked with the passphrase "acceptance"
+        And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
+        And a project called "watched" with a file in it
         When a script runs "porelo task start shell --project watched --repository watched --agent stub --clearance deny"
         Then it exits zero
         Given a terminal on the machine
