@@ -134,7 +134,7 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         line(out, "mode", task.mode());
         out.println();
         line(out, "state", task.state());
-        line(out, "activity", TaskListCommand.activity(task.activity()));
+        line(out, "activity", TaskListing.activity(task.activity()));
         if (task.agentEnded() != null) {
             // Its own line, and coloured when it is an error: the run is over, and only a person
             // can do anything now.

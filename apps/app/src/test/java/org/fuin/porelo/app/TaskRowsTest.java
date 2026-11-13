@@ -45,7 +45,8 @@ class TaskRowsTest {
                         "Trust this folder?",
                         AgentWaiting.Asked.ASKED,
                         "declared",
-                        "session-1"),
+                        "session-1",
+                        AgentWaiting.Turn.CANNOT_SAY),
                 Map.of("forge", "example.org"),
                 Map.of(
                         "forge",

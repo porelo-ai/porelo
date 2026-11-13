@@ -78,7 +78,10 @@ final class TaskRows {
                                 text(row, "asked"),
                                 AgentWaiting.Asked.CANNOT_SAY),
                         text(row, "askedFrom"),
-                        text(row, "session")),
+                        text(row, "session"),
+                        // The row carries its activity already worked out; the turn it came from
+                        // is not on the wire.
+                        AgentWaiting.Turn.CANNOT_SAY),
                 texts(row.get("credentials")),
                 nested(row.get("grants")),
                 absent(row, "provider"),
