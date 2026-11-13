@@ -577,7 +577,13 @@ class CommitVerifyCommandTest {
                     .as("%s is accepted as git accepts it: %s", accepted, err)
                     .isZero();
         }
-        for (final String refused : List.of("demo " + key + "\rtrailing", "\r#x " + key)) {
+        for (final String refused :
+                List.of(
+                        "demo " + key + "\rtrailing",
+                        "\r#x " + key,
+                        // Git drops the carriage return before the line feed ssh-keygen ends the
+                        // principal with, and verifies by demo, whom no line names.
+                        "\"demo\r\" " + key)) {
             Files.writeString(signers, refused + "\n");
 
             assertThat(gitVerifies(byPerson)).as("git refuses %s", refused).isFalse();

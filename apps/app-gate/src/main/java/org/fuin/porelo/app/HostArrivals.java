@@ -776,8 +776,9 @@ final class HostArrivals {
         if (!found.successful()) {
             return List.of();
         }
-        // Git splits them at a line feed alone: a quoted principal may hold a carriage return.
-        return Arrays.stream(found.standardOutput().split("\n"))
+        // Git splits them at a line feed and drops one carriage return before it: a quoted
+        // principal may hold a carriage return elsewhere.
+        return Arrays.stream(found.standardOutput().split("\r?\n"))
                 .filter(each -> !each.isEmpty())
                 .toList();
     }

@@ -53,6 +53,18 @@ test shows git's own reading; the keys are throwaway ones made in the test's dir
   the first line it cannot parse, so the file is asked whole and, when that fails, line by line). The whole-file
   refusal stays for a line ssh-keygen parses and Porelo does not (fail closed) and for a file that cannot be read.
   Red first: `AllowedSignerTest` and `CommitVerifyCommandTest` refused the whole file (66) where git accepted.
+- **Only a refusal both readings share skips a line.** ssh-keygen answers a failed allocation on a valid line as it
+  answers one it cannot parse (exit 252, `bad options: (null)`), so its refusal skips a line only where Porelo's own
+  reading finds that line malformed for the same reason, its options or its key; any other answer refuses the whole
+  file, as skipping could turn git's refusal into an acceptance. Porelo reads an `ssh-ed25519` or
+  `sk-ssh-ed25519@openssh.com` key's blob as ssh-keygen does: the type, exactly 32 bytes, for a security key an
+  application without a NUL, and nothing left over. It judges no other type's blob, so ssh-keygen refusing such a key
+  refuses the whole file. Red first: `AllowedSignerTest` skipped a valid line whose check failed that way, and skipped
+  an rsa line ssh-keygen calls invalid; with the first fix alone it refused the whole file over an ed25519 blob with
+  trailing bytes, a short key or a security key without its application, each a line git skips.
+- **A carriage return before a principal's line feed.** git drops one carriage return before each line feed of
+  ssh-keygen's `find-principals` output, so a principal `"demo\r"` is verified as `demo`. The gate splits that output
+  the same way. Red first: `CommitVerifyCommandTest` accepted a commit by `"demo\r"` that git refuses.
 - **A Unicode space before `#`.** ssh-keygen skips only spaces, tabs and line ends before a comment: it reads
   `U+2000#x ssh-ed25519 K` as a signer whose principal is `U+2000#x`, finds that principal for the key, and git
   verifies by it. So Porelo now reads it as ssh-keygen does, the opposite of trimming every Unicode space; the earlier

@@ -117,7 +117,9 @@ record AllowedSigner(String principal, String key, List<String> options) {
      * in a chosen environment, its scratch file in a directory of the caller's.
      *
      * <p>A line ends at a line feed alone. A line ssh-keygen cannot parse names nobody, as git
-     * skips it: only one that ssh-keygen parses and Porelo does not refuses the whole file.
+     * skips it, when Porelo's own reading finds it malformed for the same reason: one that
+     * ssh-keygen parses and Porelo does not, or that ssh-keygen refuses and Porelo reads otherwise,
+     * refuses the whole file, as ssh-keygen answers a failed allocation as a line it cannot parse.
      *
      * @param runner Runs ssh-keygen.
      * @param file The file.
@@ -157,15 +159,24 @@ record AllowedSigner(String principal, String key, List<String> options) {
         }
         final List<AllowedSigner> signers = new ArrayList<>();
         try {
-            final boolean whole = parsed(runner, check, entries, environment);
+            final boolean whole = parsed(runner, check, entries, environment) == null;
             for (int at = 0; at < entries.size(); at++) {
-                if (whole || parsed(runner, check, List.of(entries.get(at)), environment)) {
+                final Fault refused =
+                        whole ? null : parsed(runner, check, List.of(entries.get(at)), environment);
+                if (refused == null) {
                     final AllowedSigner signer = parse(lines.get(at));
                     if (signer == null) {
                         throw new IOException(
                                 "an allowed-signers line ssh-keygen reads is not read here");
                     }
                     signers.add(signer);
+                } else if (refused != fault(entries.get(at))) {
+                    // ssh-keygen answers a failed allocation as a line it cannot parse.
+                    throw new IOException(
+                            UNCHECKED
+                                    + ": ssh-keygen refuses a line read here otherwise ("
+                                    + refused
+                                    + ")");
                 }
             }
         } finally {
@@ -180,16 +191,18 @@ record AllowedSigner(String principal, String key, List<String> options) {
     }
 
     /**
-     * Whether ssh-keygen parses each of these lines: it stops at the first it cannot, so the lines
-     * of a file are asked together and, when that fails, one by one.
+     * Why ssh-keygen refuses the first of these lines it cannot parse, or {@code null} when it
+     * parses each: it stops at the first it cannot, so the lines of a file are asked together and,
+     * when that fails, one by one.
      *
-     * <p>Only its own refusal to parse a line answers no: it exits with {@value #UNPARSED} and
-     * names the file and the line before the reason. Any other answer, a check killed, timed out or
-     * not run at all, refuses the whole file, as skipping a line might drop one git reads.
+     * <p>Only its own refusal to parse a line answers with a fault: it exits with {@value
+     * #UNPARSED} and names the file, the line and one of the reasons it parses a line for. Any
+     * other answer, a check killed, timed out or not run at all, refuses the whole file, as
+     * skipping a line might drop one git reads.
      *
      * @throws IOException If ssh-keygen answers other than by parsing or refusing to parse.
      */
-    private static boolean parsed(
+    private static @Nullable Fault parsed(
             final CommandRunner runner,
             final Path check,
             final List<String> entries,
@@ -213,16 +226,220 @@ record AllowedSigner(String principal, String key, List<String> options) {
             throw new IOException(UNCHECKED + ": ssh-keygen could not be run", ex);
         }
         if (result.successful() && result.standardError().isBlank()) {
-            return true;
+            return null;
         }
-        if (result.exitCode() == UNPARSED
-                && Pattern.compile(
-                                "\\A" + Pattern.quote(check.toString()) + ":[1-9][0-9]*+: [^\\n]")
-                        .matcher(result.standardError())
-                        .lookingAt()) {
-            return false;
+        if (result.exitCode() == UNPARSED) {
+            final Matcher reason =
+                    Pattern.compile(
+                                    "\\A"
+                                            + Pattern.quote(check.toString())
+                                            + ":[1-9][0-9]*+: (invalid options|bad options: |missing"
+                                            + " key|invalid key)")
+                            .matcher(result.standardError());
+            if (reason.lookingAt()) {
+                return reason.group(1).endsWith("key") ? Fault.KEY : Fault.OPTIONS;
+            }
         }
         throw new IOException(UNCHECKED + ": ssh-keygen exited " + result.exitCode());
+    }
+
+    /** Why ssh-keygen cannot parse a line: its options, or its key missing or invalid. */
+    enum Fault {
+        /** Options not ended, or not ones ssh-keygen knows as given. */
+        OPTIONS,
+        /** No key, or none ssh-keygen reads. */
+        KEY
+    }
+
+    /** A key's type and its base64, up to a blank. */
+    private static final Pattern KEY = Pattern.compile("([^ \\t]++)[ \\t]++([^ \\t]++)");
+
+    /**
+     * An option ssh-keygen knows, its name in any ASCII case as C's {@code strncasecmp} compares
+     * it, and for a value the quote that opens it.
+     */
+    private static final Pattern OPTION =
+            Pattern.compile("(?i)cert-authority|(namespaces|valid-after|valid-before)=\"");
+
+    /** A time ssh-keygen may read for an option: a date, to the minute or to the second. */
+    private static final Pattern TIME =
+            Pattern.compile(
+                    "[0-9]{4}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])(?:([01][0-9]|2[0-3])[0-5][0-9](?:[0-5][0-9]|6[01])?)?(?:[Zz]|[Uu][Tt][Cc])?");
+
+    /**
+     * Why Porelo's own reading finds a line malformed, as ssh-keygen walks it after its principals:
+     * a key, else options up to a blank outside quotes and a key after them, and the options known
+     * as given. {@code null} when it finds the line whole.
+     *
+     * <p>It finds a line malformed only where ssh-keygen surely does, and a line it may not be sure
+     * of whole, so ssh-keygen refusing a line this reading finds whole refuses the file.
+     *
+     * @param entry The line's text after its principals, behind a principal of its own.
+     */
+    private static @Nullable Fault fault(final String entry) {
+        final Matcher head = HEAD.matcher(entry);
+        if (!head.lookingAt()) {
+            return Fault.KEY;
+        }
+        final String rest = entry.substring(head.end());
+        // ssh-keygen may refuse a key Porelo does not judge, so this reading cannot agree.
+        if (key(rest) != Blob.BROKEN) {
+            return null;
+        }
+        int at = 0;
+        boolean quoted = false;
+        for (; at < rest.length() && (quoted || !spaceOrTab(rest.charAt(at))); at++) {
+            if (escapedQuote(rest, at)) {
+                at++;
+            } else if (rest.charAt(at) == '"') {
+                quoted = !quoted;
+            }
+        }
+        if (quoted) {
+            return Fault.OPTIONS;
+        }
+        int key = at;
+        while (key < rest.length() && spaceOrTab(rest.charAt(key))) {
+            key++;
+        }
+        if (at == rest.length() || key(rest.substring(key)) == Blob.BROKEN) {
+            return Fault.KEY;
+        }
+        return options(rest.substring(0, at)) ? null : Fault.OPTIONS;
+    }
+
+    private static boolean spaceOrTab(final char character) {
+        return character == ' ' || character == '\t';
+    }
+
+    /** What Porelo's reading knows of a key's blob. */
+    private enum Blob {
+        /** A key of a type read here, exactly its fields, as ssh-keygen reads it. */
+        WHOLE,
+        /** No key ssh-keygen reads: no type and base64, a blob of another type, or fields wrong. */
+        BROKEN,
+        /** A key of a type not read here, whose fields ssh-keygen judges alone. */
+        UNJUDGED
+    }
+
+    /** The key types Porelo reads itself, and so judges the blob of. */
+    private static final String ED25519 = "ssh-ed25519";
+
+    private static final String SK_ED25519 = "sk-ssh-ed25519@openssh.com";
+
+    /**
+     * What a text opening with a key holds, its blob read as ssh-keygen reads one: the type, then
+     * for an ed25519 key exactly its 32 bytes, and for a security key also its application without
+     * a NUL, and nothing left over.
+     */
+    private static Blob key(final String text) {
+        final Matcher match = KEY.matcher(text);
+        if (!match.lookingAt()) {
+            return Blob.BROKEN;
+        }
+        // ssh-keygen's base64 skips every C blank within it.
+        final String base64 = match.group(2).replaceAll("[\\r\\n\\u000b\\f]", "");
+        final byte[] blob;
+        try {
+            blob = java.util.Base64.getDecoder().decode(base64);
+        } catch (final IllegalArgumentException ex) {
+            return Blob.BROKEN;
+        }
+        if (base64.length() % 4 != 0) {
+            return Blob.BROKEN;
+        }
+        final String type = match.group(1);
+        final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(blob);
+        final byte[] name = field(buffer);
+        if (name == null
+                || !new String(name, java.nio.charset.StandardCharsets.ISO_8859_1).equals(type)) {
+            return Blob.BROKEN;
+        }
+        if (!ED25519.equals(type) && !SK_ED25519.equals(type)) {
+            return Blob.UNJUDGED;
+        }
+        final byte[] point = field(buffer);
+        if (point == null || point.length != 32) {
+            return Blob.BROKEN;
+        }
+        if (SK_ED25519.equals(type)) {
+            final byte[] application = field(buffer);
+            if (application == null || contains(application, (byte) 0)) {
+                return Blob.BROKEN;
+            }
+        }
+        return buffer.hasRemaining() ? Blob.BROKEN : Blob.WHOLE;
+    }
+
+    /** The next SSH wire string of a blob, or {@code null} when the blob ends before it does. */
+    private static byte @Nullable [] field(final java.nio.ByteBuffer buffer) {
+        if (buffer.remaining() < 4) {
+            return null;
+        }
+        final int length = buffer.getInt();
+        if (length < 0 || length > buffer.remaining()) {
+            return null;
+        }
+        final byte[] bytes = new byte[length];
+        buffer.get(bytes);
+        return bytes;
+    }
+
+    private static boolean contains(final byte[] bytes, final byte wanted) {
+        for (final byte each : bytes) {
+            if (each == wanted) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether options are ones ssh-keygen knows as given: {@code cert-authority}, and {@code
+     * namespaces}, {@code valid-after} and {@code valid-before} each once with a quoted value, a
+     * time for the latter two, parted by commas.
+     */
+    private static boolean options(final String text) {
+        final java.util.Set<String> seen = new java.util.HashSet<>();
+        int at = 0;
+        while (true) {
+            final String rest = text.substring(at);
+            final Matcher option = OPTION.matcher(rest);
+            if (!option.lookingAt()) {
+                return false;
+            }
+            final String name = option.group(1);
+            if (name == null) {
+                at += option.end();
+            } else {
+                if (!seen.add(name.toLowerCase(java.util.Locale.ROOT))) {
+                    return false;
+                }
+                final StringBuilder value = new StringBuilder();
+                int end = option.end();
+                while (end < rest.length() && rest.charAt(end) != '"') {
+                    if (escapedQuote(rest, end)) {
+                        end++;
+                    }
+                    value.append(rest.charAt(end));
+                    end++;
+                }
+                if (end == rest.length()) {
+                    return false;
+                }
+                if (!"namespaces".equalsIgnoreCase(name) && !TIME.matcher(value).matches()) {
+                    return false;
+                }
+                at += end + 1;
+            }
+            if (at == text.length()) {
+                return true;
+            }
+            if (text.charAt(at) != ',' || at + 1 == text.length()) {
+                return false;
+            }
+            at++;
+        }
     }
 
     private static void write(final Path check, final List<String> entries) {

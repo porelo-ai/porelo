@@ -149,6 +149,152 @@ class AllowedSignerTest {
                 .hasMessageContaining("could not be checked");
     }
 
+    /**
+     * ssh-keygen answers a failed allocation as it answers a line it cannot parse, so its refusal
+     * skips a line only where Porelo's own reading finds that line malformed for the same reason: a
+     * line Porelo reads whole refuses the file, as skipping it could turn a refusal into an
+     * acceptance.
+     */
+    @Test
+    void refuses_the_file_when_ssh_keygen_refuses_a_line_read_here_whole() throws Exception {
+        final String key = keygen("alice");
+        final Path signers =
+                signers("!alice " + key + "\nbob " + key + "\nz bogus-option " + key + "\n");
+        final java.util.concurrent.atomic.AtomicInteger calls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        // The whole file is asked first, then its first line alone: that check's allocation fails.
+        final org.fuin.porelo.core.process.CommandRunner failing =
+                command ->
+                        calls.incrementAndGet() == 2
+                                ? new CommandResult(
+                                        command,
+                                        252,
+                                        "",
+                                        command.arguments().getLast() + ":1: bad options: (null)\n")
+                                : runner.run(command);
+
+        assertThat(keygenFinds(signers, "alice"))
+                .as("git verifies by the first line, which it cannot verify")
+                .isEqualTo("!alice");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                AllowedSigner.read(
+                                        failing,
+                                        signers,
+                                        KEYGEN,
+                                        Files.createTempDirectory(dir, "scratch-")))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("could not be checked");
+    }
+
+    /**
+     * ssh-keygen refuses an ed25519 key whose blob is not exactly its fields, and git skips that
+     * line; Porelo reads such a blob as ssh-keygen does and skips the same line.
+     */
+    @Test
+    void skips_a_line_whose_ed25519_blob_ssh_keygen_refuses_as_git_does() throws Exception {
+        final String key = keygen("alice");
+        final byte[] point = point(key);
+        final List<String> broken =
+                List.of(
+                        key(ED25519, field(ED25519), field(point), new byte[] {0}),
+                        key(ED25519, field(ED25519), field(java.util.Arrays.copyOf(point, 31))),
+                        key(ED25519, field(ED25519)),
+                        key(SK, field(SK), field(point)),
+                        key(SK, field(SK), field(point), field("ssh:"), new byte[] {0}),
+                        key(SK, field(SK), field(point), field("ss\0h:")));
+        final StringBuilder text = new StringBuilder();
+        for (final String each : broken) {
+            assertThat(keygenMatches(signers("bob " + each + "\n")))
+                    .as("ssh-keygen refuses %s", each)
+                    .isEqualTo(252);
+            text.append("bob ").append(each).append('\n');
+        }
+        final Path signers = signers(text + "alice " + key + "\n");
+
+        assertThat(keygenVerifies(signers, "alice", "alice"))
+                .as("ssh-keygen accepts alice")
+                .isTrue();
+        assertThat(read(signers))
+                .as("the lines whose key ssh-keygen refuses are skipped")
+                .containsExactly(new AllowedSigner("alice", key, List.of()));
+    }
+
+    /** A security key's blob that is exactly its fields is read, an empty application too. */
+    @Test
+    void reads_a_security_key_whose_blob_ssh_keygen_reads() throws Exception {
+        final byte[] point = point(keygen("alice"));
+        final String key = key(SK, field(SK), field(point), field(""));
+        final Path signers = signers("bob " + key + "\n");
+
+        assertThat(keygenMatches(signers)).as("ssh-keygen reads it").isZero();
+        assertThat(read(signers)).containsExactly(new AllowedSigner("bob", key, List.of()));
+    }
+
+    /**
+     * Porelo does not judge the blob of a key type it does not read itself, so its reading cannot
+     * agree with ssh-keygen refusing one: the whole file is refused, never the line skipped.
+     */
+    @Test
+    void refuses_the_file_when_ssh_keygen_refuses_a_key_of_a_type_not_read_here() throws Exception {
+        final String key = keygen("alice");
+        final String rsa = key("ssh-rsa", field("ssh-rsa"), field(new byte[] {1, 0, 1}));
+        final Path signers = signers("bob " + rsa + "\nalice " + key + "\n");
+
+        assertThat(keygenMatches(signers("bob " + rsa + "\n")))
+                .as("ssh-keygen refuses the rsa key")
+                .isEqualTo(252);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> read(signers))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("could not be checked");
+    }
+
+    private static final String ED25519 = "ssh-ed25519";
+
+    private static final String SK = "sk-ssh-ed25519@openssh.com";
+
+    /** An ed25519 public key's 32 bytes, the last field of its blob. */
+    private static byte[] point(final String key) {
+        final byte[] blob = java.util.Base64.getDecoder().decode(key.split(" ")[1]);
+        return java.util.Arrays.copyOfRange(blob, blob.length - 32, blob.length);
+    }
+
+    /** A key line's type and the base64 of these parts joined. */
+    private static String key(final String type, final byte[]... parts) {
+        final java.io.ByteArrayOutputStream blob = new java.io.ByteArrayOutputStream();
+        for (final byte[] part : parts) {
+            blob.writeBytes(part);
+        }
+        return type + " " + java.util.Base64.getEncoder().encodeToString(blob.toByteArray());
+    }
+
+    /** An SSH wire string: its length, then its bytes. */
+    private static byte[] field(final byte[] bytes) {
+        return java.nio.ByteBuffer.allocate(4 + bytes.length)
+                .putInt(bytes.length)
+                .put(bytes)
+                .array();
+    }
+
+    private static byte[] field(final String text) {
+        return field(text.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+    }
+
+    /** ssh-keygen's exit code when asked whether a principal of the file matches. */
+    private int keygenMatches(final Path signers) {
+        return runner.run(
+                        Command.of(
+                                        "ssh-keygen",
+                                        "-Y",
+                                        "match-principals",
+                                        "-I",
+                                        "bob",
+                                        "-f",
+                                        signers.toString())
+                                .withChosenEnvironment(KEYGEN))
+                .exitCode();
+    }
+
     /** A check of the whole file that fails other than by a parse refusal refuses the file. */
     @Test
     void refuses_the_file_when_the_whole_check_fails_other_than_by_a_parse_refusal()
