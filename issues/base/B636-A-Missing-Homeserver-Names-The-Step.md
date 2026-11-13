@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B636",
   "title": "A Missing Homeserver Names The Step",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "Medium",
   "rank": 34,
