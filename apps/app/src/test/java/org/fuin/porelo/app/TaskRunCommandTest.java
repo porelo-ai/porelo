@@ -680,6 +680,30 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void refusesNowAsAnOptionItDoesNotHave(@TempDir Path dir) throws Exception {
+        // An option a person can type that changes nothing is a promise the start does not keep.
+        final PoreloContext context = context(dir, true);
+        assertThat(
+                        execute(
+                                context,
+                                "task",
+                                "start",
+                                "shell",
+                                "-p",
+                                projectFile(dir, MINIMAL),
+                                "--now",
+                                "--detach"))
+                .as("an option the start does not have is picocli's usage refusal")
+                .isEqualTo(CommandLine.ExitCode.USAGE);
+        assertThat(err.toString())
+                .as("the refusal names the option as unknown to the start")
+                .contains("'--now' is not an option of 'porelo task start'");
+        assertThat(Files.exists(context.paths().tasks().containerState("porelo-uc-shell")))
+                .as("the refused start makes no task")
+                .isFalse();
+    }
+
+    @Test
     void refusesAResultFileOutsideItsBoxBeforeMakingTaskState(@TempDir Path dir) throws Exception {
         // A directory part in the name would have the host take a file from outside the box.
         final PoreloContext context = context(dir, true);

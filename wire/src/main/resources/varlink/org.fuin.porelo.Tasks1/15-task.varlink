@@ -319,9 +319,9 @@ type Task (
   # What this task is doing that takes minutes and has no other visible sign, such as "building".
   # "" when it is in none.
   #
-  # Here rather than only in Start's stream, because a Start given 'now' returns at once and a
-  # stream tied to the call that started it dies with that call. A window opened a minute later, or
-  # a second machine watching the same daemon, would otherwise see a task with nothing behind it.
+  # Here rather than only in Start's stream, because a stream is seen only by the call that started
+  # it. A window opened a minute later, or a second machine watching the same daemon, would otherwise
+  # see a task with nothing behind it.
   # The output itself is read with Tail.
   phase: string,
   # Whether the agent's own screen shows it waiting for a person - DERIVED from a rule the agent's
@@ -589,8 +589,8 @@ type StartStep (
 #
 # With "more" it streams lines as they happen; steps: true adds step-only replies. An interface should show
 # them: building an image takes minutes, and showing nothing for that long is indistinguishable
-# from having hung. With "now" it returns as soon as the task exists and the build goes on without
-# it; the task is in List and Watch immediately with its phase set, and Tail reads the output.
+# from having hung. Start answers when its start has ended, "now" given or not; meanwhile the task is
+# in List and Watch with its phase set, and Tail reads the output.
 #
 # The task outlives this call and this connection either way. Closing the socket mid-build does not
 # cancel it; List shows it afterwards.
@@ -688,11 +688,8 @@ method Start(
   # removed what it had just made, which is how an operator lost a task by typing the obvious
   # thing. Keeping is the safe default; throwing away is the deliberate one.
   rm: ?bool,
-  # Returns as soon as the task exists, instead of waiting for the build to finish.
-  #
-  # Named for what it does rather than 'detach': over this interface Start never attaches anything,
-  # so there is nothing to detach from. The command line has a second switch for not attaching a
-  # terminal, which is a question only a terminal has.
+  # Unused: accepted and ignored, so a client that sends it keeps working. Start answers when its
+  # start has ended either way.
   now: ?bool,
   # How somebody is meant to be involved, recorded on the task and answered by List and Watch.
   # Default: UNATTENDED when a prompt is given, SHELL otherwise - so a caller that gives a prompt

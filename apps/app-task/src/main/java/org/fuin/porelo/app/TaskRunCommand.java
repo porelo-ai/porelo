@@ -312,13 +312,6 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean yes;
 
     @Option(
-            names = "--now",
-            description =
-                    "Returns as soon as the task exists, without waiting for the image"
-                            + " build. Needs --detach: there is nothing to attach to yet.")
-    private boolean now;
-
-    @Option(
             names = "--host",
             paramLabel = "<login>@<host>",
             description =
@@ -693,16 +686,6 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
         if (restarted) {
             return restarted(out, err);
-        }
-
-        if (now && !detach) {
-            // Refused rather than guessed at. Returning before the build finishes and then
-            // attaching would mean attaching to an image that is not there yet.
-            err.println(
-                    "porelo: --now needs --detach: there is nothing to attach to until the"
-                            + " image is built.");
-            err.flush();
-            return 64;
         }
 
         // Taking an organization's project can write state before the common launch runs.

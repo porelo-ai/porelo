@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B201",
   "title": "A Start Now, Built Or Removed",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 36,
@@ -48,6 +48,17 @@ container, the workspace and the helpers, then prints `attached  no`.
 
 **Red first:** `TaskRunCommandTest`: `--now` is refused as an unknown option, where today it is accepted and does
 nothing. The daemon's behavior does not change, so it gets no new test.
+
+## Built (2026-11-13)
+
+- `--now` is gone from `TaskRunCommand`, with its refusal without `--detach`; picocli refuses it as an option `task
+  start` does not have (`'--now' is not an option of 'porelo task start'`, exit 2).
+- `Tasks1`'s `Start` keeps `now: ?bool`, unread as before; its comment and `Start`'s own say it is unused and that
+  `Start` answers when its start has ended either way. `phase` is in use by now (the current start step's text,
+  from `StartStepFile.phase`), so it is not documented as unused: its comment loses only the reason that leaned on
+  `now`.
+- `doc/commands.md` loses the clause. No script, scenario, test or other document passed or named `--now` on `task
+  start`.
 
 ## Acceptance
 

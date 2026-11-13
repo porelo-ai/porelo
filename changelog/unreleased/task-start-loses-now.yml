@@ -1,0 +1,2 @@
+title: "`task start` no longer takes `--now`, which never changed what it did; the daemon's `Start` still accepts its `now` and ignores it, as it always did"
+type: removed

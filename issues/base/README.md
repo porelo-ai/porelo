@@ -302,11 +302,10 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
-| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. | - |
-| <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | S | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 
 ## Review
 
@@ -397,6 +396,7 @@ from its side, as *blocked by*.
 | <a id="b550"></a>[B550](B550-The-Host-Follows-Its-Organization-In-Java.md) | L | [B546](README.md#b546), [B547](README.md#b547) | `porelo-host org follow \| refresh \| renew-pin`; the project verbs called in-process. | - |
 | <a id="b48"></a>[B48](B48-The-Overview-That-Stays-Open.md) | M | - | `task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C. | - |
 | <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](README.md#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test; built, in review. | - |
+| <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | S | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. | 0 |
 | <a id="b547"></a>[B547](B547-Task-Accounts-And-Lent-Tokens-Through-The-Host-Tool.md) | L | [B541](README.md#b541) | `porelo-host task start \| end`, `forge issue-token \| lend-token`, for `SUDO_USER` alone; porelo's callers switched. | - |
 | <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
 | <a id="b546"></a>[B546](B546-The-Host-Tool-Measures-Copies-And-Advances-A-Project.md) | L | [B545](README.md#b545) | `porelo-host project measure-central \| copy \| advance \| check-central`. | - |
