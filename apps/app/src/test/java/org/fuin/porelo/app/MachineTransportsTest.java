@@ -660,6 +660,7 @@ class MachineTransportsTest {
         new TransportLifecycle(context, context.paths().messaging().transportDirectory())
                 .setup("room", "p", Map.of());
         final Mailbox review = new Mailbox(dir.resolve("review"));
+        review.create();
         said(context, "t1--room-person-one.json", "@bob:hs", "bob");
 
         conversations(context).pass(group(review));
@@ -804,7 +805,9 @@ class MachineTransportsTest {
                         + ":\", trust: \"external\"}\n");
         new TransportLifecycle(context, context.paths().messaging().transportDirectory())
                 .setup(scheme, "p", Map.of());
-        return new Mailbox(dir.resolve("review"));
+        final Mailbox review = new Mailbox(dir.resolve("review"));
+        review.create();
+        return review;
     }
 
     /** Where the host's files are in these tests, in place of the host's directory under /etc. */
@@ -874,7 +877,10 @@ class MachineTransportsTest {
         followed(context);
         new TransportLifecycle(context, context.paths().messaging().transportDirectory())
                 .setup("room", "p", Map.of());
-        return new Mailbox(dir.resolve("review"));
+        // Made, as a started task's is: nothing a transport hands over makes a mailbox.
+        final Mailbox review = new Mailbox(dir.resolve("review"));
+        review.create();
+        return review;
     }
 
     private static List<TransportConversations.Member> group(final Mailbox review) {

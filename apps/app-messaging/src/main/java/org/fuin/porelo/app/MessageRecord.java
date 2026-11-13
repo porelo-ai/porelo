@@ -12,7 +12,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -72,6 +71,8 @@ public final class MessageRecord {
     /** A file in the inbox that Porelo did not deliver, named once and never read. */
     public static final String PLANTED = "planted";
 
+    private final Mailbox mailbox;
+
     private final Path file;
 
     /**
@@ -80,6 +81,7 @@ public final class MessageRecord {
      * @param mailbox The mailbox whose record this is.
      */
     public MessageRecord(final Mailbox mailbox) {
+        this.mailbox = mailbox;
         this.file = mailbox.record().resolve(FILE);
     }
 
@@ -140,6 +142,9 @@ public final class MessageRecord {
         // Read and written under one lock: the daemon's pass and a command at the terminal wrote at
         // once, both read the same last hash, and the record then said it had been changed when
         // nobody had.
+        // Into a mailbox that exists only: a line written late for a removed task made its mailbox
+        // again, and its retired name stayed taken.
+        mailbox.ensure(mailbox.record());
         FileLocks.holding(
                 file.resolveSibling(".record.lock"),
                 () -> {
@@ -169,7 +174,6 @@ public final class MessageRecord {
         }
         line.put("previous", previous);
         line.put("hash", hash(previous, event, message, id, peer, detail, direction));
-        Directories.create(file.getParent());
         Files.writeString(
                 file,
                 Json.write(line) + System.lineSeparator(),

@@ -188,6 +188,44 @@ class TaskReservationsTest {
     }
 
     @Test
+    void aRemovedTasksRecordedMailIsArchivedAndItsNameIsFree() throws Exception {
+        // On the upgrade VM a removed task's record outlived it and its next start was refused.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final String id = "a".repeat(64);
+        try (var claim = new TaskReservations(context).reserve("web", "x", container, "first")) {
+            record(context, container, id);
+        }
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        mailbox.create();
+        new MessageRecord(mailbox).append(MessageRecord.TAKEN, "m-1.json", "m-1", "signed");
+        final String recorded = Files.readString(mailbox.record().resolve(MessageRecord.FILE));
+        runner.answering("ps", container + "\tExited (0)\t\t\tweb\tguarded\tr\t\t" + id + "\n");
+        runner.answering("{{.Names}}", container + "\n");
+
+        assertThat(new TaskControl(context).remove(container, false, true).removed()).isTrue();
+
+        assertThat(mailbox.root()).as("the mailbox went with the task").doesNotExist();
+        final List<Path> archived;
+        try (var found = Files.list(context.paths().messaging().archive())) {
+            archived = found.toList();
+        }
+        assertThat(archived)
+                .as("one archive of the removed task's record")
+                .singleElement()
+                .satisfies(
+                        kept -> {
+                            assertThat(kept.getFileName().toString()).startsWith(container + "-");
+                            assertThat(kept.resolve(MessageRecord.FILE)).hasContent(recorded);
+                        });
+        runner.answering("ps", "");
+        runner.answering("{{.Names}}", "");
+        try (var again = new TaskReservations(context).reserve("web", "x", container, "second")) {
+            assertThat(again).as("the name is free for the next start").isNotNull();
+        }
+    }
+
+    @Test
     void resumeCannotBypassContradictoryLegacyOwnership() throws Exception {
         final PoreloContext context = context().recognizingTasks();
         final String container = "porelo-web-x";

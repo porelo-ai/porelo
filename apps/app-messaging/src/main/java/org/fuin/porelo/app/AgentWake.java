@@ -292,7 +292,7 @@ public final class AgentWake {
             // another process: two paths that found the same message at the same moment of rest
             // typed it twice, and the second Enter broke into the turn the first had started
             // (2026-10-04).
-            Directories.create(mailbox.record());
+            mailbox.ensure(mailbox.record());
             return FileLocks.holding(
                     mailbox.record().resolve(".wake.lock"),
                     () -> announceHeld(mailbox, container, project, waking));
@@ -446,7 +446,12 @@ public final class AgentWake {
                     mailbox.exists()
                             ? mailbox.record()
                             : context.paths().tasks().taskRecord(container);
-            Directories.create(records);
+            if (records.equals(mailbox.record())) {
+                // Never the mailbox again, if its task was removed meanwhile.
+                mailbox.ensure(records);
+            } else {
+                Directories.create(records);
+            }
             return FileLocks.holding(
                     records.resolve(".wake.lock"),
                     () -> {

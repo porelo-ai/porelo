@@ -530,6 +530,44 @@ public final class Mailbox {
     }
 
     /**
+     * Makes a directory of this mailbox, and the ones between, only while the mailbox exists.
+     *
+     * <p>Each one is made on its own, never its parents with it: a writer that came late to a
+     * removed task - the daemon's conversation loop works on the tasks its last pass found - made
+     * the deleted mailbox again as its record, and the task's retired name stayed taken. Only
+     * {@link #create()} makes a mailbox.
+     *
+     * @param directory A directory in this mailbox.
+     * @return The directory.
+     * @throws java.nio.file.NoSuchFileException The mailbox is gone.
+     * @throws IOException Making it failed.
+     */
+    public Path ensure(final Path directory) throws IOException {
+        if (!directory.startsWith(root) || directory.equals(root)) {
+            throw new IllegalArgumentException(directory + " is not in the mailbox " + root);
+        }
+        if (!Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            throw new java.nio.file.NoSuchFileException(
+                    root.toString(), null, "the mailbox is gone");
+        }
+        Path at = root;
+        for (final Path name : root.relativize(directory)) {
+            at = at.resolve(name);
+            if (Files.isDirectory(at, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                continue;
+            }
+            try {
+                // Fails when its parent went meanwhile, so a deleted mailbox is never made again.
+                Files.createDirectory(at);
+                Files.setPosixFilePermissions(at, permissionsOf(at));
+            } catch (final java.nio.file.FileAlreadyExistsException madeMeanwhile) {
+                // Another writer made it; a link there is refused by whoever opens it.
+            }
+        }
+        return directory;
+    }
+
+    /**
      * Returns whether this mailbox exists.
      *
      * @return {@code true} when its root is a directory.

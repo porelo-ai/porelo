@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B610",
   "title": "A Removed Task's Kept Mail Record Frees Its Name",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 20,
@@ -50,6 +50,18 @@ free the name: the late write comes after it.
 4. Removal (`TaskControl`, removed path): before the mailbox is deleted, its `record` is copied into
    `<state>/mail-archive/<container>-<UTC stamp>/` (owner-only), outside what `TaskReservations` reads; then the
    mailbox goes as before. The reservation check stays.
+
+## Built (2026-11-13)
+
+- `Mailbox.ensure(path)` (app-base) makes folders inside an existing mailbox one level at a time, never the mailbox
+  itself, and answers `NoSuchFileException` once it is gone. `MessageRecord.append`, `TransportConversations.handOut`,
+  `AgentWake` and `BounceDelivery` use it instead of making every missing parent.
+- `handOut` drops a member whose mailbox is gone; `markRead` and `askRead` return at once for one.
+- `TaskControl.archiveRecord`, before the mailbox is deleted on both removal paths: the record's files, without lock
+  files, go to `<state>/mail-archive/<container>-<UTC stamp>/` (0700); a copy that fails keeps the mailbox.
+- Red first: `MessageRecordTest`, `TransportConversationsTest` and `TaskReservationsTest` each failed before. Three
+  `MachineTransportsTest` fixtures now make the task's mailbox, as a start does; they had relied on `handOut` making it.
+- doc/messages.md says where the kept record goes.
 
 ## Acceptance
 

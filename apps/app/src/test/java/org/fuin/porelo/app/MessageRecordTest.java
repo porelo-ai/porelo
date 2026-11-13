@@ -126,4 +126,21 @@ class MessageRecordTest {
         org.assertj.core.api.Assertions.assertThat(new MessageRecord(mailbox).firstBrokenLine())
                 .isZero();
     }
+
+    @Test
+    void an_append_to_a_deleted_mailbox_makes_no_mailbox_again(@TempDir final Path dir)
+            throws IOException {
+        // The daemon's read pass wrote a line into a removed task's record: the mailbox came back
+        // as its record, and the task's retired name stayed taken.
+        final Mailbox mailbox = mailbox(dir);
+        mailbox.delete();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                new MessageRecord(mailbox)
+                                        .append(MessageRecord.READ, "m-1.json", "m-1", "", "", ""))
+                .as("nothing is recorded for a mailbox that is gone")
+                .isInstanceOf(java.nio.file.NoSuchFileException.class);
+        assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
+    }
 }

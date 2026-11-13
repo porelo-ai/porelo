@@ -1400,6 +1400,24 @@ class TransportConversationsTest {
         assertThat(inbound).as("nothing waits for another pass").isEmptyDirectory();
     }
 
+    @Test
+    void aMessageForATaskRemovedMeanwhileMakesNoMailboxAgain() throws IOException {
+        // A conversation loop works on the members its last pass found: a task removed since
+        // got its mailbox back as an inbound and a record, and its name stayed taken.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", "review");
+        review.delete();
+        final Map<String, String> handed = new LinkedHashMap<>();
+        final List<String> said = new java.util.ArrayList<>();
+
+        TransportConversations.handOut(
+                inbound, List.of(member("porelo-p-review", review, "p", "room")), handed, said);
+
+        assertThat(review.root()).as("no mailbox made again").doesNotExist();
+        assertThat(handed).as("handed to nobody").isEmpty();
+    }
+
     private static Stream<Object> otherRecipients() {
         return Stream.of(
                 "someone-on-another-machine",

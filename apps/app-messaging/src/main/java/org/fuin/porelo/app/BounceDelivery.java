@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
-import org.fuin.porelo.wire.Directories;
 
 /**
  * Puts the filter's answers into the agent's own inbox.
@@ -43,7 +42,7 @@ public final class BounceDelivery {
             // discipline every other hop in the mailbox keeps. The host keeps its own copy, where
             // the agent cannot reach it: whether a message the filter answered may leave is read
             // from here, never from the agent's box, which the agent can empty.
-            Directories.create(MessageLookup.answers(mailbox));
+            mailbox.ensure(MessageLookup.answers(mailbox));
             Files.copy(
                     answer,
                     MessageLookup.answers(mailbox).resolve(name),

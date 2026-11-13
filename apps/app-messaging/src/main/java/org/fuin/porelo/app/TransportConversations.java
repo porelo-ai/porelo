@@ -638,7 +638,7 @@ final class TransportConversations {
 
     private static int handOut(
             Path inbound,
-            List<Member> members,
+            List<Member> found,
             Map<String, String> accounts,
             Map<String, String> heard,
             java.util.Set<String> persons,
@@ -649,7 +649,11 @@ final class TransportConversations {
             @Nullable HelperAnswer answer)
             throws IOException {
         final String project =
-                members.isEmpty() ? "this project" : "'" + members.getFirst().project() + "'";
+                found.isEmpty() ? "this project" : "'" + found.getFirst().project() + "'";
+        // A task removed since the members were found is none: what came for it went into a
+        // mailbox made again, and its retired name stayed taken.
+        final List<Member> members =
+                found.stream().filter(member -> member.mailbox().exists()).toList();
         final Map<String, String> displays = new LinkedHashMap<>();
         members.stream()
                 .filter(member -> member.display() != null)
@@ -752,7 +756,7 @@ final class TransportConversations {
                                 + " on this machine is to read it");
             }
             for (final Member to : readers) {
-                Directories.create(to.mailbox().inbound());
+                to.mailbox().ensure(to.mailbox().inbound());
                 if (person != null) {
                     Files.writeString(
                             to.mailbox().inbound().resolve(name + MessageDelivery.PERSON_SUFFIX),
@@ -777,7 +781,7 @@ final class TransportConversations {
                         to.mailbox().inbound().resolve(name),
                         StandardCopyOption.REPLACE_EXISTING,
                         StandardCopyOption.ATOMIC_MOVE);
-                Directories.create(to.mailbox().record());
+                to.mailbox().ensure(to.mailbox().record());
                 Files.writeString(
                         to.mailbox().record().resolve(ARRIVED),
                         name + "\n",
@@ -798,6 +802,10 @@ final class TransportConversations {
 
     private List<String> markRead(Path adapter, Member member, List<String> failures)
             throws IOException {
+        if (!member.mailbox().exists()) {
+            // Removed since the members were found: nothing of it is marked or written.
+            return List.of();
+        }
         final Set<String> taken = taken(member.mailbox());
         if (taken.isEmpty()) {
             return List.of();
@@ -867,7 +875,7 @@ final class TransportConversations {
      */
     private void askRead(Path adapter, Member member, List<String> failures) throws IOException {
         final Path sent = member.mailbox().sent();
-        if (!Files.isDirectory(sent)) {
+        if (!member.mailbox().exists() || !Files.isDirectory(sent)) {
             return;
         }
         final Set<String> answered = lines(member.mailbox().record().resolve(ANSWERED));

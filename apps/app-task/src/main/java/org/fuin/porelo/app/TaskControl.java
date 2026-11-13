@@ -284,6 +284,8 @@ public final class TaskControl {
                         new TaskState(context).forget(container);
                         new TaskSession(context).forget(container);
                         new TaskSecrets(context).forget(container);
+                        // Kept before the mailbox goes; a copy that fails keeps the mailbox.
+                        archiveRecord(container);
                         retireDeleting(
                                 container, () -> new TaskResult(context.paths()).forget(container));
                         return new Stopped(
@@ -728,6 +730,12 @@ public final class TaskControl {
                                 + ex.getMessage());
             }
             // The mailbox outlives the container on purpose, so this is the one place it ends.
+            try {
+                archiveRecord(container);
+            } catch (final java.io.IOException e) {
+                throw new java.io.UncheckedIOException(
+                        "Removed the task but could not delete its mailbox: " + container, e);
+            }
             retireDeleting(container, () -> {});
         }
         return new Stopped(
@@ -822,6 +830,56 @@ public final class TaskControl {
                 Thread.currentThread().interrupt();
                 return;
             }
+        }
+    }
+
+    /**
+     * Keeps a removed task's record of its mail - the hash-chained log and what the transports
+     * marked - in the mail archive, before its mailbox goes with it.
+     *
+     * <p>Outside the mailboxes: a retired name is taken while anything of its mailbox is left, and
+     * a record kept in it held the name of a task removed with signed, recorded mail. A record that
+     * cannot be kept stops the removal of the mailbox, so the evidence is never lost.
+     *
+     * @param container The removed task.
+     * @throws IOException The record could not be copied.
+     */
+    private void archiveRecord(String container) throws IOException {
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        final Path record = mailbox.record();
+        if (!Files.isDirectory(record, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        final List<Path> files;
+        try (java.util.stream.Stream<Path> tree = Files.walk(record)) {
+            files =
+                    tree.filter(
+                                    path ->
+                                            Files.isRegularFile(
+                                                            path,
+                                                            java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                                    && !path.getFileName()
+                                                            .toString()
+                                                            .endsWith(".lock"))
+                            .toList();
+        }
+        if (files.isEmpty()) {
+            return;
+        }
+        // Stamped, so a name started again and removed again keeps both.
+        final String stamp =
+                java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssSSS'Z'")
+                        .withZone(java.time.ZoneOffset.UTC)
+                        .format(java.time.Instant.now());
+        final Path into = context.paths().messaging().archive().resolve(container + "-" + stamp);
+        Directories.create(context.paths().messaging().archive());
+        Files.createDirectory(into);
+        Files.setPosixFilePermissions(
+                into, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        for (final Path file : files) {
+            final Path target = into.resolve(record.relativize(file).toString());
+            Directories.create(target.getParent());
+            Files.copy(file, target, java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
         }
     }
 

@@ -38,6 +38,18 @@ public record MessagingPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory where a removed task's record of its mail is kept.
+     *
+     * <p>Beside {@link #mailboxes()}, not in it: a retired name is taken while anything of its
+     * mailbox is left, and the evidence of what a task sent and received must not hold its name.
+     *
+     * @return The directory, which may not exist yet.
+     */
+    public Path archive() {
+        return paths.xdg().state().resolve("mail-archive");
+    }
+
+    /**
      * Returns the file holding this machine's own message key, which signs no message any more: a
      * task signs with its own key. Kept while an interface still asks for the key and clearing
      * still names its line, so a project that lists it can drop it.

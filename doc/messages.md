@@ -123,7 +123,8 @@ the server's display names are read for the operator's room dialog.
   or undelivered; `--rescue` hands it over first, `--force` removes regardless.
 - **What happened to each message is in a hash-chained record on this machine**, never its text in the log;
   `porelo talk verify` names the first entry that does not check out. Refused originals are readable only by
-  your account and go when the task is removed.
+  your account and go when the task is removed; the record itself is kept, readable only by your account, in
+  `mail-archive/<container>-<time>` of the state directory, so the task's name is free for its next start.
 - **A person's message is taken from outside what the task can see or write**, which is what lets it count as a
   person's; a task that writes a message claiming to be a person's has it held.
 
