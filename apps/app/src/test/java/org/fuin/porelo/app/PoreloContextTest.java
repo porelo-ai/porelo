@@ -145,4 +145,32 @@ class PoreloContextTest {
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
                 .containsOnlyKeys("anthropic");
     }
+
+    @Test
+    void aProcessThatDecryptsTheVaultIsUndumpableFromThatReadOn(@TempDir Path dir)
+            throws IOException {
+
+        // The start checks the vault's credentials in the ordinary command process; a crash after
+        // that read wrote every decrypted entry to a core file, as the brokers' own reads never do.
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        final PoreloContext context = context(dir);
+        writeVault(context, Map.of("anthropic", VaultEntry.of("sk-test-value")), PASSPHRASE);
+        keyring.store(PASSPHRASE);
+        try {
+            org.fuin.porelo.core.hardening.ProcessHardening.setDumpable(1);
+
+            assertThat(context.readableCredentials()).isPresent();
+            assertThat(org.fuin.porelo.core.hardening.ProcessHardening.dumpable()).isZero();
+
+            org.fuin.porelo.core.hardening.ProcessHardening.setDumpable(1);
+            assertThat(context.readableGrants()).isPresent();
+            assertThat(org.fuin.porelo.core.hardening.ProcessHardening.dumpable())
+                    .as("the grants are read from the same vault")
+                    .isZero();
+        } finally {
+            org.fuin.porelo.core.hardening.ProcessHardening.setDumpable(1);
+        }
+    }
 }

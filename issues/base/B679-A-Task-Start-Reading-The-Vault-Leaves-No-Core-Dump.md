@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B679",
   "title": "A Task Start Reading The Vault Leaves No Core Dump",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 40,
@@ -35,3 +35,20 @@ it.
 ## Acceptance
 
 - A start that checks repository credentials is undumpable from that read on; a test fails while it is not.
+
+## Done
+
+- **One place before every read.** `PoreloContext.beforeDecrypting()` calls `ProcessHardening.disableDumping()`, as
+  the brokers do. `PoreloContext` calls it before each of its three vault reads (the passphrase check in
+  `requireOpener`, `readableCredentials`, through which `credentials()` reads too, and `readableGrants`), and the
+  start's command mask before its own `vault.read`. So the start's credential check in `CredentialWiring` and
+  `StartCheck`, which read through `PoreloContext`, is undumpable from that read on, and so is every other command
+  that reads the vault through it. Asked on every read; it costs one system call and holds for the process's life.
+- **Red first.** `PoreloContextTest.aProcessThatDecryptsTheVaultIsUndumpableFromThatReadOn` reads the credentials
+  and the grants of a real vault through the kernel keyring and found the process still dumpable before.
+- **Kept.** No zero core limit: the brokers set none either. With the flag the kernel writes a core only where
+  `fs.suid_dumpable` is 2, and then readable by root alone, never by the account. Commands in `app-vault` that read through `VaultFile` directly, not through `PoreloContext`, are not in
+  this issue; the brokers among them already call `disableDumping`.
+- **Docs.** `doc/decisions.md` says every command process calls it before it decrypts the vault. Changelog under
+  *Fixed*.
+- **Locally.** apps/app (4726) passed whole, and so did the root's `validate` and `-Pdocuments test`.

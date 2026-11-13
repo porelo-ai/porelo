@@ -620,7 +620,8 @@ another process's memory takes the same uid that already reads the vault file an
 keyring, so wiping the copies in memory keeps nobody out who is not in already. A core dump is the copy that is
 written somewhere without anybody asking; core dumps of the processes that hold a secret are turned off with
 `prctl(PR_SET_DUMPABLE, 0)` (`ProcessHardening.disableDumping`), which the daemon, the broker and the ssh agent call
-before they read a secret; the relay carries bytes only. **What would change the answer:** a process that holds secrets running under a uid of its own, so that
+before they read a secret, and which every command process calls before it decrypts the vault, a task's start among
+them; the relay carries bytes only. **What would change the answer:** a process that holds secrets running under a uid of its own, so that
 reading its memory is no longer the same as reading the vault; a core dump that cannot be turned off; or an HTTP
 client that takes a header as bytes, which would make the change much cheaper than the thirty-odd callers it touches
 today.

@@ -1,0 +1,2 @@
+title: "A command that decrypts the vault, a task's start among them, makes itself undumpable first, so a crash never writes a decrypted credential to a core file"
+type: fixed
