@@ -318,8 +318,8 @@ public final class ProjectReader {
     }
 
     /**
-     * Returns where a reading writes its findings: the file's directory, else the default. A
-     * repository's own file is merged into the file before, so its directory wins.
+     * Returns where a reading writes its findings: the project file's directory, else the default.
+     * A repository's own file may not name one.
      *
      * @param file The file, checked.
      */

@@ -283,8 +283,8 @@ extensions:
       corp: "*"                    # this repository stands in for every other
 
 # Optional. Where a reading of an issue writes its findings, <directory>/<ISSUE>-reading-<round>.md:
-# relative to the repository's root and inside it, so no '..' and no leading '/'. A repository's own
-# porelo.yml may name its own. A task is told it in PORELO_READINGS_DIRECTORY.
+# relative to the repository's root and inside it, so no '..' and no leading '/'. Only this file names
+# it; a repository's porelo.yml that does is refused. A task is told it in PORELO_READINGS_DIRECTORY.
 readings:
   directory: "readings"            # the default
 

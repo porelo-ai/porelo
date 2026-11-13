@@ -74,19 +74,17 @@ class ReadingsDirectoryTest {
     }
 
     @Test
-    void aRepositorysOwnDirectoryWins() {
-        final ProjectReader.WithRepository read =
-                withRepository(
-                        "readings:\n  directory: \"doc/readings\"\n",
-                        "readings:\n  directory: \"review\"\n");
-
-        assertThat(read.project().readingsDirectory())
-                .as("the repository's porelo.yml names its own")
-                .isEqualTo("review");
-        assertThat(read.asked())
-                .as("asked of the machine like the repository's other settings")
-                .extracting(RepositorySettings.Asked::key)
-                .containsExactly("readings.directory");
+    void aRepositorysPoreloYmlNamingReadingsIsRefusedByItsName() {
+        // Where readings go is the signed project file's alone: a repository's own file could
+        // otherwise move them where its tasks may write what they like.
+        assertThatThrownBy(
+                        () ->
+                                withRepository(
+                                        "readings:\n  directory: \"doc/readings\"\n",
+                                        "readings:\n  directory: \"review\"\n"))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining(
+                        "porelo.yml of shop, line 1: 'readings' is the project's to say");
     }
 
     @Test
@@ -96,12 +94,5 @@ class ReadingsDirectoryTest {
                                 .project()
                                 .readingsDirectory())
                 .isEqualTo("doc/readings");
-    }
-
-    @Test
-    void aRepositorysDirectoryOutsideItIsRefused() {
-        assertThatThrownBy(() -> withRepository("", "readings:\n  directory: \"../x\"\n"))
-                .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("readings.directory");
     }
 }
