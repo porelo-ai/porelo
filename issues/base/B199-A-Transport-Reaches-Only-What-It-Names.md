@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B199",
   "title": "A Transport Reaches Only What It Names",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "Medium",
   "rank": 14,
@@ -76,3 +76,25 @@ Building the rule is filed apart as [B743](README.md#b743) (L, Medium).
 
 - Whether `doc/how-it-works.md`, `doc/reach.md` or `doc/messages.md` repeat the promise in other words, to be corrected
   in the same change.
+
+## Built
+
+Docs only, as the operator decided.
+
+- `doc/transports.md` (`reaches`):
+  - `reaches` is the transport's own word.
+  - Porelo shows it in `porelo doctor` and in the conversation the daemon describes, and checks it only for an
+    offline project: `--loopback-only` is passed to setup, enroll, join, part and members, and a `reaches` naming a
+    host beyond loopback is refused after each setup and before a task enrolls.
+  - A new bullet, "Porelo does not confine a transport": every verb runs as the account's own program, with the
+    account's network, files and user bus.
+- `doc/decisions.md`:
+  - The homeserver entry and its index row are corrected the same way.
+  - A new accepted entry, with its index row, "A transport reaches what the account reaches": the exposure, why it
+    stays, and what would change the answer.
+  - The rule itself is marked "(not yet built)"; it is [B743](README.md#b743). Docs cite no issue numbers.
+- `doc/messages.md` repeated the promise in its offline bullet and now says the same as `transports.md`.
+  `doc/how-it-works.md` and `doc/reach.md` make no such promise.
+- The pages do not say that an empty `reaches` is refused; that is [B740](README.md#b740).
+- Checks: check-readmes and check-doc-site pass. `DecisionsIndexedTest` and `MailboxGuideTest` pass on the build box
+  (`buildbox-porelo-15f4d845a16d-20261113T174019Z.log`, 4 tests, 0 skipped).

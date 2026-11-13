@@ -131,9 +131,14 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
 - **`setup` is run again and again** and keeps what exists. Porelo runs one `setup` of a transport's account at a
   time, reading the account's secrets inside, so starts at once give the transport the secret the first one kept. A server whose first account exists while Porelo holds
   no account secrets is refused (78), not guessed around.
-- **`reaches`** is every host the project's messages reach; Porelo lets the transport reach those and nothing else.
-  For an offline project Porelo adds `--loopback-only` to `setup`, `enroll`, `join`, `part` and `members`, and the transport refuses
-  (78) before it contacts anything but loopback.
+- **`reaches`** is every host the project's messages reach, in the transport's own word. Porelo shows it, in
+  `porelo doctor` and in the conversation the daemon describes to an interface, and checks it only for an offline
+  project: it adds `--loopback-only` to `setup`, `enroll`, `join`, `part` and `members`, and the transport refuses
+  (78) before it contacts anything but loopback; after every `setup`, and again before a task enrolls, Porelo refuses
+  a conversation whose `reaches` names a host other than loopback.
+- **Porelo does not confine a transport.** Every verb, `poll` and `send` among them, runs as the account's own
+  program with the account's network, its files and its user bus; nothing holds it to the hosts `reaches` names.
+  Installing a transport trusts it as any other program of the account.
 - **`--login LOGIN`** is added to `setup`, `enroll`, `retire`, `join`, `members` and `clear` for a transport that `takes`
   it; `admit` and `dismiss` carry the other machine's name instead, and no login is added. `LOGIN` is this account's
   login on the host, which is the person's, always, never the `login` a `setup` answered; Porelo refuses (78) before

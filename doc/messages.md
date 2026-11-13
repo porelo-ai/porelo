@@ -67,8 +67,10 @@ mail:
 
 - **Without `homeserver`**, the conversation is on a homeserver of your own account, run as a user unit on a
   port Porelo picks and keeps. It needs no root, and no other user on the machine shares it.
-- **An `offline` project** messages through a homeserver on this machine's loopback only; a declared
-  homeserver anywhere else refuses its tasks before they start.
+- **An `offline` project** messages through a homeserver on this machine's loopback only: the transport is told to
+  contact nothing else, and a conversation it says reaches anywhere else refuses the project's tasks before they
+  start. That is the transport's word: it runs as your account's own program with your account's network, and
+  Porelo does not confine it ([writing a transport](transports.md) says what is checked).
 - **On a shared homeserver every account is a person's**, named by their login, whatever machine they sit at: the
   transport is given this account's login and suffixes each account it makes with it, so two people's tasks of the
   same name never meet on one name.
