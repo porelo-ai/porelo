@@ -42,6 +42,9 @@ class TaskCertifyCommandTest {
                     {project, "fix", "--host=a@h", "--project="},
                     {host, "fix", "--host=-oProxyCommand@h", "-p", "uc"},
                     {own, "porelo-uc-fix", "--host=a@h", "-p", "uc"},
+                    // A container's name of today, by either beginning, is no task's either.
+                    {own, "porelo-uc_fix", "--host=a@h", "-p", "uc"},
+                    {own, "porelo_fix", "--host=a@h", "-p", "porelo"},
                     {
                         "porelo: --host needs a project's name, [a-z0-9][a-z0-9-]{0,62}",
                         "fix",

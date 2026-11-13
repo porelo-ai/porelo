@@ -200,7 +200,7 @@ make_project() {
 start() {
     local task=$1 out=$2
     shift 2
-    CONTAINERS+=("porelo-$PROJECT-$task")
+    CONTAINERS+=("porelo-${PROJECT}_$task")
     timeout 900 porelo task start "$task" --project "$PROJECT" --repository "$PROJECT" --agent stub \
         --detach --clearance deny "$@" >"$out" 2>&1
 }
@@ -371,7 +371,7 @@ code=$?
 shown <"$WORK/loose.out" | tail -n 15
 read_ "start: exit $code"
 point "$code" "" "a --no-gate task starts"
-LOOSE="porelo-$PROJECT-loose"
+LOOSE="porelo-${PROJECT}_loose"
 timeout 300 porelo task stop "$LOOSE" >"$WORK/stop.out" 2>&1
 read_ "stop: exit $?"
 
@@ -414,7 +414,7 @@ step "Start with an unknown -r, alone and together with a name no task may have,
 timeout 300 porelo task start fine --project "$PROJECT" -r no-such-repository --agent stub --detach \
     --clearance deny >"$WORK/alone.out" 2>&1
 alone=$?
-CONTAINERS+=("porelo-$PROJECT-fine")
+CONTAINERS+=("porelo-${PROJECT}_fine")
 timeout 300 porelo task start 'Not Fine' --project "$PROJECT" -r no-such-repository --agent stub --detach \
     --clearance deny >"$WORK/twice.out" 2>&1
 twice=$?

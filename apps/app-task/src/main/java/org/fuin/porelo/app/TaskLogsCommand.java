@@ -109,7 +109,8 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         // checkout.
         if (container != null
                 && log == null
-                && !TaskTarget.spelled(context, container).startsWith("porelo-")) {
+                && !org.fuin.porelo.runtime.ContainerName.isPorelo(
+                        TaskTarget.spelled(context, container))) {
             final java.util.List<String> started =
                     TaskTarget.fromCheckout(context, java.nio.file.Path.of("."));
             if (started != null && started.size() == 1) {
@@ -308,7 +309,7 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
             final PrintWriter err,
             final String container,
             final List<TaskInventory.Log> logs) {
-        final String name = container.substring("porelo-".length());
+        final String name = org.fuin.porelo.runtime.ContainerName.unprefixed(container);
         final java.nio.file.Path target =
                 zip == null || zip.isBlank()
                         ? java.nio.file.Path.of(
@@ -366,7 +367,7 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
         return TaskLogArchive.write(
                 target,
-                container.substring("porelo-".length()),
+                org.fuin.porelo.runtime.ContainerName.unprefixed(container),
                 new TaskInventory(context)
                         .logs(container).stream().map(each -> state.resolve(each.name())).toList(),
                 said(context, container),

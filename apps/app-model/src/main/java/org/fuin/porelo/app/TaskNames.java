@@ -37,9 +37,6 @@ public final class TaskNames {
         if (base.isEmpty() || ContainerName.reserved(base)) {
             base = "work";
         }
-        if (ContainerName.reserved(project, base)) {
-            base += "-work";
-        }
         final java.util.Set<String> taken = new java.util.HashSet<>();
         final java.util.Set<String> logical = new java.util.HashSet<>();
         final TaskIdentities identities = new TaskIdentities(context);
@@ -58,9 +55,10 @@ public final class TaskNames {
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException("Cannot check reserved task names", ex);
         }
-        final String prefix = ContainerName.PREFIX + project + "-";
         String chosen = fitted(project, base, "");
-        for (int at = 2; taken.contains(prefix + chosen) || logical.contains(chosen); at++) {
+        for (int at = 2;
+                taken.contains(ContainerName.contract(project, chosen)) || logical.contains(chosen);
+                at++) {
             chosen = fitted(project, base, "-" + at);
         }
         return chosen;

@@ -973,6 +973,42 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aTaskOfProjectPoreloUnderItsNewNameIsListedStoppedAndRemoved(@TempDir Path dir)
+            throws IOException {
+        // Taken for no task by its beginning, porelo_pi ran on unlisted, and stop and remove
+        // refused it as somebody else's container.
+        final PoreloContext context = context(dir);
+        final String id = "c0ffeec0ffee";
+        TaskIdentityFixture.running(context.paths(), "porelo_pi", "porelo", "pi", id);
+        tasks(
+                "porelo_pi\tUp 4 minutes\t1700000000\t0\tporelo\tguarded\tporelo\t\t"
+                        + id
+                        + "\tpi\n");
+
+        assertThat(execute(context, "task", "list")).as("%s", err).isZero();
+        assertThat(out.toString())
+                .as("listed by its own task, beside its project")
+                .doesNotContain("No tasks.")
+                .contains("pi ")
+                .contains("porelo");
+
+        assertThat(execute(context, "task", "stop", "porelo_pi")).as("%s", err).isZero();
+        assertThat(runner.lines())
+                .as("stopped by the id its identity records")
+                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith(id));
+
+        tasks(
+                "porelo_pi\tExited (0) 1 minute ago\t1700000000\t0\tporelo\tguarded\tporelo\t\t"
+                        + id
+                        + "\tpi\n");
+        UnhandedWork.note(
+                context.paths().tasks().containerState("porelo_pi"),
+                new UnhandedWork.Held(true, 0, 0, null));
+        assertThat(execute(context, "task", "remove", "porelo_pi")).as("%s", err).isZero();
+        assertThat(runner.lines()).anyMatch(line -> line.startsWith("podman rm"));
+    }
+
+    @Test
     void stoppingReapsTheHelpersAndSaysHowMany(@TempDir Path dir) throws Exception {
 
         final PoreloContext context = context(dir);

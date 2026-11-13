@@ -553,7 +553,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return "--host needs a project's name, " + RemoteStart.PROJECT;
         }
         // The host would take a container's spelling for the task it names, and certify that.
-        if (!org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, task).equals(task)) {
+        if (org.fuin.porelo.runtime.ContainerName.isPorelo(task)) {
             return "--host needs the task's own name, not its container's";
         }
         final java.util.Optional<String> misnamed =
@@ -878,7 +878,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     // its names, as for every other task command: a stopped one is brought back
                     // without its project named.
                     projectName = existing.project();
-                    task = existing.name().substring(("porelo-" + projectName + "-").length());
+                    task = new TaskIdentities(context).taskOf(existing.name(), projectName);
                     spec.commandLine()
                             .getOut()
                             .println(
@@ -1203,9 +1203,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                     .attachedAgent(existing.container(), out),
                                             existing.project()
                                                     + "/"
-                                                    + org.fuin.porelo.runtime.ContainerName.taskIn(
-                                                            existing.project(),
-                                                            existing.container())),
+                                                    + new TaskIdentities(context)
+                                                            .taskOf(
+                                                                    existing.container(),
+                                                                    existing.project())),
                             terminal.getAsBoolean(),
                             out,
                             err);

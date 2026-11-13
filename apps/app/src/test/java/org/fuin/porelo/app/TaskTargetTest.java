@@ -164,7 +164,7 @@ class TaskTargetTest {
     }
 
     @Test
-    void defaultNamesCountBothFormatsAndAvoidTheLoginNamespace() {
+    void defaultNamesCountBothFormatsAndProjectPoreloTakesALoginsShape() {
         // An unnamed start must not take over an existing task or become login cleanup's target.
         listed =
                 "porelo-default_utils4j\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\t"
@@ -178,7 +178,8 @@ class TaskTargetTest {
         assertThat(TaskNames.fromRepository(context, "default", "porelo-utils4j"))
                 .isEqualTo("utils4j-3");
         assertThat(TaskNames.fromRepository(context, "porelo", "login-123"))
-                .isEqualTo("login-123-work");
+                .as("porelo_login-123 has no login container's shape")
+                .isEqualTo("login-123");
     }
 
     private static final String ID = "a".repeat(64);

@@ -389,14 +389,14 @@ fi
 # ---------------------------------------------------------------- deliveries
 
 step "Start task '$TASK' in the project"
-CONTAINERS+=("porelo-$PROJECT-$TASK")
+CONTAINERS+=("porelo-${PROJECT}_$TASK")
 timeout 900 porelo task start "$TASK" --project "$PROJECT" --repository "$PROJECT" --agent stub --detach \
     --clearance deny >"$WORK/start.out" 2>&1
 code=$?
 shown <"$WORK/start.out" | tail -n 30
 read_ "exit $code"
 CONTAINER=$(container_of "$WORK/start.out")
-[ -n "$CONTAINER" ] || CONTAINER="porelo-$PROJECT-$TASK"
+[ -n "$CONTAINER" ] || CONTAINER="porelo-${PROJECT}_$TASK"
 point "$code" "" "an online task starts against the forge"
 [ "$code" = 0 ] || finish
 for _ in $(seq 120); do

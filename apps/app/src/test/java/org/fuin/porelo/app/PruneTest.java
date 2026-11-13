@@ -306,6 +306,25 @@ class PruneTest {
     }
 
     @Test
+    void whatIsKeptForATaskOfProjectPoreloUnderItsNewNameIsALeftoverOnceItsContainerIsGone()
+            throws IOException {
+        // Taken for no task by its beginning, porelo_old's records stayed for good.
+        final PoreloContext context = context();
+        Files.createDirectories(context.paths().tasks().taskRecord("porelo_old"));
+        new Mailbox(context.paths().messaging().mailbox("porelo_old")).create();
+        age(context.paths().xdg().state());
+
+        final Prune.Result result = new Prune(context).run(true, false);
+
+        assertThat(result.removes())
+                .as(result.toString())
+                .extracting(Prune.Item::name)
+                .contains("porelo_old");
+        assertThat(context.paths().tasks().taskRecord("porelo_old")).doesNotExist();
+        assertThat(context.paths().messaging().mailbox("porelo_old")).doesNotExist();
+    }
+
+    @Test
     void aMailboxItsRemovalCouldNotDeleteIsALeftoverOnceItsNameIsRetired() throws IOException {
         // A removal retires the name though the mailbox stayed: what stayed is offered here.
         final PoreloContext context = context();

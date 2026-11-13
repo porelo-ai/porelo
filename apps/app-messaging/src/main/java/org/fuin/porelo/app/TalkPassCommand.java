@@ -52,8 +52,8 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
             return 64;
         }
         if (!container.matches(
-                container.startsWith("porelo-")
-                        ? "porelo-[a-z0-9_-]+"
+                org.fuin.porelo.runtime.ContainerName.isPorelo(container)
+                        ? org.fuin.porelo.runtime.ContainerName.NAME_PATTERN
                         : org.fuin.porelo.core.project.Project.TASK_NAME_PATTERN)) {
             err.println("porelo: " + container + " is no task's container name");
             err.flush();

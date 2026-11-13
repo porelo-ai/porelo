@@ -363,7 +363,8 @@ class TaskStateTest {
                                         ID)));
         assertThat(new TaskIdentities(context).newTaskRefusal("porelo", "login-123")).isEmpty();
         assertThat(new TaskIdentities(identities("")).newTaskRefusal("porelo", "login-123"))
-                .isPresent();
+                .as("a new task porelo_login-123 has no login container's shape")
+                .isEmpty();
         assertThat(context.paths().tasks().containerState(name)).doesNotExist();
         assertThat(context.podman().loginContainers("agent")).doesNotContainKey(name);
         assertThat(new TaskInventory(context).tasks())

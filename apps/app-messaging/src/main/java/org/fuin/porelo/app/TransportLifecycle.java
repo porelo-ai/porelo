@@ -483,16 +483,12 @@ final class TransportLifecycle {
 
     /**
      * Returns the name a task has in a transport's contract: {@code porelo-<project>-<task>} from
-     * its own name, so a room reads it as the project's task; the container itself where its own
-     * name cannot be found, as a task made before is named so already.
+     * the task its identity names, so a room reads it as the project's task; the container itself
+     * where no identity names one.
      */
     private String contractName(String project, String container) throws IOException {
-        // A task made before is named in the contract's form already: no lookup in podman, which
-        // a start would otherwise wait on at every enroll.
-        if (!project.equals("porelo")
-                && container.startsWith(ContainerName.contract(project, ""))) {
-            return container;
-        }
+        // Never from the name's beginning: porelo-<project>-a_x is project <project>'s task x
+        // under the short name <project>-a, not its task a_x.
         final String own = enrollmentTask(project, container);
         return own == null ? container : ContainerName.contract(project, own);
     }
@@ -500,7 +496,7 @@ final class TransportLifecycle {
     private @Nullable String enrollmentTask(String project, String container) throws IOException {
         final String logical = TaskRecipients.task(context, container, project);
         if (logical != null) return logical;
-        if (!container.matches("porelo-[a-z0-9_-]+")) return null;
+        if (!container.matches(ContainerName.NAME_PATTERN)) return null;
         final var pending = new TaskReservations(context).unmade(container);
         return pending != null && project.equals(pending.project()) ? pending.task() : null;
     }
@@ -1554,7 +1550,7 @@ final class TransportLifecycle {
     }
 
     private boolean owns(String project, String container) {
-        if (!container.matches("porelo-[a-z0-9_-]+")) return false;
+        if (!container.matches(ContainerName.NAME_PATTERN)) return false;
         final var identity = new TaskIdentities(context).lookup(container, null);
         if (identity instanceof TaskIdentities.Found found) {
             return project.equals(found.identity().project());

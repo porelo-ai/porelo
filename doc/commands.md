@@ -1277,20 +1277,18 @@ that would work.
   (holding `project.yml`) is named after the project, and a task works there only in a project that lists no others.
 - A task name is lowercase letters, digits and hyphens, starts and ends with a letter or digit, is not
   only digits, is neither `people` nor `person` (the names a message gives the room's people and a person's own
-  note), does not begin with `porelo-`, the beginning of a container's name, and `porelo-<project>-<task>` is at
-  most 64 characters. A container name such as
-  `porelo-myproject_backend` is taken as the task `backend`.
-- New tasks in project `porelo` cannot be named `login-<digits>`; choose another name. An unnamed task
-  from such a repository uses `login-<digits>-work` before numbering. Existing legacy tasks keep that
-  logical name and remain usable by their original container name.
+  note), does not begin with `porelo-`, the beginning of a container's name, and its name in a transport's
+  contract, `porelo-<project>-<task>`, is at most 64 characters. A container name such as
+  `porelo-myproject_backend` is taken as the task its recorded identity names, `backend`.
 
-Task lookup checks the recorded container id and the project label or saved sidecar. It accepts legacy
-`porelo-<project>-<task>` names and, with an explicit logical-task label, `porelo-<task>` in project
-`porelo` or `porelo-<project>_<task>` elsewhere. An exact actual name takes precedence over a logical
-name; ambiguous or inconsistent ownership is refused. Hyphens and numeric suffixes are part of the task
-name. Existing containers, state directories and sockets keep their actual names.
+Task lookup checks the recorded container id and the project label or saved sidecar; the task and project
+are taken from those, never read out of the container's name. It accepts legacy `porelo-<project>-<task>`
+names and, with an explicit logical-task label, `porelo_<task>` in project `porelo` (`porelo-<task>` for
+one made before) or `porelo-<project>_<task>` elsewhere. An exact actual name takes precedence over a
+logical name; ambiguous or inconsistent ownership is refused. Hyphens and numeric suffixes are part of
+the task name. Existing containers, state directories and sockets keep their actual names.
 
-A new task is made under the new form: `porelo-<task>` in project `porelo`, `porelo-<project>_<task>`
-elsewhere, with the project's `short` and the start's `--short` in place of either name when given. A
-start by logical name finds a task made before under its old name and brings it back; it is never made
-again under the new one.
+A new task is made under the new form: `porelo_<task>` in project `porelo`, `porelo-<project>_<task>`
+elsewhere, with the project's `short` and the start's `--short` in place of either name when given. No
+other project's task has either form. A start by logical name finds a task made before under its old
+name and brings it back; it is never made again under the new one.

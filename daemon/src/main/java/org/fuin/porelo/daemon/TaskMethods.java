@@ -233,7 +233,7 @@ final class TaskMethods {
         }
         if (!(parameters.get("task") instanceof String task)
                 || !ContainerName.isTask(task)
-                || !task.matches("porelo-[a-z0-9_-]+")) {
+                || !task.matches(ContainerName.NAME_PATTERN)) {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", "task"));
         }
@@ -704,7 +704,7 @@ final class TaskMethods {
                     final java.nio.file.Path target =
                             archives.resolve(
                                     org.fuin.porelo.app.TaskLogArchive.defaultName(
-                                            task.substring("porelo-".length()),
+                                            ContainerName.unprefixed(task),
                                             java.time.Instant.now()));
                     final List<String> files;
                     try {

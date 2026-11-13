@@ -59,6 +59,27 @@ class LoopWatchCommandTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    void everyTaskIsWatchedWhicheverBeginningItsNameHas(boolean records) throws Exception {
+        // A task of project porelo is porelo_pi: a listing of names beginning 'porelo-' missed it,
+        // and its loop ran on unseen. podman here filters as podman does.
+        final Printed printed =
+                run(
+                        "if [ \"$1\" = ps ]; then for f in \"$@\"; do case \"$f\" in"
+                                + " name=*) printf 'porelo_pi\\nporelo-uc-x\\nporelo-login-1\\n'"
+                                + " | grep -E \"${f#name=}\"; return 0;;"
+                                + " label=org.fuin.porelo.project) printf 'porelo_pi\\nporelo-uc-x\\n';"
+                                + " return 0;; esac; done; return 0;"
+                                + " elif [ \"$3\" = tmux ]; then printf 'seen in %s\\n' \"$2\"; fi",
+                        command(records));
+
+        assertThat(printed.status()).as(printed.text()).isZero();
+        assertThat(LoopWatch.sources(printed.text()).histories())
+                .as("both tasks' histories")
+                .containsKeys("porelo_pi", "porelo-uc-x");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     void aFailedContainerListingFailsTheLook(boolean records) throws Exception {
         final Printed printed =
                 run("if [ \"$1\" = ps ]; then return 125; else return 0; fi", command(records));

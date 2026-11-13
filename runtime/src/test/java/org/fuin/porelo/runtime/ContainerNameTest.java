@@ -14,8 +14,8 @@ class ContainerNameTest {
                 "website, work, ws, NULL, porelo-ws_work",
                 "website, work, NULL, x, porelo-website_x",
                 "website, work, NULL, NULL, porelo-website_work",
-                "porelo, work, ws, x, porelo-x",
-                "porelo, work, ws, NULL, porelo-work"
+                "porelo, work, ws, x, porelo_x",
+                "porelo, work, ws, NULL, porelo_work"
             },
             nullValues = "NULL")
     void usesEachRecordedShortSpellingIndependently(
@@ -38,7 +38,7 @@ class ContainerNameTest {
     @Test
     void encodesDistinctOwnersWithoutHyphenAmbiguity() {
         // A collision can make a second project resume or overwrite the first task.
-        assertThat(ContainerName.encoded("porelo", "pi-x-123", 1000)).isEqualTo("porelo-pi-x-123");
+        assertThat(ContainerName.encoded("porelo", "pi-x-123", 1000)).isEqualTo("porelo_pi-x-123");
         assertThat(ContainerName.encoded("web", "app-x", 1000)).isEqualTo("porelo-web_app-x");
         assertThat(ContainerName.encoded("web-app", "x", 1000)).isEqualTo("porelo-web-app_x");
         final java.util.Set<String> names = new java.util.HashSet<>();
@@ -66,14 +66,56 @@ class ContainerNameTest {
     }
 
     @Test
-    void reservesTheLoginNamespaceOnlyForNewTasksOfTheCompactProject() {
-        // A task in the login namespace could be hidden or deleted by login cleanup.
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () -> ContainerName.encoded("porelo", "login-123", 1000))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThat(ContainerName.refusal("porelo", "login-123")).isEmpty();
-        assertThat(ContainerName.refusal("web", "login-123")).isEmpty();
+    void aNewTaskOfProjectPoreloIsItsTaskBehindAnUnderscoreAndNeverALogin() {
+        // 'porelo-login-123' of project porelo would have been hidden and swept as a login.
+        assertThat(ContainerName.encoded("porelo", "pi", 1000))
+                .as("project porelo's two first words shortened to one")
+                .isEqualTo("porelo_pi");
+        final String login = ContainerName.encoded("porelo", "login-123", 1000);
+        assertThat(login).isEqualTo("porelo_login-123");
+        assertThat(ContainerName.isLogin(login)).as("no login container's shape").isFalse();
+        assertThat(ContainerName.isTask(login)).as("a task like any other").isTrue();
         assertThat(ContainerName.isTask("porelo-porelo-login-123")).isTrue();
+    }
+
+    @Test
+    void aTaskOfProjectPoreloMadeBeforeKeepsItsNameThroughItsIdentity() {
+        // Its gate, mail and keys are kept under the name it was made with.
+        assertThat(ContainerName.isEncoded("porelo", "pi", null, null, "porelo-pi"))
+                .as("the name project porelo's tasks were made under before")
+                .isTrue();
+        assertThat(ContainerName.isEncoded("porelo", "pi", null, null, "porelo_pi")).isTrue();
+        assertThat(ContainerName.isEncoded("web", "pi", null, null, "porelo-pi"))
+                .as("another project's task never had it")
+                .isFalse();
+    }
+
+    @Test
+    void eitherBeginningIsPorelosAndATasksAndNothingElseIs() {
+        // A porelo_ task taken for nobody's would be missed by list, stop and cleanup alike.
+        for (final String name :
+                java.util.List.of(
+                        "porelo_pi", "porelo-uc-shell", "porelo-uc_shell", "porelo_a-b")) {
+            assertThat(ContainerName.isPorelo(name)).as(name).isTrue();
+            assertThat(ContainerName.isTask(name)).as(name).isTrue();
+            assertThat(name.matches(ContainerName.NAME_PATTERN)).as(name).isTrue();
+        }
+        for (final String name :
+                java.util.List.of(
+                        "porelo",
+                        "porelo_",
+                        "porelo-",
+                        "porelox-pi",
+                        "poreloPi",
+                        "other-porelo_pi",
+                        "porelo_Pi",
+                        "porelo_pi/x",
+                        "porelo__pi",
+                        "porelo-_pi")) {
+            assertThat(name.matches(ContainerName.NAME_PATTERN)).as(name).isFalse();
+        }
+        assertThat(ContainerName.isPorelo("porelox-pi")).isFalse();
+        assertThat(ContainerName.isTask("poreloPi")).isFalse();
     }
 
     @Test

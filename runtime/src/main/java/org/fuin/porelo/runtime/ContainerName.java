@@ -8,13 +8,24 @@ import org.jspecify.annotations.Nullable;
 /**
  * Names of the objects Porelo creates in podman.
  *
- * <p>Every name carries the {@code porelo-} prefix so that an operator looking at {@code podman ps}
- * can tell what belongs to Porelo, and so that a cleanup can never match somebody else's container.
+ * <p>Every name begins {@code porelo-} or, for project {@code porelo}'s tasks, {@code porelo_}, so
+ * that an operator looking at {@code podman ps} can tell what belongs to Porelo, and so that a
+ * cleanup can never match somebody else's container. What a name of Porelo's looks like is decided
+ * here alone: {@link #isPorelo}, {@link #isTask} and {@link #NAME_PATTERN}.
  */
 public final class ContainerName {
 
-    /** Prefix on every container Porelo creates. */
+    /** Prefix on every container Porelo creates but project {@code porelo}'s tasks. */
     public static final String PREFIX = "porelo-";
+
+    /**
+     * Prefix on project {@code porelo}'s tasks: the project's name and Porelo's are one word, said
+     * once. No other name has it, and no name made before holds an underscore.
+     */
+    public static final String OWN_PREFIX = "porelo_";
+
+    /** A container name of Porelo's, by either beginning, as a regular expression. */
+    public static final String NAME_PATTERN = "porelo[-_][a-z0-9][a-z0-9_-]*";
 
     /** Prefix on the throwaway containers an agent login runs in. */
     public static final String LOGIN_PREFIX = PREFIX + "login-";
@@ -85,15 +96,7 @@ public final class ContainerName {
             throw new IllegalArgumentException(invalid.orElseThrow());
         }
         final String spelling = taskShort == null ? task : taskShort;
-        if (reserved(project, task) || reserved(project, spelling)) {
-            throw new IllegalArgumentException(
-                    "Choose another task name: login-<digits> is reserved in project porelo");
-        }
-        final String prefix =
-                PREFIX
-                        + (project.equals("porelo")
-                                ? ""
-                                : (projectShort == null ? project : projectShort) + "_");
+        final String prefix = encodedPrefix(project, projectShort);
         // The daemon endpoint is one byte longer than the SSH socket; neither may exceed 107.
         final int budget = 107 - (10 + Long.toString(uid).length() + 8 + 4 + 12);
         final int room = budget - prefix.length();
@@ -123,12 +126,19 @@ public final class ContainerName {
             String container) {
         if (ShortName.refusal(projectShort).isPresent() || ShortName.refusal(taskShort).isPresent())
             return false;
-        return container.equals(
-                PREFIX
-                        + (project.equals("porelo")
-                                ? ""
-                                : (projectShort == null ? project : projectShort) + "_")
-                        + (taskShort == null ? task : taskShort));
+        final String spelling = taskShort == null ? task : taskShort;
+        // Project porelo's tasks were made as 'porelo-<task>' before, and keep that name.
+        return container.equals(encodedPrefix(project, projectShort) + spelling)
+                || project.equals(OWN_PROJECT) && container.equals(PREFIX + spelling);
+    }
+
+    /** The project whose tasks begin {@link #OWN_PREFIX}. */
+    private static final String OWN_PROJECT = "porelo";
+
+    private static String encodedPrefix(String project, @Nullable String projectShort) {
+        return project.equals(OWN_PROJECT)
+                ? OWN_PREFIX
+                : PREFIX + (projectShort == null ? project : projectShort) + "_";
     }
 
     /**
@@ -153,11 +163,6 @@ public final class ContainerName {
      */
     public static boolean reserved(String task) {
         return Mail.PEOPLE.equals(task) || Mail.PERSON.equals(task);
-    }
-
-    /** Whether a new logical task would occupy the login-container namespace. */
-    public static boolean reserved(String project, String task) {
-        return project.equals("porelo") && isLogin(PREFIX + task);
     }
 
     /**
@@ -248,9 +253,7 @@ public final class ContainerName {
         if (!project.isEmpty() && suggested.length() > taskRoom(project)) {
             suggested = shortened(suggested, taskRoom(project));
         }
-        return TASK.matcher(suggested).matches()
-                        && refusal(project, suggested).isEmpty()
-                        && !reserved(project, suggested)
+        return TASK.matcher(suggested).matches() && refusal(project, suggested).isEmpty()
                 ? suggested
                 : null;
     }
@@ -358,7 +361,19 @@ public final class ContainerName {
      * @return {@code true} if Porelo created it.
      */
     public static boolean isPorelo(String name) {
-        return name.startsWith(PREFIX);
+        return name.startsWith(PREFIX) || name.startsWith(OWN_PREFIX);
+    }
+
+    /**
+     * Returns a name of Porelo's without its beginning, for a file named after it.
+     *
+     * @param name Container name.
+     * @return What follows {@code porelo-} or {@code porelo_}, or the name when it has neither.
+     */
+    public static String unprefixed(String name) {
+        return name.startsWith(PREFIX)
+                ? name.substring(PREFIX.length())
+                : name.startsWith(OWN_PREFIX) ? name.substring(OWN_PREFIX.length()) : name;
     }
 
     /**

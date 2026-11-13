@@ -1511,7 +1511,7 @@ public final class TaskLaunch {
     private void adopt(Project project, PrintWriter out) {
         // Only a name that reads as a container name can be another task's: a plain task name is
         // taken as given, and a dry run asks podman nothing for it.
-        if (!request.task().startsWith(org.fuin.porelo.runtime.ContainerName.PREFIX)) {
+        if (!org.fuin.porelo.runtime.ContainerName.isPorelo(request.task())) {
             return;
         }
         final TaskIdentities.Result identity =

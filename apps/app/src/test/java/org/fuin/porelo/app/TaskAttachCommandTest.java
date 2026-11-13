@@ -224,6 +224,34 @@ class TaskAttachCommandTest {
     }
 
     @Test
+    void aTaskOfProjectPoreloUnderItsNewNameIsAttached(@TempDir Path dir)
+            throws java.io.IOException {
+        // Refused by its beginning as no task, porelo_pi could not be gone into at all.
+        runner.answering(
+                "ps",
+                "porelo_pi\tUp 4 minutes\t1700000000\t0\tporelo\tguarded\tporelo\t\t"
+                        + "a1b2c3d4e5f6\tpi\n");
+        TaskIdentityFixture.running(
+                new PoreloPaths(
+                        XdgPaths.of(
+                                name ->
+                                        switch (name) {
+                                            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                            default -> null;
+                                        },
+                                dir),
+                        dir.resolve("bin")),
+                "porelo_pi",
+                "porelo",
+                "pi",
+                "a1b2c3d4e5f6");
+
+        assertThat(run(dir, "task", "attach", "porelo_pi")).as("%s", err).isZero();
+        assertThat(attached).as("the task's session").contains("porelo_pi", "tmux");
+    }
+
+    @Test
     void anOfflineProjectIsNotRefused(@TempDir Path dir) throws java.io.IOException {
 
         // The class governs egress - what resolves and what leaves - and a person typing in a

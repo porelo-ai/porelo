@@ -575,6 +575,28 @@ class TransportConversationsTest {
     }
 
     @Test
+    void aTaskOfAProjectWhoseShortNameBeginsWithTheProjectsJoinsUnderItsOwnTask() throws Exception {
+        // porelo-p-a_unit begins 'porelo-p-' and was handed on as the contract's name itself,
+        // which reads as project p's task 'a_unit'.
+        final TransportLifecycle lifecycle = room();
+        recorded(context(), "porelo-p-a_unit", "unit");
+        final Path sidecar =
+                context().paths().tasks().taskRecord("porelo-p-a_unit").resolve("sidecar.json");
+        Files.writeString(
+                sidecar, Files.readString(sidecar).replace("{", "{\"projectShort\":\"p-a\","));
+
+        lifecycle.enroll("room", "p", "porelo-p-a_unit", "scout", Map.of(), false);
+        lifecycle.retire("room", "p", "porelo-p-a_unit", Map.of());
+
+        assertThat(tasksGiven("enroll"))
+                .as("enrolled under the contract's name of its own task")
+                .containsExactly("porelo-p-unit");
+        assertThat(tasksGiven("retire"))
+                .as("retired under the name it was enrolled by")
+                .containsExactly("porelo-p-unit");
+    }
+
+    @Test
     void aStoppedTaskOnACentralHomeserverLeavesItsRoomAndItsNextStartBringsItBack()
             throws Exception {
         // Left in the room, a stopped task is counted among the project's running tasks.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B246",
   "title": "A Task Name No Other Project Shares",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 10,
@@ -120,3 +120,42 @@ tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
 
 - Whether the transport adapters key a task's account by `--project` and `--task` together, as the contract says;
   if one keys by `--task` alone, `a-b`/`c` and `a`/`b-c` share an account there.
+
+## Built
+
+- **The name.** `ContainerName.encoded` names a new task of project `porelo` `porelo_<task>`. Every other project's
+  stays `porelo-<project or short>_<task>`. A task made before as `porelo-<task>` is still matched by `isEncoded` and
+  kept through its identity. The `login-<digits>` reservation is gone, along with `reserved(project, task)`.
+- **One predicate and one pattern.**
+  - `isPorelo`, and `isTask` through it, take both beginnings.
+  - New in `ContainerName`: `OWN_PREFIX` (`porelo_`), `NAME_PATTERN` (`porelo[-_][a-z0-9][a-z0-9_-]*`, wanting a
+    letter or digit after the prefix as every real name has), and `unprefixed`.
+  - They replace every inline pattern, prefix check and prefix cut the Plan lists. Legacy names are built through
+    `ContainerName.contract`.
+  - The acceptance kit's `LoopWatch` lists tasks by the project label (`Sidecar.PROJECT_LABEL`), not by a name.
+- **The task from its identity.** `TaskIdentities.taskOf(given, project)` gives the identity's task, falling back to
+  the legacy cut only where no identity is recorded. It is used by `TaskRunCommand` (outside a checkout and for the
+  window's label) and by `StartCheck`. `TransportLifecycle.contractName` takes the task from the enrolled identity
+  alone. The `--host` checks of `task start` and `task certify` use `isPorelo`.
+- **The guard.** `ContainerNameShapeTest` reads every module's main sources, the acceptance kit's included. It fails
+  on a container-name pattern, a prefix check or a prefix cut outside `ContainerName`. The names that are no
+  container's are listed by file with their reason, and each listed one must still be found:
+  - the `porelo[` prompt
+  - the rpm file name
+  - the forge identity `porelo-<login>`
+  - a host's answer lines
+  - `ShortName`
+  - a repository name's leading `porelo-`
+  - a `porelo_<kind>_` token
+- **Docs and stories.** `doc/commands.md`, `doc/running.md`, `doc/project-file.md` and one comment in `15-task.varlink`
+  give the new forms. Stories st39, st43, st53 and st56 use `porelo-${PROJECT}_`.
+- **Tests.**
+  - Every new test failed on the build box before the change (`buildbox-porelo-b6ec8841d085-20261113T173933Z.log`,
+    `buildbox-porelo-73b6324eb22c-20261113T174125Z.log`, `buildbox-porelo-1fb24363dec3-20261113T174914Z.log`).
+    These include `porelo_pi` listed, stopped, removed, attached, pruned and given its MCP socket; a stopped task
+    brought back by any form of its name; and a short name beginning with the project's.
+  - All pass after it (`buildbox-porelo-62f36adeaf49-20261113T174401Z.log`): 29 classes, 955 tests, 0 skipped.
+  - The tests that pinned the old form for project `porelo` now pin the new one: rows of `ContainerNameTest`, two in
+    `TaskRunCommandTest`, `TaskStateTest`'s legacy ownership test, `TaskTargetTest`'s default names, and
+    `ReadyStepsTest`.
+- Still open, as before: how a transport adapter keys a task's account ("To be checked").

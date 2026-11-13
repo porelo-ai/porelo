@@ -43,7 +43,9 @@ final class LoopWatch {
     static final char SESSION_SEPARATOR = '\u001f';
 
     private static final String LIST =
-            "containers=$(podman ps --format '{{.Names}}' --filter name=^porelo-) || exit $?;"
+            "containers=$(podman ps --format '{{.Names}}' --filter label="
+                    + org.fuin.porelo.wire.Sidecar.PROJECT_LABEL
+                    + ") || exit $?;"
                     + " for c in $containers; do";
 
     private static final String HISTORY =

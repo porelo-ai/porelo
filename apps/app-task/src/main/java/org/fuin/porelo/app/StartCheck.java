@@ -1168,12 +1168,12 @@ public final class StartCheck {
             // The repository check reports why work in the project's own repository is refused.
             return rest;
         }
-        // Named as the start names it: a container name taken back to the task's, and without a
-        // name, the one its repository gives.
+        // Named as the start names it: a container name taken back to the task its identity
+        // names, and without a name, the one its repository gives.
         final String task =
                 taskName == null || taskName.isBlank()
                         ? TaskNames.fromRepository(context, project.name(), chosen.name())
-                        : org.fuin.porelo.runtime.ContainerName.taskFrom(project.name(), taskName);
+                        : new TaskIdentities(context).taskOf(taskName, project.name());
         final TaskBranch.Settled settled =
                 TaskBranch.settle(project, chosen.name(), task, values, branch);
         if (settled.refused() == null) {
@@ -1955,11 +1955,11 @@ public final class StartCheck {
                     projectName = "";
                 }
             }
-            // A container name is taken as the task it names, as Start takes it.
+            // A container name is taken as the task its identity names, as Start takes it.
             final String task =
                     projectName.isEmpty()
                             ? taskName
-                            : org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, taskName);
+                            : new TaskIdentities(context).taskOf(taskName, projectName);
             final java.util.Optional<String> badName =
                     new TaskIdentities(context).newTaskRefusal(projectName, task);
             if (badName.isPresent()) {

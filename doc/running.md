@@ -138,9 +138,10 @@ lifetime, including across a daemon restart and a task stop and resume. Their wo
 credential routes and MCP children stay with that container. Starting an existing task by its project and logical
 task name finds it under its original name.
 
-New tasks in project `porelo` use `porelo-<task>`; in another project they use `porelo-<project>_<task>`. Optional
-project and task short names supply the corresponding parts for new tasks. An existing `porelo-porelo-pi` stays
-`porelo-porelo-pi` until removed; a new task `pi` in project `porelo` uses `porelo-pi`. There is no renaming command.
+New tasks in project `porelo` use `porelo_<task>`; in another project they use `porelo-<project>_<task>`. Optional
+project and task short names supply the corresponding parts for new tasks. An existing `porelo-porelo-pi` or
+`porelo-pi` stays so until removed; a new task `pi` in project `porelo` uses `porelo_pi`. There is no renaming
+command.
 Use the actual name that `porelo task list` reports when addressing a container directly. The
 [package upgrade acceptance run](build.md#testing-a-package-upgrade-in-one-account) checks old and new tasks together.
 

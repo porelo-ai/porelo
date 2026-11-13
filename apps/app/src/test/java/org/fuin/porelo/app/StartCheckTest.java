@@ -272,6 +272,42 @@ class StartCheckTest {
                 .isEqualTo(StartCheck.Outcome.READY);
     }
 
+    @Test
+    void anEncodedContainerNameIsJudgedAsTheTaskItsIdentityNames(@TempDir Path dir)
+            throws Exception {
+        // Taken as a task of its own, porelo-uc_fix was refused as no task name, and its branch
+        // was bugfix/porelo/porelo-uc_fix where Start makes bugfix/porelo/fix.
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
+                        + "parameters:\n  type:\n    values: [feature, bugfix, chore]\n"
+                        + "branch:\n  template: \"{type}/porelo/{task}\"\n"
+                        + "  pattern: \"^(feature|bugfix)/porelo/fix$\"\n");
+        final PoreloContext context = context(dir);
+        TaskIdentityFixture.record(context.paths(), "porelo-uc_fix", "uc", "fix", "a".repeat(64));
+        final StartCheck.Result ready =
+                new StartCheck.Result(StartCheck.Outcome.READY, "a", "", "", "");
+
+        assertThat(
+                        StartCheck.withBranch(
+                                        context,
+                                        ready,
+                                        project,
+                                        "uc",
+                                        "porelo-uc_fix",
+                                        given("bugfix"),
+                                        null)
+                                .outcome())
+                .as("bugfix/porelo/fix, not bugfix/porelo/porelo-uc_fix")
+                .isEqualTo(StartCheck.Outcome.READY);
+        assertThat(StartCheck.check(context, project, "porelo-uc_fix", null, null, null).outcome())
+                .as("the task fix, whose name a start takes")
+                .isNotEqualTo(StartCheck.Outcome.BAD_TASK_NAME);
+    }
+
     private static Map<String, org.fuin.porelo.core.project.Parameters.Given> given(
             final String type) {
         return Map.of("type", new org.fuin.porelo.core.project.Parameters.Given(type, "test"));

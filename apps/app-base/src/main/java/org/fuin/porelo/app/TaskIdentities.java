@@ -92,22 +92,23 @@ public final class TaskIdentities {
         }
     }
 
-    /** Applies new-name rules while allowing an existing legacy task to keep its name. */
+    /** Applies the rules a new task's name must meet. */
     public java.util.Optional<String> newTaskRefusal(String project, String task) {
-        if (ContainerName.reserved(project, task)) {
-            // Only a legacy task whose container still exists keeps the name; a retained record
-            // of a removed one is history and does not reserve it.
-            return lookup(task, project) instanceof Found found
-                            && context.podman().taskCandidates().stream()
-                                    .anyMatch(
-                                            row -> row.name().equals(found.identity().container()))
-                    ? java.util.Optional.empty()
-                    : java.util.Optional.of(
-                            "'"
-                                    + task
-                                    + "' is reserved for login containers in project porelo; choose another task name");
-        }
         return ContainerName.refusal(project, task);
+    }
+
+    /**
+     * Returns the task a name given for one means: the task its identity names, or for a name no
+     * identity is recorded for, the part after a legacy {@code porelo-<project>-}.
+     *
+     * @param given A task's own name or its container's.
+     * @param project The project it is taken in.
+     * @return The task's own name, or what was given.
+     */
+    public String taskOf(String given, String project) {
+        return lookup(given, project) instanceof Found found
+                ? found.identity().task()
+                : ContainerName.taskFrom(project, given);
     }
 
     /**
@@ -119,7 +120,7 @@ public final class TaskIdentities {
 
     /** Reads retained ownership without asking a runtime or opening the account. */
     public static Result retained(PoreloPaths paths, String container) {
-        if (!container.matches("porelo-[a-z0-9_-]+")) {
+        if (!container.matches(ContainerName.NAME_PATTERN)) {
             return new Refused(Reason.INVALID_RECORD, container, NO_TASK_NAME);
         }
         final String runtimeId = Sidecar.recordedId(paths.tasks().containerState(container));
@@ -153,7 +154,7 @@ public final class TaskIdentities {
         }
         // A renamed or removed container still has its recorded id; shutdown must reach that id.
         if (ContainerName.isTask(given)
-                && given.matches("porelo-[a-z0-9_-]+")
+                && given.matches(ContainerName.NAME_PATTERN)
                 && (Files.exists(
                                 context.paths().tasks().taskRecord(given),
                                 LinkOption.NOFOLLOW_LINKS)
@@ -172,7 +173,7 @@ public final class TaskIdentities {
                 for (Path entry : entries.toList()) {
                     final String name = entry.getFileName().toString();
                     if (candidates.stream().noneMatch(each -> each.name().equals(name))
-                            && name.matches("porelo-[a-z0-9_-]+")) {
+                            && name.matches(ContainerName.NAME_PATTERN)) {
                         final Path sidecarFile = entry.resolve("sidecar.json");
                         reading = sidecarFile;
                         final Sidecar claimed =
@@ -244,7 +245,7 @@ public final class TaskIdentities {
 
     private static Result read(PoreloPaths paths, ContainerSummary summary) {
         final String name = summary.name();
-        if (!ContainerName.isTask(name) || !name.matches("porelo-[a-z0-9_-]+")) {
+        if (!ContainerName.isTask(name) || !name.matches(ContainerName.NAME_PATTERN)) {
             return new Refused(Reason.INVALID_RECORD, name, NO_TASK_NAME);
         }
         final Path runtime = paths.tasks().containerState(name);
@@ -366,7 +367,7 @@ public final class TaskIdentities {
                                     : "the task name '" + task + "' is no task name porelo takes");
         }
         final TaskIdentity.Format format;
-        if (name.equals(ContainerName.PREFIX + project + "-" + task)) {
+        if (name.equals(ContainerName.contract(project, task))) {
             format = TaskIdentity.Format.LEGACY;
         } else if (explicitTask != null
                 && ContainerName.isEncoded(project, task, projectShort, taskShort, name)) {

@@ -272,6 +272,76 @@ class TaskRunCommandTest {
                 .noneMatch(line -> line.contains("podman create"));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(
+            value = {
+                "porelo, NULL, porelo-pi, pi",
+                "porelo, NULL, porelo_pi, pi",
+                "uc, ucshort, porelo-ucshort_shell, shell",
+                "uc, u, porelo-u_shell, shell"
+            },
+            nullValues = "NULL")
+    void outsideACheckoutAStoppedTaskIsBroughtBackByItsContainersNameWhateverItsForm(
+            String project, String projectShort, String actual, String task, @TempDir Path dir)
+            throws Exception {
+        // Cut out of its name, the task was another one, or the cut ran past the name's end.
+        final PoreloContext context = context(dir, true);
+        projectFile(
+                dir,
+                MINIMAL.replace(
+                        "name: \"uc\"",
+                        "name: \""
+                                + project
+                                + "\""
+                                + (projectShort == null ? "" : "\n  short: " + projectShort)));
+        final String id = "a".repeat(64);
+        final Path state = context.paths().tasks().taskRecord(actual);
+        org.fuin.porelo.wire.Sidecar.recordId(state, id);
+        Files.setPosixFilePermissions(
+                state, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        project,
+                        "guarded",
+                        "ruleset.nft",
+                        "dns.conf",
+                        "porelo",
+                        context.paths().tasks().containerState(actual).toString(),
+                        task,
+                        projectShort,
+                        null)
+                .writeTo(state.resolve("sidecar.json"));
+        new TaskHelpers(List.of()).writeTo(state);
+        runner.answering(
+                "ps",
+                actual
+                        + "\tExited (0)\t\t\t"
+                        + project
+                        + "\tguarded\t"
+                        + project
+                        + "\t\t"
+                        + id
+                        + "\t"
+                        + task
+                        + "\n");
+        runner.answering("{{.Id}}", id);
+
+        final int code =
+                execute(context, "task", "start", actual, "--repository", project, "--detach");
+
+        assertThat(code).as("its own task is brought back: %s", err).isZero();
+        assertThat(out.toString())
+                .as("the project its identity names")
+                .contains("project        " + project + " - that of the task " + actual);
+        assertThat(runner.lines())
+                .as("the stopped container is started, and nothing is made beside it")
+                .anyMatch(
+                        line ->
+                                line.contains("podman start")
+                                        && (line.contains(actual) || line.contains(id)))
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
     @Test
     void aRebootResumeRestoresOnlyTheOldOwnersPathsAndRouteTokens(@TempDir Path dir)
             throws Exception {
@@ -739,8 +809,10 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void aNewTaskOfProjectPoreloIsMadeUnderItsTaskNameAlone(@TempDir Path dir) throws Exception {
-        // Repository porelo-pi's task is pi; 'porelo-porelo-pi' said the project twice.
+    void aNewTaskOfProjectPoreloIsMadeUnderItsTaskBehindAnUnderscore(@TempDir Path dir)
+            throws Exception {
+        // Repository porelo-pi's task is pi; 'porelo-porelo-pi' said the project twice, and
+        // 'porelo-pi' was project pi's legacy task as well.
         final PoreloContext context = context(dir, true);
         final String file = projectFile(dir, MINIMAL.replace("name: \"uc\"", "name: \"porelo\""));
 
@@ -763,8 +835,9 @@ class TaskRunCommandTest {
                 .anyMatch(
                         line ->
                                 line.contains("podman create")
-                                        && line.contains("--name porelo-pi "))
+                                        && line.contains("--name porelo_pi "))
                 .noneMatch(line -> line.contains("porelo-porelo-pi"));
+        assertThat(context.paths().tasks().taskRecord("porelo_pi")).isDirectory();
     }
 
     @Test
@@ -796,7 +869,7 @@ class TaskRunCommandTest {
                 .anyMatch(
                         line -> line.contains("podman start") && line.contains("porelo-porelo-pi"))
                 .noneMatch(line -> line.contains("podman create"));
-        assertThat(context.paths().tasks().taskRecord("porelo-pi"))
+        assertThat(context.paths().tasks().taskRecord("porelo_pi"))
                 .as("nothing is made under the new name")
                 .doesNotExist();
     }
@@ -2722,6 +2795,29 @@ class TaskRunCommandTest {
         assertThat(runner.only("stty \"$1\"").arguments())
                 .as("the shared attach restores the settings it saved")
                 .endsWith("saved-settings");
+    }
+
+    @Test
+    void aStoppedTaskBroughtBackAtATerminalNamesItsOwnTaskInThePrompt(@TempDir Path dir)
+            throws IOException {
+        // Cut out of porelo-uc_shell, the prompt named no task: 'uc/'.
+        final PoreloContext context = context(dir, true);
+        final String id = "a".repeat(64);
+        TaskIdentityFixture.record(context.paths(), "porelo-uc_shell", "uc", "shell", id);
+        new TaskHelpers(List.of()).writeTo(context.paths().tasks().taskRecord("porelo-uc_shell"));
+        runner.answering(
+                "ps", "porelo-uc_shell\tExited (0)\t\t\tuc\tguarded\tuc\t\t" + id + "\tshell\n");
+        runner.answering("{{.Id}}", id);
+        runner.answering("stty -g", "saved-settings\n");
+
+        assertThat(startAt(context, true, "-p", projectFile(dir, MINIMAL)))
+                .as("said: %s", err)
+                .isZero();
+
+        assertThat(execCalls).as("the session it went into").hasSize(1);
+        assertThat(String.join(" ", execCalls.get(0)))
+                .as("the prompt names the project and its task")
+                .contains("uc/shell");
     }
 
     @Test
@@ -9442,6 +9538,10 @@ class TaskRunCommandTest {
                 .isEqualTo("64 porelo: --host needs the task's name, which its certificate names");
         // The host would start "fix" for its container's name, and the certificate name the other.
         assertThat(onAHost(dir, "porelo-uc-fix", "-p", "uc", "--host=a@h"))
+                .isEqualTo("64 porelo: --host needs the task's own name, not its container's");
+        assertThat(onAHost(dir, "porelo-uc_fix", "-p", "uc", "--host=a@h"))
+                .isEqualTo("64 porelo: --host needs the task's own name, not its container's");
+        assertThat(onAHost(dir, "porelo_fix", "-p", "porelo", "--host=a@h"))
                 .isEqualTo("64 porelo: --host needs the task's own name, not its container's");
         assertThat(onAHost(dir, "Fix", "-p", "uc", "--host=a@h"))
                 .startsWith("64 porelo: 'Fix' is not");

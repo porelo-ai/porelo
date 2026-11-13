@@ -673,7 +673,7 @@ public final class TaskReservations {
     }
 
     private static void validate(String container) {
-        if (!container.matches("porelo-[a-z0-9_-]+"))
+        if (!container.matches(org.fuin.porelo.runtime.ContainerName.NAME_PATTERN))
             throw new IllegalArgumentException("Invalid actual task name");
     }
 
@@ -758,7 +758,9 @@ public final class TaskReservations {
         if (owner.project().isEmpty() || owner.id().isEmpty()) return java.util.Optional.empty();
         return java.util.Optional.of(
                 new TaskIdentity(
-                        container.equals("porelo-" + owner.project() + "-" + owner.task())
+                        container.equals(
+                                        org.fuin.porelo.runtime.ContainerName.contract(
+                                                owner.project(), owner.task()))
                                 ? TaskIdentity.Format.LEGACY
                                 : TaskIdentity.Format.ENCODED,
                         owner.project(),

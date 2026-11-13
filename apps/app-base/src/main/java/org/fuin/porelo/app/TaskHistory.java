@@ -123,7 +123,7 @@ public final class TaskHistory {
                     if (!name.endsWith(".json")) continue;
                     name = name.substring(0, name.length() - ".json".length());
                 }
-                if (name.matches("porelo-[a-z0-9_-]+")
+                if (name.matches(org.fuin.porelo.runtime.ContainerName.NAME_PATTERN)
                         && org.fuin.porelo.runtime.ContainerName.isTask(name)) names.add(name);
             }
         }

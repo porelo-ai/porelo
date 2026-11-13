@@ -1,0 +1,2 @@
+title: "A new task of project porelo is named porelo_<task>, every other project's porelo-<project>_<task>, and Porelo finds a task by its identity rather than by the shape of its container's name"
+type: fixed

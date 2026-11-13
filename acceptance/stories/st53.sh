@@ -197,7 +197,7 @@ make_project() {
 start() {
     local task=$1 out=$2
     shift 2
-    CONTAINERS+=("porelo-$PROJECT-$task")
+    CONTAINERS+=("porelo-${PROJECT}_$task")
     timeout 900 porelo task start "$task" --project "$PROJECT" --repository "$PROJECT" --agent stub \
         --detach --clearance deny "$@" >"$out" 2>&1
 }
@@ -241,7 +241,7 @@ code=$?
 shown <"$WORK/waits.out" | tail -n 30
 read_ "exit $code"
 container=$(container_of "$WORK/waits.out")
-[ -n "$container" ] || container="porelo-$PROJECT-waits"
+[ -n "$container" ] || container="porelo-${PROJECT}_waits"
 state="$RUNTIME/$container"
 gate=1
 relay=1
@@ -258,7 +258,7 @@ read_ "task $container removed again"
 for helper in gate relay; do
     task="${helper}down"
     step "Start task '$task' whose $helper cannot record that it is up, and read the start's code"
-    blocked="$RUNTIME/porelo-$PROJECT-$task"
+    blocked="$RUNTIME/porelo-${PROJECT}_$task"
     (umask 077 && mkdir -p "$blocked/$helper.pid")
     read_ "a directory stands at $blocked/$helper.pid, where the $helper writes its pid"
     start "$task" "$WORK/$task.out"
@@ -266,7 +266,7 @@ for helper in gate relay; do
     shown <"$WORK/$task.out" | tail -n 30
     read_ "exit $code"
     container=$(container_of "$WORK/$task.out")
-    [ -n "$container" ] || container="porelo-$PROJECT-$task"
+    [ -n "$container" ] || container="porelo-${PROJECT}_$task"
     if [ -d "$RUNTIME/$container/$helper.pid" ]; then
         read_ "the $helper never recorded its pid: the obstruction held"
     else
@@ -280,13 +280,13 @@ for helper in gate relay; do
     point "$((code != 0 && left == 0 ? 0 : 1))" B384 \
         "a start whose $helper does not come up leaves none of its helpers running"
     timeout 300 porelo task remove "$container" --force --no-input >/dev/null 2>&1
-    rm -rf -- "${RUNTIME:?}/porelo-$PROJECT-$task"
+    rm -rf -- "${RUNTIME:?}/porelo-${PROJECT}_$task"
     read_ "task $container removed again"
 done
 
 step "Start two tasks of one name, 'twin', at the same moment, and read both answers"
 # Named for the cleanup here: a start in the background records nothing in this shell.
-CONTAINERS+=("porelo-$PROJECT-twin")
+CONTAINERS+=("porelo-${PROJECT}_twin")
 start twin "$WORK/twin-1.out" &
 first=$!
 start twin "$WORK/twin-2.out" &
@@ -299,7 +299,7 @@ read_ "first start: exit $code1"
 shown <"$WORK/twin-1.out" | tail -n 12
 read_ "second start: exit $code2"
 shown <"$WORK/twin-2.out" | tail -n 12
-container="porelo-$PROJECT-twin"
+container="porelo-${PROJECT}_twin"
 sleep 2
 running=$(podman container inspect --format '{{.State.Running}}' "$container" 2>/dev/null)
 read_ "the container $container is running: ${running:-not there}"

@@ -58,7 +58,7 @@ class ReadyStepsTest {
     @Test
     void namesTheTasksContainerAsPoreloDoes() {
         assertThat(ReadySteps.container("ready", "attended")).isEqualTo("porelo-ready_attended");
-        assertThat(ReadySteps.container("porelo", "pi")).isEqualTo("porelo-pi");
+        assertThat(ReadySteps.container("porelo", "pi")).isEqualTo("porelo_pi");
         assertThat(ReadySteps.container("web-app", "fix-now")).isEqualTo("porelo-web-app_fix-now");
     }
 

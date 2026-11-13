@@ -475,7 +475,7 @@ fi
 # ---------------------------------------------------------------- the task
 
 step "Start a task in the project"
-CONTAINERS+=("porelo-$PROJECT-build")
+CONTAINERS+=("porelo-${PROJECT}_build")
 : >"$WORK/standin.log"
 timeout 1800 porelo task start build --project "$PROJECT" --repository "$PROJECT" --agent stub --detach \
     --clearance deny >"$WORK/start.out" 2>&1
@@ -483,7 +483,7 @@ code=$?
 redact <"$WORK/start.out" | tail -n 40
 read_ "exit $code"
 CONTAINER=$(container_of "$WORK/start.out")
-[ -n "$CONTAINER" ] || CONTAINER="porelo-$PROJECT-build"
+[ -n "$CONTAINER" ] || CONTAINER="porelo-${PROJECT}_build"
 point "$code" "" "the task starts with its repository declared"
 [ "$code" = 0 ] || finish
 STATE=$(sed -n 's/^sidecar[[:space:]]\{1,\}\([^[:space:]]\{1,\}\).*/\1/p' "$WORK/start.out" | head -1)

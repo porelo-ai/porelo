@@ -350,6 +350,21 @@ class McpTaskSocketsTest {
     }
 
     @Test
+    void aTaskOfProjectPoreloUnderItsNewNameIsGivenItsSocket() throws Exception {
+        // Refused by its beginning as no task's name, porelo_work's porelo-mcp had no daemon.
+        final var context = context(HEAD + SECTION);
+        final Path porelo = dir.resolve("porelo.yml");
+        Files.writeString(porelo, HEAD.replace("\"uc\"", "\"porelo\"") + SECTION);
+        Files.writeString(dir.resolve("data/porelo/projects/porelo"), porelo + "\n");
+        identity(context, "porelo_work", "porelo", "work");
+
+        final Path socket = sockets.open("porelo_work", "porelo").orElseThrow();
+
+        assertThat(socket).isEqualTo(dir.resolve("run/porelo/mcp/porelo_work.daemon.sock"));
+        assertThat(call(socket, "ProjectFileSchema", Map.of())).isNotEmpty();
+    }
+
+    @Test
     void aTaskCanMarkOnlyItselfDone() throws IOException {
         // Finishing a sibling, child or another project's task would hide somebody else's work.
         final PoreloContext context =

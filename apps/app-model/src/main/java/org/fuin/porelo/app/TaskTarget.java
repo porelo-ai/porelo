@@ -310,7 +310,7 @@ public final class TaskTarget {
         }
         return found.reason() != TaskIdentities.Reason.AMBIGUOUS
                         && org.fuin.porelo.runtime.ContainerName.isTask(given)
-                        && given.matches("porelo-[a-z0-9_-]+")
+                        && given.matches(org.fuin.porelo.runtime.ContainerName.NAME_PATTERN)
                 ? new Found(given, "", 0, found.reason())
                 : found;
     }

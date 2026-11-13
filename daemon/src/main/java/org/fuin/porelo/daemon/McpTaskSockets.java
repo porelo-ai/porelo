@@ -59,7 +59,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
     /** What a task is called: a container name, which becomes a file name here. */
     private static final java.util.regex.Pattern TASK =
-            java.util.regex.Pattern.compile("porelo-[a-z0-9][a-z0-9_-]{0,200}");
+            java.util.regex.Pattern.compile(ContainerName.NAME_PATTERN);
+
+    /** The longest name taken, so its socket's file name fits. */
+    private static final int TASK_LENGTH = 208;
 
     private final PoreloContext context;
     private final TaskInventory inventory;
@@ -199,7 +202,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     @Override
     public synchronized Optional<Path> open(final String task, final String project)
             throws IOException {
-        if (!TASK.matcher(task).matches()) {
+        if (task.length() > TASK_LENGTH || !TASK.matcher(task).matches()) {
             throw new IOException("'" + task + "' is no task's name");
         }
         final var identity = new TaskIdentities(context).lookup(task, project);
@@ -427,7 +430,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                 throw notItsOwn(request.task(), null);
             }
             if (selected instanceof TaskIdentities.Refused
-                    && request.task().startsWith(ContainerName.PREFIX)) {
+                    && ContainerName.isPorelo(request.task())) {
                 throw notItsOwn(request.task(), null);
             }
             final String picked =
@@ -1301,7 +1304,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                             task,
                             taskShort);
         } catch (ProjectException | IllegalArgumentException unreadable) {
-            return ContainerName.PREFIX + project + "-" + task;
+            return ContainerName.contract(project, task);
         }
     }
 

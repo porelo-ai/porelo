@@ -200,8 +200,10 @@ public class ReadySteps {
      */
     static String container(String project, String task) {
         final String checkedProject = TaskSteps.aName(project);
-        final String projectPart = checkedProject.equals("porelo") ? "" : checkedProject + "_";
-        return "porelo-" + projectPart + TaskSteps.aName(task);
+        // Project porelo's name and Porelo's are one word, said once.
+        final String beginning =
+                checkedProject.equals("porelo") ? "porelo_" : "porelo-" + checkedProject + "_";
+        return beginning + TaskSteps.aName(task);
     }
 
     /**

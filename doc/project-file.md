@@ -31,12 +31,12 @@ task is started there. A project that lists none works in its own.
 project:
 
   # Required. Lower-case letters, digits and hyphens, at most 63 characters.
-  # A task's container is named 'porelo-<name>-<task>'.
+  # A new task's container is named 'porelo-<name>_<task>', and project porelo's 'porelo_<task>'.
   name: "myproject"
 
   # Optional container spelling: [a-z][a-z0-9-]*, at most 16 characters, no underscore or porelo- prefix.
-  # Recorded with a task at creation; changing it leaves existing task identities unchanged.
-  # Container creation currently keeps the legacy name above.
+  # Recorded with a task at creation, which is then named 'porelo-<short>_<task>'; changing it
+  # leaves existing task identities unchanged.
   short: "myproj"
 
   # Optional. For people; shown where the project is listed.
