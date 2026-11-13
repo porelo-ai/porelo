@@ -3869,9 +3869,11 @@ class GitTreeStoreTest {
                 .isEqualTo("fatal: unable to access the repository");
         org.assertj.core.api.Assertions.assertThat(
                         TreeRepository.gitsOwnWords(
-                                "fatal: remote error: secret-of-the-person\n"
-                                        + "fatal: unable to access the repository\n"))
-                .as("a forge's protocol error goes the same way")
+                                "fatal: unable to access the repository\n"
+                                        + "fatal: remote error: secret-of-the-person\n"
+                                        + "and the rest of what it said\n"))
+                // Git dies on a forge's protocol error: every line from it on is the forge's.
+                .as("a forge's protocol error goes the same way, with all that follows it")
                 .isEqualTo("fatal: unable to access the repository");
     }
 
