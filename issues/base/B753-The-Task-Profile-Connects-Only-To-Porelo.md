@@ -29,7 +29,7 @@ plain `porelo`. The packaged profile is still written under `abi <abi/4.0>`.
 
 - `apparmor/porelo-task`: `abi <abi/5.0>`, and one connect rule `unix (connect) peer=(label=porelo),` beside
   `peer=(label=porelo-task)` for the task's own sockets. Every other unix connect is refused. Each rule's comment says what it is for and that a path socket is
-  held by file rules, so the lock is for the abstract names of [B752](README.md#b752).
+  held by file rules, so the lock is for the abstract names of [B757](README.md#b757).
 - `AppArmorProfiles` and `AppArmorProfilesTest` (`dist/package-check`): the packaged profile has the abi line and
   the one connect rule with its peers, and no `change_profile`, `px` or `cx`.
 - First red: `AppArmorProfilesTest` against today's profile, which has `abi <abi/4.0>`.
@@ -57,5 +57,6 @@ compiles the profile and gives no output (it loads nothing).
 Red on the base with only the tests changed: it does not compile, because the tests call the new checker method.
 Green: 39 tests, 0 failures, run locally.
 
-Until a client takes an abstract address ([B752](README.md#b752)'s analysis), the rule protects no shipped socket
-agent. It costs nothing until then.
+Until a client takes an abstract address ([B757](README.md#b757)'s analysis), the rule protects no shipped socket
+agent. It costs nothing until then. The operator accepted that on AppArmor the peer rule protects no shipped
+socket agent until [B757](README.md#b757), and `doc/security.md` says so with [B752](README.md#b752)'s build.

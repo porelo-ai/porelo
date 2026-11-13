@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B140",
   "title": "A Secret Scan Of The Workspace At Start",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "High",
   "rank": 8,

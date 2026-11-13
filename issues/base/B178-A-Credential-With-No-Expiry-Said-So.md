@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B178",
   "title": "A Credential With No Expiry Said So",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "High",
   "rank": 15,

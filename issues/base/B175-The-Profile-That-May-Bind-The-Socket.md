@@ -18,8 +18,9 @@
 **Why this size.** AppArmor cannot carry over the SELinux rule as written, so a design is decided first; then two profiles,
 the task's way into one, the package's scripts, `doctor`, and a scenario on the ubuntu leg. Re-estimated on 2026-11-13
 after the walk4 measurements: steps 1-8 are built, but the lock they build does not hold for path sockets, and step 9
-moves every socket a task reaches to an abstract name bound in the task's network namespace. What is left of step 9 is
-split into [B752](README.md#b752), [B753](README.md#b753), [B754](README.md#b754) and [B755](README.md#b755).
+moves the one socket a task reaches, the vault's, into the task's own mount namespace. What is left of step 9 is
+split into [B752](README.md#b752), [B753](README.md#b753), [B754](README.md#b754), [B755](README.md#b755) and
+[B757](README.md#b757).
 
 **What must be true.** On a machine that confines programs by AppArmor rather than SELinux, a task connects only to a
 socket that one of Porelo's binaries bound, as the SELinux domain proposed by [B40](README.md#b40) requires,
@@ -112,21 +113,25 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
 8. **Docs:** `doc/security.md` states where the second lock holds - SELinux machines by label, AppArmor machines whose
    kernel mediates unix sockets by the task's profile, nowhere else - and its bound; `doc/getting-started.md`, the
    Debian and Ubuntu section; `doc/decisions.md` an entry for the lock on the connecting side and for the self-entry.
-9. **The redesign: Porelo's in-task sockets become abstract names** (decided on the walk4 measurements of
-   2026-11-13, see Built). A peer rule does not hold for a socket with a file path, which AppArmor judges by file
-   rules; it holds for an abstract one. Split into four issues:
-   - [B752](README.md#b752): the in-task sockets as abstract names bound in the task's namespace;
+9. **The redesign** (decided on the walk4 measurements of 2026-11-13, see Built). A peer rule does not hold for a
+   socket with a file path, which AppArmor judges by file rules; it holds for an abstract one. Split into five
+   issues:
+   - [B752](README.md#b752): the vault socket as a file bound in the task's own mount namespace;
    - [B753](README.md#b753): the rule and the abi line in `porelo-task`, with `AppArmorProfilesTest`;
    - [B754](README.md#b754): `doctor`, and no wrapping for an account install;
-   - [B755](README.md#b755): the scenario on the ubuntu leg, installed machine-wide.
+   - [B755](README.md#b755): the scenario on the ubuntu leg;
+   - [B757](README.md#b757): the vault socket as an abstract name, once a client takes one.
+
+   **Decided 2026-11-13 (operator):** [B752](README.md#b752) builds the socket file alone now, and the abstract name
+   waits in [B757](README.md#b757). On AppArmor the peer rule then protects no shipped socket agent; that is accepted
+   and `doc/security.md` says so.
 
    The design below is theirs.
-   - The vault proxy, the ssh agent, the mailbox and the broker's socket a task reaches are bound as abstract names
-     (`@porelo-...`) by the packaged `porelod`, inside each task's network namespace, which it joins with `setns`
-     (user and network namespace of the container, as `nsenter -t <pid> -U -n --preserve-credentials` does). Abstract
-     names are per network namespace, so they are bound there, not on the host; the bind mounts of these sockets go.
+   - One socket reaches a task: the vault proxy's. There is no ssh-agent or mailbox socket in a task. Porelo's relay
+     binds it as a file in the task's own mount namespace, through `/proc/<pid>/root` under `podman unshare`, and the
+     bind mount of `vault.sock` goes. Only the task's root can replace that file.
    - `porelo-task` keeps one connect rule, `unix (connect) peer=(label=porelo)`, beside `peer=(label=porelo-task)` for
-     the task's own sockets, under `abi <abi/5.0>`.
+     the task's own sockets, under `abi <abi/5.0>`. It holds for abstract sockets only ([B757](README.md#b757)).
    - The lock holds for a machine-wide install only: only a binary the profile `porelo` attaches to by path wears plain
      `porelo`. An account install or a developer's build enters `porelo` by name, which on Ubuntu
      (`apparmor_restrict_unprivileged_unconfined`) becomes the stack `porelo//&unconfined`, and its own tasks refuse
@@ -135,12 +140,11 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
    - **The bounds:** `porelo` is flagged `unconfined`, so an account process can still start `/usr/bin/porelod` with
      `LD_PRELOAD`, or trace a `porelod` it started, and bind in its name. The lock stops a process that is not
      Porelo's binary, not one that runs inside it. A host-side client that is not Porelo's code is not held.
-   - **Proved by:** `AppArmorProfileTest` (wire) for the stacked label read as not `porelo`; unit tests of the
-     namespace join and of the abstract bind in `wire` and `supervisor`, red first against today's path sockets;
-     `AppArmorProfilesTest` (`dist/package-check`) for the rule and the abi line; and the scenario of step 2 on the
-     ubuntu leg, installed machine-wide (`@restart` legs): a script outside `porelo`, joined to the task's namespace,
-     binds the name before `porelod` does and the agent is refused, a task served by Porelo reaches the vault proxy, the
-     ssh agent and the mailbox, and the measurements of v2 and v3 below repeat as one scenario.
+   - **Proved by:** `AppArmorProfileTest` (wire) for the stacked label read as not `porelo`; a unit test that the relay
+     binds the socket inside the task, not on the host; `AppArmorProfilesTest` (`dist/package-check`) for the rule and
+     the abi line; and the scenario on the ubuntu leg (`@restart` legs): the profile loads and compiles under abi 5.0,
+     `doctor`'s line for a machine-wide install against an account install, and tasks that start and reach the vault
+     socket. A stand-in refused at an abstract name is proved in [B757](README.md#b757).
 
 ## Built (2026-11-13)
 

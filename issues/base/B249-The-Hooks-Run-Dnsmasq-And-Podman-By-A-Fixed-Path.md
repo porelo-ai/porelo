@@ -5,19 +5,19 @@
   "$schema": "issue-1.json",
   "id": "B249",
   "title": "The Hooks Run dnsmasq and podman by a Fixed Path",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "High",
   "rank": 76,
   "blockedBy": [],
-  "covers": "The resolver hook, the shield's resolver and the doctor's probe take `dnsmasq` by a fixed root-owned path, as [B239](README.md#b239) does `nsenter` and `nft`; whether `podman` follows is the operator's choice",
-  "openQuestions": 1
+  "covers": "The resolver hook, the shield's resolver and the doctor's probe take `dnsmasq` by a fixed root-owned path, as [B239](README.md#b239) does `nsenter` and `nft`; `podman` stays called by name",
+  "openQuestions": 0
 }
 ```
 
 **Why this size.** S: one word made a resolved path in three places (`hooks`, `shield`, the doctor in `apps/app`),
-each with a small test, and no contract another repository reads. Estimate: 45 minutes (Core's median for S). It
-grows to M if `podman` is taken by a fixed path everywhere Porelo runs it (see *Open questions*).
+each with a small test, and no contract another repository reads. Estimate: 45 minutes (Core's median for S).
+`podman` stays called by name, so it stays an S.
 
 **What must be true.** Every program a hook starts inside or for a container's namespace is taken by a fixed,
 root-owned path, as [B239](README.md#b239) takes `nsenter` and `nft`. None is found through the caller's `PATH`.
@@ -58,13 +58,13 @@ the `PATH` `nsenter` searches is whatever the runtime hands the hook.
    `EgressPolicy.nsenter` resolves `nft`.
 3. **The doctor.** `DnsmasqProbe.versionCommand` returns the resolved path (`SystemProgram.find("dnsmasq")`).
    When none is found, the doctor's `dnsmasq nftset` line says so instead of running a `dnsmasq` from `PATH`.
-4. **`podman`.** As the operator decides (see *Open questions*). The proposal: leave it by name. It is not a hook,
-   it runs with the person's rights, and Porelo trusts the same `podman` for the whole task. The docs say so.
+4. **`podman`.** It stays called by name. It is not a hook, it runs with the person's rights, and Porelo trusts the
+   same `podman` for the whole task.
 5. **A dangling link.** `SystemProgram.find` refuses when a fixed directory holds a dangling link of the name
    (`toRealPath` throws). The directories are root-owned, so only root can place one. It stays fail-closed; the
    method's comment says so.
 6. **Docs.** `doc/security.md`, where it says which programs the hooks run, names `dnsmasq` among those taken by a
-   fixed path.
+   fixed path, and says that `podman` comes from `PATH`.
 
 ## Red-first test
 
@@ -95,12 +95,10 @@ None.
 - `porelo doctor` judges the `dnsmasq` the hook runs, not one from `PATH`.
 - The red-first tests above pass.
 
-## Open questions
+## Decided 2026-11-13 (operator)
 
-- Should `podman` also be taken by a fixed path? That would hold for every place Porelo runs it, not only
-  `podman unshare`, since a task's own container is started by the same bare name. A `podman` installed outside
-  the fixed directories (a newer one under `/usr/local/bin`, say) would then be refused. The proposal is to leave
-  `podman` by name and say so in the docs.
+`podman` stays called by name; only `dnsmasq` goes by a fixed path. The docs say, with this build, that `podman`
+comes from `PATH`. Size S.
 
 ## To be checked
 

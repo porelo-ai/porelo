@@ -5,13 +5,13 @@
   "$schema": "issue-1.json",
   "id": "B252",
   "title": "A Sign-In Collected on No Disk",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "High",
   "rank": 79,
   "blockedBy": [],
   "covers": "A sign-in made in a login container reaches the vault without lying in plaintext on a disk: the agent's config directory is a `tmpfs` of a container kept running until it is collected, and the host's copies are made in `$XDG_RUNTIME_DIR`",
-  "openQuestions": 2
+  "openQuestions": 0
 }
 ```
 
@@ -58,7 +58,8 @@ making the directory a `tmpfs` alone would lose that last collection.
    (`Detached`) runs the exec detached in the same way.
 3. **What stays.** The watcher, the extractor, the detach key, the hints and every outcome stay as they are. The
    `podman cp` from a running container reads its `tmpfs`, since it works in the container's mounts.
-4. **Docs.** `doc/decisions.md`'s entry says what is now in memory and what may still reach swap. `doc/credentials.md`
+4. **Docs.** `doc/decisions.md`'s entry says what is now in memory and what may still reach swap: only an
+   encrypted swap, or no swap, keeps a sign-in off every disk. `doc/credentials.md`
    says where a login's copies lie for its moment.
 
 ## Red-first test
@@ -79,7 +80,7 @@ making the directory a `tmpfs` alone would lose that last collection.
   login must be seen to work as before, on the test VM.
 - `$XDG_RUNTIME_DIR` is a `tmpfs` of a size limit (often a tenth of memory). A login's config directory is small, but
   the watcher copies it whole each time; the copies are replaced, not added.
-- A `tmpfs` can be swapped out. Only an encrypted swap, or none, closes that (see *Open questions*).
+- A `tmpfs` can be swapped out. Only an encrypted swap, or none, closes that, and the docs say so.
 
 ## Blockers
 
@@ -94,13 +95,10 @@ None.
 - `vault login` of each agent in `agent-login.feature` still stores its credential, and a detach still ends it.
 - `doc/decisions.md` says what the change narrows and what it leaves.
 
-## Open questions
+## Decided 2026-11-13 (operator)
 
-- Is a `tmpfs` that the system may swap out enough, with the docs saying that only an encrypted swap or none keeps a
-  sign-in off every disk? The proposal is yes. The alternative is to warn, or refuse, a login on a machine whose swap
-  is not encrypted.
-- One issue or two? The copies in `$XDG_RUNTIME_DIR` (step 1) are an S on their own and close the host side at once.
-  The container's `tmpfs` (step 2) changes how a login runs. The proposal is to build both here, as one M.
+A `tmpfs` that the system may swap out is enough. The docs say, with this build, that only an encrypted swap, or no
+swap, keeps a sign-in off every disk. Both steps stay in this one issue, size M.
 
 ## To be checked
 

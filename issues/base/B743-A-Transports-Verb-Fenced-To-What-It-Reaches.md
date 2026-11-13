@@ -30,15 +30,19 @@ under `HelperEnvironment.chosen`, with the account's network and user bus. The h
 account's reach, and a user scope's `IPAddressDeny` is ignored by a user manager (measured on systemd 259). Shield's
 nftables apply only inside a container's network namespace.
 
+**Decided 2026-11-13 (operator).** `setup` stays unfenced as the one exception. The operator accepted it, and
+`doc/security.md` names it as an accepted exception with part (c)'s build. Part (c) goes on without a question about
+`setup`.
+
 ## Plan
 
 - **(a) A fenced runner.** One verb started in `unshare --user --net`, joined to the outside by `pasta`, with an
   nftables ruleset in that namespace allowing `reaches` and loopback. Red first: a verb connecting to an address
   outside `reaches` is refused.
 - **(b) Every verb through it.** The account's own homeserver on the host's loopback is mapped in. `setup`, which runs
-  before `reaches` is known, is allowed only what the project's settings name.
+  before `reaches` is known, stays unfenced as the one exception.
 - **(c) Names and the VM.** Host names in `reaches` are resolved into the allowed set as `DnsPolicy` does for a task.
-  The acceptance runs on the VM.
+  The acceptance runs on the VM. With this part, `doc/security.md` names `setup` as an accepted exception.
 - To be measured first, on each supported host: whether `pasta` is present, and how a verb's namespace reaches the
   account's homeserver on the host's loopback.
 
@@ -61,17 +65,17 @@ nftables apply only inside a container's network namespace.
     verb added later.
   - `setup` is the one exception and runs as before. A test pins that it stays the only one. Before its first run,
     Porelo has no port to map for the account's own homeserver, because the transport picks that port inside `setup`.
-    How `setup` learns the port beforehand is a contract question put to the operator.
   - Each loopback port comes from the `reaches` the last `setup` reported, mapped one by one with `pasta -T <port>`,
     never `-T auto`. An offline project keeps those mappings and reaches nothing beyond loopback. Without a project
     policy no external address is allowed.
   - `Clearing` and `VaultClearing` keep the setup's reaches in memory until the project's records are removed.
   - Red: the new tests use the new `TransportVerbs`, so on the base they do not compile. Green, run locally: 366 tests
     in the transport, clearing and message classes and 210 in the other changed classes, 0 failures.
-- Part (c) remains, and so does the question about `setup`.
+- Part (c) remains.
 
 ## Acceptance
 
 - On the VM, a transport verb connecting to a host outside `reaches` fails, and one inside it passes.
 - An offline project's verb reaches loopback alone.
+- `doc/security.md` names `setup`, which runs unfenced, as an accepted exception.
 - The pages [B199](README.md#b199) corrected say that the rule now holds, and the accepted-risk row is closed.
