@@ -7,7 +7,7 @@
   "title": "Start Takes An Effort Setting",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 50,
   "blockedBy": [],
   "covers": "Tasks1's Start takes an optional reasoning effort, an open string each agent maps by its own declaration, and the task's record keeps it in `TaskRecord.effort`.",
