@@ -624,20 +624,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     static final Set<String> TASK_LISTS = Set.of("List", "Watch");
 
     /**
-     * Methods taking a project that a task may still ask of any of the person's projects: holding
-     * them to its own changes what the MCP endpoint's clients rely on. {@code Start} holds its
-     * project itself.
+     * The methods taking a project that the task socket does not hold to the caller's own: only
+     * {@code Start}, which holds its project itself. Every read reaches only the caller's project.
      */
-    static final Set<String> ANY_PROJECT =
-            Set.of(
-                    "Start",
-                    "Backups",
-                    "ProviderModels",
-                    "Egress",
-                    "Pending",
-                    "Review",
-                    "Peers",
-                    "MessageMembers");
+    static final Set<String> ANY_PROJECT = Set.of("Start");
 
     /**
      * What a listed task carries of what its run said, which Logs and Tail read: the file it handed
@@ -967,6 +957,15 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             this.takingATask = Set.copyOf(takingATask);
         }
 
+        /** Refuses a call that names a project other than the caller's own, or none. */
+        private void refuseAnotherProject(final Map<String, Object> parameters) {
+            final String asked = PoreloDaemon.text(parameters, "project");
+            if (!project.equals(asked)) {
+                throw new VarlinkException(
+                        INTERFACE + ".ProjectNotItsOwn", Map.of("project", asked, "own", project));
+            }
+        }
+
         @Override
         public VarlinkServer method(final String name, final VarlinkServer.Method method) {
             if (!endpoint.methods().contains(name)) {
@@ -980,20 +979,20 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             } else if ("Stop".equals(name) || takingATask.contains(name)) {
                 // A stop takes its children alone; any other call naming a task, the caller too.
                 final boolean itself = !"Stop".equals(name);
+                // A method naming a task and a project, as Peers does, is held by both.
+                final boolean alsoProject = takingAProject.contains(name);
                 held =
                         (parameters, replies) -> {
                             own(task, parameters, itself);
+                            if (alsoProject) {
+                                refuseAnotherProject(parameters);
+                            }
                             method.call(parameters, replies);
                         };
             } else if (takingAProject.contains(name)) {
                 held =
                         (parameters, replies) -> {
-                            final String asked = PoreloDaemon.text(parameters, "project");
-                            if (!project.equals(asked)) {
-                                throw new VarlinkException(
-                                        INTERFACE + ".ProjectNotItsOwn",
-                                        Map.of("project", asked, "own", project));
-                            }
+                            refuseAnotherProject(parameters);
                             method.call(parameters, replies);
                         };
             } else if (TASK_LISTS.contains(name)) {

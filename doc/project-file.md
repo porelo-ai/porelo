@@ -462,8 +462,10 @@ the event log records a `started` event naming the parent. A stop through the en
 one whose recorded parent is another task, or that records none, is refused with `NotItsOwn`. A start bringing a task
 back, even one whose runtime directory a reboot emptied, is held the same way, and takes only the agent and model the
 task was made with (`MadeWithAnother` otherwise), which the file must still allow. Any other method naming a `task`
-acts only on the caller itself or its own; naming none, or another, is refused with `NotItsOwn`. Stopping every task
-stays a person's act.
+acts only on the caller itself or its own; naming none, or another, is refused with `NotItsOwn`. Any method naming a
+`project`, a read such as `Pending`, `Review`, `Egress` or `Backups` among them, answers only for the task's own
+project; naming none, or another, is refused with `ProjectNotItsOwn`, and `List` and `Watch` show only its project's
+tasks. Stopping every task stays a person's act.
 
 ## Services on this host
 

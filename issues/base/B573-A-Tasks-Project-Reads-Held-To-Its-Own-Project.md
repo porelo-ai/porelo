@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B573",
   "title": "A Task's Project Reads Held To Its Own Project",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 1,
@@ -61,3 +61,16 @@ over a task's socket may ask; the operator decided it, and porelo-mcp is told.
   turns to `takingAProject()` containing the seven, `ANY_PROJECT` equal to `{Start}`.
 - `doc/` names nothing of which methods a task's socket holds to its project (checked when building); the changelog
   gets a `security` entry, since what a task can read narrows.
+
+## Built (2026-11-13)
+
+- `McpTaskSockets.ANY_PROJECT` holds only `Start`, so `takingAProject()` holds the seven reads, and any method taking a
+  project added later, to the task's own project with `ProjectNotItsOwn`. A method taking a task and a project, as
+  `Peers` and `Moderate` do, gets both checks, the task's first.
+- `McpTaskSocketsTest.noReadOverATasksSocketReachesAnotherOfThePersonsProjects` calls each of the seven over a task's
+  socket naming another project and none, each refused, and its own project, which still answers. Seen red against
+  the old sets, and again with the refusal taken out of the dispatch while the sets stood.
+- `doc/project-file.md` says a method naming a `project` answers only for the task's own project.
+- The reading (Sonnet) found no red. It names reads that take no project and answer across the person's projects -
+  `Projects`, `WatchProjects` and `Events` - which a project file can grant; that is a finding of its own, beyond the
+  seven this issue holds.

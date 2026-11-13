@@ -1054,8 +1054,8 @@ class McpTaskSocketsTest {
         assertThat(McpTaskSockets.takingAProject())
                 .as("arrivals are held to the caller's project")
                 .contains("Arrivals")
-                .as("Start holds its project itself, and these read any of the person's projects")
-                .doesNotContain("Start", "Backups", "Egress", "Pending", "Review", "Peers");
+                .as("Start holds its project itself")
+                .doesNotContain("Start");
 
         refused(
                 socket,
@@ -1073,6 +1073,55 @@ class McpTaskSocketsTest {
                 attempt(socket, Map.of("project", "uc", "repository", "app"), "Arrivals").join();
         if (own instanceof VarlinkException ex) {
             assertThat(ex.getErrorName()).as("its own project").doesNotEndWith(".ProjectNotItsOwn");
+        }
+    }
+
+    @Test
+    void noReadOverATasksSocketReachesAnotherOfThePersonsProjects() throws IOException {
+        // Harm: a task granted Pending or Review in one project read the pushes waiting at another
+        // project's gate, and Egress or Backups what another project reaches and keeps.
+        final List<String> reads =
+                List.of(
+                        "Backups",
+                        "ProviderModels",
+                        "Egress",
+                        "Pending",
+                        "Review",
+                        "Peers",
+                        "MessageMembers");
+        final Path socket =
+                opened(
+                        HEAD
+                                + SECTION.replace(
+                                        "\"Stop\"]",
+                                        "\"Stop\", \"" + String.join("\", \"", reads) + "\"]"));
+        assertThat(McpTaskSockets.ANY_PROJECT)
+                .as("only Start, which checks its project itself, is left out")
+                .containsExactly("Start");
+        assertThat(McpTaskSockets.takingAProject()).as("each read is held").containsAll(reads);
+
+        for (final String read : reads) {
+            final Map<String, Object> other = new java.util.HashMap<>(Map.of("project", "other"));
+            final Map<String, Object> none = new java.util.HashMap<>();
+            if ("Peers".equals(read)) {
+                other.put("task", LEAD);
+                none.put("task", LEAD);
+            }
+            refused(
+                    socket,
+                    read,
+                    other,
+                    "ProjectNotItsOwn",
+                    Map.of("project", "other", "own", "uc"));
+            refused(socket, read, none, "ProjectNotItsOwn", Map.of("project", "", "own", "uc"));
+            final Map<String, Object> own = new java.util.HashMap<>(other);
+            own.put("project", "uc");
+            final Object answer = attempt(socket, own, read).join();
+            if (answer instanceof VarlinkException ex) {
+                assertThat(ex.getErrorName())
+                        .as(read + " still answers for its own project")
+                        .doesNotEndWith(".ProjectNotItsOwn");
+            }
         }
     }
 

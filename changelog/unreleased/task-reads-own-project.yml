@@ -1,0 +1,2 @@
+title: "Over its MCP socket a task reads only its own project: `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` naming another project, or none, are refused with `ProjectNotItsOwn`, as every other method taking a project already was"
+type: security
