@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link AppArmorProfiles}: what the deb carries of the two AppArmor profiles and the
@@ -43,6 +45,112 @@ class AppArmorProfilesTest {
                     .as(profile.getKey())
                     .isEmpty();
         }
+    }
+
+    @Test
+    void holdsThisTreesTaskProfileToAbiFive() throws IOException {
+        assertThat(trees().get("porelo-task").lines().map(String::strip))
+                .as("the task's abstract socket peer rules use ABI 5.0")
+                .contains("abi <abi/5.0>,");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abi <abi/4.0>,", "", "# abi <abi/5.0>,"})
+    void failsATaskProfileWithoutAbiFive(String abi) throws IOException {
+        AppArmorProfiles.task(taskReplacing("abi <abi/5.0>,", abi), out.report);
+
+        assertThat(out.text())
+                .as("a missing or older ABI must not silently drop the socket lock")
+                .contains("FAIL  porelo-task needs abi <abi/5.0>,");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "",
+                "# unix (connect) peer=(label=porelo),",
+                "unix (connect),",
+                "unix (connect) peer=(label=unconfined),",
+                "unix (connect) peer=(label=porelo*),"
+            })
+    void failsAMissingOrChangedPoreloPeer(String rule) throws IOException {
+        AppArmorProfiles.task(
+                taskReplacing("unix (connect) peer=(label=porelo),", rule), out.report);
+
+        assertThat(out.text())
+                .as("the broker's peer must be exactly porelo")
+                .contains("FAIL  porelo-task socket rules must be exactly ");
+    }
+
+    @Test
+    void failsAMissingTaskPeer() throws IOException {
+        AppArmorProfiles.task(
+                taskReplacing("unix (connect) peer=(label=porelo-task),", ""), out.report);
+
+        assertThat(out.text())
+                .as("the task must still reach its own sockets")
+                .contains("FAIL  porelo-task socket rules must be exactly ");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "network,",
+                "network unix,",
+                "unix,",
+                "unix (connect),",
+                "audit unix (connect) peer=(label=unconfined),",
+                "signal, unix (connect) peer=(label=unconfined),",
+                "unix (connect) peer=(label=porelo//&unconfined),",
+                "all,"
+            })
+    void failsAnAdditionalSocketGrant(String rule) throws IOException {
+        AppArmorProfiles.task(taskReplacing("signal,", rule), out.report);
+
+        assertThat(out.text())
+                .as("another grant must not bypass the two allowed peers: %s", rule)
+                .contains("FAIL  porelo-task socket rules must be exactly ");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "change_profile -> porelo,",
+                "/** px,",
+                "/** cx,",
+                "/** rPx,",
+                "/** rCx,",
+                "/** pxr,",
+                "/** cxrw,",
+                "/** pix,",
+                "/** cix,",
+                "/** ux,",
+                "/** rmPUx,"
+            })
+    void failsATaskProfileThatCanLeaveItsLabel(String rule) throws IOException {
+        final String before = rule.startsWith("/") ? "/{,**} rwlkmix," : "signal,";
+        AppArmorProfiles.task(taskReplacing(before, rule), out.report);
+
+        assertThat(out.text())
+                .as("exec and explicit profile changes must keep the task's label: %s", rule)
+                .contains("FAIL  porelo-task allows a profile transition: ");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"unconfined", "complain"})
+    void failsATaskProfileThatDoesNotEnforceItsRules(String flag) throws IOException {
+        AppArmorProfiles.task(
+                taskReplacing("attach_disconnected, mediate_deleted", flag), out.report);
+
+        assertThat(out.text())
+                .as("the peer rules require an enforcing task profile")
+                .contains("FAIL  porelo-task declaration must be ");
+    }
+
+    private static String taskReplacing(String before, String after) throws IOException {
+        final String task = trees().get("porelo-task");
+        assertThat(task).as("the mutation must change an existing rule").contains(before);
+        return task.replace(before, after);
     }
 
     @Test
@@ -90,7 +198,9 @@ class AppArmorProfilesTest {
         assertThat(out.text())
                 .contains("FAIL  the deb holds no /etc/apparmor.d/porelo")
                 .contains("FAIL  the deb's /etc/apparmor.d/porelo-task is not apparmor/porelo-task")
-                .contains("FAIL  /etc/apparmor.d/porelo-task has a rule with no comment: unix,");
+                .contains("FAIL  /etc/apparmor.d/porelo-task has a rule with no comment: unix,")
+                .contains("FAIL  porelo-task needs abi <abi/5.0>,")
+                .contains("FAIL  porelo-task socket rules must be exactly ");
     }
 
     @Test

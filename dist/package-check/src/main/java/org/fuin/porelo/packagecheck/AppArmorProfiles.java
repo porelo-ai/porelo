@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,6 +38,26 @@ final class AppArmorProfiles {
 
     /** The kernel's interface postrm unloads them through, by name. */
     static final String UNLOAD = "/sys/kernel/security/apparmor/.remove";
+
+    private static final String TASK_DECLARATION =
+            "profile porelo-task flags=(attach_disconnected, mediate_deleted) {";
+
+    /** Network grants also grant unix access unless restricted to the listed families. */
+    private static final Pattern SOCKET_RULE = Pattern.compile("\\b(?:unix|network|all)\\b");
+
+    private static final List<String> TASK_SOCKET_RULES =
+            List.of(
+                    "network inet,",
+                    "network inet6,",
+                    "network netlink,",
+                    "unix (create, bind, listen, accept, getattr, setattr, getopt, setopt, shutdown,"
+                            + " read, write, send, receive),",
+                    "unix (connect) peer=(label=porelo),",
+                    "unix (connect) peer=(label=porelo-task),");
+
+    /** An exec mode may be combined with file permissions, and capitals request a clean exec. */
+    private static final Pattern TRANSITION =
+            Pattern.compile("\\bchange_profile\\b|\\b[rmwalk]*[pPcCuU][iIuU]?[xX][rmwalk]*\\b");
 
     private AppArmorProfiles() {
         throw new UnsupportedOperationException("Utility class");
@@ -91,7 +112,53 @@ final class AppArmorProfiles {
                 report.pass("every rule of " + path + " says what it is for");
             }
             bare.forEach(rule -> report.fail(path + " has a rule with no comment: " + rule));
+            if ("porelo-task".equals(name)) {
+                task(held, report);
+            }
         }
+    }
+
+    /**
+     * Holds the shipped task profile's ABI, socket grants and enforcing declaration, and refuses
+     * rules that let a task leave its label. This pins the shipped rule forms, not arbitrary
+     * AppArmor syntax or an administrator's local additions.
+     *
+     * @param profile the task profile's text
+     * @param report where the verdicts go
+     */
+    static void task(String profile, Report report) {
+        final List<String> rules =
+                profile.lines()
+                        .map(line -> line.split("#", 2)[0].strip().replaceAll("\\s+", " "))
+                        .filter(line -> !line.isEmpty())
+                        .toList();
+        final List<String> abi = rules.stream().filter(line -> line.startsWith("abi ")).toList();
+        report.check(
+                abi.equals(List.of("abi <abi/5.0>,")),
+                "porelo-task uses abi <abi/5.0>,",
+                "porelo-task needs abi <abi/5.0>,; found " + abi);
+        final List<String> declarations =
+                rules.stream().filter(line -> line.startsWith("profile ")).toList();
+        report.check(
+                declarations.equals(List.of(TASK_DECLARATION)),
+                "porelo-task enforces its rules",
+                "porelo-task declaration must be " + TASK_DECLARATION + "; found " + declarations);
+        final List<String> sockets =
+                rules.stream().filter(line -> SOCKET_RULE.matcher(line).find()).toList();
+        report.check(
+                sockets.equals(TASK_SOCKET_RULES),
+                "porelo-task connects only to porelo and porelo-task peers",
+                "porelo-task socket rules must be exactly "
+                        + TASK_SOCKET_RULES
+                        + "; found "
+                        + sockets);
+        final List<String> transitions =
+                rules.stream().filter(line -> TRANSITION.matcher(line).find()).toList();
+        if (transitions.isEmpty()) {
+            report.pass("porelo-task allows no profile transition");
+        }
+        transitions.forEach(
+                rule -> report.fail("porelo-task allows a profile transition: " + rule));
     }
 
     /**

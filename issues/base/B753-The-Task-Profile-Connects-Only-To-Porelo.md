@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B753",
   "title": "The Task Profile Connects Only To Porelo",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 52,
@@ -38,3 +38,24 @@ plain `porelo`. The packaged profile is still written under `abi <abi/4.0>`.
 
 - `AppArmorProfilesTest` holds the abi line and the connect rule, and failed against the profile before.
 - `apparmor_parser -Q` compiles the profile on Ubuntu 26.04.
+
+## Built
+
+`apparmor/porelo-task` is written under `abi <abi/5.0>`. Its one unix connect rule allows the peers `porelo` and
+`porelo-task`, and every other unix connect is refused. The comments say that a path socket is held by file rules, so
+the lock serves abstract names alone. No other permission had to change for the new abi. `apparmor_parser -Q -T`
+compiles the profile and gives no output (it loads nothing).
+
+`AppArmorProfiles` (dist/package-check) now pins:
+- the abi line;
+- the two peers, and no further socket grant;
+- enforce mode;
+- no `change_profile`, `px`, `cx` or any related exec mode.
+
+`AppArmorProfilesTest` covers each of these, both on this tree's profile and against altered copies.
+
+Red on the base with only the tests changed: it does not compile, because the tests call the new checker method.
+Green: 39 tests, 0 failures, run locally.
+
+Until a client takes an abstract address ([B752](README.md#b752)'s analysis), the rule protects no shipped socket
+agent. It costs nothing until then.

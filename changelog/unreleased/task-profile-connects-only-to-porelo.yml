@@ -1,0 +1,2 @@
+title: "The task's AppArmor profile is written under abi 5.0, and a task may connect only to Porelo's own abstract sockets and its own"
+type: security

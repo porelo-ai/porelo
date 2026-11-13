@@ -269,7 +269,6 @@ from its side, as *blocked by*.
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines. | 0 |
 | <a id="b743"></a>[B743](B743-A-Transports-Verb-Fenced-To-What-It-Reaches.md) | L | - | Every verb of a transport runs in a network namespace of its own whose ruleset lets it reach only what its `reaches` names and loopback, so a transport's mistake cannot reach another host. | 0 |
 | <a id="b752"></a>[B752](B752-Task-Sockets-Bound-As-Abstract-Names-In-The-Task.md) | M | - | The vault socket a task's agent reaches is bound by Porelo's relay in the task, an abstract name `@porelo-vault` where the agent's client takes one and a socket file in the task's own filesystem where it does not, never a file bind-mounted from the host. | 2 |
-| <a id="b753"></a>[B753](B753-The-Task-Profile-Connects-Only-To-Porelo.md) | S | [B752](README.md#b752) | `porelo-task` holds one unix connect rule, to a peer labelled `porelo` or `porelo-task`, under `abi <abi/5.0>`, and the package check holds the packaged profile to it. | 0 |
 
 ## Review
 
@@ -442,6 +441,7 @@ from its side, as *blocked by*.
 | <a id="b697"></a>[B697](B697-A-Start-That-Waits-For-Its-Watcher-And-Broker.md) | S | [B384](README.md#b384) | A start waits for its clearance watcher and its vault broker as it waits for its gate and relay, and one that does not come up stops the start with 70 and its cleanup. | 0 |
 | <a id="b523"></a>[B523](B523-A-Message-To-People-Reaches-Persons-Only.md) | S | - | A task's message to `people` reaches the persons only, no other task; the card names the room and the admitted persons. | - |
 | <a id="b698"></a>[B698](B698-A-Losing-Start-Takes-No-Broker-State.md) | M | - | Of two starts racing for one task name, the one that loses starts no vault broker in the winner's state directory and touches no vault.pid, socket or token of it. | 0 |
+| <a id="b753"></a>[B753](B753-The-Task-Profile-Connects-Only-To-Porelo.md) | S | [B752](README.md#b752) | `porelo-task` holds one unix connect rule, to a peer labelled `porelo` or `porelo-task`, under `abi <abi/5.0>`, and the package check holds the packaged profile to it. | 0 |
 | <a id="b522"></a>[B522](B522-An-Online-Task-On-A-Host-Pushes-Its-Amend.md) | S | - | An online task on a host pushes its amended commit to `porelo/<task>` with a lease on what the gate last pushed there. | - |
 | <a id="b723"></a>[B723](B723-A-Projects-Floor-Holds-Under-Every-Spelling-Of-Its-Repository.md) | M | - | The date a machine last accepted a project's project.yml is found under every spelling a forge takes for that repository and under every key an older Porelo kept it under, two repositories never share it, and its check and its write are one step. | - |
 | <a id="b521"></a>[B521](B521-The-Gate-Is-Also-The-Tasks-Origin.md) | S | - | A task's workspace has `origin` beside `porelo`, both the gate, so `origin/main` works in every check; pushes still reach only the gate. | - |

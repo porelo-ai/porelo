@@ -2,10 +2,11 @@
 #
 # Enforcing, and otherwise allowing what a task does today: the container already bounds its
 # files, its network and its capabilities, and this profile is not a second container. It adds
-# one thing - a unix socket is connected to only where the peer wears 'porelo' (Porelo's own
-# binaries, the file beside this one) or 'porelo-task' (the task's own processes). A socket bound
-# by any other process of the operator's account is refused at the connect, so nothing that is
-# not Porelo can stand in for the vault proxy, the mailbox or the broker a task talks to.
+# one thing - an abstract unix socket is connected to only where the peer wears 'porelo'
+# (Porelo's packaged binaries, the file beside this one) or 'porelo-task' (the task's own
+# processes). Every other abstract unix connect is refused. A path socket is held by file
+# rules, not the peer rule, so this lock serves the @porelo-<what> abstract names bound inside
+# the task's network namespace: the vault proxy, the ssh agent, the mailbox and the broker.
 #
 # Held only where the kernel mediates unix sockets
 # (/sys/kernel/security/apparmor/features/network/af_unix); elsewhere the profile loads and the
@@ -23,9 +24,9 @@
 # Install:  sudo apparmor_parser -r -W /etc/apparmor.d/porelo /etc/apparmor.d/porelo-task
 # Remove:   sudo apparmor_parser -R /etc/apparmor.d/porelo-task /etc/apparmor.d/porelo
 
-# The rule set of AppArmor 4 (Ubuntu 24.04 and later, Debian 13). Without an abi line the parser
-# compiles against an older feature set, which may drop the unix rules below altogether.
-abi <abi/4.0>,
+# ABI 5.0 keeps the abstract unix socket peer rules in the parser's feature set; an older
+# feature set may drop the lock below altogether.
+abi <abi/5.0>,
 
 # The variables every profile is written with, such as @{PROC}.
 include <tunables/global>
@@ -57,11 +58,12 @@ profile porelo-task flags=(attach_disconnected, mediate_deleted) {
   # agent runs in. An unconnected datagram is not restricted; Porelo's sockets are streams.
   unix (create, bind, listen, accept, getattr, setattr, getopt, setopt, shutdown, read, write, send, receive),
 
-  # THE LOCK. A connect only to a socket one of Porelo's binaries bound: the vault proxy, the
-  # ssh agent, the mailbox, the daemon.
+  # THE LOCK. Only Porelo's packaged binaries may serve the @porelo-<what> abstract names.
+  # A path socket is held by file rules, so this peer rule does not guard one.
   unix (connect) peer=(label=porelo),
 
-  # And to the task's own sockets: its tmux session, an agent's own helpers.
+  # The task may connect to its own abstract sockets: its tmux session and an agent's helpers.
+  # A path socket is held by file rules, so this peer rule does not guard one.
   unix (connect) peer=(label=porelo-task),
 
   # Signals, as before: the agent stops its own children, and podman stops the task.
