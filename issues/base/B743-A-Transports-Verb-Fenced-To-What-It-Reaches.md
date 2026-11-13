@@ -71,7 +71,35 @@ nftables apply only inside a container's network namespace.
   - `Clearing` and `VaultClearing` keep the setup's reaches in memory until the project's records are removed.
   - Red: the new tests use the new `TransportVerbs`, so on the base they do not compile. Green, run locally: 366 tests
     in the transport, clearing and message classes and 210 in the other changed classes, 0 failures.
-- Part (c) remains.
+- Part (c) (Codex CLI, gpt-6.1-sol; the lead fixed one test assertion and ran the tests).
+  - A host name in `reaches` is resolved once per launch, through an injectable resolver, into the literal addresses
+    the fence allows; a name that resolves to nothing refuses the verb.
+  - Names inside the fence resolve only through the host's own resolvers. Where every nameserver in the host's
+    `resolv.conf` is on loopback (systemd-resolved at `127.0.0.53`), pasta forwards port 53 into the namespace
+    (`-U 53`, `-T 53`); otherwise UDP and TCP port 53 are allowed to those resolver addresses alone. An offline
+    project gets none.
+  - `doc/security.md` names `setup` as the accepted exception, DNS as a side channel and a name's addresses rotating
+    within a run; `doc/transports.md`, `doc/messages.md` and `doc/decisions.md` say what holds now.
+  - Red: the tests do not compile on the base, which has no `Resolver`. Green, on the host: 593 tests in the
+    transport, clearing, message and start classes, 0 failures, 0 skipped, with `TransportFenceMachineTest` against
+    real pasta (`1.1.1.1:443`, the name `one.one.one.one`) passing its 3 tests.
+- The reading of part (c) (agy, gemini-4-argon-high), each finding checked in the code:
+  - Grave, and it was part (b)'s: pasta runs the verb as root of its user namespace with every capability, so the
+    verb could `nft flush ruleset` and reach anything. Measured on the host: with the fence loaded, the verb flushed
+    it and connected to `1.1.1.1:443`. Now `setpriv --bounding-set=-all --inh-caps=-all --ambient-caps=-all
+    --no-new-privs` runs before the verb, and a missing setpriv refuses it. `TransportFenceMachineTest`'s
+    `aFencedVerbCannotLiftItsOwnFence` was red (flushed, connected), then green (refused); the unit tests on the
+    command and a missing setpriv were red first too.
+  - A name answering loopback mapped the reach's port to the host's listener, and an unspecified, multicast,
+    broadcast or link-local address was accepted in a reach or an answer. Both are refused now, tests seen red then
+    green. A literal loopback reach and `localhost` keep their mapping.
+  - The nameserver parse error is now kept as the cause.
+  - Filed: one project's unbuildable fence ends the delivery pass for every project ([B759](README.md#b759)).
+  - Declined: `[::ffff:127.0.0.1]` and `127.0.0.2` read as loopback here and not in `TaskConversations` - a
+    literal loopback reach is mapped either way, so nothing widens; precompiled patterns - a few lines per verb.
+- Green on the host after these: 609 tests in the transport, clearing, message and start classes, 0 failures, with
+  the 4 real-pasta machine tests.
+- Still open: the acceptance run on the VM. Until it has run, the real-pasta test on the host is what is measured.
 
 ## Acceptance
 

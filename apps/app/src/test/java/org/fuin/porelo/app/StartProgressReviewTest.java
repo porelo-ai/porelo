@@ -305,7 +305,7 @@ class StartProgressReviewTest {
         final FakeCommandRunner machine =
                 new TransportTestRunner()
                         .answering(
-                                "ps",
+                                "podman ps",
                                 "porelo-p-work\tUp 1 minute\t1788500000\t0\tp\tguarded\tp\t\n");
         final PoreloContext context = context(machine);
         final Path state = context.paths().tasks().containerState("porelo-p-work");
@@ -374,7 +374,7 @@ class StartProgressReviewTest {
         final FakeCommandRunner machine =
                 new TransportTestRunner()
                         .answering(
-                                "ps",
+                                "podman ps",
                                 "porelo-p-work\tUp 1 minute\t1788500000\t0\tp\tguarded\tp\t\n");
         final PoreloContext context = context(machine);
         final Path state =
@@ -428,7 +428,7 @@ class StartProgressReviewTest {
         final FakeCommandRunner machine =
                 new TransportTestRunner()
                         .answering(
-                                "ps",
+                                "podman ps",
                                 "porelo-p-work\tUp 1 minute\t1788500000\t0\tp\tguarded\tp\t\n");
         final PoreloContext context = context(machine);
         final Path state =
@@ -444,7 +444,7 @@ class StartProgressReviewTest {
                 .answering("podman version", "5.8.1")
                 .answering("{{.Id}}", "0123456789abcdef")
                 .answering(
-                        "ps",
+                        "podman ps",
                         "porelo-p-work\tExited (0) 1 minute ago\t1788500000\t1788500060\tp\tguarded\tp\t\t0123456789abcdef\n");
     }
 

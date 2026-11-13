@@ -3,6 +3,7 @@ package org.fuin.porelo.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -19,6 +20,69 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** A verb added to the common executor must acquire the same fence as existing verbs. */
 class TransportVerbsTest {
     @TempDir Path dir;
+
+    @Test
+    void theCommonVerbPathResolvesEachLaunchUsingItsSuppliedDnsInputs() throws Exception {
+        // Harm: a wrapper discards the fakeable DNS inputs or retains one run's old addresses.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final List<String> answers = new java.util.ArrayList<>(List.of("192.0.2.10", "192.0.2.20"));
+        final Path resolvConf =
+                Files.writeString(dir.resolve("resolv.conf"), "nameserver 127.0.0.53\n");
+        final TransportVerbs verbs =
+                new TransportVerbs(
+                                runner,
+                                name -> Path.of("/usr/bin", name),
+                                name ->
+                                        new InetAddress[] {
+                                            InetAddress.ofLiteral(answers.removeFirst())
+                                        },
+                                resolvConf)
+                        .reaching(List.of("server.example.org"), false);
+
+        verbs.run(Command.of("/transport", "poll"));
+        verbs.run(Command.of("/transport", "send"), line -> {});
+
+        assertThat(script(runner.invocations().getFirst()))
+                .as("the first verb is fenced to its own answer")
+                .contains("ip daddr 192.0.2.10 accept")
+                .doesNotContain("192.0.2.20");
+        assertThat(script(runner.invocations().getLast()))
+                .as("the next verb is fenced to the next answer")
+                .contains("ip daddr 192.0.2.20 accept")
+                .doesNotContain("192.0.2.10");
+        assertThat(runner.invocations())
+                .as("both launch paths retain the supplied loopback resolver configuration")
+                .allSatisfy(
+                        command ->
+                                assertThat(command.arguments())
+                                        .as("DNS port mappings")
+                                        .containsSubsequence("-T", "53", "-U", "53"));
+        assertThat(answers).as("each launch makes a lookup").isEmpty();
+    }
+
+    @Test
+    void setupDoesNotReadDnsInputsOrResolveSavedNames() {
+        // Harm: the accepted setup exception accidentally depends on the endpoint it establishes.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportVerbs verbs =
+                new TransportVerbs(
+                                runner,
+                                name -> {
+                                    throw new AssertionError("setup needs no fence tools");
+                                },
+                                name -> {
+                                    throw new AssertionError("setup needs no reach lookup");
+                                },
+                                dir.resolve("absent-resolv.conf"))
+                        .reaching(List.of("server.example.org"), false);
+
+        verbs.run(Command.of("/transport", "setup"));
+
+        assertThat(runner.invocations()).as("setup runs once").hasSize(1);
+        assertThat(runner.invocations().getFirst().arguments())
+                .as("the accepted setup exception is executed directly")
+                .containsExactly("/transport", "setup");
+    }
 
     @ParameterizedTest
     @ValueSource(
@@ -111,7 +175,7 @@ class TransportVerbsTest {
     }
 
     @Test
-    void setupIsTheOnlyUnfencedVerbUntilItsEndpointIsKnownBeforeItRuns() {
+    void setupIsTheOnlyAcceptedUnfencedVerb() {
         // Harm: an expanding exemption list silently leaves other verbs on the host network.
         final FakeCommandRunner runner = new FakeCommandRunner();
         final TransportVerbs verbs = new TransportVerbs(runner, name -> Path.of("/usr/bin", name));

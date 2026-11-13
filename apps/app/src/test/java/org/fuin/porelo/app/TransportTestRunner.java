@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
@@ -19,24 +20,40 @@ class TransportTestRunner extends FakeCommandRunner implements TransportVerbs.Pr
         return name -> Path.of("/usr/bin", name);
     }
 
+    /** Resolves fixture names without consulting the machine's network. */
+    @Override
+    public TransportFence.Resolver resolver() {
+        return name -> new InetAddress[] {InetAddress.ofLiteral("192.0.2.10")};
+    }
+
+    /** Nameservers are fixture data just like saved transport reaches. */
+    @Override
+    public Path resolvConf() {
+        return resolverFile();
+    }
+
+    private static Path resolverFile() {
+        return Path.of("src", "test", "resources", "transport-resolv.conf");
+    }
+
     /** Supplies tool paths for a custom fake without changing its command behavior. */
     static CommandRunner fake(final CommandRunner runner) {
         return supplying(runner, name -> Path.of("/usr/bin", name));
     }
 
-    /** Keeps real subprocess/input tests local while standing in for pasta and nft only. */
+    /** Keeps real subprocess/input tests local while standing in for pasta, nft and setpriv. */
     static CommandRunner processes(final CommandRunner runner, final Path directory) {
-        final Path pasta =
-                executable(
-                        directory.resolve("pasta"),
-                        "while [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"\n");
+        final String passOn = "while [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"\n";
+        final Path pasta = executable(directory.resolve("pasta"), passOn);
         final Path nft = executable(directory.resolve("nft"), "cat > /dev/null\n");
+        final Path setpriv = executable(directory.resolve("setpriv"), passOn);
         return supplying(
                 runner,
                 name ->
                         switch (name) {
                             case "pasta" -> pasta;
                             case "nft" -> nft;
+                            case "setpriv" -> setpriv;
                             case "sh" -> Path.of("/bin/sh");
                             default ->
                                     throw new IllegalArgumentException("Unexpected tool: " + name);
@@ -49,6 +66,16 @@ class TransportTestRunner extends FakeCommandRunner implements TransportVerbs.Pr
             @Override
             public Function<String, Path> programs() {
                 return programs;
+            }
+
+            @Override
+            public TransportFence.Resolver resolver() {
+                return name -> new InetAddress[] {InetAddress.ofLiteral("192.0.2.10")};
+            }
+
+            @Override
+            public Path resolvConf() {
+                return resolverFile();
             }
 
             @Override

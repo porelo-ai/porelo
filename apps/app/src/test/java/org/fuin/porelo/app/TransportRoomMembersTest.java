@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -137,15 +138,22 @@ class TransportRoomMembersTest {
     }
 
     @Test
-    void anUnsupportedSavedNameCannotRunMembersUnfenced() throws Exception {
-        // Harm: a hostname unsupported by this slice silently loses the network fence.
+    void anUnresolvedSavedNameCannotRunMembersUnfenced() throws Exception {
+        // Harm: failed name resolution silently loses the network fence.
+        runner =
+                new TransportTestRunner() {
+                    @Override
+                    public TransportFence.Resolver resolver() {
+                        return name -> new InetAddress[0];
+                    }
+                };
         final PoreloContext context = context();
         remember(context, List.of("server.example.org"));
 
         assertThatThrownBy(() -> read(context, project()))
-                .as("names fail closed until resolution is supported")
+                .as("a failed lookup refuses the membership read")
                 .isInstanceOf(RoomMembers.Refused.class)
-                .hasMessageContaining("literal");
+                .hasMessageContaining("no addresses");
         assertThat(runner.lines())
                 .as("no unfenced members invocation")
                 .noneMatch(line -> line.contains(" members "));
@@ -242,7 +250,7 @@ class TransportRoomMembersTest {
     void anotherProjectsContainerIsRefusedEvenWhenItsNameBeginsWithThisProjects() throws Exception {
         // A shared name prefix must not turn another project's task into this room's task.
         final PoreloContext context = context();
-        runner.answering("ps", TASK + "\tUp\t0\t0\tp-api\tguarded\t\t\t" + "a".repeat(64));
+        runner.answering("podman ps", TASK + "\tUp\t0\t0\tp-api\tguarded\t\t\t" + "a".repeat(64));
         answer(Map.of("room", "!p", "members", List.of(member("task"))));
 
         refused(context, "task", 76);
@@ -304,7 +312,7 @@ class TransportRoomMembersTest {
     void aRoomOfPeopleAndHelpersDoesNotNeedTheContainerRuntime() throws Exception {
         // A broken runtime must not hide a valid room that requires no task ownership checks.
         final PoreloContext context = context();
-        runner.failing("ps", 125, "runtime unavailable");
+        runner.failing("podman ps", 125, "runtime unavailable");
         answer(Map.of("room", "!p", "members", List.of(member("person"), member("helper"))));
 
         assertThat(read(context, project()).members())
@@ -589,7 +597,7 @@ class TransportRoomMembersTest {
         Files.writeString(
                 context.paths().tasks().taskRecord(TASK).resolve(Sidecar.RECORDED_ID),
                 "a".repeat(64));
-        runner.answering("ps", TASK + "\tUp\t0\t0\tp\tguarded\t\t\t" + "a".repeat(64));
+        runner.answering("podman ps", TASK + "\tUp\t0\t0\tp\tguarded\t\t\t" + "a".repeat(64));
         return context;
     }
 }

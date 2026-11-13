@@ -1,5 +1,6 @@
 package org.fuin.porelo.app;
 
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,26 +22,59 @@ final class TransportVerbs implements CommandRunner {
     interface Programs extends CommandRunner {
         /** Returns how this runner locates namespace programs. */
         Function<String, Path> programs();
+
+        /** Returns how host names are resolved before a fenced launch. */
+        default TransportFence.Resolver resolver() {
+            return InetAddress::getAllByName;
+        }
+
+        /** Returns the host's resolver configuration, replaceable by a test fixture. */
+        default Path resolvConf() {
+            return Path.of("/etc/resolv.conf");
+        }
     }
 
     private final CommandRunner runner;
     private final Function<String, Path> programs;
     private final List<String> reaches;
     private final boolean offline;
+    private final TransportFence.Resolver resolver;
+    private final Path resolvConf;
 
     TransportVerbs(final CommandRunner runner, final Function<String, Path> programs) {
-        this(runner, programs, List.of(), false);
+        this(
+                runner,
+                programs,
+                runner instanceof Programs supplied
+                        ? supplied.resolver()
+                        : InetAddress::getAllByName,
+                runner instanceof Programs supplied
+                        ? supplied.resolvConf()
+                        : Path.of("/etc/resolv.conf"));
+    }
+
+    /** Keeps DNS lookups and the resolver configuration independent of the test machine. */
+    TransportVerbs(
+            final CommandRunner runner,
+            final Function<String, Path> programs,
+            final TransportFence.Resolver resolver,
+            final Path resolvConf) {
+        this(runner, programs, List.of(), false, resolver, resolvConf);
     }
 
     private TransportVerbs(
             final CommandRunner runner,
             final Function<String, Path> programs,
             final List<String> reaches,
-            final boolean offline) {
+            final boolean offline,
+            final TransportFence.Resolver resolver,
+            final Path resolvConf) {
         this.runner = runner;
         this.programs = programs;
         this.reaches = List.copyOf(reaches);
         this.offline = offline;
+        this.resolver = resolver;
+        this.resolvConf = resolvConf;
     }
 
     /** Retains a supplied executor's tool resolution, including in descriptions and tests. */
@@ -57,7 +91,7 @@ final class TransportVerbs implements CommandRunner {
 
     /** Takes the network allowance from the setup contract, never transport-internal files. */
     TransportVerbs reaching(final List<String> reaches, final boolean offline) {
-        return new TransportVerbs(runner, programs, reaches, offline);
+        return new TransportVerbs(runner, programs, reaches, offline, resolver, resolvConf);
     }
 
     /** Lifecycle verbs name their project explicitly; no container name is decoded. */
@@ -142,9 +176,10 @@ final class TransportVerbs implements CommandRunner {
     private Command command(final Command command) {
         final Command chosen =
                 command.inheritsEnvironment() ? HelperEnvironment.chosen(command) : command;
-        // Setup alone is not yet fenced: its first local endpoint is chosen inside the verb.
+        // Setup's unfenced network is accepted: its first local endpoint is chosen inside the verb.
         if (command.arguments().size() > 1 && "setup".equals(command.arguments().get(1)))
             return chosen;
-        return new TransportFence(runner, reaches, offline, programs).command(chosen);
+        return new TransportFence(runner, reaches, offline, programs, resolver, resolvConf)
+                .command(chosen);
     }
 }

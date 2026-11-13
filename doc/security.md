@@ -359,6 +359,44 @@ of all tasks at once - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `po
 - **It outlives `porelo clear`** of the account: it is the account's history, not a project's, and the clearing
   says so.
 
+## A transport's network
+
+Every transport verb except `setup` runs in a user and network namespace created by `pasta --config-net`.
+Before the verb starts, nftables loads an output policy that drops traffic outside namespace loopback and the
+addresses in the saved conversation's `reaches`. A reach may be a literal IPv4 or IPv6 address or a host name,
+with an optional port. Porelo looks up each name through the host's resolver at each verb's start and allows only
+the returned addresses for that run. A failed lookup or an empty answer refuses the verb before it runs.
+The verb runs as root of pasta's user namespace, where it would hold `CAP_NET_ADMIN` and could flush that ruleset:
+`setpriv` empties its bounding, inheritable and ambient capability sets and sets no-new-privileges first, so the
+verb holds no capability and no exec gives it one back. Missing pasta, nftables or `setpriv` and a failed ruleset
+load also refuse the verb; there is no unfenced fallback. No reach, and no address a name resolves to, may be an
+unspecified, multicast, broadcast or link-local address, and a name may not resolve to loopback: a loopback port is
+mapped only for a literal loopback reach or `localhost`.
+
+Only the loopback TCP ports named in the saved `reaches` are mapped to the host's listeners. Automatic forwarding
+and host-address translations are disabled. An IPv6 destination also permits neighbor discovery, limited to
+ICMPv6 types 133–136 with a link-local source or destination and hop limit 255. An offline project's verbs keep
+their saved loopback port mappings but get no external address allowance and no DNS forwarding.
+
+An online verb with a host name in `reaches` also needs DNS inside its namespace. Porelo reads the host's
+`/etc/resolv.conf`. If every nameserver is on loopback, pasta maps UDP and TCP port 53 to the host; the existing
+loopback rule permits those queries. If any nameserver is off loopback, the ruleset instead permits UDP and TCP
+port 53 only to the listed non-loopback nameserver addresses, with no DNS port mapping. No other DNS destination
+is added. A missing, unreadable or unusable resolver configuration refuses a verb that needs DNS. Literal-only
+and offline verbs need no resolver configuration.
+
+The fence catches a transport's mistakes. Every verb still has the account's files, Unix sockets and user bus,
+so installing a transport trusts it as a program of that account. These limits are accepted:
+
+- **`setup` is the one unfenced exception.** It uses the account's network because, before its first run,
+  Porelo does not know the account's homeserver port: the transport picks that port inside `setup`. Every other
+  verb goes through the namespace and nftables fence.
+- **DNS is a side channel.** A verb with DNS access may ask its resolver about any name. An answer for a name
+  outside `reaches` adds no address to the ruleset, but data can leave in the query itself.
+- **Addresses are pinned for one run.** Unlike a task's running resolver, a transport's lookups do not update
+  its ruleset while it runs. An address that rotates after the initial lookup is refused for that run; the next
+  verb makes another lookup through the host's resolver, subject to that resolver's caching.
+
 ## Who may stand in for Porelo's sockets
 
 A task's agent reaches the vault proxy through one unix socket, `/run/porelo-vault/vault.sock`. Porelo's relay binds

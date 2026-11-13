@@ -1,0 +1,2 @@
+title: "A transport verb may now name hosts in what it reaches: each name is resolved once per launch into the fence, and the verb's names resolve only through the host's own resolvers, port 53 alone, or none for an offline project; a fenced verb now holds no capability in its namespace, so it cannot flush the fence, and no reach or answer may be loopback by name, unspecified, multicast, broadcast or link-local"
+type: security

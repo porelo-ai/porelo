@@ -132,21 +132,18 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
   time, reading the account's secrets inside, so starts at once give the transport the secret the first one kept. A server whose first account exists while Porelo holds
   no account secrets is refused (78), not guessed around.
 - **`reaches`** is every host the project's messages reach, in the transport's own word. Porelo shows it, in
-  `porelo doctor` and in the conversation the daemon describes to an interface, and checks it only for an offline
-  project: it adds `--loopback-only` to `setup`, `enroll`, `join`, `part` and `members`, and the transport refuses
+  `porelo doctor` and in the conversation the daemon describes to an interface, and uses the saved reaches to fence
+  every verb except `setup`. For an offline project it adds `--loopback-only` to `setup`, `enroll`, `join`, `part`
+  and `members`, and the transport refuses
   (78) before it contacts anything but loopback; after every `setup`, and again before a task enrolls, Porelo refuses
   a conversation whose `reaches` names a host other than loopback.
-- **`members` has a network fence.** It runs in a user and network namespace created by `pasta --config-net`.
-  Before the verb starts, nftables allows namespace loopback and the literal IPv4 and IPv6 addresses in the saved
-  conversation's `reaches`, with optional ports stripped; an offline project allows loopback alone. Missing
-  conversation state allows loopback alone too. An external IPv6 reach also allows ICMPv6 discovery types
-  133–136, only with a link-local source or destination and hop limit 255. Other traffic outside the declared
-  addresses and loopback is dropped. Pasta's automatic port forwarding and host-address translations
-  are disabled in both directions.
-  Missing pasta or nftables, a failed ruleset load, or an unsupported reach refuses the read. Hostname resolution
-  and mapping the account's homeserver into namespace loopback are not supported. Other verbs, including `poll`
-  and `send`, still use the account's network. Every verb retains the account's files and user bus, so installing
-  a transport still trusts it as a program of the account; the fence catches mistakes, not a hostile transport.
+- **Every verb except `setup` has a network fence.** Literal IPv4 and IPv6 addresses in `reaches` are allowed;
+  host names are resolved before each launch and only their returned addresses are allowed for that run.
+  A name with no addresses refuses the verb. Optional reach ports are stripped for the address allowance;
+  loopback ports are mapped individually to the host's listeners. An offline project gets loopback alone.
+  [The transport's network fence](security.md#a-transports-network) describes DNS access, neighbor discovery,
+  failure handling and the accepted limits: unfenced `setup`, DNS as a side channel, and address rotation within
+  a run. Every verb retains the account's files and user bus; the fence catches mistakes in a trusted transport.
 - **`--login LOGIN`** is added to `setup`, `enroll`, `retire`, `join`, `members` and `clear` for a transport that `takes`
   it; `admit` and `dismiss` carry the other machine's name instead, and no login is added. `LOGIN` is this account's
   login on the host, which is the person's, always, never the `login` a `setup` answered; Porelo refuses (78) before

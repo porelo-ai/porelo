@@ -11,6 +11,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
@@ -22,10 +23,51 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 /**
  * Opt-in check against a reachable TCP listener outside the machine, with no credentials exchanged.
  * Enable with {@code -Dporelo.test.transport.fence=true}, and name its literal address and port in
- * {@code porelo.test.transport.fence.address} and {@code porelo.test.transport.fence.port}.
+ * {@code porelo.test.transport.fence.address} and {@code porelo.test.transport.fence.port}. The
+ * name lookup case also takes its host name in {@code porelo.test.transport.fence.name}.
  */
 @EnabledIfSystemProperty(named = "porelo.test.transport.fence", matches = "true")
 class TransportFenceMachineTest {
+
+    @Test
+    void aVerbCanReachADeclaredHostByName() throws IOException {
+        // Harm: addresses are allowed but the real verb cannot resolve its declared host behind
+        // pasta.
+        requirePasta();
+        final String name = System.getProperty("porelo.test.transport.fence.name", "");
+        assertThat(name).as("supply the external listener's host name").isNotEmpty();
+        assertThat(name.contains(":") || name.matches("[0-9.]+"))
+                .as("this case must exercise a host name, not a literal address")
+                .isFalse();
+        final List<InetAddress> addresses = List.of(InetAddress.getAllByName(name));
+        assertThat(addresses)
+                .as(
+                        "the listener must resolve to addresses outside the namespace and host"
+                                + " loopback")
+                .isNotEmpty()
+                .noneMatch(address -> address.isLoopbackAddress() || address.isAnyLocalAddress());
+        final int port =
+                Integer.parseInt(System.getProperty("porelo.test.transport.fence.port", "443"));
+        final Command probe = probe(name, port);
+        final ProcessCommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(20));
+
+        final CommandResult baseline = runner.run(probe);
+        assertThat(baseline.exitCode())
+                .as("the account can resolve and reach the listener: %s", baseline.standardError())
+                .isZero();
+        assertThat(baseline.standardOutput()).as("the baseline connected").isEqualTo("connected\n");
+
+        final CommandResult reached = new TransportFence(runner, List.of(name), false).run(probe);
+        assertThat(reached.exitCode())
+                .as(
+                        "the fresh verb resolves inside pasta and reaches its pinned destination:"
+                                + " %s",
+                        reached.standardError())
+                .isZero();
+        assertThat(reached.standardOutput())
+                .as("the fenced verb connected by name")
+                .isEqualTo("connected\n");
+    }
 
     @Test
     void aMappedHomeserverIsReachableWhileAnotherHostLoopbackListenerIsRefused()
@@ -121,6 +163,35 @@ class TransportFenceMachineTest {
                 .isEqualTo("refused\n");
     }
 
+    @Test
+    void aFencedVerbCannotLiftItsOwnFence() {
+        // Harm: a transport flushes the namespace's ruleset and then reaches any host.
+        requirePasta();
+        final String target = System.getProperty("porelo.test.transport.fence.address", "");
+        assertThat(target).as("supply an external listener's literal address").isNotEmpty();
+        final String port = System.getProperty("porelo.test.transport.fence.port", "443");
+        final Command probe = probe(target, Integer.parseInt(port));
+        final List<String> lifting = new ArrayList<>();
+        lifting.addAll(
+                List.of(
+                        SystemProgram.find("sh").toString(),
+                        "-c",
+                        "\"$0\" flush ruleset && echo flushed; exec \"$@\"",
+                        SystemProgram.find("nft").toString()));
+        lifting.addAll(probe.arguments());
+        final ProcessCommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(20));
+
+        final CommandResult result =
+                new TransportFence(runner, List.of(), false)
+                        .run(Command.of(lifting).withTimeout(Duration.ofSeconds(15)));
+
+        assertThat(result.standardOutput())
+                .as("the verb could not flush its fence; stderr: %s", result.standardError())
+                .doesNotContain("flushed")
+                .isEqualTo("refused\n");
+        assertThat(result.exitCode()).as("the connection was refused").isEqualTo(23);
+    }
+
     private static void requirePasta() {
         try {
             SystemProgram.find("pasta");
@@ -154,7 +225,7 @@ class TransportFenceMachineTest {
             try (final Socket socket = new Socket()) {
                 socket.connect(
                         new InetSocketAddress(
-                                InetAddress.ofLiteral(arguments[0]),
+                                InetAddress.getByName(arguments[0]),
                                 Integer.parseInt(arguments[1])),
                         3000);
                 System.out.println("connected");

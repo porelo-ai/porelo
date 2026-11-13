@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -28,6 +31,351 @@ import org.junit.jupiter.params.provider.ValueSource;
 class TransportFenceTest {
 
     @TempDir Path dir;
+
+    @Test
+    void aSavedNameAllowsExactlyItsResolvedAddresses() throws IOException {
+        // Harm: resolving a declared name opens destinations beyond its own answers.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final List<String> asked = new ArrayList<>();
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("server.example.org:443", "server.example.org:8448"),
+                        false,
+                        name -> {
+                            asked.add(name);
+                            return new InetAddress[] {
+                                InetAddress.getByAddress(
+                                        "ignored.example.org",
+                                        InetAddress.ofLiteral("192.0.2.10").getAddress()),
+                                InetAddress.ofLiteral("2001:db8::10"),
+                                InetAddress.ofLiteral("192.0.2.10")
+                            };
+                        },
+                        resolvConf("nameserver 192.0.2.53\n"));
+
+        fenced.run(Command.of("/transport", "members"));
+
+        assertThat(asked)
+                .as("each distinct host is resolved once, without its port")
+                .containsExactly("server.example.org");
+        assertThat(accepts(runner.invocations().getFirst()))
+                .as(
+                        "only answer addresses, bounded discovery, loopback and the exact DNS"
+                                + " endpoint pass")
+                .containsExactly(
+                        "oifname \"lo\" accept",
+                        "ip6 hoplimit 255 ip6 saddr fe80::/10 icmpv6 type { 133, 134, 135, 136 }"
+                                + " accept",
+                        "ip6 hoplimit 255 ip6 daddr fe80::/10 icmpv6 type { 133, 134, 135, 136 }"
+                                + " accept",
+                        "ip daddr 192.0.2.10 accept",
+                        "ip6 daddr 2001:db8:0:0:0:0:0:10 accept",
+                        "ip daddr 192.0.2.53 udp dport 53 accept",
+                        "ip daddr 192.0.2.53 tcp dport 53 accept");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void anUnresolvedNameRefusesTheVerbBeforeAnyProcessStarts(final boolean lookupFails)
+            throws IOException {
+        // Harm: an unavailable name silently falls back to an unfenced transport.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("192.0.2.10", "missing.example.org"),
+                        false,
+                        name -> {
+                            if (lookupFails) throw new UnknownHostException(name);
+                            return new InetAddress[0];
+                        },
+                        resolvConf("nameserver 192.0.2.53\n"));
+
+        assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
+                .as("an empty answer and a failed lookup both refuse the launch")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("missing.example.org")
+                .hasMessageContaining("no addresses");
+        assertThat(runner.invocations()).as("no namespace or unfenced fallback starts").isEmpty();
+    }
+
+    @Test
+    void eachVerbResolvesAgainWithoutKeepingThePreviousRunsAddresses() throws IOException {
+        // Harm: a reused fence permanently retains a destination after its name moves away.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final List<String> answers = new ArrayList<>(List.of("192.0.2.10", "192.0.2.20"));
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("server.example.org"),
+                        false,
+                        name -> new InetAddress[] {InetAddress.ofLiteral(answers.removeFirst())},
+                        resolvConf("nameserver 127.0.0.53\n"));
+
+        fenced.run(Command.of("/transport", "poll"));
+        fenced.run(Command.of("/transport", "send"), line -> {});
+
+        assertThat(scriptOf(runner.invocations().getFirst()))
+                .as("the first run permits its own answer only")
+                .contains("ip daddr 192.0.2.10 accept")
+                .doesNotContain("192.0.2.20");
+        assertThat(scriptOf(runner.invocations().getLast()))
+                .as("the second run replaces the first run's allowance")
+                .contains("ip daddr 192.0.2.20 accept")
+                .doesNotContain("192.0.2.10");
+        assertThat(answers).as("both launch paths resolve at their start").isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"127.0.0.53", "::1", "127.0.0.53\nnameserver ::1"})
+    void loopbackResolversMapOnlyDnsBesideTheSavedHomeserverPorts(final String resolvers)
+            throws IOException {
+        // Harm: DNS forwarding replaces the homeserver mapping or exposes unrelated host ports.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(
+                        runner,
+                        List.of("127.0.0.1:8008", "server.example.org"),
+                        false,
+                        name -> new InetAddress[] {InetAddress.ofLiteral("192.0.2.10")},
+                        resolvConf("# resolver fixture\n  nameserver " + resolvers + " # DNS\n"))
+                .run(Command.of("/transport", "poll"));
+
+        final Command command = runner.invocations().getFirst();
+        assertThat(forwardedPorts(command))
+                .as("DNS is added once and none is never mixed with a specific port")
+                .containsExactly("8008", "53");
+        assertThat(command.arguments())
+                .as("only DNS gets a UDP loopback mapping")
+                .containsSubsequence("-U", "53")
+                .doesNotContainSequence("-U", "none");
+        assertThat(accepts(command))
+                .as("loopback DNS needs no external allowance")
+                .containsExactly("oifname \"lo\" accept", "ip daddr 192.0.2.10 accept");
+    }
+
+    @Test
+    void aSavedDnsPortIsMappedOnlyOnce() throws IOException {
+        // Harm: duplicate or conflicting forwarding options prevent the fenced verb from starting.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(
+                        runner,
+                        List.of("127.0.0.1:53", "server.example.org"),
+                        false,
+                        name -> new InetAddress[] {InetAddress.ofLiteral("192.0.2.10")},
+                        resolvConf("nameserver 127.0.0.53\n"))
+                .run(Command.of("/transport", "poll"));
+
+        assertThat(forwardedPorts(runner.invocations().getFirst()))
+                .as("the saved and DNS forwarding requirements share one TCP mapping")
+                .containsExactly("53");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "nameserver 127.0.0.53\n"})
+    void externalResolversGetOnlyDnsPortsAndNoDnsLoopbackMapping(final String localResolver)
+            throws IOException {
+        // Harm: a DNS exception allows every destination or every port on the resolver.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(
+                        runner,
+                        List.of("127.0.0.1:8008", "server.example.org"),
+                        false,
+                        name -> new InetAddress[] {InetAddress.ofLiteral("192.0.2.10")},
+                        resolvConf(
+                                localResolver
+                                        + "nameserver 192.0.2.53\n"
+                                        + "nameserver 2001:db8::53\n"
+                                        + "nameserver 192.0.2.53\n"))
+                .run(Command.of("/transport", "poll"));
+
+        final Command command = runner.invocations().getFirst();
+        assertThat(forwardedPorts(command))
+                .as("external DNS adds no host port mapping, including in mixed configurations")
+                .containsExactly("8008");
+        assertThat(command.arguments())
+                .as("UDP host forwarding remains disabled")
+                .containsSubsequence("-U", "none");
+        assertThat(accepts(command))
+                .as("IPv6 DNS alone needs bounded discovery; each resolver has only UDP/TCP 53")
+                .containsExactly(
+                        "oifname \"lo\" accept",
+                        "ip6 hoplimit 255 ip6 saddr fe80::/10 icmpv6 type { 133, 134, 135, 136 }"
+                                + " accept",
+                        "ip6 hoplimit 255 ip6 daddr fe80::/10 icmpv6 type { 133, 134, 135, 136 }"
+                                + " accept",
+                        "ip daddr 192.0.2.10 accept",
+                        "ip daddr 192.0.2.53 udp dport 53 accept",
+                        "ip daddr 192.0.2.53 tcp dport 53 accept",
+                        "ip6 daddr 2001:db8:0:0:0:0:0:53 udp dport 53 accept",
+                        "ip6 daddr 2001:db8:0:0:0:0:0:53 tcp dport 53 accept");
+    }
+
+    @Test
+    void anOfflineVerbNeitherResolvesNamesNorReadsOrMapsDns() {
+        // Harm: a stale online reach or resolver setting opens an offline project's network.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(runner, List.of("127.0.0.1:8008", "server.example.org"), true)
+                .run(Command.of("/transport", "poll"));
+
+        final Command command = runner.invocations().getFirst();
+        assertThat(forwardedPorts(command))
+                .as("only the saved homeserver is mapped")
+                .containsExactly("8008");
+        assertThat(command.arguments())
+                .as("no UDP DNS forwarding")
+                .containsSubsequence("-U", "none");
+        assertThat(accepts(command))
+                .as("only namespace loopback passes")
+                .containsExactly("oifname \"lo\" accept");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "",
+                "search example.org\n",
+                "nameserver server.example.org\n",
+                "nameserver 192.0.2.53; accept\n",
+                "nameserver fe80::53%lo\n"
+            })
+    void missingOrInvalidNameserversCannotStartANameUsingVerb(final String configuration)
+            throws IOException {
+        // Harm: an unusable resolver file is mistaken for permission to open arbitrary DNS.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("server.example.org"),
+                        false,
+                        name -> new InetAddress[] {InetAddress.ofLiteral("192.0.2.10")},
+                        resolvConf(configuration));
+
+        assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
+                .as("DNS configuration must provide usable literal nameserver addresses")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("nameserver");
+        assertThat(runner.invocations()).as("the verb never starts").isEmpty();
+    }
+
+    @Test
+    void anUnreadableResolverFileRefusesANameUsingVerb() {
+        // Harm: failure to inspect the DNS allowance is silently ignored on the launch path.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("server.example.org"),
+                        false,
+                        name -> new InetAddress[] {InetAddress.ofLiteral("192.0.2.10")},
+                        dir.resolve("absent-resolv.conf"));
+
+        assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
+                .as("a resolver file read failure refuses before launching")
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageContaining("resolver");
+        assertThat(runner.invocations()).as("no fallback starts").isEmpty();
+    }
+
+    @Test
+    void everyReachIsValidatedBeforeAnyNameIsResolved() throws IOException {
+        // Harm: a malformed request can cause host-side DNS queries before being refused.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("server.example.org", "192.0.2.10; accept"),
+                        false,
+                        name -> {
+                            throw new AssertionError("Invalid reaches must be refused before DNS");
+                        },
+                        resolvConf("nameserver 192.0.2.53\n"));
+
+        assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
+                .as("all reach syntax is checked before any lookup")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(runner.invocations()).as("invalid reaches start nothing").isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "0.0.0.0",
+                "[::]:443",
+                "224.0.0.251",
+                "[ff02::1]",
+                "255.255.255.255",
+                "169.254.169.254:80"
+            })
+    void aReachCannotNameAnUnspecifiedMulticastBroadcastOrLinkLocalAddress(final String reach) {
+        // Harm: a reach opens a multicast group, every host's listener, or a link's metadata
+        // service.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        assertThatThrownBy(
+                        () ->
+                                fence(runner, List.of(reach), false)
+                                        .run(Command.of("/transport", "members")))
+                .as("such a reach refuses before any process starts")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot be reached");
+        assertThat(runner.invocations()).as("nothing starts").isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"127.0.0.1", "::1", "0.0.0.0", "224.0.0.251", "169.254.169.254"})
+    void aNamesAnswerCannotBeLoopbackOrAnAddressNoReachMayName(final String answer)
+            throws IOException {
+        // Harm: a name the transport controls resolves to loopback and maps a host port, or to an
+        // address a literal reach is refused.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("server.example.org:8008"),
+                        false,
+                        name ->
+                                new InetAddress[] {
+                                    InetAddress.ofLiteral("192.0.2.10"),
+                                    InetAddress.ofLiteral(answer)
+                                },
+                        resolvConf("nameserver 192.0.2.53\n"));
+
+        assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
+                .as("the answer is refused before a port is mapped or a rule rendered")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("server.example.org")
+                .hasMessageContaining("cannot be reached");
+        assertThat(runner.invocations()).as("nothing starts").isEmpty();
+    }
+
+    @Test
+    void aScopedResolverAnswerCannotReachTheRuleset() throws IOException {
+        // Harm: a scoped address is interpreted as nft syntax or unexpectedly reaches a host
+        // interface.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportFence fenced =
+                fence(
+                        runner,
+                        List.of("server.example.org"),
+                        false,
+                        name ->
+                                new InetAddress[] {
+                                    Inet6Address.getByAddress(
+                                            null, InetAddress.ofLiteral("fe80::10").getAddress(), 7)
+                                },
+                        resolvConf("nameserver 192.0.2.53\n"));
+
+        assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
+                .as("scoped answers are refused before being rendered")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scoped");
+        assertThat(runner.invocations()).as("no launch follows an unusable answer").isEmpty();
+    }
 
     @Test
     void aVerbCannotStartBeforeItsNamespaceRulesAreLoaded() {
@@ -61,6 +409,12 @@ class TransportFenceTest {
                 .endsWith(
                         "porelo-transport-fence",
                         "/usr/bin/nft",
+                        "/usr/bin/setpriv",
+                        "--bounding-set=-all",
+                        "--inh-caps=-all",
+                        "--ambient-caps=-all",
+                        "--no-new-privs",
+                        "--",
                         "/transport",
                         "members",
                         "--project",
@@ -184,8 +538,10 @@ class TransportFenceTest {
                 .as("only loopback, the declared reach and bounded discovery traffic pass")
                 .containsExactly(
                         "oifname \"lo\" accept",
-                        "ip6 hoplimit 255 ip6 saddr fe80::/10 icmpv6 type { 133, 134, 135, 136 } accept",
-                        "ip6 hoplimit 255 ip6 daddr fe80::/10 icmpv6 type { 133, 134, 135, 136 } accept",
+                        "ip6 hoplimit 255 ip6 saddr fe80::/10 icmpv6 type { 133, 134, 135, 136 }"
+                                + " accept",
+                        "ip6 hoplimit 255 ip6 daddr fe80::/10 icmpv6 type { 133, 134, 135, 136 }"
+                                + " accept",
                         "ip6 daddr 2001:db8:0:0:0:0:0:10 accept");
         assertThat(script)
                 .as("other IPv6 traffic beyond the declared reach falls through to the drop policy")
@@ -196,7 +552,9 @@ class TransportFenceTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "server.example.org",
+                "[server.example.org]:443",
+                "192.0.2.999",
+                "",
                 "192.0.2.0/24",
                 "192.0.2.1; accept",
                 "192.0.2.1\naccept",
@@ -206,7 +564,7 @@ class TransportFenceTest {
                 "192.0.2.10:65536"
             })
     void anUnsupportedReachCannotInjectRulesOrSilentlyRunUnfenced(final String reach) {
-        // Harm: interpreting a reach as nft syntax or resolving it widens the allow-list.
+        // Harm: interpreting an invalid reach as nft syntax widens the allow-list.
         final FakeCommandRunner runner = new FakeCommandRunner();
 
         assertThatThrownBy(
@@ -239,6 +597,29 @@ class TransportFenceTest {
                 .isInstanceOf(CommandException.class)
                 .hasMessageContaining("pasta");
         assertThat(runner.invocations()).as("no unfenced fallback").isEmpty();
+    }
+
+    @Test
+    void missingSetprivRefusesRatherThanRunningTheVerbWithTheNamespacesCapabilities() {
+        // Harm: a verb keeps CAP_NET_ADMIN in pasta's namespace and flushes its own fence.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportFence fenced =
+                new TransportFence(
+                        runner,
+                        List.of(),
+                        false,
+                        name -> {
+                            if ("setpriv".equals(name))
+                                throw new UncheckedIOException(
+                                        new IOException("setpriv is missing"));
+                            return Path.of("/usr/bin", name);
+                        });
+
+        assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
+                .as("the refusal names the missing dependency")
+                .isInstanceOf(CommandException.class)
+                .hasMessageContaining("setpriv");
+        assertThat(runner.invocations()).as("no verb runs with its capabilities").isEmpty();
     }
 
     @Test
@@ -339,7 +720,12 @@ class TransportFenceTest {
                                 new FakeCommandRunner(),
                                 List.of(),
                                 false,
-                                name -> "nft".equals(name) ? nft : Path.of("/bin/sh"))
+                                name ->
+                                        "nft".equals(name)
+                                                ? nft
+                                                : "setpriv".equals(name)
+                                                        ? setpriv()
+                                                        : Path.of("/bin/sh"))
                         .command(
                                 Command.of(
                                         "/bin/sh", "-c", "touch \"$1\"", "verb", ran.toString()));
@@ -361,7 +747,12 @@ class TransportFenceTest {
                                 new FakeCommandRunner(),
                                 List.of("192.0.2.10"),
                                 false,
-                                name -> "nft".equals(name) ? nft : Path.of("/bin/sh"))
+                                name ->
+                                        "nft".equals(name)
+                                                ? nft
+                                                : "setpriv".equals(name)
+                                                        ? setpriv()
+                                                        : Path.of("/bin/sh"))
                         .command(
                                 Command.of(
                                                 "/bin/sh",
@@ -384,9 +775,38 @@ class TransportFenceTest {
         assertThat(dir.resolve("injected")).as("arguments cannot become shell code").doesNotExist();
     }
 
-    private static TransportFence fence(
+    private TransportFence fence(
             final CommandRunner runner, final List<String> reaches, final boolean offline) {
-        return new TransportFence(runner, reaches, offline, name -> Path.of("/usr/bin", name));
+        return fence(
+                runner,
+                reaches,
+                offline,
+                name -> {
+                    throw new AssertionError("Unexpected DNS lookup: " + name);
+                },
+                dir.resolve("absent-resolv.conf"));
+    }
+
+    private static TransportFence fence(
+            final CommandRunner runner,
+            final List<String> reaches,
+            final boolean offline,
+            final TransportFence.Resolver resolver,
+            final Path resolvConf) {
+        return new TransportFence(
+                runner, reaches, offline, name -> Path.of("/usr/bin", name), resolver, resolvConf);
+    }
+
+    private Path resolvConf(final String configuration) throws IOException {
+        return Files.writeString(dir.resolve("resolv.conf"), configuration);
+    }
+
+    private static List<String> accepts(final Command command) {
+        return scriptOf(command)
+                .lines()
+                .map(String::strip)
+                .filter(line -> line.endsWith(" accept"))
+                .toList();
     }
 
     private static String scriptOf(final Command command) {
@@ -409,6 +829,16 @@ class TransportFenceTest {
                 binaryInput == null ? unwrapped : unwrapped.withBinaryInput(binaryInput);
         final @Nullable Duration timeout = command.timeout();
         return timeout == null ? withInput : withInput.withTimeout(timeout);
+    }
+
+    /** Stands in for setpriv: drops its own options up to {@code --} and runs the rest. */
+    private Path setpriv() {
+        try {
+            return script(
+                    "setpriv", "while [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"\n");
+        } catch (final IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
     }
 
     private Path script(final String name, final String body) throws IOException {

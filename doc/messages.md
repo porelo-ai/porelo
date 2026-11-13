@@ -66,11 +66,11 @@ mail:
 ```
 
 - **Without `homeserver`**, the conversation is on a homeserver of your own account, run as a user unit on a
-  port Porelo picks and keeps. It needs no root, and no other user on the machine shares it.
+  port the transport picks and keeps. It needs no root, and no other user on the machine shares it.
 - **An `offline` project** messages through a homeserver on this machine's loopback only: the transport is told to
   contact nothing else, and a conversation it says reaches anywhere else refuses the project's tasks before they
-  start. Sending and polling rely on the transport's word and use your account's network. The `members` read
-  has its own network fence ([writing a transport](transports.md) says what is enforced and its limits).
+  start. Sending, polling and every other verb except `setup` run behind the
+  [transport's network fence](security.md#a-transports-network), with only the saved loopback ports mapped.
 - **On a shared homeserver every account is a person's**, named by their login, whatever machine they sit at: the
   transport is given this account's login and suffixes each account it makes with it, so two people's tasks of the
   same name never meet on one name.
