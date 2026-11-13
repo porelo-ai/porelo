@@ -494,6 +494,31 @@ public final class TaskReservations {
         return locked(() -> unmade(container) != null);
     }
 
+    /**
+     * Returns the actual names of the starts of a task, by the task's own name, whose container is
+     * confirmed absent: what an explicit removal named by that name may finish.
+     *
+     * @param task The task's own name, as its start was given it.
+     * @return Their actual names, possibly none, several where projects share the task's name.
+     * @throws IOException When the claims cannot be read.
+     */
+    public List<String> unmadeNamed(String task) throws IOException {
+        return locked(
+                () -> {
+                    final List<String> named = new java.util.ArrayList<>();
+                    for (String container : protectedNames()) {
+                        final Claim owner = known(container);
+                        if (owner == null || !owner.task().equals(task)) continue;
+                        try {
+                            if (unmade(container) != null) named.add(container);
+                        } catch (ContainerNameTaken made) {
+                            // Its container exists: a task the lookup by identity finds, not this.
+                        }
+                    }
+                    return List.copyOf(named);
+                });
+    }
+
     /** An explicit removal may finish a start or removal whose container is confirmed absent. */
     public @Nullable Owner unmade(String container) throws IOException {
         final Claim owner = read(container, "", "");
@@ -543,7 +568,10 @@ public final class TaskReservations {
                             || !containers.contains(container))) {
                 return "task "
                         + owner.task()
-                        + " has an unfinished start; retry it or remove that task first";
+                        + " has an unfinished start; retry it, or remove it with 'porelo task"
+                        + " remove "
+                        + container
+                        + "'";
             }
         }
         return null;

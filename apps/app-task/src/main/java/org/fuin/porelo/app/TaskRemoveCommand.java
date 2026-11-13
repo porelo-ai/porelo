@@ -106,6 +106,27 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
                 && new TaskReservations(context).pendingRemoval(container.strip())) {
             found = new TaskTarget.Found(container.strip(), "", 0);
         }
+        if (found.reason() == TaskIdentities.Reason.MISSING
+                && container != null
+                && !org.fuin.porelo.runtime.ContainerName.isTask(container.strip())) {
+            // A start refused before its container exists has no identity to find it by, only its
+            // claim, which its project's clearing names as unfinished.
+            final java.util.List<String> unmade =
+                    new TaskReservations(context).unmadeNamed(container.strip());
+            if (unmade.size() == 1) {
+                found = new TaskTarget.Found(unmade.getFirst(), "", 0);
+            } else if (unmade.size() > 1) {
+                final PrintWriter err = spec.commandLine().getErr();
+                err.println(
+                        "porelo: unfinished starts of several projects are called "
+                                + container.strip()
+                                + ": "
+                                + String.join(", ", unmade)
+                                + "; name one");
+                err.flush();
+                return TaskTarget.SEVERAL;
+            }
+        }
         if (found.reason() == TaskIdentities.Reason.MISSING && container != null) {
             final PrintWriter out = spec.commandLine().getOut();
             final PrintWriter err = spec.commandLine().getErr();

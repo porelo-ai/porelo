@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B730",
   "title": "An Unfinished Start Is Named As Task Remove Takes It",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 57,
@@ -39,3 +39,26 @@ what it says. Today:
 ## Estimate
 
 S, est=27 (p80 63) by the median velocity. There are no open questions.
+
+## Built
+
+The first route "Why this size" names: the refusal names what `task remove` takes, and `task remove` also takes the
+task's own name. The other route, a refused start cleaning up its own claim, is not built: a reserved claim guards
+secrets and host state that may exist before the container does.
+
+- `TaskReservations.projectBusy` (app-base): "task cnt has an unfinished start; retry it, or remove it with 'porelo
+  task remove porelo-cnt_cnt'", with the container's name taken from the claim itself.
+- `TaskReservations.unmadeNamed(task)` (app-base, new): the names of claims that are not retired, whose recorded task
+  is the one given and whose container is absent.
+- `task remove <task>`: when the name is no container's and no identity answers it, the unfinished start of that
+  name is removed. When it is several projects', it is refused with 64, listed, and never guessed.
+- Tests in `TaskReservationsTest`:
+  - `anUnfinishedStartsRefusalNamesTheRemovalThatTakesIt`
+  - `anUnfinishedStartIsRemovedByTheTasksOwnName`
+  - `unfinishedStartsOfOneNameInSeveralProjectsAreNamedNotGuessed`
+
+  They failed on the build box before the change (`buildbox-porelo-b942f9a47d20-20261113T175138Z.log`) and pass after
+  it (`buildbox-porelo-7dfa48f2aa00-20261113T175441Z.log`): 302 tests across the task, project and removal tests,
+  0 skipped.
+- Left as they are: the clearing's lines for an item whose start is unfinished (`VaultClearing`, `Clearing`) still say
+  "retry it or remove that task first".

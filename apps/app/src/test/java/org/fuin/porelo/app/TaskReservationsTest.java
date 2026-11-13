@@ -217,6 +217,58 @@ class TaskReservationsTest {
         return closed;
     }
 
+    @Test
+    void anUnfinishedStartsRefusalNamesTheRemovalThatTakesIt() throws Exception {
+        // On a VM a start refused at the gate left its claim, and project clear said
+        // "retry it or remove that task first" without naming what 'task remove' takes.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("web", "x", container, "first")) {}
+        assertThat(reservations.locked(() -> reservations.projectBusy("web")))
+                .as("the refusal names the removal by the name it takes")
+                .contains("porelo task remove " + container);
+    }
+
+    @Test
+    void anUnfinishedStartIsRemovedByTheTasksOwnName() throws Exception {
+        // 'porelo task remove cnt --yes --force' found nothing: only the container's name was
+        // taken for a start that never made its container.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("web", "x", container, "first")) {}
+        final var cli = PoreloCli.commandLine(context);
+        final java.io.StringWriter said = new java.io.StringWriter();
+        cli.setOut(new java.io.PrintWriter(said, true));
+        cli.setErr(new java.io.PrintWriter(said, true));
+        assertThat(cli.execute("task", "remove", "x", "--no-input", "--force"))
+                .as("the task's own name takes its unfinished start: %s", said)
+                .isZero();
+        assertThat(said.toString()).contains("removed   " + container);
+        assertThat(reservations.locked(() -> reservations.projectBusy("web")))
+                .as("its project can be cleared")
+                .isNull();
+        assertThat(reservations.protectedNames()).doesNotContain(container);
+    }
+
+    @Test
+    void unfinishedStartsOfOneNameInSeveralProjectsAreNamedNotGuessed() throws Exception {
+        final PoreloContext context = context().recognizingTasks();
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("web", "x", "porelo-web-x", "first")) {}
+        try (var claim = reservations.reserve("api", "x", "porelo-api-x", "first")) {}
+        final var cli = PoreloCli.commandLine(context);
+        final java.io.StringWriter said = new java.io.StringWriter();
+        cli.setOut(new java.io.PrintWriter(said, true));
+        cli.setErr(new java.io.PrintWriter(said, true));
+        assertThat(cli.execute("task", "remove", "x", "--no-input", "--force"))
+                .as("which one is not guessed: %s", said)
+                .isEqualTo(TaskTarget.SEVERAL);
+        assertThat(said.toString()).contains("porelo-web-x").contains("porelo-api-x");
+        assertThat(reservations.protectedNames()).contains("porelo-web-x", "porelo-api-x");
+    }
+
     /**
      * Makes a mailbox whose delete fails: one of its directories holds a file and is read-only. Not
      * its record, which the removal copies under a lock it takes inside it. Root deletes it all the
