@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B649",
   "title": "Signers Files And Signatures Read As Git Reads Them",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 44,
