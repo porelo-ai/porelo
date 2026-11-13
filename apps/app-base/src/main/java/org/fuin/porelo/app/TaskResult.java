@@ -276,8 +276,9 @@ public record TaskResult(PoreloPaths paths) {
     }
 
     /**
-     * Takes the file once, when nothing was taken yet: what a listing asks of a task whose agent
-     * ended.
+     * Takes the file once it is handed back: what a listing asks of a task whose agent ended. A
+     * kept record other than {@link State#HANDED} is provisional and taken again; only a file
+     * handed back is final.
      *
      * @param container The task.
      * @return What was taken, now or before, or {@code null} when its start named no file.
@@ -285,7 +286,7 @@ public record TaskResult(PoreloPaths paths) {
      */
     public @Nullable Taken takeOnce(final String container) throws IOException {
         final Taken before = taken(container);
-        return before != null ? before : take(container);
+        return before != null && before.state() == State.HANDED ? before : take(container);
     }
 
     private Taken fromBox(final Path directory, final String name) throws IOException {

@@ -306,11 +306,10 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
-| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. | - |
-| <a id="b709"></a>[B709](B709-A-Result-Taken-Only-From-A-Task-That-Ran.md) | S | - | A listing takes a task's result only once its container has run and stopped, never while it is created and not yet running, and a result a listing took as missing is taken again when the task ends. | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
 
 ## Review
 
@@ -348,6 +347,7 @@ from its side, as *blocked by*.
 | <a id="b614"></a>[B614](B614-A-Task-Joins-Its-Room-Under-The-Contracts-Name.md) | S | - | A task made under the new container name is enrolled and retired on its transport as `porelo-<project>-<task>`, the transport contract's task name, so the room's member list counts it as the project's task again. | - |
 | <a id="b615"></a>[B615](B615-A-Stopped-Task-Leaves-Its-Room.md) | S | - | `porelo task stop` on a project whose conversation is on a central homeserver runs the transport's `retire` for the task, so its account leaves the room; the next start's `enroll` brings it back, so the room lists the tasks that run. | - |
 | <a id="b623"></a>[B623](B623-A-Task-Image-Build-Goes-On-When-Its-Mirror-Fails.md) | S | - | A task image's apt steps try the next mirror only when the first fails outright, never side by side, and keep downloaded packages in a build cache across a host's image builds. | - |
+| <a id="b709"></a>[B709](B709-A-Result-Taken-Only-From-A-Task-That-Ran.md) | S | - | A listing takes a task's result only once its container has run and stopped, never while it is created and not yet running, and a result a listing took as missing is taken again when the task ends. | 0 |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. | - |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. | - |
 | <a id="b604"></a>[B604](B604-Porelo-Without-A-Planning-Part.md) | M | - | Porelo without a planning part: `60-planning`, `PlanningMethods`, `apps/app-planning`, `planning/api` and the stub, `wire/planning`, their docs, tests and changelog entries removed. | - |

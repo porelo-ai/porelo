@@ -43,21 +43,30 @@ class TaskResultTest {
 
     /** A stand-in task, stopped or running, started with {@link #NAME} to hand back. */
     private TaskResult task(final PoreloContext context, final boolean running) throws IOException {
+        return task(context, running ? "Up 4 minutes" : "Exited (0) 1 minute ago");
+    }
+
+    /** A stand-in task in the runtime's own words for its state, started with {@link #NAME}. */
+    private TaskResult task(final PoreloContext context, final String status) throws IOException {
         TaskIdentityFixture.record(context.paths(), TASK, "uc", "work", ID);
-        runner.answering(
-                "ps",
-                TASK
-                        + "\t"
-                        + (running ? "Up 4 minutes" : "Exited (0) 1 minute ago")
-                        + "\t1788500000\t1788509999\tuc\tguarded\t\t\t"
-                        + ID
-                        + "\twork\n");
+        listedAs(status);
         runner.answering("{{.Id}}", ID);
         final Path state = Files.createDirectories(context.paths().tasks().containerState(TASK));
         org.fuin.porelo.wire.Sidecar.recordId(state, ID);
         final TaskResult result = new TaskResult(context.paths());
         result.prepare(TASK, NAME);
         return result;
+    }
+
+    private void listedAs(final String status) {
+        runner.answering(
+                "ps",
+                TASK
+                        + "\t"
+                        + status
+                        + "\t1788500000\t1788509999\tuc\tguarded\t\t\t"
+                        + ID
+                        + "\twork\n");
     }
 
     private Path written(final TaskResult result, final byte[] content) throws IOException {
@@ -194,6 +203,46 @@ class TaskResultTest {
         assertThat(listed)
                 .as("the listing took it and says so")
                 .isEqualTo(Map.of("name", NAME, "state", "handed", "bytes", 4L));
+    }
+
+    @Test
+    void aCreatedTaskNotYetRunningIsListedWithoutTakingAndItsEndHandsTheFile() throws IOException {
+        // A created container is not running, yet nothing ran in it: a "missing" taken then is read
+        // as final and the file its agent writes half a second later is dropped.
+        final PoreloContext context = context();
+        final TaskResult result = task(context, "Created");
+
+        new TaskInventory(context).tasks();
+
+        assertThat(result.taken(TASK)).as("a listing of a created task takes nothing").isNull();
+
+        written(result, "done".getBytes(StandardCharsets.UTF_8));
+        listedAs("Exited (0) 1 second ago");
+        final Map<?, ?> listed =
+                (Map<?, ?>) new TaskInventory(context).tasks().getFirst().asMap().get("result");
+
+        assertThat(listed)
+                .as("its end hands the file")
+                .isEqualTo(Map.of("name", NAME, "state", "handed", "bytes", 4L));
+    }
+
+    @Test
+    void aKeptMissingIsTakenAgainOnceAndAKeptHandedNever() throws IOException {
+        // A missing a listing took is provisional; only a file handed back is the task's answer.
+        final TaskResult result = task(context(), false);
+        assertThat(result.takeOnce(TASK))
+                .isEqualTo(new TaskResult.Taken(NAME, TaskResult.State.MISSING, 0));
+        final Path file = written(result, "late".getBytes(StandardCharsets.UTF_8));
+
+        assertThat(result.takeOnce(TASK))
+                .as("the kept missing is taken again")
+                .isEqualTo(new TaskResult.Taken(NAME, TaskResult.State.HANDED, 4));
+
+        Files.writeString(file, "changed");
+        assertThat(result.takeOnce(TASK))
+                .as("a kept handed is never taken again")
+                .isEqualTo(new TaskResult.Taken(NAME, TaskResult.State.HANDED, 4));
+        assertThat(result.answer(TASK).content()).isEqualTo("late");
     }
 
     @Test

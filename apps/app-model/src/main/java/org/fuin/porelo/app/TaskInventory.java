@@ -1885,7 +1885,20 @@ public final class TaskInventory {
                 profile == null ? null : profile.named(),
                 logicalTask(summary),
                 ended(declared, ended),
-                resultOf(summary.name(), ended != null || !summary.running()));
+                resultOf(summary.name(), ended != null || stoppedAfterRunning(summary)));
+    }
+
+    /**
+     * Tells whether the container stopped after it ran: not running, and not one that was created
+     * or initialized and not yet started, in which nothing ran and nothing was handed back yet.
+     *
+     * @param summary What the runtime says.
+     * @return {@code true} once it ran and stopped.
+     */
+    private static boolean stoppedAfterRunning(final ContainerSummary summary) {
+        return !summary.running()
+                && !summary.state().startsWith("Created")
+                && !summary.state().startsWith("Initialized");
     }
 
     /**
@@ -1893,7 +1906,7 @@ public final class TaskInventory {
      * its container stopped and nothing was taken yet.
      *
      * @param container The task.
-     * @param over Whether its agent ended or its container stopped.
+     * @param over Whether its agent ended or its container stopped after it ran.
      * @return What was taken, or {@code null}.
      */
     private TaskResult.@Nullable Taken resultOf(final String container, final boolean over) {

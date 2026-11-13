@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B709",
   "title": "A Result Taken Only From A Task That Ran",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 63,
@@ -39,3 +39,12 @@ listing took is provisional: the take when the task ends, or the next listing af
 ## Acceptance
 
 - Both tests hold; each fails without its change.
+
+## Built (2026-11-13)
+
+- `TaskInventory`: a listing takes a result only when the agent ended or the container stopped after running. A
+  container in podman's `Created` or `Initialized` state is not over. The state comes from the summary the listing
+  already has, so no podman call is added.
+- `TaskResult.takeOnce`: only a kept `HANDED` is final; a kept `MISSING` or `UNREADABLE` is taken again.
+- Red first in `TaskResultTest`: a listing of a created task took `MISSING`, and a kept `MISSING` stayed so with the
+  file present. Both tests failed without their change. apps/app is green whole.
