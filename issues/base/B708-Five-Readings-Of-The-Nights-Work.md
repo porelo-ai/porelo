@@ -63,7 +63,7 @@ Filed 2026-11-13 from the reviewer readings of [B674](README.md#b674), [B506](RE
   build reader's or as a `credentials:` entry, is told on standard error that its use sends it as a token and cannot
   use an ssh key. Both send the entry as a token, which is why `credentials:` entries are checked too.
 - **Left to [B693](README.md#b693):** `StubAgentTest` still reads the stub's question out of its script. Running the
-  script needs B693's change to the stub's definition.
+  script needs [B693](README.md#b693)'s change to the stub's definition.
 - **Tests:**
   - New: `TaskReservationsTest.aRemovalWhoseGuideCannotBeWalkedStillRetiresTheNameAndSaysSo`, two ssh-key cases in
     `VaultPutCommandTest`, and three for cases the readings found untested (a project's own builds over the host's,
