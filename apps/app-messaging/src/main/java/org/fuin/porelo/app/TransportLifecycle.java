@@ -961,6 +961,74 @@ final class TransportLifecycle {
         return true;
     }
 
+    /**
+     * Returns the tasks enrolled at a transport in a project: those this machine keeps a name, an
+     * address or secrets for.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @return The tasks' containers, sorted.
+     */
+    java.util.Set<String> enrolled(String scheme, String project) {
+        final java.util.Set<String> tasks =
+                new java.util.TreeSet<>(names(addressesFile(scheme, project)).keySet());
+        tasks.addAll(names(displaysFile(scheme, project)).keySet());
+        tasks.addAll(names(enrolledFile(scheme, project)).keySet());
+        final Optional<VaultFile.Opener> opener = context.opener();
+        if (opener.isPresent() && context.vault().exists()) {
+            final String prefix = entry(scheme, "task/");
+            try {
+                for (final String name : VaultCache.read(context.vault(), opener.get()).keySet()) {
+                    if (name.startsWith(prefix) && owns(project, name.substring(prefix.length()))) {
+                        tasks.add(name.substring(prefix.length()));
+                    }
+                }
+            } catch (org.fuin.porelo.vault.VaultException ex) {
+                // What the files name is still swept; the secrets' own are at the next sweep.
+            }
+        }
+        return tasks;
+    }
+
+    /**
+     * Has each task enrolled in a project that is not here any more leave its room, as {@link
+     * #leave} has a stopped one: its container ended without a stop - it exited, crashed, or the
+     * machine was off. A task left is released, so the next sweep finds it no more.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param settings The transport's settings in the project.
+     * @param here Whether a task is here still: it runs, or a start of it has not finished. Asked
+     *     again for each task right before it leaves, so a start begun since is not taken out.
+     * @param failed Told each task the transport could not take out now, and why; it is tried again
+     *     at the next sweep.
+     * @return The tasks that left.
+     */
+    List<String> leaveEnded(
+            String scheme,
+            String project,
+            Map<String, Object> settings,
+            java.util.function.Predicate<String> here,
+            java.util.function.BiConsumer<String, String> failed) {
+        final List<String> left = new java.util.ArrayList<>();
+        for (final String task : enrolled(scheme, project)) {
+            if (here.test(task)) {
+                continue;
+            }
+            try {
+                if (leave(scheme, project, task, settings)) {
+                    left.add(task);
+                }
+            } catch (Refused ex) {
+                failed.accept(task, ex.getMessage());
+            } catch (RuntimeException ex) {
+                // Its words are not passed on: a process's output may quote what it was lent.
+                failed.accept(task, "the transport could not be run");
+            }
+        }
+        return left;
+    }
+
     void retire(String scheme, String project, String task, Map<String, Object> settings)
             throws Refused {
         lendable(scheme, "retire");

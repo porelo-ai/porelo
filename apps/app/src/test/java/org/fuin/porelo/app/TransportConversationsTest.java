@@ -595,6 +595,99 @@ class TransportConversationsTest {
                 .containsExactly("porelo-p-unit", "porelo-p-unit");
     }
 
+    @Test
+    void aTaskWhoseContainerEndedWithoutAStopLeavesItsRoomAtTheSweepOnce() throws Exception {
+        // It exited, crashed, or the machine was off: no stop ran, and "@room" waited for it.
+        final TransportLifecycle lifecycle =
+                room("{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}");
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-other", "scout", Map.of(), false);
+        final List<String> failed = new java.util.ArrayList<>();
+
+        final List<String> left =
+                lifecycle.leaveEnded(
+                        "room",
+                        "p",
+                        Map.of(),
+                        "porelo-p-other"::equals,
+                        (task, why) -> failed.add(task));
+        final List<String> again =
+                lifecycle.leaveEnded(
+                        "room",
+                        "p",
+                        Map.of(),
+                        "porelo-p-other"::equals,
+                        (task, why) -> failed.add(task));
+
+        assertThat(left).as("the ended one left").containsExactly("porelo-p-unit");
+        assertThat(again).as("a second sweep finds it no more").isEmpty();
+        assertThat(tasksGiven("retire")).as("retired once").containsExactly("porelo-p-unit");
+        assertThat(lifecycle.enrolled("room", "p"))
+                .as("the running one stays")
+                .containsExactly("porelo-p-other");
+        assertThat(failed).isEmpty();
+    }
+
+    @Test
+    void aSweepAsksNothingOfAnEndedTaskOnItsOwnHomeserver() throws Exception {
+        // There retire ends the account for good: an ended task keeps it, as a stopped one does.
+        final TransportLifecycle lifecycle = room("{\"TASK\":\"t-1\"}");
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+
+        final List<String> left =
+                lifecycle.leaveEnded("room", "p", Map.of(), task -> false, (task, why) -> {});
+
+        assertThat(left).isEmpty();
+        assertThat(tasksGiven("retire")).as("no retire").isEmpty();
+        assertThat(lifecycle.enrolled("room", "p")).containsExactly("porelo-p-unit");
+    }
+
+    @Test
+    void aLockedVaultLeavesNothingAndTheSweepAfterItOpensDoes() throws Exception {
+        // A locked vault reads no secret, so it cannot tell a central homeserver from the own.
+        room("{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}")
+                .enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+        context().forgetTyped();
+        final PoreloContext locked = context();
+        Assumptions.assumeTrue(locked.opener().isEmpty(), "the vault is locked");
+
+        final List<String> whileLocked =
+                new TransportLifecycle(locked, locked.paths().messaging().transportDirectory())
+                        .leaveEnded("room", "p", Map.of(), task -> false, (task, why) -> {});
+        final PoreloContext open = context().asking(prompt -> PASSPHRASE.clone());
+        assertThat(open.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("opened again")
+                .isPresent();
+        final List<String> opened =
+                new TransportLifecycle(open, open.paths().messaging().transportDirectory())
+                        .leaveEnded("room", "p", Map.of(), task -> false, (task, why) -> {});
+
+        assertThat(whileLocked).as("nothing while locked").isEmpty();
+        assertThat(opened).as("left once it opened").containsExactly("porelo-p-unit");
+        assertThat(tasksGiven("retire")).containsExactly("porelo-p-unit");
+    }
+
+    @Test
+    void aTaskTheTransportCannotRetireNowIsSaidAndTriedAgainAtTheNextSweep() throws Exception {
+        final TransportLifecycle lifecycle =
+                room("{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}");
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+        runner.failing(" retire ", 1, "", "homeserver down");
+        final List<String> failed = new java.util.ArrayList<>();
+
+        final List<String> first =
+                lifecycle.leaveEnded(
+                        "room", "p", Map.of(), task -> false, (task, why) -> failed.add(task));
+        runner.answering(" retire ", "{}");
+        final List<String> second =
+                lifecycle.leaveEnded(
+                        "room", "p", Map.of(), task -> false, (task, why) -> failed.add(task));
+
+        assertThat(first).isEmpty();
+        assertThat(failed).containsExactly("porelo-p-unit");
+        assertThat(second).containsExactly("porelo-p-unit");
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
             strings = {"{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"\"}", "{\"TASK\":\"t-1\"}"})

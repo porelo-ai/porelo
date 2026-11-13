@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B616",
   "title": "A Task That Ends Without A Stop Leaves Its Room",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 20,
@@ -53,4 +53,29 @@ back.
 - Red first: a stand-in transport with a central login, a task enrolled and its container gone: one sweep retires it
   once; a running task is not touched; the account's own homeserver is not asked; a locked vault retires nothing and
   the sweep after it opens does.
+- `doc/transports.md`, the `retire` row; changelog under *Fixed*.
+
+## Built (2026-11-13)
+
+- `TransportLifecycle.enrolled` names a project's tasks at a transport: those whose name, address or enrolled name
+  this machine keeps, and those whose `task/<container>` secrets the vault holds for the project.
+- `TransportLifecycle.leaveEnded` runs [B615](README.md#b615)'s `leave` for each one that is not here: it does not
+  run, and no start of it is unfinished. A task left is released, so a second sweep finds it no more. A refusal is
+  handed back with its task and tried again at the next sweep; a transport that could not run is said without its
+  words.
+- `TaskConversations.sweep` does that for every project with a file and each of its conversations; `default` has
+  none.
+- `TaskRoomSweep` runs the sweep in `porelod`: at its start, once a minute, and when the vault opens, looked at
+  every 2 s as the message watch does. A shut vault sweeps nothing and asks neither podman nor a transport. The
+  running containers are read once per sweep, and right before a task leaves, the unfinished starts and the running
+  containers are read again, so a start begun during the sweep is not taken out. A failure is said once per task
+  and conversation, and again after the task left once.
+- Started only in the daemon's `main`, as the upstream and message watches are: no test asks a transport by
+  existing.
+- A task whose container was removed outside porelo keeps an unfinished claim, so it is not swept; its removal
+  retires it.
+- Red first in `TransportConversationsTest`: an ended task on a central homeserver leaves once and a running one
+  stays; one on its own homeserver is not asked; a locked vault leaves nothing and the sweep after it opens does; a
+  refused retire is said and done at the next sweep. `TaskRoomSweepTest`: the start, the minute and the vault's
+  opening each sweep, and a shut vault runs nothing.
 - `doc/transports.md`, the `retire` row; changelog under *Fixed*.

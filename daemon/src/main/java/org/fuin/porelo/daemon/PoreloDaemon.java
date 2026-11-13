@@ -1417,6 +1417,19 @@ public final class PoreloDaemon {
                                         "porelod-shutdown"));
                 upstream.start();
                 mail.start();
+                // A task whose container ended without a stop leaves its room as a stopped one
+                // does: at this start, which covers a machine that was off, once a minute, and
+                // when the vault opens. Started here for the same reason as the watches: nothing
+                // in a test should ask a transport by existing.
+                final org.fuin.porelo.app.TaskRoomSweep rooms =
+                        new org.fuin.porelo.app.TaskRoomSweep(
+                                owned,
+                                org.fuin.porelo.app.TaskRoomSweep.INTERVAL,
+                                line -> {
+                                    System.out.println("porelod: " + line);
+                                    System.out.flush();
+                                });
+                rooms.start();
                 // Both: the watch answers at once where a message is already on this machine, and
                 // the
                 // timer still goes and asks, because a watch can miss things and a transport that

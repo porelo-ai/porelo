@@ -267,6 +267,64 @@ final class TaskConversations {
     }
 
     /**
+     * Has every task enrolled in a project's conversation that is not here any more leave it, as a
+     * stopped task does: its container ended without a stop.
+     *
+     * @param context Where the projects are.
+     * @param here Whether a task is here still: it runs, or a start of it has not finished.
+     * @param failed Told, by a key of its own, each task and conversation the transport could not
+     *     take it out of now, in a sentence that says why.
+     * @return Each task that left, with the conversation it left, as {@code task scheme}.
+     */
+    List<String> sweep(
+            PoreloContext context,
+            java.util.function.Predicate<String> here,
+            java.util.function.BiConsumer<String, String> failed) {
+        final List<String> left = new java.util.ArrayList<>();
+        for (final ProjectInventory.Summary summary : new ProjectInventory(context).projects()) {
+            if (summary.file() == null || DefaultProject.is(summary.name())) {
+                continue;
+            }
+            final Project project = projectNamed(context, summary.name());
+            if (project == null) {
+                continue;
+            }
+            for (final String scheme : project.mail().conversations()) {
+                final Map<String, Object> settings;
+                try {
+                    settings = settings(project, scheme);
+                } catch (TransportLifecycle.Refused ex) {
+                    failed.accept(
+                            project.name() + " " + scheme,
+                            "the ended tasks of "
+                                    + project.name()
+                                    + " stay in its "
+                                    + scheme
+                                    + " conversation: "
+                                    + ex.getMessage());
+                    continue;
+                }
+                lifecycle
+                        .leaveEnded(
+                                scheme,
+                                project.name(),
+                                settings,
+                                here,
+                                (task, why) ->
+                                        failed.accept(
+                                                task + " " + scheme,
+                                                task
+                                                        + " ended and is still in the "
+                                                        + scheme
+                                                        + " conversation: "
+                                                        + why))
+                        .forEach(task -> left.add(task + " " + scheme));
+            }
+        }
+        return left;
+    }
+
+    /**
      * Takes a task a resume brought back into its project's rooms, where one holds no name for it
      * yet; a task every room has a name for is left as it is, and no transport is asked.
      *

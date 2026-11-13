@@ -1,0 +1,2 @@
+title: "A task whose container ended without a stop, because it exited, crashed or the machine was off, leaves its room on a central homeserver as a stopped task does: porelod sweeps at its start, once a minute and when the vault opens"
+type: fixed
