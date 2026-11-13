@@ -104,14 +104,34 @@ public interface Agent {
     default ImageLayer imageLayer() {
         // Fetches first: the hand-written fragments almost always operate on what was fetched, and
         // a fragment that runs before its artifact exists fails in a way that reads as a problem
-        // with the fragment.
-        final java.util.List<String> asAgent =
-                new java.util.ArrayList<>(InstallScript.render(definition().artifacts()));
-        if (!asAgent.isEmpty() && !definition().installAsAgent().isEmpty()) {
-            asAgent.add("");
+        // with the fragment. A root artifact is fetched before the root fragments, as root, so one
+        // of them can unpack it; the agent's before its own, as today.
+        final java.util.List<InstallArtifact> artifacts = definition().artifacts();
+        return new ImageLayer(
+                fetchedThen(
+                        artifacts.stream().filter(InstallArtifact::rootOwned).toList(),
+                        definition().installAsRoot()),
+                fetchedThen(
+                        artifacts.stream().filter(artifact -> !artifact.rootOwned()).toList(),
+                        definition().installAsAgent()));
+    }
+
+    /**
+     * Renders the fetch of some artifacts followed by the fragments that use them.
+     *
+     * @param artifacts What to fetch and check first.
+     * @param fragments The hand-written fragments after them.
+     * @return Container-build lines, with one blank line between the two parts.
+     */
+    private static List<String> fetchedThen(
+            final List<InstallArtifact> artifacts, final List<String> fragments) {
+        final java.util.List<String> lines =
+                new java.util.ArrayList<>(InstallScript.render(artifacts));
+        if (!lines.isEmpty() && !fragments.isEmpty()) {
+            lines.add("");
         }
-        asAgent.addAll(definition().installAsAgent());
-        return new ImageLayer(definition().installAsRoot(), java.util.List.copyOf(asAgent));
+        lines.addAll(fragments);
+        return java.util.List.copyOf(lines);
     }
 
     /**

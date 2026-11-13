@@ -607,7 +607,8 @@ public final class AgentDefinitionReader {
                             mode(map.get("mode"), origin),
                             Boolean.TRUE.equals(map.get("unverified")),
                             optional(map, "reason"),
-                            optional(map, "license")));
+                            optional(map, "license"),
+                            InstallArtifact.Owner.of(optional(map, "owner"))));
         }
         return List.copyOf(result);
     }

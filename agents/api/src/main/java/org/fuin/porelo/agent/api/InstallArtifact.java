@@ -1,5 +1,6 @@
 package org.fuin.porelo.agent.api;
 
+import java.nio.file.Path;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -23,6 +24,9 @@ import org.jspecify.annotations.Nullable;
  * @param reason Why it is unverifiable; required when {@code unverified}.
  * @param license The license the publisher declares for this release - an SPDX id or, where it
  *     gives none, the name it uses - or {@code null} when nobody has recorded one.
+ * @param owner Who the build step that installs it runs as: {@link Owner#ROOT} before the
+ *     definition's {@code as_root} fragments, or {@link Owner#AGENT} before its {@code as_agent}
+ *     ones.
  */
 public record InstallArtifact(
         String url,
@@ -31,7 +35,65 @@ public record InstallArtifact(
         String mode,
         boolean unverified,
         @Nullable String reason,
-        @Nullable String license) {
+        @Nullable String license,
+        Owner owner) {
+
+    /** The agent's home in every task image, which the agent's user owns. */
+    private static final String AGENT_HOME = "/home/agent";
+
+    /**
+     * Who installs an artifact, written {@code owner:} in a definition.
+     *
+     * <p>An agent's binary installed by the agent can be replaced by the agent, so the next start
+     * runs what the agent wrote; one a root step installs outside the agent's home cannot.
+     */
+    public enum Owner {
+
+        /**
+         * Installed as root, before the {@code as_root} fragments, so one of them can unpack it.
+         */
+        ROOT("root"),
+
+        /** Installed as the agent's user, before the {@code as_agent} fragments; the default. */
+        AGENT("agent");
+
+        private final String word;
+
+        Owner(final String word) {
+            this.word = word;
+        }
+
+        /**
+         * Returns the word a definition writes for this owner.
+         *
+         * @return {@code root} or {@code agent}.
+         */
+        public String word() {
+            return word;
+        }
+
+        /**
+         * Reads the word a definition writes.
+         *
+         * @param word {@code root} or {@code agent}; {@code null} for the default.
+         * @return The owner, {@link #AGENT} when none is written.
+         * @throws AgentException For any other word.
+         */
+        public static Owner of(final @Nullable String word) {
+            if (word == null) {
+                return AGENT;
+            }
+            for (final Owner owner : values()) {
+                if (owner.word.equals(word)) {
+                    return owner;
+                }
+            }
+            throw new AgentException(
+                    "An install artifact's owner must be 'root' or 'agent', not '"
+                            + word.replaceAll("\\p{Cntrl}", "?")
+                            + "'");
+        }
+    }
 
     /**
      * Constructor with all data.
@@ -43,6 +105,7 @@ public record InstallArtifact(
      * @param unverified Whether it is knowingly unverifiable.
      * @param reason Why; required when unverified.
      * @param license The declared license, or {@code null}.
+     * @param owner Who installs it.
      */
     public InstallArtifact {
         if (license != null) {
@@ -70,6 +133,15 @@ public record InstallArtifact(
                     "Install target must be a plain path - letters, digits, '.', '_', '-', '+' and"
                             + " '/': "
                             + target.replaceAll("\\p{Cntrl}", "?"));
+        }
+        if (owner == Owner.ROOT && inAgentsHome(target)) {
+            // Root-owned in a directory the agent owns is not root-owned for long: the agent
+            // renames it away and puts its own file in its place.
+            throw new AgentException(
+                    "An install artifact owned by root may not be under "
+                            + AGENT_HOME
+                            + ", which the agent can write to: "
+                            + target);
         }
         if (reason != null && reason.chars().anyMatch(Character::isISOControl)) {
             // It becomes a comment line, and a line break would end the comment and start an
@@ -123,6 +195,46 @@ public record InstallArtifact(
             boolean unverified,
             @Nullable String reason) {
         this(url, sha256, target, mode, unverified, reason, null);
+    }
+
+    /**
+     * Constructor for an artifact the agent's user installs, as every definition was written before
+     * an owner was recorded.
+     *
+     * @param url Where to fetch it.
+     * @param sha256 Expected digest, or {@code null} when unverified.
+     * @param target Absolute path to install it at.
+     * @param mode Octal file mode.
+     * @param unverified Whether it is knowingly unverifiable.
+     * @param reason Why; required when unverified.
+     * @param license The declared license, or {@code null}.
+     */
+    public InstallArtifact(
+            String url,
+            @Nullable String sha256,
+            String target,
+            String mode,
+            boolean unverified,
+            @Nullable String reason,
+            @Nullable String license) {
+        this(url, sha256, target, mode, unverified, reason, license, Owner.AGENT);
+    }
+
+    /**
+     * Tells whether this artifact is installed by a root step.
+     *
+     * @return {@code true} for {@link Owner#ROOT}.
+     */
+    public boolean rootOwned() {
+        return owner == Owner.ROOT;
+    }
+
+    /**
+     * Tells whether a target is the agent's home or below it, after resolving {@code .} and {@code
+     * ..}.
+     */
+    private static boolean inAgentsHome(final String target) {
+        return Path.of(target).normalize().startsWith(Path.of(AGENT_HOME));
     }
 
     /**

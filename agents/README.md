@@ -154,6 +154,7 @@ install:                      # what the image build fetches, pinned and verifie
       sha256: "…64 lower-case hex…"
       target: <the-task-accounts-local-bin>/example-cli
       mode: "0755"
+      # owner: root               # optional; root or agent (the default): who installs it
   as_root: |                  # anything else; shell, unavoidably
     RUN mkdir -p /opt/example && chown agent /opt/example
 ```
@@ -183,6 +184,14 @@ Where a publisher offers no digest, say so rather than dropping the field:
 
 An artifact marked `unverified` with no `reason` is rejected. A gap that has to
 be written down is a gap somebody notices; a missing field is a habit.
+
+**`owner` says who installs an artifact.** `agent`, the default, fetches it as the agent's user,
+after `USER agent` and before `as_agent`, as every definition did before the key. `root` fetches it
+as root, with the same digest check, at the start of the root part - before `as_root`, so a root
+fragment can unpack it. Any other value is refused, and so is a root artifact whose target is
+`/home/agent` or below it: a file the agent's directory holds is the agent's to replace, whoever
+owns the file. An agent's binary belongs in a root-owned place, so that what the agent writes
+during a task never picks what Porelo starts as that agent next time.
 
 **A tool that is a tree of files ships in the agent's own package** instead, under
 `packaged`, and is copied into the image rather than fetched:

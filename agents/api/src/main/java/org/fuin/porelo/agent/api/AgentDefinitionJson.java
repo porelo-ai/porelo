@@ -317,6 +317,7 @@ public final class AgentDefinitionJson {
         out.put("unverified", Boolean.valueOf(artifact.unverified()));
         putIfPresent(out, "reason", artifact.reason());
         putIfPresent(out, "license", artifact.license());
+        out.put("owner", artifact.owner().word());
         return out;
     }
 
@@ -335,7 +336,8 @@ public final class AgentDefinitionJson {
                                 string(map, "mode"),
                                 Boolean.TRUE.equals(map.get("unverified")),
                                 optional(map, "reason"),
-                                optional(map, "license")));
+                                optional(map, "license"),
+                                InstallArtifact.Owner.of(optional(map, "owner"))));
             }
         }
         return List.copyOf(result);

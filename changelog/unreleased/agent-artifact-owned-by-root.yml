@@ -1,0 +1,2 @@
+title: "An agent definition's install artifact may say owner: root, so it is fetched and checked as root before the agent's root steps, never under /home/agent"
+type: added
