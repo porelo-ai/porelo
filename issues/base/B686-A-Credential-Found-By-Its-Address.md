@@ -73,10 +73,16 @@ would make two copies of it.
   one stderr line, exit 0, no output. A shut vault: one stderr line, exit 1, no prompt. No stderr line names the
   entry, the file, the variable or the address.
 - git sends a helper the path only with `credential.useHttpPath=true`; the caller passes it with
-  `-c credential.useHttpPath=true`, and a `--for` with a path answers nothing without it. doc/credentials.md says so
-  in "A program reading a private repository", with the limits; doc/commands.md names the option. Changelog:
+  `-c credential.useHttpPath=true`, and a `--for` with a path answers nothing without it. Where the helper answers
+  nothing git falls through to its own terminal prompt, so the caller also sets `GIT_TERMINAL_PROMPT=0`.
+  doc/credentials.md says so in "A program reading a private repository", with the limits: a `--for` without a
+  path serves every repository on that host and port, one without `.git` does not serve a `.git` path, and dot or
+  empty segments, non-ASCII hosts and repeated fields get nothing; doc/commands.md names the option. Changelog:
   credential-for-address.yml.
-- Red first: `VaultCredentialForTest` (37 cases, each point above) and
+- git's request is read to 64 KiB and 256 lines at most; past either, one stderr line, exit 0, nothing answered. An
+  http, non-ASCII or otherwise unserved `--for` address each has its own stderr words; only an ssh address speaks of
+  the agent.
+- Red first: `VaultCredentialForTest` (53 cases, each point above) and
   `TokenFetchOnItsOwnPortTest.aProgramReadsAPrivateRepositoryByItsAddressAlone`, where real git fetches over TLS from
   a loopback forge with only the helper, the address and useHttpPath - for a declared file and an implied vault
   entry; a `--for` naming another path brings no token to the forge.

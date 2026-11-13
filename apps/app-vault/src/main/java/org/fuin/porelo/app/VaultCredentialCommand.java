@@ -1,8 +1,9 @@
 package org.fuin.porelo.app;
 
-import java.io.BufferedReader;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -45,6 +46,16 @@ import picocli.CommandLine.Spec;
         mixinStandardHelpOptions = true,
         description = "Answers git's credential protocol from the vault. Run by git, not by hand.")
 public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.ContextAware {
+
+    /**
+     * The most of git's request this reads, in bytes without the line ends: git sends a handful of
+     * short fields, so a request past this is no request of git's, and reading it whole would put
+     * all of it on the heap.
+     */
+    static final int REQUEST_BYTES = 64 * 1024;
+
+    /** The most lines of git's request this reads, for the same reason. */
+    static final int REQUEST_LINES = 256;
 
     @Parameters(
             index = "0",
@@ -131,25 +142,17 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
             err.flush();
             return 2;
         }
-        // Read git's request whole even where every field is already known: git waits for the
-        // helper to consume it, and a helper that answers without reading can deadlock on a full
-        // pipe.
-        final Map<String, String> request = new HashMap<>();
-        final Set<String> repeated = new HashSet<>();
-        try (BufferedReader asked =
-                new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
-            String line = asked.readLine();
-            while (line != null && !line.isBlank()) {
-                final int equals = line.indexOf('=');
-                if (equals > 0
-                        && request.put(line.substring(0, equals), line.substring(equals + 1))
-                                != null) {
-                    repeated.add(line.substring(0, equals));
-                }
-                line = asked.readLine();
-            }
+        // Read git's request to its blank line even where every field is already known: git waits
+        // for the helper to consume it, and a helper that answers without reading can deadlock on
+        // a full pipe. Past what git ever sends, reading stops and nothing is answered.
+        final Map<String, String> request = requestOf(System.in);
+        if (request == null) {
+            err.println(
+                    "porelo: git's credential request is longer than git sends one, so nothing"
+                            + " was answered");
+            err.flush();
+            return 0;
         }
-        repeated.forEach(request::remove);
 
         if (address != null) {
             return answerFor(address, request, out, err);
@@ -177,6 +180,56 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
     }
 
     /**
+     * Reads git's request up to its blank line, a field a line; a field sent twice is dropped.
+     *
+     * @param in git's pipe.
+     * @return The fields, or {@code null} past {@link #REQUEST_BYTES} or {@link #REQUEST_LINES}.
+     * @throws IOException When the pipe cannot be read.
+     */
+    private static @Nullable Map<String, String> requestOf(final InputStream in)
+            throws IOException {
+        final Map<String, String> request = new HashMap<>();
+        final Set<String> repeated = new HashSet<>();
+        final ByteArrayOutputStream line = new ByteArrayOutputStream();
+        int bytes = 0;
+        int lines = 0;
+        try (InputStream asked = new BufferedInputStream(in)) {
+            while (true) {
+                final int next = asked.read();
+                if (next >= 0 && next != '\n') {
+                    if (++bytes > REQUEST_BYTES) {
+                        return null;
+                    }
+                    line.write(next);
+                    continue;
+                }
+                String text = line.toString(StandardCharsets.UTF_8);
+                line.reset();
+                if (text.endsWith("\r")) {
+                    text = text.substring(0, text.length() - 1);
+                }
+                if (text.isBlank()) {
+                    break;
+                }
+                if (++lines > REQUEST_LINES) {
+                    return null;
+                }
+                final int equals = text.indexOf('=');
+                if (equals > 0
+                        && request.put(text.substring(0, equals), text.substring(equals + 1))
+                                != null) {
+                    repeated.add(text.substring(0, equals));
+                }
+                if (next < 0) {
+                    break;
+                }
+            }
+        }
+        repeated.forEach(request::remove);
+        return request;
+    }
+
+    /**
      * Answers git's request for the address {@code --for} names, with the token Porelo would lend
      * for it. Nothing said on standard error names where the token lives: the caller is to know the
      * address alone.
@@ -194,9 +247,7 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
             final PrintWriter err) {
         final Address own = Address.of(url);
         if (own == null) {
-            err.println(
-                    "porelo: --for answers an https address naming one host only; a key reaches git"
-                            + " through the agent, not this helper");
+            err.println(unserved(url));
             err.flush();
             return 0;
         }
@@ -263,6 +314,38 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         out.println("password=" + secret);
         out.flush();
         return 0;
+    }
+
+    /**
+     * Why an address {@code --for} named is not served, in fixed words that name no part of it.
+     *
+     * @param url The address.
+     * @return The line for standard error.
+     */
+    private static String unserved(final String url) {
+        final String trimmed = url.strip();
+        final int separator = trimmed.indexOf("://");
+        final String scheme =
+                separator < 0
+                        ? ""
+                        : trimmed.substring(0, separator).toLowerCase(java.util.Locale.ROOT);
+        if ("http".equals(scheme)) {
+            return "porelo: --for answers https alone; a plain http address gets nothing, since"
+                    + " its token would cross the network unencrypted";
+        }
+        if ("https".equals(scheme)) {
+            final String rest = trimmed.substring(separator + 3);
+            final java.util.regex.Matcher end = Address.AUTHORITY_END.matcher(rest);
+            final String authority = end.find() ? rest.substring(0, end.start()) : rest;
+            if (!authority.chars().allMatch(c -> c < 0x80)) {
+                return "porelo: --for answers a host of plain ASCII alone; give an international"
+                        + " name in its xn-- form";
+            }
+            return "porelo: --for takes an https address, written in lower case, of one host and a"
+                    + " path without an empty, . or .. segment; nothing was answered";
+        }
+        return "porelo: --for answers an https address naming one host only; a key reaches git"
+                + " through the agent, not this helper";
     }
 
     private static @Nullable String fileValue(final String path) {

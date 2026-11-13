@@ -369,6 +369,146 @@ class VaultCredentialForTest {
         assertNoTokenAnywhere();
     }
 
+    /** git's limit on a credential line, which a request past it is not. */
+    private static final int GIT_LIMIT = 64 * 1024;
+
+    @Test
+    void aRequestWithALinePastGitsLimitIsAnsweredWithNothing() throws Exception {
+        final String request =
+                "protocol=https\nhost=forge.example.org\npath=acme/p.git\n"
+                        + "wwwauth[]="
+                        + "x".repeat(GIT_LIMIT)
+                        + "\n\n";
+
+        final int exit = run(impliedOnly(), request, "--for", FOR);
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).isEmpty();
+        assertThat(err.toString().strip().lines()).hasSize(1);
+        assertNoTokenAnywhere();
+    }
+
+    @Test
+    void aRequestOfMoreLinesThanGitSendsIsAnsweredWithNothing() throws Exception {
+        final String request =
+                "protocol=https\nhost=forge.example.org\npath=acme/p.git\n"
+                        + "capability[]=x\n".repeat(1000)
+                        + "\n";
+
+        final int exit = run(impliedOnly(), request, "--for", FOR);
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).isEmpty();
+        assertThat(err.toString().strip().lines()).hasSize(1);
+        assertNoTokenAnywhere();
+    }
+
+    /** What is said of an address the helper does not serve is said of that address, not a key. */
+    @Test
+    void aPlainHttpAddressIsNotSaidToBeAKey() throws Exception {
+        run(
+                impliedOnly(),
+                request("forge.example.org", "acme/p.git"),
+                "--for",
+                "http://forge.example.org/acme/p.git");
+
+        assertThat(out.toString()).isEmpty();
+        assertThat(err.toString().strip().lines()).hasSize(1);
+        assertThat(err.toString()).doesNotContain("agent").doesNotContain("key").contains("http");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "https://forge.ex\u00e4mple.org/acme/p.git",
+                "https://wor\u212a.example/acme/p.git"
+            })
+    void aHostBeyondAsciiIsNotSaidToBeAKey(final String address) throws Exception {
+        run(impliedOnly(), request("forge.example.org", "acme/p.git"), "--for", address);
+        final String said = err.toString();
+        err.getBuffer().setLength(0);
+        run(
+                impliedOnly(),
+                request("forge.example.org", "acme/p.git"),
+                "--for",
+                "http://forge.example.org/acme/p.git");
+
+        assertThat(out.toString()).isEmpty();
+        assertThat(said.strip().lines()).hasSize(1);
+        assertThat(said)
+                .doesNotContain("agent")
+                .doesNotContain("key")
+                .contains("ASCII")
+                .as("words of its own, not the http line")
+                .isNotEqualTo(err.toString());
+    }
+
+    /**
+     * A Kelvin sign lowercases to {@code k}: only the ASCII-only host rule keeps it from being
+     * taken for the host itself.
+     */
+    @Test
+    void aKelvinSignIsNotTheLetterK() throws Exception {
+        final PoreloContext context =
+                openVault(Map.of("git.token.git.work.example", VaultEntry.of(IMPLIED)));
+        final String address = "https://git.work.example/acme/p.git";
+
+        run(context, request("git.wor\u212a.example", "acme/p.git"), "--for", address);
+        assertThat(out.toString()).as("the lookalike").isEmpty();
+        assertNoTokenAnywhere();
+
+        run(context, request("git.work.example", "acme/p.git"), "--for", address);
+        assertThat(out.toString()).as("the host itself").contains("password=" + IMPLIED);
+    }
+
+    /** A field sent twice, or protocol or host missing or empty, is no request for the address. */
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "protocol=https\nhost=forge.example.org\nhost=forge.example.org\npath=acme/p.git\n\n",
+                "protocol=https\nprotocol=https\nhost=forge.example.org\npath=acme/p.git\n\n",
+                "protocol=https\nhost=forge.example.org\npath=acme/p.git\npath=acme/p.git\n\n",
+                "host=forge.example.org\npath=acme/p.git\n\n",
+                "protocol=https\npath=acme/p.git\n\n",
+                "protocol=https\nhost=\npath=acme/p.git\n\n",
+            })
+    void anIncompleteOrRepeatedRequestGetsNothing(final String request) throws Exception {
+        final int exit = run(declaredAndImplied(), request, "--for", FOR);
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).isEmpty();
+        assertNoTokenAnywhere();
+    }
+
+    @Test
+    void aUserInTheForAddressIsNoHost() throws Exception {
+        final String address = "https://other.example.org@forge.example.org/acme/p.git";
+
+        run(impliedOnly(), request("other.example.org", "acme/p.git"), "--for", address);
+        assertThat(out.toString()).as("the user's part names no host").isEmpty();
+        assertNoTokenAnywhere();
+
+        run(impliedOnly(), request("forge.example.org", "acme/p.git"), "--for", address);
+        assertThat(out.toString()).contains("password=" + IMPLIED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "https://forge.example.org/acme/../p.git",
+                "https://forge.example.org/acme/%2e%2e/p.git",
+                "https://forge.example.org/acme//p.git"
+            })
+    void aForAddressWithAClimbingPathGetsNothing(final String address) throws Exception {
+        final int exit =
+                run(declaredAndImplied(), request("forge.example.org", "p.git"), "--for", address);
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).isEmpty();
+        assertThat(err.toString()).doesNotContain("agent");
+        assertNoTokenAnywhere();
+    }
+
     @ParameterizedTest
     @CsvSource({"--entry, forge-work", "--env, PORELO_TEST_TOKEN", "--file, /dev/null"})
     void forStandsAlone(final String option, final String value) throws Exception {

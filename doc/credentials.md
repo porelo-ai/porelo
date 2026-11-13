@@ -588,7 +588,7 @@ A program that reads a private https repository with this account's login passes
 the token or where it is kept:
 
 ```
-git -c credential.useHttpPath=true \
+GIT_TERMINAL_PROMPT=0 git -c credential.useHttpPath=true \
     -c 'credential.https://forge.example/acme/p.git.helper=!/usr/bin/porelo vault credential --for https://forge.example/acme/p.git' \
     clone https://forge.example/acme/p.git
 ```
@@ -599,7 +599,13 @@ git -c credential.useHttpPath=true \
 - **Only git's request for that address is answered:** `https`, the same host compared as ASCII lowercased, the
   same port (443 when none is named), and the same path or one below it at a `/`; `/acme/p2` is not below
   `/acme/p`. git sends the path only with `credential.useHttpPath=true`, and without it a `--for` that names a
-  path answers nothing.
+  path answers nothing. Where the helper answers nothing, git asks at its own terminal prompt for a user and a
+  password, so the caller sets `GIT_TERMINAL_PROMPT=0` and git fails instead.
+- **A `--for` without a path serves every repository on that host and port.** git sends the path as it was typed,
+  so a `--for` of `.../acme/p` does not serve a clone of `.../acme/p.git`; name the address as the clone names it.
+- **Some addresses and requests get nothing at all:** a path with an empty, `.` or `..` segment, on either side; a
+  host that is not plain ASCII (give an international name as its `xn--` form); and a request that sends a field
+  twice, or one past 64 KiB or 256 lines, far beyond what git sends.
 - **An ssh address, or a credential that is a key, is answered with nothing:** a key reaches git through the agent.
 - **A shut vault ends the helper with one line on standard error and a failure**, never a prompt, since the caller
   is at no terminal; `porelo vault unlock` opens it. `store` and `erase` are ignored.
