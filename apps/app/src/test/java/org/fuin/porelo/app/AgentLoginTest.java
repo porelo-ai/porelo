@@ -577,6 +577,102 @@ class AgentLoginTest {
     }
 
     @Test
+    void aDetachedLoginGivesTheTerminalBackBeforeItSaysSo(@TempDir Path dir) {
+
+        // A full-screen login page (Codex's device-code page) leaves the alternate screen, mouse
+        // reporting and a hidden cursor on when it is detached from; the 'cancelled' line said
+        // after it was printed into that screen and lost. The finished login reset the terminal,
+        // the cancelled one did not.
+        runner.answering("{{.State.Pid}}", "4242\n");
+        final PoreloContext context = new PoreloContext(runner, context(dir).paths(), command -> 0);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+
+        final AgentLogin.Result result =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")));
+
+        assertThat(result.outcome().name()).as(result.detail()).isEqualTo("CANCELLED");
+        assertThat(out.toString())
+                .as("the alternate screen is left, the mouse and the cursor given back")
+                .contains("\033[?1049l\033[?25h")
+                .contains("\033[?1000l")
+                .as("last, so the command's 'cancelled' line follows on a clean screen")
+                .endsWith("\033[H\033[2J");
+    }
+
+    @Test
+    void aDetachWhileTheWatchCopiesTheCredentialStoresNothing(@TempDir Path dir) {
+
+        // The watch looked at the flag only after its sleep: a look that had begun before the
+        // person pressed Ctrl-] twice, and found the credential, stored it and stopped the
+        // container - and the login answered STORED for a login the person had ended. Here the
+        // watch is in the middle of its copy when 'podman run' returns on the detach, and its copy
+        // ends once the login has looked at the container, or after a while without that look.
+        final java.util.concurrent.CountDownLatch copying =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch looked =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicBoolean returned =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        runner.answering("{{.State.Pid}}", "4242\n");
+        final org.fuin.porelo.core.process.CommandRunner watched =
+                command -> {
+                    final String line = command.describe();
+                    if (line.startsWith("podman cp")) {
+                        copying.countDown();
+                        try {
+                            looked.await(3, java.util.concurrent.TimeUnit.SECONDS);
+                        } catch (final InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                    if (line.contains("{{.State.Pid}}") && returned.get()) {
+                        looked.countDown();
+                    }
+                    synchronized (runner) {
+                        return runner.run(command);
+                    }
+                };
+        final PoreloContext context =
+                new PoreloContext(
+                        watched,
+                        context(dir).paths(),
+                        command -> {
+                            if (command.contains("run")) {
+                                try {
+                                    // Detached from while the watch copies.
+                                    copying.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                                } catch (final InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                }
+                                returned.set(true);
+                            }
+                            return 0;
+                        });
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+
+        final AgentLogin.Result result =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")));
+
+        assertThat(copying.getCount()).as("the watch was copying at the detach").isZero();
+        assertThat(result.outcome().name())
+                .as("ended from its terminal: " + result.detail())
+                .isEqualTo("CANCELLED");
+        assertThat(context.vault().read(PASSPHRASE))
+                .as("nothing is stored")
+                .doesNotContainKey("example");
+    }
+
+    @Test
     void theTeardownDeletesTheLoginsCopiesAsWellAsItsContainer(@TempDir Path dir) throws Exception {
 
         // Run alone, as a SIGHUP or SIGTERM runs it: the finally that deleted the watch's copies,
@@ -600,19 +696,35 @@ class AgentLoginTest {
     }
 
     @Test
-    void aSweepDeletesTheCopiesAKilledLoginLeftAndSparesOnesAHeldLoginUses(@TempDir Path dir)
+    void aSweepDeletesOnlyTheCopiesAKilledLoginOfThisVersionLeft(@TempDir Path dir)
             throws Exception {
 
         // A SIGKILL runs no teardown at all; the next login sweeps what it left. One whose login
-        // still runs - another agent's, holding the copies' own lock - is kept.
+        // still runs - another agent's, holding the copies' own lock - is kept. So is everything
+        // not made as this version makes it: an older binary's 'porelo-login-watch...' and
+        // 'porelo-login...' carry no lock, and a login of that binary still running lost its
+        // watch's copies to the sweep.
         final java.nio.file.attribute.FileTime old =
                 java.nio.file.attribute.FileTime.from(
                         java.time.Instant.now().minus(java.time.Duration.ofHours(2)));
         final Path left = java.nio.file.Files.createDirectories(dir.resolve("porelo-login-11"));
         java.nio.file.Files.writeString(left.resolve("watch.json"), "{}");
+        java.nio.file.Files.createFile(left.resolve(AgentLogin.HELD));
         java.nio.file.Files.setLastModifiedTime(left, old);
         final Path unrelated = java.nio.file.Files.createDirectories(dir.resolve("unrelated-1"));
         java.nio.file.Files.setLastModifiedTime(unrelated, old);
+        final List<Path> older = new ArrayList<>();
+        for (final String name :
+                List.of("porelo-login-watch33", "porelo-login44", "porelo-login-55")) {
+            final Path made = java.nio.file.Files.createDirectories(dir.resolve(name));
+            java.nio.file.Files.writeString(made.resolve(".credentials.json"), "{}");
+            java.nio.file.Files.setLastModifiedTime(made, old);
+            older.add(made);
+        }
+        final Path marked =
+                java.nio.file.Files.createDirectories(dir.resolve("porelo-login-watch66"));
+        java.nio.file.Files.createFile(marked.resolve(AgentLogin.HELD));
+        java.nio.file.Files.setLastModifiedTime(marked, old);
         final Path live = java.nio.file.Files.createDirectories(dir.resolve("porelo-login-22"));
         try (Held held = new Held(live.resolve(AgentLogin.HELD))) {
             java.nio.file.Files.setLastModifiedTime(live, old);
@@ -622,6 +734,10 @@ class AgentLoginTest {
             assertThat(left).as("what a killed login left").doesNotExist();
             assertThat(live).as("what a running login uses").exists();
             assertThat(unrelated).as("what is not a login's").exists();
+            assertThat(older)
+                    .as("an older binary's copies, and one of this name without its lock file")
+                    .allMatch(java.nio.file.Files::exists);
+            assertThat(marked).as("a lock file under a name this version does not make").exists();
         }
     }
 

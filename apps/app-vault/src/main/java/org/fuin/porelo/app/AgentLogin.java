@@ -994,6 +994,7 @@ public final class AgentLogin {
                     new java.util.concurrent.atomic.AtomicReference<>();
             final java.util.concurrent.atomic.AtomicReference<Result> storedEarly =
                     new java.util.concurrent.atomic.AtomicReference<>();
+            final Ending ending = new Ending();
             final Path into = watched;
             watcher =
                     Thread.ofVirtual()
@@ -1009,6 +1010,7 @@ public final class AgentLogin {
                                                     early,
                                                     storedEarly,
                                                     ended,
+                                                    ending,
                                                     opener));
 
             final int code;
@@ -1028,6 +1030,14 @@ public final class AgentLogin {
                 abandoned = !waited(context, podman, container, detached.limit());
                 code = 0;
             }
+            // A login still running when 'podman run' returned was left with the detach key. Seen
+            // and recorded here, before the watch is told to stop: from this moment the watch takes
+            // nothing it finds, so a look it began before the detach stores nothing behind it. A
+            // watch that took the credential first stopped the container itself, and 'podman run'
+            // returned for that.
+            final boolean cancelled =
+                    detached == null && ending.detach(() -> podman.pidOf(container).isPresent());
+
             // Let the watch finish before looking ourselves: a watch still asking the agent for the
             // credential while this asks it too made the second call fail now and then ("Call to
             // ... ExtractCredential failed", the suite, 2026-10-04), and a watch that found it a
@@ -1035,14 +1045,13 @@ public final class AgentLogin {
             ended.set(true);
             settle(watcher);
 
-            // A login still running when 'podman run' returned was left with the detach key:
-            // asked after the watch has settled, so nothing it finds meanwhile is stored behind
-            // this. What the agent wrote is not copied out - the person ended the login.
-            final Result storedByWatch = storedEarly.get();
-            if (detached == null
-                    && (storedByWatch == null || storedByWatch.outcome() != Outcome.STORED)
-                    && podman.pidOf(container).isPresent()) {
+            // What the agent wrote is not copied out - the person ended the login. The terminal is
+            // given back first: a full-screen login page detached from leaves its own screen on,
+            // and the line that says it was cancelled was lost in it.
+            if (cancelled) {
                 podman.remove(container);
+                out.print(TERMINAL_RESET);
+                out.flush();
                 return failed(
                         Outcome.CANCELLED,
                         "the login was ended from this terminal; its container is removed and"
@@ -1066,9 +1075,7 @@ public final class AgentLogin {
                 // terminal goes with it.
                 credential = java.util.Optional.of(early.get());
                 if (detached == null) {
-                    out.print(
-                            "\033[?1049l\033[?25h\033[0m\033[r\033[?7h\033[?1000l\033[?1002l\033[?1003l\033[?1006l"
-                                    + "\033[H\033[2J");
+                    out.print(TERMINAL_RESET);
                     out.flush();
                 }
             } else {
@@ -1151,6 +1158,52 @@ public final class AgentLogin {
     }
 
     /**
+     * What gives the terminal back after an agent's full-screen login: the main screen, the cursor,
+     * plain text, the whole scroll region, line wrapping, no mouse reporting, and a cleared screen.
+     */
+    static final String TERMINAL_RESET =
+            "\033[?1049l\033[?25h\033[0m\033[r\033[?7h\033[?1000l\033[?1002l\033[?1003l\033[?1006l"
+                    + "\033[H\033[2J";
+
+    /**
+     * What ended a terminal login, decided once between the person's detach and the watch that
+     * found the credential: whichever is recorded first, the other gives way.
+     */
+    static final class Ending {
+
+        private boolean detached;
+
+        private boolean taken;
+
+        /**
+         * Records a detach when the container still runs and the watch has not taken the
+         * credential.
+         *
+         * @param running Whether the container still runs, asked under the decision.
+         * @return {@code true} when the person detached: nothing the watch finds is taken after.
+         */
+        synchronized boolean detach(final java.util.function.BooleanSupplier running) {
+            if (!taken && running.getAsBoolean()) {
+                detached = true;
+            }
+            return detached;
+        }
+
+        /**
+         * Runs what the watch does with a credential it found, unless a detach is recorded.
+         *
+         * @param action Keeps or stores the credential and stops the container.
+         */
+        synchronized void take(final Runnable action) {
+            if (detached) {
+                return;
+            }
+            taken = true;
+            action.run();
+        }
+    }
+
+    /**
      * Returns what a login leaves to clean up, run once on its way out or by a signal's shutdown
      * hook.
      *
@@ -1176,8 +1229,16 @@ public final class AgentLogin {
     /** The file in a login's temporary directory whose lock that login holds while it runs. */
     static final String HELD = ".held";
 
-    /** The prefix of a login's temporary directory, and of those versions before it made. */
+    /** The prefix of a login's temporary directory. */
     private static final String COPIES = "porelo-login";
+
+    /**
+     * The name {@link Files#createTempDirectory} gives a login's temporary directory: the prefix, a
+     * dash and digits. The versions before made {@code porelo-login-watch...} and {@code
+     * porelo-login...}, without a lock file, and a login of theirs may still run.
+     */
+    private static final java.util.regex.Pattern COPIES_NAME =
+            java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(COPIES) + "-[0-9]+");
 
     /**
      * How young a login's temporary directory is spared though nobody holds it: one is made a
@@ -1189,6 +1250,10 @@ public final class AgentLogin {
      * Deletes the temporary directories logins of this account left behind and no running login
      * holds: what a {@code SIGKILL} leaves, which no teardown can cover.
      *
+     * <p>Only one made as this version makes it: named so and holding its lock file, whose lock is
+     * free. Anything else - an older binary's copies above all, which carry no lock file and may
+     * belong to a login still running - is left alone.
+     *
      * @param temporary The temporary directory logins make theirs in.
      * @param out Where a deletion is reported.
      */
@@ -1197,7 +1262,7 @@ public final class AgentLogin {
         final java.time.Instant settled = java.time.Instant.now().minus(COPIES_SETTLE);
         final List<Path> left = new ArrayList<>();
         try (java.util.stream.Stream<Path> entries = Files.list(temporary)) {
-            entries.filter(entry -> entry.getFileName().toString().startsWith(COPIES))
+            entries.filter(entry -> COPIES_NAME.matcher(entry.getFileName().toString()).matches())
                     .forEach(
                             entry -> {
                                 try {
@@ -1213,6 +1278,9 @@ public final class AgentLogin {
                                                             java.nio.file.LinkOption.NOFOLLOW_LINKS)
                                                     .toInstant()
                                                     .isBefore(settled)
+                                            && Files.isRegularFile(
+                                                    entry.resolve(HELD),
+                                                    java.nio.file.LinkOption.NOFOLLOW_LINKS)
                                             && FileLocks.free(entry.resolve(HELD))) {
                                         left.add(entry);
                                     }
@@ -1395,6 +1463,7 @@ public final class AgentLogin {
      * @param found Where to put what was found.
      * @param stored Where to put what storing it answered.
      * @param ended Set when the login has ended.
+     * @param ending Refuses what is found once the person detached.
      * @param opener What opens the vault.
      */
     private static void watchFor(
@@ -1407,6 +1476,7 @@ public final class AgentLogin {
             java.util.concurrent.atomic.AtomicReference<Credential> found,
             java.util.concurrent.atomic.AtomicReference<Result> stored,
             java.util.concurrent.atomic.AtomicBoolean ended,
+            Ending ending,
             org.fuin.porelo.vault.VaultFile.Opener opener) {
         while (!ended.get() && !Thread.currentThread().isInterrupted()) {
             try {
@@ -1425,23 +1495,30 @@ public final class AgentLogin {
                 if (credential.isEmpty()) {
                     continue;
                 }
-                found.set(credential.get());
-                final java.util.Map<String, String> read = credential.get().attributes();
-                if (read.containsKey(Credential.CLIENT_ID_CANDIDATES)
-                        || read.containsKey(Credential.CLIENT_SECRET_CANDIDATES)) {
-                    // Its client is picked once, after the run, by asking the service; stored here
-                    // it would be stored before that.
-                    podman.stop(container);
-                    return;
-                }
-                // Stored here, so that nothing after this moment can lose it; a refusal is said
-                // by the ordinary path after the run.
-                stored.set(store(context, agent, credential.get(), opener));
-                // And then the login is over, said once, by Porelo. Left running, the agent carried
-                // on into its own "Press Enter to continue" while Porelo said the person could
-                // leave it however they liked: two voices for one moment (2026-10-01). Nothing in
-                // the container is needed any more.
-                podman.stop(container);
+                // Taken only while no detach is recorded, and in one piece with it: a look begun
+                // before the person pressed the detach key and ending after it stores nothing.
+                ending.take(
+                        () -> {
+                            found.set(credential.get());
+                            final java.util.Map<String, String> read =
+                                    credential.get().attributes();
+                            if (read.containsKey(Credential.CLIENT_ID_CANDIDATES)
+                                    || read.containsKey(Credential.CLIENT_SECRET_CANDIDATES)) {
+                                // Its client is picked once, after the run, by asking the
+                                // service; stored here it would be stored before that.
+                                podman.stop(container);
+                                return;
+                            }
+                            // Stored here, so that nothing after this moment can lose it; a
+                            // refusal is said by the ordinary path after the run.
+                            stored.set(store(context, agent, credential.get(), opener));
+                            // And then the login is over, said once, by Porelo. Left running, the
+                            // agent carried on into its own "Press Enter to continue" while Porelo
+                            // said the person could leave it however they liked: two voices for
+                            // one moment (2026-10-01). Nothing in the container is needed any
+                            // more.
+                            podman.stop(container);
+                        });
                 return;
             } catch (final RuntimeException ex) {
                 // The container may not be up yet, or the directory may not exist until the login

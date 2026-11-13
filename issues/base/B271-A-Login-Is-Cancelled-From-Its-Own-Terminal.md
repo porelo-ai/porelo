@@ -91,8 +91,20 @@ action alone, as a signal does.
   away a finished login.
 - The copies live in one `porelo-login-*` directory, held by a lock while the login runs; the armed teardown
   removes it with the container, and a sweep removes one a SIGKILL left, but only when its lock is free.
-- To be checked 3 was a real gap: the watch stored once more after the login ended. It now checks after waking.
+- To be checked 3 was a real gap, in two halves. The watch stored once more after the login ended; it now checks
+  after waking. And a look the watch had begun before the detach still stored what it found: the detach is now
+  recorded the moment `podman run` returns with the container still running, before the watch is told to stop, and
+  from then on the watch takes nothing it finds - the decision and the watch's store share one lock. A watch that
+  took the credential first stopped the container itself, and its login is stored.
+- The cancelled login gives the terminal back before it says so, as the finished one does.
+- The sweep deletes only a `porelo-login-<digits>` directory holding a `.held` file whose lock is free; an older
+  binary's `porelo-login-watch*` and `porelo-login*` copies, which carry no lock file, are left alone.
 - The stub ignores Ctrl-C in `login --wait-for-input`; waiting stays opt-in, so a window's sign-in of the stub does
   not wait for input.
 - Still open: whether a shipped agent's login screen binds Ctrl-] needs the real agents, and the new scenario in
   `agent-login.feature` has not run on the VM.
+- Still open: a credential copied out before a SIGKILL stays in `/tmp` until the next login sweeps it (reading Y4).
+- Still open: an inspect that fails after a detach reads as "not running", so the detach is taken for a finished
+  login and what was found is stored (reading Y5); untested.
+- Still open: the `cancelled` line says the container is removed without reading what `podman rm` answered; the
+  teardown tries again at close (reading Y6).
