@@ -27,4 +27,18 @@ final class TaskIdentityFixture {
                         null)
                 .writeTo(state.resolve("sidecar.json"));
     }
+
+    /**
+     * The records of a task whose container was started: a start writes its recorded id and its
+     * sidecar into the runtime directory too, which a stop saves over the durable copies.
+     */
+    static void running(PoreloPaths paths, String container, String project, String task, String id)
+            throws IOException {
+        record(paths, container, project, task, id);
+        final Path durable = paths.tasks().taskRecord(container);
+        final Path runtime = paths.tasks().containerState(container);
+        java.nio.file.Files.createDirectories(runtime);
+        Sidecar.recordId(runtime, id);
+        java.nio.file.Files.copy(durable.resolve("sidecar.json"), runtime.resolve("sidecar.json"));
+    }
 }

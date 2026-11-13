@@ -161,7 +161,7 @@ class TaskRunLimitTest {
     void aTaskThatReadItsProjectStartedToBeRemovedIsKeptWhenItsLimitEndedIt(@TempDir final Path dir)
             throws IOException {
         final PoreloContext context = context(dir);
-        TaskIdentityFixture.record(context.paths(), TASK, "uc", "all", ID);
+        TaskIdentityFixture.running(context.paths(), TASK, "uc", "all", ID);
         final Path state = context.paths().tasks().containerState(TASK);
         RunLimit.started(state, 1);
         Files.writeString(state.resolve("task.log"), "the agent polled, and polled\n");
