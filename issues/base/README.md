@@ -291,6 +291,7 @@ from its side, as *blocked by*.
 | <a id="b699"></a>[B699](B699-A-Failed-Start-Clears-A-Record-Of-Nothing.md) | S | [B384](README.md#b384) | A failed start that made no container of its own, finding the name's record pointing at a container that is gone, removes that record instead of leaving it behind. | 0 |
 | <a id="b676"></a>[B676](B676-A-Record-Path-Matches-A-Boolean-Or-A-Number.md) | XS | - | An agent description's `.record` match (`last_message.record`, `session_id.record`) can name a boolean or number field: `is_error: false` matches the record's false, as a string field matches today. | - |
 | <a id="b680"></a>[B680](B680-A-Kept-Start-That-Never-Ran-Keeps-Its-Callers-Key.md) | XS | - | A start that fails under `--keep`, one that only reads, or one handed over, whose container podman made but never ran, saves its caller's key to the task's record, so a reboot before it runs does not lose the key its caller finds it by. | - |
+| <a id="b702"></a>[B702](B702-Every-Vault-Write-Says-What-Uses-The-Entry.md) | S | [B316](README.md#b316) | `host stop-secrets`, `talk join --into-vault`, `vault login`, `vault authorize` and `vault import` say what uses the entry they store, through the one check `vault put` has, instead of writing past it. | 0 |
 
 ## Implementing
 
