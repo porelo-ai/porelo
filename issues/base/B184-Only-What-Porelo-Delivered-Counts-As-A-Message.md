@@ -5,12 +5,12 @@
   "$schema": "issue-1.json",
   "id": "B184",
   "title": "Only What Porelo Delivered Counts As A Message",
-  "state": "Estimated",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 2,
   "blockedBy": [],
-  "covers": "A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner."
+  "covers": "A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide tells the agent to check the owner."
 }
 ```
 
@@ -30,44 +30,54 @@ person's or a peer's message, and the agent may act on it. Found in a security a
 
 ## Plan
 
-Read in the code on 2026-11-04:
+Read in the code on main 177f3cae2:
 
 - The host stages a message in `inbox/tmp` (not writable by the agent), sets it `rw-r--r--` and renames it into
-  `inbox/new` (`Mailbox.intoInbox`). Under rootless podman the account running Porelo is root in the container. The
-  agent runs as a user of its own, mapped to a subordinate id.
-- A rename keeps a file's owner, so a delivered message stays root's in `cur`. A file the agent's user writes is that
-  user's. A planted file replacing a delivered one by name is the planter's.
-- `MessageLookup` reads the filter's answers from `feedback/` and the host's `record/answers/`, not the inbox;
-  its `messages` still uses `Files::isRegularFile`, which follows links in those host directories.
-- `MessageVerify.messageIn` finds inbox and sent entries without following links; `matches` uses
-  `MessageIntake.taskWritten`, which rejects links. `TransportConversations.taken` reads inbox names only.
-  Neither checks the inbox file's owner, and the guide does not require that check.
-- Outbox reading is already safe: it is not followed and takes regular files only (`MessageIntake`).
+  `inbox/new` (`Mailbox.intoInbox`, from `MessageDelivery`, `BounceDelivery` and `PersonNote`). Under rootless podman
+  the account running Porelo is root in the container; the agent is a user of its own, mapped to a subordinate id. A
+  rename keeps a file's owner, so a delivered message stays the account's in `cur`, and a file the agent's user writes
+  or puts in place of a delivered one is that user's.
+- Five host readers take what is in `inbox/new` or `inbox/cur` without asking who wrote it:
+  - `AgentWake.announceHeld` wakes the agent for a `.json` in `inbox/new` that names it.
+  - `TaskInventory.inboxWaiting` counts them (`inboxWaiting` on the wire), following links (`Files::isRegularFile`).
+  - `MessageVerify.messageIn` checks a recorded signature against the inbox's file of that name.
+  - `TransportConversations.taken` tells a transport a conversation's message was read when a file of that name is in
+    `inbox/cur`.
+  - `TalkLogCommand` reads a recorded message's audience from the first directory holding a file of that name, the
+    inbox first.
+- `MessageLookup` reads `feedback/` and `record/answers/`, not the inbox, and the outbox is already read without
+  following links and as regular files only (`MessageIntake.taskWritten`); neither changes.
+- No agent kit in this repository reads the inbox: the plug-ins' repositories hold only acceptance features that
+  write into it. The guide is the agent's whole rule.
 
-The plan:
+The design:
 
-- **The rule:** a message in the inbox is Porelo's exactly when its owner is the account running Porelo - root, seen from
-  inside. The rule needs no key and no signature, and it holds for every agent: the agent's user cannot make a file
-  root's.
-- **The host:** `Mailbox.delivered(path)` checks that a path is a regular file, not followed, owned by the account.
-  `MessageLookup`, `MessageVerify` and `TransportConversations.taken` take only those. A file that fails the check is
-  not read. The next poll says once, in `task status` and the task's message log, that something not delivered by
-  Porelo was found in the inbox, with its name.
-- **The agent:**
-  - The guide (`MailboxGuide`) says to read only messages owned by root, to leave others alone, and to report one if
-    it is there.
-  - The agent kit's reader, which agents with a Porelo plug-in use, applies the same check in code.
-- **Not chosen:** a read-only inbox. Moving `new` to `cur` is how the agent and the host both know a message was
-  read. Marking it read any other way would change the protocol for every agent, while the owner tells the same thing
-  with nothing changed.
+- **The rule:** a file in the inbox is Porelo's exactly when it is a regular file, not followed, whose owner is the
+  owner of the mailbox's root - the account running Porelo, root seen from inside. It needs no key, and the agent's user
+  cannot make a file the account's.
+- **`Mailbox.delivered(Path)`** in app-base applies it with `NOFOLLOW_LINKS`; a file that cannot be read for its owner
+  is not delivered. It sits beside the methods Core's work adds to `Mailbox` and changes none of them.
+- **The five readers** take only what `delivered` accepts. `MessageVerify` reports an inbox file of a recorded name
+  that is not delivered as a fault: "it was not delivered by Porelo".
+- **The note:** each pass of `MessageWatch` over a mailbox lists `inbox/new` and `inbox/cur` (`InboxPlants`, a class of
+  its own in app-messaging) and appends one `planted` line, direction `in`, to the message record for each name that
+  is there, not delivered, and not yet recorded so. `task status` shows them on an `inbox` line, in the warning colour,
+  read from that record; nothing on the wire changes.
+- **The guide** (`MailboxGuide`) says to read only messages the root user owns, to leave any other file alone, and
+  that the host names it in `task status`.
+- **Not chosen:** a read-only inbox. Moving `new` to `cur` is how the agent and the host both know a message was read,
+  and the owner tells the same with no change to that protocol.
 
-Steps:
+Steps and tests:
 
-1. **Red first:**
-   - `MailboxTest`: a file of another owner, a link and a directory are each refused by `delivered`. This uses a
-     temporary directory, and `Files.setOwner` to a uid the test can set, or a check against the file's actual owner.
-   - `MessageLookupTest`: a planted link to a file outside is not read.
-2. **Code:** `Mailbox.delivered`; the three readers; the note; the guide; the agent kit.
-3. **Acceptance:** a stub task, `podman exec --user` as the agent writes a message into `inbox/new`. The host's lookup
-   ignores it, and `task status` names it.
-4. Reactor, documents and the suite on the VM (`not @restart`).
+1. **Red first, unit tests over temporary directories:** `MailboxTest` - a file owned by another account (the check
+   given an account the file does not belong to), a link to a delivered file and a directory are each not delivered,
+   and a file of the account is. `InboxPlantsTest` - a planted file and a link in `inbox/new`, and one in `inbox/cur`,
+   are each recorded once over two passes, and a delivered message is not. One test per reader that a planted file is
+   not taken: not woken for, not counted, not marked read, not read for an audience, reported by verify.
+2. **Code:** `Mailbox.delivered`, the five readers, `InboxPlants` and its call in the pass, the `task status` line,
+   the guide.
+3. **Acceptance:** a stub task in which `podman exec --user` as the agent writes a message into `inbox/new`; the host
+   does not wake for it and `task status` names it. It needs a VM and runs in the stack's run on the VM.
+4. The tests of app-base and app-messaging and the documents; the whole reactor once before the hand-over, one
+   `apps/app` run at a time on this machine.
