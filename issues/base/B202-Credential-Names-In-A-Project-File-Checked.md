@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B202",
   "title": "Credential Names In A Project File Checked",
-  "state": "Estimated",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 12,
