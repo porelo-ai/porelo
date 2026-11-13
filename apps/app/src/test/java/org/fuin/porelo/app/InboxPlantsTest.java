@@ -53,4 +53,19 @@ class InboxPlantsTest {
                 .as("bounded")
                 .hasSize(InboxPlants.MOST);
     }
+
+    @Test
+    void whatIsShownIsWhatIsInTheInboxNowNotWhatWasRecordedOnce() throws IOException {
+        // Harm: a status naming files long gone hides the one planted after the record's bound.
+        final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"), () -> "someone-else");
+        mailbox.create();
+        final Path old = Files.writeString(mailbox.inboxNew().resolve("old.json"), "{}");
+        InboxPlants.note(mailbox);
+        Files.delete(old);
+        Files.writeString(mailbox.inboxCur().resolve("now.json"), "{}");
+
+        assertThat(InboxPlants.present(mailbox))
+                .as("only what is there")
+                .containsExactly("now.json");
+    }
 }

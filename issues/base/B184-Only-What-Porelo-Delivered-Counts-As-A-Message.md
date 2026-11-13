@@ -93,14 +93,24 @@ Steps and tests:
   `MessageVerify` reports an inbox file of a recorded name that Porelo did not deliver.
 - `InboxPlants`, run after each pass of `MessageWatch`, records each name in `inbox/new` and `inbox/cur` that Porelo did
   not deliver as a `planted` line, once, and at most 100 per mailbox, so a process renaming one file without end
-  cannot grow the record without end. `task status` shows them on an `inbox` line in the warning colour.
+  cannot grow the record without end. `task status` shows what is in the inbox now and not Porelo's, looking at no
+  more than 1000 entries, on an `inbox` line: the count in the warning colour, the names outside its markup, since
+  whoever wrote them chose them.
 - The guide and its copy in `doc/messages.md` tell the agent to read only root's regular files and to check the file
-  it opened, not its name, with a one-line recipe over `/proc/self/fd`.
+  it opened, not its name, with a one-line recipe over `/proc/self/fd` that opens no link and nothing but a regular
+  file, so a planted pipe never holds the agent's read.
+- `MessageVerify` looks for a recorded name in `inbox/new`, `inbox/cur` and `sent` and settles on the one Porelo
+  delivered, so a file planted under the same name does not hide the real one; it looks once more when the agent
+  moves the message while it looks. A delivered message that cannot be pinned (a full disk, no `inbox/tmp`) is
+  reported as one that could not be read, never as changed.
 - Tests: `MailboxTest` (delivered, a pin that leaves nothing, a link, a pipe, another account's file, the limit),
   `InboxPlantsTest` (once each, bounded), and one each in `AgentWakeTest`, `TransportConversationsTest` and
   `MessageVerifyTest` that a file of another account is not taken. Each was seen red with the owner check taken out,
   and the bound's test with the bound taken out. The count and the log's audience have no test of their own: a wrong
   count or audience only reads wrong.
+- The code reading (Sonnet) found no red. Its yellows on the guide's recipe, the status line's markup, a planted
+  name hiding a real one in verify and a pin failure read as a change are fixed, each with a test seen red first
+  where it can do harm; the status line's markup has none, since it only reads wrong.
 - A plan reading by Codex found three reds, all taken: the check-then-read race and a pipe (now the pin), the guide's
   check of a name (now the opened file), and a record growing per fresh name (now bounded).
 
@@ -109,6 +119,13 @@ Accepted, and why:
 - **A renamed delivered message keeps its owner.** The agent can rename a delivered message to another arrived name
   in `inbox/cur`, or back into `new`: that marks the other read or wakes it once more. It changes nothing Porelo
   delivered and reaches no one beyond the task's own conversation.
+- **A process that is root in the container is the account.** Under rootless podman, root inside is the account
+  running Porelo, so a root process there can plant a file that counts as delivered. The agent cannot become root:
+  the container runs with `no-new-privileges` and every capability dropped, so a setuid `sudo` gains nothing, and
+  only Porelo itself enters as root (`podman exec --user root`). An image's own root daemon would count, and is the
+  person's own choice of image.
+- **The record names at most 100 planted files for good.** Its lines are chained and never pruned, so after 100 the
+  record names no more; `task status` reads the inbox as it is now and still shows each one.
 - **A machine whose podman maps the account to the agent's user** (`userns=keep-id` in the account's containers.conf)
   makes every file in the container the account's, and the check passes everything. Porelo sets no user namespace;
   that mapping is the person's own choice for their account.

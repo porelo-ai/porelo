@@ -27,6 +27,9 @@ final class InboxPlants {
      */
     static final int MOST = 100;
 
+    /** How many entries of the inbox {@link #present} looks at, at most. */
+    static final int LOOKED = 1000;
+
     /** Why a planted file is in the record. */
     static final String DETAIL = "not delivered by Porelo, so not read";
 
@@ -63,6 +66,37 @@ final class InboxPlants {
         }
         for (final String name : found) {
             record.append(MessageRecord.PLANTED, name, "", "", DETAIL, MessageRecord.IN);
+        }
+        return found;
+    }
+
+    /**
+     * Returns the names in {@code inbox/new} and {@code inbox/cur} now that Porelo did not deliver,
+     * looking at no more than {@link #LOOKED} entries, so a person sees what is there today and not
+     * what the record named once.
+     *
+     * @param mailbox The task's mailbox.
+     * @return The names, at most {@link #LOOKED}.
+     * @throws IOException If the inbox cannot be listed.
+     */
+    static List<String> present(final Mailbox mailbox) throws IOException {
+        mailbox.refuseLinks();
+        final List<String> found = new ArrayList<>();
+        int looked = 0;
+        for (final Path directory : List.of(mailbox.inboxNew(), mailbox.inboxCur())) {
+            if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+                continue;
+            }
+            try (Stream<Path> listed = Files.list(directory)) {
+                for (final Path path : (Iterable<Path>) listed::iterator) {
+                    if (++looked > LOOKED) {
+                        return found;
+                    }
+                    if (!mailbox.delivered(path)) {
+                        found.add(path.getFileName().toString());
+                    }
+                }
+            }
         }
         return found;
     }

@@ -516,7 +516,8 @@ certificate ends as `certifiedUntil`, for `porelo task certify --host` from that
 
 `lastWrote` in the JSON status and the daemon's `Task` is the modification time of `task.log`, an
 ISO-8601 instant, or `""` without a readable log. Ask `Tail(last: 1)` for its last line when showing it.
-`inboxWaiting` counts `.json` files in the host-side `inbox/new`, including for an ended or stopped task;
+`inboxWaiting` counts the `.json` messages Porelo delivered into the host-side `inbox/new` - regular files the account
+owns, never a link or a file something in the task wrote there - including for an ended or stopped task;
 it is `0` without a readable mailbox. `Watch` changes for this count and for `activity`, while a change
 of `lastWrote` alone does not resend the list. `idle` means quiet, not "waiting for a message".
 

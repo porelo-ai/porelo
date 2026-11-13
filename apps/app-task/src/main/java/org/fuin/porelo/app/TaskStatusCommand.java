@@ -349,22 +349,15 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
     }
 
     /**
-     * Marks something that is not wrong but must not be read as fine.
-     *
-     * @param text What to mark.
-     * @return The text, painted or not.
-     */
-    /**
-     * Says which files in the task's inbox Porelo did not deliver, as its record names them, or
-     * {@code null} when there are none or the record cannot be read.
+     * Says which files in the task's inbox Porelo did not deliver, as they are there now, or {@code
+     * null} when there are none or the inbox cannot be read.
      */
     private @org.jspecify.annotations.Nullable String plantedLine(final String container) {
         final List<String> planted;
         try {
             planted =
-                    InboxPlants.planted(
-                            new MessageRecord(
-                                    new Mailbox(context.paths().messaging().mailbox(container))));
+                    InboxPlants.present(
+                            new Mailbox(context.paths().messaging().mailbox(container)));
         } catch (final java.io.IOException | RuntimeException ex) {
             return null;
         }
@@ -372,15 +365,21 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
             return null;
         }
         final int shown = Math.min(3, planted.size());
-        return warn(
-                planted.size()
-                        + " not delivered by Porelo, left unread: "
-                        + planted.subList(0, shown).stream()
-                                .map(TalkReadCommand::shown)
-                                .collect(java.util.stream.Collectors.joining(", "))
-                        + (planted.size() > shown ? ", ..." : ""));
+        // The names outside the colour's markup: whatever wrote them chose them, markup included.
+        return warn(planted.size() + " not delivered by Porelo, left unread:")
+                + " "
+                + planted.subList(0, shown).stream()
+                        .map(TalkReadCommand::shown)
+                        .collect(java.util.stream.Collectors.joining(", "))
+                + (planted.size() > shown ? ", ..." : "");
     }
 
+    /**
+     * Marks something that is not wrong but must not be read as fine.
+     *
+     * @param text What to mark.
+     * @return The text, painted or not.
+     */
     private static String warn(String text) {
         return picocli.CommandLine.Help.Ansi.AUTO.string("@|yellow " + text + "|@");
     }

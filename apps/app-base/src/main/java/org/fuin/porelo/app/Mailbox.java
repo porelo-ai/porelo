@@ -493,7 +493,8 @@ public final class Mailbox {
      * @param file A file in {@link #inboxNew()} or {@link #inboxCur()}.
      * @param most The most bytes a message may hold.
      * @return Its bytes, or {@code null} when it is gone, not Porelo's, or beyond {@code most}.
-     * @throws IOException If reading the pinned file failed.
+     * @throws IOException If a message Porelo delivered could not be pinned or read: a full disk,
+     *     or a mailbox without {@link #inboxTmp()}.
      */
     public byte @org.jspecify.annotations.Nullable [] readDelivered(final Path file, final int most)
             throws IOException {
@@ -501,6 +502,10 @@ public final class Mailbox {
         try {
             Files.createLink(pinned, file);
         } catch (final IOException | UnsupportedOperationException ex) {
+            if (delivered(file)) {
+                // Porelo's own message that cannot be read is no forgery and no absence.
+                throw new IOException("could not pin " + file + " to read it", ex);
+            }
             // Gone, another account's (the kernel refuses to link it), or not a file at all.
             return null;
         }

@@ -115,4 +115,35 @@ class MessageVerifyTest {
                                 assertThat(fault.detail())
                                         .isEqualTo("it was not delivered by Porelo"));
     }
+
+    @Test
+    void a_file_planted_under_the_name_of_a_read_message_does_not_hide_it(@TempDir final Path dir)
+            throws IOException {
+        // Harm: a link in new under a recorded name kept the real message in cur from being
+        // checked.
+        final Mailbox mailbox = delivered(dir, "{\"messageId\":\"m-1\"}");
+        Files.move(mailbox.inboxNew().resolve("m-1.json"), mailbox.inboxCur().resolve("m-1.json"));
+        Files.createSymbolicLink(
+                mailbox.inboxNew().resolve("m-1.json"), mailbox.inboxCur().resolve("m-1.json"));
+
+        final MessageVerify.Report report = new MessageVerify().check(mailbox, certified);
+
+        assertThat(report.faults()).as("the delivered one in cur is checked and holds").isEmpty();
+        assertThat(report.signatures()).isEqualTo(1);
+    }
+
+    @Test
+    void a_delivered_message_that_cannot_be_read_is_no_tamper_alarm(@TempDir final Path dir)
+            throws IOException {
+        // Harm: a full disk or a missing pin directory read as a changed message is a false alarm.
+        final Mailbox mailbox = delivered(dir, "{\"messageId\":\"m-1\"}");
+        Files.delete(mailbox.inboxTmp());
+
+        assertThat(new MessageVerify().check(mailbox, certified).faults())
+                .singleElement()
+                .satisfies(
+                        fault ->
+                                assertThat(fault.detail())
+                                        .startsWith("it could not be read to check it"));
+    }
 }

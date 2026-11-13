@@ -69,23 +69,26 @@ public final class MessageVerify {
         for (final Path signature : kept(mailbox.record())) {
             final String name = signature.getFileName().toString();
             final String messageName = name.substring(0, name.length() - ".sig".length());
-            final Path message = messageIn(mailbox, messageName);
-            if (message == null) {
+            Found found = found(mailbox, messageName);
+            if (found != null && found.retry()) {
+                // Once more: the agent moves what it read from new to cur while this looks.
+                found = found(mailbox, messageName);
+                if (found != null && found.retry() && found.fault() == null) {
+                    // Seen and gone twice: moved on, as a read message may be.
+                    found = null;
+                }
+            }
+            if (found == null) {
                 // Not a fault: an agent is free to delete what it has read, and a signature for a
                 // message that is gone is evidence about something nobody can check any more.
                 continue;
             }
             checked++;
-            final boolean inbox = !mailbox.sent().equals(message.getParent());
-            final byte[] bytes =
-                    inbox
-                            ? mailbox.readDelivered(message, MessageIntake.MAX_BYTES)
-                            : MessageIntake.taskWritten(message);
-            if (inbox && bytes == null && !mailbox.delivered(message)) {
-                // Anything in the container can write into the inbox, under a recorded name too.
-                faults.add(new Fault(messageName, "it was not delivered by Porelo"));
+            if (found.fault() != null) {
+                faults.add(new Fault(messageName, found.fault()));
                 continue;
             }
+            final byte[] bytes = found.bytes();
             final String armored = Files.readString(signature, StandardCharsets.UTF_8);
             final byte[] signer = SshSignature.signerOf(armored);
             if (signer == null || !certified.test(signer)) {
@@ -114,15 +117,65 @@ public final class MessageVerify {
                 && SshSignature.verify(bytes, armored, signer, MessageIntake.NAMESPACE);
     }
 
-    private @org.jspecify.annotations.Nullable Path messageIn(
+    /**
+     * What was found under a recorded name: the bytes to check, or why there are none, or that it
+     * should be looked for once more.
+     */
+    private record Found(
+            byte @org.jspecify.annotations.Nullable [] bytes,
+            @org.jspecify.annotations.Nullable String fault,
+            boolean retry) {}
+
+    /**
+     * Looks in every place a recorded message can be and settles on the one Porelo delivered, so a
+     * file planted under the same name in {@code inbox/new} does not hide the real one in {@code
+     * inbox/cur}.
+     */
+    private static @org.jspecify.annotations.Nullable Found found(
             final Mailbox mailbox, final String name) {
-        for (final Path where : List.of(mailbox.inboxNew(), mailbox.inboxCur(), mailbox.sent())) {
+        boolean any = false;
+        boolean foreign = false;
+        boolean changed = false;
+        for (final Path where : List.of(mailbox.inboxNew(), mailbox.inboxCur())) {
             final Path candidate = where.resolve(name);
-            if (Files.exists(candidate, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-                return candidate;
+            if (!Files.exists(candidate, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                continue;
+            }
+            any = true;
+            final byte[] bytes;
+            try {
+                bytes = mailbox.readDelivered(candidate, MessageIntake.MAX_BYTES);
+            } catch (final IOException ex) {
+                return new Found(
+                        null, "it could not be read to check it: " + ex.getMessage(), false);
+            }
+            if (bytes != null) {
+                return new Found(bytes, null, false);
+            }
+            if (mailbox.delivered(candidate)) {
+                changed = true;
+            } else if (Files.exists(candidate, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                foreign = true;
             }
         }
-        return null;
+        final Path sent = mailbox.sent().resolve(name);
+        if (Files.exists(sent, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            try {
+                return new Found(MessageIntake.taskWritten(sent), null, false);
+            } catch (final IOException ex) {
+                return new Found(
+                        null, "it could not be read to check it: " + ex.getMessage(), false);
+            }
+        }
+        if (changed) {
+            // Porelo's own, beyond a message's size: no longer what was signed.
+            return new Found(null, null, false);
+        }
+        if (foreign) {
+            // Anything in the container can write into the inbox, under a recorded name too.
+            return new Found(null, "it was not delivered by Porelo", true);
+        }
+        return any ? new Found(null, null, true) : null;
     }
 
     private List<Path> kept(final Path record) throws IOException {
