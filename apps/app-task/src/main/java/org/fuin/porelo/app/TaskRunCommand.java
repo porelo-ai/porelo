@@ -356,6 +356,16 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
      */
     Offer.Asker uncertifiedAsker = Offer.Asker.terminal();
 
+    /**
+     * Asks whether to propose an UNASKED repository's tools in {@code default}; a test answers it.
+     */
+    Offer.Asker proposalAsker = Offer.Asker.terminal();
+
+    /**
+     * Whether this start's first look already put the adapters' findings, or none, to the person.
+     */
+    private boolean adaptersSpoken;
+
     /** Asks whether to go into the task this checkout already has; a test answers it. */
     Offer.Asker taskAsker = Offer.Asker.terminal();
 
@@ -671,6 +681,106 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         return 75;
     }
 
+    /**
+     * Offers once to propose the tools of a repository of {@code default} nobody was asked about:
+     * at a terminal, a yes writes the tools draft its image reads and a no keeps nothing, each
+     * recorded as asked; {@code --yes} never answers it, and a start nobody is asked in names
+     * {@code porelo project init} in one line. A repository answered or configured, and every other
+     * project, and a task brought back, go as they did.
+     *
+     * @param project The project the start runs in.
+     * @param err Where it is asked and said.
+     */
+    private void proposalOffered(
+            final org.fuin.porelo.core.project.Project project, final PrintWriter err) {
+        if (!DefaultProject.is(project.name()) || repository == null || repository.isBlank()) {
+            return;
+        }
+        final String name = repository;
+        final DefaultProject defaults = new DefaultProject(context);
+        final DefaultProject.Entry entry =
+                defaults.usableEntries().stream()
+                        .filter(each -> each.name().equals(name))
+                        .findFirst()
+                        .orElse(null);
+        if (entry == null
+                || defaults.proposal(entry) != DefaultProject.Proposal.UNASKED
+                // A task brought back keeps the image it was made with.
+                || exists(project)) {
+            return;
+        }
+        final String where =
+                entry.source() == DefaultProject.Source.REMOTE
+                        ? ToolsDraft.remote(context, name) + ", for you alone"
+                        : java.nio.file.Path.of(entry.checkout()).resolve(ToolsDraft.NAME)
+                                + ", kept out of git";
+        final String answer =
+                yes || noInput || dryRun || !terminal.getAsBoolean()
+                        ? null
+                        : proposalAsker.ask(
+                                "The tools of "
+                                        + name
+                                        + " are not proposed yet. Propose them from its build"
+                                        + " files? A yes writes "
+                                        + where
+                                        + ", whose lines are asked for before they are built"
+                                        + " [y/N]");
+        if (answer == null) {
+            err.println(
+                    "porelo: the tools of "
+                            + name
+                            + " are not proposed yet; 'porelo project init "
+                            + (entry.source() == DefaultProject.Source.REMOTE
+                                    ? "CHECKOUT"
+                                    : entry.checkout())
+                            + "' proposes them from its build files, and a start at a terminal"
+                            + " without --yes asks");
+            err.flush();
+            return;
+        }
+        final String given = answer.strip().toLowerCase(java.util.Locale.ROOT);
+        final boolean taken = given.equals("y") || given.equals("yes");
+        try {
+            final DefaultProposal.Taken done =
+                    new DefaultProposal(context, detector)
+                            .take(
+                                    DefaultProject.NAME,
+                                    name,
+                                    taken
+                                            ? DefaultProposal.Choice.TOOLS
+                                            : DefaultProposal.Choice.NONE);
+            err.println(
+                    "porelo: "
+                            + (!taken
+                                    ? "nothing proposed for " + name + ", and no start asks again"
+                                    : done.tools() == null
+                                            ? "the adapters found no tools for " + name
+                                            : "tools of " + name + " written to " + done.tools()));
+        } catch (DefaultProposal.NotProposable ex) {
+            err.println(
+                    "porelo: the tools of "
+                            + name
+                            + " cannot be proposed ("
+                            + ex.reason()
+                            + "); nothing recorded, and this start goes on");
+        } catch (DefaultProposal.NoSuchRepository ex) {
+            err.println(
+                    "porelo: the tools of "
+                            + name
+                            + " cannot be proposed: default has no such repository; nothing"
+                            + " recorded, and this start goes on");
+        } catch (java.io.IOException | RuntimeException ex) {
+            err.println(
+                    "porelo: the tools of "
+                            + name
+                            + " cannot be proposed: "
+                            + org.fuin.porelo.vault.RegistryText.printable(
+                                    String.valueOf(ex.getMessage()))
+                            + "; nothing recorded, and this start goes on");
+        }
+        err.flush();
+    }
+
     /** Whether a person may be asked: at a terminal, by a start not told to ask nothing. */
     private boolean askable() {
         return !(yes || noInput || dryRun || !terminal.getAsBoolean());
@@ -779,14 +889,16 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 } else {
                     // Before anything is taken from a repository, a person says yes to it; an
                     // organization's project and a start with nobody to ask go as they always did.
-                    final WorkOrigin.Choice first =
+                    final FirstStartAtTerminal looking =
                             new FirstStartAtTerminal(new FirstStart(context, detector), err)
-                                    .withNotes(notes)
-                                    .choose(
-                                            standing,
-                                            firstStartOffer(err),
-                                            firstStartUnasked(),
-                                            EcosystemLookup.proxies(context.environment()));
+                                    .withNotes(notes);
+                    final WorkOrigin.Choice first =
+                            looking.choose(
+                                    standing,
+                                    firstStartOffer(err),
+                                    firstStartUnasked(),
+                                    EcosystemLookup.proxies(context.environment()));
+                    adaptersSpoken = looking.spokeOfAdapters();
                     final WorkOrigin.Choice choice =
                             first != null ? first : WorkOrigin.withoutApproved(context, standing);
                     projectName = choice.project();
@@ -966,6 +1078,11 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 2;
+        }
+
+        // Before the launch reads the repository's settings, so a draft taken here is in its image.
+        if (!adaptersSpoken) {
+            proposalOffered(read, err);
         }
 
         final String unkeyable = callerKey == null ? null : TaskLaunch.callerKeyRefusal(callerKey);

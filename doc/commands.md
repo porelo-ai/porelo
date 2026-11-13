@@ -210,6 +210,15 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   `default` or another local project's, is refused and goes on in `default`, saying so, as does a link, a named file
   outside the checkout, a file over 1 MiB, a `project.name` that is no text, or one that does not read. In a repository of
   an organization's project such a file decides nothing.
+- In `default`, a repository whose proposal is `UNASKED` (see `DefaultRepositories()` below) is asked about once
+  at a terminal, before anything is made: whether to propose its tools from its build files, naming where a yes
+  writes `.porelo.yml` (no by default). A yes writes the tools draft, as `TakeProposal` with `TOOLS` does, and the
+  start's image reads it, asking for each of its lines; a no writes nothing. Either is recorded as `ASKED`, and no
+  start asks again. A repository that cannot be proposed is named in one line, nothing recorded, and the start goes
+  on. `--yes` never answers it: with `--yes`, `--no-input`, `--dry-run` or no terminal one line names
+  `porelo project init` and the start goes on as before. A start whose checkout the adapters were just asked about
+  (the question above, or none installed, or nothing recognized), a task brought back, and every other project ask
+  nothing of it; so does the daemon's `Start`, which says nothing of it either.
 - The question covers `project.yml` and the files it names. A repository's `porelo.yml` is not part of it and is read as
   [its decision](decisions.md#a-repositorys-image-comes-from-poreloyml-taken-whole-and-its-build-keeps-the-hosts-network)
   says, also after a no in `default` and after a yes.
@@ -1040,7 +1049,8 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   `NotProposable` (`configured`), nothing recorded. A repository added by address is read from the gate mirror's
   default branch, exported read-only into a private runtime directory removed after; one whose mirror holds no
   default branch yet or whose checkout is gone, or a project other than `default`, is refused with `NotProposable`
-  (`no-checkout`, `not-default`) and stays `UNASKED`. An older
+  (`no-checkout`, `not-default`) and stays `UNASKED`. `porelo task start` at a terminal asks the same once for an
+  `UNASKED` repository ([`task start`](#task)); `Start` never asks. An older
   daemon answers `MethodNotFound`, which a client reads as "this machine cannot propose".
 - Approved work in `default` reaches `origin` with your own ssh agent or key, or a token stored with
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a

@@ -595,7 +595,9 @@ ecosystem adapters found as the checkout's `.porelo.yml`, each with the file it 
 image left to the project. The draft is read back through the image's reader before it is written, and refused if it
 would give other tools. `/.porelo.yml` is added once to the checkout's `.git/info/exclude` (the shared one, for a
 worktree), so no tracked file changes and `git status` stays clean. A `.porelo.yml` that is there is never written
-over, and a draft with no tools writes nothing. A start asks for each of its lines as for any other.
+over, and a draft with no tools writes nothing. A start asks for each of its lines as for any other. `porelo task
+start` at a terminal offers the same once for a repository of `default` nobody was asked about, and records the
+answer either way.
 
 A first start's draft holds the image lines and hosts the ecosystem adapters found. A yes writes `porelo.yml`,
 adds this checkout to `default`, and allows what the file asks on this machine. A `.porelo.yml` already in the

@@ -16,6 +16,9 @@ final class FirstStartAtTerminal {
 
     private final boolean full;
 
+    /** What the last look found, or {@code null} before one, or for a directory in no checkout. */
+    private FirstStart.@Nullable Outcome looked;
+
     private static final String ONLY_HERE =
             "  <- only this repository names it, and no curated set";
 
@@ -98,6 +101,7 @@ final class FirstStartAtTerminal {
             // Outside a checkout the start says so itself.
             return null;
         }
+        looked = answer.outcome();
         final boolean asking =
                 answer.outcome() == FirstStart.Outcome.ASK_NEW
                         || answer.outcome() == FirstStart.Outcome.ASK_UNKNOWN_FILE;
@@ -283,6 +287,18 @@ final class FirstStartAtTerminal {
         for (final String host : answer.marked()) {
             say("  opens    " + host + ONLY_HERE);
         }
+    }
+
+    /**
+     * Returns whether the last look put the adapters' findings to the person, or said they found
+     * nothing: a start then asks nothing more of them.
+     *
+     * @return Whether the adapters were spoken of.
+     */
+    boolean spokeOfAdapters() {
+        return looked != null
+                && looked != FirstStart.Outcome.KNOWN
+                && looked != FirstStart.Outcome.NOT_DEFAULT;
     }
 
     /**

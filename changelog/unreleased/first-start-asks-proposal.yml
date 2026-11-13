@@ -1,0 +1,2 @@
+title: "`porelo task start` in default asks once at a terminal whether to propose an unasked repository's tools; `--yes` never answers it, and without a terminal one line names `porelo project init`"
+type: added

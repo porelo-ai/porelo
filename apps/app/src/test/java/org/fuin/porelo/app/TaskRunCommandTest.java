@@ -1699,6 +1699,11 @@ class TaskRunCommandTest {
     /** What the start asked about taking its repository out of 'default'. */
     private final List<String> leaveDefaultAsked = new ArrayList<>();
 
+    /** What the start asked about proposing a repository's tools, and what the person answers. */
+    private final List<String> proposalAsked = new ArrayList<>();
+
+    private @org.jspecify.annotations.Nullable String proposalAnswer;
+
     /** What the start asked about a task already there, and what the person answers. */
     private final List<String> taskAsked = new ArrayList<>();
 
@@ -1807,6 +1812,11 @@ class TaskRunCommandTest {
                 question -> {
                     leaveDefaultAsked.add(question);
                     return answer;
+                };
+        start.proposalAsker =
+                question -> {
+                    proposalAsked.add(question);
+                    return proposalAnswer;
                 };
         start.detector =
                 new EcosystemDetector() {
@@ -2304,9 +2314,164 @@ class TaskRunCommandTest {
         firstStartAt(context(dir, true), checkout, true, "n", "--attach", "shell", "--detach");
 
         assertThat(firstStartAsked).hasSize(1);
+        assertThat(proposalAsked).as("one question about the adapters' findings").isEmpty();
         assertThat(checkout.resolve("project.yml")).doesNotExist();
         assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(out.toString()).contains("'default'");
+    }
+
+    /** Adds the checkout to 'default' as 'shop', its proposal never answered. */
+    private DefaultProject.Entry shopInDefault(final Path dir, final Path checkout)
+            throws Exception {
+        return new DefaultProject(context(dir, true))
+                .add(
+                        checkout.toString(),
+                        "shop",
+                        checkout.toString(),
+                        String.valueOf(firstStartOrigin));
+    }
+
+    private DefaultProject.Proposal shopsProposal(final Path dir) throws IOException {
+        final DefaultProject defaults = new DefaultProject(context(dir, true));
+        return defaults.proposal(
+                defaults.entries().stream()
+                        .filter(each -> each.name().equals("shop"))
+                        .findFirst()
+                        .orElseThrow());
+    }
+
+    @Test
+    void anUnaskedStartAtATerminalAsksOnceAndTheNextStartDoesNot(@TempDir Path dir)
+            throws Exception {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        shopInDefault(dir, checkout);
+        proposalAnswer = "n";
+
+        firstStartAt(
+                context(dir, true),
+                checkout,
+                true,
+                "y",
+                "-p",
+                "default",
+                "-r",
+                "shop",
+                "--attach",
+                "shell",
+                "--detach");
+
+        assertThat(proposalAsked)
+                .as("asked once, naming what a yes writes and where: %s", err)
+                .singleElement()
+                .asString()
+                .contains("Propose them from its build files?", ".porelo.yml", "[y/N]");
+        assertThat(shopsProposal(dir))
+                .as("a no is recorded")
+                .isEqualTo(DefaultProject.Proposal.ASKED);
+        assertThat(checkout.resolve(".porelo.yml")).as("a no writes nothing").doesNotExist();
+
+        firstStartAt(
+                context(dir, true),
+                checkout,
+                true,
+                "y",
+                "-p",
+                "default",
+                "-r",
+                "shop",
+                "--attach",
+                "shell",
+                "--detach");
+
+        assertThat(proposalAsked).as("the second start asks nothing").hasSize(1);
+        assertThat(err.toString()).doesNotContain("porelo project init");
+    }
+
+    @Test
+    void aYesWritesTheToolsDraftWhoseLinesTheStartReads(@TempDir Path dir) throws Exception {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        shopInDefault(dir, checkout);
+        proposalAnswer = "y";
+
+        firstStartAt(
+                context(dir, true),
+                checkout,
+                true,
+                "y",
+                "-p",
+                "default",
+                "-r",
+                "shop",
+                "--attach",
+                "shell",
+                "--detach");
+
+        assertThat(proposalAsked).hasSize(1);
+        assertThat(checkout.resolve(".porelo.yml")).exists();
+        assertThat(Files.readString(checkout.resolve(".porelo.yml")))
+                .contains("RUN echo fetched-maven");
+        assertThat(shopsProposal(dir))
+                .as("a draft written is configured")
+                .isEqualTo(DefaultProject.Proposal.CONFIGURED);
+        assertThat(err.toString())
+                .as("the image order reads the draft and asks for its line before building it")
+                .contains("tools of shop written to", "+ image.run[1] = RUN echo fetched-maven");
+        assertThat(runner.lines()).noneMatch(line -> line.contains("podman build"));
+    }
+
+    @Test
+    void yesWithoutATerminalAsksNothingAndNamesProjectInit(@TempDir Path dir) throws Exception {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        shopInDefault(dir, checkout);
+        proposalAnswer = "y";
+
+        firstStartAt(
+                context(dir, true),
+                checkout,
+                false,
+                "y",
+                "--yes",
+                "-p",
+                "default",
+                "-r",
+                "shop",
+                "--attach",
+                "shell",
+                "--detach");
+
+        assertThat(proposalAsked).as("--yes never answers it").isEmpty();
+        assertThat(err.toString().lines().filter(line -> line.contains("porelo project init")))
+                .as("one line: %s", err)
+                .singleElement()
+                .asString()
+                .contains("porelo project init " + checkout);
+        assertThat(checkout.resolve(".porelo.yml")).doesNotExist();
+        assertThat(shopsProposal(dir)).isEqualTo(DefaultProject.Proposal.UNASKED);
+    }
+
+    @Test
+    void yesAtATerminalAsksNothingEither(@TempDir Path dir) throws Exception {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        shopInDefault(dir, checkout);
+        proposalAnswer = "y";
+
+        firstStartAt(
+                context(dir, true),
+                checkout,
+                true,
+                "y",
+                "--yes",
+                "-p",
+                "default",
+                "-r",
+                "shop",
+                "--attach",
+                "shell",
+                "--detach");
+
+        assertThat(proposalAsked).isEmpty();
+        assertThat(err.toString()).contains("porelo project init");
+        assertThat(shopsProposal(dir)).isEqualTo(DefaultProject.Proposal.UNASKED);
     }
 
     @Test
