@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B650",
   "title": "A Start's Smaller Refusals And Leftovers",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 43,
