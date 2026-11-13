@@ -187,6 +187,16 @@ ss -ltun --cgroup | grep "cgroup:$(systemctl --user show -p ControlGroup --value
 The first answers its pid and the executable it runs. The second lists any network port the unit listens on, and
 prints nothing.
 
+### What runs unchecked is marked
+
+There is no switch that turns Porelo's checks off. What already runs without one is named instead, read from
+state the machine has: a task without a certificate is `unsigned`, and a task of a project whose file nothing
+verified is `unverified` (the project `default` has no file, so it is only ever `unsigned`). The daemon's `Task`
+carries `certified` and `verified`; a waiting push carries `arrival`, the gate's verdict when it came (`accepted`
+or `accepted, unsigned`); and each message event, `Held` and `ReadHeld` carry `mark`, this machine's own verdict
+on the sender, never what the message says. [Commands](commands.md) says how `task list` and `task status` show
+it.
+
 ### A daemon that answers nothing
 
 If `porelod` accepts a connection but answers no call, have it print where its threads are before restarting it:

@@ -134,6 +134,9 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         line(out, "mode", task.mode());
         out.println();
         line(out, "state", task.state());
+        // Beside the state: what it runs unsigned or of a project nothing verified, from its own
+        // record; no line for a certified task of a verified project.
+        line(out, "mark", task.mark());
         line(out, "activity", TaskListing.activity(task.activity()));
         if (task.agentEnded() != null) {
             // Its own line, and coloured when it is an error: the run is over, and only a person
@@ -492,6 +495,9 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
             report.put("model", blankToNull(task.model()));
             report.put("modelLabel", blankToNull(task.modelLabel()));
             report.put("modelFrom", blankToNull(task.modelFrom()));
+            // As List says them: no certificate is false, never left out to be read as certified.
+            report.put("certified", task.certified());
+            report.put("verified", task.verified());
             // As List says it; left out for a task that hands nothing back, or nothing yet.
             final TaskResult.Taken result = task.result();
             if (result != null) report.put("result", result.asMap());

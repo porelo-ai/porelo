@@ -248,6 +248,11 @@ type Task (
   # When its current certificate ends, ISO-8601 in UTC, renewed by 'porelo task certify'. "" when it
   # has none, or for a task started before this field existed.
   certifiedUntil: string,
+  # Whether the file of its project was verified: false where nothing verified it (commit is ""),
+  # true for the project default, which has no file to verify. With certified it is the task's
+  # mark, shown wherever the task is: certified false is "unsigned", verified false is
+  # "unverified". Absent from a daemon before this field, which is never read as true.
+  verified: ?bool,
   # When the container's current state began, ISO-8601: a running task since it started, a stopped one since
   # it exited. "" when the runtime could not say - a container that was created and never started
   # has no honest answer. This is what "idle for forty minutes" is arithmetic on; state is not.

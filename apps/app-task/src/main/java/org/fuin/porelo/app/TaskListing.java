@@ -28,6 +28,7 @@ final class TaskListing {
      * @param activity What its work is doing, as a person reads it.
      * @param age How long it has been in that state, or {@code -}.
      * @param helpers How many of its helpers are alive.
+     * @param mark What it runs unsigned or of a project nothing verified, or empty.
      */
     record Row(
             String display,
@@ -36,7 +37,8 @@ final class TaskListing {
             String state,
             String activity,
             String age,
-            long helpers) {
+            long helpers,
+            String mark) {
 
         /**
          * Returns the row as the listing prints it.
@@ -83,7 +85,10 @@ final class TaskListing {
         }
 
         private String after() {
-            return " " + helpers;
+            // MARK last, so the columns a script cuts stay where they were: what runs unsigned or
+            // of a project nothing verified is named in its own column rather than left to be
+            // assumed.
+            return String.format(" %-7s %s", helpers, mark).stripTrailing();
         }
     }
 
@@ -94,8 +99,8 @@ final class TaskListing {
      */
     static String header() {
         return String.format(
-                "%-38s %-14s %-9s %-18s %-8s %-5s %s",
-                "NAME", "PROJECT", "CLASS", "STATE", "ACTIVITY", "AGE", "HELPERS");
+                "%-38s %-14s %-9s %-18s %-8s %-5s %-7s %s",
+                "NAME", "PROJECT", "CLASS", "STATE", "ACTIVITY", "AGE", "HELPERS", "MARK");
     }
 
     /**
@@ -116,7 +121,8 @@ final class TaskListing {
                 state(task.state()),
                 activity(task.activity()),
                 age.isEmpty() ? "-" : age,
-                task.helpers());
+                task.helpers(),
+                task.mark());
     }
 
     /**

@@ -52,6 +52,8 @@ public final class MessageRead {
      * @param reason Why it is held, as the record says, or "".
      * @param direction {@code out} when this task was sending it, {@code in} when it was reaching
      *     this task, or "" when the record is older than the directions it keeps.
+     * @param mark This machine's own verdict on its sender as the record keeps it, {@code
+     *     unsigned}, {@code unverified} or ""; never read from the message.
      */
     public record Held(
             Outcome outcome,
@@ -64,7 +66,8 @@ public final class MessageRead {
             String at,
             List<String> text,
             String reason,
-            String direction) {
+            String direction,
+            String mark) {
 
         /**
          * Constructor with a copy of the parts.
@@ -80,13 +83,14 @@ public final class MessageRead {
          * @param text Its parts.
          * @param reason Why it is held.
          * @param direction Which way it was going.
+         * @param mark The verdict on its sender.
          */
         public Held {
             text = List.copyOf(text);
         }
 
         static Held none(final Outcome outcome) {
-            return new Held(outcome, "", "", "", "", "", "", "", List.of(), "", "");
+            return new Held(outcome, "", "", "", "", "", "", "", List.of(), "", "", "");
         }
     }
 
@@ -169,6 +173,7 @@ public final class MessageRead {
         String at = "";
         boolean heldLine = false;
         String direction = "";
+        String mark = "";
         for (final Map<String, Object> line : record) {
             if (!name.equals(line.get("message"))) {
                 continue;
@@ -182,6 +187,8 @@ public final class MessageRead {
                 reason = String.valueOf(line.getOrDefault("detail", ""));
                 heldLine = true;
                 direction = line.get("direction") instanceof String recorded ? recorded : "";
+                // The pass's own verdict when it held it; what the message says is never read.
+                mark = line.get("mark") instanceof String recorded ? recorded : "";
             }
         }
         if (peer.isEmpty() && metadata.get("to") instanceof String to) {
@@ -220,7 +227,8 @@ public final class MessageRead {
                 at,
                 withText ? text : List.of(),
                 reason,
-                direction);
+                direction,
+                mark);
     }
 
     /**

@@ -74,7 +74,13 @@ method Talk() -> (
   # The peer it was going to or came from, or "".
   peer: string,
   # Why, for the events that have a why. "" otherwise.
-  detail: string
+  detail: string,
+  # This machine's own verdict on who sent it: "unsigned" when no certified key of a task signed it - one
+  # that arrived without a believed signature, or one its own task had no key to sign - "unverified" when
+  # its key is believed and nothing here verified the sending task's project, "" otherwise. Read from what
+  # the pass checked, never from the message; a sender that leaves a mark out is not certified by that.
+  # Absent from a daemon before this field.
+  mark: ?string
 )
 
 # Every message a person may be asked to decide about, as it stands now - for an interface that
@@ -111,7 +117,10 @@ type HeldMessage (
   # "out" when this task was sending it, "in" when it was reaching this task - an external peer's
   # message is held on its way in, before any agent sees it. "" for a message held before the
   # record kept directions.
-  direction: string
+  direction: string,
+  # This machine's verdict on its sender when it held it, as TalkEvent.mark: "unsigned", "unverified" or "".
+  # Shown with the release action; never read from the message. Absent from a daemon before this field.
+  mark: ?string
 )
 
 # Writes a person's own message into a conversation.
@@ -188,7 +197,10 @@ method ReadHeld(
   # "out" when this task was sending it, "in" when it was reaching this task - an external peer's
   # message is held on its way in, before any agent sees it. "" for a message held before the
   # record kept directions.
-  direction: string
+  direction: string,
+  # This machine's verdict on its sender when it held it, as TalkEvent.mark: "unsigned", "unverified" or "".
+  # Shown with the release action; never read from the message. Absent from a daemon before this field.
+  mark: ?string
 )
 
 # Releases one held message, or refuses it for good - or, for one the filter refused, delivers it

@@ -57,6 +57,8 @@ public final class MessagePass {
 
     private TransportSend.Access acting = (transport, container) -> null;
 
+    private TransportSend.Marks marks = container -> "";
+
     /**
      * Constructor.
      *
@@ -135,7 +137,20 @@ public final class MessagePass {
             final Moderation moderation)
             throws IOException {
         final MessageRecord record = new MessageRecord(mailbox);
-        final List<String> taken = new MessageIntake(own).take(mailbox);
+        final MessageIntake intake = new MessageIntake(own);
+        final List<String> taken = intake.take(mailbox);
+        for (final MessageDelivery.Held unsigned : intake.heldUnsigned()) {
+            // Recorded with its mark, so the interface shows it held as unsigned and offers the
+            // release a person decides.
+            record.append(
+                    MessageRecord.HELD,
+                    unsigned.message(),
+                    "",
+                    "",
+                    unsigned.reason(),
+                    MessageRecord.OUT,
+                    unsigned.mark());
+        }
         for (final String message : taken) {
             // The role goes into the record: a person writing into a conversation has to be
             // distinguishable from the agent afterwards, and the message itself may be gone by the
@@ -183,7 +198,7 @@ public final class MessagePass {
                                 "it was not sent: " + stuck.reason(),
                                 false);
             }
-            final TransportSend send = new TransportSend(runner, transports, acting);
+            final TransportSend send = new TransportSend(runner, transports, acting, marks);
             // A project with no peer and no conversation asks no transport anything, whatever a
             // queue left here holds: the project 'default' has none, and talks to nobody.
             final List<String> queued =
@@ -249,7 +264,14 @@ public final class MessagePass {
                                 budget,
                                 attestedBy(polled, mail));
         for (final MessageDelivery.Delivered one : delivered.delivered()) {
-            record.append(MessageRecord.DELIVERED, one.message(), one.id(), one.peer(), "");
+            record.append(
+                    MessageRecord.DELIVERED,
+                    one.message(),
+                    one.id(),
+                    one.peer(),
+                    "",
+                    "",
+                    one.mark());
         }
         for (final MessageDelivery.Held stuck : delivered.held()) {
             record.append(
@@ -258,7 +280,8 @@ public final class MessagePass {
                     stuck.id(),
                     "",
                     stuck.reason(),
-                    MessageRecord.IN);
+                    MessageRecord.IN,
+                    stuck.mark());
         }
         for (final MessageDelivery.Repeat repeat : delivered.duplicates()) {
             record.append(
@@ -316,6 +339,15 @@ public final class MessagePass {
      */
     public void acting(final TransportSend.Access access) {
         this.acting = access;
+    }
+
+    /**
+     * Sets what this machine marks a sending task as, for the line its transport shows a person.
+     *
+     * @param marking Each sending task's mark.
+     */
+    public void marking(final TransportSend.Marks marking) {
+        this.marks = marking;
     }
 
     /**

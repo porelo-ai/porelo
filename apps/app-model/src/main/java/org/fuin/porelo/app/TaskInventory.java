@@ -499,6 +499,26 @@ public final class TaskInventory {
             return named != null ? named : within != null ? within : name;
         }
 
+        /**
+         * Says whether the task's project file was verified, or needs no verifying.
+         *
+         * @return {@code false} where nothing verified it - its {@code commit} is empty - and
+         *     {@code true} for the project {@code default}, which has no file to verify.
+         */
+        public boolean verified() {
+            return TrustMark.verified(project, commit);
+        }
+
+        /**
+         * Returns the task's visible mark for what it runs without a check.
+         *
+         * @return {@code unsigned}, {@code unverified}, both, or "" for a certified task of a
+         *     verified project.
+         */
+        public String mark() {
+            return TrustMark.of(certified, verified());
+        }
+
         /** Creates a task whose commits are not signed by a certified key of its own. */
         public Task(
                 String name,
@@ -1185,6 +1205,9 @@ public final class TaskInventory {
             map.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
             map.put("certified", certified);
             map.put("certifiedUntil", certifiedUntil);
+            // Beside certified, which it does not replace: false where nothing verified the
+            // project's file, and true for the project default, which has none to verify.
+            map.put("verified", verified());
             map.put("model", model);
             map.put("modelLabel", modelLabel);
             map.put("modelFrom", modelFrom);

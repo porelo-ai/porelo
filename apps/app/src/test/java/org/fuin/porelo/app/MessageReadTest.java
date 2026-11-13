@@ -94,7 +94,8 @@ class MessageReadTest {
                                 read.at(),
                                 java.util.List.of(),
                                 read.reason(),
-                                read.direction()));
+                                read.direction(),
+                                read.mark()));
     }
 
     @Test

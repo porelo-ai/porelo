@@ -45,6 +45,8 @@ public final class TransportSend {
 
     private final Access access;
 
+    private final Marks marks;
+
     /**
      * Constructor.
      *
@@ -64,9 +66,39 @@ public final class TransportSend {
      */
     public TransportSend(
             final CommandRunner runner, final TransportDirectory transports, final Access access) {
+        this(runner, transports, access, container -> "");
+    }
+
+    /**
+     * Constructor for transports that show a person the sending task's mark in its line.
+     *
+     * @param runner How commands are run.
+     * @param transports Where the adapters are.
+     * @param access What a transport needs to act as a task, beyond the message.
+     * @param marks This machine's mark of each sending task.
+     */
+    public TransportSend(
+            final CommandRunner runner,
+            final TransportDirectory transports,
+            final Access access,
+            final Marks marks) {
         this.runner = runner;
         this.transports = transports;
         this.access = access;
+        this.marks = marks;
+    }
+
+    /** Says what this machine marks a sending task as: what it runs without a check. */
+    @FunctionalInterface
+    public interface Marks {
+
+        /**
+         * Returns a task's mark.
+         *
+         * @param container The sending task.
+         * @return {@code unsigned}, {@code unverified}, both, or "" for neither.
+         */
+        String of(String container);
     }
 
     /**
@@ -190,7 +222,11 @@ public final class TransportSend {
             if (shows) {
                 Files.writeString(
                         line,
-                        shown(Files.readString(message, StandardCharsets.UTF_8), task(mailbox)),
+                        marked(
+                                marks.of(task(mailbox)),
+                                shown(
+                                        Files.readString(message, StandardCharsets.UTF_8),
+                                        task(mailbox))),
                         StandardCharsets.UTF_8);
             }
             // The task it is for, mentioned by its account, so the room shows whom it is meant for:
@@ -309,6 +345,18 @@ public final class TransportSend {
             // Unreadable here: nobody is mentioned.
         }
         return "";
+    }
+
+    /**
+     * Puts a sending task's mark in front of the line a person is shown: in the line only, as the
+     * room's display name stays as it is. A reader's own Porelo judges the message again itself.
+     *
+     * @param mark The task's mark, or "".
+     * @param line The line.
+     * @return The line, marked.
+     */
+    static String marked(final String mark, final String line) {
+        return mark.isEmpty() ? line : "[" + mark + "] " + line;
     }
 
     static String shown(final String message, final String from) {

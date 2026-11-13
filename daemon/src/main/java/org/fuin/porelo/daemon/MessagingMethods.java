@@ -149,25 +149,7 @@ final class MessagingMethods {
                                     continue;
                                 }
                                 for (int i = seen.getOrDefault(task, 0); i < lines.size(); i++) {
-                                    final Map<String, Object> line = lines.get(i);
-                                    replies.more(
-                                            Map.of(
-                                                    "task",
-                                                    task,
-                                                    "at",
-                                                    String.valueOf(line.getOrDefault("at", "")),
-                                                    "event",
-                                                    String.valueOf(line.getOrDefault("event", "")),
-                                                    "message",
-                                                    String.valueOf(
-                                                            line.getOrDefault("message", "")),
-                                                    "id",
-                                                    String.valueOf(line.getOrDefault("id", "")),
-                                                    "peer",
-                                                    String.valueOf(line.getOrDefault("peer", "")),
-                                                    "detail",
-                                                    String.valueOf(
-                                                            line.getOrDefault("detail", ""))));
+                                    replies.more(talkEvent(task, lines.get(i)));
                                 }
                                 seen.put(task, lines.size());
                             }
@@ -243,6 +225,7 @@ final class MessagingMethods {
                     answer.put("text", held.text());
                     answer.put("reason", held.reason());
                     answer.put("direction", held.direction());
+                    answer.put("mark", held.mark());
                     replies.last(answer);
                 });
 
@@ -271,6 +254,7 @@ final class MessagingMethods {
                             message.put("at", held.at());
                             message.put("reason", held.reason());
                             message.put("direction", held.direction());
+                            message.put("mark", held.mark());
                             messages.add(message);
                         }
                     }
@@ -532,6 +516,24 @@ final class MessagingMethods {
                             78));
         }
         return conversational(context, name);
+    }
+
+    /**
+     * Returns one record line as the Talk event a client is sent.
+     *
+     * @param task The mailbox's task.
+     * @param line The line, as the record holds it.
+     * @return The event; its {@code mark} is the pass's own verdict, never the message's word.
+     */
+    static Map<String, Object> talkEvent(final String task, final Map<String, Object> line) {
+        final Map<String, Object> event = new LinkedHashMap<>();
+        event.put("task", task);
+        for (final String key :
+                java.util.List.of("at", "event", "message", "id", "peer", "detail")) {
+            event.put(key, String.valueOf(line.getOrDefault(key, "")));
+        }
+        event.put("mark", line.get("mark") instanceof String mark ? mark : "");
+        return event;
     }
 
     private static VarlinkException refused(org.fuin.porelo.app.Conversations.Refused ex) {

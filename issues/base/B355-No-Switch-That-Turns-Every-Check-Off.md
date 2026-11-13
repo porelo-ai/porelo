@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B355",
   "title": "No Switch That Turns Every Check Off",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 46,
@@ -232,3 +232,34 @@ arrival line for a task that has no judge.
 - The `default` project shows `unsigned` only, never `unverified`: it has no file to verify.
 - The mark sits only in the line; the room's display name stays as it is.
 - A held message of an uncertified task shows in the interface with its mark and a release action.
+
+## Built (2026-11-13)
+
+- **This machine.** `TrustMark` (app-model) holds the rule: `unsigned` without a certificate, `unverified` where the
+  task's `commit` is empty, never `unverified` for `default`. `TaskInventory.Task` answers `verified()` and `mark()`;
+  `asMap` gains `verified`. `task list` shows a `MARK` column, the last one, so the columns scripts cut stay where they
+  were; `task status` a `mark` line; `task status --json` answers `certified` and `verified`.
+- **The gate.** `GateServeCommand` wraps `ArrivalRecords.unjudged` where no principal and signers exist, for a task's
+  incoming ref: each push is accepted as before and recorded `accepted, unsigned`. `ArrivalVerdicts` reads the
+  newest arrival of the waiting commit back from the event log; the daemon's `Pending` and `Review` carry it as
+  `arrival`. `gate pending` on the command line does not show it yet.
+- **The receiver.** `MessageSigners.Traced` carries `mark`: `unsigned` for a key not believed, `unverified` for a
+  believed key whose sending project (`task:<project>:<task>`) this machine did not verify (`ProjectSource` answers
+  neither `ORGANIZATION` nor `BUILT_IN`). `MessageDelivery` puts it on each `Held` and `Delivered`, and marks a
+  message without a readable or matching signature `unsigned`. `MessageRecord` lines carry `mark`, covered by the
+  hash only when present, so older records verify. A message its own task had no key to sign is now recorded as
+  `held` with `unsigned`. `MessageRead`, and the daemon's `Talk`, `Held` and `ReadHeld`, answer `mark` from the
+  record, never from the message.
+- **The room.** `TransportSend` puts the sending task's mark in front of the `--shown` line (`[unverified] ...`);
+  only `unverified` can occur there, since an unsigned message never reaches a transport. The display name and the
+  transport are unchanged.
+- **Refusals.** `porelo --insecure` (also after `task start`) and an `insecure` key in `project.yml`, top level and
+  in `project:`, are refused as unknown, held by `NoInsecureSwitchTest`. `TaskLaunch`'s refusal on a host is
+  untouched.
+- **Contract (additions only).** `Task.verified: ?bool`, `PendingPush.arrival: ?string`, `Review`'s `arrival:
+  ?string`, `TalkEvent.mark` and `Talk`'s `mark: ?string`, `HeldMessage.mark` and `ReadHeld`'s `mark: ?string`.
+- **Docs.** `doc/running.md` and `doc/commands.md` name `verified`, `arrival` and `mark`; `doc/transports.md` the
+  marked line.
+- **Left.** The interface rendering `mark` with the release action is the interface's own issue. Releasing an
+  intake-held unsigned message still behaves as before. Plan line numbers had moved: the judge wiring sits at
+  `GateServeCommand.java:325`, the believing check in `MessageDelivery` at `:293`.

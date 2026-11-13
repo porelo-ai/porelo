@@ -65,6 +65,28 @@ class MessagingMethodsTest {
     }
 
     @Test
+    void aTalkEventCarriesTheRecordsMarkAndNeverOneTheMessageWrote() {
+        // A mark read from the message would be the sender's word; a lying sender leaves it out.
+        final Map<String, Object> marked =
+                MessagingMethods.talkEvent(
+                        "porelo-p-t",
+                        Map.of(
+                                "at", "2026-11-13T00:00:00Z",
+                                "event", "held",
+                                "message", "m.json",
+                                "mark", "unsigned"));
+        final Map<String, Object> unmarked =
+                MessagingMethods.talkEvent(
+                        "porelo-p-t", Map.of("event", "delivered", "message", "m.json"));
+
+        assertThat(marked).containsEntry("mark", "unsigned").containsEntry("event", "held");
+        assertThat(unmarked)
+                .as("a line without a verdict says none; the client never guesses one")
+                .containsEntry("mark", "")
+                .containsKeys("task", "at", "event", "message", "id", "peer", "detail");
+    }
+
+    @Test
     void aJoinAndTheSetupBeforeItAreGivenThisAccountsLogin() throws Exception {
         // A transport suffixes every account it makes with the login: without it, two persons'
         // tasks of one name would share an account on a shared homeserver.

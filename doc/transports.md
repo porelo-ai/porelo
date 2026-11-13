@@ -41,7 +41,7 @@ announce is never passed, since an unknown one is its 64:
 
 | Announced | What Porelo then does |
 |---|---|
-| `"shown": true` | passes `--shown <file>` to `send`: a file beside the message, written by the host from the checked message, holding the line a person is shown for it |
+| `"shown": true` | passes `--shown <file>` to `send`: a file beside the message, written by the host from the checked message, holding the line a person is shown for it, with the sending task's mark in front, as `[unverified] ...`, where it has one |
 | `"mention": true` | passes `--mention <account>` to `send`: the account of the task or person the message is for, so the conversation shows whom it is meant for; never in a direct chat |
 | `"persons": true` | passes `--persons` to `poll`: hand over what people say in the conversation as well |
 | `"direct": true` | also polls each task's direct chats, with `poll --into <dir> --direct` and that task's secrets, and hands what arrived to that task alone |

@@ -509,6 +509,18 @@ task's forge token, and pushes its branch, `porelo/<task>`, itself; the containe
 Porelo runs the helper by its path through `sudo -n`, as
 [the host's contract](hosts.md#a-task-certificate-judged-for-the-host) says.
 
+**The mark.** No option or setting turns every check off: `--insecure` and an `insecure` key in `project.yml` are
+refused as unknown, and each check that may be relaxed has its own flag. What already runs without a check is named
+instead. `task list` shows it in its `MARK` column and `task status` on its `mark` line: `unsigned` for a task without
+a certificate, `unverified` for a task of a project whose file nothing verified (its `commit` is empty). The project
+`default` has no file to verify and is only ever `unsigned`. `task status --json` and the daemon's `Task` answer
+`certified` and `verified`. Each push of an uncertified task is recorded as an `arrived` event `accepted, unsigned`,
+never a bare `accepted`, and the gate's `Pending` and `Review` carry that verdict as `arrival`. A message's `mark` in
+`Talk`, `Held` and `ReadHeld` is this machine's own verdict on its sender: `unsigned` when no believed task key signed
+it, or its own task had none to sign it with; `unverified` when the key is believed and nothing here verified the
+sending project. A transport that shows a person a line gets the sending task's mark in front of it, as
+`[unverified] ...`; the display name stays as it is, and a reader's Porelo judges the message again itself.
+
 An interface starts a task on a host through the daemon the same way, with the agent at the person's computer and never
 forwarded. `Start` with `certify: true` and `more` carries one reply `certify`, naming the key, the one principal, the key id,
 the end and the keys that may certify. The interface signs there and answers by `Certify(start, certificate)` on a connection of

@@ -139,6 +139,31 @@ public final class MessageRecord {
             final String detail,
             final String direction)
             throws IOException {
+        append(event, message, id, peer, detail, direction, "");
+    }
+
+    /**
+     * Appends one line that also carries this machine's own verdict on the message's sender.
+     *
+     * @param event One of the constants here.
+     * @param message The message's file name.
+     * @param id Its message id, or "" when nothing could be read.
+     * @param peer The peer it was going to or came from, or "".
+     * @param detail Why, for the events that have a why. "" otherwise.
+     * @param direction {@link #OUT} or {@link #IN}, or "" when that is not this line's to say.
+     * @param mark {@code unsigned}, {@code unverified} or "": what this machine's own check found,
+     *     never what the message says.
+     * @throws IOException Writing failed.
+     */
+    public void append(
+            final String event,
+            final String message,
+            final String id,
+            final String peer,
+            final String detail,
+            final String direction,
+            final String mark)
+            throws IOException {
         // Read and written under one lock: the daemon's pass and a command at the terminal wrote at
         // once, both read the same last hash, and the record then said it had been changed when
         // nobody had.
@@ -149,7 +174,7 @@ public final class MessageRecord {
         FileLocks.holdingInside(
                 file.resolveSibling(".record.lock"),
                 () -> {
-                    appendHeld(event, message, id, peer, detail, direction);
+                    appendHeld(event, message, id, peer, detail, direction, mark);
                     return Boolean.TRUE;
                 });
     }
@@ -160,7 +185,8 @@ public final class MessageRecord {
             final String id,
             final String peer,
             final String detail,
-            final String direction)
+            final String direction,
+            final String mark)
             throws IOException {
         final String previous = lastHash();
         final Map<String, Object> line = new LinkedHashMap<>();
@@ -173,8 +199,11 @@ public final class MessageRecord {
         if (!direction.isEmpty()) {
             line.put("direction", direction);
         }
+        if (!mark.isEmpty()) {
+            line.put("mark", mark);
+        }
         line.put("previous", previous);
-        line.put("hash", hash(previous, event, message, id, peer, detail, direction));
+        line.put("hash", hash(previous, event, message, id, peer, detail, direction, mark));
         Files.writeString(
                 file,
                 Json.write(line) + System.lineSeparator(),
@@ -275,7 +304,8 @@ public final class MessageRecord {
                             String.valueOf(line.get("id")),
                             String.valueOf(line.get("peer")),
                             String.valueOf(line.get("detail")),
-                            line.get("direction") instanceof String direction ? direction : "");
+                            line.get("direction") instanceof String direction ? direction : "",
+                            line.get("mark") instanceof String mark ? mark : "");
             if (!expected.equals(String.valueOf(line.get("hash")))
                     || !previous.equals(String.valueOf(line.get("previous")))) {
                 return number;
@@ -357,13 +387,18 @@ public final class MessageRecord {
             final String id,
             final String peer,
             final String detail,
-            final String direction) {
-        // Only when there is one: a line written before directions were recorded keeps the hash
-        // it was written with, so the chain of an existing record still verifies.
-        return HashChain.link(
-                previous,
-                direction.isEmpty()
-                        ? List.of(event, message, id, peer, detail)
-                        : List.of(event, message, id, peer, detail, direction));
+            final String direction,
+            final String mark) {
+        // Only when there is one: a line written before directions or marks were recorded keeps
+        // the hash it was written with, so the chain of an existing record still verifies. A mark
+        // is covered as the rest is, so a line cannot lose it unseen.
+        final List<String> fields = new ArrayList<>(List.of(event, message, id, peer, detail));
+        if (!direction.isEmpty() || !mark.isEmpty()) {
+            fields.add(direction);
+        }
+        if (!mark.isEmpty()) {
+            fields.add(mark);
+        }
+        return HashChain.link(previous, fields);
     }
 }

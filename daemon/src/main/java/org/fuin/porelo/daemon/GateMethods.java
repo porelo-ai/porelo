@@ -285,6 +285,17 @@ final class GateMethods {
                                                 row.put(
                                                         "alreadyUpstream",
                                                         upstreamHas.contains(push.name()));
+                                                // What the gate decided when it arrived, so an
+                                                // unsigned push is seen as one before approval.
+                                                final String arrival =
+                                                        org.fuin.porelo.app.ArrivalVerdicts.of(
+                                                                context,
+                                                                text(parameters, "project"),
+                                                                push.name(),
+                                                                push.commit());
+                                                if (arrival != null) {
+                                                    row.put("arrival", arrival);
+                                                }
                                                 // Who made its head, for the reviewer to judge;
                                                 // only of the commit this row names, as a push
                                                 // in between moves the ref.
@@ -401,6 +412,19 @@ final class GateMethods {
                                     name);
                     if (asked.found()) {
                         reply.put("asked", asked.prompt() == null ? "" : asked.prompt());
+                    }
+                    final GitGate.Waiting head = gate.waitingWork(name);
+                    final String arrival =
+                            head == null
+                                    ? null
+                                    : org.fuin.porelo.app.ArrivalVerdicts.of(
+                                            context,
+                                            GateSupport.project(projectFile(parameters, context))
+                                                    .name(),
+                                            name,
+                                            head.commit());
+                    if (arrival != null) {
+                        reply.put("arrival", arrival);
                     }
                     replies.last(reply);
                 });

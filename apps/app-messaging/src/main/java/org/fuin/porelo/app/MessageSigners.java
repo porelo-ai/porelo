@@ -68,6 +68,19 @@ public final class MessageSigners implements MessageDelivery.Signers {
         @Nullable List<String> read();
     }
 
+    /** Says whether this machine verified a sending task's project. */
+    @FunctionalInterface
+    public interface Verified {
+
+        /**
+         * Says whether a project's file was verified here.
+         *
+         * @param project The sending task's project, as its certificate names it.
+         * @return {@code true} when this machine verified it, or it has no file to verify.
+         */
+        boolean project(String project);
+    }
+
     /** Why a task's message cannot be signed. */
     public static final class Unsigned extends Exception {
 
@@ -106,8 +119,33 @@ public final class MessageSigners implements MessageDelivery.Signers {
      * @param refusal Why it is not believed, naming the key, or "" when it is.
      * @param waits Whether it cannot be judged now, so the message waits where it arrived rather
      *     than being held.
+     * @param mark This receiver's own verdict on the sender: {@link TrustMark#UNSIGNED} when the
+     *     key is not believed, {@link TrustMark#UNVERIFIED} when it is and nothing here verified
+     *     the sending project, else "". Never anything the message says.
      */
-    public record Traced(String peer, String principal, String refusal, boolean waits) {
+    public record Traced(
+            String peer, String principal, String refusal, boolean waits, String mark) {
+
+        /**
+         * Constructor that marks a refused key as unsigned and a believed one as nothing.
+         *
+         * @param peer The peer it speaks for, or "".
+         * @param principal The whole principal, or "".
+         * @param refusal Why it is not believed, or "".
+         * @param waits Whether it cannot be judged now.
+         */
+        public Traced(
+                final String peer,
+                final String principal,
+                final String refusal,
+                final boolean waits) {
+            this(
+                    peer,
+                    principal,
+                    refusal,
+                    waits,
+                    refusal.isEmpty() || waits ? "" : TrustMark.UNSIGNED);
+        }
 
         /**
          * Constructor for a key that was judged, known by one name.
@@ -156,6 +194,8 @@ public final class MessageSigners implements MessageDelivery.Signers {
 
     private final Certifiers certifiers;
 
+    private final Verified verified;
+
     private @Nullable List<String> read;
 
     /**
@@ -172,10 +212,30 @@ public final class MessageSigners implements MessageDelivery.Signers {
             final Certificates certificates,
             final String project,
             final Certifiers certifiers) {
+        // Nothing to ask: every project but default, which has no file, counts as unverified.
+        this(own, certificates, project, certifiers, NO_PROJECT::equals);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param own The task's own key.
+     * @param certificates Where a task key's certificate is looked up.
+     * @param project The receiving task's project, or {@link #NO_PROJECT}.
+     * @param certifiers The keys whose certificates the task believes.
+     * @param verified Whether this machine verified a sending task's project, for its mark.
+     */
+    public MessageSigners(
+            final Own own,
+            final Certificates certificates,
+            final String project,
+            final Certifiers certifiers,
+            final Verified verified) {
         this.own = own;
         this.certificates = certificates;
         this.project = project;
         this.certifiers = certifiers;
+        this.verified = verified;
     }
 
     /**
@@ -273,7 +333,8 @@ public final class MessageSigners implements MessageDelivery.Signers {
                 },
                 fingerprint -> records.certificate(fingerprint, host),
                 name,
-                certifiers);
+                certifiers,
+                sending -> TrustMark.verifiedHere(context, sending));
     }
 
     /**
@@ -354,7 +415,13 @@ public final class MessageSigners implements MessageDelivery.Signers {
                             + ", and it arrived at "
                             + arrived);
         }
-        return new Traced(parts[1].equals(project) ? parts[2] : principal, principal, "", false);
+        // The receiver's own verdict on the sending project, never what the message says of it.
+        return new Traced(
+                parts[1].equals(project) ? parts[2] : principal,
+                principal,
+                "",
+                false,
+                verified.project(parts[1]) ? "" : TrustMark.UNVERIFIED);
     }
 
     /**

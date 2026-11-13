@@ -94,8 +94,21 @@ public final class MessageDelivery {
      * @param message File name.
      * @param reason Why, in words an operator can act on.
      * @param id Its id, or empty when it was held before its id could be read.
+     * @param mark This machine's own verdict on its sender, {@code unsigned}, {@code unverified} or
+     *     "": never what the message says of itself.
      */
-    public record Held(String message, String reason, String id) {
+    public record Held(String message, String reason, String id, String mark) {
+
+        /**
+         * Constructor for a message held with no verdict on its sender.
+         *
+         * @param message File name.
+         * @param reason Why.
+         * @param id Its id, or "".
+         */
+        public Held(final String message, final String reason, final String id) {
+            this(message, reason, id, "");
+        }
 
         /**
          * Constructor for a message held before its id could be read.
@@ -122,8 +135,22 @@ public final class MessageDelivery {
      * @param message File name.
      * @param id Its message id, or "" when it carried none.
      * @param peer The peer whose key signed it.
+     * @param mark This machine's own verdict on its sender: {@code unverified} when nothing here
+     *     verified the sending project, else "".
      */
-    public record Delivered(String message, String id, String peer) {}
+    public record Delivered(String message, String id, String peer, String mark) {
+
+        /**
+         * Constructor for a message delivered with no verdict on its sender, as a person's is.
+         *
+         * @param message File name.
+         * @param id Its id, or "".
+         * @param peer Who it is from.
+         */
+        public Delivered(final String message, final String id, final String peer) {
+            this(message, id, peer, "");
+        }
+    }
 
     /**
      * What one pass did.
@@ -267,7 +294,7 @@ public final class MessageDelivery {
             }
             if (!Files.isRegularFile(signature)) {
                 hold(mailbox, message, null);
-                held.add(new Held(name, "it arrived without a signature"));
+                held.add(new Held(name, "it arrived without a signature", "", TrustMark.UNSIGNED));
                 continue;
             }
             final byte[] bytes = Files.readAllBytes(message);
@@ -275,13 +302,17 @@ public final class MessageDelivery {
             final byte[] signer = SshSignature.signerOf(armored);
             if (signer == null) {
                 hold(mailbox, message, signature);
-                held.add(new Held(name, "its signature cannot be read"));
+                held.add(new Held(name, "its signature cannot be read", "", TrustMark.UNSIGNED));
                 continue;
             }
             if (!SshSignature.verify(bytes, armored, signer, MessageIntake.NAMESPACE)) {
                 hold(mailbox, message, signature);
                 held.add(
-                        new Held(name, "its signature does not match the message it arrived with"));
+                        new Held(
+                                name,
+                                "its signature does not match the message it arrived with",
+                                "",
+                                TrustMark.UNSIGNED));
                 continue;
             }
             // When this pass takes it, by this machine's clock: never a time the sender wrote.
@@ -293,7 +324,7 @@ public final class MessageDelivery {
             }
             if (!peer.believed()) {
                 hold(mailbox, message, signature);
-                held.add(new Held(name, peer.refusal()));
+                held.add(new Held(name, peer.refusal(), "", peer.mark()));
                 continue;
             }
             // The agent reads who wrote a message from its metadata, which the sender wrote: a
@@ -307,7 +338,9 @@ public final class MessageDelivery {
                                 "it says it is from "
                                         + from.replaceAll("\\p{Cntrl}", "?")
                                         + ", and it is signed by "
-                                        + peer.peer()));
+                                        + peer.peer(),
+                                "",
+                                peer.mark()));
                 continue;
             }
 
@@ -318,7 +351,7 @@ public final class MessageDelivery {
                 // Held, not thrown: the pass ended here, the file stayed in inbound, and the task
                 // never received anything again.
                 hold(mailbox, message, signature);
-                held.add(new Held(name, "it is not a message that can be read"));
+                held.add(new Held(name, "it is not a message that can be read", "", peer.mark()));
                 continue;
             }
             if (!id.isBlank() && !already.add(id)) {
@@ -338,7 +371,7 @@ public final class MessageDelivery {
                     attested == null ? "" : attested.refuse(mailbox, message, peer.peer());
             if (!owner.isEmpty()) {
                 hold(mailbox, message, signature);
-                held.add(new Held(name, owner, id));
+                held.add(new Held(name, owner, id, peer.mark()));
                 continue;
             }
 
@@ -350,7 +383,7 @@ public final class MessageDelivery {
                 // Held rather than refused back: this machine is the one that is full, and the
                 // message itself is nobody's fault.
                 hold(mailbox, message, signature);
-                held.add(new Held(name, full, id));
+                held.add(new Held(name, full, id, peer.mark()));
                 continue;
             }
 
@@ -359,7 +392,7 @@ public final class MessageDelivery {
             final String refused = check == null ? "" : check.refuse(mailbox, message, peer.peer());
             if (!refused.isEmpty()) {
                 hold(mailbox, message, signature);
-                held.add(new Held(name, refused, id));
+                held.add(new Held(name, refused, id, peer.mark()));
                 continue;
             }
 
@@ -385,7 +418,7 @@ public final class MessageDelivery {
                         mailbox.record().resolve(name + OwnerAttestation.SUFFIX),
                         StandardCopyOption.REPLACE_EXISTING);
             }
-            delivered.add(new Delivered(name, id, peer.peer()));
+            delivered.add(new Delivered(name, id, peer.peer(), peer.mark()));
             handedOver.merge(peer.peer(), 1, Integer::sum);
         }
         return new Outcome(delivered, held, duplicates);

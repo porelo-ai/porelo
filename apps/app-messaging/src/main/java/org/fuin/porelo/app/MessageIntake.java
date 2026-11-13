@@ -46,6 +46,8 @@ public final class MessageIntake {
 
     private final MessageSigners.Own key;
 
+    private final List<MessageDelivery.Held> unsigned = new ArrayList<>();
+
     /**
      * Constructor with the task's own key.
      *
@@ -64,6 +66,7 @@ public final class MessageIntake {
      * @throws IOException Reading or moving failed.
      */
     public List<String> take(final Mailbox mailbox) throws IOException {
+        unsigned.clear();
         mailbox.refuseLinks();
         final List<String> taken = new ArrayList<>(take(mailbox, mailbox.outboxNew(), false));
         taken.addAll(take(mailbox, mailbox.person(), true));
@@ -125,6 +128,9 @@ public final class MessageIntake {
                 final Path held = mailbox.hold().resolve(name);
                 place(bytes, held);
                 new HostBounce().write(mailbox, held, "it was not sent: " + unsigned, true);
+                this.unsigned.add(
+                        new MessageDelivery.Held(
+                                name, "it was not sent: " + unsigned, "", TrustMark.UNSIGNED));
                 continue;
             }
 
@@ -145,6 +151,16 @@ public final class MessageIntake {
             taken.add(name);
         }
         return taken;
+    }
+
+    /**
+     * Returns what the last {@link #take} held because the task has no key to sign it with, each
+     * marked {@code unsigned}: this machine's own verdict, so a person sees it held as such.
+     *
+     * @return The held messages, in the order they were held.
+     */
+    public List<MessageDelivery.Held> heldUnsigned() {
+        return List.copyOf(unsigned);
     }
 
     /**

@@ -416,6 +416,16 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                     (kind, named, task, detail) ->
                                             EventLog.record(context, kind, named, task, detail),
                                     java.time.Clock.systemUTC()));
+                } else if (ref != null && ref.startsWith(GitGate.INCOMING)) {
+                    // No certificate, so nothing can judge: each push is accepted as before, and
+                    // its line says it went unsigned rather than reading as judged.
+                    server.judging(
+                            ArrivalRecords.unjudged(
+                                    projectName,
+                                    ref.substring(ref.lastIndexOf('/') + 1),
+                                    (kind, named, task, detail) ->
+                                            EventLog.record(context, kind, named, task, detail),
+                                    java.time.Clock.systemUTC()));
                 }
                 server.start();
                 writePidFile(err);

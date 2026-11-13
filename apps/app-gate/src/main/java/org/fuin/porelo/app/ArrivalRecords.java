@@ -25,7 +25,33 @@ final class ArrivalRecords {
         void record(String kind, String project, String task, String detail);
     }
 
+    /** The verdict recorded for a push that nothing judged, as its task has no certificate. */
+    static final String ACCEPTED_UNSIGNED = "accepted, unsigned";
+
     private ArrivalRecords() {}
+
+    /**
+     * Returns a judge for a task that has no certificate, so nothing can judge its commits: it
+     * accepts every push, as the gate always did for such a task, and records each one as {@code
+     * accepted, unsigned} - never a bare {@code accepted}, which reads as judged.
+     *
+     * @param project The project.
+     * @param task The task's container.
+     * @param recorder Where each arrival is recorded.
+     * @param clock Says when a push arrives.
+     * @return A judge that accepts.
+     */
+    static GitHttpServer.Arrivals unjudged(
+            String project, String task, Recorder recorder, Clock clock) {
+        return (old, commit) -> {
+            recorder.record(
+                    EventLog.ARRIVED,
+                    project,
+                    task,
+                    old + ".." + commit + " arrived " + clock.instant() + ": " + ACCEPTED_UNSIGNED);
+            return null;
+        };
+    }
 
     /**
      * Wraps a judge so that every verdict is recorded.

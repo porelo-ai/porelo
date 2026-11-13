@@ -367,6 +367,15 @@ public final class MessageWatch implements AutoCloseable {
                         context.runner(),
                         context.paths().messaging().messageFilter(),
                         context.paths().messaging().transportDirectory());
+        // A sending task signs, or its message never reaches a transport; what is left to mark is
+        // a project nothing here verified.
+        pass.marking(
+                container -> {
+                    final String project = projectOf(container);
+                    return project == null || TrustMark.verifiedHere(context, project)
+                            ? ""
+                            : TrustMark.UNVERIFIED;
+                });
         // Each pass, every mailbox again: one made after the watch started announced its directory
         // before its outbox existed, so the watch on it failed then and was never tried again - and
         // its agent's answers waited for this timer, a minute. Registering a directory twice is the

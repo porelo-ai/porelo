@@ -152,7 +152,13 @@ type TalkEvent (
   # The peer it was going to or came from, or "".
   peer: string,
   # Why, for the events that have a why. "" otherwise.
-  detail: string
+  detail: string,
+  # This machine's own verdict on who sent it: "unsigned" when no certified key of a task signed it - one
+  # that arrived without a believed signature, or one its own task had no key to sign - "unverified" when
+  # its key is believed and nothing here verified the sending task's project, "" otherwise. Read from what
+  # the pass checked, never from the message; a sender that leaves a mark out is not certified by that.
+  # Absent from a daemon before this field.
+  mark: ?string
 )
 
 # The project has no conversation: no peer is reached through a transport's own ('<scheme>:').
