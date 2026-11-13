@@ -107,6 +107,7 @@ class FollowPushesTest {
         Files.createSymbolicLink(organization.resolve("linked.git"), real);
 
         assertThat(arm()).isEqualTo(5);
+        assertThat(Files.exists(real.resolve("hooks/pre-receive.d/porelo"))).isFalse();
     }
 
     @Test
@@ -119,6 +120,29 @@ class FollowPushesTest {
 
         assertThat(arm()).isEqualTo(4);
         assertThat(hook("app")).doesNotExist();
+    }
+
+    @Test
+    void aForgeHooksDirectoryThatIsALinkStopsTheArming() throws Exception {
+        final Path hooks = gitea.resolve("hooks");
+        final Path real = gitea.resolve("real-hooks");
+        Files.move(hooks, real);
+        Files.createSymbolicLink(hooks, real);
+        repository("app");
+
+        assertThat(arm()).isEqualTo(4);
+        assertThat(hook("app")).doesNotExist();
+    }
+
+    @Test
+    void aRepositoryConfigurationThatIsALinkStopsTheArming() throws Exception {
+        final Path repository = repository("app");
+        final Path real = dir.resolve("real-config");
+        Files.move(repository.resolve("config"), real);
+        Files.createSymbolicLink(repository.resolve("config"), real);
+
+        assertThat(arm()).isEqualTo(5);
+        assertThat(Files.exists(hook("app"), java.nio.file.LinkOption.NOFOLLOW_LINKS)).isFalse();
     }
 
     @Test

@@ -27,9 +27,9 @@ final class FollowPushes {
      * project and lists the history of each it was not armed for yet.
      *
      * <p>It never passes over a link: a linked {@code git} directory, organization or repository
-     * stops it, and so does a forge hook or a judge that is a link rather than a plain executable
-     * file. A link it made is removed when it stops, so a stop leaves the repositories as they
-     * were.
+     * stops it, and so does a forge hooks directory, forge hook, repository configuration or judge
+     * that is a link rather than a plain directory, file or executable file. A link it made is
+     * removed when it stops, so a stop leaves the repositories as they were.
      *
      * @param gitea The forge's own directory.
      * @param judge The judge each repository's hook links to.
@@ -46,7 +46,7 @@ final class FollowPushes {
                 [ -e "$organization" ] || [ -L "$organization" ] || exit 0
                 [ -d "$organization" ] && [ ! -L "$organization" ] && cd "$organization" || exit 6
                 hooks="$(git config --file GITEA/home/.gitconfig core.hooksPath)" && [ -n "$hooks" ] || exit 4
-                [ -f "$hooks/pre-receive" ] && [ ! -L "$hooks/pre-receive" ] && [ -x "$hooks/pre-receive" ] || exit 4
+                [ -d "$hooks" ] && [ ! -L "$hooks" ] && [ -f "$hooks/pre-receive" ] && [ ! -L "$hooks/pre-receive" ] && [ -x "$hooks/pre-receive" ] || exit 4
                 grep -qxF 'custom_hooks_dir="./hooks/${hookname}.d"' "$hooks/pre-receive" || exit 4
                 [ -f JUDGE ] && [ ! -L JUDGE ] && [ -x JUDGE ] || exit 5
                 shift
@@ -55,6 +55,7 @@ final class FollowPushes {
                   [ -d "$repository" ] && [ ! -L "$repository" ] || stop 5
                   case "$repository" in *[!a-z0-9._-]*) stop 5 ;; esac
                   [ ! -L "$repository/hooks" ] && [ ! -L "$repository/hooks/pre-receive.d" ] || stop 5
+                  [ -f "$repository/config" ] && [ ! -L "$repository/config" ] || stop 5
                   git config --file "$repository/config" --get core.hooksPath > /dev/null; [ "$?" -eq 1 ] || stop 4
                   hook="$repository/hooks/pre-receive.d/porelo"
                   if [ ! -e "$hook" ] && [ ! -L "$hook" ]; then

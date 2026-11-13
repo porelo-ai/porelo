@@ -319,6 +319,21 @@ class PushJudgementTest {
                                 403, "porelo: " + NEXT + " carries no signature\n"));
     }
 
+    @Test
+    void aVerdictNamingTheRefAPushDeletesRecordsNothing() throws Exception {
+        final var answer =
+                PushJudgement.judge(
+                        PushRequest.updates(
+                                line(OLD, ZERO, "refs/heads/old")
+                                        + line(ZERO, NEXT, "refs/heads/new")),
+                        "alice",
+                        login -> true,
+                        login -> Set.of(),
+                        updates -> accepted("refs/heads/old"));
+        assertThat(answer.status()).as("a deleted ref brought no commit to record").isEqualTo(500);
+        assertThat(answer.entries()).isEmpty();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"a b", "a\n", "a/b", "a@b"})
     void anInvalidPusherCannotReachAnyTaskOrSignatureLookup(String pusher) {

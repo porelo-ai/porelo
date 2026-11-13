@@ -36,19 +36,29 @@ Filed 2026-11-12 from porelo-host HO86, whose open edges moved here with the pus
 
 - **The arming stops on a link.** `FollowPushes.script` stops at a linked `git` directory of the forge (exit 6) and
   at a linked repository, where it passed over it before (exit 5). It checks the forge's shared hook and the judge as
-  plain executable files that are no link, not with `-f` and `-x`, which follow one (exit 4 and 5). A repository name
-  outside `[a-z0-9._-]` stops it before any link is made.
+  plain executable files that are no link, not with `-f` and `-x`, which follow one (exit 4 and 5). The forge's
+  shared hooks directory must be a directory that is no link (exit 4), and so must each repository's configuration
+  be a plain file (exit 5). A repository name outside `[a-z0-9._-]`, or a plain file named like a repository, stops
+  the whole project before any link is made, where it was passed over before; the host then says only that the
+  forge could not arm the project.
 - **A stop leaves no link.** Every link the run made is removed when it stops, so a stopped arming leaves each
   repository as it was.
 - **Removal decides once.** `ProjectFiles.directory` says whether the directory is there, by its one look that
   follows no link. `ProjectArrivals.removeProject` and the registration's removal take that answer and never look
   again. A linked arrivals directory is refused, and what it leads to stays.
 - **The null object.** A verdict naming Git's null object name, the new side of a deletion in a push that also
-  updates, is refused like any other bad worker answer and records nothing.
+  updates, is refused like any other bad worker answer and records nothing. A deleted ref is no ref a verdict entry
+  may name either, so an entry naming one is refused the same way.
+- **What stays.** The checks and the links are made by the forge's own account, which could swap a checked
+  directory for a link between a check and the `ln` or `rev-list` after it. That account can already write what
+  the judge and the history read, so the swap gains it nothing it does not have. A removal that found no arrivals
+  directory does not look again, so one made after that look stays behind.
 - **Red first.** `FollowPushesTest` runs the script itself with `sh` over a forge laid out in a directory: five
   cases failed before (the linked `git` directory, the linked repository, the linked hook, the linked judge, the
   link left after a stop). `PushJudgementTest.aVerdictNamingGitsNullObjectRecordsNothing` failed before.
+  The linked hooks directory, the linked repository configuration and
+  `PushJudgementTest.aVerdictNamingTheRefAPushDeletesRecordsNothing` failed before as well.
   `ProjectArrivalsRemovalTest` pins the removal: a linked arrivals directory was already refused by the second look,
   so it passed before and after.
 - Changelog under *Fixed*.
-- **Locally.** host (1357, with the slow tag) passed whole, and so did the root's `validate` and `-Pdocuments test`.
+- **Locally.** host (1360) passed whole, and so did the root's `validate` and `-Pdocuments test`.

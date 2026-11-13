@@ -101,6 +101,8 @@ final class PushJudgement {
         return verified(
                 verifier.judge(updates),
                 updates.stream()
+                        // A deleted ref brings no commit, so no verdict entry may name it.
+                        .filter(update -> !update.deletion())
                         .map(PushRequest.Update::ref)
                         .collect(java.util.stream.Collectors.toSet()));
     }
