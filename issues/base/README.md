@@ -301,8 +301,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped | - |
 | <a id="b706"></a>[B706](B706-An-Undeclared-Address-Asked-About-In-The-List.md) | S | - | A task of a guarded project that reaches an address its project did not declare is listed waiting for that clearance question within seconds, and the watch names the question above its table. | 0 |
+| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped | - |
 | <a id="b625"></a>[B625](B625-A-Unit-Test-Never-Reads-The-Machines-Host-Helper.md) | S | - | No unit test's task start asks the real machine whether it is a host: on a machine with the host package installed, `apps/app`'s start tests are as green as on one without. | - |
 | <a id="b628"></a>[B628](B628-A-Removed-Task-Leaves-No-Direct-Chats.md) | XS | - | Retiring a task from a conversation removes what its direct chats were polled into, `transport/<scheme>/direct/<container>`, so a removed task leaves nothing of itself in the machine's state. | - |
 | <a id="b631"></a>[B631](B631-A-Task-That-Read-Its-Project-Ends-Without-Failing.md) | XS | - | A prompted task that reads every repository of its project is removed at its run's end without the clean-up asking podman about it by name, so a run that went well answers its own exit code, never 70 "no task Porelo made". | - |

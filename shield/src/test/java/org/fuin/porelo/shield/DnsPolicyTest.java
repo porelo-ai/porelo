@@ -127,7 +127,8 @@ class DnsPolicyTest {
     @Test
     void logsEveryQuery() {
 
-        assertThat(new DnsPolicy(SecurityClass.GUARDED).render(SERVERS)).contains("log-queries");
+        assertThat(new DnsPolicy(SecurityClass.GUARDED).render(SERVERS))
+                .contains("log-queries=extra");
     }
 
     @Test

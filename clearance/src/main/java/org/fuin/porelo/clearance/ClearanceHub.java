@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Decides what happens to each blocked connection, once per destination.
@@ -80,7 +81,10 @@ public class ClearanceHub {
 
     private Runnable answeredAll = () -> {};
 
-    /** Woken when a client answers, so a held question ends at once. */
+    /**
+     * The hub's lock: what is decided, the firewall and the journal change together under it. A
+     * held question waits on it, woken when a client answers or a grant settles it.
+     */
     private final Object answers = new Object();
 
     /**
@@ -190,6 +194,63 @@ public class ClearanceHub {
     public Verdict handle(Blocked blocked) {
 
         final String key = blocked.key();
+        // The check and the write are one step under the hub's lock, with the firewall and the
+        // journal: apart, a client's deny landed between them and a grant wrote over it.
+        synchronized (answers) {
+            final Verdict without = withoutAsking(blocked);
+            if (without != null) {
+                return without;
+            }
+        }
+
+        // Asked outside the lock: a person takes seconds, and a client answers meanwhile.
+        Verdict verdict;
+        askingAbout.accept(blocked.shown());
+        try {
+            verdict =
+                    prompt.ask(
+                            new ClearanceRequest(
+                                    project,
+                                    task,
+                                    blocked.shown(),
+                                    blocked.destination(),
+                                    blocked.protocol()));
+        } catch (ClearanceException ex) {
+            // Not put on any screen, so still open: a client can answer it until the hold runs out.
+            verdict = held(key);
+        } finally {
+            answeredAll.run();
+        }
+        synchronized (answers) {
+            // A person who answered from a client while the notification waited has decided: its
+            // running out says nothing. Written over, the firewall was open while the hub said it
+            // was not, and a resume never allowed it again. An answer at the notification itself
+            // came last, and stands.
+            if (!asking.remove(key) && verdict == Verdict.TIMEOUT) {
+                return decided.getOrDefault(key, Verdict.DENY);
+            }
+            if (verdict != Verdict.TIMEOUT) {
+                answered.add(key);
+            }
+            decided.put(key, verdict);
+
+            if (verdict.allows()) {
+                allow.accept(blocked.destination(), blocked.name());
+            }
+            announce(blocked, verdict, Decision.PROMPT);
+            return verdict;
+        }
+    }
+
+    /**
+     * Settles a blocked connection that needs no question, under the hub's lock.
+     *
+     * @param blocked What the firewall stopped.
+     * @return The verdict in force, or {@code null} when a person is to be asked; it is then on the
+     *     list of questions asked.
+     */
+    private @Nullable Verdict withoutAsking(Blocked blocked) {
+        final String key = blocked.key();
         final Verdict already = decided.get(key);
         if (already != null
                 && (already.allows()
@@ -211,8 +272,10 @@ public class ClearanceHub {
         // first connection to it was still dropped - the packet is gone and the agent will retry -
         // and every one after this is not.
         if (blocked.name() != null && granted.test(blocked.name())) {
-            // A question still on screen is settled: its running out must not undo this.
+            // A question still on screen is settled: its running out must not undo this, and one
+            // held for a client ends now.
             asking.remove(key);
+            answers.notifyAll();
             decided.put(key, Verdict.ALLOW);
             seen.put(key, blocked);
             allow.accept(blocked.destination(), blocked.name());
@@ -229,41 +292,7 @@ public class ClearanceHub {
             return Verdict.DENY;
         }
         asking.add(key);
-
-        Verdict verdict;
-        askingAbout.accept(blocked.shown());
-        try {
-            verdict =
-                    prompt.ask(
-                            new ClearanceRequest(
-                                    project,
-                                    task,
-                                    blocked.shown(),
-                                    blocked.destination(),
-                                    blocked.protocol()));
-        } catch (ClearanceException ex) {
-            // Not put on any screen, so still open: a client can answer it until the hold runs out.
-            verdict = held(key);
-        } finally {
-            answeredAll.run();
-        }
-        // A person who answered from a client while the notification waited has decided: its
-        // running out says nothing. Written over, the firewall was open while the hub said it was
-        // not, and a resume never allowed it again. An answer at the notification itself came last,
-        // and stands.
-        if (!asking.remove(key) && verdict == Verdict.TIMEOUT) {
-            return decided.getOrDefault(key, Verdict.DENY);
-        }
-        if (verdict != Verdict.TIMEOUT) {
-            answered.add(key);
-        }
-        decided.put(key, verdict);
-
-        if (verdict.allows()) {
-            allow.accept(blocked.destination(), blocked.name());
-        }
-        announce(blocked, verdict, Decision.PROMPT);
-        return verdict;
+        return null;
     }
 
     /** Waits until a client answers the question or the hold runs out. */
@@ -347,7 +376,13 @@ public class ClearanceHub {
         for (final Decision decision : decisions) {
             last.put(decision.key(), decision);
         }
-        for (final Decision decision : last.values()) {
+        synchronized (answers) {
+            restoreUnderLock(last.values());
+        }
+    }
+
+    private void restoreUnderLock(java.util.Collection<Decision> last) {
+        for (final Decision decision : last) {
             if (neverAsked(decision.destination())) {
                 // Allowed by an older watcher that did not know the host; never again.
                 decided.put(decision.key(), Verdict.DENY);

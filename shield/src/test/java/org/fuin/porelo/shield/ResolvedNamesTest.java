@@ -51,21 +51,23 @@ class ResolvedNamesTest {
 
     @Test
     void namesTheNameAskedForWhenTheAnswerCameThroughACname() {
-        // As dnsmasq logs a CNAME: the name asked for, then each name the chain passes, then the
-        // addresses under the last one. The grant is for the name asked for.
+        // As dnsmasq logs a CNAME with log-queries=extra: each line carries its query's serial and
+        // client; the name asked for, then each name the chain passes, then the addresses under
+        // the last one. The grant is for the name asked for.
         final String log =
                 """
-                dnsmasq[7]: query[A] fuinorg.jfrog.io from 10.88.0.2
-                dnsmasq[7]: forwarded fuinorg.jfrog.io to 10.88.0.1
-                dnsmasq[7]: reply fuinorg.jfrog.io is <CNAME>
-                dnsmasq[7]: reply edge.jfrog.io is <CNAME>
-                dnsmasq[7]: reply endpointdns-lb.jfrog.io is 34.1.2.3
-                dnsmasq[7]: reply endpointdns-lb.jfrog.io is 34.1.2.4
-                dnsmasq[7]: query[A] endpointdns-lb.jfrog.io from 10.88.0.2
-                dnsmasq[7]: cached endpointdns-lb.jfrog.io is 34.1.2.5
-                dnsmasq[7]: cached other.example.test is <CNAME>
-                dnsmasq[7]: cached target.example.test is NODATA-IPv6
-                dnsmasq[7]: cached target.example.test is 10.0.0.9
+                dnsmasq[7]: 1 10.88.0.2/40001 query[A] fuinorg.jfrog.io from 10.88.0.2
+                dnsmasq[7]: 1 10.88.0.2/40001 forwarded fuinorg.jfrog.io to 10.88.0.1
+                dnsmasq[7]: 1 10.88.0.2/40001 reply fuinorg.jfrog.io is <CNAME>
+                dnsmasq[7]: 1 10.88.0.2/40001 reply edge.jfrog.io is <CNAME>
+                dnsmasq[7]: 1 10.88.0.2/40001 reply endpointdns-lb.jfrog.io is 34.1.2.3
+                dnsmasq[7]: 1 10.88.0.2/40001 reply endpointdns-lb.jfrog.io is 34.1.2.4
+                dnsmasq[7]: 2 10.88.0.2/40002 query[A] endpointdns-lb.jfrog.io from 10.88.0.2
+                dnsmasq[7]: 2 10.88.0.2/40002 cached endpointdns-lb.jfrog.io is 34.1.2.5
+                dnsmasq[7]: 3 10.88.0.2/40003 query[A] other.example.test from 10.88.0.2
+                dnsmasq[7]: 3 10.88.0.2/40003 cached other.example.test is <CNAME>
+                dnsmasq[7]: 3 10.88.0.2/40003 cached target.example.test is NODATA-IPv6
+                dnsmasq[7]: 3 10.88.0.2/40003 cached target.example.test is 10.0.0.9
                 """;
 
         assertThat(ResolvedNames.nameFor(log, "34.1.2.3")).contains("fuinorg.jfrog.io");
@@ -78,5 +80,40 @@ class ResolvedNamesTest {
         assertThat(ResolvedNames.nameFor(log, "10.0.0.9"))
                 .as("a cached chain too")
                 .contains("other.example.test");
+    }
+
+    @Test
+    void anAnswerIsNamedByItsOwnQueryHoweverTheLinesInterleave() {
+        // Two queries answered at once: the CNAME of one and the address of the other fall between
+        // each other's lines. An address is the asked name's only within the serial that asked.
+        final String log =
+                """
+                dnsmasq[7]: 11 10.88.0.2/40011 query[A] granted.example.test from 10.88.0.2
+                dnsmasq[7]: 12 10.88.0.2/40012 query[A] unasked.example.test from 10.88.0.2
+                dnsmasq[7]: 11 10.88.0.2/40011 reply granted.example.test is <CNAME>
+                dnsmasq[7]: 12 10.88.0.2/40012 reply unasked.example.test is 10.0.0.2
+                dnsmasq[7]: 11 10.88.0.2/40011 reply edge.example.test is 10.0.0.1
+                """;
+
+        assertThat(ResolvedNames.nameFor(log, "10.0.0.2"))
+                .as("the other query's address keeps its own name")
+                .contains("unasked.example.test");
+        assertThat(ResolvedNames.nameFor(log, "10.0.0.1"))
+                .as("the chain's end belongs to the query that asked")
+                .contains("granted.example.test");
+    }
+
+    @Test
+    void aChainIsNotFollowedWithoutTheQuerysSerial() {
+        // A resolver started before log-queries=extra writes no serial: the line before an answer
+        // may be another query's, so an address there keeps the name it was given for.
+        final String log =
+                """
+                dnsmasq[7]: query[A] granted.example.test from 10.88.0.2
+                dnsmasq[7]: reply granted.example.test is <CNAME>
+                dnsmasq[7]: reply unasked.example.test is 10.0.0.2
+                """;
+
+        assertThat(ResolvedNames.nameFor(log, "10.0.0.2")).contains("unasked.example.test");
     }
 }

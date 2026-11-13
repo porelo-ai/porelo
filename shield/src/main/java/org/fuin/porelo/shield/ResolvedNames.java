@@ -4,8 +4,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * What name the container was given for an address.
@@ -24,8 +30,22 @@ public final class ResolvedNames {
     private static final String CNAME = "<CNAME>";
 
     /**
+     * A line of {@code log-queries=extra}: the query's serial and its client before the verb, so
+     * the lines of one query are told from another's however they interleave.
+     */
+    private static final Pattern EXTRA =
+            Pattern.compile(
+                    "dnsmasq\\[\\d+\\]: (\\d+) \\S+/\\d+ (query\\[[A-Za-z0-9]+\\]|reply|cached)"
+                            + " (\\S+) (?:from|is) (.+)$");
+
+    /**
      * Returns the name most recently answered with an address: under a CNAME, the name the
      * container asked for, not the name the chain ended at.
+     *
+     * <p>A chain is followed only within one query, by the serial dnsmasq gives it with {@code
+     * log-queries=extra}: an answer is the asked name's only when that same query's reply began
+     * with the asked name as a CNAME. A line without a serial, or another query's, keeps its own
+     * name, so an address never takes a grant from a name it was not the answer to.
      *
      * @param log Contents of the resolver's log.
      * @param address Address to look up.
@@ -33,51 +53,47 @@ public final class ResolvedNames {
      */
     public static Optional<String> nameFor(String log, String address) {
         String found = null;
-        // The name a chain of CNAMEs started at, while its lines last.
-        String asked = null;
-        // The name the chain ended at, whose addresses are the asked name's.
-        String target = null;
-        boolean inChain = false;
+        // Per query serial: the name asked, and whether its reply began as a CNAME of it.
+        final Map<String, String> asked = new HashMap<>();
+        final Set<String> chained = new HashSet<>();
         for (final String line : log.split("\\R")) {
-            // 'reply' is a fresh answer and 'cached' is a repeat of one; both say what the
-            // container was told, which is what the operator is being asked about.
-            if (line.contains(" query[")) {
-                // A new question: what follows answers it, not the chain before.
-                asked = null;
-                target = null;
-                inChain = false;
-                continue;
+            final Matcher extra = EXTRA.matcher(line);
+            final String serial;
+            final String name;
+            final String value;
+            if (extra.find()) {
+                serial = extra.group(1);
+                name = extra.group(3);
+                value = extra.group(4).strip();
+                if (extra.group(2).startsWith("query[")) {
+                    // A new question under this serial: what follows answers it alone.
+                    asked.put(serial, name);
+                    chained.remove(serial);
+                    continue;
+                }
+            } else {
+                // 'reply' is a fresh answer and 'cached' is a repeat of one; both say what the
+                // container was told, which is what the operator is being asked about.
+                final int marker = markerAt(line);
+                final int is = line.lastIndexOf(" is ");
+                if (marker < 0 || is < marker) {
+                    continue;
+                }
+                serial = null;
+                name = line.substring(marker, is).strip();
+                value = line.substring(is + " is ".length()).strip();
             }
-            final int marker = markerAt(line);
-            final int is = line.lastIndexOf(" is ");
-            if (marker < 0 || is < marker) {
-                continue;
-            }
-            final String name = line.substring(marker, is).strip();
-            final String value = line.substring(is + " is ".length()).strip();
             if (name.isEmpty() || name.contains(" ")) {
                 continue;
             }
             if (value.equals(CNAME)) {
-                // dnsmasq logs a chain as consecutive lines, the name asked for first.
-                if (!inChain) {
-                    asked = name;
+                if (serial != null && name.equals(asked.get(serial))) {
+                    chained.add(serial);
                 }
-                inChain = true;
                 continue;
             }
-            final String owner;
-            if (inChain) {
-                target = name;
-                owner = asked;
-            } else if (name.equals(target) && asked != null) {
-                owner = asked;
-            } else {
-                asked = null;
-                target = null;
-                owner = name;
-            }
-            inChain = false;
+            final String owner =
+                    serial != null && chained.contains(serial) ? asked.get(serial) : name;
             if (value.equals(address)) {
                 // Keep looking: the last answer is the one that led to this connection.
                 found = owner;

@@ -252,7 +252,8 @@ operator. Inside the container an undeclared name simply looks like:
 Could not resolve host: repo.maven.apache.org
 ```
 
-- **Every query is logged** (`log-queries`), so a refused name shows up in the audit trail.
+- **Every query is logged** (`log-queries=extra`), so a refused name shows up in the audit trail. Each line carries
+  its query's serial, so an address is named by the query it answered.
 - **Nothing is cached** (`cache-size=0`). A cached answer would keep resolving after the operator
   revoked the name.
 

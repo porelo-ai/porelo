@@ -196,8 +196,10 @@ public class DnsPolicy {
         lines.add("cache-size=0");
         lines.add("");
         lines.add("# Every query is logged, so a refused name shows up in the audit trail rather");
-        lines.add("# than silently failing inside the agent.");
-        lines.add("log-queries");
+        lines.add(
+                "# than silently failing inside the agent. 'extra' gives each query a serial, so");
+        lines.add("# an address is named by the query it answered, not by the line before it.");
+        lines.add("log-queries=extra");
         lines.add("log-facility=-");
         lines.add("");
         lines.add("# Inside 'podman unshare' the process is root only within the user namespace:");

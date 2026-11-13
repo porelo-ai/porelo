@@ -86,3 +86,23 @@ Built as planned.
 - **Seen on the way, not changed here.** `shield egress --task` takes the container's name (`porelo-cnt_cnt-2`); the
   name `task list` shows (`cnt-2`) is refused as "no running task". A start refused at the gate left a reservation
   that `task remove --force` does not find, so `project clear` refused until the start was retried.
+- **A Codex reading found two Reds and a Yellow, fixed on top of [B706](README.md#b706).** The branch now sits on
+  `72d4fc117`, so [B706](README.md#b706)'s lock and this one are a single lock.
+  - *An answer is named by its own query.* The resolver now logs with `log-queries=extra`. dnsmasq 2.92 accepts it and
+    writes the query's serial and client before each line. `nameFor` follows a chain only within one serial, from the
+    name that serial asked. A line without a serial keeps its own name, so a resolver started before this change gives
+    no grant through a CNAME rather than a wrong one. `anAnswerIsNamedByItsOwnQueryHoweverTheLinesInterleave` and
+    `aChainIsNotFollowedWithoutTheQuerysSerial` failed before.
+  - *Check and write are one step.* Under [B706](README.md#b706)'s lock, now the hub's own, `handle` checks `decided`
+    and `answered` and writes the verdict, the firewall and the journal as one step, before and after the question. The
+    prompt and the hold are outside the lock. `decide` records the answer under it, and `restore` runs under it. A grant
+    wakes a held question. `aPersonsDenyThatLandsWhileAGrantIsCheckedIsNotWrittenOver` has a client deny on a second
+    thread in the middle of the grant check. It failed before: the grant wrote ALLOW over the deny.
+  - *The watcher.* `followUntil` hands the lines over one at a time on one thread, and a `Report` carries no name. So no
+    grant reaches `handle` while a question is open. Testing the watcher itself needs the socket and the D-Bus prompt.
+    `aGrantMadeWhileTheQuestionIsOpenAllowsTheRetryAfterItRunsOut` drives the hub as the watcher does. The recursive
+    case stays as the hub's promise to a caller with more than one thread, and says so.
+- **Locally on the fix.** shield (90), clearance (52) and apps/app (4662, `PublishedBomTest` after the bom was
+  installed) passed whole, one at a time, and so did the root's `validate` and `-Pdocuments test`. app-egress has no
+  tests of its own and built. Not run again on the VM: with `log-queries=extra` the resolver's lines now carry a
+  serial, which dnsmasq 2.92 wrote as read in a local run.

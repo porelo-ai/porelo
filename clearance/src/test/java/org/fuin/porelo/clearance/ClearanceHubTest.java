@@ -18,7 +18,7 @@ class ClearanceHubTest {
 
     private final List<String> allowed = new ArrayList<>();
 
-    private final List<Decision> announced = new ArrayList<>();
+    private final List<Decision> announced = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private final AtomicInteger asked = new AtomicInteger();
 
@@ -471,6 +471,8 @@ class ClearanceHubTest {
     @Test
     void aGrantWhileTheQuestionWaitsAllowsAndItsRunningOutDoesNotUndoIt() {
 
+        // Not the watcher's way, which handles one line at a time; the hub's own promise to a
+        // caller that handles from more than one thread.
         final ClearanceHub[] holder = new ClearanceHub[1];
         final List<Verdict> meanwhile = new ArrayList<>();
         holder[0] =
@@ -513,5 +515,73 @@ class ClearanceHubTest {
                 .as("nor a client's")
                 .isEqualTo(Verdict.DENY);
         assertThat(allowed).isEmpty();
+    }
+
+    @Test
+    void aPersonsDenyThatLandsWhileAGrantIsCheckedIsNotWrittenOver() throws Exception {
+
+        // The check that nobody answered and the grant's write were two steps: a client's deny
+        // that came between them was overwritten by the grant, and the firewall opened against it.
+        final ClearanceHub hub = hub(Verdict.TIMEOUT);
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.TIMEOUT);
+        final java.util.concurrent.atomic.AtomicBoolean once =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        hub.granted(
+                name -> {
+                    if (once.compareAndSet(false, true)) {
+                        final Thread client =
+                                Thread.ofPlatform()
+                                        .start(
+                                                () ->
+                                                        hub.decide(
+                                                                DOCS.key(),
+                                                                "1.1.1.1",
+                                                                Verdict.DENY));
+                        // Until the client either answered or waits for the hub.
+                        while (client.getState() != Thread.State.BLOCKED
+                                && client.getState() != Thread.State.TERMINATED) {
+                            Thread.onSpinWait();
+                        }
+                    }
+                    return true;
+                });
+
+        hub.handle(DOCS);
+        final long until = System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
+        while (announced.stream().noneMatch(each -> Decision.CLIENT.equals(each.source()))
+                && System.nanoTime() < until) {
+            Thread.onSpinWait();
+        }
+
+        // Whichever came first, the person's answer is the one in force and the last one told.
+        assertThat(hub.decisions()).containsEntry(DOCS.key(), Verdict.DENY);
+        assertThat(announced.getLast().verdict()).isEqualTo(Verdict.DENY);
+    }
+
+    @Test
+    void aGrantMadeWhileTheQuestionIsOpenAllowsTheRetryAfterItRunsOut() {
+
+        // As the watcher drives the hub: one event line after another on one thread, so the
+        // grant made while the question is on screen is seen by the retry after it ran out, not
+        // by a second handle while it waits.
+        final java.util.concurrent.atomic.AtomicBoolean grantFile =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        final ClearanceHub hub =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            grantFile.set(true);
+                            return Verdict.TIMEOUT;
+                        },
+                        (address, name) -> allowed.add(address));
+        hub.onDecision(announced::add);
+        hub.granted(name -> grantFile.get() && "docs.example.test".equals(name));
+
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.TIMEOUT);
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.ALLOW);
+        assertThat(hub.decisions()).containsEntry(DOCS.key(), Verdict.ALLOW);
+        assertThat(allowed).containsExactly("1.1.1.1");
+        assertThat(announced.getLast().source()).isEqualTo(Decision.GRANTED);
     }
 }
