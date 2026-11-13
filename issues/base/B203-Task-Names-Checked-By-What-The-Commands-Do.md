@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B203",
   "title": "Task Names Checked By What The Commands Do",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 51,

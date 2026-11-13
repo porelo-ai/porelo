@@ -276,7 +276,6 @@ from its side, as *blocked by*.
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings | - |
 | <a id="b695"></a>[B695](B695-A-Varlink-Call-Bounded-From-Send-To-Answer.md) | S | - | A varlink call's deadline covers its send as well as its answer, the 4 MiB cap is kept to the byte, and an agent's slow methods get a deadline that fits them. | 0 |
 | <a id="b696"></a>[B696](B696-Start-Takes-An-Effort-Setting.md) | M | - | Tasks1's Start takes an optional reasoning effort, an open string each agent maps by its own declaration, and the task's record keeps it in `TaskRecord.effort`. | 0 |
-| <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | M | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. | 0 |
 | <a id="b697"></a>[B697](B697-A-Start-That-Waits-For-Its-Watcher-And-Broker.md) | S | [B384](README.md#b384) | A start waits for its clearance watcher and its vault broker as it waits for its gate and relay, and one that does not come up stops the start with 70 and its cleanup. | 0 |
 | <a id="b197"></a>[B197](B197-A-Push-To-A-Slow-Forge-Has-A-Bound.md) | M | - | A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer. | - |
 | <a id="b698"></a>[B698](B698-A-Losing-Start-Takes-No-Broker-State.md) | M | - | Of two starts racing for one task name, the one that loses starts no vault broker in the winner's state directory and touches no vault.pid, socket or token of it. | 0 |
@@ -304,10 +303,11 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
-| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
+| <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. | - |
+| <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | M | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. | 0 |
 
 ## Review
 
