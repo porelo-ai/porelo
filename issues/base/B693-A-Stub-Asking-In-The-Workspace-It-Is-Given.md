@@ -18,7 +18,7 @@
 **Why this size.** One path in the stub's script and its test.
 
 Filed 2026-11-13 from [B506](README.md#b506): the stub script checks `.porelo-stub-asks` under `/workspace` only, not
-under `$PORELO_STUB_WORKSPACE`, which its other files honour. B506's stub test therefore reads the question out of the
+under `$PORELO_STUB_WORKSPACE`, which its other files honour. [B506](README.md#b506)'s stub test therefore reads the question out of the
 rendered script instead of running the script to it.
 
 **What must be true.** With `PORELO_STUB_WORKSPACE` set, the stub asks its question when that directory holds

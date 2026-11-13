@@ -23,7 +23,7 @@ Filed 2026-11-13 from a reading of [B200](README.md#b200), which left these open
   that stops reading holds a large request for ever. The build reader and the ecosystem lost their whole-call
   bound with their executors.
 - **The 4 MiB cap is not strict.** `VarlinkConnection` parses a terminated frame before checking its size, so a frame
-  just over the cap that ends in the last read is accepted. This predates B200.
+  just over the cap that ends in the last read is accepted. This predates [B200](README.md#b200).
 - **An agent's slow methods.** `ContainerSetup` and a batched `Format` get the 30 s default, and `InstalledAgent`
   has no way to give more; a legitimate slow answer fails and loses the connection.
 

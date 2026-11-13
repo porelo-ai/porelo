@@ -18,7 +18,7 @@
 **Why this size.** One sentence in `doc/commands.md`, checked against what the start does.
 
 Filed 2026-11-13 from [B201](README.md#b201): `doc/commands.md` says "`--detach` hands over nothing", but a detached
-start waits for the image, the container, the workspace and its helpers before it returns, as B201's own reading
+start waits for the image, the container, the workspace and its helpers before it returns, as [B201](README.md#b201)'s own reading
 of the start says.
 
 **What must be true.** The page says what a detached start waits for and that it opens no session.
