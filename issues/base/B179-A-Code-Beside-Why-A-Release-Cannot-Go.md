@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B179",
   "title": "A Code Beside Why A Release Cannot Go",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 38,
