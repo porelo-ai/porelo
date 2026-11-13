@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "S",
   "priority": "High",
-  "rank": 7,
+  "rank": 8,
   "blockedBy": [],
   "covers": "A tool repository the first start's draft names, and its `extensions.maven` block, once the person takes the draft, reach the adapter's Configure at the start in `default`, so the task holds the settings file with the broker's mirror, as the egress host already reaches its egress.",
   "openQuestions": 0
@@ -17,7 +17,7 @@
 
 **Why this size.** One path from the taken draft to the start's tool settings, a stand-in adapter and a test through the first start. Estimate: 45 minutes (Core's median for S).
 
-Operator finding on 2026-11-13, on snapshot.512 in the project `default`: the host of a private repository from the person's Maven settings reached the task's egress, but the task held no `.m2/settings.xml`. The Ecosystems agent measured the adapter: Detect gives `repository.inhouse`, and Configure answers the settings file with a broker mirror and no credential. Read at 177f3cae2: `ToolSettings.ask` returns no file when `project.toolRepositories()` is empty, so the draft's `tool_repositories` entries (`ProjectProposal`) do not reach the project the start uses in `default`, while the egress host does.
+Found on snapshot.512 in the project `default`: the host of a private repository from the person's Maven settings reached the task's egress, but the task held no `.m2/settings.xml`. The adapter, measured: Detect gives `repository.inhouse`, and Configure answers the settings file with a broker mirror and no credential. Read at 177f3cae2: `ToolSettings.ask` returns no file when `project.toolRepositories()` is empty, so the draft's `tool_repositories` entries (`ProjectProposal`) do not reach the project the start uses in `default`, while the egress host does.
 
 ## Plan
 

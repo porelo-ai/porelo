@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 72,
+  "rank": 56,
   "blockedBy": [],
   "covers": "`porelo shield egress --task NAME` takes the name `porelo task list` shows, as `task status` and `task remove` do, besides the container's name."
 }
@@ -17,7 +17,7 @@
 **Why this size.** `RunningEgress.widen` and its narrowing match `--task` against `TaskInventory`'s container names
 alone; resolving it as `TaskTarget` does, a test each way, and the help text.
 
-Filed 2026-11-13 from the VM run of [B237](README.md#b237) on ubuntu, smith2, `porelo` from smith/b237.
+Filed from the VM run of [B237](README.md#b237) on ubuntu, smith2, `porelo` from smith/b237.
 
 **What must be true.** A person who sees a task as `cnt-2` in `porelo task list` can grant it a name with
 `porelo shield egress --task cnt-2 --add-domain ...`. Today that answers "no running task called cnt-2", although

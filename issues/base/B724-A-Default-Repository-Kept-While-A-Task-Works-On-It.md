@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 53,
+  "rank": 54,
   "blockedBy": [],
   "covers": "`porelo projects default remove <name>` refuses while a task of `default` works on that repository, naming the tasks, as the daemon's LeaveDefault already does; today the command line removes it anyway.",
   "openQuestions": 0

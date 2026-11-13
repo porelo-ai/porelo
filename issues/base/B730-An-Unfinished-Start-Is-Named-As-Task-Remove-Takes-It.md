@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 73,
+  "rank": 57,
   "blockedBy": [],
   "covers": "A start refused before its container exists leaves no claim that `project clear` or `project remove` refuses for, or one `porelo task remove` finds by the name the refusal gives."
 }
@@ -17,7 +17,7 @@
 **Why this size.** `TaskReservations.projectBusy` and the refusal's words, `TaskRemoveCommand`'s lookup of a pending
 removal by the task's short name, and tests; or the start's own clean-up of a claim it leaves when refused.
 
-Filed 2026-11-13 from the VM run of [B237](README.md#b237) on ubuntu, smith2, with the packaged `porelo` of that
+Filed from the VM run of [B237](README.md#b237) on ubuntu, smith2, with the packaged `porelo` of that
 morning. Checked against main at c1dade058, after [B674](README.md#b674): it retires a removed task's name, and
 `task remove` finishes a pending removal by the container's name, but neither covers this case.
 

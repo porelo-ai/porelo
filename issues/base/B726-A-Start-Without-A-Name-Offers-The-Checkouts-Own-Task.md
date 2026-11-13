@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "M",
   "priority": "High",
-  "rank": 6,
+  "rank": 7,
   "blockedBy": [],
   "covers": "`porelo task start` with no name, in a checkout whose repository has a running or stopped task of this person, offers to attach to the running one or start the stopped one again before it starts a new task; without a terminal it starts nothing and names them with their commands.",
   "openQuestions": 0
