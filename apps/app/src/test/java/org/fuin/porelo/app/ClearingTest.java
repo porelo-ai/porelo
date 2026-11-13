@@ -97,6 +97,45 @@ class ClearingTest {
     }
 
     @Test
+    void aProjectWithNoHomeserverHasNoConversationToClear(@TempDir final Path dir)
+            throws IOException {
+        // Its tasks started with no conversation: none was made, so none is "not removed".
+        final PoreloContext context = context(dir);
+        project("uc");
+        Files.writeString(
+                dir.resolve("uc-project.yml"),
+                "mail:\n  transports:\n    matrix: {}\n",
+                StandardCharsets.UTF_8,
+                java.nio.file.StandardOpenOption.APPEND);
+        OrganizationProjects.of(context)
+                .write(
+                        new OrganizationProjects.Placed(
+                                "uc",
+                                "c0",
+                                "https://forge.example/uc.git",
+                                null,
+                                java.util.List.of(),
+                                null,
+                                null,
+                                null));
+
+        // A placed project is read from the organization's clone.
+        final Path clone = context.paths().projects().organizationClone("uc");
+        Files.createDirectories(clone);
+        Files.copy(dir.resolve("uc-project.yml"), clone.resolve("project.yml"));
+        assertThat(GateSupport.byName(context, "uc").mail().conversations())
+                .as("the project reads, and has a conversation to look at")
+                .containsExactly("matrix");
+
+        final Clearing.Result result = new Clearing(context).project("uc", false, false);
+
+        assertThat(result.items())
+                .as("no conversation is named, as none was made: %s", result.items())
+                .noneMatch(item -> item.what().contains("conversation"));
+        assertThat(result.refused()).isFalse();
+    }
+
+    @Test
     void theAccountIsEveryProjectOnIt(@TempDir final Path dir) throws IOException {
         final PoreloContext context = context(dir);
         project("one");

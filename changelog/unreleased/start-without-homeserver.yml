@@ -1,0 +1,2 @@
+title: "A start of an organization project that names no homeserver, and gets none from a host, is no longer refused with 78 `no-homeserver`: the task starts with no conversation, says so once, and its agents cannot talk to each other; a project with a homeserver gets its room as before"
+type: changed

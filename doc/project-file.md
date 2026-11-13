@@ -617,7 +617,13 @@ line. A token, or a key in the vault or a file, works for both.
 | goes no further | 69 | `cannot-say` | the forge, the repository or a current reading of the organization is out of reach; a reading kept from before decides nothing, even with the project's repository in reach |
 | goes no further | 65 | `refused-state` | what was read is refused: `words` names the commit and why |
 | goes no further | 66 | `not-opened` | the organization files no repository for the project yet |
-| goes no further | 78 | `no-homeserver` | a room peer is named, and neither the file nor this host says where its homeserver is |
+
+**A project of the organization without a homeserver starts with no conversation.** Where a room peer is named, or
+`mail.transports.matrix` is given, and neither the file nor this host says where its homeserver is, the task starts all
+the same: the start says once that it has no conversation, and its agents cannot talk to each other. No homeserver of the
+account's own is started in its place. A project admin gives it one by naming `mail.transports.matrix.homeserver` in
+`project.yml` and signing that change; its room is then set up as for any project. A project of this machine alone keeps
+the account's own homeserver.
 
 **A key revoked in the organization counts until the project's next start.** It stays a believed certifier of the
 project's messages on a machine until then: nothing reads the organization between starts. On a host, the host's file

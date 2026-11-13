@@ -601,13 +601,28 @@ class ProjectTakingTest {
     }
 
     @Test
-    void a_room_with_no_homeserver_from_either_place_starts_nothing() throws Exception {
+    void a_room_with_no_homeserver_from_either_place_starts_with_no_conversation()
+            throws Exception {
         commit(
                 "michael",
                 FILE
                         + "mail:\n  peers:\n    people: {address: \"matrix:\", trust: \"external\"}\n");
 
-        refused(78, "no-homeserver");
+        taking().taken("demo");
+
+        assertThatThrownBy(
+                        () ->
+                                ProjectMembers.settings(
+                                        context, GateSupport.byName(context, "demo"), "matrix"))
+                .isInstanceOf(ProjectMembers.NoHomeserver.class);
+    }
+
+    @Test
+    void an_empty_matrix_transport_with_no_homeserver_starts_with_no_conversation()
+            throws Exception {
+        commit("michael", FILE + "mail:\n  transports:\n    matrix: {}\n");
+
+        taking().taken("demo");
     }
 
     @Test

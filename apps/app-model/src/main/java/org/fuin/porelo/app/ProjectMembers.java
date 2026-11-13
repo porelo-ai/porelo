@@ -26,11 +26,25 @@ public final class ProjectMembers {
     private static final String HOMESERVER = "homeserver";
 
     /** Why a transport gets no settings, or a person is not let in. */
-    public static final class Withheld extends Exception {
+    public static class Withheld extends Exception {
 
         private static final long serialVersionUID = 1L;
 
         Withheld(final String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * A project of the organization that names no homeserver, and no host gives one: it has no
+     * conversation. Its tasks start, and their agents cannot talk to each other; empty settings
+     * would start the account's own homeserver instead.
+     */
+    public static final class NoHomeserver extends Withheld {
+
+        private static final long serialVersionUID = 1L;
+
+        NoHomeserver(final String message) {
             super(message);
         }
     }
@@ -45,8 +59,9 @@ public final class ProjectMembers {
      * @param project The project.
      * @param scheme The transport.
      * @return The settings.
-     * @throws Withheld For a project of the organization with a room and no homeserver from either
-     *     place: empty settings would start the account's own homeserver.
+     * @throws NoHomeserver For a project of the organization with no homeserver from either place,
+     *     room or not: it has no conversation.
+     * @throws Withheld When what is placed of the project does not read.
      */
     public static Map<String, Object> settings(
             final PoreloContext context, final Project project, final String scheme)
@@ -69,7 +84,7 @@ public final class ProjectMembers {
             return settings;
         }
         if (placed.homeserver() == null) {
-            throw new Withheld(
+            throw new NoHomeserver(
                     project.name()
                             + " names no homeserver under 'mail.transports."
                             + MATRIX

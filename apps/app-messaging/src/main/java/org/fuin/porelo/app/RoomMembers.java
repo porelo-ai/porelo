@@ -76,6 +76,18 @@ public record RoomMembers(String room, List<Member> members) {
             throw new Refused(Failure.NO_ROOM, "", "the project has no room", 0);
         }
         final String scheme = project.mail().conversations().iterator().next();
+        final java.util.Map<String, Object> settings;
+        try {
+            settings = ProjectMembers.settings(context, project, scheme);
+        } catch (ProjectMembers.NoHomeserver ex) {
+            throw new Refused(
+                    Failure.NO_ROOM,
+                    scheme,
+                    "the project names no homeserver, so it has no room",
+                    0);
+        } catch (ProjectMembers.Withheld ex) {
+            throw new Refused(Failure.REFUSED, scheme, String.valueOf(ex.getMessage()), 78);
+        }
         final TransportDirectory transports = context.paths().messaging().transportDirectory();
         final java.nio.file.Path adapter = transports.find(scheme);
         if (adapter == null
@@ -92,7 +104,7 @@ public record RoomMembers(String room, List<Member> members) {
                             .members(
                                     scheme,
                                     project.name(),
-                                    ProjectMembers.settings(context, project, scheme),
+                                    settings,
                                     project.securityClass() == SecurityClass.OFFLINE);
             if (result.room().isEmpty()) {
                 throw new Refused(Failure.NO_ROOM, scheme, "the project has no room yet", 0);
@@ -104,8 +116,6 @@ public record RoomMembers(String room, List<Member> members) {
                     scheme,
                     String.valueOf(ex.getMessage()),
                     ex.code());
-        } catch (ProjectMembers.Withheld ex) {
-            throw new Refused(Failure.REFUSED, scheme, String.valueOf(ex.getMessage()), 78);
         }
     }
 

@@ -68,6 +68,61 @@ class TaskConversationsTest {
         assertThat(runner.invocations()).as("no transport was run").isEmpty();
     }
 
+    @Test
+    void aStartOfAPlacedProjectWithNoHomeserverSaysItHasNoConversationAndGoesOn() throws Exception {
+        // Refused with 78, a discussion of the organization's idea could not start at all: a
+        // start without a homeserver goes on, and its agents only cannot talk to each other.
+        final PoreloContext context = context();
+        OrganizationProjects.of(context)
+                .write(
+                        new OrganizationProjects.Placed(
+                                "demo",
+                                "c0",
+                                "https://forge.example/demo.git",
+                                null,
+                                List.of(),
+                                null,
+                                null,
+                                null));
+        final Path file = dir.resolve("demo.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "demo"
+                  security_class: "guarded"
+                image:
+                  from: "ubuntu:24.04"
+                mail:
+                  transports:
+                    matrix: {}
+                  peers:
+                    people:
+                      address: "matrix:"
+                      trust: "external"
+                """);
+        final Project demo = ProjectReader.read(file);
+        final List<StartStep> events = new ArrayList<>();
+
+        final String refused =
+                new TaskConversations(context)
+                        .enroll(demo, "porelo-demo-idea", null, new StartSteps(events::add));
+
+        assertThat(refused).as("the start goes on").isNull();
+        assertThat(events)
+                .as("said once, and not as a failure")
+                .filteredOn(event -> event.state() == StartStep.State.STARTED)
+                .singleElement()
+                .satisfies(
+                        event -> {
+                            assertThat(event.step()).isEqualTo(StartStep.Step.CONVERSATION);
+                            assertThat(event.text())
+                                    .contains("demo", "no homeserver", "No conversation");
+                        });
+        assertThat(events).noneMatch(event -> event.state() == StartStep.State.FAILED);
+        assertThat(runner.invocations()).as("no transport was run").isEmpty();
+    }
+
     private Project namedDefault() throws Exception {
         final Path file = dir.resolve("project.yml");
         Files.writeString(

@@ -24,3 +24,6 @@ how.
 room in the project's project.yml and signs that change; with the vault holding
 `matrix-registration-token.<server>` where tasks register. `doc/` says the same where Matrix conversations are
 set up. Read first: `ProjectTaking` (no-homeserver) and `ProjectMembers.settings`.
+
+**Superseded.** A start is no longer refused for a missing homeserver: [B731](README.md#b731) starts the task with no
+conversation instead, so there is no refusal left to name a step in.

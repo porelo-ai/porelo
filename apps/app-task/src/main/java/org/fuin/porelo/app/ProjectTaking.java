@@ -320,6 +320,10 @@ public final class ProjectTaking {
         for (final String scheme : project.mail().conversations()) {
             try {
                 ProjectMembers.settings(context, project, scheme);
+            } catch (final ProjectMembers.NoHomeserver ex) {
+                // Never a refusal: the task starts with no conversation, and its agents only cannot
+                // talk to each other.
+                continue;
             } catch (final ProjectMembers.Withheld ex) {
                 throw new Refused(78, "no-homeserver", String.valueOf(ex.getMessage()));
             }

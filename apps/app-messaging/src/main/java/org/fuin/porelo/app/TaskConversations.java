@@ -83,6 +83,11 @@ final class TaskConversations {
             return null;
         }
         for (final String scheme : project.mail().conversations()) {
+            final String without = noHomeserver(project, scheme);
+            if (without != null) {
+                steps.noConversation(without);
+                continue;
+            }
             steps.conversation(scheme);
             final java.nio.file.Path adapter =
                     context.paths().messaging().transportDirectory().find(scheme);
@@ -154,7 +159,7 @@ final class TaskConversations {
      * @param err Where a failure is said.
      */
     void retire(Project project, String container, PrintWriter err) {
-        for (final String scheme : project.mail().conversations()) {
+        for (final String scheme : conversations(project)) {
             try {
                 lifecycle.retire(scheme, project.name(), container, settings(project, scheme));
             } catch (TransportLifecycle.Refused ex) {
@@ -235,7 +240,7 @@ final class TaskConversations {
         if (found == null) {
             return;
         }
-        for (final String scheme : found.mail().conversations()) {
+        for (final String scheme : conversations(found)) {
             try {
                 lifecycle.leave(scheme, found.name(), container, settings(found, scheme));
             } catch (TransportLifecycle.Refused ex) {
@@ -710,6 +715,37 @@ final class TaskConversations {
                 .resolve(scheme)
                 .resolve("members")
                 .resolve(project.name() + ".json");
+    }
+
+    /**
+     * Says why a project has no conversation by a transport: it names no homeserver, and no host
+     * gives one. Its tasks start all the same.
+     *
+     * @param project The project.
+     * @param scheme The transport.
+     * @return The words for the start, or {@code null} when the project has that conversation, or
+     *     its settings are withheld for another reason, which is said where they are asked.
+     */
+    private @Nullable String noHomeserver(Project project, String scheme) {
+        try {
+            ProjectMembers.settings(context, project, scheme);
+            return null;
+        } catch (ProjectMembers.NoHomeserver ex) {
+            return "No conversation: "
+                    + project.name()
+                    + " names no homeserver for "
+                    + scheme
+                    + ", so this task's agents cannot talk to each other";
+        } catch (ProjectMembers.Withheld ex) {
+            return null;
+        }
+    }
+
+    /** The project's conversations a task takes part in: one with no homeserver is none. */
+    private List<String> conversations(Project project) {
+        return project.mail().conversations().stream()
+                .filter(scheme -> noHomeserver(project, scheme) == null)
+                .toList();
     }
 
     private Map<String, Object> settings(Project project, String scheme)

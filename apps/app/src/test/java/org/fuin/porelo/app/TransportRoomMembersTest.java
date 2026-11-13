@@ -320,6 +320,40 @@ class TransportRoomMembersTest {
                 .noneMatch(line -> line.contains(" members "));
     }
 
+    @Test
+    void aProjectOfTheOrganizationWithNoHomeserverHasNoRoomAndRunsNoTransport() throws Exception {
+        // It started with no conversation: asking for its room says it has none, not a refusal.
+        final PoreloContext context = context();
+        Files.writeString(
+                dir.resolve("project.yml"),
+                "project:\n  name: p\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\nmail:\n  transports:\n    matrix: {}\n");
+        OrganizationProjects.of(context)
+                .write(
+                        new OrganizationProjects.Placed(
+                                "p",
+                                "c0",
+                                "https://forge.example/p.git",
+                                null,
+                                List.of(),
+                                null,
+                                null,
+                                null));
+
+        assertThatThrownBy(() -> RoomMembers.read(context, project()))
+                .as("no homeserver is no room")
+                .isInstanceOfSatisfying(
+                        RoomMembers.Refused.class,
+                        ex -> {
+                            assertThat(ex.failure())
+                                    .as("the named failure")
+                                    .isEqualTo(RoomMembers.Failure.NO_ROOM);
+                            assertThat(ex.code()).as("not a refusal's code").isZero();
+                        });
+        assertThat(runner.lines())
+                .as("no transport was run")
+                .noneMatch(line -> line.contains(" members "));
+    }
+
     private void refused(PoreloContext context, String field, int code) {
         assertThatThrownBy(() -> RoomMembers.read(context, project()))
                 .as("the invalid " + field + " is refused")

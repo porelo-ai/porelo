@@ -458,6 +458,9 @@ public final class Clearing {
                                         ? Map.of()
                                         : ProjectMembers.settings(context, project, scheme),
                                 ""));
+            } catch (final ProjectMembers.NoHomeserver ex) {
+                // Its tasks started with no conversation: there is none to clear.
+                continue;
             } catch (final ProjectMembers.Withheld ex) {
                 settings.add(
                         new ConversationSettings(
