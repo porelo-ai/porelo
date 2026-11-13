@@ -1,0 +1,2 @@
+title: "An online task's push to a forge that does not answer ends within `limits.pass_on` (two minutes unless set, from 10s to 1h), and the agent is told the forge did not answer instead of waiting ten minutes to read that the forge refused it"
+type: fixed

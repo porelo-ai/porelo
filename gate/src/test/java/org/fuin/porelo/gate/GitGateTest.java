@@ -684,6 +684,97 @@ class GitGateTest {
     }
 
     @Test
+    @org.junit.jupiter.api.Timeout(60)
+    void aPushToAForgeThatNeverAnswersEndsWithinTheLimitAndSaysTheForgeWasSilent()
+            throws Exception {
+        // A forge that takes the connection and then says nothing: the agent's push waited the
+        // runner's whole limit, holding one of the gate's slots, and was then told the forge had
+        // refused it.
+        final List<java.net.Socket> held =
+                java.util.Collections.synchronizedList(new ArrayList<>());
+        try (java.net.ServerSocket silent =
+                new java.net.ServerSocket(0, 50, InetAddress.getLoopbackAddress())) {
+            Thread.ofVirtual()
+                    .start(
+                            () -> {
+                                try {
+                                    while (true) {
+                                        held.add(silent.accept());
+                                    }
+                                } catch (IOException ex) {
+                                    // Closed at the test's end.
+                                }
+                            });
+            final Path seed = upstreamWithMain();
+            final String upstream = "http://127.0.0.1:" + silent.getLocalPort() + "/shop.git";
+            final GitGate gate =
+                    new GitGate(runner, mirror, GateMode.ONLINE, upstream, seed.toString())
+                            .passingOnWithin(Duration.ofSeconds(2));
+            gate.initialize();
+            final TaskToken token = TaskToken.mint();
+            final java.time.Instant started;
+            try (GitHttpServer server =
+                    passingOn(
+                            gate,
+                            token,
+                            "task-1",
+                            new java.util.concurrent.atomic.AtomicInteger(),
+                            Duration.ZERO)) {
+                git(
+                        root,
+                        "clone",
+                        "--quiet",
+                        "-c",
+                        "http.extraHeader=Authorization: " + token.basicAuthorization(),
+                        url(server),
+                        work.toString());
+                makeCommit("agent.txt", "written by the agent");
+                started = java.time.Instant.now();
+
+                assertThatThrownBy(
+                                () ->
+                                        git(
+                                                work,
+                                                "push",
+                                                url(server),
+                                                "HEAD:" + GitGate.INCOMING + "task-1"))
+                        .hasMessageContaining("remote rejected")
+                        .hasMessageContaining("the forge did not answer within 2 s")
+                        .hasMessageContaining("nothing was passed on")
+                        .hasMessageNotContaining("refused it");
+            }
+            assertThat(Duration.between(started, java.time.Instant.now()))
+                    .as("within the gate's limit, with time for git on both ends")
+                    .isLessThan(Duration.ofSeconds(20));
+            assertThat(gate.resolves(GitGate.INCOMING + "task-1"))
+                    .as("what the forge did not take is not kept; the agent pushes again")
+                    .isFalse();
+        } finally {
+            for (final java.net.Socket socket : held) {
+                socket.close();
+            }
+        }
+    }
+
+    @Test
+    void aRefusalByTheForgeKeepsTheForgesOwnWords() throws IOException {
+        final Path upstream = upstreamWithMain();
+        Files.writeString(
+                upstream.resolve("hooks/pre-receive"),
+                "#!/bin/sh\necho 'protected: no porelo branches here'" + " >&2\nexit 1\n");
+        upstream.resolve("hooks/pre-receive").toFile().setExecutable(true);
+        final GitGate gate = gate(GateMode.ONLINE, upstream.toString());
+        final String commit =
+                git(root, "--git-dir", mirror.toString(), "rev-parse", "refs/heads/main")
+                        .standardOutput()
+                        .strip();
+
+        assertThat(gate.passOn("porelo/task-1", commit))
+                .startsWith("the upstream refused it: ")
+                .contains("protected: no porelo branches here");
+    }
+
+    @Test
     void aPushWhoseArrivalIsRefusedNeverReachesTheUpstreamAndLeavesNothingInTheMirror()
             throws IOException {
         final Path upstream = upstreamWithMain();

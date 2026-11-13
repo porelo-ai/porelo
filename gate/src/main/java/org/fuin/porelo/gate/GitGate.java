@@ -79,6 +79,9 @@ public class GitGate {
 
     private @Nullable PullRequests pullRequests;
 
+    /** How long a push passed on to the upstream may wait for it. */
+    private java.time.Duration passOnLimit = org.fuin.porelo.core.project.Limits.DEFAULT_PASS_ON;
+
     /** Opens or reuses the review of a successfully pushed branch. */
     @FunctionalInterface
     public interface PullRequests {
@@ -152,6 +155,19 @@ public class GitGate {
      * @return This gate.
      */
     private @Nullable String forwardRefused;
+
+    /**
+     * Returns this gate ending a push it passes on when the upstream has not taken it within the
+     * limit, which the agent is then told: the agent's own push waits for it, and holds one of the
+     * gate's slots meanwhile.
+     *
+     * @param limit The project's {@code limits.pass_on}, two minutes unless it says otherwise.
+     * @return This gate.
+     */
+    public GitGate passingOnWithin(final java.time.Duration limit) {
+        this.passOnLimit = limit;
+        return this;
+    }
 
     public GitGate taskBranches(final BranchScheme scheme) {
         this.taskBranches = scheme;
@@ -1760,7 +1776,8 @@ public class GitGate {
      *
      * @param branch The branch at the upstream, without {@code refs/heads/}.
      * @param commit What it is to point at.
-     * @return {@code null} when the upstream took it, else what it said.
+     * @return {@code null} when the upstream took it, else why not: what it said when it refused,
+     *     or that it did not answer within the gate's limit.
      */
     public @org.jspecify.annotations.Nullable String passOn(String branch, String commit) {
         if (mode != GateMode.ONLINE) {
@@ -1773,14 +1790,28 @@ public class GitGate {
             return "no upstream is configured for this project";
         }
         try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
-            gitWith(
-                    lease,
-                    "push",
-                    "--force",
-                    "--end-of-options",
-                    upstreamUrl,
-                    commit + ":refs/heads/" + branch);
-            return null;
+            final List<String> all = new ArrayList<>(List.of("git"));
+            all.addAll(lease.arguments());
+            all.addAll(List.of("--git-dir", mirror.toString()));
+            all.addAll(
+                    List.of(
+                            "push",
+                            "--force",
+                            "--end-of-options",
+                            upstreamUrl,
+                            commit + ":refs/heads/" + branch));
+            try {
+                runner.runOrFail(
+                        Command.of(all)
+                                .withEnvironment(lease.environment())
+                                .withTimeout(passOnLimit));
+                return null;
+            } catch (CommandException ex) {
+                if (ex.timedOut()) {
+                    return new GateException.ForgeSilent(passOnLimit).getMessage();
+                }
+                return "the upstream refused it: " + lease.failure(ex).getMessage();
+            }
         } catch (GateException ex) {
             return ex.getMessage();
         }

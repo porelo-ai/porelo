@@ -1,6 +1,7 @@
 package org.fuin.porelo.core.process;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -13,6 +14,8 @@ import org.jspecify.annotations.Nullable;
  * @param environment Variables to add to the inherited environment.
  * @param binaryInput Bytes borrowed until the runner returns; the caller clears them, or null.
  * @param input Text written to standard input, or {@code null} to write nothing.
+ * @param timeout How long this command may run, or {@code null} for the runner's own limit; the
+ *     shorter of the two holds.
  */
 public record Command(
         List<String> arguments,
@@ -20,7 +23,8 @@ public record Command(
         Map<String, String> environment,
         @Nullable String input,
         boolean inheritsEnvironment,
-        byte @Nullable [] binaryInput) {
+        byte @Nullable [] binaryInput,
+        @Nullable Duration timeout) {
 
     /**
      * Constructor with all data.
@@ -32,6 +36,7 @@ public record Command(
      * @param input Text written to standard input, or {@code null} to write nothing.
      * @param inheritsEnvironment Whether the caller's environment is inherited at all.
      * @param binaryInput Bytes borrowed until the runner returns; the caller clears them, or null.
+     * @param timeout How long this command may run, or {@code null} for the runner's own limit.
      */
     public Command {
         if (arguments.isEmpty()) {
@@ -40,8 +45,39 @@ public record Command(
         if (input != null && binaryInput != null) {
             throw new IllegalArgumentException("A command has either text or binary input");
         }
+        if (timeout != null && (timeout.isNegative() || timeout.isZero())) {
+            throw new IllegalArgumentException("A command's limit must be more than nothing");
+        }
         arguments = List.copyOf(arguments);
         environment = Map.copyOf(environment);
+    }
+
+    /**
+     * Creates a command without a limit of its own.
+     *
+     * @param arguments Program and its arguments, never empty.
+     * @param workingDirectory Directory to run in, or {@code null} for the current one.
+     * @param environment Variables to add to the inherited environment - or, when it is not
+     *     inherited, the whole environment.
+     * @param input Text written to standard input, or {@code null} to write nothing.
+     * @param inheritsEnvironment Whether the caller's environment is inherited at all.
+     * @param binaryInput Bytes borrowed until the runner returns; the caller clears them, or null.
+     */
+    public Command(
+            List<String> arguments,
+            @Nullable Path workingDirectory,
+            Map<String, String> environment,
+            @Nullable String input,
+            boolean inheritsEnvironment,
+            byte @Nullable [] binaryInput) {
+        this(
+                arguments,
+                workingDirectory,
+                environment,
+                input,
+                inheritsEnvironment,
+                binaryInput,
+                null);
     }
 
     /** Creates a command with text input and the chosen inheritance policy. */
@@ -81,7 +117,7 @@ public record Command(
     public Command withChosenEnvironment(Map<String, String> base) {
         final Map<String, String> chosen = new java.util.LinkedHashMap<>(base);
         chosen.putAll(environment);
-        return new Command(arguments, workingDirectory, chosen, input, false, binaryInput);
+        return new Command(arguments, workingDirectory, chosen, input, false, binaryInput, timeout);
     }
 
     /**
@@ -104,10 +140,34 @@ public record Command(
         return new Command(arguments, null, Map.of(), null);
     }
 
+    /**
+     * Returns a copy of this command that may run at most this long, or the runner's own limit
+     * where that is shorter.
+     *
+     * @param limit How long it may run.
+     * @return New command.
+     */
+    public Command withTimeout(Duration limit) {
+        return new Command(
+                arguments,
+                workingDirectory,
+                environment,
+                input,
+                inheritsEnvironment,
+                binaryInput,
+                limit);
+    }
+
     /** Returns a copy that writes bytes without text encoding. */
     public Command withBinaryInput(byte[] bytes) {
         return new Command(
-                arguments, workingDirectory, environment, null, inheritsEnvironment, bytes);
+                arguments,
+                workingDirectory,
+                environment,
+                null,
+                inheritsEnvironment,
+                bytes,
+                timeout);
     }
 
     /**
@@ -117,7 +177,8 @@ public record Command(
      * @return New command.
      */
     public Command withInput(String text) {
-        return new Command(arguments, workingDirectory, environment, text, inheritsEnvironment);
+        return new Command(
+                arguments, workingDirectory, environment, text, inheritsEnvironment, null, timeout);
     }
 
     /**
@@ -133,7 +194,13 @@ public record Command(
         final Map<String, String> merged = new java.util.LinkedHashMap<>(environment);
         merged.putAll(variables);
         return new Command(
-                arguments, workingDirectory, merged, input, inheritsEnvironment, binaryInput);
+                arguments,
+                workingDirectory,
+                merged,
+                input,
+                inheritsEnvironment,
+                binaryInput,
+                timeout);
     }
 
     /**
@@ -144,7 +211,13 @@ public record Command(
      */
     public Command in(Path directory) {
         return new Command(
-                arguments, directory, environment, input, inheritsEnvironment, binaryInput);
+                arguments,
+                directory,
+                environment,
+                input,
+                inheritsEnvironment,
+                binaryInput,
+                timeout);
     }
 
     /**
@@ -182,6 +255,7 @@ public record Command(
                         : ", environment " + new java.util.TreeSet<>(environment.keySet()))
                 + (input == null ? "" : ", input of " + input.length() + " characters")
                 + (binaryInput == null ? "" : ", input of " + binaryInput.length + " bytes")
+                + (timeout == null ? "" : ", within " + timeout.toSeconds() + " s")
                 + "]";
     }
 }

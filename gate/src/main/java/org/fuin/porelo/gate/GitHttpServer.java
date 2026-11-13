@@ -705,9 +705,11 @@ public class GitHttpServer implements AutoCloseable {
             if (said == null) {
                 continue;
             }
-            System.err.println("the upstream refused " + printable(command[2]) + ": " + said);
+            System.err.println("the upstream did not take " + printable(command[2]) + ": " + said);
             putBack(command);
-            return "the upstream refused it: " + said.strip().replace('\n', ' ');
+            // As it comes: a forge that refused says so in it, and one that did not answer is not
+            // said to have refused.
+            return said.strip().replace('\n', ' ');
         }
         return null;
     }

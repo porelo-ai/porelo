@@ -108,7 +108,7 @@ final class Sections {
         keys.put("image", IMAGE);
         keys.put("build", List.of("package_sources"));
         keys.put("egress", List.of("sets", "domains", "host_services", "refused"));
-        keys.put("limits", List.of("memory", "pids", "cpus", "hand_in", "subagents"));
+        keys.put("limits", List.of("memory", "pids", "cpus", "hand_in", "subagents", "pass_on"));
         keys.put("mail", List.of("peers", "rules", "outgoing_filter", "transports"));
         keys.put("mail.peers.<name>", List.of("address", "trust", "per_day", "mode"));
         keys.put("mail.rules", List.of("project", "room", "others"));

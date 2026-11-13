@@ -47,6 +47,9 @@ final class HostPush {
 
     private final Path forgeConf;
 
+    /** How long the push may wait for the forge. */
+    private java.time.Duration limit = org.fuin.porelo.core.project.Limits.DEFAULT_PASS_ON;
+
     /**
      * Constructor for the host's own forge.
      *
@@ -97,6 +100,18 @@ final class HostPush {
     }
 
     /**
+     * Returns this push ended when the forge has not taken it within the limit, which the agent is
+     * then told.
+     *
+     * @param passOn The project's {@code limits.pass_on}.
+     * @return This push.
+     */
+    HostPush within(final java.time.Duration passOn) {
+        this.limit = passOn;
+        return this;
+    }
+
+    /**
      * Passes a commit on as the task's branch.
      *
      * @param commit What the branch is to point at.
@@ -143,6 +158,9 @@ final class HostPush {
                     + ": "
                     + printable(String.valueOf(ex.getMessage()));
         } catch (CommandException ex) {
+            if (ex.timedOut()) {
+                return new org.fuin.porelo.gate.GateException.ForgeSilent(limit).getMessage();
+            }
             return "the push to the host's forge could not be run: "
                     + printable(masked(String.valueOf(ex.getMessage()), secret));
         }
@@ -214,7 +232,8 @@ final class HostPush {
                                                 // branch may hold another push's by now.
                                                 commit + ":" + branch)
                                         .withEnvironment(Map.of(TOKEN_VARIABLE, secret))
-                                        .withChosenEnvironment(gitEnvironment()));
+                                        .withChosenEnvironment(gitEnvironment())
+                                        .withTimeout(limit));
         if (!pushed.successful()) {
             return "the host's forge did not take porelo/"
                     + task

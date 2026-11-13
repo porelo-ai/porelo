@@ -198,6 +198,24 @@ class HostPushTest {
         assertThat(runner.invocations()).isEmpty();
     }
 
+    // A forge that never answers held the agent's push for the runner's ten minutes, and was then
+    // said to have failed to run.
+    @Test
+    void aPushTheForgeDoesNotAnswerEndsAtTheLimitAndSaysSo() throws IOException {
+        runner.timingOut(" push ");
+        final String said =
+                push(dir.resolve("mirror.git"), conf("git_port=3001\n"), TOKEN)
+                        .within(java.time.Duration.ofSeconds(90))
+                        .passOn(COMMIT);
+
+        assertThat(said)
+                .isEqualTo(
+                        "the forge did not answer within 90 s; nothing was passed on - push again");
+        assertThat(runner.invocations().getLast().timeout())
+                .as("the push carries the limit, so the runner ends it there")
+                .isEqualTo(java.time.Duration.ofSeconds(90));
+    }
+
     // Git's error output goes back to the task: the token must not travel with it.
     @Test
     void theTokenIsMaskedInWhatTheForgeAnswers() throws IOException {

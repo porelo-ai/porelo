@@ -352,6 +352,16 @@ final class ProjectSchema {
                             "0",
                             false),
                     key(
+                            "limits",
+                            "pass_on",
+                            "How long an online task's gate waits for the forge to take a push it"
+                                    + " passes on, such as 90s, 2m or 1h, from 10s to 1h; then the"
+                                    + " agent is told the forge did not answer and pushes again."
+                                    + " Fixed when the task starts.",
+                            "string",
+                            "2m",
+                            false),
+                    key(
                             "mail",
                             "peers",
                             "The names tasks may write to, each with where it is reached.",

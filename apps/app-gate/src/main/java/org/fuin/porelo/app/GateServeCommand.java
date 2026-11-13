@@ -91,6 +91,14 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private @Nullable String branchName;
 
     @Option(
+            names = "--pass-on-within",
+            paramLabel = "SECONDS",
+            description =
+                    "How long a push passed on may wait for the forge, as the task's start settled"
+                            + " it from limits.pass_on; the project file's when not given. Only with --pass-on.")
+    private @Nullable Integer passOnWithin;
+
+    @Option(
             names = "--reads",
             paramLabel = "TASK",
             split = ",",
@@ -149,11 +157,12 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
         final String task = ref.substring(GitGate.INCOMING.length());
         final HostPush push =
                 new HostPush(
-                        context,
-                        gate.mirror(),
-                        task,
-                        repository,
-                        forgeToken(context, project.name(), task));
+                                context,
+                                gate.mirror(),
+                                task,
+                                repository,
+                                forgeToken(context, project.name(), task))
+                        .within(passingOnWithin(project));
         return new GitHttpServer.Upstream() {
             @Override
             public void refresh() {}
@@ -163,6 +172,13 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 return push.passOn(commit);
             }
         };
+    }
+
+    /** How long a push passed on waits for the forge: as the start settled it, else the file's. */
+    private java.time.Duration passingOnWithin(final Project project) {
+        return passOnWithin != null
+                ? java.time.Duration.ofSeconds(passOnWithin)
+                : project.limits().passOn();
     }
 
     static GitHttpServer.Signer signing(PoreloContext context, String project, String task) {
@@ -283,6 +299,19 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 err.flush();
                 return 2;
             }
+            if (passOnWithin != null
+                    && (!passOn
+                            || passOnWithin
+                                    < org.fuin.porelo.core.project.Limits.SHORTEST_PASS_ON
+                                            .toSeconds()
+                            || passOnWithin
+                                    > org.fuin.porelo.core.project.Limits.LONGEST_PASS_ON
+                                            .toSeconds())) {
+                err.println("porelo: --pass-on-within takes 10 to 3600 seconds, with --pass-on");
+                err.flush();
+                return 2;
+            }
+            gate.passingOnWithin(passingOnWithin(project));
             if (branchName != null && !passOn) {
                 err.println("porelo: --branch names where work is passed on; it needs --pass-on");
                 err.flush();

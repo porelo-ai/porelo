@@ -282,7 +282,10 @@ review queue; a name ending in `-rescued` alone does not associate it with anoth
 a separate reason a running task needs an answer.
 
 A task in an `online` project pushes to its gate, which passes the task's own branch on to the upstream at once as
-`porelo/<task>`, or as the name the project's [`branch` block](project-file.md#branch) makes, and the forge builds it somewhere the task cannot see. When the project file names the forge, Porelo follows every commit the task pushes and hands the build's verdict
+`porelo/<task>`, or as the name the project's [`branch` block](project-file.md#branch) makes, and the forge builds it somewhere the task cannot see. A forge
+that has not taken the push within `limits.pass_on`, two minutes unless the project file says otherwise and fixed when
+the task starts, fails the agent's push with "the forge did not answer"; nothing was passed on and the gate keeps
+nothing of it, so the agent pushes again. When the project file names the forge, Porelo follows every commit the task pushes and hands the build's verdict
 into the task as it changes - the task asks for nothing and holds no forge credential:
 
 ```yaml

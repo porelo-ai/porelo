@@ -111,7 +111,10 @@ it, and its container holds no key, no socket of one, and no route to the upstre
 what the gate does with a push. It passes the task's own branch on to the upstream at once, as
 `porelo/<task>` or the name the project's [`branch` block](project-file.md#branch) makes, with the key the host
 lends for it, and the agent's push succeeds only when the
-upstream took it; a refusal by the forge fails the agent's push with the forge's words. The gate
+upstream took it; a refusal by the forge fails the agent's push with the forge's words. A forge that does not answer
+within `limits.pass_on` of the [project file](project-file.md), two minutes unless it says otherwise, fails it too,
+saying the forge did not answer and nothing was passed on, so the agent's push never waits without end and holds
+none of the gate's slots for long. The gate
 refuses a push to any other branch, a tag, a deletion and any other repository; a push with force
 to the task's own branch goes through, since an agent that rebases needs it. That branch is settled at the start: a
 start whose branch the upstream holds already, or whose project's pattern matches the upstream's default branch, is

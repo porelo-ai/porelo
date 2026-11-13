@@ -390,6 +390,7 @@ public final class ProjectReader {
         final Integer pids = limits.pids();
         final String handIn = limits.handIn();
         final Integer subagents = limits.subagents();
+        final String passOn = limits.passOn();
         // 'none' is how a project opts out on purpose, which reads differently from having
         // forgotten to set one.
         return new Limits(
@@ -397,7 +398,8 @@ public final class ProjectReader {
                 cpus == null ? Limits.DEFAULT_CPUS : Limits.NONE.equals(cpus) ? null : cpus,
                 pids == null ? Limits.DEFAULT_PIDS : pids,
                 handIn == null ? Limits.DEFAULT_HAND_IN : Limits.bytes(handIn, "limits.hand_in"),
-                subagents == null ? 0 : subagents);
+                subagents == null ? 0 : subagents,
+                passOn == null ? Limits.DEFAULT_PASS_ON : Limits.passOn(passOn, "limits.pass_on"));
     }
 
     private static Egress egress(org.fuin.porelo.core.project.file.@Nullable Egress egress) {

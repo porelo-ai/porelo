@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B197",
   "title": "A Push To A Slow Forge Has A Bound",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 52,
@@ -92,3 +92,29 @@ Read in the code on 2026-10-17:
 
 None. The default, two minutes, is long enough for a large push to a forge that answers slowly, and short of the
 ten minutes that hold a slot of the gate; a project whose pushes are larger sets its own.
+
+## Done
+
+Built as planned, with two differences from the code the plan read on 2026-10-17. A repository's own `porelo.yml`
+already layers any `limits` key over the project's, so `limits.pass_on` needed no `Limits.Declared` of its own. And
+the online pass-on now runs in `gate serve`, so the task's start settles the limit, with the repository's file
+merged, and hands it over as `--pass-on-within <seconds>`, as it does `--branch`.
+
+- **The key.** `limits.pass_on` takes a time with its unit (`90s`, `2m`, `1h`), two minutes unless set. Outside 10s
+  to 1h, or written otherwise (`none`, `90`, `1.5m`), it is refused by name when the file is read. `ProjectSchema`
+  lists it, and `doc/project-file.md`, `doc/security.md` and `doc/running.md` say what it bounds.
+- **A command's own limit.** `Command.withTimeout` sets it, and `ProcessCommandRunner` takes the shorter of its own
+  and the command's. `CommandException.timedOut()` tells a limit from a failure, and `UnattendedGit` carries the limit
+  through its preparation.
+- **The gate.** `GitGate.passOn` pushes within its limit. A timeout returns `GateException.ForgeSilent`'s message,
+  "the forge did not answer within N s; nothing was passed on - push again", and a forge's refusal keeps its own words
+  after "the upstream refused it:". `GitHttpServer` passes the message on as it comes, so a silence is not called a
+  refusal, and it still sets the incoming ref back. `HostPush`, the host's own forge, is bounded the same way.
+- **Red first.**
+  - `ProcessCommandRunnerTest`'s two limit tests failed against stubs, and 7 of `PassOnLimitTest`'s 16 cases did. Its
+    refusals passed already, since a key Porelo does not know is refused by name too; they now hold the bounds.
+  - `GitGateTest`'s forge that takes the connection and never answers held the agent's push past the test's 60 s
+    without the limit; with it the push ends within the gate's 2 s, saying the forge did not answer.
+  - `GateServingTest` and `HostPushTest` failed without `--pass-on-within` and without the timeout branch.
+- **Locally on this commit.** `-pl apps/app -am install` (tests included), the whole reactor's `install -DskipTests`,
+  the root's `validate` and `-Pdocuments test` are green.

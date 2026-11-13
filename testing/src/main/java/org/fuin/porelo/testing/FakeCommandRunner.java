@@ -120,7 +120,7 @@ public class FakeCommandRunner implements CommandRunner {
         final String program = line.split(" ", 2)[0];
         for (final String match : timingOut) {
             if (line.contains(match)) {
-                throw new CommandException(command, new IOException("Timed out after 60 s"), "");
+                throw CommandException.timedOut(command, java.time.Duration.ofSeconds(60), "");
             }
         }
         if (missing.contains(program)) {

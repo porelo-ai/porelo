@@ -25,6 +25,27 @@ public class GateException extends RuntimeException {
     }
 
     /**
+     * The forge did not answer a push the gate passed on within its limit, so the push was ended:
+     * not a refusal, since the forge said nothing.
+     */
+    public static final class ForgeSilent extends GateException {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Constructor.
+         *
+         * @param limit How long the gate waited.
+         */
+        public ForgeSilent(final java.time.Duration limit) {
+            super(
+                    "the forge did not answer within "
+                            + limit.toSeconds()
+                            + " s; nothing was passed on - push again");
+        }
+    }
+
+    /**
      * A push moved after a person reviewed it, so nothing was forwarded: what goes is what was
      * read.
      */

@@ -185,4 +185,38 @@ class GateServingTest {
                 .as("a guarded task's work waits at the gate; nothing is passed on")
                 .doesNotContain("--branch");
     }
+
+    @Test
+    void anOnlineTasksGateIsToldHowLongItWaitsForTheForge() {
+
+        // As the start settled it, with the repository's own file merged: the gate reads only the
+        // project's file, and a resumed task waits as it did.
+        final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
+        final Project ninety =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project:
+                                  name: "uc"
+                                  security_class: "online"
+                                  upstream: "https://forge.example/uc.git"
+                                image:
+                                  from: "ubuntu:24.04"
+                                limits:
+                                  pass_on: "90s"
+                                """),
+                        "test");
+
+        assertThat(GateWiring.serving(ninety, "127.0.0.1", 9418, state, "shell", null, null))
+                .containsSequence("--pass-on-within", "90");
+        assertThat(
+                        GateWiring.serving(
+                                project("online"), "127.0.0.1", 9418, state, "shell", null, null))
+                .as("two minutes unless the project file says otherwise")
+                .containsSequence("--pass-on-within", "120");
+        assertThat(
+                        GateWiring.serving(
+                                project("guarded"), "127.0.0.1", 9418, state, "shell", null, null))
+                .doesNotContain("--pass-on-within");
+    }
 }

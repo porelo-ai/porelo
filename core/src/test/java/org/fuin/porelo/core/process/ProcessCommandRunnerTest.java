@@ -220,6 +220,50 @@ class ProcessCommandRunnerTest {
                 .hasMessageContaining("Timed out");
     }
 
+    @Test
+    void aCommandsOwnShorterLimitEndsItAndSaysItWasTheLimit() {
+
+        final java.time.Instant started = java.time.Instant.now();
+
+        assertThatThrownBy(
+                        () ->
+                                runner.run(
+                                        Command.of("sleep", "30")
+                                                .withTimeout(Duration.ofMillis(300))))
+                .isInstanceOfSatisfying(
+                        CommandException.class,
+                        ex ->
+                                assertThat(ex.timedOut())
+                                        .as(
+                                                "a caller tells the limit from a failure without the text")
+                                        .isTrue())
+                .hasMessageContaining("Timed out after");
+        assertThat(Duration.between(started, java.time.Instant.now()))
+                .as("ended within the command's own limit, not the runner's twenty seconds")
+                .isLessThan(Duration.ofSeconds(10));
+    }
+
+    @Test
+    void theRunnersOwnLimitStillHoldsForACommandWithALongerOne() {
+
+        final CommandRunner impatient = new ProcessCommandRunner(Duration.ofMillis(200));
+
+        assertThatThrownBy(
+                        () ->
+                                impatient.run(
+                                        Command.of("sleep", "30").withTimeout(Duration.ofHours(1))))
+                .isInstanceOfSatisfying(
+                        CommandException.class, ex -> assertThat(ex.timedOut()).isTrue());
+    }
+
+    @Test
+    void aFailureIsNotATimeout() {
+
+        assertThatThrownBy(() -> runner.runOrFail(Command.of("sh", "-c", "exit 3")))
+                .isInstanceOfSatisfying(
+                        CommandException.class, ex -> assertThat(ex.timedOut()).isFalse());
+    }
+
     @org.junit.jupiter.api.Test
     void aChildThatLeavesAGrandchildHoldingItsOutputDoesNotHoldTheCallerToo() {
 

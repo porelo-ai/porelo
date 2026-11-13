@@ -273,6 +273,10 @@ final class GateWiring {
             // An online task's push goes on to the upstream at once, from here, with the host's
             // key; its container holds none.
             command.add("--pass-on");
+            // As the start settled it, with the repository's own file: the gate reads the
+            // project's file alone, and a resumed task waits as it did.
+            command.add("--pass-on-within");
+            command.add(String.valueOf(project.limits().passOn().toSeconds()));
             if (certified != null && certified.hostRepository() != null) {
                 // On a host, the task's branch is always porelo/<task> on the host's forge.
                 command.add("--host-push");

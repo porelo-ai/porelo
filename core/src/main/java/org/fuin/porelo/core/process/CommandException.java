@@ -2,7 +2,10 @@ package org.fuin.porelo.core.process;
 
 import org.jspecify.annotations.Nullable;
 
-/** An external program could not be started, or ended with a non-zero exit code. */
+/**
+ * An external program could not be started, ended with a non-zero exit code, or was ended at its
+ * limit.
+ */
 public class CommandException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
@@ -12,6 +15,8 @@ public class CommandException extends RuntimeException {
     private final String standardError;
 
     @Nullable private final transient CommandResult result;
+
+    private final boolean timedOut;
 
     /**
      * Constructor for a program that ran and failed.
@@ -24,6 +29,7 @@ public class CommandException extends RuntimeException {
         this.command = command;
         this.result = result;
         this.standardError = result.standardError();
+        this.timedOut = false;
     }
 
     /**
@@ -44,6 +50,11 @@ public class CommandException extends RuntimeException {
      * @param standardError What it read before ending.
      */
     public CommandException(Command command, Throwable cause, String standardError) {
+        this(command, cause, standardError, false);
+    }
+
+    private CommandException(
+            Command command, Throwable cause, String standardError, boolean timedOut) {
         super(
                 "Cannot run '"
                         + command.describe()
@@ -53,6 +64,24 @@ public class CommandException extends RuntimeException {
         this.command = command;
         this.result = null;
         this.standardError = standardError;
+        this.timedOut = timedOut;
+    }
+
+    /**
+     * Creates the failure of a program that was ended at its limit.
+     *
+     * @param command The command.
+     * @param limit The limit it reached.
+     * @param standardError What it said before it was ended.
+     * @return The failure, which says it {@link #timedOut()}.
+     */
+    public static CommandException timedOut(
+            Command command, java.time.Duration limit, String standardError) {
+        return new CommandException(
+                command,
+                new java.io.IOException("Timed out after " + limit.toSeconds() + " s"),
+                standardError,
+                true);
     }
 
     /**
@@ -64,10 +93,21 @@ public class CommandException extends RuntimeException {
         return standardError;
     }
 
+    /**
+     * Returns whether the program was ended at its limit rather than failing by itself, so a caller
+     * need not read the message to tell.
+     *
+     * @return Whether the limit was reached.
+     */
+    public boolean timedOut() {
+        return timedOut;
+    }
+
     private CommandException(CommandException original, String standardError) {
         super(original.getMessage(), original.getCause());
         this.command = original.command;
         this.standardError = standardError;
+        this.timedOut = original.timedOut;
         final CommandResult previous = original.result;
         this.result =
                 previous == null

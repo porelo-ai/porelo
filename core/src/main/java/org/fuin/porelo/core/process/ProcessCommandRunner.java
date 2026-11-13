@@ -71,14 +71,14 @@ public class ProcessCommandRunner implements CommandRunner {
             // reading it failed a command that had succeeded.
             final Thread inputThread = Thread.ofVirtual().start(() -> writeInput(process, command));
 
+            // The shorter of the runner's limit and the command's own.
+            final Duration own = command.timeout();
+            final Duration limit = own != null && own.compareTo(timeout) < 0 ? own : timeout;
             try {
-                if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                if (!process.waitFor(limit.toMillis(), TimeUnit.MILLISECONDS)) {
                     end(process);
                     finish(process, outThread, errThread);
-                    throw new CommandException(
-                            command,
-                            new IOException("Timed out after " + timeout.toSeconds() + " s"),
-                            err.text());
+                    throw CommandException.timedOut(command, limit, err.text());
                 }
                 finish(process, outThread, errThread);
                 return new CommandResult(command, process.exitValue(), out.text(), err.text());

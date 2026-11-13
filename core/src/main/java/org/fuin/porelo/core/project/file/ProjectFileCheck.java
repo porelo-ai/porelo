@@ -889,6 +889,18 @@ public final class ProjectFileCheck {
                             + limits.subagents()
                             + "'");
         }
+        if (limits.passOn() != null) {
+            try {
+                org.fuin.porelo.core.project.Limits.passOn(limits.passOn(), "limits.pass_on");
+            } catch (org.fuin.porelo.core.project.ProjectException ex) {
+                // There is no 'none': the point is that a push ends.
+                fault(
+                        "limits.pass_on",
+                        "'limits.pass_on' must be a time from 10s to 1h, such as 2m, not '"
+                                + shown(limits.passOn())
+                                + "'");
+            }
+        }
     }
 
     private @Nullable Long bytes(final String size, final String path) {

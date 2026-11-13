@@ -179,6 +179,9 @@ final class UnattendedGit {
                 new Command(
                         arguments, command.workingDirectory(), variables, command.input(), false);
         final byte[] binary = command.binaryInput();
-        return binary == null ? prepared : prepared.withBinaryInput(binary);
+        final Command bounded = binary == null ? prepared : prepared.withBinaryInput(binary);
+        // A command's own limit holds through the preparation.
+        final java.time.Duration limit = command.timeout();
+        return limit == null ? bounded : bounded.withTimeout(limit);
     }
 }

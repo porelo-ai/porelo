@@ -241,7 +241,8 @@ final class FileBinder {
                 b.number(s.get("pids"), "limits.pids"),
                 b.text(s.get("cpus"), "limits.cpus"),
                 b.text(s.get("hand_in"), "limits.hand_in"),
-                b.number(s.get("subagents"), "limits.subagents"));
+                b.number(s.get("subagents"), "limits.subagents"),
+                b.text(s.get("pass_on"), "limits.pass_on"));
     }
 
     private static @Nullable Mail mail(final Binding b, final @Nullable Node node) {
