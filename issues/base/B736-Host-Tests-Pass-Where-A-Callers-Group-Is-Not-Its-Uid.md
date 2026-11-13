@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B736",
   "title": "Host Tests Pass Where A Caller's Group Is Not Its Uid",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 50,
@@ -43,3 +43,15 @@ the `IOException` and records "its main could not be read from the central forge
 
 - The host's follow tests pass with the caller's gid different from its uid.
 - A refused chgrp in the follow's copy is recorded as the host's own failure, not the central forge's.
+
+## Built
+
+- `FollowFixture` gives the forge account the caller's gid from the root's `unix:gid`, in its account table and its
+  `getent` stand-in. A switch, `-Dporelo.test.gidApart=true`, gives it another of the caller's groups whose number
+  is not the uid, so the follow tests also run as on a machine where they differ.
+- The host's own placing steps (the copies' directories, the chgrp to the forge's account, the follow's scratch
+  directory and the staged signers) refuse with 73, "the host could not place the project's files: <step> failed",
+  with no path or value from the project; only a read from the central forge keeps the forge's words.
+- Red first: with a gid apart from the uid, the old fixture gave 40 failures and 4 errors in the follow tests, as on
+  the build machine; `HostFollowFilesTest` shows a refused chgrp recorded as the forge's before and as the host's own
+  after.

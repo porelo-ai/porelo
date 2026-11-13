@@ -718,10 +718,16 @@ final class FollowProjects {
                             69, "the project helper named no valid copy of the project");
                 }
                 removable = ProjectFiles.parent(Path.of(path));
-                final Path directory = c.scratch("porelo-host-file");
+                final Path directory;
+                try {
+                    directory = c.scratch("porelo-host-file");
+                } catch (IOException ex) {
+                    throw ProjectFiles.placingRefusal("making the follow's scratch directory", ex);
+                }
                 try {
                     final Path staged = directory.resolve("signers");
-                    c.write(staged, signers, 0600);
+                    ProjectFiles.placing(
+                            "staging the project's signers", () -> c.write(staged, signers, 0600));
                     final var verified =
                             bounded.isolated(
                                     "porelo-host-project-file",
@@ -760,6 +766,7 @@ final class FollowProjects {
             final String words = "the project file: " + ex.getMessage();
             item.put("file_refused", words.substring(0, Math.min(words.length(), 512)));
         } catch (IOException | IllegalArgumentException ex) {
+            // The host's own placing refuses with its own words above; what is left is the read.
             item.put(
                     "file_refused",
                     "the project file: its main could not be read from the central forge");

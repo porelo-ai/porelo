@@ -361,6 +361,28 @@ final class ProjectFiles {
         }
     }
 
+    /**
+     * Runs one step of the host's own placing of a project's files. A refusal names the step, never
+     * a path or a value from the project, so it cannot be read as the central forge's failure.
+     */
+    static void placing(String step, Writing operation) {
+        try {
+            operation.run();
+        } catch (IOException ex) {
+            throw placingRefusal(step, ex);
+        }
+    }
+
+    static HostRefusal placingRefusal(String step, IOException ex) {
+        return new HostRefusal(
+                73,
+                "the host could not place the project's files: "
+                        + step
+                        + " failed ("
+                        + ex.getClass().getSimpleName()
+                        + ")");
+    }
+
     private static HostRefusal writeRefusal(Path destination, IOException ex) {
         return new HostRefusal(
                 73, "cannot write " + destination + ": " + ex.getClass().getSimpleName());

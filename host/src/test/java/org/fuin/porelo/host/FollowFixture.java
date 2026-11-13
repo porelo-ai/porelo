@@ -48,6 +48,13 @@ final class FollowFixture {
     final Set<String> missing = new HashSet<>();
     final Set<Path> sessionBuses = new HashSet<>();
 
+    /**
+     * The forge account's group: the caller's own, so the copy's chgrp is one the kernel allows.
+     * With {@code -Dporelo.test.gidApart=true} it is another of the caller's groups than the one
+     * numbered like its uid, standing in for a machine whose account has a gid other than its uid.
+     */
+    long forgeGid;
+
     FollowFixture(Path root) throws Exception {
         project = new ProjectFixture(root);
         final Map<Path, Integer> owners = new HashMap<>();
@@ -111,6 +118,10 @@ final class FollowFixture {
                     }
                 };
         final long uid = ((Number) Files.getAttribute(root, "unix:uid")).longValue();
+        forgeGid = ((Number) Files.getAttribute(root, "unix:gid")).longValue();
+        if (Boolean.getBoolean("porelo.test.gidApart")) {
+            forgeGid = groupApartFrom(uid);
+        }
         for (String login : List.of("alice", "bob", "charlie", "forge")) {
             accounts.put(login, login.equals("forge") ? uid : uid + accounts.size() + 1);
         }
@@ -483,6 +494,26 @@ final class FollowFixture {
         return acls.getOrDefault(identity(path(name)), List.of());
     }
 
+    private long gid(String login) {
+        return login.equals("forge") ? forgeGid : accounts.get(login);
+    }
+
+    /** One of the caller's groups other than the one numbered like its uid. */
+    private static long groupApartFrom(long uid) throws IOException {
+        final long apart =
+                Files.readAllLines(Path.of("/proc/self/status")).stream()
+                        .filter(line -> line.startsWith("Groups:"))
+                        .flatMap(line -> Arrays.stream(line.substring(7).trim().split("\\s+")))
+                        .filter(group -> !group.isEmpty())
+                        .mapToLong(Long::parseLong)
+                        .filter(group -> group != uid)
+                        .findFirst()
+                        .orElse(-1);
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                apart >= 0, "the caller belongs to no group apart from its uid's");
+        return apart;
+    }
+
     private HostPrograms.Result command(
             List<String> argv, byte[] input, Map<String, String> env, Duration timeout)
             throws IOException {
@@ -511,7 +542,7 @@ final class FollowFixture {
                                         + ":x:"
                                         + accounts.get(login)
                                         + ":"
-                                        + accounts.get(login)
+                                        + gid(login)
                                         + ":"
                                         + ",,,,umask=0022"
                                         + ":/home/"
@@ -527,7 +558,7 @@ final class FollowFixture {
                                             + ":x:"
                                             + uid
                                             + ":"
-                                            + uid
+                                            + gid(login)
                                             + "::/home/"
                                             + login
                                             + ":/bin/bash\n"));

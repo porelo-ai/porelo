@@ -179,6 +179,22 @@ class HostFollowFilesTest {
         assertThat(f.rules.get("main")).containsEntry("required_approvals", 0L);
     }
 
+    // A chgrp the kernel refuses is the host's own fault; blaming the central forge hid it.
+    @Test
+    void aRefusedChgrpOfTheCopyIsTheHostsOwnFailure() throws Exception {
+        Assumptions.assumeFalse(
+                Files.getAttribute(directory, "unix:uid").equals(0), "root may give any group");
+        f.forgeGid = 2_000_000_000L;
+        f.run();
+        assertThat(f.item().get("file_refused"))
+                .asString()
+                .startsWith(
+                        "the project file: the host could not place the project's files:"
+                                + " handing the copy to the forge's account failed (")
+                .doesNotContain("central forge", directory.toString(), "/home/");
+        assertThat(f.verifyCount).isZero();
+    }
+
     @Test
     void anUnreadableFirstFileRequiresReviewForEveryRepository() throws Exception {
         f.verifyCode = 65;

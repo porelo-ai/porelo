@@ -33,8 +33,12 @@ final class ProjectCopies {
         if (!ProjectAddress.parse(ProjectReadKeys.address(item)).https().equals(wanted.https())) {
             throw new HostRefusal(65, "the project's recorded central address differs");
         }
-        files.mkdir(directory(), 0711);
-        Files.setAttribute(directory(), "unix:mode", 0711, LinkOption.NOFOLLOW_LINKS);
+        ProjectFiles.placing(
+                "making the copies' directory",
+                () -> {
+                    files.mkdir(directory(), 0711);
+                    Files.setAttribute(directory(), "unix:mode", 0711, LinkOption.NOFOLLOW_LINKS);
+                });
         for (Path left : files.list(directory())) {
             try {
                 files.removeTree(left);
@@ -54,7 +58,7 @@ final class ProjectCopies {
         final byte[] random = new byte[16];
         new java.security.SecureRandom().nextBytes(random);
         final Path secret = directory().resolve(java.util.HexFormat.of().formatHex(random));
-        files.mkdir(secret, 0700);
+        ProjectFiles.placing("making the copy's directory", () -> files.mkdir(secret, 0700));
         final Path path = secret.resolve("central.git");
         keys.git(
                 List.of(
@@ -91,7 +95,11 @@ final class ProjectCopies {
             throw new HostRefusal(
                     69, "the forge's account " + account + " is not known, or is root");
         }
-        files.giveTree(secret, Integer.parseInt(fields[2]), Integer.parseInt(fields[3]));
+        ProjectFiles.placing(
+                "handing the copy to the forge's account",
+                () ->
+                        files.giveTree(
+                                secret, Integer.parseInt(fields[2]), Integer.parseInt(fields[3])));
         return ProjectRecords.object("commit", commit, "copy", path.toString());
     }
 
