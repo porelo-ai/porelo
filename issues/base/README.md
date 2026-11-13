@@ -305,6 +305,7 @@ from its side, as *blocked by*.
 | <a id="b711"></a>[B711](B711-A-Signers-File-Read-As-Bytes-As-Ssh-Keygen-Reads-It.md) | S | [B649](README.md#b649) | An allowed-signers file that is not valid UTF-8 is read line by line as ssh-keygen reads its bytes, and is not refused whole. | 0 |
 | <a id="b713"></a>[B713](B713-Four-Small-Readings-Of-Marks-And-Providers.md) | S | - | The user documentation names only options that exist, `gate pending` shows what arrived, an agent definition with a provider key it does not know is refused, and the agents README's example says its dialect. | 0 |
 | <a id="b714"></a>[B714](B714-A-Push-Again-After-A-Forge-Took-It-Late.md) | S | [B197](README.md#b197) | A task's next push is passed on after an earlier pass-on ended unknown or not held, even when the forge took that earlier push late. | 0 |
+| <a id="b716"></a>[B716](B716-The-Second-Account-Test-Run-Without-A-Hand.md) | S | [B651](README.md#b651) | The test that a peer of another account is not taken for this one runs in a CI job or VM role with two accounts, not only by hand. | 0 |
 
 ## Implementing
 
