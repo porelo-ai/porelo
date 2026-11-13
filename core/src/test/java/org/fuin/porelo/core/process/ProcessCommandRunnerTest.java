@@ -349,6 +349,21 @@ class ProcessCommandRunnerTest {
     }
 
     @Test
+    void aSingleLineOnStandardOutputBeyondTheLimitIsDroppedWhole() {
+        // The cut falls inside the line, and the line it falls in is never kept, on either stream:
+        // what is left is the marker alone.
+        final CommandResult result =
+                new ProcessCommandRunner(Duration.ofSeconds(30))
+                        .run(
+                                Command.of(
+                                        "sh",
+                                        "-c",
+                                        "head -c 40000000 /dev/zero | tr '\\0' 'x'; printf END"));
+
+        assertThat(result.standardOutput()).matches("\\[[0-9]+ bytes cut before this\\]\n");
+    }
+
+    @Test
     void aTailCutMidwayThroughALineKeepsNoneOfThatLine() {
         // Cut midway through a forge's "remote:" line, the tail began with what the forge said and
         // without the prefix that marks it as the forge's.

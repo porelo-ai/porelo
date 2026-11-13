@@ -208,7 +208,7 @@ class FollowCredentialHelperTest {
             assertThat(answer.exit()).as(answer.said()).isZero();
             assertThat(answer.said())
                     .as("the credential lent for it")
-                    .contains("password=lent:" + lentFrom);
+                    .contains("password=lent:PORELO_GIT_CREDENTIAL_TOKEN");
         } finally {
             PoreloContext.forgetAsked();
             if (source.equals("vault-entry")) {
@@ -230,15 +230,14 @@ class FollowCredentialHelperTest {
             final String url, final String asked, @TempDir Path dir)
             throws IOException, InterruptedException {
         final PoreloContext context = contextWithHelperStandIn(dir);
-        final String lentFrom =
-                declareFile(context, dir, "https://" + GitCredentialNames.hostOf(url));
+        declareFile(context, dir, "https://" + GitCredentialNames.hostOf(url));
 
         final GitAnswer answer = credentialFill(leasedArguments(context, url), asked);
 
         assertThat(answer.exit()).as(answer.said()).isZero();
         assertThat(answer.said())
                 .as("the credential lent for it")
-                .contains("password=lent:" + lentFrom);
+                .contains("password=lent:PORELO_GIT_CREDENTIAL_TOKEN");
     }
 
     /** A token lent to one port must not reach what else answers on that host. */

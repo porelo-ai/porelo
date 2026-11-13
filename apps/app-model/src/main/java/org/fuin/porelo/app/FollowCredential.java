@@ -36,8 +36,15 @@ import org.jspecify.annotations.Nullable;
  */
 public final class FollowCredential implements AutoCloseable {
 
-    /** Kept beside what git is given, and never given to it under this name. */
-    private static final String VARIABLE = "PORELO_GIT_CREDENTIAL_VARIABLE";
+    /**
+     * The one name a lent token reaches git under, whatever variable, file or entry it came from:
+     * no name a person declared steers git, its shell or its transport. The helper git starts reads
+     * it from here.
+     */
+    static final String TOKEN = "PORELO_GIT_CREDENTIAL_TOKEN";
+
+    /** The most a token file may hold, in bytes; anything longer is no token. */
+    private static final int FILE_LIMIT = 64 * 1024;
 
     /** Where a wrong passphrase is said, when a command asks for a shut vault. */
     private static final java.io.PrintWriter STDERR =
@@ -380,22 +387,66 @@ public final class FollowCredential implements AutoCloseable {
                     null,
                     false);
         }
-        String secret;
+        final String secret = readOnce(Path.of(credential.id()));
+        return secret == null
+                ? new FollowCredential(Map.of(), null, null, false)
+                : lendToken(context, credential, url, secret);
+    }
+
+    /**
+     * Reads a token file once: a regular file, not reached through a link, of a size a token has. A
+     * FIFO is never opened, so one with no writer cannot hold the lease.
+     */
+    private static @Nullable String readOnce(final Path file) {
         try {
-            secret = Files.readString(Path.of(credential.id()));
+            final java.nio.file.attribute.BasicFileAttributes attributes =
+                    Files.readAttributes(
+                            file,
+                            java.nio.file.attribute.BasicFileAttributes.class,
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            if (!attributes.isRegularFile() || attributes.size() > FILE_LIMIT) {
+                return null;
+            }
+            try (java.io.InputStream in = Files.newInputStream(file)) {
+                final byte[] bytes = in.readNBytes(FILE_LIMIT + 1);
+                return bytes.length > FILE_LIMIT
+                        ? null
+                        : new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            }
         } catch (final IOException | RuntimeException ex) {
-            // The helper reads it again, and says so to git if it cannot.
-            secret = null;
+            return null;
         }
-        return helper(context, credential, url, "--file", credential.id())
-                .holding(context, credential, secret);
+    }
+
+    /**
+     * Lends a token the lease has read once: git's helper is handed that value, under porelo's own
+     * name, and reads no source of its own, so the value taken out of git's words is the value
+     * lent.
+     */
+    private static FollowCredential lendToken(
+            final PoreloContext context,
+            final Credential credential,
+            final String url,
+            final String secret) {
+        final String value = secret.strip();
+        if (value.isEmpty()) {
+            return new FollowCredential(Map.of(), null, null, false);
+        }
+        final FollowCredential lent = helper(context, credential, url, "--env", TOKEN);
+        if (lent.environment.isEmpty()) {
+            return lent;
+        }
+        final Map<String, String> named = new java.util.LinkedHashMap<>(lent.environment);
+        named.put(TOKEN, value);
+        return new FollowCredential(named, null, null, false).holding(context, credential, secret);
     }
 
     private static FollowCredential fromEnvironment(
             final PoreloContext context, final Credential credential, final String url) {
         // Asked of the machine: the helper git starts reads the same variable, which a caller
         // running git in an environment of its own passes on.
-        if (context.environment().apply(credential.id()) == null) {
+        final String declared = context.environment().apply(credential.id());
+        if (declared == null) {
             return new FollowCredential(Map.of(), null, null, false);
         }
         if (credential.kind() == Credential.Kind.SSH_KEY) {
@@ -403,14 +454,7 @@ public final class FollowCredential implements AutoCloseable {
             // make one would be this creating the copy somebody asked it not to make.
             return new FollowCredential(Map.of(), null, null, false);
         }
-        final FollowCredential lent = helper(context, credential, url, "--env", credential.id());
-        if (lent.environment.isEmpty()) {
-            return lent;
-        }
-        final Map<String, String> named = new java.util.LinkedHashMap<>(lent.environment);
-        named.put(VARIABLE, credential.id());
-        return new FollowCredential(named, null, null, false)
-                .holding(context, credential, context.environment().apply(credential.id()));
+        return lendToken(context, credential, url, declared);
     }
 
     private static FollowCredential fromVault(
@@ -434,8 +478,7 @@ public final class FollowCredential implements AutoCloseable {
             // not reach: lent, the fetch failed for no reason anybody was told.
             return opensOnlyHere(context)
                     ? new FollowCredential(Map.of(), null, null, true)
-                    : helper(context, credential, url, "--entry", credential.id())
-                            .holding(context, credential, held.value());
+                    : lendToken(context, credential, url, held.value());
         }
         final org.fuin.porelo.vault.AgentKey key;
         try {
@@ -548,7 +591,6 @@ public final class FollowCredential implements AutoCloseable {
     Map<String, String> environment() {
         final Map<String, String> copy = new java.util.LinkedHashMap<>(environment);
         copy.remove("PORELO_GIT_CREDENTIAL_CONFIG");
-        copy.remove(VARIABLE);
         return Map.copyOf(copy);
     }
 
@@ -562,100 +604,6 @@ public final class FollowCredential implements AutoCloseable {
     Map<String, String> environmentFor(final PoreloContext context, final String url) {
         // Every lease comes from open(), which already put this destination's policy in.
         return environment();
-    }
-
-    /**
-     * Names the variable the helper git starts reads its token from, which a caller running git in
-     * an environment of its own passes on.
-     *
-     * @return Its name, or {@code null} when no token comes from a variable.
-     */
-    @Nullable String variable() {
-        final String name = environment.get(VARIABLE);
-        // Git, ssh, libcurl and the loader read these names themselves, and echo a value they
-        // cannot take: a token in GIT_TRACE or HTTPS_PROXY would be on git's standard error, and
-        // so in a refusal.
-        return name == null || steersGit(name) ? null : name;
-    }
-
-    /** Names read whole by git, ssh, libcurl, the TLS libraries, the shell or the loader. */
-    private static final java.util.Set<String> STEERING =
-            java.util.Set.of(
-                    "NO_PROXY",
-                    "HOME",
-                    "PATH",
-                    "SHELL",
-                    "ENV",
-                    "IFS",
-                    "CDPATH",
-                    "TMPDIR",
-                    "TERM",
-                    "LANG",
-                    "LANGUAGE",
-                    "TZ",
-                    "TZDIR",
-                    "USER",
-                    "LOGNAME",
-                    "EMAIL",
-                    "EDITOR",
-                    "VISUAL",
-                    "PAGER",
-                    "LESS",
-                    "NETRC",
-                    "DISPLAY",
-                    "WAYLAND_DISPLAY",
-                    "GCONV_PATH",
-                    "LOCPATH",
-                    "NLSPATH",
-                    "HOSTALIASES",
-                    "RES_OPTIONS",
-                    "LOCALDOMAIN",
-                    "SUDO_ASKPASS",
-                    "DBUS_SESSION_BUS_ADDRESS",
-                    PoreloPaths.VAULT_VARIABLE);
-
-    /** Prefixes of names those programs read. */
-    private static final List<String> STEERING_PREFIXES =
-            List.of(
-                    "GIT_",
-                    "SSH_",
-                    "LD_",
-                    "DYLD_",
-                    "CURL_",
-                    "SSL_",
-                    "SSLKEYLOG",
-                    "OPENSSL_",
-                    "GNUTLS_",
-                    "NSS_",
-                    "KRB5",
-                    "GSS",
-                    "GNUPG",
-                    "GPG_",
-                    "XDG_",
-                    "LC_",
-                    "MALLOC_",
-                    "GLIBC_",
-                    "BASH_",
-                    "PERL",
-                    "PYTHON",
-                    "PORELO_GIT_");
-
-    /**
-     * Tells whether a variable's name is one git, or a program git starts, reads itself, so that a
-     * token under it would steer them rather than wait for the helper. Any case: libcurl reads
-     * {@code https_proxy} as well as {@code HTTPS_PROXY}.
-     *
-     * @param name The name a person declared.
-     * @return {@code true} when a token is never handed to git under it.
-     */
-    static boolean steersGit(final String name) {
-        if (!name.matches("[A-Za-z_][A-Za-z0-9_]*")) {
-            return true;
-        }
-        final String upper = name.toUpperCase(java.util.Locale.ROOT);
-        return STEERING.contains(upper)
-                || upper.endsWith("_PROXY")
-                || STEERING_PREFIXES.stream().anyMatch(upper::startsWith);
     }
 
     /**

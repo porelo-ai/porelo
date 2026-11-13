@@ -14,6 +14,9 @@ import org.junit.jupiter.api.parallel.Isolated;
 /** A token declared for the organization's URL also reaches its same-forge personal fork. */
 @Isolated
 class OrgProposalAccessTest {
+    /** The one name a lent token reaches git under, whatever variable it was declared in. */
+    private static final String LENT_UNDER = "PORELO_GIT_CREDENTIAL_TOKEN";
+
     @TempDir Path dir;
 
     @Test
@@ -33,11 +36,14 @@ class OrgProposalAccessTest {
                             .lend("https://forge.example.org/alice/organization.git")) {
                 assertThat(lease.environment())
                         .as(
-                                "the token's variable must reach git even outside the organization's URL prefix")
-                        .containsEntry("FORGE_TOKEN", "lent-token");
+                                "the token must reach git even outside the organization's URL prefix,"
+                                        + " under porelo's own name")
+                        .containsEntry(LENT_UNDER, "lent-token")
+                        .doesNotContainKey("FORGE_TOKEN");
                 assertThat(String.join(" ", lease.arguments()))
-                        .as("git gets a scoped helper naming the source, without its secret")
-                        .contains("--env", "FORGE_TOKEN")
+                        .as(
+                                "git gets a scoped helper naming the lease's variable, without its secret")
+                        .contains("--env", LENT_UNDER)
                         .doesNotContain("lent-token");
             }
         } finally {
@@ -79,7 +85,7 @@ class OrgProposalAccessTest {
             try (var lease =
                     OrganizationAccess.lent(machine, "")
                             .lend("https://forge.example.org/acme/organization.git")) {
-                assertThat(lease.environment()).doesNotContainValue("lent-token");
+                assertThat(lease.environment()).doesNotContainKey("GIT_TRACE");
             }
         } finally {
             if (previous == null) System.clearProperty(PoreloBinary.NAMED);
@@ -101,11 +107,17 @@ class OrgProposalAccessTest {
                 "XDG_CONFIG_HOME",
                 "PATH",
                 "GIT_TRACE",
-                "PORELO_VAULT"
+                "PORELO_VAULT",
+                "SHELLOPTS",
+                "BASHOPTS",
+                "PS4",
+                "POSIXLY_CORRECT",
+                "BASH_ENV",
+                "FORGE_TOKEN"
             })
-    void aTokenDeclaredInAVariableGitOrCurlReadsIsNeverHandedToGit(final String name)
-            throws Exception {
-        // With a token in HTTPS_PROXY git said "Unsupported proxy syntax in '<the token>'".
+    void aTokenIsNeverHandedToGitUnderTheNameItWasDeclaredIn(final String name) throws Exception {
+        // With a token in HTTPS_PROXY git said "Unsupported proxy syntax in '<the token>'"; bash
+        // read SHELLOPTS at its start and echoed what it could not take.
         String previous = System.getProperty(PoreloBinary.NAMED);
         System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
         try {
@@ -113,7 +125,11 @@ class OrgProposalAccessTest {
             try (var lease =
                     OrganizationAccess.lent(machine, "")
                             .lend("https://forge.example.org/acme/organization.git")) {
-                assertThat(lease.environment()).doesNotContainValue("lent-token:bad");
+                assertThat(lease.environment())
+                        .as("no name a person chose steers git, its shell or its transport")
+                        .doesNotContainKey(name)
+                        .as("the token still reaches git's helper, under porelo's own name")
+                        .containsEntry(LENT_UNDER, "lent-token:bad");
             }
         } finally {
             if (previous == null) System.clearProperty(PoreloBinary.NAMED);
@@ -153,6 +169,107 @@ class OrgProposalAccessTest {
             if (previous == null) System.clearProperty(PoreloBinary.NAMED);
             else System.setProperty(PoreloBinary.NAMED, previous);
         }
+    }
+
+    @Test
+    void aTokenDeclaredInTheAgentsVariableIsNeverTakenForTheAgentsSocket() throws Exception {
+        // The production path: the socket comes from this machine's own SSH_AUTH_SOCK, which here
+        // is the declared token.
+        String previous = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
+        try {
+            PoreloContext machine = declared("SSH_AUTH_SOCK", "lent-token");
+            try (var lease =
+                    OrganizationAccess.lent(machine)
+                            .lend("https://forge.example.org/acme/organization.git")) {
+                assertThat(lease.environment()).doesNotContainEntry("SSH_AUTH_SOCK", "lent-token");
+            }
+            try (var lease =
+                    OrgProposalAccess.lent(
+                                    machine,
+                                    ForgeAddress.of(
+                                            "https://forge.example.org/acme/organization.git"))
+                            .lend("https://forge.example.org/alice/organization.git")) {
+                assertThat(lease.environment()).doesNotContainEntry("SSH_AUTH_SOCK", "lent-token");
+            }
+        } finally {
+            if (previous == null) System.clearProperty(PoreloBinary.NAMED);
+            else System.setProperty(PoreloBinary.NAMED, previous);
+        }
+    }
+
+    @Test
+    void aTokenFileReadOnceIsWhatGitIsHandedThoughTheFileChangesAfter() throws Exception {
+        // Read twice, a token rotated between the reads was lent while the other was removed.
+        String previous = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
+        try {
+            Path file = dir.resolve("token");
+            Files.writeString(file, "lent-token\n");
+            PoreloContext machine = fileDeclared(file);
+            try (var lease =
+                    OrganizationAccess.lent(machine, "")
+                            .lend("https://forge.example.org/acme/organization.git")) {
+                Files.writeString(file, "rotated-token\n");
+                assertThat(lease.environment())
+                        .as("the helper is handed the value the lease read")
+                        .containsEntry(LENT_UNDER, "lent-token");
+                assertThat(String.join(" ", lease.arguments()))
+                        .as("and reads nothing again")
+                        .contains("--env", LENT_UNDER)
+                        .doesNotContain(file.toString());
+                assertThat(lease.lent()).contains("lent-token");
+            }
+        } finally {
+            if (previous == null) System.clearProperty(PoreloBinary.NAMED);
+            else System.setProperty(PoreloBinary.NAMED, previous);
+        }
+    }
+
+    @Test
+    void aTokenFileThatIsNoRegularFileIsNotRead() throws Exception {
+        // A FIFO with no writer blocked the lease before any limit ran.
+        String previous = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, dir.resolve("porelo").toString());
+        try {
+            Path fifo = dir.resolve("token-fifo");
+            org.junit.jupiter.api.Assumptions.assumeTrue(
+                    new ProcessBuilder("mkfifo", fifo.toString()).start().waitFor() == 0,
+                    "mkfifo is not here");
+            PoreloContext machine = fileDeclared(fifo);
+            final var lending =
+                    java.util.concurrent.CompletableFuture.supplyAsync(
+                            () -> {
+                                try (var lease =
+                                        OrganizationAccess.lent(machine, "")
+                                                .lend(
+                                                        "https://forge.example.org/acme/organization.git")) {
+                                    return lease.environment();
+                                }
+                            });
+            assertThat(lending.get(10, java.util.concurrent.TimeUnit.SECONDS))
+                    .doesNotContainKey(LENT_UNDER);
+        } finally {
+            if (previous == null) System.clearProperty(PoreloBinary.NAMED);
+            else System.setProperty(PoreloBinary.NAMED, previous);
+        }
+    }
+
+    private PoreloContext fileDeclared(final Path file) throws Exception {
+        PoreloContext machine =
+                new PoreloContext(
+                        new ProcessCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        args -> 0,
+                        name -> null);
+        Path declarations = machine.paths().xdg().config().resolve("credentials.yml");
+        Files.createDirectories(declarations.getParent());
+        Files.writeString(
+                declarations,
+                "credentials:\n  - match: https://forge.example.org/acme/\n    kind: token\n    source: file\n    file: "
+                        + file
+                        + "\n");
+        return machine;
     }
 
     @Test

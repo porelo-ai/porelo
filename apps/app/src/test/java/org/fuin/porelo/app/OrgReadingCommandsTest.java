@@ -1514,7 +1514,12 @@ class OrgReadingCommandsTest {
             assertThat(lease.arguments())
                     .as("a private repository could not be fetched or pushed to without it")
                     .isNotEmpty();
-            assertThat(lease.environment().toString()).doesNotContain("hunter2");
+            assertThat(lease.arguments().toString())
+                    .as("the token is never on git's command line")
+                    .doesNotContain("hunter2");
+            assertThat(lease.environment())
+                    .as("it reaches git's helper under porelo's own name")
+                    .containsEntry("PORELO_GIT_CREDENTIAL_TOKEN", "hunter2");
         }
     }
 

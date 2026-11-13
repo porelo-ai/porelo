@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.organization.OrganizationQuestions;
@@ -303,7 +304,7 @@ final class TreeRepository implements AutoCloseable {
         try (FetchAccess.Lease lease = access.lend(address)) {
             final List<String> arguments = new ArrayList<>(lease.arguments());
             arguments.addAll(List.of("ls-remote", "--", address, BRANCH));
-            final CommandResult asked = git(lease.environment(), arguments.toArray(String[]::new));
+            final CommandResult asked = git(lease, arguments);
             if (!asked.successful()) {
                 throw GitTreeStore.Unreachable.fromGit(
                         "the repository cannot be reached", asked.standardError(), lease.lent());
@@ -373,8 +374,7 @@ final class TreeRepository implements AutoCloseable {
             try (FetchAccess.Lease lease = access.lend(address)) {
                 final List<String> arguments = new ArrayList<>(lease.arguments());
                 arguments.addAll(List.of("ls-remote", "--symref", "--", address, "HEAD"));
-                final CommandResult head =
-                        clone.git(lease.environment(), arguments.toArray(String[]::new));
+                final CommandResult head = clone.git(lease, arguments);
                 final String ref =
                         head.standardOutput()
                                 .lines()
@@ -430,8 +430,7 @@ final class TreeRepository implements AutoCloseable {
             try (FetchAccess.Lease lease = access.lend(address)) {
                 final List<String> arguments = new ArrayList<>(lease.arguments());
                 arguments.addAll(List.of("ls-remote", "--", address));
-                final CommandResult asked =
-                        clone.git(lease.environment(), arguments.toArray(String[]::new));
+                final CommandResult asked = clone.git(lease, arguments);
                 if (notThere(asked.standardError())) {
                     throw new Refused(
                             Refused.NO_REPOSITORY,
@@ -477,8 +476,7 @@ final class TreeRepository implements AutoCloseable {
                             "--",
                             address,
                             branch + ":" + branch));
-            final CommandResult fetched =
-                    git(lease.environment(), arguments.toArray(String[]::new));
+            final CommandResult fetched = git(lease, arguments);
             if (!fetched.successful() && NO_BRANCH.matcher(fetched.standardError()).find()) {
                 throw new GitTreeStore.Empty("the organization's repository holds nothing yet");
             }
@@ -503,14 +501,20 @@ final class TreeRepository implements AutoCloseable {
      * @return Git's own lines.
      */
     static String gitsOwnWords(final String said) {
-        return said.lines()
-                .filter(line -> !line.stripLeading().startsWith("remote:"))
-                .filter(line -> !line.contains("remote error:"))
-                // Git quotes what the server answered, and a forge may answer with what it was
-                // sent.
-                .filter(line -> !line.contains("invalid server response"))
-                .collect(java.util.stream.Collectors.joining("\n"))
-                .strip();
+        // Nothing after a line of the server's error is git's: what follows may be the rest of what
+        // the forge said, wrapped.
+        final List<String> own = new ArrayList<>();
+        for (final String line : said.lines().toList()) {
+            if (line.contains("remote error:")) {
+                break;
+            }
+            // Git quotes what the server answered, and a forge may answer with what it was sent.
+            if (!line.stripLeading().startsWith("remote:")
+                    && !line.contains("invalid server response")) {
+                own.add(line);
+            }
+        }
+        return String.join("\n", own).strip();
     }
 
     /**
@@ -978,7 +982,7 @@ final class TreeRepository implements AutoCloseable {
                 arguments.add("--force-with-lease=" + branch + ":" + base);
             }
             arguments.addAll(List.of("--", address, branch + ":" + branch));
-            return git(lease.environment(), arguments.toArray(String[]::new)).successful();
+            return git(lease, arguments).successful();
         }
     }
 
@@ -996,7 +1000,7 @@ final class TreeRepository implements AutoCloseable {
                             "--",
                             address,
                             "+refs/pull/" + number + "/head:refs/porelo/proposal"));
-            if (!git(lease.environment(), arguments.toArray(String[]::new)).successful()) {
+            if (!git(lease, arguments).successful()) {
                 throw new GitTreeStore.Unreachable("the proposal's commit cannot be fetched");
             }
         }
@@ -1030,7 +1034,7 @@ final class TreeRepository implements AutoCloseable {
         try (FetchAccess.Lease lease = access.lend(address)) {
             final List<String> arguments = new ArrayList<>(lease.arguments());
             arguments.addAll(List.of("ls-remote", "--", address, ref));
-            final CommandResult result = git(lease.environment(), arguments.toArray(String[]::new));
+            final CommandResult result = git(lease, arguments);
             if (!result.successful())
                 throw new GitTreeStore.Unreachable("the remote branch cannot be read");
             return result.standardOutput()
@@ -1062,7 +1066,7 @@ final class TreeRepository implements AutoCloseable {
                             "--",
                             address,
                             commit + ":" + ref));
-            return git(lease.environment(), arguments.toArray(String[]::new)).successful();
+            return git(lease, arguments).successful();
         }
     }
 
@@ -1128,6 +1132,19 @@ final class TreeRepository implements AutoCloseable {
 
     private CommandResult git(final String... arguments) {
         return git(Map.of(), arguments);
+    }
+
+    /**
+     * Runs git with what a lease lends. A run that timed out keeps what git had said, which may
+     * hold a lent value: it is taken out of what is thrown.
+     */
+    private CommandResult git(final FetchAccess.Lease lease, final List<String> arguments) {
+        try {
+            return git(lease.environment(), arguments.toArray(String[]::new));
+        } catch (final CommandException ex) {
+            throw ex.withStandardError(
+                    GitTreeStore.Unreachable.without(ex.standardError(), lease.lent()));
+        }
     }
 
     private CommandResult git(final Map<String, String> variables, final String... arguments) {

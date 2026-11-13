@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Set;
+import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
@@ -67,6 +68,84 @@ class LentValueRemovedTest {
                 .doesNotContain("lent%2Ftoken%2B1")
                 .doesNotContain(basic)
                 .doesNotContain(basic.replace("=", ""));
+    }
+
+    @Test
+    void lowercasePercentEscapesAreRemovedToo() {
+        final Unreachable unreachable =
+                Unreachable.fromGit(
+                        LEAD,
+                        "fatal: unexpected 'lent%2ftoken%2b1'\n",
+                        FetchAccess.Lease.formsOf("x-access-token", "lent/token+1"));
+
+        assertThat(unreachable.getMessage()).doesNotContain("lent%2ftoken%2b1");
+    }
+
+    @Test
+    void aValueSplitAcrossTheLinesAfterErrNamesNoneOfIt() {
+        final Unreachable unreachable =
+                Unreachable.fromGit(
+                        LEAD,
+                        "fatal: remote error: first line\nlent-\ntoken\nwhat the forge said next\n",
+                        LENT);
+
+        assertThat(unreachable.getMessage())
+                .doesNotContain("lent-")
+                .doesNotContain("token")
+                .doesNotContain("what the forge said next");
+    }
+
+    @Test
+    void aPaddedBasicAuthorizationIsRemovedWithAndWithoutItsPadding() {
+        // "x-access-token:lent-token" is 25 bytes, so its Base64 ends in "==".
+        final String padded =
+                Base64.getEncoder()
+                        .encodeToString(
+                                "x-access-token:lent-token".getBytes(StandardCharsets.UTF_8));
+        assertThat(padded).as("the fixture gives padding").endsWith("==");
+        final String bare = padded.replace("=", "");
+
+        assertThat(
+                        Unreachable.fromGit(LEAD, "fatal: header 'Basic " + padded + "'\n", LENT)
+                                .getMessage())
+                .doesNotContain(bare);
+        assertThat(
+                        Unreachable.fromGit(LEAD, "fatal: header 'Basic " + bare + "'\n", LENT)
+                                .getMessage())
+                .doesNotContain(bare);
+    }
+
+    @Test
+    void aFetchThatTimedOutKeepsNoLentValueInWhatItThrows() {
+        final ProcessCommandRunner real = new ProcessCommandRunner();
+        final CommandRunner hanging =
+                command -> {
+                    if (command.arguments().contains("fetch")) {
+                        throw new CommandException(
+                                command,
+                                new java.io.IOException("Timed out after 1 s"),
+                                "fatal: protocol error: unexpected 'lent-token'\n");
+                    }
+                    return real.run(command);
+                };
+        final FetchAccess access =
+                address ->
+                        new FetchAccess.Lease() {
+                            @Override
+                            public Set<String> lent() {
+                                return LENT;
+                            }
+                        };
+
+        assertThatThrownBy(
+                        () ->
+                                TreeRepository.fetch(
+                                        dir.resolve("organization.git").toString(),
+                                        hanging,
+                                        access))
+                .isInstanceOfSatisfying(
+                        CommandException.class,
+                        thrown -> assertThat(thrown.standardError()).doesNotContain(TOKEN));
     }
 
     @Test

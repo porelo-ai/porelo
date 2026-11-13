@@ -104,12 +104,15 @@ class UnreachableCauseTest {
                 Unreachable.fromGit(
                         LEAD,
                         "remote: token ghx_secret_value is not valid\n"
-                                + "fatal: remote error: ghx_secret_value\n"
                                 + "fatal: Authentication failed for"
-                                + " 'https://forge.example.org/acme/organization.git/'\n");
+                                + " 'https://forge.example.org/acme/organization.git/'\n"
+                                // Nothing after the server's error line is git's.
+                                + "fatal: remote error: ghx_secret_value\n"
+                                + "fatal: and a later line\n");
         assertThat(unreachable.said())
                 .as("a line the forge wrote is left out")
                 .doesNotContain("ghx_secret_value")
+                .doesNotContain("a later line")
                 .contains("Authentication failed");
         assertThat(unreachable.getMessage())
                 .as("nor is it in the message")

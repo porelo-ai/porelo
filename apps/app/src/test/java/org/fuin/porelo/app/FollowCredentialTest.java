@@ -203,12 +203,17 @@ class FollowCredentialTest {
                     .isTrue();
             if (token) {
                 assertThat(lent.arguments())
-                        .as("git's helper reads the person's token from the vault")
+                        .as("git's helper is handed the token the lease read from the vault")
                         .anySatisfy(
                                 argument ->
                                         assertThat(argument)
-                                                .as("the helper names the host's entry")
-                                                .contains("--entry '" + entry + "'"));
+                                                .as("the helper reads the vault no second time")
+                                                .contains("--env 'PORELO_GIT_CREDENTIAL_TOKEN'")
+                                                .doesNotContain("--entry"));
+                assertThat(lent.environment())
+                        .as("the person's token, read once")
+                        .containsEntry("PORELO_GIT_CREDENTIAL_TOKEN", "test token");
+                assertThat(lent.secretsLent()).contains("test token");
             } else {
                 assertThat(FollowCredential.sshKeyFor(context, upstream))
                         .as("the address selects the person's own ssh key")

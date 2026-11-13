@@ -124,8 +124,8 @@ public final class GitTreeStore {
             final String own =
                     org.fuin.porelo.vault.RegistryText.printable(
                             ForgeAddress.withoutUserinfoIn(
-                                    TreeRepository.gitsOwnWords(withoutLent(standardError, lent))
-                                            .replace("\n", "; ")));
+                                    joinedWithout(
+                                            TreeRepository.gitsOwnWords(standardError), lent)));
             if (own.isEmpty()) {
                 return new Unreachable(lead);
             }
@@ -134,6 +134,31 @@ public final class GitTreeStore {
         }
 
         private static final int SAID = 400;
+
+        /**
+         * Joins git's lines with the lent values taken out of the whole text, so that a value git
+         * wrapped across two lines is found as well as one on a line.
+         */
+        private static String joinedWithout(
+                final String lines, final java.util.Collection<String> lent) {
+            final String flat = lines.replace("\r", "");
+            final String unbroken = flat.replace("\n", "");
+            final String cleared = withoutLent(unbroken, lent);
+            return cleared.equals(unbroken) ? withoutLent(flat, lent).replace("\n", "; ") : cleared;
+        }
+
+        /**
+         * Returns what git wrote with every lent value taken out, its lines kept.
+         *
+         * @param standardError What git wrote.
+         * @param lent What the run was lent.
+         * @return The text without them.
+         */
+        static String without(final String standardError, final java.util.Collection<String> lent) {
+            final String unbroken = standardError.replace("\r", "").replace("\n", "");
+            final String cleared = withoutLent(unbroken, lent);
+            return cleared.equals(unbroken) ? withoutLent(standardError, lent) : cleared;
+        }
 
         /** Stands where a value lent to git was. */
         private static final String REMOVED = "[a lent value]";

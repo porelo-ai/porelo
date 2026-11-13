@@ -148,12 +148,13 @@ class FollowGitTrustTest {
         try (FollowCredential credential = FollowCredential.open(context, url, "test")) {
             assertThat(credential.lent()).as("this path must exercise the token helper").isTrue();
             assertThat(credential.arguments())
-                    .as("the helper names the token's source")
+                    .as("the helper is handed what the lease read")
                     .anySatisfy(
                             argument ->
                                     assertThat(argument)
-                                            .as("git's helper reads the file")
-                                            .contains("--file"));
+                                            .as("git's helper reads the file no second time")
+                                            .contains("--env 'PORELO_GIT_CREDENTIAL_TOKEN'")
+                                            .doesNotContain("--file"));
             assertThat(credential.environment())
                     .as("a lent helper keeps destination trust")
                     .containsKey("GIT_SSL_CAINFO");

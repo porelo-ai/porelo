@@ -77,3 +77,16 @@ drops them the same way. `porelo project sign` runs this in its own process; por
   cannot outlive the cut. Each has a test that failed before.
 - Kept: the guard is a list of refused names, not one allowed prefix; `credentials declare --env` takes any name
   today, and names such as `GITHUB_TOKEN` stay usable.
+- Codex read that a third time and found six more Reds, fixed. Percent escapes are now removed in lower case as well.
+  Lent values are removed from git's lines after they are joined, so a value wrapped across lines is found, and every
+  line after a server `remote error:` line is dropped. A lease reads its token once (variable, file or vault entry) and
+  hands git that same value under one name of porelo's own, `PORELO_GIT_CREDENTIAL_TOKEN`; the helper is started with
+  `--env` and reads no source again (`VaultCredentialCommand` is unchanged). So no declared name reaches git, bash or
+  ssh, and the guard on declared names (`steersGit`, `variable()`) is gone. The ssh agent fallback takes only this
+  process's own `SSH_AUTH_SOCK`, never a declared credential's value. The host forge lease names the Basic header it
+  lends. A fetch that timed out has the lent values taken out of the standard error its exception keeps. A token file
+  is read only if it is a regular file, not through a link, of at most 64 KiB, so a FIFO cannot block the lease. Each
+  has a test that failed before; the padded Basic test now uses a fixture that gives padding, and a single stdout
+  line beyond the limit is pinned as dropped whole (that one passed before: it pins the existing rule).
+- Kept: git itself cuts a malformed packet header to at most 4 characters of a value before Porelo sees it. Such a
+  prefix is not chased: four characters are no token.

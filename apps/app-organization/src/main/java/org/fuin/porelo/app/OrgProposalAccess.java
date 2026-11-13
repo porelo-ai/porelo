@@ -34,13 +34,11 @@ final class OrgProposalAccess {
                 public Map<String, String> environment() {
                     final Map<String, String> values =
                             new LinkedHashMap<>(credential.environment());
-                    final String variable = credential.variable();
-                    if (variable != null) {
-                        final String token = machine.environment().apply(variable);
-                        if (token != null) values.put(variable, token);
-                    }
                     final String socket = machine.environment().apply(OrganizationAccess.AGENT);
-                    if (socket != null && !socket.isEmpty())
+                    // Never a declared credential's value taken for the agent.
+                    if (socket != null
+                            && !socket.isEmpty()
+                            && !credential.secretsLent().contains(socket))
                         values.putIfAbsent(OrganizationAccess.AGENT, socket);
                     return Map.copyOf(values);
                 }

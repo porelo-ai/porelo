@@ -108,6 +108,19 @@ class HostForgeAccessTest {
         }
     }
 
+    @Test
+    void the_lease_names_the_token_it_lent_so_a_forge_echo_is_taken_out_of_gits_words() {
+        try (FetchAccess.Lease lease = access(GATE, answering(0, TOKEN + "\n")).lend(GATE)) {
+            assertThat(lease.lent())
+                    .contains(
+                            TOKEN,
+                            Base64.getEncoder()
+                                    .encodeToString(
+                                            ("x-access-token:" + TOKEN)
+                                                    .getBytes(StandardCharsets.UTF_8)));
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(
             strings = {

@@ -64,7 +64,8 @@ class OrganizationAccessTest {
     @org.junit.jupiter.api.Test
     void a_token_declared_in_a_variable_reaches_the_helper_git_starts() throws Exception {
         final Path binary = dir.resolve("porelo");
-        Files.writeString(binary, "#!/bin/sh\necho username=x\necho password=$FORGE_TOKEN\n");
+        Files.writeString(
+                binary, "#!/bin/sh\necho username=x\necho password=$PORELO_GIT_CREDENTIAL_TOKEN\n");
         Files.setPosixFilePermissions(
                 binary, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         System.setProperty(PoreloBinary.NAMED, binary.toString());
@@ -89,7 +90,7 @@ class OrganizationAccessTest {
                 assertThat(lease.environment())
                         .as("no bookkeeping of ours goes to git")
                         .containsOnlyKeys(
-                                "FORGE_TOKEN",
+                                "PORELO_GIT_CREDENTIAL_TOKEN",
                                 "GIT_TERMINAL_PROMPT",
                                 "GIT_ASKPASS",
                                 "SSH_ASKPASS_REQUIRE");

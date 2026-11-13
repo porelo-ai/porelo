@@ -60,16 +60,12 @@ public final class OrganizationAccess {
                 public Map<String, String> environment() {
                     final Map<String, String> environment =
                             new LinkedHashMap<>(credential.environment());
-                    if (socket != null && !socket.isEmpty()) {
+                    // Never a declared credential's value taken for the agent: a token declared in
+                    // the agent's own variable is a token, not a socket.
+                    if (socket != null
+                            && !socket.isEmpty()
+                            && !credential.secretsLent().contains(socket)) {
                         environment.putIfAbsent(AGENT, socket);
-                    }
-                    // Git runs here in an environment of its own, with nothing of the person's.
-                    final String variable = credential.variable();
-                    if (variable != null) {
-                        final String token = context.environment().apply(variable);
-                        if (token != null) {
-                            environment.put(variable, token);
-                        }
                     }
                     return environment;
                 }

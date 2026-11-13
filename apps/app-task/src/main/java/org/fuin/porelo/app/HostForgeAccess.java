@@ -84,11 +84,12 @@ final class HostForgeAccess implements FetchAccess {
         if (!asksFor(address)) {
             return otherwise.lend(address);
         }
+        final String token = token();
         final String header =
                 "Authorization: Basic "
                         + Base64.getEncoder()
                                 .encodeToString(
-                                        ("x-access-token:" + token())
+                                        ("x-access-token:" + token)
                                                 .getBytes(StandardCharsets.UTF_8));
         return new Lease() {
             @Override
@@ -102,6 +103,11 @@ final class HostForgeAccess implements FetchAccess {
                         "GIT_CONFIG_KEY_1", "http.followRedirects",
                         "GIT_CONFIG_VALUE_1", "false",
                         "GIT_ALLOW_PROTOCOL", "http");
+            }
+
+            @Override
+            public java.util.Set<String> lent() {
+                return Lease.formsOf("x-access-token", token);
             }
         };
     }

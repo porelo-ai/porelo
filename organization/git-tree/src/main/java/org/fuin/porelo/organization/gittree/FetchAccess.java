@@ -72,11 +72,13 @@ public interface FetchAccess {
                     continue;
                 }
                 forms.add(value);
-                forms.add(
-                        java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8));
-                forms.add(
-                        java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8)
-                                .replace("+", "%20"));
+                final String encoded =
+                        java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+                for (final String form : java.util.List.of(encoded, encoded.replace("+", "%20"))) {
+                    forms.add(form);
+                    // Percent escapes are said in either case of their hex digits.
+                    forms.add(lowerEscapes(form));
+                }
                 final String basic =
                         java.util.Base64.getEncoder()
                                 .encodeToString(
@@ -86,6 +88,19 @@ public interface FetchAccess {
                 forms.add(basic.replace("=", ""));
             }
             return java.util.Set.copyOf(forms);
+        }
+
+        private static String lowerEscapes(final String encoded) {
+            final StringBuilder lower = new StringBuilder(encoded.length());
+            for (int at = 0; at < encoded.length(); at++) {
+                final char each = encoded.charAt(at);
+                lower.append(each);
+                if (each == '%' && at + 2 < encoded.length()) {
+                    lower.append(Character.toLowerCase(encoded.charAt(++at)));
+                    lower.append(Character.toLowerCase(encoded.charAt(++at)));
+                }
+            }
+            return lower.toString();
         }
 
         @Override
