@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B686",
   "title": "A Credential Found By Its Address",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 40,
