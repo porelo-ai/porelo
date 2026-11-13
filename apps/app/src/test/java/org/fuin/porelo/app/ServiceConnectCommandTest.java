@@ -5,7 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.io.SequenceInputStream;
 import java.io.StringWriter;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
@@ -81,13 +85,12 @@ class ServiceConnectCommandTest {
     }
 
     private int connect(final String role, final String input) {
+        return connect(role, new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), out);
+    }
+
+    private int connect(final String role, final InputStream input, final OutputStream output) {
         final ServiceConnectCommand command =
-                new ServiceConnectCommand(
-                        sockets,
-                        this::attributes,
-                        () -> 0,
-                        new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)),
-                        out);
+                new ServiceConnectCommand(sockets, this::attributes, () -> 0, input, output);
         final CommandLine line = new CommandLine(command);
         line.setOut(new PrintWriter(new StringWriter()));
         line.setErr(new PrintWriter(err));
@@ -230,6 +233,56 @@ class ServiceConnectCommandTest {
         assertThat(err.toString()).as("says why").contains(socket.toString());
     }
 
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    void failsWhenStandardInputBreaksOffMidRequest() throws Exception {
+        final InputStream breaking =
+                new SequenceInputStream(
+                        new ByteArrayInputStream(
+                                "POST / HTTP/1.0\r\n".getBytes(StandardCharsets.UTF_8)),
+                        new InputStream() {
+                            @Override
+                            public int read() throws IOException {
+                                throw new IOException("the client's pipe broke");
+                            }
+                        });
+        try (Server web = Server.echo(sockets.get("forge-web"))) {
+
+            assertThat(connect("forge-web", breaking, out))
+                    .as("a request cut short is a failure, not an end; err: %s", err)
+                    .isEqualTo(70);
+            assertThat(err.toString())
+                    .as("names what failed")
+                    .contains("forge-web")
+                    .contains("standard input")
+                    .contains("the client's pipe broke");
+        }
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    void failsWhenStandardOutputBreaksWhileTheServiceKeepsSending() throws Exception {
+        // As System.out is: a PrintStream, which keeps its failures to itself.
+        final PrintStream broken =
+                new PrintStream(
+                        new OutputStream() {
+                            @Override
+                            public void write(final int b) throws IOException {
+                                throw new IOException("stdout is closed");
+                            }
+                        });
+        try (Server web = Server.flooding(sockets.get("forge-web"))) {
+
+            assertThat(connect("forge-web", new ByteArrayInputStream(new byte[0]), broken))
+                    .as("bytes lost on the way out are a failure; err: %s", err)
+                    .isEqualTo(70);
+            assertThat(err.toString())
+                    .as("names what failed")
+                    .contains("forge-web")
+                    .contains("standard output");
+        }
+    }
+
     /** A service on a Unix socket, for one test. */
     private static final class Server implements AutoCloseable {
 
@@ -237,7 +290,13 @@ class ServiceConnectCommandTest {
 
         private final AtomicInteger accepted = new AtomicInteger();
 
-        private Server(final Path socket, final String answer) throws IOException {
+        /** What the service does with one connection. */
+        @FunctionalInterface
+        private interface Serving {
+            void serve(SocketChannel client) throws IOException;
+        }
+
+        private Server(final Path socket, final Serving serving) throws IOException {
             channel = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
             channel.bind(UnixDomainSocketAddress.of(socket));
             Thread.ofVirtual()
@@ -247,7 +306,7 @@ class ServiceConnectCommandTest {
                                     try {
                                         final SocketChannel client = channel.accept();
                                         accepted.incrementAndGet();
-                                        Thread.ofVirtual().start(() -> serve(client, answer));
+                                        Thread.ofVirtual().start(() -> serve(client, serving));
                                     } catch (IOException ex) {
                                         return;
                                     }
@@ -257,27 +316,49 @@ class ServiceConnectCommandTest {
 
         /** Echoes what arrives, after the input's end, then closes. */
         static Server echo(final Path socket) throws IOException {
-            return new Server(socket, "");
+            return new Server(
+                    socket,
+                    client -> {
+                        final ByteArrayOutputStream held = new ByteArrayOutputStream();
+                        final ByteBuffer buffer = ByteBuffer.allocate(1024);
+                        while (client.read(buffer) >= 0) {
+                            held.write(buffer.array(), 0, buffer.position());
+                            buffer.clear();
+                        }
+                        writeAll(client, held.toByteArray());
+                    });
         }
 
         /** Answers its own words at once and closes. */
         static Server answering(final Path socket, final String answer) throws IOException {
-            return new Server(socket, answer);
+            return new Server(
+                    socket, client -> writeAll(client, answer.getBytes(StandardCharsets.UTF_8)));
         }
 
-        private static void serve(final SocketChannel client, final String answer) {
+        /** Sends without end, until the connection breaks. */
+        static Server flooding(final Path socket) throws IOException {
+            final byte[] page = new byte[64 * 1024];
+            return new Server(
+                    socket,
+                    client -> {
+                        while (true) {
+                            writeAll(client, page);
+                        }
+                    });
+        }
+
+        /** One write may take part of the bytes only. */
+        private static void writeAll(final SocketChannel client, final byte[] bytes)
+                throws IOException {
+            final ByteBuffer buffer = ByteBuffer.wrap(bytes);
+            while (buffer.hasRemaining()) {
+                client.write(buffer);
+            }
+        }
+
+        private static void serve(final SocketChannel client, final Serving serving) {
             try (client) {
-                if (!answer.isEmpty()) {
-                    client.write(ByteBuffer.wrap(answer.getBytes(StandardCharsets.UTF_8)));
-                    return;
-                }
-                final ByteArrayOutputStream held = new ByteArrayOutputStream();
-                final ByteBuffer buffer = ByteBuffer.allocate(1024);
-                while (client.read(buffer) >= 0) {
-                    held.write(buffer.array(), 0, buffer.position());
-                    buffer.clear();
-                }
-                client.write(ByteBuffer.wrap(held.toByteArray()));
+                serving.serve(client);
             } catch (IOException ex) {
                 // The test sees what did or did not arrive.
             }

@@ -3,6 +3,7 @@ package org.fuin.porelo.app;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ConnectException;
 import java.net.StandardProtocolFamily;
@@ -18,6 +19,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicReference;
 import org.fuin.porelo.wire.RootOwnedFile;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -196,37 +198,90 @@ public class ServiceConnectCommand implements Callable<Integer> {
 
     /**
      * Copies bytes both ways: the input's end half-closes the socket, so a service waiting for the
-     * rest of a request sees its end, and the service's end ends the command.
+     * rest of a request sees its end, and the service's end ends the command. A failure on either
+     * way ends it too, as a failure: a request cut short is not a request ended.
      */
     private static void carry(
             final SocketChannel channel, final InputStream in, final OutputStream out)
             throws IOException {
         final OutputStream toService = Channels.newOutputStream(channel);
+        final AtomicReference<String> failed = new AtomicReference<>();
         final Thread requests =
-                Thread.ofVirtual()
-                        .start(
-                                () -> {
-                                    try {
-                                        in.transferTo(toService);
-                                    } catch (final IOException ex) {
-                                        // The service or the client went away; either ends this.
-                                    } finally {
-                                        try {
-                                            channel.shutdownOutput();
-                                        } catch (final IOException ex) {
-                                            // Already closed.
-                                        }
-                                    }
-                                });
-        final ByteBuffer buffer = ByteBuffer.allocate(BUFFER);
-        while (channel.read(buffer) >= 0) {
-            buffer.flip();
-            out.write(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining());
-            // Every read: a page held back is indistinguishable from a service that stopped.
-            out.flush();
-            buffer.clear();
+                Thread.ofVirtual().start(() -> send(channel, in, toService, failed));
+        try {
+            final ByteBuffer buffer = ByteBuffer.allocate(BUFFER);
+            while (channel.read(buffer) >= 0) {
+                buffer.flip();
+                try {
+                    out.write(
+                            buffer.array(),
+                            buffer.arrayOffset() + buffer.position(),
+                            buffer.remaining());
+                    // Every read: a page held back is indistinguishable from a service that
+                    // stopped.
+                    out.flush();
+                } catch (final IOException ex) {
+                    throw new IOException("writing standard output failed: " + ex.getMessage(), ex);
+                }
+                // System.out keeps its failures to itself.
+                if (out instanceof PrintStream print && print.checkError()) {
+                    throw new IOException("writing standard output failed");
+                }
+                buffer.clear();
+            }
+            final String failure = failed.get();
+            if (failure != null) {
+                throw new IOException(failure);
+            }
+        } finally {
+            requests.interrupt();
         }
-        requests.interrupt();
+    }
+
+    /**
+     * Sends the input to the service until its end; on a failure keeps it and stops the service's
+     * way too, so the relay does not wait for an answer to a request never finished.
+     */
+    private static void send(
+            final SocketChannel channel,
+            final InputStream in,
+            final OutputStream toService,
+            final AtomicReference<String> failed) {
+        final byte[] bytes = new byte[BUFFER];
+        try {
+            while (true) {
+                final int count;
+                try {
+                    count = in.read(bytes);
+                } catch (final IOException ex) {
+                    failed.set("reading standard input failed: " + ex.getMessage());
+                    return;
+                }
+                if (count < 0) {
+                    return;
+                }
+                try {
+                    toService.write(bytes, 0, count);
+                } catch (final IOException ex) {
+                    failed.set("sending to the service failed: " + ex.getMessage());
+                    return;
+                }
+            }
+        } finally {
+            if (failed.get() != null) {
+                try {
+                    // Unblocks the relay's read, which then finds the failure.
+                    channel.shutdownInput();
+                } catch (final IOException ex) {
+                    // Already closed.
+                }
+            }
+            try {
+                channel.shutdownOutput();
+            } catch (final IOException ex) {
+                // Already closed.
+            }
+        }
     }
 
     /**
