@@ -300,10 +300,9 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
-| <a id="b33"></a>[B33](B33-A-Tasks-Own-Fetches.md) | S | - | The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios. | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 
 ## Review
 
@@ -409,6 +408,7 @@ from its side, as *blocked by*.
 | <a id="b531"></a>[B531](B531-A-Projects-Repositories-On-This-Machine.md) | L | - | Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here. | - |
 | <a id="b532"></a>[B532](B532-A-Task-Shown-By-Its-Name-Not-Its-Container.md) | M | - | A task is shown by the name given at its start or its short name from the repository, the container name only in its details, and in the room by its agent's name. | - |
 | <a id="b533"></a>[B533](B533-A-Default-Model-Per-Provider.md) | M | - | The project file names a default model per provider, a start takes it unless another is chosen, and the task row says which model and from where. | - |
+| <a id="b33"></a>[B33](B33-A-Tasks-Own-Fetches.md) | S | - | The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios. | 0 |
 | <a id="b530"></a>[B530](B530-One-Sign-In-Per-Agent-That-Starts-Wait-On.md) | L | - | One sign-in per agent and machine, signed in over the daemon as a detached login, never a task; a second sign-in answers the running one and the sweep spares it. | - |
 | <a id="b528"></a>[B528](B528-A-Persons-Line-To-All-Agents-Wakes-Every-Task.md) | S | - | A person's line headed "All agents:" reaches and wakes every task; a task's cannot. | - |
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings | - |

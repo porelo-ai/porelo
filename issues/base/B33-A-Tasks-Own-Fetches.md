@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B33",
   "title": "A Task's Own Fetches",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 47,
@@ -97,3 +97,24 @@ Steps:
 - The github.com scenario runs on request only (tagged; the legs skip it).
 - The VM reproduction is done only when a person meets a 401 in a task.
 - If it does not reproduce, the issue is closed with the measurement recorded and nothing built.
+
+## Measured (2026-11-13)
+
+Step 1 ran on the local test VM with Porelo at main 2ff89e795. Each image ran in a guarded task with the `git-hosting`
+set, and each clone was `git clone --depth 1` of a small public repository from github.com, anonymous, five times for
+each HTTP version. **It does not reproduce.**
+
+| Base | git | libcurl | `http.version` set | default | HTTP/2 | HTTP/1.1 | negotiated |
+|---|---|---|---|---|---|---|---|
+| ubuntu:24.04 (noble) | 2.43.0 | 8.5.0, OpenSSL 3.0.13, nghttp2 | none | 5/5 | 5/5 | 5/5 | h2 |
+| fedora:42 | 2.54.0 | 8.11.1, OpenSSL 3.2.6, nghttp2 | none | 5/5 | 5/5 | 5/5 | h2 |
+
+Noble's `git` here is built against libcurl with OpenSSL, not GnuTLS as in the report. GitHub accepts HTTP/2 from it,
+and no clone failed. So no image line is built, and no scenario either: a scenario would only prove what this
+measurement shows, against a forge that may change at any time.
+
+Step 3 holds whatever the result: `doc/running.md`, under adding your own tooling, now says that a 401 on an anonymous
+fetch inside a task is not the vault's, and names git's HTTP version as the first thing to look at.
+
+The operator decided on 2026-11-12 that the reproduction would wait for a person meeting a 401. It was run tonight on
+the coordinator's order while the VM was free. The issue is ready to be closed with this measurement.

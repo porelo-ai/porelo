@@ -561,6 +561,11 @@ need both:
   in the project's `egress` section, where the grant is reviewed like any other change. See
   [what a task can reach](reach.md) and [the project file](project-file.md).
 
+**A 401 on an anonymous fetch is not the vault's.** A `git clone` or `pip install` from a public forge inside a task
+carries no credential of Porelo's, so Porelo's broker never sees it and cannot have refused it. A 401 there comes from
+the forge or from the tool's own client. Look at the tool first, for example its HTTP version (`git -c
+http.version=HTTP/1.1 clone …`), not at the vault.
+
 ## Porelo in your own MCP client
 
 `porelo-mcp stdio` offers Porelo's API as MCP tools to an MCP client you run on this machine, such as Claude Code, over
