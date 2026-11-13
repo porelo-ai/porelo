@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B724",
   "title": "A Default Repository Kept While A Task Works On It",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 54,
@@ -36,3 +36,14 @@ and removes it while the task runs. Frontend's F541 follows the same rule.
   repository, its mirror and its deploy keys stay.
 - Once the task is removed, the same command removes it as today.
 - The command line and LeaveDefault refuse the same cases (one shared rule, no copy).
+
+## Built
+
+- `ProjectDefaultCommand` `remove` goes through `DefaultNamed.remove` with the account's task inventory, the call
+  `ProjectMethods.leaveDefault` makes, so the command line and LeaveDefault refuse the same cases.
+- `InUse` says on one line that the repository stays in `default` while the named tasks work on it, changes nothing,
+  and exits 70, as `project remove` does for a project whose tasks are still up. `NotThere` and `Removed` say what
+  they said before.
+- `doc/commands.md` says the command refuses the same way.
+- Red first in `ProjectDefaultRemoveTest`: with a task of `default` on the repository, the unchanged command removed it
+  and exited 0.

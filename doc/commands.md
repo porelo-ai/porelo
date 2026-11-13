@@ -1007,7 +1007,8 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   `NamedDefaultRepositories()` lists such repositories for an interface, each with `project` and
   `projectRepository`, and `LeaveDefault(name)` takes one out on the person's word, refused as
   `DefaultRepositoryInUse` while a task of `default` works on it and `NoSuchDefaultRepository` for a name `default` does
-  not have.
+  not have. `porelo project default remove NAME` refuses the same way, naming the tasks of `default` on it, changes
+  nothing and exits 70 while they work on it.
 - Approved work in `default` reaches `origin` with your own ssh agent or key, or a token stored with
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a
   key without a passphrase works. Trust an ssh host first with `porelo credentials trust-host`; until then the

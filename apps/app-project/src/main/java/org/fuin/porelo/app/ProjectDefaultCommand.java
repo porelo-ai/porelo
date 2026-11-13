@@ -121,34 +121,53 @@ public class ProjectDefaultCommand implements Callable<Integer>, PoreloFactory.C
                     err.flush();
                     return 64;
                 }
-                final java.util.List<LeftDeployKeys.Key> forgotten = project.remove(argument);
-                if (forgotten == null) {
-                    err.println(
-                            "porelo: '"
-                                    + DefaultProject.NAME
-                                    + "' has no repository called '"
-                                    + argument
-                                    + "'");
-                    err.flush();
-                    return 70;
-                }
-                out.println(
-                        "removed  "
-                                + argument
-                                + " from '"
-                                + DefaultProject.NAME
-                                + "'; its mirror and anything"
-                                + " waiting in it stay");
-                forgotten.forEach(
-                        key ->
-                                out.println(
-                                        "forgot   deploy key '"
-                                                + key.title()
-                                                + "' "
-                                                + key.fingerprint()
-                                                + " - remove it at the forge"));
-                out.flush();
-                return 0;
+                // The rule the daemon's LeaveDefault takes: a task of 'default' on it keeps it.
+                return switch (DefaultNamed.remove(
+                        context, new TaskInventory(context).tasks(), argument)) {
+                    case DefaultNamed.Removal.Removed removed -> {
+                        out.println(
+                                "removed  "
+                                        + argument
+                                        + " from '"
+                                        + DefaultProject.NAME
+                                        + "'; its mirror and anything"
+                                        + " waiting in it stay");
+                        removed.keys()
+                                .forEach(
+                                        key ->
+                                                out.println(
+                                                        "forgot   deploy key '"
+                                                                + key.title()
+                                                                + "' "
+                                                                + key.fingerprint()
+                                                                + " - remove it at the forge"));
+                        out.flush();
+                        yield 0;
+                    }
+                    case DefaultNamed.Removal.InUse used -> {
+                        // 70, as 'project remove' refuses a project whose tasks are still up.
+                        err.println(
+                                "porelo: '"
+                                        + argument
+                                        + "' stays in '"
+                                        + DefaultProject.NAME
+                                        + "' while "
+                                        + String.join(", ", used.tasks())
+                                        + " works on it; remove that task first");
+                        err.flush();
+                        yield 70;
+                    }
+                    case DefaultNamed.Removal.NotThere missing -> {
+                        err.println(
+                                "porelo: '"
+                                        + DefaultProject.NAME
+                                        + "' has no repository called '"
+                                        + missing.repository()
+                                        + "'");
+                        err.flush();
+                        yield 70;
+                    }
+                };
             }
             default -> {
                 err.println("porelo: '" + action + "' is not one of list, add or remove");
