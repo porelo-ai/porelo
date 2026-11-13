@@ -230,11 +230,13 @@ class LoopWatchTest {
         final Path other = Files.writeString(directory.resolve("other.txt"), "wrong suffix\n");
         Files.setLastModifiedTime(other, FileTime.fromMillis(3000));
         final String fakeRuntime =
-                "podman() { if [ \"$1\" = ps ]; then printf '"
+                "podman() { "
+                        + LoopWatchCommandTest.AS_USER
+                        + "if [ \"$1\" = ps ]; then printf '"
                         + TASK
                         + "\\n';"
-                        + " elif [ \"$3\" = tmux ]; then printf 'compact view\\n';"
-                        + " else shift 2; \"$@\"; fi; }; ";
+                        + " elif [ \"$3\" = tmux ] && [ \"$u\" = root ]; then printf 'compact view\\n';"
+                        + " elif [ \"$u\" = agent ]; then shift 2; \"$@\"; fi; }; ";
         final ProcessBuilder builder =
                 new ProcessBuilder(
                         "sh",

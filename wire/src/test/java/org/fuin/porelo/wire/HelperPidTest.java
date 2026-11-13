@@ -154,16 +154,25 @@ class HelperPidTest {
         // One census taken before the signal: a helper whose SIGTERM handler started a child and
         // waited for it was killed, end answered that everything was gone, and the child ran on.
         final Path late = dir.resolve("late.pid");
+        final Path ready = dir.resolve("ready");
         final Process helper =
                 new ProcessBuilder(
                                 "/bin/sh",
                                 "-c",
                                 "trap 'sleep 60 & echo $! > "
                                         + late
-                                        + "; wait' TERM;"
-                                        + " sleep 60 & wait")
+                                        + "; wait; exit 0' TERM; : > "
+                                        + ready
+                                        // Its child ended first, it waits again for its own signal.
+                                        + "; while :; do sleep 60 & wait; done")
                         .start();
         try {
+            // Asked to go before its handler stands, the shell just dies: wait for the handler.
+            final long deadline = System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
+            while (!Files.exists(ready) && System.nanoTime() < deadline) {
+                Thread.sleep(20);
+            }
+            assertThat(ready).as("the helper set its handler").exists();
             Thread.sleep(300);
 
             assertThat(HelperPid.end(helper.toHandle(), java.time.Duration.ofMillis(500)))

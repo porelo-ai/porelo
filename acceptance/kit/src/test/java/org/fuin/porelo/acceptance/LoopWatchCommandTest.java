@@ -12,11 +12,20 @@ class LoopWatchCommandTest {
 
     private static final String TASK = "porelo-busy-busy";
 
+    /**
+     * Takes an exec's {@code --user} out of the arguments into {@code $u}, so a stand-in reads the
+     * container at {@code $2} and its command from {@code $3}.
+     */
+    static final String AS_USER =
+            "u=; if [ \"$1\" = exec ] && [ \"$2\" = --user ]; then u=$3; c=$4; shift 4;"
+                    + " set -- exec \"$c\" \"$@\"; fi; ";
+
     private record Printed(int status, String text) {}
 
     private static Printed run(String runtime, String command) throws Exception {
         final Process process =
-                new ProcessBuilder("sh", "-c", "podman() { " + runtime + "; }; " + command)
+                new ProcessBuilder(
+                                "sh", "-c", "podman() { " + AS_USER + runtime + "; }; " + command)
                         .redirectErrorStream(true)
                         .start();
         final String printed;
@@ -43,7 +52,8 @@ class LoopWatchCommandTest {
                                 + " elif [ \"$2\" = "
                                 + TASK
                                 + " ]; then"
-                                + " if [ \"$3\" = tmux ]; then printf 'refused\\nrefused\\nrefused\\n'; fi;"
+                                + " if [ \"$3\" = tmux ] && [ \"$u\" = root ]; then"
+                                + " printf 'refused\\nrefused\\nrefused\\n'; fi;"
                                 + " else return 125; fi",
                         command(records));
         assertThat(printed.status())

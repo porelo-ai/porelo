@@ -110,10 +110,12 @@ class StartProgressReviewTest {
         final PoreloContext context =
                 context(
                                 command -> {
-                                    if (command.arguments().contains(verb) && !timeout) {
-                                        return new ProcessCommandRunner().run(command);
+                                    // Only the verb under test meets the short deadline: a
+                                    // slow runner must not time out the steps before it.
+                                    if (command.arguments().contains(verb) && timeout) {
+                                        return process.run(command);
                                     }
-                                    return process.run(command);
+                                    return new ProcessCommandRunner().run(command);
                                 })
                         .asking(shown -> "test passphrase".toCharArray());
         final Map<String, String> secrets =
