@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B732",
   "title": "A Task's Socket Lists Only Its Own Project",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 9,
