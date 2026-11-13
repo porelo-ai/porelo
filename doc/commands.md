@@ -216,8 +216,10 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 - Same upstream means same host, port and path, by ssh or https alike; a path on this machine is never a remote address.
   A reapproval keeps what you put beside the copy, such as `projects/NAME/<repository>/.porelo.yml`.
 - `-r REPOSITORY`: which of the project's repositories to work on (see [names](#completion)).
-- Without a name, a checkout that already has a task asks at a terminal whether to attach to it (A) or start a new
-  task (N); without a terminal it goes into that task and says so, and refuses with several, naming them. A new task
+- Without a name, a checkout that already has a task asks at a terminal: "<task> is running. Attach to it instead?"
+  or "<task> is stopped. Start it again?", Enter or y going into it and n starting a new task; several are named,
+  running first, and chosen by number. With nobody to ask (no terminal, `--no-input`, `--yes`, `--dry-run`) nothing
+  starts: each task is named with `porelo task attach <task>` or `porelo task start <task>`, exit 75. A new task
   is named after its repository, or the next free name (`my-first-2`); a repository
   named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`). A name too
   long for the container name's 64 characters is cut back to its last whole word that fits.

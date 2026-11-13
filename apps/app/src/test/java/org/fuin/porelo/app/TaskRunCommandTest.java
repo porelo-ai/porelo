@@ -1835,27 +1835,30 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void aSecondStartWithNoNameAndNoTerminalTakesTheTaskThereInsteadOfMakingAnother(
-            @TempDir Path dir) throws IOException {
+    void aSecondStartWithNoNameAndNoTerminalStartsNothingAndNamesTheWayIn(@TempDir Path dir)
+            throws IOException {
 
         // Each start with no name in a checkout with its own project file and no origin made one
-        // more task, 'shop-2', 'shop-3', unasked.
+        // more task, 'shop-2', 'shop-3', unasked; with nobody to ask, nothing starts at all.
         firstStartOrigin = null;
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
         out.getBuffer().setLength(0);
         runner.answering("ps", SHOP_TASK);
 
-        firstStartAt(context(dir, true), checkout, false, "y", "--attach", "shell", "--detach");
+        final int code =
+                firstStartAt(
+                        context(dir, true), checkout, false, "y", "--attach", "shell", "--detach");
 
-        assertThat(out.toString())
-                .as("the one task of this checkout, named")
-                .contains("task           shop - ")
-                .doesNotContain("shop-2");
+        assertThat(code).as("try again, by name").isEqualTo(75);
+        assertThat(err.toString())
+                .as("the stopped task and how to start it again")
+                .contains("nothing started", "  porelo task start shop\n");
+        assertThat(out.toString()).as("no task named, none made").doesNotContain("task     ");
     }
 
     @Test
-    void aSecondStartWithNoNameAtATerminalAsksAndAnNMakesANewTask(@TempDir Path dir)
+    void aSecondStartWithNoNameAtATerminalAsksAndNMakesANewTask(@TempDir Path dir)
             throws IOException {
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
@@ -1869,28 +1872,153 @@ class TaskRunCommandTest {
                 .as("asked whether to go into the task there")
                 .singleElement()
                 .asString()
-                .contains("shop is stopped", "(A)", "(N)")
+                .isEqualTo("shop is stopped. Start it again? [Y/n]")
                 .as("the task's own name, not its container's")
                 .doesNotContain("porelo-");
-        assertThat(out.toString()).as("N makes a new one").contains("task           shop-2");
+        assertThat(out.toString()).as("n makes a new one").contains("task           shop-2");
     }
 
     @Test
-    void aSecondStartWithNoNameAtATerminalAndAnATakesTheTaskThere(@TempDir Path dir)
+    void aSecondStartWithNoNameAtATerminalAndAYesStartsTheTaskThereAgain(@TempDir Path dir)
             throws IOException {
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
         out.getBuffer().setLength(0);
         runner.answering("ps", SHOP_TASK);
 
-        taskAnswer = "a";
+        taskAnswer = "y";
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
 
         assertThat(taskAsked).as("asked once").hasSize(1);
         assertThat(out.toString())
-                .as("A takes the task there")
-                .contains("task           shop")
+                .as("y takes the stopped task there")
+                .contains("task           shop - the one started from this checkout")
                 .doesNotContain("shop-2");
+    }
+
+    @Test
+    void aSecondStartTakesTheTaskOfACheckoutWhoseRepositoryHasANumberedName(@TempDir Path dir)
+            throws IOException {
+
+        // A second checkout of a repository 'default' already holds is named 'shop-2'; on
+        // snapshot.512 a start with no name there missed its task and made 'shop-2-2'.
+        final Path earlier = Files.createDirectories(dir.resolve("earlier/shop")).toRealPath();
+        try {
+            new DefaultProject(context(dir, true))
+                    .add(earlier.toString(), null, earlier.toString(), firstStartOrigin);
+        } catch (DefaultProject.Refused ex) {
+            throw new AssertionError(ex);
+        }
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+        assertThat(out.toString()).as("the first start's task").contains("task           shop-2");
+        out.getBuffer().setLength(0);
+        // A container a current start makes is named 'porelo-default_shop-2', not
+        // 'porelo-default-shop-2'.
+        TaskIdentityFixture.record(
+                context(dir, true).paths(),
+                "porelo-default_shop-2",
+                "default",
+                "shop-2",
+                "0123456789abcdef");
+        runner.answering("ps", encodedShopTask("shop-2", "Up 5 minutes"));
+
+        taskAnswer = "";
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+
+        assertThat(taskAsked)
+                .as("asked about the task there, by its own name")
+                .containsExactly("shop-2 is running. Attach to it instead? [Y/n]");
+        assertThat(out.toString())
+                .as("Enter takes the checkout's own task, not another")
+                .contains("task           shop-2 - the one started from this checkout")
+                .doesNotContain("shop-2-2");
+    }
+
+    @Test
+    void enterStartsTheCheckoutsStoppedTaskAgainAndAYesAloneAnswersNothing(@TempDir Path dir)
+            throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+        TaskIdentityFixture.record(
+                context(dir, true).paths(),
+                "porelo-default_shop",
+                "default",
+                "shop",
+                "0123456789abcdef");
+        runner.answering("ps", encodedShopTask("shop", "Exited (0)"));
+        out.getBuffer().setLength(0);
+
+        final int refused =
+                firstStartAt(
+                        context(dir, true),
+                        checkout,
+                        true,
+                        "y",
+                        "--yes",
+                        "--attach",
+                        "shell",
+                        "--detach");
+
+        assertThat(taskAsked).as("--yes does not answer which task").isEmpty();
+        assertThat(refused).isEqualTo(75);
+        assertThat(err.toString()).contains("  porelo task start shop\n");
+
+        out.getBuffer().setLength(0);
+        taskAnswer = "";
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+
+        assertThat(taskAsked).containsExactly("shop is stopped. Start it again? [Y/n]");
+        assertThat(out.toString())
+                .as("Enter starts that task again, and no second one is made")
+                .contains("task           shop - the one started from this checkout")
+                .doesNotContain("shop-2");
+    }
+
+    @Test
+    void noAnswerStartsNothingAndAnAnswerThatChoosesNothingIsRefused(@TempDir Path dir)
+            throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+        TaskIdentityFixture.record(
+                context(dir, true).paths(),
+                "porelo-default_shop",
+                "default",
+                "shop",
+                "0123456789abcdef");
+        runner.answering("ps", encodedShopTask("shop", "Up 5 minutes"));
+        out.getBuffer().setLength(0);
+
+        taskAnswer = null;
+        final int unanswered =
+                firstStartAt(
+                        context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+
+        assertThat(unanswered).as("the end of the input: nobody to ask").isEqualTo(75);
+        assertThat(err.toString()).contains("  porelo task attach shop\n");
+
+        err.getBuffer().setLength(0);
+        taskAnswer = "2";
+        final int refused =
+                firstStartAt(
+                        context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+
+        assertThat(refused).isEqualTo(64);
+        assertThat(err.toString()).contains("nothing started: answer y or n");
+        assertThat(out.toString()).as("no task named, none made").doesNotContain("task     ");
+    }
+
+    /** A row of 'podman ps' for a task of 'default' a current start made, named as it names it. */
+    private static String encodedShopTask(final String task, final String status) {
+        return "porelo-default_"
+                + task
+                + "\t"
+                + status
+                + "\t1700000000\t1700000100\tdefault\tguarded\t"
+                + task
+                + "\t\t0123456789abcdef\t"
+                + task
+                + "\n";
     }
 
     @Test
@@ -1913,7 +2041,8 @@ class TaskRunCommandTest {
                         .replace("porelo-default-shop", "porelo-shop-project-shop")
                         .replace("\tdefault\t", "\tshop-project\t"));
 
-        firstStartAt(context(dir, true), checkout, false, "y", "--attach", "shell", "--detach");
+        taskAnswer = "";
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
 
         assertThat(out.toString()).contains("task           shop - ").doesNotContain("shop-2");
     }
@@ -1995,14 +2124,19 @@ class TaskRunCommandTest {
                         "--detach");
 
         assertThat(taskAsked).as("--no-input asks nothing, even at a terminal").isEmpty();
-        assertThat(refused).isNotZero();
-        assertThat(err.toString()).contains("porelo-default-shop-2", "name one");
+        assertThat(refused).as("try again, by name").isEqualTo(75);
+        assertThat(err.toString())
+                .contains("  porelo task start shop\n", "  porelo task start shop-2\n");
 
-        taskAnswer = "porelo-default-shop-2";
+        taskAnswer = "2";
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
 
-        assertThat(taskAsked).as("asked, at a terminal, which of them").isNotEmpty();
-        assertThat(out.toString()).contains("task           shop-2");
+        assertThat(taskAsked)
+                .as("asked, at a terminal, which of them, by number")
+                .containsExactly(
+                        "This checkout has 1) shop (stopped), 2) shop-2 (stopped). Which one,"
+                                + " by number, or n for a new task? [1/n]");
+        assertThat(out.toString()).contains("task           shop-2 - the one started");
     }
 
     /** The task a first start in 'shop' made, as podman lists it. */

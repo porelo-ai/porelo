@@ -119,6 +119,16 @@ public final class TaskTarget {
     private record Checkout(String project, @Nullable String repository) {}
 
     /**
+     * A task started from a checkout: its own name, its container's and whether it runs.
+     *
+     * @param project The task's project.
+     * @param task The task's name, as a person gives it to {@code porelo task start}.
+     * @param container Its container's name, which is spelled differently.
+     * @param running Whether it runs now.
+     */
+    public record CheckoutTask(String project, String task, String container, boolean running) {}
+
+    /**
      * Returns the tasks started from the checkout a directory is in.
      *
      * @param context The machine.
@@ -128,22 +138,56 @@ public final class TaskTarget {
      */
     public static @Nullable List<String> fromCheckout(
             final PoreloContext context, final Path directory) {
+        final List<CheckoutTask> started = startedFrom(context, directory);
+        return started == null ? null : started.stream().map(CheckoutTask::container).toList();
+    }
+
+    /**
+     * Returns the tasks started from the checkout a directory is in, each by the name its own
+     * identity records, since a container's name is not the task's name with a prefix.
+     *
+     * @param context The machine.
+     * @param directory Where the person stands.
+     * @return The tasks, the running ones first, possibly none; {@code null} when the directory is
+     *     in no checkout a repository is known by.
+     */
+    public static @Nullable List<CheckoutTask> tasksOfCheckout(
+            final PoreloContext context, final Path directory) {
+        final List<CheckoutTask> started = startedFrom(context, directory);
+        if (started == null) {
+            return null;
+        }
+        final List<CheckoutTask> runningFirst = new java.util.ArrayList<>(started);
+        runningFirst.sort(java.util.Comparator.comparing(each -> !each.running()));
+        return List.copyOf(runningFirst);
+    }
+
+    private static @Nullable List<CheckoutTask> startedFrom(
+            final PoreloContext context, final Path directory) {
         final Checkout found = checkout(context, directory);
         if (found == null) {
             return null;
         }
         final String inProject = found.project();
         final String ofRepository = found.repository();
+        if (ofRepository == null) {
+            return List.of();
+        }
         final TaskIdentities identities = new TaskIdentities(context);
-        return context.podman().poreloTasks().stream()
-                .filter(
-                        task ->
-                                identities.read(task) instanceof TaskIdentities.Found verified
-                                        && inProject.equals(verified.identity().project())
-                                        && ofRepository != null
-                                        && ofRepository.equals(task.repository()))
-                .map(ContainerSummary::name)
-                .toList();
+        final List<CheckoutTask> started = new java.util.ArrayList<>();
+        for (final ContainerSummary task : context.podman().poreloTasks()) {
+            if (identities.read(task) instanceof TaskIdentities.Found verified
+                    && inProject.equals(verified.identity().project())
+                    && ofRepository.equals(task.repository())) {
+                started.add(
+                        new CheckoutTask(
+                                inProject,
+                                verified.identity().task(),
+                                task.name(),
+                                task.running()));
+            }
+        }
+        return started;
     }
 
     private static @Nullable Checkout checkout(final PoreloContext context, final Path directory) {

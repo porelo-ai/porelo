@@ -588,33 +588,81 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     }
 
     /**
-     * Asks a person at a terminal whether to go into the task this checkout already has or start a
-     * new one; a start nobody can ask goes into it, so it never makes a second task unasked.
+     * Asks a person at a terminal whether to go into a task this checkout already has: a running
+     * one is attached to, a stopped one started again.
      *
-     * @param started The checkout's tasks, by container name.
-     * @return {@code true} when the person chose a new task.
+     * @param started The checkout's tasks, the running ones first.
+     * @return The task chosen; empty when the person chose a new task.
+     * @throws IllegalArgumentException When the answer chooses nothing.
+     * @throws IllegalStateException When there is no answer.
      */
-    private boolean newTaskChosen(final java.util.List<String> started, final String prefix) {
-        if (!askable()) {
-            return false;
+    private java.util.Optional<TaskTarget.CheckoutTask> checkoutTaskChosen(
+            final java.util.List<TaskTarget.CheckoutTask> started) {
+        final String question;
+        if (started.size() == 1) {
+            final TaskTarget.CheckoutTask only = started.getFirst();
+            question =
+                    only.running()
+                            ? only.task() + " is running. Attach to it instead? [Y/n]"
+                            : only.task() + " is stopped. Start it again? [Y/n]";
+        } else {
+            final StringBuilder listed = new StringBuilder("This checkout has");
+            for (int i = 0; i < started.size(); i++) {
+                final TaskTarget.CheckoutTask each = started.get(i);
+                listed.append(i == 0 ? " " : ", ")
+                        .append(i + 1)
+                        .append(") ")
+                        .append(each.task())
+                        .append(each.running() ? " (running)" : " (stopped)");
+            }
+            question = listed + ". Which one, by number, or n for a new task? [1/n]";
         }
-        final java.util.Map<String, Boolean> running = new java.util.HashMap<>();
-        context.podman()
-                .poreloTasks()
-                .forEach(summary -> running.put(summary.name(), summary.running()));
-        final java.util.List<String> names =
-                started.stream().map(name -> name.substring(prefix.length())).toList();
-        final String which =
+        final String answer = taskAsker.ask(question);
+        if (answer == null) {
+            throw new IllegalStateException("no answer");
+        }
+        final String said = answer.strip().toLowerCase(java.util.Locale.ROOT);
+        if (said.equals("n") || said.equals("no")) {
+            return java.util.Optional.empty();
+        }
+        if (said.isEmpty() || (started.size() == 1 && (said.equals("y") || said.equals("yes")))) {
+            return java.util.Optional.of(started.getFirst());
+        }
+        if (started.size() > 1 && said.matches("[1-9][0-9]{0,2}")) {
+            final int number = Integer.parseInt(said);
+            if (number <= started.size()) {
+                return java.util.Optional.of(started.get(number - 1));
+            }
+        }
+        throw new IllegalArgumentException(
                 started.size() == 1
-                        ? names.getFirst()
-                                + " is "
-                                + (Boolean.TRUE.equals(running.get(started.getFirst()))
-                                        ? "running"
-                                        : "stopped")
-                                + " - attach to it"
-                        : "This checkout has " + String.join(", ", names) + " - attach to one";
-        final String answer = taskAsker.ask(which + " (A) or start a new task (N)? [A/n]");
-        return answer != null && answer.strip().equalsIgnoreCase("n");
+                        ? "answer y or n"
+                        : "answer a number from 1 to " + started.size() + ", or n");
+    }
+
+    /**
+     * Starts nothing for a checkout that has tasks when nobody answers which, and names each way
+     * in.
+     *
+     * @param started The checkout's tasks, the running ones first.
+     * @return 75: try again, by name.
+     */
+    private int nothingStarted(final java.util.List<TaskTarget.CheckoutTask> started) {
+        final PrintWriter err = spec.commandLine().getErr();
+        err.println(
+                "porelo: nothing started: this checkout has "
+                        + (started.size() == 1 ? "a task" : "tasks")
+                        + " already; go into "
+                        + (started.size() == 1 ? "it" : "one")
+                        + " by name, or give a new name to start another:");
+        started.forEach(
+                each ->
+                        err.println(
+                                "  porelo task "
+                                        + (each.running() ? "attach " : "start ")
+                                        + each.task()));
+        err.flush();
+        return 75;
     }
 
     /** Whether a person may be asked: at a terminal, by a start not told to ask nothing. */
@@ -815,43 +863,48 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     && repository != null
                     && !repository.isBlank()) {
                 // The task started from this checkout, when there is one, as every other task
-                // command takes it; a new one only when there is none.
-                final String prefix = "porelo-" + projectName + "-";
-                final java.util.List<String> all = TaskTarget.fromCheckout(context, standing);
-                // Only this project's: a task of another one is never taken, nor cut by its prefix.
-                final java.util.List<String> started =
+                // command takes it; a new one only when the person says so. Only this project's: a
+                // task of another one is never taken. A task's own name, never its container's,
+                // which is spelled differently.
+                final String inProject = projectName;
+                final java.util.List<TaskTarget.CheckoutTask> all =
+                        TaskTarget.tasksOfCheckout(context, standing);
+                final java.util.List<TaskTarget.CheckoutTask> started =
                         all == null
-                                ? null
-                                : all.stream().filter(name -> name.startsWith(prefix)).toList();
-                final boolean wantsNew =
-                        started != null && !started.isEmpty() && newTaskChosen(started, prefix);
-                if (wantsNew) {
-                    task = TaskNames.fromRepository(context, projectName, repository);
-                    spec.commandLine()
-                            .getOut()
-                            .println("task           " + task + " - a new one, as chosen");
-                } else if (started != null && started.size() > 1) {
-                    final TaskTarget.Found found =
-                            TaskTarget.resolve(
-                                    context, null, standing, askable() ? taskAsker::ask : null);
-                    if (found.container() == null || !started.contains(found.container())) {
-                        err.println(
-                                "porelo: "
-                                        + found.refusal()
-                                        + ", or give a new name to start another");
-                        err.flush();
-                        return found.code();
+                                ? java.util.List.of()
+                                : all.stream()
+                                        .filter(each -> each.project().equals(inProject))
+                                        .toList();
+                if (!started.isEmpty()) {
+                    if (!askable()) {
+                        return nothingStarted(started);
                     }
-                    task = found.container().substring(prefix.length());
-                    spec.commandLine().getOut().println("task           " + task);
-                } else if (started != null && started.size() == 1) {
-                    task = started.getFirst().substring(prefix.length());
-                    spec.commandLine()
-                            .getOut()
-                            .println(
-                                    "task           "
-                                            + task
-                                            + " - the one started from this checkout; give a name to start another");
+                    final java.util.Optional<TaskTarget.CheckoutTask> taken;
+                    try {
+                        taken = checkoutTaskChosen(started);
+                    } catch (final IllegalStateException ex) {
+                        // No answer at all, as at the end of the input: nobody to ask after all.
+                        return nothingStarted(started);
+                    } catch (final IllegalArgumentException ex) {
+                        err.println("porelo: nothing started: " + ex.getMessage());
+                        err.flush();
+                        return 64;
+                    }
+                    if (taken.isPresent()) {
+                        task = taken.get().task();
+                        spec.commandLine()
+                                .getOut()
+                                .println(
+                                        "task           "
+                                                + task
+                                                + " - the one started from this checkout, as"
+                                                + " chosen");
+                    } else {
+                        task = TaskNames.fromRepository(context, projectName, repository);
+                        spec.commandLine()
+                                .getOut()
+                                .println("task           " + task + " - a new one, as chosen");
+                    }
                 } else {
                     task = TaskNames.fromRepository(context, projectName, repository);
                     spec.commandLine()
