@@ -29,7 +29,7 @@ a build that is never reported.
 
 - The gate, at each passed-on push of a project that follows builds, checks the watch through its pid file and
   `HelperPid`, as the start checks its helpers. A watch that is not running gets the verdict `none` with the reason
-  `UNWATCHED`, as B712 gives.
+  `UNWATCHED`, as [B712](README.md#b712) gives.
 - First red, in `apps/app`: a gate whose watch's pid names no running process answers `none` and `UNWATCHED` at a
   push; with a running watch it still answers as before.
 
