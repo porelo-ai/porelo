@@ -198,7 +198,7 @@ class VaultPutCommandTest {
         // Stored under 'claude', a key is still found by a task running claude - but only as a
         // fallback, and the old warning said nothing would find it, which was not true either.
         final String said =
-                VaultPutCommand.unknownName(
+                VaultEntryUse.unknownName(
                         "claude",
                         java.util.Set.of("openrouter", "anthropic"),
                         java.util.Set.of("claude"));
@@ -214,7 +214,7 @@ class VaultPutCommandTest {
     void namesTheDeclaredProvidersWhenTheNameIsNobodys() {
 
         final String said =
-                VaultPutCommand.unknownName(
+                VaultEntryUse.unknownName(
                         "antropic", java.util.Set.of("anthropic"), java.util.Set.of("claude"));
 
         assertThat(said)
@@ -337,8 +337,8 @@ class VaultPutCommandTest {
 
         // Right after 'credentials declare ssh://forge.example.org --kind ssh-key --vault
         // forge-work', storing the key warned that nothing would find it (found on 2026-10-13).
-        final VaultPutCommand.Use use =
-                VaultPutCommand.useOf(
+        final VaultEntryUse.Use use =
+                VaultEntryUse.useOf(
                         "forge-work",
                         "ssh-key",
                         java.util.List.of(
@@ -359,7 +359,7 @@ class VaultPutCommandTest {
     void anEntryNoDeclarationReadsIsUsedNowhere() {
 
         assertThat(
-                        VaultPutCommand.useOf(
+                        VaultEntryUse.useOf(
                                         "forge-work",
                                         "ssh-key",
                                         java.util.List.of(
@@ -389,15 +389,14 @@ class VaultPutCommandTest {
                                 org.fuin.porelo.core.credential.Credential.Kind.TOKEN,
                                 "forge-work"));
 
-        assertThat(VaultPutCommand.useOf("forge-work", "token", forKey).misfit())
+        assertThat(VaultEntryUse.useOf("forge-work", "token", forKey).misfit())
                 .contains("declared to take an ssh key")
                 .contains("a token");
-        assertThat(VaultPutCommand.useOf("forge-work", null, forKey).misfit())
-                .contains("no ssh key");
-        assertThat(VaultPutCommand.useOf("forge-work", "ssh-key", forToken).misfit())
+        assertThat(VaultEntryUse.useOf("forge-work", null, forKey).misfit()).contains("no ssh key");
+        assertThat(VaultEntryUse.useOf("forge-work", "ssh-key", forToken).misfit())
                 .contains("declared to take a token")
                 .contains("an ssh key");
-        assertThat(VaultPutCommand.useOf("forge-work", null, forToken).misfit()).isNull();
+        assertThat(VaultEntryUse.useOf("forge-work", null, forToken).misfit()).isNull();
     }
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
@@ -584,17 +583,15 @@ class VaultPutCommandTest {
                         "github-actions", java.util.List.of("sluice-dry's build reader"));
 
         assertThat(
-                        VaultPutCommand.useOf("search-key", "ssh-key", java.util.List.of(), asked)
+                        VaultEntryUse.useOf("search-key", "ssh-key", java.util.List.of(), asked)
                                 .misfit())
                 .contains("shop's brave-search")
                 .contains("an ssh key");
         assertThat(
-                        VaultPutCommand.useOf("github-actions", "token", java.util.List.of(), asked)
+                        VaultEntryUse.useOf("github-actions", "token", java.util.List.of(), asked)
                                 .misfit())
                 .isNull();
-        assertThat(
-                        VaultPutCommand.useOf("github-actions", null, java.util.List.of(), asked)
-                                .misfit())
+        assertThat(VaultEntryUse.useOf("github-actions", null, java.util.List.of(), asked).misfit())
                 .as("a token is not recognised, so no kind stated is no sign of a misfit")
                 .isNull();
     }
@@ -628,7 +625,7 @@ class VaultPutCommandTest {
                       credential: own-reader
                     """);
 
-            assertThat(VaultPutCommand.askedByProjects(context))
+            assertThat(VaultEntryUse.askedByProjects(context))
                     .containsEntry("own-reader", java.util.List.of("sluice-dry's build reader"))
                     .doesNotContainKey("host-reader");
         } finally {
@@ -644,7 +641,7 @@ class VaultPutCommandTest {
         // it would be written anew on every 'vault put' for nothing.
         final PoreloContext context = machine(dir);
         try {
-            assertThat(VaultPutCommand.askedByProjects(context)).isEmpty();
+            assertThat(VaultEntryUse.askedByProjects(context)).isEmpty();
             assertThat(
                             context.paths()
                                     .xdg()

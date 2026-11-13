@@ -168,6 +168,7 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
                             + ", "
                             + result.length()
                             + " characters). Nothing more to do here.");
+            VaultEntryUse.report(context, result.name(), result.type(), out, err);
             out.flush();
             return 0;
         }
@@ -252,6 +253,7 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
                                     ? "renewable" + (tokenUrl == null ? "" : " against " + tokenUrl)
                                     : result.detail())
                             + ". No sign-in ran here.");
+            VaultEntryUse.report(context, result.name(), result.type(), out, err);
             out.flush();
             return 0;
         }

@@ -1,0 +1,2 @@
+title: "Every command that stores a vault entry says what uses it, and warns when nothing can"
+type: changed

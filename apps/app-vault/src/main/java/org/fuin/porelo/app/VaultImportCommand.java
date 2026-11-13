@@ -133,6 +133,7 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
                         + result.length()
                         + " characters) from "
                         + result.source());
+        VaultEntryUse.report(context, result.name(), result.type(), out, err);
         out.flush();
         if (!result.detail().isEmpty()) {
             err.println("porelo: " + result.detail());

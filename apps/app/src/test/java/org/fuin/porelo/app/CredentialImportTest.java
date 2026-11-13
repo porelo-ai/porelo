@@ -261,6 +261,58 @@ class CredentialImportTest {
     }
 
     @Test
+    void importingNamesTheProjectThatUsesTheStoredEntry() throws IOException {
+        assertStoredUseIsReported(false);
+    }
+
+    @Test
+    void keepingASignInFromADirectoryNamesTheProjectThatUsesIt() throws IOException {
+        assertStoredUseIsReported(true);
+    }
+
+    private void assertStoredUseIsReported(final boolean login) throws IOException {
+        installed("holds-alpha");
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                "project:\n  name: shop\n  security_class: guarded\n"
+                        + "image:\n  from: ubuntu:24.04\ncredentials:\n  alpha: search\n");
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("shop", file);
+        final PoreloContext machine = context.asking(prompt -> PASSPHRASE.clone());
+        final java.io.StringWriter out = new java.io.StringWriter();
+        final java.io.StringWriter err = new java.io.StringWriter();
+        final picocli.CommandLine line = PoreloCli.commandLine(machine);
+        line.setOut(new java.io.PrintWriter(out));
+        line.setErr(new java.io.PrintWriter(err));
+        try {
+            machine.requireOpener();
+            final int code =
+                    login
+                            ? line.execute(
+                                    "vault",
+                                    "login",
+                                    "holder",
+                                    "--credentials-from",
+                                    dir.toString())
+                            : line.execute(
+                                    "vault", "import", "holder", "--config-dir", dir.toString());
+
+            assertThat(code).as("the command stores the agent's credential: %s", err).isZero();
+            assertThat(vault().get("alpha").value())
+                    .as("the reported use belongs to the entry actually stored")
+                    .isEqualTo(ALPHA_VALUE);
+            assertThat(out.toString())
+                    .as("a needed credential must not be mistaken for an unused entry and removed")
+                    .contains("used for  shop's search");
+            assertThat(out.toString() + err)
+                    .as("reporting a use never reports the credential")
+                    .doesNotContain(ALPHA_VALUE, BETA_VALUE);
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
     void theProviderNamedIsStoredUnderItsNameAndTheOtherIsLeftAlone() throws IOException {
 
         installed("holds-both");

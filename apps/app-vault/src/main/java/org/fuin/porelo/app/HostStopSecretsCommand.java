@@ -334,6 +334,9 @@ public class HostStopSecretsCommand implements Callable<Integer>, PoreloFactory.
                     err.flush();
                     return 65;
                 }
+                prepared.forEach(
+                        (name, entry) ->
+                                VaultEntryUse.report(context, name, entry.type(), out, err));
             }
 
             out.println("Your stop is done.");

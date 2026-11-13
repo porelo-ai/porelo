@@ -122,6 +122,9 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
                                     + name
                                     + ", kept in this account's vault for its later tasks"
                                     + (kept.detail().isEmpty() ? "" : "; " + kept.detail()));
+                    final VaultEntry entry = context.credentials().get(name);
+                    VaultEntryUse.report(
+                            context, name, entry == null ? null : entry.type(), out, err);
                     out.flush();
                     return 0;
                 }

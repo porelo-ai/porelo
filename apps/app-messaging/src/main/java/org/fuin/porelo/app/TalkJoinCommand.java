@@ -170,6 +170,7 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
                         ? " in " + id
                         : "";
         out.println("joined    " + person + room + ", login kept in the vault as '" + entry + "'");
+        VaultEntryUse.report(context, entry, "token", out, err);
         out.flush();
         return 0;
     }

@@ -14,6 +14,70 @@ import picocli.CommandLine;
 /** Tests that an unreachable sign-in is refused without starting a different credential path. */
 class VaultLoginCommandTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void aSuccessfulLoginReportsTheUseOfTheEntryItStored(
+            final boolean alreadySignedIn, @TempDir final Path dir) throws Exception {
+        final char[] passphrase = "a passphrase for this test".toCharArray();
+        final String value = "a-token-for-the-unit-test-run";
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(prompt -> passphrase.clone());
+        context.vault().write(java.util.Map.of(), passphrase);
+        final Path file = dir.resolve("project.yml");
+        java.nio.file.Files.writeString(
+                file,
+                "project:\n  name: shop\n  security_class: guarded\n"
+                        + "image:\n  from: ubuntu:24.04\ncredentials:\n  alpha: search\n");
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("shop", file);
+        final VaultLoginCommand command = new VaultLoginCommand();
+        command.setContext(context);
+        command.asker = question -> "again";
+        command.login =
+                (machine, agent, dryRun, force, printer) -> {
+                    if (alreadySignedIn && !force) {
+                        return new AgentLogin.Result(
+                                AgentLogin.Outcome.ALREADY_SIGNED_IN, "", "", 0, "");
+                    }
+                    machine.vault()
+                            .update(
+                                    machine.requireOpener(),
+                                    entries -> {
+                                        entries.put(
+                                                "alpha",
+                                                new org.fuin.porelo.vault.VaultEntry(
+                                                        value, "token"));
+                                        return entries;
+                                    });
+                    return new AgentLogin.Result(
+                            AgentLogin.Outcome.STORED, "alpha", "token", value.length(), "");
+                };
+        final StringWriter out = new StringWriter();
+        final StringWriter err = new StringWriter();
+        final CommandLine line = new CommandLine(command);
+        line.setOut(new PrintWriter(out));
+        line.setErr(new PrintWriter(err));
+        try {
+            assertThat(line.execute("example"))
+                    .as("the sign-in stores its provider's credential: %s", err)
+                    .isZero();
+            assertThat(context.vault().read(passphrase).get("alpha").value())
+                    .as("the use is reported for the entry actually stored")
+                    .isEqualTo(value);
+            assertThat(out.toString())
+                    .as("a needed credential must not be mistaken for an unused entry and removed")
+                    .contains("used for  shop's search");
+            assertThat(out.toString() + err)
+                    .as("reporting a use never reports the credential")
+                    .doesNotContain(value);
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
     @Test
     void rendersTheSshRefusalWithoutOfferingToStoreAKey(@TempDir Path dir) {
         final VaultLoginCommand command = new VaultLoginCommand();

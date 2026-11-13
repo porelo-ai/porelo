@@ -21,6 +21,125 @@ class VaultAuthorizeCommandTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"refresh", "lasting", "refused"})
+    void authorizationReportsTheUseOnlyAfterKeepingAGrant(
+            final String answer, @TempDir final Path dir) throws Exception {
+        final com.sun.net.httpserver.HttpServer service =
+                com.sun.net.httpserver.HttpServer.create(
+                        new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        service.createContext(
+                "/device",
+                exchange ->
+                        reply(
+                                exchange,
+                                "{\"device_code\":\"device-for-this-test\",\"user_code\":\"TEST\","
+                                        + "\"verification_uri\":\"https://service.example.org/verify\","
+                                        + "\"expires_in\":60,\"interval\":1}"));
+        service.createContext(
+                "/token",
+                exchange ->
+                        reply(
+                                exchange,
+                                switch (answer) {
+                                    case "refresh" ->
+                                            "{\"access_token\":\"test-access-value\","
+                                                    + "\"refresh_token\":\"test-refresh-value\",\"expires_in\":3600}";
+                                    case "lasting" -> "{\"access_token\":\"test-access-value\"}";
+                                    default -> "{\"error\":\"access_denied\"}";
+                                }));
+        service.start();
+        try {
+            final String endpoint = "http://127.0.0.1:" + service.getAddress().getPort();
+            final PoreloContext context =
+                    new PoreloContext(
+                                    new FakeCommandRunner(),
+                                    new PoreloPaths(
+                                            XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                                    arguments -> 0)
+                            .asking(prompt -> PASSPHRASE.clone());
+            context.vault()
+                    .write(
+                            Map.of(
+                                    "service",
+                                    new org.fuin.porelo.vault.VaultEntry(
+                                            "-",
+                                            DeviceGrant.KIND,
+                                            Map.of(
+                                                    "client_id", "test-client",
+                                                    "device_authorization_url",
+                                                            endpoint + "/device",
+                                                    "token_url", endpoint + "/token"))),
+                            PASSPHRASE);
+            final Path file = dir.resolve("project.yml");
+            java.nio.file.Files.writeString(
+                    file,
+                    "project:\n  name: shop\n  security_class: guarded\n"
+                            + "image:\n  from: ubuntu:24.04\ncredentials:\n  service: search\n");
+            new ProjectRegistry(context.paths().projects().projectRegistry())
+                    .remember("shop", file);
+            final java.io.StringWriter out = new java.io.StringWriter();
+            final java.io.StringWriter err = new java.io.StringWriter();
+            final picocli.CommandLine line = PoreloCli.commandLine(context);
+            line.setOut(new java.io.PrintWriter(out));
+            line.setErr(new java.io.PrintWriter(err));
+
+            context.requireOpener();
+            assertThat(context.credentials().get("service"))
+                    .as("the authorization starts with its OAuth configuration readable")
+                    .isNotNull()
+                    .extracting(org.fuin.porelo.vault.VaultEntry::type)
+                    .isEqualTo(DeviceGrant.KIND);
+
+            final int code = line.execute("vault", "authorize", "service");
+
+            final Map<String, org.fuin.porelo.vault.VaultEntry> entries =
+                    context.vault().read(PASSPHRASE);
+            if (answer.equals("refused")) {
+                assertThat(code).as("a refusal stores no grant").isEqualTo(1);
+                assertThat(entries)
+                        .as("no grant is kept after refusal")
+                        .doesNotContainKey("grant/service");
+                assertThat(out.toString())
+                        .as("a refused write must not claim a stored entry's use")
+                        .doesNotContain("used for");
+            } else {
+                assertThat(code).as("the grant is kept: %s", err).isZero();
+                assertThat(entries.get("grant/service").value())
+                        .as("the reported use follows the successful grant write")
+                        .isEqualTo(
+                                answer.equals("refresh")
+                                        ? "test-refresh-value"
+                                        : "test-access-value");
+                assertThat(out.toString())
+                        .as(
+                                "the logical entry's use is reported, rather than its hidden"
+                                        + " grant's name")
+                        .contains("used for  shop's search");
+            }
+            assertThat(out.toString() + err)
+                    .as("reporting a use never reports a token")
+                    .doesNotContain(
+                            "test-access-value", "test-refresh-value", "device-for-this-test");
+        } finally {
+            service.stop(0);
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    private static void reply(final com.sun.net.httpserver.HttpExchange exchange, final String json)
+            throws java.io.IOException {
+        final byte[] bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        exchange.getRequestBody().readAllBytes();
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (final java.io.OutputStream body = exchange.getResponseBody()) {
+            body.write(bytes);
+        } finally {
+            exchange.close();
+        }
+    }
+
     @Test
     void aTokenThatNeverExpiresIsKeptAsItIsAndOneThatExpiresWithNothingToRenewItIsRefused(
             @TempDir Path dir) {

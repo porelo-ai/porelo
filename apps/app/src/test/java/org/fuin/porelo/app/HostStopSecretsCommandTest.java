@@ -118,6 +118,83 @@ class HostStopSecretsCommandTest {
     }
 
     @Test
+    void aStoredBuildCredentialNamesTheProjectThatUsesIt() throws Exception {
+        final String input =
+                "vault-new "
+                        + b64(VAULT_PASSPHRASE)
+                        + "\nkey build-reader "
+                        + b64(KEY_SECRET)
+                        + "\n";
+        final CommandLine line = cli(input, false, false, List.of(), List.of());
+        OrganizationProjects.of(context)
+                .write(
+                        new OrganizationProjects.Placed(
+                                "shop",
+                                "0123456789abcdef0123456789abcdef01234567",
+                                "https://forge.example.org/acme/shop.git",
+                                null,
+                                List.of(),
+                                null,
+                                null,
+                                null,
+                                List.of(),
+                                new org.fuin.porelo.core.project.Builds(
+                                        "github",
+                                        "build-reader",
+                                        "",
+                                        org.fuin.porelo.core.project.Builds.FAILURE)));
+
+        assertThat(line.execute("host", "stop-secrets", "--stdin", "vault-new", "keys"))
+                .as("the stop stores the build reader's credential")
+                .isZero();
+
+        assertThat(out.toString())
+                .as("a needed credential must not be mistaken for an unused entry and removed")
+                .contains("used for  shop's build reader");
+        assertThat(err.toString()).as("a project's credential name is valid").isEmpty();
+        assertThat(out.toString() + err)
+                .as("reporting a use never reports the credential")
+                .doesNotContain(KEY_SECRET, b64(KEY_SECRET));
+    }
+
+    @Test
+    void everyStoredEntryGetsTheSharedNameCheck() throws Exception {
+        final String input =
+                "vault-new "
+                        + b64(VAULT_PASSPHRASE)
+                        + "\nkey holder "
+                        + b64(KEY_SECRET)
+                        + "\nkey later "
+                        + b64(KEY_SECRET)
+                        + "\n";
+        final CommandLine line = cli(input, false, false, List.of(), List.of());
+        final Path agents =
+                java.nio.file.Files.createDirectories(
+                        context.paths().xdg().data().resolve("agents"));
+        final Path executable =
+                java.nio.file.Files.writeString(
+                        agents.resolve(org.fuin.porelo.agent.api.AgentDirectory.PREFIX + "holder"),
+                        "#!/bin/sh\nexit 0\n");
+        java.nio.file.Files.setPosixFilePermissions(
+                executable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+
+        assertThat(line.execute("host", "stop-secrets", "--stdin", "vault-new", "keys"))
+                .as("both entries are stored")
+                .isZero();
+
+        assertThat(err.toString())
+                .as("a credential under an agent's name is still warned of")
+                .contains("'holder' is an agent's name", "porelo vault put <provider>");
+        assertThat(out.toString())
+                .as("a different unused entry is reported without a warning")
+                .contains("unused", "--vault later");
+        assertThat(out.toString() + err)
+                .as("neither report reveals a stored value")
+                .doesNotContain(KEY_SECRET, b64(KEY_SECRET));
+        assertThat(runner.invocations()).as("discovering an agent's name never runs it").isEmpty();
+    }
+
+    @Test
     void stdinInitializesVaultAndStoresKeysWithoutEchoingOrSpawningProcesses() {
         final String input =
                 "vault-new " + b64(VAULT_PASSPHRASE) + "\nkey anthropic " + b64(KEY_SECRET) + "\n";
@@ -127,7 +204,7 @@ class HostStopSecretsCommandTest {
                         .execute("host", "stop-secrets", "--stdin", "vault-new", "keys");
 
         assertThat(exit).as(err.toString()).isZero();
-        assertThat(out.toString()).isEqualTo("Your stop is done.\n");
+        assertThat(out.toString()).as("the stop completes").contains("Your stop is done.");
         assertThat(err.toString()).isEmpty();
         assertThat(out.toString() + err.toString())
                 .as("no secret ever appears in output")
@@ -153,7 +230,7 @@ class HostStopSecretsCommandTest {
                         .execute("host", "stop-secrets", "--stdin", "vault", "keys");
 
         assertThat(exit).as(err.toString()).isZero();
-        assertThat(out.toString()).isEqualTo("Your stop is done.\n");
+        assertThat(out.toString()).as("the stop completes").contains("Your stop is done.");
         final Map<String, VaultEntry> entries =
                 context.vault().read(VaultFile.Opener.passphrase(VAULT_PASSPHRASE.toCharArray()));
         assertThat(entries).containsKey("github.token");

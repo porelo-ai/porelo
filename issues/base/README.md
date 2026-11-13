@@ -272,7 +272,6 @@ from its side, as *blocked by*.
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. | - |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines. | 0 |
 | <a id="b743"></a>[B743](B743-A-Transports-Verb-Fenced-To-What-It-Reaches.md) | L | - | Every verb of a transport runs in a network namespace of its own whose ruleset lets it reach only what its `reaches` names and loopback, so a transport's mistake cannot reach another host. | 0 |
-| <a id="b702"></a>[B702](B702-Every-Vault-Write-Says-What-Uses-The-Entry.md) | S | [B316](README.md#b316) | `host stop-secrets`, `talk join --into-vault`, `vault login`, `vault authorize` and `vault import` say what uses the entry they store, through the one check `vault put` has, instead of writing past it. | 0 |
 
 ## Review
 
@@ -528,6 +527,7 @@ from its side, as *blocked by*.
 | <a id="b694"></a>[B694](B694-A-Detached-Start-Said-As-It-Waits.md) | XS | - | The commands page says `task start --detach` returns once the task runs, without a session, rather than that it hands over nothing. | 0 |
 | <a id="b672"></a>[B672](B672-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The daily Shared rules check runs porelo-release's `issues check issues`, so an issue head that breaks the issue format is found within a day. | - |
 | <a id="b699"></a>[B699](B699-A-Failed-Start-Clears-A-Record-Of-Nothing.md) | S | [B384](README.md#b384) | A failed start that made no container of its own, finding the name's record pointing at a container that is gone, removes that record instead of leaving it behind. | 0 |
+| <a id="b702"></a>[B702](B702-Every-Vault-Write-Says-What-Uses-The-Entry.md) | S | [B316](README.md#b316) | `host stop-secrets`, `talk join --into-vault`, `vault login`, `vault authorize` and `vault import` say what uses the entry they store, through the one check `vault put` has, instead of writing past it. | 0 |
 | <a id="b714"></a>[B714](B714-A-Push-Again-After-A-Forge-Took-It-Late.md) | S | [B197](README.md#b197) | A task's next push is passed on after an earlier pass-on ended unknown or not held, even when the forge took that earlier push late. | 0 |
 
 ## Finished

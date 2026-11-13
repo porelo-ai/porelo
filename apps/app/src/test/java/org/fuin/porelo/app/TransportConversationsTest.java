@@ -126,18 +126,25 @@ class TransportConversationsTest {
     void aJoinIntoTheVaultKeepsTheTokenAndShowsNoSecret() throws Exception {
         // Run by an agent, the output is its transcript: no password and no token may reach it.
         final PoreloContext context = removalContext("guarded", false);
+        Files.writeString(
+                dir.resolve("project.yml"),
+                "credentials:\n  talk-carol: conversation\n",
+                java.nio.file.StandardOpenOption.APPEND);
         runner.answering(
                 " join ",
                 "{\"login\":{\"user\":\"@carol\",\"password\":\"pw-SECRET\",\"room\":\"!room-p\"},"
                         + "\"shown\":\"user @carol password pw-SECRET\","
                         + "\"secrets\":{\"PORELO_MATRIX_ACCESS_TOKEN\":\"tok-SECRET\"}}");
 
-        final TalkReply reply = talk(context, "join", "p", "carol", "--into-vault", "talk.carol");
+        final TalkReply reply = talk(context, "join", "p", "carol", "--into-vault", "talk-carol");
 
         assertThat(reply.code()).as(reply.err()).isZero();
         assertThat(reply.out())
                 .as("the agent learns its room from this line alone, since the room acts by its id")
-                .contains(" in !room-p", "'talk.carol'");
+                .contains(" in !room-p", "'talk-carol'");
+        assertThat(reply.out())
+                .as("a needed login must not be mistaken for an unused entry and removed")
+                .contains("used for  p's conversation");
         assertThat(reply.out() + reply.err())
                 .as("neither the password nor the token is shown")
                 .doesNotContain("pw-SECRET", "tok-SECRET");
@@ -148,7 +155,7 @@ class TransportConversationsTest {
                 .as("the transport is asked for a token, not a password")
                 .satisfies(line -> assertThat(line).contains(" join ", "--token"));
         final org.fuin.porelo.vault.VaultEntry kept =
-                context.vault().read(PASSPHRASE).get("talk.carol");
+                context.vault().read(PASSPHRASE).get("talk-carol");
         assertThat(kept).isNotNull();
         assertThat(kept.value()).isEqualTo("tok-SECRET");
         assertThat(kept.type()).isEqualTo("token");
