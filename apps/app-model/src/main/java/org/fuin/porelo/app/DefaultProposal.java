@@ -18,8 +18,9 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>The adapters are asked as {@code porelo project init} asks them</strong>, through
  * {@link ProjectProposal#propose}, so the two never differ. <strong>Only a checkout on this machine
  * is read</strong>, as the person sees it and never written; a repository added by address has only
- * its mirror, which is not read yet, and is refused as {@link #NO_CHECKOUT}. <strong>The answer
- * writes no file</strong>: it is recorded, so nothing asks again.
+ * its mirror, which is not read yet, and is refused as {@link #NO_CHECKOUT}. <strong>The answer is
+ * recorded</strong>, so nothing asks again; taking the tools writes them through {@link ToolsDraft}
+ * as the checkout's {@code .porelo.yml}, never over one that is there.
  */
 public final class DefaultProposal {
 
@@ -28,6 +29,12 @@ public final class DefaultProposal {
 
     /** Why a repository cannot be read: its project is not {@value DefaultProject#NAME}. */
     public static final String NOT_DEFAULT = "not-default";
+
+    /**
+     * Why the tools cannot be taken: the repository has a {@code .porelo.yml} of its own where the
+     * draft would go, which is never written over.
+     */
+    public static final String CONFIGURED = "configured";
 
     /** What the person takes of a proposal. Every one is recorded as asked. */
     public enum Choice {
@@ -52,7 +59,7 @@ public final class DefaultProposal {
         /**
          * Constructor.
          *
-         * @param reason {@link #NO_CHECKOUT} or {@link #NOT_DEFAULT}.
+         * @param reason {@link #NO_CHECKOUT}, {@link #NOT_DEFAULT} or {@link #CONFIGURED}.
          */
         public NotProposable(final String reason) {
             super(reason);
@@ -62,7 +69,7 @@ public final class DefaultProposal {
         /**
          * Returns why, as a named value.
          *
-         * @return {@link #NO_CHECKOUT} or {@link #NOT_DEFAULT}.
+         * @return {@link #NO_CHECKOUT}, {@link #NOT_DEFAULT} or {@link #CONFIGURED}.
          */
         public String reason() {
             return reason;
@@ -89,8 +96,10 @@ public final class DefaultProposal {
      *
      * @param entry The repository as it is now.
      * @param draft The project.yml draft, under {@link Choice#TOOLS_AND_DRAFT} alone.
+     * @param tools The tools draft written, or {@code null} under {@link Choice#NONE} or when the
+     *     adapters found no tools.
      */
-    public record Taken(DefaultProject.Entry entry, @Nullable String draft) {}
+    public record Taken(DefaultProject.Entry entry, @Nullable String draft, @Nullable Path tools) {}
 
     private final PoreloContext context;
 
@@ -122,10 +131,7 @@ public final class DefaultProposal {
             final String project, final String repository, final Consumer<AdapterDone> done)
             throws NotProposable, NoSuchRepository, IOException {
         final DefaultProject.Entry entry = proposable(project, repository);
-        final @Nullable String upstream =
-                entry.remote().isBlank() || RepositoryAddress.same(entry.remote(), entry.checkout())
-                        ? null
-                        : entry.remote();
+        final @Nullable String upstream = upstream(entry);
         final ProjectProposal made = new ProjectProposal(entry.name(), upstream, null, null);
         final List<String> notes =
                 made.propose(context, Path.of(entry.checkout()), detector, true, done);
@@ -171,30 +177,55 @@ public final class DefaultProposal {
     }
 
     /**
-     * Records the person's answer to a proposal: asked, whichever the choice. Writes no file.
+     * Records the person's answer to a proposal: asked, whichever the choice. {@link Choice#TOOLS}
+     * and {@link Choice#TOOLS_AND_DRAFT} write the tools draft first, through {@link ToolsDraft}.
      *
      * @param project The project, {@value DefaultProject#NAME} alone.
      * @param repository The repository's name in it.
      * @param choice What the person takes.
-     * @return The repository as it is now, and the draft under {@link Choice#TOOLS_AND_DRAFT}.
-     * @throws NotProposable When the repository cannot be read; nothing is recorded.
+     * @return The repository as it is now, the draft under {@link Choice#TOOLS_AND_DRAFT} and the
+     *     tools draft written.
+     * @throws NotProposable When the repository cannot be read, or a {@code .porelo.yml} is where
+     *     the tools would go ({@link #CONFIGURED}); nothing is written or recorded.
      * @throws NoSuchRepository When there is no such repository.
-     * @throws IOException When an adapter cannot be asked; nothing is recorded.
+     * @throws IOException When an adapter cannot be asked or the tools cannot be written; nothing
+     *     is recorded.
      */
     public Taken take(final String project, final String repository, final Choice choice)
             throws NotProposable, NoSuchRepository, IOException {
-        proposable(project, repository);
-        // Asked again rather than remembered: nothing is kept between a proposal and its answer,
-        // and a draft that fails records nothing.
-        final String draft =
-                choice == Choice.TOOLS_AND_DRAFT
-                        ? String.valueOf(propose(project, repository, done -> {}).get("draft"))
-                        : null;
+        final DefaultProject.Entry entry = proposable(project, repository);
+        String draft = null;
+        Path tools = null;
+        if (choice != Choice.NONE) {
+            // Asked again rather than remembered: nothing is kept between a proposal and its
+            // answer, and a draft that fails writes and records nothing.
+            final ProjectProposal made =
+                    new ProjectProposal(entry.name(), upstream(entry), null, null);
+            made.propose(context, Path.of(entry.checkout()), detector, true, done -> {});
+            final Map<String, @Nullable Object> answer = made.answer();
+            try {
+                tools = ToolsDraft.of(made).write(context, entry);
+            } catch (ToolsDraft.Exists ex) {
+                throw new NotProposable(CONFIGURED);
+            } catch (org.fuin.porelo.core.project.ProjectException ex) {
+                throw new IOException(ex.getMessage(), ex);
+            }
+            if (choice == Choice.TOOLS_AND_DRAFT) {
+                draft = String.valueOf(answer.get("draft"));
+            }
+        }
         final DefaultProject.Entry asked = new DefaultProject(context).asked(repository);
         if (asked == null) {
             throw new NoSuchRepository(repository);
         }
-        return new Taken(asked, draft);
+        return new Taken(asked, draft, tools);
+    }
+
+    /** The address a repository's draft names, or {@code null} when its checkout is all it has. */
+    private static @Nullable String upstream(final DefaultProject.Entry entry) {
+        return entry.remote().isBlank() || RepositoryAddress.same(entry.remote(), entry.checkout())
+                ? null
+                : entry.remote();
     }
 
     /**

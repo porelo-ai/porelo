@@ -24,7 +24,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * What a repository's own files in the default project add to it: {@code porelo.yml} as checked in,
- * then the person's {@code .porelo.yml} beside it, each on top of the project's file.
+ * then the person's {@code .porelo.yml} beside it, each on top of the project's file; for a
+ * repository added by its address, its tools draft under the configuration on top of them ({@link
+ * #ownFiles}).
  *
  * <p><strong>Read from the checkout, as the person sees it.</strong> Approved work lands on a
  * branch of its own, never on the one checked out, so a task cannot change either file; a file that
@@ -111,22 +113,21 @@ public final class RepositoryOwnSettings {
      */
     public static @Nullable Found of(
             final PoreloContext context, final Path projectFile, final Repository repository) {
-        final String checkout =
-                new DefaultProject(context)
-                        .entries().stream()
-                                .filter(entry -> entry.name().equals(repository.name()))
-                                .map(DefaultProject.Entry::checkout)
-                                .findFirst()
-                                .orElse("");
-        if (checkout.isEmpty()) {
+        final List<Path> files = ownFiles(context, repository.name());
+        if (files.isEmpty()) {
             return null;
         }
+        // The one that wins last, as the layers are merged.
         final List<RepositorySettings.Layer> layers = new ArrayList<>();
-        final Path top = Path.of(checkout);
-        add(layers, top.resolve(ImageChoice.FILE), ImageChoice.FILE + " of " + repository.name());
-        add(layers, top.resolve("." + ImageChoice.FILE), OVERRIDE);
-        if (layers.isEmpty()) {
-            return null;
+        for (final Path file : files.reversed()) {
+            final String name = String.valueOf(file.getFileName());
+            final String source =
+                    file.equals(ToolsDraft.remote(context, repository.name()))
+                            ? file.toString()
+                            : name.equals(ImageChoice.FILE)
+                                    ? ImageChoice.FILE + " of " + repository.name()
+                                    : OVERRIDE;
+            layers.add(new RepositorySettings.Layer(source, text(file)));
         }
         final ProjectReader.WithRepository read =
                 ProjectReader.read(
@@ -140,7 +141,7 @@ public final class RepositoryOwnSettings {
                 image(
                         ProjectReader.read(projectFile),
                         read.project().imageEnv().keySet(),
-                        checkoutImages(top),
+                        ownImages(files),
                         sources));
         return new Found(
                 read.project(),
@@ -151,24 +152,62 @@ public final class RepositoryOwnSettings {
     }
 
     /**
-     * Reads the image each of a checkout's own files gives, the one that wins first: the person's
-     * {@code .porelo.yml}, then the repository's {@code porelo.yml}. Read as their settings are, so
-     * what is built is what was asked.
+     * Returns a repository's own files in {@value DefaultProject#NAME} that are there, the one that
+     * wins first: for a repository added by its address, its tools draft under the configuration;
+     * then, for one with a checkout, the person's {@code .porelo.yml} there and the repository's
+     * {@code porelo.yml}. None is read through a link.
      *
-     * @param checkout The checkout.
-     * @return One source per file there.
+     * @param context This machine.
+     * @param repository The repository's name.
+     * @return The files; empty when it is not in the project or has none.
+     */
+    static List<Path> ownFiles(final PoreloContext context, final String repository) {
+        return new DefaultProject(context)
+                .entries().stream()
+                        .filter(entry -> entry.name().equals(repository))
+                        .findFirst()
+                        .map(entry -> ownFiles(context, entry))
+                        .orElse(List.of());
+    }
+
+    /**
+     * Returns a repository's own files in {@value DefaultProject#NAME} that are there, the one that
+     * wins first.
+     *
+     * @param context This machine.
+     * @param entry The repository.
+     * @return The files.
+     */
+    static List<Path> ownFiles(final PoreloContext context, final DefaultProject.Entry entry) {
+        final List<Path> candidates = new ArrayList<>();
+        if (entry.source() == DefaultProject.Source.REMOTE) {
+            candidates.add(ToolsDraft.remote(context, entry.name()));
+        }
+        if (!entry.checkout().isEmpty()) {
+            final Path top = Path.of(entry.checkout());
+            candidates.add(top.resolve("." + ImageChoice.FILE));
+            candidates.add(top.resolve(ImageChoice.FILE));
+        }
+        return candidates.stream()
+                .filter(file -> Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS))
+                .toList();
+    }
+
+    /**
+     * Reads the image each of a repository's own files gives, in the order given. Read as their
+     * settings are, so what is built is what was asked.
+     *
+     * @param files The files, the one that wins first, as {@link #ownFiles} gives them.
+     * @return One source per file.
      * @throws ProjectException If a file cannot be read or its image is wrong.
      */
-    static List<ImageSource> checkoutImages(final Path checkout) {
+    static List<ImageSource> ownImages(final List<Path> files) {
         final List<ImageSource> order = new ArrayList<>();
-        for (final String name : List.of("." + ImageChoice.FILE, ImageChoice.FILE)) {
-            final Path file = checkout.resolve(name);
-            if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
-                // Settings beside the image are merged and allowed with the project's.
-                order.add(
-                        RepositoryImageReader.readBesideSettings(
-                                text(file), file.toString(), SnippetFiles.beside(file)));
-            }
+        for (final Path file : files) {
+            // Settings beside the image are merged and allowed with the project's.
+            order.add(
+                    RepositoryImageReader.readBesideSettings(
+                            text(file), file.toString(), SnippetFiles.beside(file)));
         }
         return List.copyOf(order);
     }
@@ -332,13 +371,6 @@ public final class RepositoryOwnSettings {
         }
         new RepositoryAllowance(context).allow(repository, found.asked());
         return true;
-    }
-
-    private static void add(
-            final List<RepositorySettings.Layer> layers, final Path file, final String source) {
-        if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
-            layers.add(new RepositorySettings.Layer(source, text(file)));
-        }
     }
 
     private static String text(final Path file) {

@@ -45,7 +45,8 @@ public final class ProposalClient {
     /**
      * The daemon cannot read this repository.
      *
-     * @param reason {@code no-checkout} or {@code not-default}.
+     * @param reason {@code no-checkout}, {@code not-default} or, taking the tools, {@code
+     *     configured}.
      */
     public record NotProposable(String reason) implements Answer {}
 

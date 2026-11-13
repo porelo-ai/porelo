@@ -563,21 +563,16 @@ public final class DefaultProject {
 
     /**
      * Returns whether a proposal is still to be offered for a repository: {@link
-     * Proposal#CONFIGURED} when its checkout holds a {@code porelo.yml} or {@code .porelo.yml}, or
-     * a placed project names it; else what is recorded.
+     * Proposal#CONFIGURED} when it has a {@code porelo.yml} or {@code .porelo.yml} where its image
+     * reads them ({@link RepositoryOwnSettings#ownFiles}), or a placed project names it; else what
+     * is recorded.
      *
      * @param entry The repository.
      * @return Its state, worked out now.
      */
     public Proposal proposal(final Entry entry) {
-        if (entry.source() == Source.CHECKOUT) {
-            for (final String name : List.of(ImageChoice.FILE, "." + ImageChoice.FILE)) {
-                if (Files.isRegularFile(
-                        Path.of(entry.checkout()).resolve(name),
-                        java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-                    return Proposal.CONFIGURED;
-                }
-            }
+        if (!RepositoryOwnSettings.ownFiles(context, entry).isEmpty()) {
+            return Proposal.CONFIGURED;
         }
         if (WorkOrigin.placedNaming(context, entry.upstream()) != null) {
             return Proposal.CONFIGURED;

@@ -24,10 +24,11 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The sources, the one that wins first: the person's local override, the repository's own {@code
  * porelo.yml} at its reviewed default branch, and the project's {@code image}. In the project
- * {@code default}, a task started from a person's checkout reads that checkout's {@code
- * .porelo.yml}, then its {@code porelo.yml}, then the default image. Each adds to the project's
- * image key by key, as the operator decided: a value it sets wins, its lines follow the project's,
- * and its variables join the project's.
+ * {@code default}, a repository added by its address reads its tools draft under {@code
+ * $XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml} first; a task started from a
+ * person's checkout reads that checkout's {@code .porelo.yml}, then its {@code porelo.yml}, then
+ * the default image. Each adds to the project's image key by key, as the operator decided: a value
+ * it sets wins, its lines follow the project's, and its variables join the project's.
  *
  * @param baseImage The image to build on.
  * @param baseFrom Where it came from.
@@ -450,18 +451,12 @@ public record ImageChoice(
         final List<ImageSource> order = new ArrayList<>();
         if (DefaultProject.is(project.name())) {
             // A person's own checkout, read as they see it: approved work lands on porelo/<task>,
-            // never on the branch they have checked out, so a task cannot change either file.
-            final String checkout =
-                    new DefaultProject(context)
-                            .entries().stream()
-                                    .filter(entry -> entry.name().equals(repository.name()))
-                                    .map(DefaultProject.Entry::checkout)
-                                    .findFirst()
-                                    .orElse("");
-            if (!checkout.isEmpty()) {
-                // Read as they are asked for: a start builds only what its allowance names.
-                order.addAll(RepositoryOwnSettings.checkoutImages(Path.of(checkout)));
-            }
+            // never on the branch they have checked out, so a task cannot change either file. A
+            // repository added by its address reads its tools draft under the configuration first.
+            // Read as they are asked for: a start builds only what its allowance names.
+            order.addAll(
+                    RepositoryOwnSettings.ownImages(
+                            RepositoryOwnSettings.ownFiles(context, repository.name())));
             order.add(ImageSource.of(project));
             final Preview preview =
                     new Preview(withoutUnset(merge(order), context, project, repository), null);
@@ -584,12 +579,25 @@ public record ImageChoice(
      * @return The path.
      */
     static Path override(PoreloContext context, Project project, Repository repository) {
+        return override(context, project.name(), repository.name());
+    }
+
+    /**
+     * Returns where a person's local override for a repository lies, whether or not it exists: in
+     * {@value DefaultProject#NAME}, where the tools draft of a repository with no checkout is.
+     *
+     * @param context Where the configuration is.
+     * @param project The project's name.
+     * @param repository The repository's name.
+     * @return The path.
+     */
+    static Path override(PoreloContext context, String project, String repository) {
         return context.paths()
                 .xdg()
                 .config()
                 .resolve("projects")
-                .resolve(project.name())
-                .resolve(repository.name())
+                .resolve(project)
+                .resolve(repository)
                 .resolve("." + FILE);
     }
 

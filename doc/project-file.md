@@ -554,7 +554,8 @@ from them instead with `porelo project sign-repository-file -C PATH --yes`, the 
 - **The project file names no image for a repository:** an entry under `repositories` holding `image` is refused,
   naming the repository's own `porelo.yml` as the place for it.
 - **A local override** lies in `$XDG_CONFIG_HOME/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
-  never checked in.
+  never checked in. In `default` it is where a repository added by its address, which has no checkout, keeps its tools
+  draft; its image reads that file first, before the `.porelo.yml` and `porelo.yml` of a checkout it was added from.
 - **Each adds to the project's image:** the project's `image` first, then the repository's `porelo.yml`, then the
   local override. A value a later one sets, such as `from`, wins; its `run` lines come after the earlier ones; its
   `env` variables join theirs, the later value winning for one name. In the built-in project `default`, a task started
@@ -588,6 +589,13 @@ limits:
 build:
   package_sources: ~          # null takes the project's key away
 ```
+
+Taking a proposal's tools (`TakeProposal` with `TOOLS` or `TOOLS_AND_DRAFT`) writes the image lines and variables the
+ecosystem adapters found as the checkout's `.porelo.yml`, each with the file it was read from as a comment, the base
+image left to the project. The draft is read back through the image's reader before it is written, and refused if it
+would give other tools. `/.porelo.yml` is added once to the checkout's `.git/info/exclude` (the shared one, for a
+worktree), so no tracked file changes and `git status` stays clean. A `.porelo.yml` that is there is never written
+over, and a draft with no tools writes nothing. A start asks for each of its lines as for any other.
 
 A first start's draft holds the image lines and hosts the ecosystem adapters found. A yes writes `porelo.yml`,
 adds this checkout to `default`, and allows what the file asks on this machine. A `.porelo.yml` already in the

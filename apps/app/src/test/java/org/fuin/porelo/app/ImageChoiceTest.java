@@ -175,6 +175,53 @@ class ImageChoiceTest {
     }
 
     @Test
+    void aRemoteEntryReadsItsDraftUnderTheConfigurationDirectoryFirst(@TempDir Path dir)
+            throws Exception {
+
+        // A repository added by its address has no checkout of its own: its tools draft lies under
+        // the person's configuration, and wins over a checkout it was once added from.
+        final PoreloContext context = imageContext(dir);
+        final Path checkout = Files.createDirectories(dir.resolve("work"));
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  from: \"local\"\n");
+        new DefaultProject(context)
+                .add("https://forge.example/acme/work.git", "work", checkout.toString());
+        new DefaultProject(context).add("https://forge.example/acme/far.git", "far", "");
+        for (final String name : List.of("work", "far")) {
+            final Path draft = dir.resolve("config/porelo/projects/default/" + name);
+            Files.createDirectories(draft);
+            Files.writeString(
+                    draft.resolve(".porelo.yml"),
+                    "image:\n  from: \"drafted\"\n  run: \"RUN from-the-draft\"\n");
+        }
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project:
+                                  name: "default"
+                                  security_class: "guarded"
+                                image:
+                                  from: "default-base"
+                                repositories:
+                                  work: {}
+                                  far: {}
+                                """),
+                        "project.yml");
+
+        for (final var repository : project.repositories()) {
+            assertThatThrownBy(() -> ImageChoice.preview(context, project, repository))
+                    .as("its lines are asked for as a checkout's are")
+                    .isInstanceOf(ImageChoice.NotAllowed.class);
+            allowImage(context, project, repository);
+            final ImageChoice choice = ImageChoice.of(context, project, repository);
+            assertThat(choice.baseImage()).as(repository.name()).isEqualTo("drafted");
+            assertThat(choice.baseFrom())
+                    .endsWith("projects/default/" + repository.name() + "/.porelo.yml");
+            assertThat(choice.snippet()).isEqualTo("RUN from-the-draft");
+        }
+    }
+
+    @Test
     void aLinkedFileInACheckoutGivesNoLineOfItsImage(@TempDir Path dir) throws Exception {
         // A start builds only what its settings were read and allowed from, and they never follow
         // a link.

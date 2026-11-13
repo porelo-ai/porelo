@@ -369,6 +369,16 @@ final class ProjectProposal {
     }
 
     /**
+     * Returns the tools the last {@link #answer()} put into the draft's image, as a repository's
+     * own file adds them: its lines and variables, the base image left to the project.
+     *
+     * @return The image, with neither a base image nor a file of lines.
+     */
+    Image image() {
+        return new Image(null, env, run.isEmpty() ? null : run, null);
+    }
+
+    /**
      * Returns what the last {@link #answer()} left out of the image, and why.
      *
      * @return One line for each, with its plugin.

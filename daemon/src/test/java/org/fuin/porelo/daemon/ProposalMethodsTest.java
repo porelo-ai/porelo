@@ -75,6 +75,15 @@ class ProposalMethodsTest {
                                     ""),
                             new Finding(
                                     Finding.Part.TOOLS,
+                                    "env." + name.toUpperCase(java.util.Locale.ROOT) + "_HOME",
+                                    "/opt/" + name,
+                                    name + ".txt",
+                                    15,
+                                    Finding.Origin.CHECKOUT,
+                                    false,
+                                    ""),
+                            new Finding(
+                                    Finding.Part.TOOLS,
                                     "credential." + name + "-central",
                                     SECRET,
                                     "settings.xml",
@@ -282,8 +291,80 @@ class ProposalMethodsTest {
                                     java.time.Duration.ofMinutes(2));
                     assertThat(String.valueOf(reply.get("draft"))).contains("shop");
                     assertThat(String.valueOf(reply)).doesNotContain(SECRET);
-                    assertThat(proposalOf(client, "shop")).isEqualTo("ASKED");
+                    assertThat(proposalOf(client, "shop"))
+                            .as("asked, and its tools written: its own file is there now")
+                            .isEqualTo("CONFIGURED");
                 });
+    }
+
+    @Test
+    void takingTheToolsWritesThemIntoTheCheckoutExcludedFromGit() throws Exception {
+        Files.createDirectories(checkout.resolve(".git/info"));
+        serving(
+                client -> {
+                    final var reply =
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".TakeProposal",
+                                    Map.of(
+                                            "project",
+                                            "default",
+                                            "repository",
+                                            "shop",
+                                            "choice",
+                                            "TOOLS"),
+                                    java.time.Duration.ofMinutes(2));
+                    assertThat(reply).doesNotContainKey("draft");
+                    assertThat(row(reply.get("repository")))
+                            .as("its own file is there now")
+                            .containsEntry("proposal", "CONFIGURED");
+                });
+        final String written = Files.readString(checkout.resolve(".porelo.yml"));
+        assertThat(written)
+                .contains("MAVEN_HOME: /opt/maven", "NPM_HOME: /opt/npm")
+                .contains("# MAVEN_HOME=/opt/maven  <- maven.txt")
+                .doesNotContain(SECRET);
+        assertThat(Files.readString(checkout.resolve(".git/info/exclude")))
+                .isEqualTo("/.porelo.yml\n");
+        assertThat(
+                        Files.readString(
+                                dir.resolve("state").resolve("porelo/default/repositories.json")))
+                .contains("\"proposal\":\"ASKED\"");
+    }
+
+    @Test
+    void theToolsAreNeverWrittenOverAFileThatIsThere() throws Exception {
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  from: \"mine\"\n");
+        serving(
+                client ->
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".TakeProposal",
+                                                        Map.of(
+                                                                "project",
+                                                                "default",
+                                                                "repository",
+                                                                "shop",
+                                                                "choice",
+                                                                "TOOLS_AND_DRAFT"),
+                                                        java.time.Duration.ofMinutes(2)))
+                                .isInstanceOfSatisfying(
+                                        VarlinkException.class,
+                                        refused -> {
+                                            assertThat(refused.getErrorName())
+                                                    .isEqualTo(
+                                                            PoreloDaemon.INTERFACE
+                                                                    + ".NotProposable");
+                                            assertThat(refused.getParameters())
+                                                    .containsEntry("reason", "configured");
+                                        }));
+        assertThat(Files.readString(checkout.resolve(".porelo.yml")))
+                .isEqualTo("image:\n  from: \"mine\"\n");
+        assertThat(
+                        Files.readString(
+                                dir.resolve("state").resolve("porelo/default/repositories.json")))
+                .as("nothing recorded")
+                .doesNotContain("\"proposal\":\"ASKED\"");
     }
 
     @Test

@@ -500,9 +500,12 @@ type ProposedCredential (
 )
 
 # Records the person's answer to a proposal for a repository of 'default': ASKED, whichever the
-# choice, so no interface asks again. Writes no file. TOOLS_AND_DRAFT asks the adapters again and
-# answers the project.yml draft, which the person files themselves; nothing is recorded when that
-# fails. Refused as ProposeProject is, and the repository then stays UNASKED.
+# choice, so no interface asks again. TOOLS and TOOLS_AND_DRAFT ask the adapters again and write the
+# tools they found as the checkout's .porelo.yml, with a line in its .git/info/exclude so no tracked
+# file changes; nothing is written when they found none, and a .porelo.yml that is there is never
+# written over (NotProposable, reason configured). TOOLS_AND_DRAFT also answers the project.yml
+# draft, which the person files themselves. Nothing is recorded when any of it fails. Refused as
+# ProposeProject is, and the repository then stays UNASKED.
 method TakeProposal(
   # The project: "default" alone.
   project: string,
@@ -518,8 +521,9 @@ method TakeProposal(
 )
 
 # ProposeProject or TakeProposal cannot read this repository: 'reason' is no-checkout (a repository
-# added by address, or whose checkout is gone - its mirror is not read yet) or not-default (a
-# project other than 'default'). Nothing was asked or recorded.
+# added by address, or whose checkout is gone - its mirror is not read yet), not-default (a project
+# other than 'default') or, from TakeProposal alone, configured (a .porelo.yml is where the tools
+# would be written). Nothing was written or recorded.
 error NotProposable(reason: string)
 
 # Shows what nothing on this machine owns any more, and removes it with apply - what 'porelo prune'

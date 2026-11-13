@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B719",
   "title": "The Tools Draft Written",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
@@ -31,3 +31,19 @@ Split from PJ52 on 2026-11-13. [B221](README.md#b221) left out steps 4 and 6: th
 
 - Red first: a written draft read back gives the same tools; a checkout's tracked files are unchanged.
 - A REMOTE entry's image order picks the draft under the configuration directory.
+
+## Built
+
+- `ToolsDraft` writes the proposal's tools (run lines and env; no `from`, so the project's base image stands) in the
+  image format through `RepositoryFileWriter`, with a comment naming each line's source, and reads it back through
+  `RepositoryImageReader` before anything is touched; a draft that does not read back the same is refused. An empty
+  draft writes nothing.
+- In a checkout: `.porelo.yml` is written 0600 and never over anything of that name, and `/.porelo.yml` is added once
+  to the exclude file the checkout's git reads (a worktree's common directory too); tracked files stay unchanged.
+  Whether git tracks a `.porelo.yml` deleted from the working tree is not asked.
+- For a repository added by address: `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml`, 0600 under
+  0700 directories, which the image order now reads first for it (`RepositoryOwnSettings.ownFiles`, used by the
+  preview and the start); CONFIGURED follows from it.
+- `TakeProposal` with TOOLS or TOOLS_AND_DRAFT writes the draft, then records ASKED; an existing file is refused as
+  `configured` and a read-back failure as `Failed`, recording nothing.
+- Red first in `ToolsDraftTest`, `ImageChoiceTest` and `ProposalMethodsTest`.
