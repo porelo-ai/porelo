@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B754",
   "title": "Doctor Says Where The AppArmor Lock Holds",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 53,
