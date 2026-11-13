@@ -938,23 +938,11 @@ final class HostArrivals {
     private static List<AllowedSigner> signerLines(
             CommandRunner runner, Path file, UnaryOperator<String> environment, Path scratch)
             throws IOException {
-        final List<AllowedSigner> lines = new ArrayList<>();
         try {
-            for (final String line :
-                    AllowedSigner.read(runner, file, keygenEnvironment(environment), scratch)) {
-                if (line.isBlank() || line.strip().startsWith("#")) {
-                    continue;
-                }
-                final AllowedSigner signer = AllowedSigner.parse(line);
-                if (signer == null) {
-                    throw new IOException("invalid allowed-signers line");
-                }
-                lines.add(signer);
-            }
+            return AllowedSigner.read(runner, file, keygenEnvironment(environment), scratch);
         } catch (IOException ex) {
             throw new IOException(file + ": " + ex.getMessage(), ex);
         }
-        return lines;
     }
 
     /**

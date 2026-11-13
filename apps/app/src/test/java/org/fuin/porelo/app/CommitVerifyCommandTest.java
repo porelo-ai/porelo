@@ -554,6 +554,36 @@ class CommitVerifyCommandTest {
         }
     }
 
+    /**
+     * Git hands the signers file to ssh-keygen, which ends a line at a line feed alone, skips a
+     * line it cannot parse, and skips only spaces, tabs and line ends before a comment.
+     */
+    @Test
+    void reads_a_signers_file_as_git_reads_it() throws Exception {
+        final String byPerson = commit(person, "by alice", base);
+        final String key = publicKey(person);
+        for (final String accepted :
+                List.of(
+                        "demo\r" + key,
+                        "demo\ndemo bogus-option " + key + "\ndemo " + key,
+                        "\u2000#x " + key)) {
+            Files.writeString(signers, accepted + "\n");
+
+            assertThat(gitVerifies(byPerson)).as("git accepts %s", accepted).isTrue();
+            assertThat(verify(push(base, byPerson, "refs/heads/main")))
+                    .as("%s is accepted as git accepts it: %s", accepted, err)
+                    .isZero();
+        }
+        for (final String refused : List.of("demo " + key + "\rtrailing", "\r#x " + key)) {
+            Files.writeString(signers, refused + "\n");
+
+            assertThat(gitVerifies(byPerson)).as("git refuses %s", refused).isFalse();
+            assertThat(verify(push(base, byPerson, "refs/heads/main")))
+                    .as("%s is refused as git refuses it: %s", refused, err)
+                    .isEqualTo(65);
+        }
+    }
+
     /** A card's end date is on the line from its first day: a key ends then, and not before. */
     @Test
     void holds_a_person_whose_line_ends_ahead_and_refuses_one_whose_line_has_ended()

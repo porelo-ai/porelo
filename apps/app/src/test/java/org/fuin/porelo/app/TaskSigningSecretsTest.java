@@ -102,7 +102,8 @@ class TaskSigningSecretsTest {
             final byte[] payload =
                     "tree 1\n\nreviewed work\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
             final String signature =
-                    TaskSigner.of(() -> secrets.signing("web", "app-x")).sign(payload);
+                    TaskSigner.of("web", "app-x", () -> secrets.signing("web", "app-x"))
+                            .sign(payload);
             assertThat(
                             signature.equals(
                                     org.fuin.porelo.vault.SshSignature.sign(
@@ -122,7 +123,8 @@ class TaskSigningSecretsTest {
                     .as("the sibling cannot become this signature's owner")
                     .isFalse();
             final String siblingSignature =
-                    TaskSigner.of(() -> secrets.signing("web-app", "x")).sign(payload);
+                    TaskSigner.of("web-app", "x", () -> secrets.signing("web-app", "x"))
+                            .sign(payload);
             assertThat(
                             siblingSignature.equals(
                                     org.fuin.porelo.vault.SshSignature.sign(
@@ -176,7 +178,10 @@ class TaskSigningSecretsTest {
             context.forgetTyped();
             org.assertj.core.api.Assertions.assertThatThrownBy(
                             () ->
-                                    TaskSigner.of(() -> secrets.signing("web", "app-x"))
+                                    TaskSigner.of(
+                                                    "web",
+                                                    "app-x",
+                                                    () -> secrets.signing("web", "app-x"))
                                             .sign(payload))
                     .as("a locked vault signs nothing")
                     .isInstanceOf(org.fuin.porelo.gate.GateException.class);
@@ -194,7 +199,10 @@ class TaskSigningSecretsTest {
             Files.writeString(context.vault().path(), "corrupt fixture");
             org.assertj.core.api.Assertions.assertThatThrownBy(
                             () ->
-                                    TaskSigner.of(() -> secrets.signing("web", "app-x"))
+                                    TaskSigner.of(
+                                                    "web",
+                                                    "app-x",
+                                                    () -> secrets.signing("web", "app-x"))
                                             .sign(payload))
                     .as("a corrupt vault signs nothing")
                     .isInstanceOfAny(
@@ -221,7 +229,9 @@ class TaskSigningSecretsTest {
             context.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter()));
             final TaskSecrets secrets = new TaskSecrets(context);
             org.assertj.core.api.Assertions.assertThatThrownBy(
-                            () -> TaskSigner.of(() -> secrets.signing(TASK)).sign(new byte[] {1}))
+                            () ->
+                                    TaskSigner.of("p", "task", () -> secrets.signing(TASK))
+                                            .sign(new byte[] {1}))
                     .as("vault-only leftovers cannot sign")
                     .isInstanceOf(org.fuin.porelo.gate.GateException.class);
             assertThat(secrets.forget(TASK))
@@ -231,7 +241,9 @@ class TaskSigningSecretsTest {
             org.fuin.porelo.wire.Sidecar.recordId(
                     context.paths().tasks().containerState(TASK), "b".repeat(64));
             org.assertj.core.api.Assertions.assertThatThrownBy(
-                            () -> TaskSigner.of(() -> secrets.signing(TASK)).sign(new byte[] {1}))
+                            () ->
+                                    TaskSigner.of("p", "task", () -> secrets.signing(TASK))
+                                            .sign(new byte[] {1}))
                     .as("contradictory recorded ids cannot sign")
                     .isInstanceOf(org.fuin.porelo.gate.GateException.class);
         } finally {

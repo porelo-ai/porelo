@@ -21,11 +21,15 @@ import org.jspecify.annotations.Nullable;
 record AllowedSigner(String principal, String key, List<String> options) {
 
     /**
-     * The principal list as ssh-keygen finds its end: at a blank, which is a space or a tab only,
-     * or, from a first quote, at the next quote, whether or not a blank follows it.
+     * The principal list as ssh-keygen finds its end: at a blank, which there is a space, a tab or
+     * a carriage return, or, from a first quote, at the next quote, whether or not a blank follows
+     * it. The options and the key end at a space or a tab only.
      */
     private static final String PRINCIPALS =
-            "([^ \\t\"]*+\"[^\"]*+\"|[^ \\t\"]++)(?:(?<=\")[ \\t]*+|[ \\t]++)";
+            "([^ \\t\\r\"]*+\"[^\"]*+\"|[^ \\t\\r\"]++)(?:(?<=\")[ \\t\\r]*+|[ \\t\\r]++)";
+
+    /** A line's principal list, the part ssh-keygen reads before it parses the rest. */
+    private static final Pattern HEAD = Pattern.compile("^" + PRINCIPALS);
 
     /**
      * The options as ssh-keygen finds their end: a blank outside quotes, where {@code \"} is a
@@ -72,26 +76,24 @@ record AllowedSigner(String principal, String key, List<String> options) {
                 List.copyOf(options));
     }
 
-    /** What follows a line's principal list: its options and key, as given. */
-    private static String afterPrincipals(final String line) {
-        final Matcher match = LINE.matcher(trimmed(line));
-        if (!match.matches()) {
-            throw new IllegalArgumentException("no allowed-signers line");
-        }
-        return trimmed(trimmed(line).substring(match.end(1)));
-    }
-
-    /** A line without the blanks ssh-keygen skips around it, a space or a tab only. */
+    /**
+     * A line without the blanks ssh-keygen skips around it: a space, a tab or a carriage return,
+     * and no other Unicode space, so a line opening with one is no comment.
+     */
     private static String trimmed(final String line) {
         int start = 0;
         int end = line.length();
-        while (start < end && (line.charAt(start) == ' ' || line.charAt(start) == '\t')) {
+        while (start < end && blank(line.charAt(start))) {
             start++;
         }
-        while (end > start && (line.charAt(end - 1) == ' ' || line.charAt(end - 1) == '\t')) {
+        while (end > start && blank(line.charAt(end - 1))) {
             end--;
         }
         return line.substring(start, end);
+    }
+
+    private static boolean blank(final char character) {
+        return character == ' ' || character == '\t' || character == '\r';
     }
 
     /** Whether a {@code \"} starts here, which ssh-keygen reads as a quote kept in the value. */
@@ -100,28 +102,41 @@ record AllowedSigner(String principal, String key, List<String> options) {
     }
 
     /**
-     * Reads an allowed-signers file and has ssh-keygen check it, in a chosen environment, its
-     * scratch file in a directory of the caller's.
+     * Reads an allowed-signers file as ssh-keygen reads it for git, which has it check each line,
+     * in a chosen environment, its scratch file in a directory of the caller's.
+     *
+     * <p>A line ends at a line feed alone. A line ssh-keygen cannot parse names nobody, as git
+     * skips it: only one that ssh-keygen parses and Porelo does not refuses the whole file.
      *
      * @param runner Runs ssh-keygen.
      * @param file The file.
      * @param environment All ssh-keygen gets of the environment.
      * @param directory Where the scratch file ssh-keygen reads is written, and removed from.
-     * @return The file's lines.
-     * @throws IOException If the file cannot be read or is no allowed-signers file.
+     * @return The signers its lines name, in their order.
+     * @throws IOException If the file cannot be read, or holds a line ssh-keygen reads and Porelo
+     *     does not.
      * @throws java.io.UncheckedIOException If the scratch file cannot be written or removed.
      * @throws org.fuin.porelo.core.process.CommandException If ssh-keygen cannot be run.
      */
-    static List<String> read(
+    static List<AllowedSigner> read(
             final CommandRunner runner,
             final Path file,
             final java.util.Map<String, String> environment,
             final Path directory)
             throws IOException {
-        final List<String> lines = Files.readAllLines(file);
-        final List<String> entries = entries(lines);
+        final List<String> lines = new ArrayList<>();
+        final List<String> entries = new ArrayList<>();
+        for (final String line : Files.readString(file).split("\n", -1)) {
+            final String text = trimmed(line);
+            final Matcher head = HEAD.matcher(text);
+            // A comment, or a line whose principal list ssh-keygen cannot end, names nobody.
+            if (!text.startsWith("#") && head.lookingAt()) {
+                lines.add(line);
+                entries.add("porelo " + text.substring(head.end()));
+            }
+        }
         if (entries.isEmpty()) {
-            return lines;
+            return List.of();
         }
         final Path check;
         try {
@@ -129,22 +144,18 @@ record AllowedSigner(String principal, String key, List<String> options) {
         } catch (final IOException ex) {
             throw new java.io.UncheckedIOException(UNWRITTEN, ex);
         }
+        final List<AllowedSigner> signers = new ArrayList<>();
         try {
-            write(check, entries);
-            final var result =
-                    runner.run(
-                            Command.of(
-                                            "ssh-keygen",
-                                            "-Y",
-                                            "match-principals",
-                                            "-I",
-                                            "porelo",
-                                            "-f",
-                                            check.toString())
-                                    .withChosenEnvironment(environment));
-            if (!result.successful() || !result.standardError().isBlank()) {
-                throw new IOException(
-                        "invalid allowed-signers file: " + result.standardError().strip());
+            final boolean whole = parsed(runner, check, entries, environment);
+            for (int at = 0; at < entries.size(); at++) {
+                if (whole || parsed(runner, check, List.of(entries.get(at)), environment)) {
+                    final AllowedSigner signer = parse(lines.get(at));
+                    if (signer == null) {
+                        throw new IOException(
+                                "an allowed-signers line ssh-keygen reads is not read here");
+                    }
+                    signers.add(signer);
+                }
             }
         } finally {
             try {
@@ -154,7 +165,31 @@ record AllowedSigner(String principal, String key, List<String> options) {
                         "the scratch file ssh-keygen read cannot be removed", ex);
             }
         }
-        return lines;
+        return List.copyOf(signers);
+    }
+
+    /**
+     * Whether ssh-keygen parses each of these lines: it stops at the first it cannot, so the lines
+     * of a file are asked together and, when that fails, one by one.
+     */
+    private static boolean parsed(
+            final CommandRunner runner,
+            final Path check,
+            final List<String> entries,
+            final java.util.Map<String, String> environment) {
+        write(check, entries);
+        final var result =
+                runner.run(
+                        Command.of(
+                                        "ssh-keygen",
+                                        "-Y",
+                                        "match-principals",
+                                        "-I",
+                                        "porelo",
+                                        "-f",
+                                        check.toString())
+                                .withChosenEnvironment(environment));
+        return result.successful() && result.standardError().isBlank();
     }
 
     private static void write(final Path check, final List<String> entries) {
@@ -163,51 +198,5 @@ record AllowedSigner(String principal, String key, List<String> options) {
         } catch (final IOException ex) {
             throw new java.io.UncheckedIOException(UNWRITTEN, ex);
         }
-    }
-
-    private static List<String> entries(final List<String> lines) throws IOException {
-        final List<String> entries = new ArrayList<>();
-        for (final String line : lines) {
-            if (line.isBlank() || line.strip().startsWith("#")) {
-                continue;
-            }
-            final AllowedSigner parsed = parse(line);
-            if (parsed == null) {
-                throw new IOException("invalid allowed-signers line");
-            }
-            entries.add("porelo " + afterPrincipals(line));
-        }
-        return entries;
-    }
-
-    static List<String> read(final CommandRunner runner, final Path file) throws IOException {
-        final List<String> lines = Files.readAllLines(file);
-        final List<String> entries = entries(lines);
-        if (entries.isEmpty()) {
-            return lines;
-        }
-        final Path check = Files.createTempFile("porelo-signers-check-", "");
-        try {
-            Files.write(check, entries);
-            final var result =
-                    runner.run(
-                            Command.of(
-                                    "ssh-keygen",
-                                    "-Y",
-                                    "match-principals",
-                                    "-I",
-                                    "porelo",
-                                    "-f",
-                                    check.toString()));
-            if (!result.successful() || !result.standardError().isBlank()) {
-                throw new IOException(
-                        "invalid allowed-signers file: " + result.standardError().strip());
-            }
-        } catch (final RuntimeException ex) {
-            throw new IOException("cannot validate the pinned keys: " + ex.getMessage(), ex);
-        } finally {
-            Files.deleteIfExists(check);
-        }
-        return lines;
     }
 }

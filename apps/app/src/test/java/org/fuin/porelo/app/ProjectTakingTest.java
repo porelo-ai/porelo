@@ -296,6 +296,93 @@ class ProjectTakingTest {
                 .containsExactly(machine.key("michael"));
     }
 
+    /**
+     * Tasks and messages take their certifiers from one list, the project's members' current keys:
+     * a backup key filed for the owner who administers the project is not in it, so ssh-keygen
+     * traces no task's signature to that key.
+     */
+    @Test
+    void a_backup_key_certifies_neither_a_task_nor_a_message() throws Exception {
+        organization
+                .writes()
+                .addBackupKey(
+                        organization.change("michael", "michael", "backup"),
+                        null,
+                        machine.key("hank"));
+
+        taking().taken("demo");
+
+        final org.fuin.porelo.core.project.Project project =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        ProjectSource.resolve(context, "demo").file());
+        final List<String> certifiers = ProjectMembers.certifiers(context, "demo");
+        assertThat(certifiers).containsExactly(machine.key("michael"));
+        assertThat(TaskCertifying.certifiers(context, project))
+                .as("for a task")
+                .isEqualTo(certifiers);
+        assertThat(MessageSigners.certifiers(context, project))
+                .as("for a message")
+                .isEqualTo(certifiers);
+        final Path allowed = dir.resolve("certifiers");
+        Files.write(
+                allowed,
+                certifiers.stream()
+                        .map(key -> "task:demo:* cert-authority,namespaces=\"git\" " + key)
+                        .toList());
+        assertThat(signedByATaskCertifiedBy("michael", allowed))
+                .as("ssh-keygen traces a task certified by the member's key")
+                .isTrue();
+        assertThat(signedByATaskCertifiedBy("hank", allowed))
+                .as("and none certified by the backup key")
+                .isFalse();
+    }
+
+    /** Whether ssh-keygen verifies a task's signature, its key certified by a login's key. */
+    private boolean signedByATaskCertifiedBy(final String certifier, final Path allowed)
+            throws Exception {
+        final Path key = dir.resolve("task-of-" + certifier);
+        machine.runner.runOrFail(
+                Command.of("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key.toString()));
+        machine.runner.runOrFail(
+                Command.of(
+                        "ssh-keygen",
+                        "-q",
+                        "-s",
+                        machine.keyFiles.get(certifier).toString(),
+                        "-I",
+                        "porelo task fix",
+                        "-n",
+                        "task:demo:fix",
+                        "-V",
+                        "+1d",
+                        key + ".pub"));
+        final byte[] payload = "tree 1\n\nfix\n".getBytes(StandardCharsets.UTF_8);
+        final TaskSecrets.Signing signing =
+                new TaskSecrets.Signing(
+                        org.fuin.porelo.vault.OpenSshPrivateKey.seedBase64(Files.readString(key)),
+                        Files.readString(Path.of(key + "-cert.pub")).strip());
+        final Path signature = dir.resolve("signed-by-" + certifier);
+        Files.writeString(
+                signature,
+                TaskSigner.of("demo", "fix", () -> java.util.Optional.of(signing)).sign(payload));
+        return machine.runner
+                .run(
+                        Command.of(
+                                        "ssh-keygen",
+                                        "-Y",
+                                        "verify",
+                                        "-n",
+                                        "git",
+                                        "-I",
+                                        "task:demo:fix",
+                                        "-f",
+                                        allowed.toString(),
+                                        "-s",
+                                        signature.toString())
+                                .withInput(new String(payload, StandardCharsets.UTF_8)))
+                .successful();
+    }
+
     @Test
     void every_start_reads_again() throws Exception {
         taking().taken("demo");

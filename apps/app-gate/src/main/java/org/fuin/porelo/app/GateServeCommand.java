@@ -185,6 +185,8 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
         final TaskSecrets secrets = new TaskSecrets(context);
         final TaskIdentity identity = TaskHistory.find(context, project, task);
         return TaskSigner.of(
+                project,
+                task,
                 () -> identity == null ? java.util.Optional.empty() : secrets.signing(identity));
     }
 

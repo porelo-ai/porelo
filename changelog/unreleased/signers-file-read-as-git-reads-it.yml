@@ -1,0 +1,2 @@
+title: "An allowed-signers file is read as ssh-keygen reads it for git: a lone carriage return no longer ends a line, a line ssh-keygen cannot parse is skipped instead of refusing the whole file, and a line opening with a Unicode space other than a blank is a signer rather than a comment; a task's gate signs nothing under a certificate that names another task"
+type: fixed
