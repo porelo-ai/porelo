@@ -44,7 +44,9 @@ class ResumeVaultOfferTest {
     private PoreloContext context;
 
     @AfterEach
-    void forget() {
+    void forget() throws IOException {
+        // The resumed task's broker is a stand-in that blocks until it is stopped.
+        HelperStandIn.stop(dir.resolve("helpers"));
         PoreloContext.forgetAsked();
         if (context != null && KernelKeyring.available()) {
             // The answer unlocks the vault as 'vault unlock' does, which keeps it in this account's
@@ -86,7 +88,18 @@ class ResumeVaultOfferTest {
         new TaskHelpers(
                         List.of(
                                 new TaskHelpers.Helper(
-                                        "vault", List.of("true"), Map.of(), TaskHelpers.BEFORE)))
+                                        "vault",
+                                        List.of(
+                                                HelperStandIn.write(dir.resolve("helpers"), true)
+                                                        .toString(),
+                                                "--pid-file",
+                                                context.paths()
+                                                        .tasks()
+                                                        .containerState(TASK)
+                                                        .resolve("vault.pid")
+                                                        .toString()),
+                                        Map.of(),
+                                        TaskHelpers.BEFORE)))
                 .writeTo(record);
         LegacyTaskFixture.record(context, TASK, "uc", "c0ffeec0ffee");
         runner.answering("ps", TASK + "\tExited (0)\t\t\tuc\tguarded\tuc\t\tc0ffeec0ffee\n");

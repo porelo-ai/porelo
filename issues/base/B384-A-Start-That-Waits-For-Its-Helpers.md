@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B384",
   "title": "A Start That Waits For Its Helpers",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 45,
@@ -79,3 +79,44 @@ Steps:
 - On the Ubuntu VM, a resumed task attached in the foreground and ended by `SIGTERM` (from `timeout`) was left running
   with its gate and watcher dead and their pid files still there. Whether a signal to an attached start does this on
   every build, and whether it belongs here, is not measured.
+
+## Built (2026-11-13)
+
+Line numbers checked against `916577457`: `GateWiring.startGate` is at `:254`, not `:198`, and the 20 s wait at
+`:415` is the gate's reachability probe, not `:358`. `GateServeCommand.writePidFile` is defined at `:174` and called
+after the server starts at `:342`, not `:319`. `CredentialWiring.startRelay` (`:98`), `awaitToken` (`:665`) and
+`VaultServeCommand`'s pid write (`:468`, after the token) were where the plan said.
+
+1. Stand-ins: `HelperStandIn` (test sources) is a shell helper that records itself as `HelperPid.record` would, with
+   the same `pid start-millis` read from `/proc`, in its `--pid-file` and in a registry, then blocks; `stop` ends only
+   the ones in its registry, by verified identity. `OwnPorelo`'s launcher answers `gate serve` with it and stops its
+   stand-ins after each test. The gated starts in `TaskRunCommandTest` and the helpers recorded in
+   `TaskLifecycleCommandsTest`'s and `ResumeVaultOfferTest`'s resumes use it. `StartCheckTest` has no gated start and
+   needed none.
+2. Red: `aStartWhoseGateNeverRecordsItsPidFailsAndLeavesNoHelperRunning`,
+   `aRelayThatNeverRecordsItsPidIsNotUpAndIsNotLeftRunning`, `aResumeWhoseHelperNeverComesUpFailsAndStopsIt`.
+3. `HelperPid.await(pidFile, deadline)` (wire). `startGate` and `startRelay` return whether the helper came up within
+   `GateWiring.HELPER_PATIENCE` (20 s); one that did not is stopped, waited for until it has exited (5 s at most), and the start unwinds through its cleanup with 70.
+   A resume awaits each helper it started against one deadline; one that did not come up is stopped and the resume
+   answers 70 (`HELPERS_INCOMPLETE`). `VaultServeCommand.recordedThenPublished` records the pid before the token and
+   publishes no token when it cannot. `CredentialWiring` got a `namespace` seam so a unit test reaches the relay.
+4. The host block (kept signing key, forge token, certificate records) now runs before the resume record,
+   `TaskState.save` and `TaskSecrets.keep`; a refusal there removes the container as refused before it was handed on,
+   so the next start creates afresh and refuses again. No new seam was needed: `PoreloPaths` already carries the host
+   program and directory, and `HostPerson(context, program)` takes the helper's path.
+5. `TaskRunner.onCreated` (app-base) hands `TaskLaunch` the id its own create recorded; a failed start's cleanup uses
+   only that id, and when its create made nothing while the name's record on disk names a live container, it touches
+   nothing.
+
+Seen red first, each against a deliberate break of its fix (copies taken and restored, `git diff --stat` the same):
+both `HelperPidTest` await tests, all three tests above, both `VaultServePidFirstTest` tests,
+`aStartThatLosesTheNameToAnotherStartStopsNothingOfThatOne` (it stopped the other start's container) and
+`aHostStartRefusedForItsKeyIsRefusedAgainRatherThanResumed` (the second start tried to resume: 69, "there is no
+container ... to resume").
+
+Not in this change: the start's clearance watcher still only warns when it does not come up, and a vault broker whose
+token never appears still lets the start go on; *What must be true* names both, the plan's step 3 only the gate and
+relay.
+
+To be checked: not touched. The signal and teardown path of an attached start is unchanged, so a resumed task ended by
+`SIGTERM` leaving its helpers dead stays open.

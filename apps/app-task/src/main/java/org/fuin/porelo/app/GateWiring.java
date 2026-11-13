@@ -310,7 +310,15 @@ final class GateWiring {
         return command;
     }
 
-    void startGate(
+    /** How long a start waits for a helper to record its pid. */
+    static final java.time.Duration HELPER_PATIENCE = java.time.Duration.ofSeconds(20);
+
+    /**
+     * Starts the task's gate and waits until it has recorded its pid.
+     *
+     * @return Whether the gate came up; one that did not is stopped again, and the start fails.
+     */
+    boolean startGate(
             TaskRunner runner,
             TaskWorkspace workspace,
             @org.jspecify.annotations.Nullable String gateAddress,
@@ -352,7 +360,7 @@ final class GateWiring {
             if (upstream != null) {
                 builder.environment().put("PORELO_GATE_UPSTREAM", upstream);
             }
-            builder.start();
+            final Process started = builder.start();
             recorder.record(
                     "gate",
                     command,
@@ -364,6 +372,22 @@ final class GateWiring {
                                                     java.util.Map.Entry::getKey,
                                                     java.util.Map.Entry::getValue))),
                     TaskHelpers.AFTER);
+            // Until it recorded its pid nothing that cleans up can find it, and the task it
+            // serves has no gate: a start that went on answered success without one.
+            if (org.fuin.porelo.wire.HelperPid.await(
+                            state.resolve("gate.pid"),
+                            java.time.Instant.now().plus(HELPER_PATIENCE))
+                    .isEmpty()) {
+                org.fuin.porelo.wire.HelperPid.stop(started.toHandle());
+                // Signalled is not yet gone: the start answers once it no longer runs.
+                started.onExit()
+                        .completeOnTimeout(null, 5, java.util.concurrent.TimeUnit.SECONDS)
+                        .join();
+                err.println(
+                        "porelo: the git gate did not come up; see " + state.resolve("gate.log"));
+                err.flush();
+                return false;
+            }
             out.println("gate      " + workspace.url(project));
             final String mismatch =
                     gateAddress == null ? null : gateReachability(runner, container, gateAddress);
@@ -372,9 +396,11 @@ final class GateWiring {
                 err.flush();
             }
             out.flush();
+            return true;
         } catch (java.io.IOException ex) {
             err.println("porelo: could not start the git gate: " + ex.getMessage());
             err.flush();
+            return false;
         }
     }
 

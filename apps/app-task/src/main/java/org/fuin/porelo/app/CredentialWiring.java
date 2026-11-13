@@ -74,6 +74,10 @@ final class CredentialWiring {
         this.upstream = upstream;
     }
 
+    /** Wraps a command so it runs in the task's network namespace; a test's runs where it is. */
+    java.util.function.BiFunction<Long, java.util.List<String>, java.util.List<String>> namespace =
+            org.fuin.porelo.shield.EgressPolicy::inNamespace;
+
     private void record(
             String name,
             java.util.List<String> command,
@@ -90,14 +94,15 @@ final class CredentialWiring {
      * @param socket Broker socket to forward to.
      * @param out Where progress is reported.
      * @param err Where failures are reported.
+     * @return Whether the relay came up and recorded its pid; one that did not is stopped again.
      */
-    void startRelay(
+    boolean startRelay(
             TaskRunner runner,
             String container,
             java.nio.file.Path socket,
             PrintWriter out,
             PrintWriter err) {
-        relay(runner, container, socket, TaskWiring.VAULT_PORT, "relay", out, err);
+        return relay(runner, container, socket, TaskWiring.VAULT_PORT, "relay", out, err);
     }
 
     /** The helper that serves the task's package repositories, as it is recorded. */
@@ -206,14 +211,16 @@ final class CredentialWiring {
      * @param socket The repository broker's socket.
      * @param out Where progress is reported.
      * @param err Where failures are reported.
+     * @return Whether the relay came up and recorded its pid; one that did not is stopped again.
      */
-    void startRepositoryRelay(
+    boolean startRepositoryRelay(
             TaskRunner runner,
             String container,
             java.nio.file.Path socket,
             PrintWriter out,
             PrintWriter err) {
-        relay(runner, container, socket, TaskWiring.REPOSITORY_PORT, REPOSITORY_RELAY, out, err);
+        return relay(
+                runner, container, socket, TaskWiring.REPOSITORY_PORT, REPOSITORY_RELAY, out, err);
     }
 
     /**
@@ -222,8 +229,10 @@ final class CredentialWiring {
      * <p>Only the listening end moves: the broker keeps the host's resolver, the host's egress and
      * the credential. Binding the broker itself in the namespace was tried and fails - it reads the
      * host's {@code /etc/resolv.conf} and then cannot resolve anything at all.
+     *
+     * @return Whether the relay came up and recorded its pid; one that did not is stopped again.
      */
-    private void relay(
+    private boolean relay(
             TaskRunner runner,
             String container,
             java.nio.file.Path socket,
@@ -239,11 +248,11 @@ final class CredentialWiring {
                             + " namespace and the task has no endpoint on port "
                             + port);
             err.flush();
-            return;
+            return false;
         }
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
         final java.util.List<String> command =
-                org.fuin.porelo.shield.EgressPolicy.inNamespace(
+                namespace.apply(
                         pid.get(),
                         java.util.List.of(
                                 PoreloBinary.path(),
@@ -256,18 +265,37 @@ final class CredentialWiring {
                                 "--pid-file",
                                 state.resolve(helper + ".pid").toString()));
         try {
-            new ProcessBuilder(
-                            org.fuin.porelo.core.process.Scope.around(
-                                    "porelo " + container + " " + helper, command))
-                    .redirectErrorStream(true)
-                    .redirectOutput(state.resolve(helper + ".log").toFile())
-                    .start();
+            final Process started =
+                    new ProcessBuilder(
+                                    org.fuin.porelo.core.process.Scope.around(
+                                            "porelo " + container + " " + helper, command))
+                            .redirectErrorStream(true)
+                            .redirectOutput(state.resolve(helper + ".log").toFile())
+                            .start();
             record(helper, command, java.util.Map.of(), TaskHelpers.AFTER);
+            // Without its pid nothing that cleans up finds it, and the task has no endpoint.
+            if (org.fuin.porelo.wire.HelperPid.await(
+                            state.resolve(helper + ".pid"),
+                            java.time.Instant.now().plus(GateWiring.HELPER_PATIENCE))
+                    .isEmpty()) {
+                org.fuin.porelo.wire.HelperPid.stop(started.toHandle());
+                // Signalled is not yet gone: the start answers once it no longer runs.
+                started.onExit()
+                        .completeOnTimeout(null, 5, java.util.concurrent.TimeUnit.SECONDS)
+                        .join();
+                err.println(
+                        "porelo: the endpoint relay did not come up; see "
+                                + state.resolve(helper + ".log"));
+                err.flush();
+                return false;
+            }
             out.println("endpoint  http://127.0.0.1:" + port + " in the task's namespace");
             out.flush();
+            return true;
         } catch (java.io.IOException ex) {
             err.println("porelo: could not start the endpoint relay: " + ex.getMessage());
             err.flush();
+            return false;
         }
     }
 

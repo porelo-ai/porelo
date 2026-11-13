@@ -86,6 +86,18 @@ public class TaskRunner {
         reservation = lease;
     }
 
+    private java.util.function.Consumer<String> created = id -> {};
+
+    /**
+     * Tells a start the id of the container it created, as podman gave it back: the one container a
+     * start that fails may stop or remove, whatever a record on disk names for its name by then.
+     *
+     * @param listener Told the id once both copies of it are recorded.
+     */
+    public void onCreated(java.util.function.Consumer<String> listener) {
+        created = listener;
+    }
+
     /**
      * Constructor.
      *
@@ -959,6 +971,7 @@ public class TaskRunner {
                     durable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }
         Sidecar.recordId(durable, id);
+        created.accept(id);
         final TaskReservations.Lease held = reservation;
         if (held != null) held.created(id);
     }

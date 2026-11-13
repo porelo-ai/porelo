@@ -60,6 +60,47 @@ class HelperPidTest {
     }
 
     @Test
+    void aHelperIsAwaitedUntilItsRecordNamesItAndNoLonger(@TempDir Path dir) throws Exception {
+
+        // A start that went on before its helper recorded itself answered success for a task
+        // whose gate never came up, and left nothing a clean-up could find.
+        final Path file = dir.resolve("helper.pid");
+        final Thread late =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    try {
+                                        Thread.sleep(300);
+                                        HelperPid.record(file);
+                                    } catch (Exception ex) {
+                                        throw new IllegalStateException(ex);
+                                    }
+                                });
+
+        assertThat(HelperPid.await(file, java.time.Instant.now().plusSeconds(20)))
+                .as("a record written while it waits is the helper")
+                .get()
+                .extracting(ProcessHandle::pid)
+                .isEqualTo(ProcessHandle.current().pid());
+        late.join();
+    }
+
+    @Test
+    void aHelperThatNeverRecordsItselfIsNotUpAtItsDeadline(@TempDir Path dir) throws Exception {
+        final Path file = dir.resolve("helper.pid");
+        Files.writeString(
+                file, String.valueOf(ProcessHandle.current().pid()), StandardCharsets.UTF_8);
+        final long before = System.nanoTime();
+
+        assertThat(HelperPid.await(file, java.time.Instant.now().plusMillis(400)))
+                .as("a bare number names no helper that came up")
+                .isEmpty();
+        assertThat(java.time.Duration.ofNanos(System.nanoTime() - before))
+                .as("it waited out its deadline, and not much more")
+                .isBetween(java.time.Duration.ofMillis(350), java.time.Duration.ofSeconds(10));
+    }
+
+    @Test
     void theRecordIsOwnerOnly(@TempDir Path dir) throws Exception {
         final Path file = dir.resolve("helper.pid");
         HelperPid.record(file);

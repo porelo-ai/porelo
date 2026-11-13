@@ -1072,7 +1072,6 @@ public final class TaskControl {
         // container held a deleted inode and every request through it went nowhere, while the same
         // request from the host was answered.
         int started = start(recorded, TaskHelpers.BEFORE, 0, state, problems);
-        awaitHelpers(recorded, state);
 
         context.podman().start(container);
         context.tasks().trustCertificates(container);
@@ -1217,12 +1216,13 @@ public final class TaskControl {
      * @param pid Container pid, for helpers that need it; ignored when zero.
      * @param state The task's state directory.
      * @param problems Collects what could not be started, for a caller with no terminal.
-     * @return How many started.
+     * @return How many are up, each having recorded its pid; one that did not is stopped again.
      */
     private int start(
             TaskHelpers recorded, String phase, long pid, Path state, List<String> problems) {
 
         int started = 0;
+        final List<java.util.Map.Entry<String, Process>> coming = new ArrayList<>();
         for (final TaskHelpers.Helper helper : recorded.helpers()) {
             if (!phase.equals(helper.phase())) {
                 continue;
@@ -1280,41 +1280,32 @@ public final class TaskControl {
                                         ProcessBuilder.Redirect.appendTo(
                                                 state.resolve(helper.name() + ".log").toFile()));
                 builder.environment().putAll(helper.environment());
-                builder.start();
-                started++;
+                coming.add(java.util.Map.entry(helper.name(), builder.start()));
             } catch (IOException ex) {
                 problems.add("could not start the " + helper.name() + ": " + ex.getMessage());
             }
         }
-        return started;
-    }
-
-    /**
-     * Waits for the helpers that must be up before the container to write their pid files.
-     *
-     * <p>Starting the container while the proxy is still binding its socket is the same failure as
-     * starting it too early: the mount catches whatever is at the path at that moment.
-     *
-     * @param recorded What the task wrote down.
-     * @param state The task's state directory.
-     */
-    private void awaitHelpers(TaskHelpers recorded, Path state) {
-        final List<Path> expected =
-                recorded.helpers().stream()
-                        .filter(helper -> TaskHelpers.BEFORE.equals(helper.phase()))
-                        .map(helper -> state.resolve(helper.name() + ".pid"))
-                        .toList();
-        for (int attempt = 0; attempt < 50; attempt++) {
-            if (expected.stream().allMatch(Files::isRegularFile)) {
-                return;
-            }
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                return;
+        // Counted once each recorded its pid: a helper that was started and never came up left the
+        // resume answering success for a task with no gate, and nothing that cleans up found it.
+        // Before the container too, whose mount takes whatever is at the socket's path then.
+        final java.time.Instant deadline = java.time.Instant.now().plus(GateWiring.HELPER_PATIENCE);
+        for (final java.util.Map.Entry<String, Process> each : coming) {
+            final String name = each.getKey();
+            if (org.fuin.porelo.wire.HelperPid.await(state.resolve(name + ".pid"), deadline)
+                    .isPresent()) {
+                started++;
+            } else {
+                org.fuin.porelo.wire.HelperPid.stop(each.getValue().toHandle());
+                // Signalled is not yet gone: the start answers once it no longer runs.
+                each.getValue()
+                        .onExit()
+                        .completeOnTimeout(null, 5, java.util.concurrent.TimeUnit.SECONDS)
+                        .join();
+                problems.add(
+                        "the " + name + " did not come up; see " + state.resolve(name + ".log"));
             }
         }
+        return started;
     }
 
     /**

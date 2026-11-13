@@ -84,6 +84,32 @@ public final class HelperPid {
     }
 
     /**
+     * Waits until a helper has recorded itself and still runs, or the deadline passes.
+     *
+     * <p>A helper that was started is not yet one that came up: until its record is there, nothing
+     * that cleans up can find it, and a start that went on without it answered success for a task
+     * that had no gate.
+     *
+     * @param file The record the helper writes.
+     * @param deadline When to give up.
+     * @return The helper, or empty when it did not record itself in time, or is gone again.
+     */
+    public static Optional<ProcessHandle> await(Path file, java.time.Instant deadline) {
+        while (true) {
+            final Optional<ProcessHandle> found = verified(file);
+            if (found.isPresent() || !java.time.Instant.now().isBefore(deadline)) {
+                return found;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return verified(file);
+            }
+        }
+    }
+
+    /**
      * Returns the process a record names, when it is still that process.
      *
      * @param file The record.

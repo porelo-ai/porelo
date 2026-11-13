@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.wire.Sidecar;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -83,9 +84,35 @@ class TaskLifecycleCommandsTest {
         runner.answering("git status --porcelain", counts);
     }
 
-    /** What a real helper does once it is up, and what resuming waits up to five seconds for. */
-    private static String writesItsPid(Path state, String helper) {
-        return "echo $$ > " + state.resolve(helper + ".pid");
+    /** Stops every helper stand-in the test started. */
+    @AfterEach
+    void stopStandIns() throws IOException {
+        if (root != null) {
+            HelperStandIn.stop(root.resolve("helpers"));
+        }
+    }
+
+    /**
+     * A helper that records its pid, as a real one does once it is up, and blocks until stopped.
+     */
+    private Path standIn() throws IOException {
+        return HelperStandIn.write(root.resolve("helpers"), true);
+    }
+
+    /** What a real helper does once it is up, and what resuming waits for. */
+    private String writesItsPid(Path state, String helper) throws IOException {
+        return "exec " + standIn() + " --pid-file " + state.resolve(helper + ".pid");
+    }
+
+    /** A helper's command that comes up as a real one does, recording its pid. */
+    private java.util.List<String> comesUp(Path state, String helper, String... arguments)
+            throws IOException {
+        final java.util.List<String> command = new java.util.ArrayList<>();
+        command.add(standIn().toString());
+        command.addAll(java.util.List.of(arguments));
+        command.add("--pid-file");
+        command.add(state.resolve(helper + ".pid").toString());
+        return command;
     }
 
     private void tasks(String rows) {
@@ -1146,7 +1173,7 @@ class TaskLifecycleCommandsTest {
                                         TaskHelpers.BEFORE),
                                 new TaskHelpers.Helper(
                                         "watcher",
-                                        java.util.List.of("true", "--pid", "1"),
+                                        comesUp(state, "watcher", "--pid", "1"),
                                         java.util.Map.of(),
                                         TaskHelpers.AFTER)))
                 .writeTo(state);
@@ -1351,6 +1378,48 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aResumeWhoseHelperNeverComesUpFailsAndStopsIt(@TempDir Path dir) throws Exception {
+
+        // Counted as started once its process was, a gate that never came up left the resume
+        // answering 0 for a task with no gate, and running where no pid file named it.
+        final PoreloContext context = context(dir);
+        stoppedTask(context);
+        runner.answering("container inspect", "4711");
+        final Path state = stateOf("porelo-uc-shell-1");
+        final Path silent = HelperStandIn.write(root.resolve("helpers"), false);
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "watcher",
+                                        comesUp(state, "watcher", "--pid", "1"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER),
+                                new TaskHelpers.Helper(
+                                        "gate",
+                                        java.util.List.of(
+                                                silent.toString(),
+                                                "--pid-file",
+                                                state.resolve("gate.pid").toString()),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
+                .writeTo(state);
+
+        assertThat(resume(context, "porelo-uc-shell-1"))
+                .as("a helper that did not come up fails the resume: %s", out)
+                .isEqualTo(70);
+        assertThat(err.toString()).as("and says which").contains("the gate did not come up");
+        assertThat(HelperStandIn.started(root.resolve("helpers")))
+                .as("both were started")
+                .isEqualTo(2);
+        assertThat(HelperStandIn.running(root.resolve("helpers")))
+                .as("and only the one that came up still runs")
+                .isEqualTo(1);
+        assertThat(org.fuin.porelo.wire.HelperPid.verified(state.resolve("watcher.pid")))
+                .as("which is the watcher")
+                .isPresent();
+    }
+
+    @Test
     void aSocketHelperStartsBeforeTheContainer(@TempDir Path dir) throws Exception {
 
         // A bind mount is bound to the file that exists when the container starts. Measured: with
@@ -1520,7 +1589,7 @@ class TaskLifecycleCommandsTest {
                         java.util.List.of(
                                 new TaskHelpers.Helper(
                                         "watcher",
-                                        java.util.List.of("true"),
+                                        comesUp(state, "watcher"),
                                         java.util.Map.of(),
                                         TaskHelpers.AFTER)))
                 .writeTo(state);
@@ -1544,7 +1613,7 @@ class TaskLifecycleCommandsTest {
                         java.util.List.of(
                                 new TaskHelpers.Helper(
                                         "watcher",
-                                        java.util.List.of("true"),
+                                        comesUp(state, "watcher"),
                                         java.util.Map.of(),
                                         TaskHelpers.AFTER)))
                 .writeTo(state);

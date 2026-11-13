@@ -460,15 +460,18 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                 // socket, and a socket left behind reads as a live broker.
                 Teardown closing = Teardown.arm(proxy::close)) {
 
-            // The routes' tokens before the agent's own: the agent's is what a caller waits for.
-            routeTokenValues.forEach(
-                    (name, minted) -> writeOwnerOnly(routeTokenFile(name), minted.value(), err));
-            writeOwnerOnly(tokenFile, token.value(), err);
-            try {
-                org.fuin.porelo.wire.HelperPid.record(pidFile);
-            } catch (java.io.IOException ex) {
-                err.println("porelo: cannot write " + pidFile + ": " + ex.getMessage());
-                err.flush();
+            if (!recordedThenPublished(
+                    pidFile,
+                    () -> {
+                        // The routes' tokens before the agent's own: the agent's is what a caller
+                        // waits for.
+                        routeTokenValues.forEach(
+                                (name, route) ->
+                                        writeOwnerOnly(routeTokenFile(name), route.value(), err));
+                        writeOwnerOnly(tokenFile, token.value(), err);
+                    },
+                    err)) {
+                return 70;
             }
 
             out.println("socket    " + socket);
@@ -688,6 +691,30 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         }
         return new VaultProxy.Route(
                 fields[0], fields[1], fields[2], fields[3].isEmpty() ? null : fields[3]);
+    }
+
+    /**
+     * Records this process's pid, and only then publishes its tokens.
+     *
+     * <p>A start waits for the token and takes the broker for up once it is there: written before
+     * the pid, a start that failed in between found no pid to stop it by and left the broker
+     * holding the credential. A broker that cannot record its pid publishes nothing.
+     *
+     * @param pidFile Where the pid goes.
+     * @param publish Writes the tokens.
+     * @param err Where a pid that could not be written is said.
+     * @return Whether the pid was recorded and the tokens published.
+     */
+    static boolean recordedThenPublished(Path pidFile, Runnable publish, PrintWriter err) {
+        try {
+            org.fuin.porelo.wire.HelperPid.record(pidFile);
+        } catch (java.io.IOException ex) {
+            err.println("porelo: cannot write " + pidFile + ": " + ex.getMessage());
+            err.flush();
+            return false;
+        }
+        publish.run();
+        return true;
     }
 
     private static void writeOwnerOnly(Path file, String content, PrintWriter err) {

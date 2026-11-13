@@ -3072,9 +3072,12 @@ public final class TaskLaunch {
         final TaskRunner runner = context.tasks();
         final String container = startContainer(project);
         runner.reserving(reservation);
+        runner.onCreated(id -> createdId = id);
         // Until the task is handed on, a failure is a start that failed, which leaves nothing
         // running whether or not the task was to be kept.
         handedOver = false;
+        launching = true;
+        createdId = null;
 
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
 
@@ -3804,15 +3807,21 @@ public final class TaskLaunch {
             }
             steps.at(container);
             steps.started(StartStep.Step.HELPERS);
-            if (needsRelay && plumbing != null) {
-                wiring().startRelay(runner, container, plumbing.socket(), out, err);
+            // A helper that did not come up fails the start: answered with 0, the task ran with
+            // no endpoint or no gate, and nothing said so but a line in its log.
+            if (needsRelay
+                    && plumbing != null
+                    && !wiring().startRelay(runner, container, plumbing.socket(), out, err)) {
+                return cleanUp(runner, container, 70, false, out, err);
             }
-            if (repositories != null) {
-                wiring().startRepositoryRelay(runner, container, repositories.socket(), out, err);
+            if (repositories != null
+                    && !wiring().startRepositoryRelay(
+                                    runner, container, repositories.socket(), out, err)) {
+                return cleanUp(runner, container, 70, false, out, err);
             }
 
             if (workspace != null) {
-                gate().reading(reads)
+                if (!gate().reading(reads)
                         .followingBuilds(
                                 BuildsWiring.follows(
                                         project,
@@ -3832,7 +3841,9 @@ public final class TaskLaunch {
                                                 issued,
                                                 hostPushRepository(project, repository)),
                                 out,
-                                err);
+                                err)) {
+                    return cleanUp(runner, container, 70, false, out, err);
+                }
                 final boolean prepared =
                         workspace()
                                 .prepareWorkspace(
@@ -3868,30 +3879,10 @@ public final class TaskLaunch {
                             BuildsWiring.hostBuilds(project, host.present(), projects),
                             out,
                             err);
-            writeResumeRecord(container, err);
-            // What brings it back after a reboot: its description and records saved where a reboot
-            // does not reach, and its two tokens in the vault. A task that cannot keep them runs,
-            // and says so.
-            new TaskState(context).save(container);
-            final String unkept =
-                    new TaskSecrets(context)
-                            .keep(
-                                    container,
-                                    TaskSecrets.fromRuntime(
-                                            context.paths().tasks().containerState(container)),
-                                    () -> existingTasks(container));
-            if (!unkept.isEmpty()) {
-                out.println("reboot    " + unkept);
-            }
-            if (mcp != null) {
-                // Again, now that its container exists: a start beside this one that kept its
-                // tokens before then pruned the key as a gone task's.
-                final String mcpUnkept =
-                        new TaskSecrets(context).keepMcpKey(container, mcp.token());
-                if (!mcpUnkept.isEmpty()) {
-                    out.println("mcp       " + mcpUnkept);
-                }
-            }
+            // A host's two refusals, its kept key and its forge token, before anything records the
+            // task as one to bring back: refused after, the next start resumed it without either.
+            // A start refused here is removed, not kept, since nobody worked in it yet.
+            discarding = true;
             if (issued != null) {
                 // Without its key in the vault the gate cannot sign: say so, as for the tokens.
                 final String unsigned =
@@ -3933,6 +3924,31 @@ public final class TaskLaunch {
                                     issued.certificate());
                 } catch (java.io.IOException ex) {
                     out.println("trace     the certificate is not kept: " + ex.getMessage());
+                }
+            }
+            discarding = false;
+            writeResumeRecord(container, err);
+            // What brings it back after a reboot: its description and records saved where a reboot
+            // does not reach, and its two tokens in the vault. A task that cannot keep them runs,
+            // and says so.
+            new TaskState(context).save(container);
+            final String unkept =
+                    new TaskSecrets(context)
+                            .keep(
+                                    container,
+                                    TaskSecrets.fromRuntime(
+                                            context.paths().tasks().containerState(container)),
+                                    () -> existingTasks(container));
+            if (!unkept.isEmpty()) {
+                out.println("reboot    " + unkept);
+            }
+            if (mcp != null) {
+                // Again, now that its container exists: a start beside this one that kept its
+                // tokens before then pruned the key as a gone task's.
+                final String mcpUnkept =
+                        new TaskSecrets(context).keepMcpKey(container, mcp.token());
+                if (!mcpUnkept.isEmpty()) {
+                    out.println("mcp       " + mcpUnkept);
                 }
             }
 
@@ -5918,6 +5934,15 @@ public final class TaskLaunch {
      */
     private boolean handedOver;
 
+    /** Whether a start that fails now removes its container rather than keeping it to resume. */
+    private boolean discarding;
+
+    /** Whether this launch is making a task, rather than bringing back one that exists. */
+    private boolean launching;
+
+    /** The id of the container this launch created, or {@code null} while it created none. */
+    private @Nullable String createdId;
+
     /** What this run started on the host, written out so a later start can bring them back. */
     private final java.util.List<TaskHelpers.Helper> startedHelpers = new java.util.ArrayList<>();
 
@@ -6176,8 +6201,21 @@ public final class TaskLaunch {
             PrintWriter err) {
 
         // Only the container it recorded is the start's: one of the same name it never made is
-        // somebody else's, and stopping or removing it by name destroyed what was not Porelo's.
-        final String recorded = context.recordedId(container);
+        // somebody else's, and stopping or removing it by name destroyed what was not Porelo's. A
+        // start that failed trusts only the id its own create gave back: the record on disk is the
+        // name's, and a start of the same name racing this one wrote its own there.
+        final boolean ownStart = launching && !handedOver;
+        final String onDisk = context.recordedId(container);
+        final String recorded = ownStart ? createdId : onDisk;
+        if (ownStart
+                && recorded == null
+                && onDisk != null
+                && context.podman().stateOf(onDisk)
+                        != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT) {
+            // Another start's task holds the name: nothing of it is this start's to stop or
+            // forget, its helpers and its state least of all.
+            return code;
+        }
         final boolean exists =
                 recorded != null
                         && context.podman().stateOf(recorded)
@@ -6197,7 +6235,16 @@ public final class TaskLaunch {
                         && RunLimit.endedBy(context.paths().tasks().containerState(container))
                                 != null;
 
-        if (code != 0 && exists && !kept && (!reading || limited)) {
+        if (code != 0 && exists && discarding && !handedOver) {
+            // Refused before anybody worked in it, and before it was recorded as one to bring
+            // back: kept, the next start resumed it without what it was refused for.
+            heldNothing(container);
+            final TaskControl.Stopped removed =
+                    new TaskControl(context).remove(container, false, true);
+            if (!reportStop(removed, err)) return code;
+            out.println("removed   " + container + " - it was refused before it was handed on");
+            out.flush();
+        } else if (code != 0 && exists && !kept && (!reading || limited)) {
             if (!handedOver) {
                 // Kept to be started again, which brings back what is recorded: a start that failed
                 // had recorded none of what it started for it, and it came back without them.

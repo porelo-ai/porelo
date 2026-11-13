@@ -3506,10 +3506,7 @@ class TaskRunCommandTest {
                 podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         // Its helpers are no part of it: run as this build's porelo, its gate served whatever
         // project of that name the account itself has, and outlived the test.
-        final Path helpers = dir.resolve("helpers-porelo");
-        Files.writeString(helpers, "#!/bin/sh\nexit 0\n");
-        Files.setPosixFilePermissions(
-                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final Path helpers = helperStandIns(dir);
         final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
         final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
         System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
@@ -3528,6 +3525,7 @@ class TaskRunCommandTest {
         } finally {
             System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
             System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers.getParent());
         }
 
         assertThat(started).as("started: %s", err).isZero();
@@ -3566,10 +3564,7 @@ class TaskRunCommandTest {
                         + "/'*) exit 1 ;; esac\nexit 0\n");
         Files.setPosixFilePermissions(
                 podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-        final Path helpers = dir.resolve("helpers-porelo");
-        Files.writeString(helpers, "#!/bin/sh\nexit 0\n");
-        Files.setPosixFilePermissions(
-                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final Path helpers = helperStandIns(dir);
         runner.answering("{{.State.Pid}}", "4242");
         final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
         final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
@@ -3611,7 +3606,281 @@ class TaskRunCommandTest {
         } finally {
             System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
             System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers.getParent());
         }
+    }
+
+    @Test
+    void aStartWhoseGateNeverRecordsItsPidFailsAndLeavesNoHelperRunning(@TempDir Path dir)
+            throws IOException {
+
+        // Answered 0, such a start left a task with no gate, and the gate it had started was named
+        // by no pid file, so nothing that cleans up ever found it.
+        final PoreloContext context = countingContext(dir);
+        final Path directory = Files.createDirectories(dir.resolve("helpers"));
+        final Path helpers = directory.resolve("porelo");
+        Files.writeString(
+                helpers,
+                "#!/bin/sh\n"
+                        + OwnPorelo.WATCHER
+                        + "if [ \"$1\" = gate ] && [ \"$2\" = serve ]; then\n"
+                        + HelperStandIn.lines(HelperStandIn.registry(directory), false)
+                        + "fi\n"
+                        + HelperStandIn.lines(HelperStandIn.registry(directory), true));
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
+        try {
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview");
+
+            assertThat(started)
+                    .as("a gate that never came up fails the start: %s", err)
+                    .isEqualTo(70);
+            assertThat(HelperStandIn.started(directory))
+                    .as("its gate was started: %s", out)
+                    .isPositive();
+            assertThat(HelperStandIn.anyRunning(directory))
+                    .as("and nothing the start made is left running")
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(directory);
+        }
+    }
+
+    @Test
+    void aStartThatLosesTheNameToAnotherStartStopsNothingOfThatOne(@TempDir Path dir)
+            throws IOException {
+
+        // Two starts of one name: the one whose create was refused for the taken name cleaned up by
+        // the record on disk, which by then was the other's, and stopped the other's task.
+        final PoreloContext context = context(dir, true);
+        final String other = "f".repeat(64);
+        final java.util.concurrent.atomic.AtomicReference<String> named =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ((StoppingCommandRunner) runner)
+                .beforeCreate(
+                        command -> {
+                            final String container =
+                                    command.arguments()
+                                            .get(command.arguments().indexOf("--name") + 1);
+                            named.set(container);
+                            try {
+                                // What the other start recorded, the moment before this create.
+                                org.fuin.porelo.wire.Sidecar.recordId(
+                                        context.paths().tasks().containerState(container), other);
+                                TaskIdentityFixture.record(
+                                        context.paths(), container, "uc", "shell", other);
+                            } catch (IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                            runner.answering(
+                                    "ps",
+                                    container
+                                            + "\tUp 1 second\t\t\tuc\tguarded\tuc\t\t"
+                                            + other
+                                            + "\tshell\n");
+                        });
+        runner.failing(
+                " create ",
+                125,
+                "Error: creating container storage: the container name is already in use");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("the second start fails: %s", err).isNotZero();
+        assertThat(named.get()).as("it reached its create: %s", err).isNotNull();
+        assertThat(runner.lines())
+                .as("nothing is stopped or removed of the other start's task")
+                .noneMatch(
+                        line ->
+                                (line.startsWith("podman stop") || line.startsWith("podman rm"))
+                                        && line.contains(other));
+        assertThat(context.recordedId(named.get()))
+                .as("whose record stays as that start wrote it")
+                .isEqualTo(other);
+    }
+
+    @Test
+    void aHostStartRefusedForItsKeyIsRefusedAgainRatherThanResumed(@TempDir Path dir)
+            throws Exception {
+
+        // Refused once its resume record was saved and its container kept, the next start of the
+        // name brought it back, without the key the host refused it for and without its token.
+        final PoreloContext context = context(dir, true);
+        final Path upstream = dir.resolve("upstream.git");
+        git(dir, "init", "-q", "--bare", "--initial-branch=main", upstream.toString());
+        final Path seed = Files.createDirectory(dir.resolve("seed"));
+        git(seed, "init", "-q");
+        git(seed, "commit", "-q", "--allow-empty", "-m", "initial");
+        git(seed, "push", "-q", upstream.toString(), "HEAD:refs/heads/main");
+        final Path person = dir.resolve("person");
+        final Process keygen =
+                new ProcessBuilder(
+                                "ssh-keygen",
+                                "-q",
+                                "-t",
+                                "ed25519",
+                                "-N",
+                                "",
+                                "-f",
+                                person.toString())
+                        .start();
+        assertThat(keygen.waitFor()).as("the fixture creates its own certifier's key").isZero();
+        final String[] key = Files.readString(dir.resolve("person.pub")).strip().split(" ");
+        final Path projectFile =
+                PlacedFixture.place(
+                        context,
+                        "uc",
+                        """
+                        project:
+                          name: uc
+                          security_class: guarded
+                          upstream: "file://%s"
+                        image:
+                          from: ubuntu:24.04
+                        """
+                                .formatted(upstream),
+                        PlacedFixture.key("alice", key[0] + " " + key[1]));
+        final Path hostFiles = Files.createDirectory(dir.resolve("hosted"));
+        final OrganizationProjects projects =
+                new OrganizationProjects(
+                        context.paths().projects().organizationProjects(), hostFiles);
+        final var document = new java.util.LinkedHashMap<String, Object>();
+        document.put("project", "uc");
+        document.put("revision", "host-revision");
+        document.put("address", "https://forge.example/uc.git");
+        document.put(
+                "signing_keys",
+                List.of(
+                        java.util.Map.of(
+                                "login", "alice",
+                                "role", "member",
+                                "key", key[0] + " " + key[1],
+                                "valid_from", "2000-01-01",
+                                "valid_until", "2999-01-01")));
+        document.put("host", "build");
+        Files.writeString(hostFiles.resolve("uc.json"), org.fuin.porelo.wire.Json.write(document));
+        final Path hostHelper = Files.writeString(dir.resolve("host-person"), "");
+        assertThat(context.vault().exists())
+                .as("no vault here, so no task's key can be kept")
+                .isFalse();
+        final java.util.concurrent.atomic.AtomicReference<String> named =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ((StoppingCommandRunner) runner)
+                .beforeCreate(
+                        command ->
+                                named.set(
+                                        command.arguments()
+                                                .get(command.arguments().indexOf("--name") + 1)));
+        final Path socket = dir.resolve("person.sock");
+        try (TestSshAgent agents = new TestSshAgent()) {
+            agents.start(socket);
+            final ProcessBuilder add = new ProcessBuilder("ssh-add", "-q", person.toString());
+            add.environment().put("SSH_AUTH_SOCK", socket.toString());
+            assertThat(add.start().waitFor())
+                    .as("the fixture's agent holds its certifier")
+                    .isZero();
+            final java.util.function.Supplier<TaskLaunch> launch =
+                    () ->
+                            new TaskLaunch(
+                                    context,
+                                    new TaskLaunch.Request(
+                                            "shell",
+                                            projectFile,
+                                            null,
+                                            null,
+                                            null,
+                                            8,
+                                            null,
+                                            false,
+                                            false,
+                                            "deny",
+                                            false,
+                                            org.fuin.porelo.wire.TaskMode.SHELL,
+                                            null,
+                                            null,
+                                            null,
+                                            60,
+                                            "uc"),
+                                    new StartSteps(step -> {}),
+                                    new HostPerson(context, hostHelper),
+                                    socket,
+                                    projects);
+
+            final int first =
+                    launch.get()
+                            .launch(
+                                    new PrintWriter(out, true),
+                                    new PrintWriter(err, true),
+                                    running -> 0);
+            assertThat(first)
+                    .as("the host refuses a task whose key is not kept: %s", err)
+                    .isEqualTo(65);
+            // As podman lists it now, made by that start under the id the fake's create gives:
+            // kept, it is there to bring back; removed, podman no longer lists it.
+            assertThat(named.get()).as("the refused start had made its container").isNotNull();
+            runner.answering(
+                    "ps",
+                    named.get()
+                            + "\tExited (0) 1 second ago\t\t\tuc\tguarded\tuc\t\t"
+                            + "0123456789abcdef"
+                            + "\tshell\n");
+
+            final TaskLaunch again = launch.get();
+            final TaskLaunch.Existing existing =
+                    again.startExisting(new PrintWriter(out, true), new PrintWriter(err, true));
+            final int second =
+                    existing != null
+                            ? existing.code()
+                            : again.launch(
+                                    new PrintWriter(out, true),
+                                    new PrintWriter(err, true),
+                                    running -> 0);
+
+            assertThat(second)
+                    .as("the second start is refused as the first was, not resumed: %s", err)
+                    .isEqualTo(65);
+            assertThat(runner.lines().stream().filter(line -> line.startsWith("podman create")))
+                    .as("each start made its own container, and none brought the refused one back")
+                    .hasSize(2);
+        } finally {
+            TaskLifecycle.stopHelpers(shellState(context));
+        }
+    }
+
+    /**
+     * Writes a {@code porelo} whose helpers are stand-ins: a watcher that makes its socket and
+     * exits, and every other helper one that records its pid and blocks until the test stops it.
+     */
+    private static Path helperStandIns(Path dir) throws IOException {
+        final Path directory = Files.createDirectories(dir.resolve("helpers"));
+        final Path helpers = directory.resolve("porelo");
+        Files.writeString(
+                helpers,
+                "#!/bin/sh\n"
+                        + OwnPorelo.WATCHER
+                        + HelperStandIn.lines(HelperStandIn.registry(directory), true));
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        return helpers;
     }
 
     private static int indexOf(List<String> lines, String part) {

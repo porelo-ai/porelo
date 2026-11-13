@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
@@ -22,8 +23,12 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * something stops it: one whose pid file was not yet written when a test's teardown looked, or one
  * a test leaves running on purpose, outlived the JVM and never exited. The stand-in does what a
  * start waits for, making the socket a watcher listens on, and exits.
+ *
+ * <p><strong>And but the gate.</strong> This build's {@code gate serve} served whatever project of
+ * that name the account itself has; a start waits for its gate's pid, so the gate is a {@link
+ * HelperStandIn}, stopped after each test.
  */
-final class OwnPorelo implements BeforeAllCallback, AfterAllCallback {
+final class OwnPorelo implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
 
     /** Answers {@code shield watch} by making its {@code --socket} and exiting. */
     static final String WATCHER =
@@ -48,6 +53,9 @@ final class OwnPorelo implements BeforeAllCallback, AfterAllCallback {
                 launcher,
                 "#!/bin/sh\n"
                         + WATCHER
+                        + "if [ \"$1\" = gate ] && [ \"$2\" = serve ]; then\n"
+                        + HelperStandIn.lines(HelperStandIn.registry(directory), true)
+                        + "fi\n"
                         + "exec '"
                         + java
                         + "' -D"
@@ -63,9 +71,21 @@ final class OwnPorelo implements BeforeAllCallback, AfterAllCallback {
     }
 
     @Override
+    public void afterEach(final ExtensionContext context) throws IOException {
+        if (directory != null) {
+            HelperStandIn.stop(directory);
+        }
+    }
+
+    @Override
     public void afterAll(final ExtensionContext context) throws IOException {
         System.clearProperty(PoreloBinary.NAMED);
         if (directory != null) {
+            HelperStandIn.stop(directory);
+            final Path registry = HelperStandIn.registry(directory);
+            if (Files.isDirectory(registry)) {
+                Files.delete(registry);
+            }
             Files.deleteIfExists(directory.resolve("porelo"));
             Files.deleteIfExists(directory);
         }

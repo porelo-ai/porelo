@@ -281,4 +281,77 @@ class CredentialWiringTest {
                 .as("endpointFor uses the primary dialect's adds_path")
                 .isEqualTo(TaskWiring.VAULT_URL + "/v1beta");
     }
+
+    @Test
+    void aRelayThatNeverRecordsItsPidIsNotUpAndIsNotLeftRunning(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+
+        // Taken for up as soon as it was started, a relay that never came up left the agent
+        // without an endpoint, the start answering 0, and a process no pid file named.
+        relayStarts(dir, false, false);
+        relayStarts(dir.resolve("again"), true, true);
+    }
+
+    private static void relayStarts(
+            final java.nio.file.Path dir, final boolean recordsItsPid, final boolean up)
+            throws Exception {
+        final org.fuin.porelo.core.config.XdgPaths xdg =
+                org.fuin.porelo.core.config.XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final org.fuin.porelo.testing.FakeCommandRunner runner =
+                new org.fuin.porelo.testing.FakeCommandRunner().answering("{{.State.Pid}}", "4242");
+        final PoreloPaths paths = new PoreloPaths(xdg, dir.resolve("bin"));
+        final PoreloContext context = new PoreloContext(runner, paths, arguments -> 0);
+        final String container = "porelo-uc-relay";
+        final java.nio.file.Path state = paths.tasks().containerState(container);
+        java.nio.file.Files.createDirectories(state);
+        org.fuin.porelo.wire.Sidecar.recordId(state, "c0ffeec0ffee");
+        final java.nio.file.Path helpers = dir.resolve("helpers");
+        final java.nio.file.Path standIn = HelperStandIn.write(helpers, recordsItsPid);
+        final java.util.List<String> recorded = new java.util.ArrayList<>();
+        final CredentialWiring wiring =
+                new CredentialWiring(
+                        context,
+                        new CredentialChoice(context, null, null, null),
+                        (name, command, environment, phase) -> recorded.add(name),
+                        "relay",
+                        8,
+                        null);
+        // Where the task's namespace would be entered: here the relay runs where it is.
+        wiring.namespace = (pid, command) -> command;
+        final String before = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, standIn.toString());
+        final java.io.StringWriter err = new java.io.StringWriter();
+        try {
+            final boolean started =
+                    wiring.startRelay(
+                            new TaskRunner(runner, paths),
+                            container,
+                            state.resolve("vault.sock"),
+                            new java.io.PrintWriter(new java.io.StringWriter()),
+                            new java.io.PrintWriter(err, true));
+
+            assertThat(started).as("whether it came up: %s", err).isEqualTo(up);
+            assertThat(HelperStandIn.started(helpers)).as("it was started").isEqualTo(1);
+            assertThat(HelperStandIn.anyRunning(helpers))
+                    .as("running only when it came up")
+                    .isEqualTo(up);
+            assertThat(recorded).as("recorded for a resume either way").containsExactly("relay");
+        } finally {
+            if (before == null) {
+                System.clearProperty(PoreloBinary.NAMED);
+            } else {
+                System.setProperty(PoreloBinary.NAMED, before);
+            }
+            HelperStandIn.stop(helpers);
+        }
+    }
 }
