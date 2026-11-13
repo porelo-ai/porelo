@@ -1925,7 +1925,7 @@ public final class TaskInventory {
                                         + ":/workspace ./recovered',"
                                         + " then 'porelo task remove "
                                         + summary.name()
-                                        + " --force' - or 'porelo task resume "
+                                        + " --force' - or 'porelo task attach "
                                         + summary.name()
                                         + "' at a terminal offers both"
                                 : "",

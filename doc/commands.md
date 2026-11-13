@@ -373,7 +373,7 @@ the agent to hand work back through, offers a shell in the task instead; on a ye
 Where an option names one of several - the provider for an agent that names no default, the agent for
 `vault authorize` when several sign in, the project for `shield egress`, `talk pass` and `talk hold` - a terminal is
 shown them by number and asked for one, instead of being sent back to add the option.
-A task started before the machine restarted cannot come back; `task resume` and `task attach` on it offer to copy
+A task started before the machine restarted cannot come back; `task attach` on it offers to copy
 its workspace to `./recovered` (`recovered-2` … where that is taken), and then to remove the task, no by default.
 Where clearing stops, `clear` offers to stop the tasks that run with a token from the vault, and then to clear what
 only `--force` clears, naming it, no by default; `vault remove` of a token only its service can revoke offers to forget

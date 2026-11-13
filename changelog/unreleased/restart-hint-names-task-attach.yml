@@ -1,0 +1,2 @@
+title: "A task from before a restart is sent to 'porelo task attach', a command that runs, instead of the removed 'task resume'"
+type: fixed

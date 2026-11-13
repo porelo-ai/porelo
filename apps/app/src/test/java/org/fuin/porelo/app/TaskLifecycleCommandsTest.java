@@ -713,6 +713,29 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void theListSendsATaskFromBeforeARestartToACommandThatRuns(@TempDir Path dir)
+            throws IOException {
+
+        // The list's start detail named 'porelo task resume', which the lifecycle cut removed:
+        // whoever followed it was refused. Attaching offers to copy the workspace out and remove.
+        final PoreloContext context = context(dir);
+        stoppedTask(context);
+        tasks("porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n");
+
+        final TaskInventory.Task listed =
+                TaskInventory.derivingOnce(context).tasks().stream()
+                        .filter(task -> task.name().equals("porelo-uc-shell-1"))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(listed.startAction()).isEqualTo("PREDATES_RESTART");
+        assertThat(listed.startDetail())
+                .contains("before this machine restarted")
+                .contains("'porelo task attach porelo-uc-shell-1' at a terminal offers both")
+                .doesNotContain("task resume");
+    }
+
+    @Test
     void listsTheLogsATaskHasRatherThanTheOnesItMightHave(@TempDir Path dir) throws IOException {
 
         // Which files exist depends on what the task started: no gate means no gate.log. Listing a
