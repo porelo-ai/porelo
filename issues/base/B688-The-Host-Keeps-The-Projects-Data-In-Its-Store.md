@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B688",
   "title": "The Host Keeps The Project's Data In Its Store",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 42,
