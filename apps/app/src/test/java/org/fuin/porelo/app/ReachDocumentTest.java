@@ -91,6 +91,26 @@ class ReachDocumentTest {
     }
 
     @Test
+    void statesWhatAnIdeaATaskProposesMayHoldAndWhoSeesIt() throws IOException {
+        // A task's ideas are task text put in front of a person: the page must say its bounds.
+        assertThat(page())
+                .as("the allowance, the text bounds, the owner, the lifetime and who sees it")
+                .contains("| An idea a task proposes over MCP |")
+                .contains(
+                        "`limits.ideas`, 0 by default and at most "
+                                + org.fuin.porelo.core.project.Limits.MOST_IDEAS)
+                .contains("one line of at most " + TaskIdeas.MOST_TITLE + " characters")
+                .contains("at most " + TaskIdeas.MOST_WHAT_MUST_BE_TRUE + " characters")
+                .contains("Only the task bound to that socket, for itself")
+                .contains("until the task is removed")
+                .contains("receive `ideas: []`")
+                .contains(
+                        "at most "
+                                + TaskInventory.MOST_REPLY_IDEAS / (1024 * 1024)
+                                + " MiB of ideas");
+    }
+
+    @Test
     void namesEveryCredentialHeaderThatIsDropped() throws IOException {
         final String page = page();
         for (final String header : VaultProxy.CREDENTIAL_HEADERS) {
@@ -229,7 +249,7 @@ class ReachDocumentTest {
         final List<PageRow> page = tableRows(page());
         assertThat(page)
                 .as("the reference is every table row of reach, hold, spend and produce")
-                .hasSize(32)
+                .hasSize(33)
                 .extracting(PageRow::part)
                 .containsOnly(Reach.Part.values());
         assertThat(

@@ -400,7 +400,8 @@ A task whose project's MCP endpoint allows `ProposeIdea`, and whose project file
 what must be true in one or two sentences of at most 1000 characters, with no control characters but line breaks.
 It is told the idea's id, `idea-1`, `idea-2` and so on. Porelo keeps the idea on the host, outside the task's mounts,
 until the task is removed, and shows it on the task's row in List and Watch, where the person's window hands it on;
-a later start keeps it. A call naming another task is refused with `NotItsOwn`, one past the project's bound with
+a later start keeps it. One reply carries at most 1 MiB of ideas across all tasks, each task's oldest first, so a row
+may carry only a task's oldest ideas; its `ideasHeldBack` says how many more it has, 0 when all are listed. A call naming another task is refused with `NotItsOwn`, one past the project's bound with
 `NotAllowed`, and a title or text out of these bounds with `InvalidParameter`, never trimmed or cut. Another task of
 the project sees no idea in its own listing unless its endpoint reads output (`Logs` or `Tail`).
 

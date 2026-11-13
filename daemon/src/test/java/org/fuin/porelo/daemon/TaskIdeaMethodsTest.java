@@ -29,6 +29,7 @@ class TaskIdeaMethodsTest {
     private static final String TASK = "porelo-uc-work";
     private static final String OTHER = "porelo-uc-other";
     @TempDir Path dir;
+    private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context() throws IOException {
         final XdgPaths xdg =
@@ -42,31 +43,42 @@ class TaskIdeaMethodsTest {
                                     default -> null;
                                 },
                         dir);
-        final var runner = new FakeCommandRunner();
         final var context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
-        final StringBuilder listed = new StringBuilder();
-        int id = 0;
-        for (final String task : List.of(TASK, OTHER)) {
-            final String container = String.valueOf((char) ('a' + id++)).repeat(64);
-            final Path state = context.paths().tasks().taskRecord(task);
-            Sidecar.recordId(state, container);
-            new Sidecar(
-                            Sidecar.VERSION,
-                            "uc",
-                            "guarded",
-                            "/rules",
-                            "/dns",
-                            "/porelo",
-                            context.paths().tasks().containerState(task).toString())
-                    .writeTo(state.resolve("sidecar.json"));
-            listed.append(task)
-                    .append("\tExited (0) 1 minute ago\t1788500000\t1788509999\tuc\tguarded\tr\t\t")
-                    .append(container)
-                    .append('\n');
-        }
-        runner.answering("ps", listed.toString());
+        recorded(context, TASK, "a".repeat(64));
+        recorded(context, OTHER, "b".repeat(64));
+        running(Map.of(TASK, "a".repeat(64), OTHER, "b".repeat(64)));
         return context;
+    }
+
+    /** Records a task of project 'uc' under a container id, as its start does. */
+    private static void recorded(final PoreloContext context, final String task, final String id)
+            throws IOException {
+        final Path state = context.paths().tasks().taskRecord(task);
+        Sidecar.recordId(state, id);
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        "/rules",
+                        "/dns",
+                        "/porelo",
+                        context.paths().tasks().containerState(task).toString())
+                .writeTo(state.resolve("sidecar.json"));
+    }
+
+    /** Makes the runtime list these containers, by name and id. */
+    private void running(final Map<String, String> containers) {
+        final StringBuilder listed = new StringBuilder();
+        new java.util.TreeMap<>(containers)
+                .forEach(
+                        (task, id) ->
+                                listed.append(task)
+                                        .append(
+                                                "\tExited (0) 1 minute ago\t1788500000\t1788509999\tuc\tguarded\tr\t\t")
+                                        .append(id)
+                                        .append('\n'));
+        runner.answering("ps", listed.toString());
     }
 
     /** Records the project 'uc' with a file allowing what {@code limits} says. */
@@ -217,6 +229,9 @@ class TaskIdeaMethodsTest {
         assertThat(row(context, OTHER).get("ideas"))
                 .as("another task's row carries none of them")
                 .isEqualTo(List.of());
+        assertThat(row(context, TASK).get("ideasHeldBack"))
+                .as("nothing is held back of a task whose ideas are all listed")
+                .isEqualTo(0L);
     }
 
     @Test
@@ -386,6 +401,9 @@ class TaskIdeaMethodsTest {
                                         .findFirst()
                                         .orElseThrow();
                 assertThat(listed.get("ideas")).as("the field stays, empty").isEqualTo(List.of());
+                assertThat(((Number) listed.get("ideasHeldBack")).longValue())
+                        .as("nor is a count of them told")
+                        .isZero();
             }
         }
         assertThat((List<?>) row(context, TASK).get("ideas"))
@@ -410,6 +428,163 @@ class TaskIdeaMethodsTest {
                                 ex ->
                                         assertThat(ex.getErrorName())
                                                 .isEqualTo(PoreloDaemon.INTERFACE + ".NotItsOwn"));
+            } finally {
+                server.close();
+                thread.join(java.time.Duration.ofSeconds(5));
+            }
+        }
+    }
+
+    /** Proposes as the task, running {@code between} after its check and before its write. */
+    private static Throwable proposedWith(
+            final PoreloContext context, final Map<String, Object> call, final Runnable between) {
+        final List<Throwable> thrown = new ArrayList<>();
+        McpTaskSockets.as(
+                TASK,
+                () -> {
+                    try {
+                        TaskMethods.proposeIdea(context, call, between);
+                    } catch (IOException | RuntimeException ex) {
+                        thrown.add(ex);
+                    }
+                });
+        return thrown.isEmpty() ? null : thrown.getFirst();
+    }
+
+    /** Makes the runtime say the task's container is gone, as after its removal. */
+    private void gone() {
+        runner.failing("inspect", 125, "Error: no such container");
+    }
+
+    private static void refusedAsNotItsOwn(final Throwable thrown) {
+        assertThat(thrown)
+                .as("refused as no longer the socket's own task")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex ->
+                                assertThat(ex.getErrorName())
+                                        .isEqualTo(PoreloDaemon.INTERFACE + ".NotItsOwn"));
+    }
+
+    @Test
+    void aRemovalBetweenTheCheckAndTheWriteLeavesNoRecordBehind() throws Exception {
+        // A record made again after the removal deleted it blocks the name's next start.
+        final PoreloContext context = context();
+        project("limits:\n  ideas: 2\n", "ProposeIdea");
+        final Throwable thrown =
+                proposedWith(
+                        context,
+                        idea(TASK, "Late", "It arrives after the removal."),
+                        () -> {
+                            gone();
+                            assertThat(
+                                            new org.fuin.porelo.app.TaskControl(context)
+                                                    .remove(TASK, false, true)
+                                                    .removed())
+                                    .as("the removal went through")
+                                    .isTrue();
+                            running(Map.of(OTHER, "b".repeat(64)));
+                        });
+        assertThat(context.paths().tasks().taskRecord(TASK))
+                .as("no record of the removed task made again")
+                .doesNotExist();
+        refusedAsNotItsOwn(thrown);
+    }
+
+    @Test
+    void aReplacementBetweenTheCheckAndTheWriteIsNotGivenTheIdea() throws Exception {
+        // The idea of a removed task would show on the row of the next task of its name.
+        final PoreloContext context = context();
+        project("limits:\n  ideas: 2\n", "ProposeIdea");
+        final Throwable thrown =
+                proposedWith(
+                        context,
+                        idea(TASK, "Stale", "It belongs to the removed task."),
+                        () -> {
+                            try {
+                                gone();
+                                assertThat(
+                                                new org.fuin.porelo.app.TaskControl(context)
+                                                        .remove(TASK, false, true)
+                                                        .removed())
+                                        .as("the removal went through")
+                                        .isTrue();
+                                recorded(context, TASK, "c".repeat(64));
+                                running(Map.of(TASK, "c".repeat(64), OTHER, "b".repeat(64)));
+                            } catch (IOException ex) {
+                                throw new UncheckedIOException(ex);
+                            }
+                        });
+        assertThat(new TaskIdeas(context.paths()).read(TASK))
+                .as("the replacement holds no idea of its predecessor's")
+                .isEmpty();
+        refusedAsNotItsOwn(thrown);
+    }
+
+    @Test
+    void aListingOfTasksAtTheirBoundStaysOneMessageAClientReads() throws Exception {
+        // Each task's ideas are bounded alone; a listing of several at their bound passed the 4 MiB
+        // a varlink message may hold, and the person's whole listing could no longer be read.
+        final PoreloContext context = context();
+        project("limits:\n  ideas: 100\n", "ProposeIdea");
+        final Map<String, String> tasks = new LinkedHashMap<>();
+        tasks.put(TASK, "a".repeat(64));
+        tasks.put(OTHER, "b".repeat(64));
+        tasks.put("porelo-uc-third", "c".repeat(64));
+        tasks.put("porelo-uc-fourth", "d".repeat(64));
+        // A format character is written escaped, twelve bytes for each: the longest an idea
+        // the host keeps can be sent.
+        final String wide = new String(Character.toChars(0xE0041));
+        for (final Map.Entry<String, String> each : tasks.entrySet()) {
+            recorded(context, each.getKey(), each.getValue());
+            final List<Map<String, Object>> ideas = new ArrayList<>();
+            for (int number = 1; number <= 100; number++) {
+                ideas.add(
+                        new TaskIdeas.Idea(
+                                        "idea-" + number,
+                                        wide.repeat(TaskIdeas.MOST_TITLE),
+                                        wide.repeat(TaskIdeas.MOST_WHAT_MUST_BE_TRUE),
+                                        "2026-11-13T00:00:00Z")
+                                .asMap());
+            }
+            Files.writeString(
+                    context.paths().tasks().taskRecord(each.getKey()).resolve("ideas.json"),
+                    org.fuin.porelo.wire.Json.write(Map.of("ideas", ideas)));
+        }
+        running(tasks);
+        assertThat(new TaskIdeas(context.paths()).read(TASK))
+                .as("each record is one the host keeps")
+                .hasSize(100);
+        try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("person.sock"))) {
+            final Thread thread = Thread.ofPlatform().daemon().start(server);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final Map<String, Object> reply =
+                        client.call(PoreloDaemon.INTERFACE + ".List", Map.of());
+                assertThat(
+                                org.fuin.porelo.wire.Json.write(reply)
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                        .length)
+                        .as("the reply's encoded size")
+                        .isLessThan(4 * 1024 * 1024);
+                long heldBack = 0;
+                for (final Object row : (List<?>) reply.get("tasks")) {
+                    final List<?> ideas = (List<?>) ((Map<?, ?>) row).get("ideas");
+                    assertThat(((Map<?, ?>) row).get("ideasHeldBack"))
+                            .as("what was left out, so the window knows more wait")
+                            .isInstanceOf(Number.class);
+                    final long left = ((Number) ((Map<?, ?>) row).get("ideasHeldBack")).longValue();
+                    assertThat(ideas.size() + left)
+                            .as("listed and held back are the task's every idea")
+                            .isEqualTo(100L);
+                    heldBack += left;
+                    assertThat(ideas).as("every task's oldest idea is carried").isNotEmpty();
+                    for (int index = 0; index < ideas.size(); index++) {
+                        assertThat(strings(ideas.get(index)))
+                                .as("the oldest first, none skipped")
+                                .containsEntry("id", "idea-" + (index + 1));
+                    }
+                }
+                assertThat(heldBack).as("this listing is past the limit").isPositive();
             } finally {
                 server.close();
                 thread.join(java.time.Duration.ofSeconds(5));

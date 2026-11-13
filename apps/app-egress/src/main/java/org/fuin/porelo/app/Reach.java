@@ -480,6 +480,27 @@ public final class Reach {
                         Kind.CONTROL),
                 new Row(
                         Part.PRODUCE,
+                        "An idea a task proposes over MCP",
+                        "Only the task bound to that socket, for itself, never a child or another task."
+                                + " The endpoint must allow `ProposeIdea`, and the project file's"
+                                + " `limits.ideas`, 0 by default and at most "
+                                + Limits.MOST_IDEAS
+                                + ", read at each call, is how many it may propose. A title is one line of"
+                                + " at most "
+                                + TaskIdeas.MOST_TITLE
+                                + " characters, and what must be true at most "
+                                + TaskIdeas.MOST_WHAT_MUST_BE_TRUE
+                                + " characters with no control characters but line breaks. The daemon"
+                                + " numbers them and keeps them owner-only in the task's durable record"
+                                + " outside every task mount until the task is removed; a later start keeps"
+                                + " them. They reach the task's reader in List and Watch, which carry at most "
+                                + TaskInventory.MOST_REPLY_IDEAS / (1024 * 1024)
+                                + " MiB of ideas in one reply, oldest first, and a task's further ideas"
+                                + " wait for room; task endpoints without Logs or Tail receive `ideas: []`,"
+                                + " never another agent's prompt",
+                        Kind.CONTROL),
+                new Row(
+                        Part.PRODUCE,
                         "The file a task hands back",
                         "Only for a task started with `--result`, and only the one file of that name in"
                                 + " `/run/porelo/result/`: moved out of the agent's reach before it is looked"

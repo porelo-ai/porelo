@@ -107,6 +107,19 @@ final class TaskMethods {
     static Map<String, Object> proposeIdea(
             final PoreloContext context, final Map<String, Object> parameters)
             throws java.io.IOException {
+        return proposeIdea(context, parameters, () -> {});
+    }
+
+    /**
+     * Keeps an idea as {@link #proposeIdea(PoreloContext, Map)} does, running {@code checked} after
+     * the task is found its own and before the idea is kept: where a removal or a replacement of
+     * the task may come between.
+     */
+    static Map<String, Object> proposeIdea(
+            final PoreloContext context,
+            final Map<String, Object> parameters,
+            final Runnable checked)
+            throws java.io.IOException {
         final String task = text(parameters, "task");
         // For itself alone, as Done: an idea under a child's or a sibling's name is words put in
         // its mouth for the person's window.
@@ -160,13 +173,34 @@ final class TaskMethods {
                                     + project
                                     + "' allows a task no ideas: limits.ideas is 0, the default"));
         }
-        try {
-            return Map.of(
-                    "id",
-                    new org.fuin.porelo.app.TaskIdeas(context.paths())
-                            .propose(task, title, whatMustBeTrue, most)
-                            .id());
-        } catch (org.fuin.porelo.app.TaskIdeas.BoundReached ex) {
+        checked.run();
+        final String incarnation = found.identity().recordedId();
+        final org.fuin.porelo.app.TaskReservations reservations =
+                new org.fuin.porelo.app.TaskReservations(context);
+        // Under the lock a removal takes, and only for the container the check found: a removal
+        // that came between would find its record made again, and a replacement of the name would
+        // be given the idea of the task it replaced.
+        final Object kept =
+                reservations.locked(
+                        () -> {
+                            if (!(new org.fuin.porelo.app.TaskIdentities(context).lookup(task, null)
+                                            instanceof org.fuin.porelo.app.TaskIdentities.Found now)
+                                    || !now.identity().recordedId().equals(incarnation)
+                                    || !org.fuin.porelo.app.TaskReservations.matches(
+                                            context.paths(), now.identity())) {
+                                return Boolean.FALSE;
+                            }
+                            try {
+                                return new org.fuin.porelo.app.TaskIdeas(context.paths())
+                                        .propose(task, title, whatMustBeTrue, most);
+                            } catch (org.fuin.porelo.app.TaskIdeas.BoundReached ex) {
+                                return ex;
+                            }
+                        });
+        if (kept instanceof org.fuin.porelo.app.TaskIdeas.Idea idea) {
+            return Map.of("id", idea.id());
+        }
+        if (kept instanceof org.fuin.porelo.app.TaskIdeas.BoundReached ex) {
             throw new VarlinkException(
                     INTERFACE + ".NotAllowed",
                     Map.of(
@@ -177,6 +211,8 @@ final class TaskMethods {
                                     + project
                                     + "' allows"));
         }
+        // Removed, or its name started again, since the check: the socket's task is gone.
+        throw new VarlinkException(INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
     }
 
     /** Answers the file a task handed back, or why there is none; from the host's files alone. */

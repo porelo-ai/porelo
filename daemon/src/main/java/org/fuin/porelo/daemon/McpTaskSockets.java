@@ -657,6 +657,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         for (final String field : WHAT_IT_WROTE) {
             kept.replace(field, List.of());
         }
+        // Not even how many: the count says the task wrote something.
+        kept.replace("ideasHeldBack", 0L);
         return kept;
     }
 

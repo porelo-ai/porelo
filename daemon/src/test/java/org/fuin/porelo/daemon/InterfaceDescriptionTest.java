@@ -208,6 +208,9 @@ class InterfaceDescriptionTest {
                 Pattern.compile("(?ms)^type Task \\(\\n(.*?)^\\)").matcher(description);
         assertThat(task.find()).as("the contract declares Task").isTrue();
         assertThat(task.group(1)).as("every row carries its ideas").contains("ideas: []TaskIdea");
+        assertThat(task.group(1))
+                .as("and how many a reply left out, which an older daemon omits")
+                .contains("ideasHeldBack: ?int");
     }
 
     @Test

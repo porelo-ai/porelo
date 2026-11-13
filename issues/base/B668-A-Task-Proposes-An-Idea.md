@@ -78,3 +78,12 @@ directory (`TaskDone`, `paths.tasks().taskRecord`), which outlives the runtime d
 - In a project with `limits.ideas: 2`, a task proposes two ideas; List shows both with their ids, and a third is
   refused. Seen red first.
 - A task cannot propose an idea for another task, and a project without `limits.ideas` allows none.
+
+## The reading's Red, fixed (2026-11-13)
+
+- A proposal takes the lock a removal takes, and checks again under it that the task is the same container, before it
+  writes. So an idea never outlives its task or lands on a new task of the same name. Two race tests hold it.
+- One List or Watch reply carries at most 1 MiB of ideas, the oldest of each task first, so it stays under varlink's
+  4 MiB. Each row says in `ideasHeldBack` how many of its task's ideas it left out, so a client keeps the task until
+  that is 0.
+- `doc/reach.md` and `Reach` name the idea channel: its allowance, its bounds, who may write and who sees it.

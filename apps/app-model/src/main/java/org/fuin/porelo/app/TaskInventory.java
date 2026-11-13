@@ -1507,7 +1507,60 @@ public final class TaskInventory {
      * @return One row each, in the same order.
      */
     public List<Map<String, Object>> rows(List<Task> tasks) {
-        return tasks.stream().map(this::row).toList();
+        final TaskIdeas kept = new TaskIdeas(context.paths());
+        // Read once: the count held back is of the same ideas the reply carries some of.
+        final List<List<TaskIdeas.Idea>> all =
+                tasks.stream().map(task -> kept.read(task.name())).toList();
+        final List<List<Map<String, Object>>> ideas = carried(all);
+        final List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        for (int index = 0; index < tasks.size(); index++) {
+            final List<Map<String, Object>> listed = ideas.get(index);
+            rows.add(row(tasks.get(index), listed, (long) all.get(index).size() - listed.size()));
+        }
+        return List.copyOf(rows);
+    }
+
+    /**
+     * The most bytes of ideas, written as a client is sent them, one reply carries across all its
+     * rows: a quarter of the 4 MiB a varlink message may hold. Each task's own bound is not enough,
+     * since a listing carries every task's.
+     */
+    public static final int MOST_REPLY_IDEAS = 1024 * 1024;
+
+    /**
+     * Takes the ideas a reply carries: each task's oldest first, one of each task in turn, while
+     * they fit in {@link #MOST_REPLY_IDEAS}. A task's ideas past it are left for a later reply,
+     * never one skipped, so a client handing each id on once misses none.
+     */
+    static List<List<Map<String, Object>>> carried(final List<List<TaskIdeas.Idea>> ideas) {
+        final List<List<Map<String, Object>>> carried = new java.util.ArrayList<>();
+        final boolean[] full = new boolean[ideas.size()];
+        ideas.forEach(each -> carried.add(new java.util.ArrayList<>()));
+        long bytes = 0;
+        boolean more = true;
+        for (int number = 0; more; number++) {
+            more = false;
+            for (int task = 0; task < ideas.size(); task++) {
+                if (full[task] || number >= ideas.get(task).size()) {
+                    continue;
+                }
+                final Map<String, Object> idea = ideas.get(task).get(number).asMap();
+                // With the comma between two.
+                final long size =
+                        org.fuin.porelo.wire.Json.write(idea)
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                        .length
+                                + 1L;
+                if (bytes + size > MOST_REPLY_IDEAS) {
+                    full[task] = true;
+                    continue;
+                }
+                bytes += size;
+                carried.get(task).add(idea);
+                more = true;
+            }
+        }
+        return carried.stream().map(List::copyOf).toList();
     }
 
     /**
@@ -1521,6 +1574,11 @@ public final class TaskInventory {
      * @return Its row.
      */
     public Map<String, Object> row(Task task) {
+        return rows(List.of(task)).getFirst();
+    }
+
+    private Map<String, Object> row(
+            Task task, List<Map<String, Object>> ideas, long ideasHeldBack) {
         final Map<String, Object> row = new LinkedHashMap<>(task.asMap());
         final String within = String.valueOf(row.getOrDefault("task", ""));
         final String project = task.project();
@@ -1532,11 +1590,11 @@ public final class TaskInventory {
         row.put("landed", found.stream().map(landed -> landed(within, landed)).toList());
         row.put("minutes", RunLimit.minutes(context.paths().tasks().containerState(task.name())));
         row.put("callerKey", callerKey(task.name()));
-        // What it proposed with ProposeIdea, from the host's own record; [] when none.
-        row.put(
-                "ideas",
-                new TaskIdeas(context.paths())
-                        .read(task.name()).stream().map(TaskIdeas.Idea::asMap).toList());
+        // What it proposed with ProposeIdea, from the host's own record, as much as the reply
+        // carries; [] when none.
+        row.put("ideas", ideas);
+        // How many more it has than this reply carries; 0 when all are listed.
+        row.put("ideasHeldBack", ideasHeldBack);
         return row;
     }
 
