@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B282",
   "title": "A Failed Continuation Is Forgotten",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "-",
   "priority": "Low",
   "rank": 71,
