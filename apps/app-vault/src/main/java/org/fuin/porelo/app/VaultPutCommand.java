@@ -79,6 +79,50 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     }
 
     /**
+     * What a person types at: the console's reads without echo, as a test can hand them too.
+     *
+     * <p>{@link java.io.Console} cannot be made in a test, so the reads {@link #valueFrom} wires
+     * are asked of this, and only {@link #of} touches the console itself.
+     */
+    interface Typing {
+
+        /**
+         * Reads one line without echo, after a prompt.
+         *
+         * @param prompt What to show first.
+         * @return The line, or {@code null} at end of input.
+         */
+        char[] withPrompt(String prompt);
+
+        /**
+         * Reads one further line without echo and without a prompt.
+         *
+         * @return The line, or {@code null} at end of input.
+         */
+        char[] next();
+
+        /**
+         * Reads from a console.
+         *
+         * @param console The console.
+         * @return Its reads.
+         */
+        static Typing of(final java.io.Console console) {
+            return new Typing() {
+                @Override
+                public char[] withPrompt(final String prompt) {
+                    return console.readPassword("%s", prompt);
+                }
+
+                @Override
+                public char[] next() {
+                    return console.readPassword();
+                }
+            };
+        }
+    }
+
+    /**
      * Reads the credential from a person at a terminal or from standard input, and leaves standard
      * input open.
      *
@@ -87,38 +131,51 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * that follows then switched echo off on a regular file and failed with "Inappropriate ioctl
      * for device", every time the vault was locked.
      *
+     * <p><strong>At a terminal, echo is off from the prompt to the last line read</strong> ({@link
+     * EchoOff}): a pasted key is many reads, and {@code readPassword} alone turned echo back on
+     * between them.
+     *
      * @param name The entry's name, for the prompt.
-     * @param tty The console, or {@code null} when there is none.
+     * @param tty What a person types at, or {@code null} when standard input is no terminal.
      * @param in Standard input.
+     * @param kind The entry's kind, or {@code null}.
+     * @param terminal Runs {@code stty} to hold the terminal's echo off while {@code tty} is read.
      * @return The value, stripped, or empty when there was none.
      * @throws IOException If standard input cannot be read.
+     * @throws VaultException If a pasted key stops before its end line.
      */
     static String valueFrom(
             String name,
-            java.io.@org.jspecify.annotations.Nullable Console tty,
+            @org.jspecify.annotations.Nullable Typing tty,
             java.io.InputStream in,
-            @org.jspecify.annotations.Nullable String kind)
+            @org.jspecify.annotations.Nullable String kind,
+            org.fuin.porelo.core.process.CommandRunner terminal)
             throws IOException {
-        // isTerminal() rather than a null check: since Java 22 a Console is handed out even when
-        // standard input is a pipe, and reading a piped secret through readPassword would hang.
-        final boolean interactive = tty != null && tty.isTerminal();
-        return grantValue(
-                readValue(
-                        interactive,
-                        () ->
-                                tty == null
-                                        ? new char[0]
-                                        : tty.readPassword("%s", prompt(name, kind)),
-                        // A pasted key's further lines: asked again, the prompt would land
-                        // between them.
-                        () -> tty == null ? null : tty.readPassword(),
-                        new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))),
-                kind);
+        final BufferedReader piped =
+                new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        if (tty == null) {
+            return grantValue(readValue(false, () -> new char[0], () -> null, piped), kind);
+        }
+        try (EchoOff held = EchoOff.hold(terminal)) {
+            return grantValue(
+                    readValue(
+                            true,
+                            () -> tty.withPrompt(prompt(name, kind)),
+                            // A pasted key's further lines: asked again, the prompt would land
+                            // between them.
+                            tty::next,
+                            piped),
+                    kind);
+        }
     }
 
     /**
      * Returns what a person is asked for: the client secret for a grant, the value for anything
-     * else.
+     * else, and how a pasted key that stopped short is ended.
+     *
+     * <p>A paste that stops before its {@code -----END} line leaves the read waiting, as the
+     * terminal is still open; only end of input or a signal tells it the paste is over, and the
+     * prompt is the one place a person sees before that.
      *
      * @param name The entry's name.
      * @param kind The entry's kind, or {@code null}.
@@ -127,7 +184,10 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     static String prompt(String name, @org.jspecify.annotations.Nullable String kind) {
         return granted(kind)
                 ? "Client secret for '" + name + "' (none for a public client: press Enter): "
-                : "Value for '" + name + "': ";
+                : "Value for '"
+                        + name
+                        + "' (a pasted key is read to its -----END line; Ctrl-D refuses one cut"
+                        + " short, Ctrl-C quits): ";
     }
 
     /**
@@ -749,9 +809,12 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 value =
                         valueFrom(
                                 name,
-                                context.input().terminal() ? console : null,
+                                context.input().terminal() && console != null
+                                        ? Typing.of(console)
+                                        : null,
                                 context.input().stream(),
-                                type);
+                                type,
+                                context.runner());
             } catch (final VaultException ex) {
                 err.println("porelo: " + ex.getMessage());
                 err.flush();

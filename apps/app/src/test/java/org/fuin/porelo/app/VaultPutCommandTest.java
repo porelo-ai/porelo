@@ -28,6 +28,28 @@ class VaultPutCommandTest {
         };
     }
 
+    /** Fails the test if anything changes a terminal: piped input has none. */
+    private static org.fuin.porelo.core.process.CommandRunner noTerminal() {
+        return command -> {
+            throw new AssertionError("a terminal was set up for piped input");
+        };
+    }
+
+    /**
+     * Tells whether a line holds nothing but wiped characters.
+     *
+     * <p>A verdict, never the array: handed to an assertion, a line that was not wiped would be
+     * printed, and it is part of a private key.
+     */
+    private static boolean wiped(final char[] line) {
+        for (final char each : line) {
+            if (each != '\0') {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Test
     void leavesStandardInputOpenForThePassphrasePromptThatFollows() throws IOException {
 
@@ -45,7 +67,8 @@ class VaultPutCommandTest {
                     }
                 };
 
-        assertThat(VaultPutCommand.valueFrom("anthropic", null, in, null)).isEqualTo("sk-piped");
+        assertThat(VaultPutCommand.valueFrom("anthropic", null, in, null, noTerminal()))
+                .isEqualTo("sk-piped");
         assertThat(closed[0]).as("standard input was closed").isFalse();
     }
 
@@ -129,7 +152,8 @@ class VaultPutCommandTest {
                                 new java.io.ByteArrayInputStream(
                                         "sk-a-key-long-enough\n"
                                                 .getBytes(java.nio.charset.StandardCharsets.UTF_8)),
-                                "api-key"));
+                                "api-key",
+                                noTerminal()));
         assertThat(VaultPutCommand.fileValue("", org.fuin.porelo.supervisor.DeviceGrant.KIND))
                 .as("an empty grant's file is a public client, as an empty answer is")
                 .isEqualTo(GrantEntry.NO_SECRET);
@@ -286,7 +310,7 @@ class VaultPutCommandTest {
                 .isEqualTo(
                         "Client secret for 'github-copilot' (none for a public client: press Enter): ");
         assertThat(VaultPutCommand.prompt("anthropic", "api-key"))
-                .isEqualTo("Value for 'anthropic': ");
+                .startsWith("Value for 'anthropic' (");
         assertThat(VaultPutCommand.grantValue("", "oauth-device"))
                 .as("a public client")
                 .isEqualTo("-");
@@ -758,9 +782,9 @@ class VaultPutCommandTest {
                 .as("the same value stored")
                 .isTrue();
         assertThat(promptedAgain[0]).as("the piped key asked the terminal").isFalse();
-        assertThat(handed)
+        assertThat(handed.stream().allMatch(VaultPutCommandTest::wiped))
                 .as("every line read is wiped")
-                .allSatisfy(line -> assertThat(line).containsOnly('\0'));
+                .isTrue();
     }
 
     @Test
@@ -782,8 +806,8 @@ class VaultPutCommandTest {
                 .hasMessageContaining("2 lines")
                 .hasMessageContaining("--from-file")
                 .hasMessageNotContaining("b3BlbnNz");
-        assertThat(begin).as("the armour line is wiped").containsOnly('\0');
-        assertThat(body).as("the line after it is wiped").containsOnly('\0');
+        assertThat(wiped(begin)).as("the armour line is wiped").isTrue();
+        assertThat(wiped(body)).as("the line after it is wiped").isTrue();
     }
 
     @Test
@@ -806,5 +830,136 @@ class VaultPutCommandTest {
                 .hasMessageContaining("incomplete")
                 .hasMessageContaining("200 lines");
         assertThat(reads[0]).as("lines read after the first").isEqualTo(199);
+    }
+
+    /**
+     * A person's terminal handing out a key one line per read, as {@code Console.readPassword} does
+     * with a paste, and saying in {@code events} what was asked of it.
+     */
+    private static VaultPutCommand.Typing pasting(
+            final java.util.List<char[]> handed, final java.util.List<String> events) {
+        final java.util.Iterator<char[]> each = handed.iterator();
+        return new VaultPutCommand.Typing() {
+            @Override
+            public char[] withPrompt(final String prompt) {
+                events.add("prompt");
+                return each.next();
+            }
+
+            @Override
+            public char[] next() {
+                events.add("line");
+                return each.hasNext() ? each.next() : null;
+            }
+        };
+    }
+
+    /** A terminal whose stty calls are said in {@code events}, the save answering settings. */
+    private static org.fuin.porelo.core.process.CommandRunner stty(
+            final java.util.List<String> events) {
+        final org.fuin.porelo.testing.FakeCommandRunner runner =
+                new org.fuin.porelo.testing.FakeCommandRunner()
+                        .answering("stty -g", "500:5:bf:8a3b\n");
+        return command -> {
+            final String line = command.describe();
+            events.add(
+                    line.contains("stty -g")
+                            ? "save"
+                            : line.contains("stty -echo")
+                                    ? "echo off"
+                                    : line.contains("porelo-terminal") ? "restore" : line);
+            return runner.run(command);
+        };
+    }
+
+    @Test
+    void aKeyPastedAtTheConsoleIsStoredAsThePipedKeyIs(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // Through valueFrom, which wires the console's reads: a further-line reader that answers
+        // nothing there would store no pasted key, and only a test that goes through it sees that.
+        final String file = keygen(dir, "ed25519");
+        final java.util.List<char[]> handed = linesOf(file);
+
+        final String typed =
+                VaultPutCommand.valueFrom(
+                        "github-work",
+                        pasting(handed, new java.util.ArrayList<>()),
+                        new java.io.ByteArrayInputStream(new byte[0]),
+                        null,
+                        stty(new java.util.ArrayList<>()));
+        final String piped =
+                VaultPutCommand.valueFrom(
+                        "github-work",
+                        null,
+                        new java.io.ByteArrayInputStream(
+                                file.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        null,
+                        noTerminal());
+
+        // Compared as a verdict, never as values: a failure must not print the key.
+        assertThat(typed.equals(piped)).as("the same text as the file piped in").isTrue();
+        assertThat(handed.stream().allMatch(VaultPutCommandTest::wiped))
+                .as("every line read is wiped")
+                .isTrue();
+    }
+
+    @Test
+    void echoIsOffFromThePromptToTheEndLine(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // readPassword turns echo back on before it returns, so a paste read one line at a time
+        // echoed whatever arrived between two reads. Off once before the prompt and back after
+        // the end line, the terminal never echoes during the paste.
+        final java.util.List<char[]> handed = linesOf(keygen(dir, "ed25519"));
+        final java.util.List<String> events = new java.util.ArrayList<>();
+
+        VaultPutCommand.valueFrom(
+                "github-work",
+                pasting(handed, events),
+                new java.io.ByteArrayInputStream(new byte[0]),
+                null,
+                stty(events));
+
+        final java.util.List<String> expected = new java.util.ArrayList<>();
+        expected.add("save");
+        expected.add("echo off");
+        expected.add("prompt");
+        for (int line = 1; line < handed.size(); line++) {
+            expected.add("line");
+        }
+        expected.add("restore");
+        assertThat(events).isEqualTo(expected);
+    }
+
+    @Test
+    void aPasteEndedWithCtrlDIsRefusedAndTheTerminalGivenBack() {
+
+        // A paste that stops leaves the read waiting, as the terminal is still open: Ctrl-D is end
+        // of input, which the prompt names, and the refusal must not leave echo off behind it.
+        final java.util.List<String> events = new java.util.ArrayList<>();
+        final java.util.List<char[]> handed =
+                java.util.List.of(
+                        "-----BEGIN OPENSSH PRIVATE KEY-----".toCharArray(),
+                        "b3BlbnNzaC1rZXktdjEAAAAA".toCharArray());
+
+        assertThat(VaultPutCommand.prompt("github-work", null))
+                .as("the prompt says how a paste cut short is ended")
+                .contains("Ctrl-D")
+                .contains("Ctrl-C");
+        assertThatThrownBy(
+                        () ->
+                                VaultPutCommand.valueFrom(
+                                        "github-work",
+                                        pasting(handed, events),
+                                        new java.io.ByteArrayInputStream(new byte[0]),
+                                        null,
+                                        stty(events)))
+                .isInstanceOf(org.fuin.porelo.vault.VaultException.class)
+                .hasMessageContaining("incomplete")
+                .hasMessageContaining("2 lines");
+        assertThat(events)
+                .as("echo held off across the reads and given back after the refusal")
+                .containsExactly("save", "echo off", "prompt", "line", "line", "restore");
     }
 }

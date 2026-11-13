@@ -271,9 +271,10 @@ missing. Porelo asks the kernel once per command, for a key nobody made, so it k
 | `porelo vault authorize <name>` | runs a grant Porelo asks for itself: a device code, or a redirect to a loopback port |
 
 **`vault put` never takes the value as an argument**, because an argument list is world-readable.
-At a terminal it asks without echoing, so a pasted key does not land in the scrollback; a pasted
-key is read to its `-----END` line, and a paste that stops short is refused as incomplete, with
-nothing stored. A piped value is read from standard input. An ssh key goes in as the file you were given
+At a terminal it asks without echoing, so a pasted key does not land in the scrollback: echo stays off from the
+prompt to the key's `-----END` line, and comes back after it, on a refusal and on Ctrl-C too. A paste that stops short
+leaves the prompt waiting, since the terminal is still open; Ctrl-D then refuses it as incomplete, with nothing stored,
+and Ctrl-C quits. The prompt says so. A piped value is read from standard input. An ssh key goes in as the file you were given
 (`porelo vault put github-work < <your-key-file>`); the vault converts it to the 32-byte signing
 seed. A key with a passphrase, or of an algorithm Porelo does not sign with, is refused by name.
 `--from-file` reads a value as standard input would: stripped, so the newline an editor ends a file with is not

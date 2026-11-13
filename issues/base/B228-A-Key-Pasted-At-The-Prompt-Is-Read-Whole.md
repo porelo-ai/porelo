@@ -82,3 +82,24 @@ Read in the code on 2026-10-20 (`apps/app-vault`, `vault`).
   Ed25519 key and an OpenSSH-wrapped RSA key pasted at `porelo vault put` are each stored as `--from-file` stores
   the same file (`unchanged NAME` on a second put by file). Each continuation line is read with no prompt and no
   echo. A paste cut before its end line is refused as incomplete, and the vault file is unchanged.
+
+## Built after the reading (2026-11-13)
+
+- **Echo is off for the whole capture.** `readPassword` turns echo back on before it returns, so paste bytes arriving
+  between two reads could reach the scrollback (Codex's reading, derived from the JDK's source, not reproduced).
+  `EchoOff` saves the terminal with `stty -g < /dev/tty`, switches echo off before the prompt and gives the saved
+  settings back after the last line, on a refusal, and on a signal through a `Teardown` hook - the same `stty` calls
+  `TerminalAttach` makes. `readPassword` finds echo off and leaves it so. A terminal that cannot be saved is left alone
+  and read as before.
+- **`valueFrom` reads through `VaultPutCommand.Typing`**, which `Typing.of(Console)` makes from the console, so a test
+  goes through the reads `valueFrom` wires: a further-line reader answering nothing fails it.
+- **A paste cut short leaves the read waiting**, as the terminal is still open. The value prompt and
+  `doc/credentials.md` say that Ctrl-D refuses it and Ctrl-C quits.
+- **The wiping tests assert verdicts**: no line of a key is handed to an assertion.
+- **Left as it was:** converting an OpenSSH-wrapped RSA key writes it in plain text to a temporary file for
+  `ssh-keygen -p`, shredded afterwards but left behind if the process is killed first. That predates this issue; the
+  pasted RSA key inherits it.
+- Tests: `EchoOffTest` (echo held and given back, a terminal that cannot be saved left alone, a failed switch given
+  back at once, a real SIGINT to a child JVM gives the settings back); `VaultPutCommandTest` has three more, through
+  `valueFrom`: a pasted key stores what the pipe stores, echo is off from the prompt to the end line, and Ctrl-D
+  refuses a paste and gives the terminal back.
