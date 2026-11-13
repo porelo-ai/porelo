@@ -515,6 +515,81 @@ What was taken outlives the container and the task's removal, so a person or an 
 reads it through the daemon's `Result` afterwards. The next start of the task forgets it, and so does the next
 creation of its name; `porelo prune` removes one a removed task left.
 
+## A task's MCP endpoint in its guide
+
+A task whose project gives it an [MCP endpoint](project-file.md#a-tasks-mcp-endpoint) is told so in its guide, in a
+part after all of the above, so the shared beginning stays the same: where the endpoint is, the header its own token
+goes in, how to speak MCP to it with nothing but `curl`, and the methods it carries, by name. Where it carries
+`ProposeIdea` and the project's [`limits.ideas`](project-file.md#limits) is above 0, the part ends with how to
+propose an idea for the task itself: its own name, the bounds of a title and of what must be true, how many it may
+propose, the refusals, and a worked call. The methods and the bound are read from the project's file at every start,
+so a task brought back is told what it has then; a task without an endpoint is told nothing of one. The part names
+the token's variable, never its value.
+
+For a task `porelo-shop-fix` whose endpoint carries `List`, `Done` and `ProposeIdea`, with `limits.ideas: 2`:
+
+### This task's MCP endpoint
+
+This task can call Porelo itself through an MCP endpoint on this machine. Two variables
+name it:
+
+- `$PORELO_URL_PORELO_MCP` is where it is. Send every request to this URL exactly as it
+  stands: append no `/mcp` and no other path.
+- `$PORELO_TOKEN_PORELO_MCP` is this task's own token for it. Send it in the header
+  `Authorization: Bearer $PORELO_TOKEN_PORELO_MCP`, and never write its value anywhere.
+
+It speaks MCP over HTTP: each request is one `POST` of one JSON-RPC 2.0 message with
+`Content-Type: application/json`, answered with one JSON message. `initialize` says which
+MCP versions it speaks, `tools/list` lists its tools with their parameters, and
+`tools/call` calls one by its `name` with its `arguments`. It keeps no session: no
+`Mcp-Session-Id` is needed, and a `tools/call` needs no `initialize` before it. A refusal
+comes back as a result with `isError: true`, its `structuredContent.error` naming it.
+
+Its tools are Porelo's own methods of the same names, these alone:
+
+- `List`
+- `Done`
+- `ProposeIdea`
+
+To list them with their parameters:
+
+```
+curl -s -X POST "$PORELO_URL_PORELO_MCP" \
+  -H "Authorization: Bearer $PORELO_TOKEN_PORELO_MCP" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+#### Proposing an idea
+
+When you find a new issue while working, one that is not this task's to fix, propose it
+as an idea with `ProposeIdea` instead of writing it anywhere else. Porelo keeps it with
+this task and shows it to a person. A person takes it from there, keeping or declining
+it; you do nothing more with it. This task may propose at most **2** ideas in
+its life, ones a person already took counted too, so propose only what matters.
+
+- `task`: this task's own name, `porelo-shop-fix`, and no other.
+- `title`: one line of at most 120 characters.
+- `whatMustBeTrue`: what must be true once it is done, in one or two sentences of at
+  most 1000 characters, with no control characters but line breaks.
+
+The answer names its id, such as `idea-1`. It is refused with `NotItsOwn` when `task`
+names another task, with `NotAllowed` past this task's bound, and with
+`InvalidParameter` when the title or the text is out of these bounds; nothing is trimmed
+or cut, so shorten it and call again.
+
+```
+curl -s -X POST "$PORELO_URL_PORELO_MCP" \
+  -H "Authorization: Bearer $PORELO_TOKEN_PORELO_MCP" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ProposeIdea",
+"arguments":{"task":"porelo-shop-fix","title":"The listing names the branch of a stopped task",
+"whatMustBeTrue":"The row of a stopped task in the listing names the branch it worked on."}}}'
+```
+
+The body is in single quotes, so a `'` in your title or text ends it: leave it out,
+or write the body to a file and send it with `-d @file`.
+
 ## Adding your own tooling to a task
 
 Two things are called "the agent", and they live in different places:

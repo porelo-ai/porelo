@@ -6589,12 +6589,15 @@ public final class TaskLaunch {
                     });
             // What it reads is what its directory holds, so a task brought back is told the same.
             final TaskRepositories reading = new TaskRepositories(context.paths(), container);
+            // Its endpoint from the file the daemon reads for it, so a task brought back is told
+            // what it has now.
             TaskGuideText.write(
                     guide,
                     mailbox.exists(),
                     told,
                     reading.exists() ? reading.names() : null,
-                    result.hasBox(container) ? result.name(container) : null);
+                    result.hasBox(container) ? result.name(container) : null,
+                    McpWiring.told(context, container, project.name()));
         }
         if (!mailbox.exists()) {
             return;

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B737",
   "title": "A Task's Guide Names Its MCP Endpoint",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 10,
@@ -48,3 +48,17 @@ none for the endpoint, and no agent definition declares an MCP server of the tas
 - The guide of a task with an endpoint names it, its methods and, with ideas allowed, how to propose one.
 - On the test VM, a task of an agent with a shell proposes an idea following its guide alone, and the idea is on the
   task's row.
+
+## Built
+
+- `TaskGuideText` writes a part for a task with an MCP endpoint, after every other part so the shared beginning
+  stays the same: the two variables, that each request is one JSON-RPC `POST` to `$PORELO_URL_PORELO_MCP` as it
+  stands with the bearer header, `initialize`, `tools/list` and `tools/call`, no session, how a refusal comes back,
+  the methods the endpoint carries by name, and a `tools/list` call.
+- Where the endpoint carries `ProposeIdea` and `limits.ideas` is above 0: the task's own name (written into the
+  guide, since no variable holds it), the title and text bounds, the task's bound, that a person takes it, the three
+  refusals and one worked call.
+- The start and the resume read the endpoint's methods and the bound from the project file the daemon reads
+  (`McpWiring.told`); a task without an endpoint gets the guide as before, byte for byte. No token value is written.
+- `doc/running.md` shows the part as it is written.
+- Red first in `TaskGuideTest` and `McpWiringTest`.

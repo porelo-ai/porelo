@@ -131,6 +131,44 @@ class McpWiringTest {
     }
 
     @Test
+    void theGuideIsToldTheMethodsTheFileHasTheEndpointCarryAndTheIdeasBound() throws Exception {
+        final PoreloContext context = context();
+        final Path file = context.paths().projects().defaultProjectFile(PROJECT);
+        Files.createDirectories(file.getParent());
+        final String head =
+                """
+                project:
+                  name: p
+                  security_class: guarded
+                repositories:
+                  r:
+                    central: /nowhere/r
+                image:
+                  from: ubuntu:24.04
+                """;
+        Files.writeString(
+                file,
+                head
+                        + """
+                        limits:
+                          ideas: 1
+                        mcp:
+                          methods: ["List", "ProposeIdea"]
+                          agents:
+                            alpha:
+                        """);
+
+        assertThat(McpWiring.told(context, TASK, PROJECT))
+                .isEqualTo(new TaskGuideText.Endpoint(TASK, List.of("List", "ProposeIdea"), 1));
+
+        Files.writeString(file, head);
+
+        assertThat(McpWiring.told(context, TASK, PROJECT))
+                .as("a project that gives its tasks no endpoint")
+                .isNull();
+    }
+
+    @Test
     void theCommandNamesTheTaskItsSocketAndTheDaemonSocketAndNoToken() throws Exception {
         stand(RUNS);
         final PoreloContext context = context();

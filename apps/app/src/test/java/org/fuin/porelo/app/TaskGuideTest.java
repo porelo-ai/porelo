@@ -125,6 +125,124 @@ class TaskGuideTest {
     }
 
     @Test
+    void aTaskWhoseEndpointCarriesProposeIdeaIsToldHowToProposeOneWithinItsBound() {
+
+        // An agent of a task with an endpoint carrying ProposeIdea and limits.ideas 1 wrote its
+        // idea as mail: nothing told it the endpoint existed.
+        final String text =
+                TaskGuideText.text(
+                        false,
+                        java.util.Map.of(),
+                        null,
+                        null,
+                        new TaskGuideText.Endpoint(TASK, List.of("List", "ProposeIdea"), 1));
+        final String flat = text.replaceAll("\\s+", " ");
+
+        assertThat(text)
+                .as("after what every task shares, so a provider's cache of it still holds")
+                .startsWith(TaskGuideText.text(false))
+                .contains("$PORELO_URL_PORELO_MCP")
+                .contains("Authorization: Bearer $PORELO_TOKEN_PORELO_MCP")
+                .contains("`initialize`", "`tools/list`", "`tools/call`")
+                .contains("- `List`\n", "- `ProposeIdea`\n")
+                .contains("`" + TASK + "`")
+                .contains("\"name\":\"ProposeIdea\"")
+                .contains("NotItsOwn", "NotAllowed", "InvalidParameter");
+        assertThat(flat)
+                .contains("exactly as it stands")
+                .contains("at most **1** idea")
+                .contains("at most 120 characters")
+                .contains("at most 1000 characters")
+                .contains("A person takes it");
+        // The worked call is copied into a shell as it stands: its body one single-quoted word
+        // holding one JSON-RPC message that names this task.
+        final int body = text.lastIndexOf("-d '") + 4;
+        final String call = text.substring(body, text.indexOf("'\n```", body));
+        assertThat(call).doesNotContain("'");
+        assertThat(org.fuin.porelo.wire.Json.parse(call))
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .containsEntry("method", "tools/call")
+                .extractingByKey("params")
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .containsEntry("name", "ProposeIdea")
+                .extractingByKey("arguments")
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .containsEntry("task", TASK)
+                .containsOnlyKeys("task", "title", "whatMustBeTrue");
+        assertThat(
+                        TaskGuideText.text(
+                                false,
+                                java.util.Map.of(),
+                                null,
+                                null,
+                                new TaskGuideText.Endpoint(TASK, List.of("ProposeIdea"), 3)))
+                .as("the bound as the project sets it")
+                .contains("at most **3** ideas");
+        assertThat(text)
+                .as("no token value, only its variable")
+                .doesNotContainPattern("[0-9a-f]{32}")
+                .doesNotContain("$PORELO_URL_PORELO_MCP/mcp");
+    }
+
+    @Test
+    void aTaskWhoseEndpointCarriesNoProposeIdeaIsToldOfTheEndpointButNoIdeas() {
+        final String text =
+                TaskGuideText.text(
+                        false,
+                        java.util.Map.of(),
+                        null,
+                        null,
+                        new TaskGuideText.Endpoint(TASK, List.of("List", "Stop"), 1));
+
+        assertThat(text)
+                .contains("$PORELO_URL_PORELO_MCP", "$PORELO_TOKEN_PORELO_MCP")
+                .contains("- `List`\n", "- `Stop`\n")
+                .doesNotContain("ProposeIdea")
+                .doesNotContain("idea")
+                .doesNotContainPattern("[0-9a-f]{32}");
+        assertThat(
+                        TaskGuideText.text(
+                                false,
+                                java.util.Map.of(),
+                                null,
+                                null,
+                                new TaskGuideText.Endpoint(
+                                        TASK, List.of("List", "ProposeIdea"), 0)))
+                .as("one whose project allows no idea is told of none")
+                .contains("$PORELO_URL_PORELO_MCP", "- `ProposeIdea`\n")
+                .doesNotContain("\"name\":\"ProposeIdea\"")
+                .doesNotContain("idea-1");
+    }
+
+    @Test
+    void aTaskWithoutAnEndpointIsToldOfNone() {
+        final String text = TaskGuideText.text(true, java.util.Map.of(), null, null, null);
+
+        assertThat(text)
+                .isEqualTo(TaskGuideText.text(true))
+                .doesNotContain("PORELO_URL_PORELO_MCP")
+                .doesNotContain("PORELO_TOKEN_PORELO_MCP")
+                .doesNotContain("ProposeIdea")
+                .doesNotContain("tools/call");
+    }
+
+    @Test
+    void theEndpointsPartIsWrittenWithTheGuideAndNoTokenWithIt() throws IOException {
+        final TaskGuide guide = new TaskGuide(paths(), TASK);
+        final String token = McpWiring.token();
+        final TaskGuideText.Endpoint endpoint =
+                new TaskGuideText.Endpoint(TASK, List.of("ProposeIdea"), 1);
+
+        TaskGuideText.write(guide, false, java.util.Map.of(), null, null, endpoint);
+
+        assertThat(guide.file())
+                .hasContent(TaskGuideText.text(false, java.util.Map.of(), null, null, endpoint));
+        assertThat(Files.readString(guide.file()))
+                .contains("$PORELO_TOKEN_PORELO_MCP")
+                .doesNotContain(token);
+    }
+
+    @Test
     void isWrittenWhereTheTaskReadsItAndGivenToTheAgentFromThere() throws IOException {
         final TaskGuide guide = new TaskGuide(paths(), TASK);
         assertThat(guide.instructing(CLAUDE, List.of("claude")))
@@ -164,6 +282,30 @@ class TaskGuideTest {
             assertThat(documented)
                     .as("doc/running.md")
                     .contains(line.startsWith("#") ? "#" + line : line);
+        }
+    }
+
+    @Test
+    @Tag("documents")
+    void theUserDocumentationShowsTheEndpointsPartWordForWord() throws IOException {
+        final String documented = Files.readString(Path.of("..", "..", "doc", "running.md"));
+        final String before = TaskGuideText.text(false);
+        final String part =
+                TaskGuideText.text(
+                                false,
+                                java.util.Map.of(),
+                                null,
+                                null,
+                                new TaskGuideText.Endpoint(
+                                        "porelo-shop-fix",
+                                        List.of("List", "Done", "ProposeIdea"),
+                                        2))
+                        .substring(before.length());
+
+        for (final String line : part.split("\n")) {
+            assertThat(documented)
+                    .as("doc/running.md")
+                    .contains(line.startsWith("#") ? "##" + line : line);
         }
     }
 }

@@ -110,6 +110,144 @@ public final class TaskGuideText {
     }
 
     /**
+     * What a task is told of its MCP endpoint: its own name, which a call naming a task must give,
+     * the methods the endpoint carries, and how many ideas it may propose.
+     *
+     * <p>Never its token: the agent sends its own from {@code $PORELO_TOKEN_PORELO_MCP}, and the
+     * guide only names the variable.
+     *
+     * @param task The task's own name, its container's.
+     * @param methods The methods the endpoint carries, by name, in the order the file writes them.
+     * @param ideas The most ideas the task may propose, the project's {@code limits.ideas}.
+     */
+    public record Endpoint(String task, java.util.List<String> methods, int ideas) {
+
+        /**
+         * Constructor.
+         *
+         * @param task The task.
+         * @param methods The methods.
+         * @param ideas The ideas bound.
+         */
+        public Endpoint {
+            methods = java.util.List.copyOf(methods);
+        }
+
+        /**
+         * Whether the task is told how to propose an idea: the endpoint carries {@code ProposeIdea}
+         * and the project allows at least one.
+         *
+         * @return Whether it may propose one.
+         */
+        public boolean proposes() {
+            return ideas > 0 && methods.contains("ProposeIdea");
+        }
+    }
+
+    /**
+     * Returns the guide of a task, with its MCP endpoint's part last, after everything every task
+     * shares and the parts before it, so a provider's cache of the shared beginning still holds.
+     *
+     * @param mailbox Whether the task has a mailbox, whose guide then follows.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading The repositories it reads, by name, or {@code null} for a task on one.
+     * @param result The name of the file it hands back, or {@code null} for none.
+     * @param endpoint Its MCP endpoint, or {@code null} for a task that has none.
+     * @return Markdown.
+     */
+    public static String text(
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final java.util.@org.jspecify.annotations.Nullable List<String> reading,
+            final @org.jspecify.annotations.Nullable String result,
+            final @org.jspecify.annotations.Nullable Endpoint endpoint) {
+        final String before = text(mailbox, values, reading, result);
+        if (endpoint == null) {
+            return before;
+        }
+        final StringBuilder part =
+                new StringBuilder(
+                        """
+
+                        # This task's MCP endpoint
+
+                        This task can call Porelo itself through an MCP endpoint on this machine. Two variables
+                        name it:
+
+                        - `$PORELO_URL_PORELO_MCP` is where it is. Send every request to this URL exactly as it
+                          stands: append no `/mcp` and no other path.
+                        - `$PORELO_TOKEN_PORELO_MCP` is this task's own token for it. Send it in the header
+                          `Authorization: Bearer $PORELO_TOKEN_PORELO_MCP`, and never write its value anywhere.
+
+                        It speaks MCP over HTTP: each request is one `POST` of one JSON-RPC 2.0 message with
+                        `Content-Type: application/json`, answered with one JSON message. `initialize` says which
+                        MCP versions it speaks, `tools/list` lists its tools with their parameters, and
+                        `tools/call` calls one by its `name` with its `arguments`. It keeps no session: no
+                        `Mcp-Session-Id` is needed, and a `tools/call` needs no `initialize` before it. A refusal
+                        comes back as a result with `isError: true`, its `structuredContent.error` naming it.
+
+                        Its tools are Porelo's own methods of the same names, these alone:
+
+                        """);
+        for (final String method : endpoint.methods()) {
+            part.append("- `").append(method).append("`\n");
+        }
+        part.append(
+                """
+
+                To list them with their parameters:
+
+                ```
+                curl -s -X POST "$PORELO_URL_PORELO_MCP" \\
+                  -H "Authorization: Bearer $PORELO_TOKEN_PORELO_MCP" \\
+                  -H 'Content-Type: application/json' \\
+                  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+                ```
+                """);
+        if (endpoint.proposes()) {
+            part.append(
+                    """
+
+                    ## Proposing an idea
+
+                    When you find a new issue while working, one that is not this task's to fix, propose it
+                    as an idea with `ProposeIdea` instead of writing it anywhere else. Porelo keeps it with
+                    this task and shows it to a person. A person takes it from there, keeping or declining
+                    it; you do nothing more with it. This task may propose at most **@MOST@** @IDEAS@ in
+                    its life, ones a person already took counted too, so propose only what matters.
+
+                    - `task`: this task's own name, `@TASK@`, and no other.
+                    - `title`: one line of at most @TITLE@ characters.
+                    - `whatMustBeTrue`: what must be true once it is done, in one or two sentences of at
+                      most @TEXT@ characters, with no control characters but line breaks.
+
+                    The answer names its id, such as `idea-1`. It is refused with `NotItsOwn` when `task`
+                    names another task, with `NotAllowed` past this task's bound, and with
+                    `InvalidParameter` when the title or the text is out of these bounds; nothing is trimmed
+                    or cut, so shorten it and call again.
+
+                    ```
+                    curl -s -X POST "$PORELO_URL_PORELO_MCP" \\
+                      -H "Authorization: Bearer $PORELO_TOKEN_PORELO_MCP" \\
+                      -H 'Content-Type: application/json' \\
+                      -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ProposeIdea",
+                    "arguments":{"task":"@TASK@","title":"The listing names the branch of a stopped task",
+                    "whatMustBeTrue":"The row of a stopped task in the listing names the branch it worked on."}}}'
+                    ```
+
+                    The body is in single quotes, so a `'` in your title or text ends it: leave it out,
+                    or write the body to a file and send it with `-d @file`.
+                    """
+                            .replace("@MOST@", Integer.toString(endpoint.ideas()))
+                            .replace("@IDEAS@", endpoint.ideas() == 1 ? "idea" : "ideas")
+                            .replace("@TASK@", endpoint.task())
+                            .replace("@TITLE@", Integer.toString(TaskIdeas.MOST_TITLE))
+                            .replace("@TEXT@", Integer.toString(TaskIdeas.MOST_WHAT_MUST_BE_TRUE)));
+        }
+        return before + part;
+    }
+
+    /**
      * Returns the guide with the values this task was started with, in a part after everything
      * every task shares, so a provider's cache of the shared beginning still holds.
      *
@@ -269,13 +407,36 @@ public final class TaskGuideText {
             final java.util.@org.jspecify.annotations.Nullable List<String> reading,
             final @org.jspecify.annotations.Nullable String result)
             throws IOException {
+        write(guide, mailbox, values, reading, result, null);
+    }
+
+    /**
+     * Writes the guide of a task, its MCP endpoint's part among it, into its directory, made when
+     * missing, and only when it changed.
+     *
+     * @param guide Where it goes.
+     * @param mailbox Whether the task has a mailbox.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading The repositories it reads, or {@code null} for a task on one.
+     * @param result The name of the file it hands back, or {@code null} for none.
+     * @param endpoint Its MCP endpoint, or {@code null} for a task that has none.
+     * @throws IOException Writing failed.
+     */
+    public static void write(
+            final TaskGuide guide,
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final java.util.@org.jspecify.annotations.Nullable List<String> reading,
+            final @org.jspecify.annotations.Nullable String result,
+            final @org.jspecify.annotations.Nullable Endpoint endpoint)
+            throws IOException {
         final Path directory = guide.directory();
         if (Files.isSymbolicLink(directory)) {
             throw new IOException(directory + " is a link; the guide is not written through it");
         }
         Directories.create(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
-        final String text = text(mailbox, values, reading, result);
+        final String text = text(mailbox, values, reading, result, endpoint);
         final Path file = guide.file();
         if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 && Files.readString(file, StandardCharsets.UTF_8).equals(text)) {

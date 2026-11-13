@@ -176,6 +176,36 @@ final class McpWiring {
         return Optional.of(endpoint(context, container, daemonSocket.get(), token()));
     }
 
+    /**
+     * Returns what a task's guide says of its endpoint: the methods the project's file has it carry
+     * and the project's ideas bound, read from the file the daemon reads for it, so a task brought
+     * back is told the same.
+     *
+     * @param context Where the paths come from.
+     * @param container The task.
+     * @param project Its project.
+     * @return What it is told, or {@code null} when its project gives it no endpoint, or its file
+     *     cannot be read, whose start then says what is wrong.
+     */
+    static TaskGuideText.@Nullable Endpoint told(
+            PoreloContext context, String container, String project) {
+        try {
+            final Path file = ProjectSource.require(context, project);
+            final Optional<org.fuin.porelo.core.project.McpEndpoint> endpoint =
+                    org.fuin.porelo.core.project.ProjectReader.endpoint(file);
+            if (endpoint.isEmpty()) {
+                return null;
+            }
+            return new TaskGuideText.Endpoint(
+                    container,
+                    endpoint.get().methods(),
+                    org.fuin.porelo.core.project.ProjectReader.read(file).limits().ideas());
+        } catch (RuntimeException ex) {
+            // The start reads the file itself and says what is wrong with it.
+            return null;
+        }
+    }
+
     /** Whether the project's file allows its tasks an endpoint; a file that cannot be read, not. */
     private static boolean allowsOne(PoreloContext context, String project) {
         try {
