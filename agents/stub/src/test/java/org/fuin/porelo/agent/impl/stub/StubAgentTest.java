@@ -395,6 +395,30 @@ class StubAgentTest {
                 .isFalse();
     }
 
+    @Test
+    void itsDeclaredQuestionFitsTheQuestionItsScriptAsks() throws Exception {
+
+        // A declaration that misses the stub's own question has the suite and the listing say a
+        // stub waiting on a person is not waiting.
+        final java.util.regex.Matcher asks =
+                java.util.regex.Pattern.compile(
+                                "\\.porelo-stub-asks \\] && \\{ printf \"([^\"]+)\"")
+                        .matcher(renderedScript());
+        assertThat(asks.find()).as("the script asks a question when told to").isTrue();
+        final String screen = "Porelo task\n" + asks.group(1) + "\n";
+        final AgentDefinition definition = agent.definition();
+
+        final org.fuin.porelo.agent.api.Waiting.Reading reading = definition.waiting().read(screen);
+
+        assertThat(reading.seen())
+                .as("its screen while it asks:%n%s", screen)
+                .isEqualTo(org.fuin.porelo.agent.api.Waiting.Seen.WAITING);
+        assertThat(reading.waitingFor()).isEqualTo("whether to trust the folder");
+        assertThat(definition.atRest().matches(screen))
+                .as("a question is never its rest")
+                .isFalse();
+    }
+
     /**
      * Runs the script at a terminal, types what is given, and returns the screen once it shows what
      * is awaited.

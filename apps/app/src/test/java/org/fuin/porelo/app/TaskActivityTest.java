@@ -667,6 +667,132 @@ class TaskActivityTest {
     }
 
     @Test
+    void anAttachedAgentAskingItsOwnDeclaredQuestionIsListedAsWaitingOnItsScreen(@TempDir Path dir)
+            throws IOException {
+
+        // Nobody goes to answer an agent the listing calls at rest or says nothing of while it
+        // waits on its own question, which no clearance watcher ever sees.
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory = deriving(context, clock);
+        final String asking = "ready for the next turn\nTrust this folder? [y/N]\n";
+        draws(state, clock, asking);
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, asking);
+
+        final TaskInventory.Task task = inventory.tasks().getFirst();
+
+        assertThat(task.asMap())
+                .as("the row a client is listed")
+                .containsEntry("screen", "WAITING")
+                .containsEntry("screenWaitingFor", "the folder");
+        assertThat(TaskStatusCommand.screenLine(task.derived()))
+                .as("what 'task status' says of its screen")
+                .isEqualTo("reads as waiting for you - the folder");
+        assertThat(task.activity())
+                .as("a question on its screen is neither rest nor work")
+                .isNotIn(TaskInventory.Activity.AT_REST, TaskInventory.Activity.WORKING);
+    }
+
+    @Test
+    void anAgentThatDeclaresNoQuestionIsNeverListedAsWaitingWhateverItsScreenShows(
+            @TempDir Path dir) throws IOException {
+
+        // Waiting guessed from a screen nobody declared sends a person to a task that asks nothing.
+        final PoreloContext context = context(dir);
+        final Path state = attached("plain");
+        final MovingClock clock = new MovingClock();
+        final org.fuin.porelo.agent.api.AgentDefinition plain =
+                org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                name: plain
+                binary: plain
+                git_identity: { name: P, email: p@example.com }
+                headless: { prompt_flag: "-p" }
+                """),
+                        "plain.yaml");
+        final java.util.Map<String, java.util.Optional<org.fuin.porelo.agent.api.AgentDefinition>>
+                installed =
+                        java.util.Map.of(
+                                "plain",
+                                java.util.Optional.of(plain),
+                                "resting",
+                                java.util.Optional.of(RESTING));
+        final TaskInventory inventory =
+                new TaskInventory(context, new AgentWaiting(context, clock, () -> installed));
+        final String asking = "Trust this folder? [y/N]\nAre you there? Waiting for your answer.\n";
+        draws(state, clock, asking);
+        inventory.tasks();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, asking);
+
+        final TaskInventory.Task task = inventory.tasks().getFirst();
+
+        assertThat(task.asMap())
+                .as("the row a client is listed")
+                .containsEntry("screen", "UNDECLARED")
+                .containsEntry("screenWaitingFor", "");
+        assertThat(task.activity())
+                .as("nothing asked through the host, so not waiting")
+                .isNotEqualTo(TaskInventory.Activity.WAITING)
+                .isEqualTo(TaskInventory.Activity.UNKNOWN);
+        assertThat(task.waitingFor()).as("no question recorded").isNull();
+        assertThat(TaskStatusCommand.screenLine(task.derived()))
+                .isEqualTo("cannot say - the agent declares nothing to read it by");
+    }
+
+    @Test
+    void anAgentsOwnQuestionIsToldApartFromAClearanceQuestion(@TempDir Path dir)
+            throws IOException {
+
+        // Answering the clearance prompt for a task that waits on its agent's own question, or
+        // the other way round, leaves the task stuck while the listing looks answered.
+        final PoreloContext context = context(dir);
+        final Path state = attached("resting");
+        final MovingClock clock = new MovingClock();
+        final TaskInventory inventory = deriving(context, clock);
+        draws(state, clock, "ready for the next turn\n");
+        new Waiting(state).asking("api.example.test:443");
+        final TaskInventory.Task clearance = inventory.tasks().getFirst();
+
+        assertThat(clearance.activity())
+                .as("a clearance question")
+                .isEqualTo(TaskInventory.Activity.WAITING);
+        assertThat(clearance.waitingFor()).isEqualTo("api.example.test:443");
+        assertThat(clearance.asMap())
+                .as("its agent asks nothing on its screen")
+                .containsEntry("screen", "NOT_WAITING")
+                .containsEntry("screenWaitingFor", "");
+
+        new Waiting(state).answered();
+        clock.move(AgentWaiting.SCREEN);
+        draws(state, clock, "Trust this folder? [y/N]\n");
+        final TaskInventory.Task own = inventory.tasks().getFirst();
+
+        assertThat(own.asMap())
+                .as("its agent's own question, and no clearance question")
+                .containsEntry("screen", "WAITING")
+                .containsEntry("screenWaitingFor", "the folder")
+                .containsEntry("waitingFor", "");
+        assertThat(own.activity())
+                .as("not the clearance watcher's waiting")
+                .isNotEqualTo(TaskInventory.Activity.WAITING);
+
+        new Waiting(state).asking("api.example.test:443");
+        final TaskInventory.Task both = inventory.tasks().getFirst();
+
+        assertThat(both.asMap())
+                .as("both open, each said by its own field")
+                .containsEntry("activity", "WAITING")
+                .containsEntry("waitingFor", "api.example.test:443")
+                .containsEntry("screen", "WAITING")
+                .containsEntry("screenWaitingFor", "the folder");
+    }
+
+    @Test
     void aStoppedAttachedTaskIsDeadWhateverItsScreenShowed(@TempDir Path dir) throws IOException {
 
         final PoreloContext context = context(dir);
