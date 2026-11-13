@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B727",
   "title": "A Repository The First Start Found Reaches The Task's Tool Settings",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 8,
