@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B166",
   "title": "Line Comments Sent Back To The Agent",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "L",
   "priority": "Medium",
   "rank": 7,
