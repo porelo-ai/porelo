@@ -529,6 +529,103 @@ class AgentLoginTest {
     }
 
     @Test
+    void aLoginDetachedFromItsTerminalStoresNothingAndRemovesItsContainer(@TempDir Path dir) {
+
+        // Measured on the test machine: an agent's device-code page ignored Ctrl-C, and nothing
+        // in the terminal ended the login. Porelo's own detach key ends 'podman run' with 0 while
+        // the container still runs - the credential the agent wrote is not kept, since the person
+        // walked away from the login.
+        runner.answering("{{.State.Pid}}", "4242\n");
+        final java.util.concurrent.atomic.AtomicReference<List<String>> ran =
+                new java.util.concurrent.atomic.AtomicReference<>(List.of());
+        final PoreloContext context =
+                new PoreloContext(
+                        runner,
+                        context(dir).paths(),
+                        command -> {
+                            if (command.contains("run")) {
+                                ran.set(command);
+                            }
+                            return 0;
+                        });
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+
+        final AgentLogin.Result result =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")));
+
+        assertThat(result.outcome().name())
+                .as("ended from its terminal: " + result.detail())
+                .isEqualTo("CANCELLED");
+        assertThat(context.vault().read(PASSPHRASE))
+                .as("nothing is stored")
+                .doesNotContainKey("example");
+        final String container = ran.get().get(ran.get().indexOf("--name") + 1);
+        assertThat(runner.lines())
+                .as("its container is stopped and removed")
+                .anyMatch(line -> line.startsWith("podman stop") && line.contains(container))
+                .anyMatch(line -> line.startsWith("podman rm") && line.contains(container))
+                .as("nothing is copied out of it")
+                .noneMatch(line -> line.startsWith("podman cp"));
+        assertThat(String.join(" ", ran.get()))
+                .as("Porelo names its own way out, which no containers.conf changes")
+                .contains("--detach-keys ctrl-],ctrl-]");
+    }
+
+    @Test
+    void theTeardownDeletesTheLoginsCopiesAsWellAsItsContainer(@TempDir Path dir) throws Exception {
+
+        // Run alone, as a SIGHUP or SIGTERM runs it: the finally that deleted the watch's copies,
+        // the agent's credential among them, never runs then.
+        final Path copies = java.nio.file.Files.createDirectories(dir.resolve("porelo-login-1"));
+        java.nio.file.Files.createDirectories(copies.resolve("watch"));
+        java.nio.file.Files.writeString(copies.resolve("watch/.credentials.json"), "{}");
+
+        AgentLogin.teardown(
+                        new org.fuin.porelo.runtime.Podman(runner),
+                        "porelo-login-1000000000007",
+                        copies)
+                .run();
+
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.startsWith("podman rm")
+                                        && line.contains("porelo-login-1000000000007"));
+        assertThat(copies).as("the copies go with the container").doesNotExist();
+    }
+
+    @Test
+    void aSweepDeletesTheCopiesAKilledLoginLeftAndSparesOnesAHeldLoginUses(@TempDir Path dir)
+            throws Exception {
+
+        // A SIGKILL runs no teardown at all; the next login sweeps what it left. One whose login
+        // still runs - another agent's, holding the copies' own lock - is kept.
+        final java.nio.file.attribute.FileTime old =
+                java.nio.file.attribute.FileTime.from(
+                        java.time.Instant.now().minus(java.time.Duration.ofHours(2)));
+        final Path left = java.nio.file.Files.createDirectories(dir.resolve("porelo-login-11"));
+        java.nio.file.Files.writeString(left.resolve("watch.json"), "{}");
+        java.nio.file.Files.setLastModifiedTime(left, old);
+        final Path unrelated = java.nio.file.Files.createDirectories(dir.resolve("unrelated-1"));
+        java.nio.file.Files.setLastModifiedTime(unrelated, old);
+        final Path live = java.nio.file.Files.createDirectories(dir.resolve("porelo-login-22"));
+        try (Held held = new Held(live.resolve(AgentLogin.HELD))) {
+            java.nio.file.Files.setLastModifiedTime(live, old);
+
+            AgentLogin.sweepLeftoverCopies(dir, new PrintWriter(out, true));
+
+            assertThat(left).as("what a killed login left").doesNotExist();
+            assertThat(live).as("what a running login uses").exists();
+            assertThat(unrelated).as("what is not a login's").exists();
+        }
+    }
+
+    @Test
     void aSignInDoesNotNameTheContainerOfOneThatWasKilled(@TempDir Path dir) throws Exception {
 
         // A killed sign-in leaves its container's name; read beside the next one's lock, a window

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B271",
   "title": "A Login Is Cancelled From Its Own Terminal",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 12,
@@ -82,3 +82,17 @@ action alone, as a signal does.
 - Whether `Keys.bytes` names Ctrl-] and Ctrl-C, or the terminal step gains them (`TerminalSteps.iPressTheKey`).
 - Whether the watch can store a credential between the detach and the state check; if so, the watch is stopped
   first and what it found is discarded with the rest.
+
+## Built (2026-11-13)
+
+- The terminal login runs with `--detach-keys ctrl-],ctrl-]`. A detach with nothing stored and the container still
+  running removes the container, stores nothing and ends 130 with a `cancelled` line.
+- The running check uses the container's pid rather than its state: an inspect that cannot be read must not throw
+  away a finished login.
+- The copies live in one `porelo-login-*` directory, held by a lock while the login runs; the armed teardown
+  removes it with the container, and a sweep removes one a SIGKILL left, but only when its lock is free.
+- To be checked 3 was a real gap: the watch stored once more after the login ended. It now checks after waking.
+- The stub ignores Ctrl-C in `login --wait-for-input`; waiting stays opt-in, so a window's sign-in of the stub does
+  not wait for input.
+- Still open: whether a shipped agent's login screen binds Ctrl-] needs the real agents, and the new scenario in
+  `agent-login.feature` has not run on the VM.

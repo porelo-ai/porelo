@@ -58,6 +58,37 @@ Feature: An agent's login is stored, through the same chain a real login takes
             """
         Then its output contains "copies left behind: 0"
 
+    # Measured with an agent's device-code page that ignored Ctrl-C: nothing in the terminal ended the login, and its
+    # container stayed up until stopped from a second connection. The stub's waiting login ignores Ctrl-C the same way;
+    # Ctrl-] twice is Porelo's own way out. The exit's word is typed in two quoted halves, so the echoed line never
+    # matches it.
+    Scenario: a login whose screen ignores Ctrl-C is ended from its terminal with Ctrl-] twice and stores nothing
+        Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
+        And a terminal on the machine
+        When a script runs "touch ~/.porelo-login-began"
+        And I run "PORELO_AGENT_STUB_LOGIN_WAIT=yes porelo vault login stub; echo 'login''-ended' $?"
+        Then within 600 seconds the terminal shows "stub: waiting for sign-in"
+        When I press the key "Ctrl+C"
+        And I press the key "Ctrl+C"
+        And a script runs "sleep 3"
+        Then the terminal does not show "login-ended"
+        When I press the key "Ctrl+]"
+        And I press the key "Ctrl+]"
+        Then within 120 seconds the terminal shows "login-ended 130"
+        And the terminal shows "cancelled  the login was ended from this terminal"
+        And the terminal does not show "stub: logged in"
+        When a script runs:
+            """
+            sleep 2
+            echo "login containers: $(podman ps --all --format '{{.Names}}' | grep -c '^porelo-login-')"
+            echo "copies left behind: $(find /tmp -maxdepth 1 -name 'porelo-login*' -user "$(id -un)" -newer ~/.porelo-login-began | wc -l)"
+            rm -f ~/.porelo-login-began
+            porelo vault list
+            """
+        Then its output contains "login containers: 0"
+        And its output contains "copies left behind: 0"
+        And its output does not contain "porelo-stub/token"
+
     # Asked before the login, so a wrong passphrase stops it before anything ran - not after a login nobody can store.
     Scenario: a login asked for while the vault is shut asks for the passphrase first, then logs in and stores
         Given a vault of this scenario's own, unlocked with the passphrase "acceptance"

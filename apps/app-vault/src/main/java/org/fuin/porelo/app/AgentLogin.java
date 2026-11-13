@@ -90,7 +90,13 @@ public final class AgentLogin {
         NO_PROVIDER,
 
         /** The image could not be built, or the container could not be run. */
-        FAILED
+        FAILED,
+
+        /**
+         * The person ended the login from its own terminal, with Porelo's detach key: its container
+         * is removed and nothing was stored.
+         */
+        CANCELLED
     }
 
     /** The label a login container names its agent in, so a sweep can tell whose it is. */
@@ -709,6 +715,7 @@ public final class AgentLogin {
                     "an earlier sign-in's container name could not be removed: " + ex.getMessage());
         }
         sweepLeftoverLogins(context, agent, out);
+        sweepLeftoverCopies(Path.of(System.getProperty("java.io.tmpdir")), out);
 
         // Asked once, before the login and under its lock, and kept to store with: a person who
         // signed in and was then told the vault is locked had to sign in again, and a 'vault
@@ -860,17 +867,74 @@ public final class AgentLogin {
         }
         out.println();
 
+        // One directory for every copy the login makes, held by its own lock while it runs: a
+        // sweep tells what a killed login left from what a running one uses by that lock alone.
+        final Path copies;
+        try {
+            copies = Files.createTempDirectory(COPIES + "-");
+        } catch (java.io.IOException ex) {
+            return failed(
+                    Outcome.FAILED,
+                    "the login's temporary directory could not be made: " + ex.getMessage());
+        }
+        try {
+            return FileLocks.holding(
+                    copies.resolve(HELD),
+                    () ->
+                            runIn(
+                                    context,
+                                    agent,
+                                    command,
+                                    configDirectory,
+                                    opener,
+                                    detached,
+                                    out,
+                                    image,
+                                    copies));
+        } catch (java.io.IOException ex) {
+            return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
+        } finally {
+            deleteTree(copies);
+        }
+    }
+
+    /**
+     * The detach key a login's terminal carries: named, so no {@code containers.conf} changes it.
+     */
+    static final String DETACH_KEYS = "ctrl-],ctrl-]";
+
+    /** Runs the login container from the image, holding the login's temporary directory. */
+    private static Result runIn(
+            final PoreloContext context,
+            final Signing agent,
+            final List<String> command,
+            final String configDirectory,
+            final org.fuin.porelo.vault.VaultFile.Opener opener,
+            final @Nullable Detached detached,
+            final PrintWriter out,
+            final String image,
+            final Path copies) {
+        final org.fuin.porelo.runtime.Podman podman = context.podman();
         final String container = org.fuin.porelo.runtime.ContainerName.login();
         final Path named = containerFile(context, agent.name());
-        Path collected = null;
-        Path watched = null;
+        final Path collected = copies.resolve("collected");
+        final Path watched = copies.resolve("watch");
         Thread watcher = null;
         final java.util.concurrent.atomic.AtomicBoolean ended =
                 new java.util.concurrent.atomic.AtomicBoolean();
         // The finally below covers every ending except the usual one: a login somebody gives up on
         // is a Ctrl-C, and the signal reaches this process before the finally does. Reported as
         // containers left behind after an abandoned login.
-        try (Teardown teardown = Teardown.arm(() -> podman.remove(container))) {
+        try {
+            // Made before the teardown is armed, so a signal finds both to delete.
+            Files.createDirectories(collected);
+            Files.createDirectories(watched);
+        } catch (java.io.IOException ex) {
+            return failed(
+                    Outcome.FAILED,
+                    "the login's temporary directory could not be made: " + ex.getMessage());
+        }
+        try (Teardown teardown = Teardown.arm(teardown(podman, container, copies))) {
             org.fuin.porelo.wire.Directories.create(named.getParent());
             if (detached == null) {
                 // Said beside the lock as the container starts, so a second sign-in names it.
@@ -882,6 +946,10 @@ public final class AgentLogin {
             final List<String> arguments = new ArrayList<>(List.of("run"));
             if (detached != null) {
                 arguments.add("--detach");
+            } else {
+                // Porelo's own way out of a login screen that ignores Ctrl-C: ends 'podman run'
+                // and leaves the container running, which is how a detach is told apart below.
+                arguments.addAll(List.of("--detach-keys", DETACH_KEYS));
             }
             arguments.addAll(
                     List.of(
@@ -910,8 +978,8 @@ public final class AgentLogin {
                                 + " open prints the URL instead, marked with '=== Open this ... ==='."
                                 + " Open it on whatever machine you are sitting at.");
                 out.println(
-                        "  * Nothing is stored unless the login finishes. Ctrl-C or leaving the"
-                                + " agent aborts it, and the container is removed either way.");
+                        "  * Nothing is stored unless the login finishes. Ctrl-] twice ends the"
+                                + " login from here, and the container is removed either way.");
                 hint(agent.definition().loginFlow(), hostname()).forEach(out::println);
                 out.println();
                 out.flush();
@@ -926,7 +994,6 @@ public final class AgentLogin {
                     new java.util.concurrent.atomic.AtomicReference<>();
             final java.util.concurrent.atomic.AtomicReference<Result> storedEarly =
                     new java.util.concurrent.atomic.AtomicReference<>();
-            watched = Files.createTempDirectory("porelo-login-watch");
             final Path into = watched;
             watcher =
                     Thread.ofVirtual()
@@ -968,6 +1035,20 @@ public final class AgentLogin {
             ended.set(true);
             settle(watcher);
 
+            // A login still running when 'podman run' returned was left with the detach key:
+            // asked after the watch has settled, so nothing it finds meanwhile is stored behind
+            // this. What the agent wrote is not copied out - the person ended the login.
+            final Result storedByWatch = storedEarly.get();
+            if (detached == null
+                    && (storedByWatch == null || storedByWatch.outcome() != Outcome.STORED)
+                    && podman.pidOf(container).isPresent()) {
+                podman.remove(container);
+                return failed(
+                        Outcome.CANCELLED,
+                        "the login was ended from this terminal; its container is removed and"
+                                + " nothing was stored");
+            }
+
             // LOOK FIRST, then judge the exit code. An agent whose login is "just run me" does not
             // stop when the login is done - it carries on into its own session, and a person who
             // has finished logging in leaves that session however they like. Ctrl-C is a perfectly
@@ -975,7 +1056,6 @@ public final class AgentLogin {
             // a login that had already happened: measured on 2026-09-19 with a real subscription,
             // where the credential sat in the container and Porelo discarded it over an exit code
             // that says nothing about whether the login worked.
-            collected = Files.createTempDirectory("porelo-login");
             // Copied out rather than read in place: the extractor runs on this machine and knows
             // each agent's own file layout, so the credential is read by the same code 'vault
             // import' uses rather than by something written twice.
@@ -1053,26 +1133,100 @@ public final class AgentLogin {
         } catch (java.io.IOException | RuntimeException ex) {
             return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
         } finally {
-            if (collected != null) {
-                // The credential was in here. Removed whatever happened above.
-                deleteTree(collected);
+            // The credential was in the copies, and so was every copy the watch made: the agent's
+            // whole config directory. Left in /tmp, one directory per login stayed behind with it
+            // (found on the test machine, 2026-10-04). The watch is let finish first, so it copies
+            // nothing in after.
+            ended.set(true);
+            if (watcher != null) {
+                settle(watcher);
             }
-            if (watched != null) {
-                // So was every copy the watch made: the agent's whole config directory, its
-                // credential among them. Left in /tmp, one directory per login stayed behind with
-                // it (found on the test machine, 2026-10-04). The watch is let finish first, so it
-                // copies nothing in after.
-                ended.set(true);
-                if (watcher != null) {
-                    settle(watcher);
-                }
-                deleteTree(watched);
-            }
+            deleteTree(copies);
             try {
                 Files.deleteIfExists(named);
             } catch (java.io.IOException ex) {
                 // Read only while the lock is held, which ends with this login.
             }
+        }
+    }
+
+    /**
+     * Returns what a login leaves to clean up, run once on its way out or by a signal's shutdown
+     * hook.
+     *
+     * <p>The copies go with the container: the watch copies the agent's whole config directory, its
+     * credential among them, and a {@code SIGHUP} or {@code SIGTERM} never reaches the {@code
+     * finally} that deleted them.
+     *
+     * @param podman The runtime.
+     * @param container The login container.
+     * @param copies The login's temporary directory.
+     * @return The cleanup.
+     */
+    static Runnable teardown(
+            final org.fuin.porelo.runtime.Podman podman,
+            final String container,
+            final Path copies) {
+        return () -> {
+            podman.remove(container);
+            deleteTree(copies);
+        };
+    }
+
+    /** The file in a login's temporary directory whose lock that login holds while it runs. */
+    static final String HELD = ".held";
+
+    /** The prefix of a login's temporary directory, and of those versions before it made. */
+    private static final String COPIES = "porelo-login";
+
+    /**
+     * How young a login's temporary directory is spared though nobody holds it: one is made a
+     * moment before its lock is taken.
+     */
+    private static final java.time.Duration COPIES_SETTLE = java.time.Duration.ofSeconds(10);
+
+    /**
+     * Deletes the temporary directories logins of this account left behind and no running login
+     * holds: what a {@code SIGKILL} leaves, which no teardown can cover.
+     *
+     * @param temporary The temporary directory logins make theirs in.
+     * @param out Where a deletion is reported.
+     */
+    static void sweepLeftoverCopies(final Path temporary, final PrintWriter out) {
+        final String account = System.getProperty("user.name", "");
+        final java.time.Instant settled = java.time.Instant.now().minus(COPIES_SETTLE);
+        final List<Path> left = new ArrayList<>();
+        try (java.util.stream.Stream<Path> entries = Files.list(temporary)) {
+            entries.filter(entry -> entry.getFileName().toString().startsWith(COPIES))
+                    .forEach(
+                            entry -> {
+                                try {
+                                    if (Files.isDirectory(
+                                                    entry, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                            && Files.getOwner(
+                                                            entry,
+                                                            java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                                    .getName()
+                                                    .equals(account)
+                                            && Files.getLastModifiedTime(
+                                                            entry,
+                                                            java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                                    .toInstant()
+                                                    .isBefore(settled)
+                                            && FileLocks.free(entry.resolve(HELD))) {
+                                        left.add(entry);
+                                    }
+                                } catch (java.io.IOException ex) {
+                                    // Gone meanwhile, or another's: not this sweep's.
+                                }
+                            });
+        } catch (java.io.IOException | RuntimeException ex) {
+            out.println("note      could not check for leftover login copies: " + ex.getMessage());
+            return;
+        }
+        for (final Path entry : left) {
+            deleteTree(entry);
+            out.println("removed   " + entry + ", left behind by an earlier login");
         }
     }
 
@@ -1259,6 +1413,10 @@ public final class AgentLogin {
                 Thread.sleep(java.time.Duration.ofSeconds(2));
             } catch (final InterruptedException ex) {
                 Thread.currentThread().interrupt();
+                return;
+            }
+            if (ended.get()) {
+                // Ended while it slept: a look now would store behind a login that was ended.
                 return;
             }
             try {

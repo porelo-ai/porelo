@@ -52,6 +52,40 @@ class StubAgentTest {
         }
     }
 
+    @Test
+    void aControlledLoginIgnoresCtrlCAsADeviceCodePageDoes(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        // An agent's device-code page that ignores Ctrl-C left the person no way out; the suite
+        // proves Porelo's own way out against a stub that does the same.
+        final java.nio.file.Path script = dir.resolve("stub.sh");
+        java.nio.file.Files.writeString(script, renderedScript());
+        final ProcessBuilder command =
+                new ProcessBuilder("sh", script.toString(), "login", "--wait-for-input");
+        command.environment().put("HOME", dir.toString());
+        command.environment().put("PORELO_STUB_LINGER", "0");
+        final Process process = command.start();
+        try {
+            final java.io.BufferedReader said =
+                    new java.io.BufferedReader(
+                            new java.io.InputStreamReader(
+                                    process.getInputStream(),
+                                    java.nio.charset.StandardCharsets.UTF_8));
+            assertThat(said.readLine()).isEqualTo("stub: waiting for sign-in");
+            new ProcessBuilder("kill", "-INT", Long.toString(process.pid())).start().waitFor();
+
+            assertThat(process.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .as("Ctrl-C leaves the login waiting")
+                    .isFalse();
+            process.getOutputStream().write('\n');
+            process.getOutputStream().flush();
+            assertThat(process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("a line still ends it")
+                    .isTrue();
+        } finally {
+            process.destroyForcibly();
+        }
+    }
+
     /** The container-build line, exactly as the image build receives it. */
     private String buildLine() {
         return String.join("\n", agent.definition().installAsRoot());

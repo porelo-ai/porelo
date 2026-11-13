@@ -174,6 +174,15 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
         if (result.outcome() == AgentLogin.Outcome.PREVIEWED) {
             return 0;
         }
+        if (result.outcome() == AgentLogin.Outcome.CANCELLED) {
+            // Ended by the person at this terminal: said as what it is, and ended as an
+            // interrupted command ends.
+            out.println(
+                    "cancelled  the login was ended from this terminal; its container is removed"
+                            + " and nothing was stored");
+            out.flush();
+            return 130;
+        }
         // An agent with no login of its own takes a key: asked here by 'porelo vault put' itself,
         // without echo, rather than sending the person to type it.
         if (result.outcome() == AgentLogin.Outcome.UNSUPPORTED

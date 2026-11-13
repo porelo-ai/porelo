@@ -56,4 +56,37 @@ class VaultLoginCommandTest {
                 .as("the refusal does not suggest storing a key")
                 .doesNotContain("vault put", "Store its key");
     }
+
+    @Test
+    void aLoginEndedFromItsTerminalSaysSoAndEndsAsAnInterruptedCommand(@TempDir Path dir) {
+        final VaultLoginCommand command = new VaultLoginCommand();
+        command.setContext(
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        arguments -> {
+                            throw new AssertionError("no credential command may run");
+                        }));
+        command.login =
+                (context, agent, dryRun, force, printer) ->
+                        new AgentLogin.Result(AgentLogin.Outcome.CANCELLED, "", "", 0, "");
+        command.asker =
+                question -> {
+                    throw new AssertionError("nothing may be offered");
+                };
+        final StringWriter out = new StringWriter();
+        final StringWriter err = new StringWriter();
+        final CommandLine cli = new CommandLine(command);
+        cli.setOut(new PrintWriter(out));
+        cli.setErr(new PrintWriter(err));
+
+        final int code = cli.execute("example");
+
+        assertThat(code).as("as an interrupted command ends").isEqualTo(130);
+        assertThat(out.toString() + err)
+                .contains(
+                        "cancelled  the login was ended from this terminal; its container is"
+                                + " removed and nothing was stored")
+                .doesNotContain("vault put", "Store its key");
+    }
 }

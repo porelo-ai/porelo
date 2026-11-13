@@ -35,6 +35,8 @@ final class Keys {
         keys.put("Alt+x", ESC + "x");
         // What the terminal turns into SIGINT for the program in front of it, with echo on.
         keys.put("Ctrl+C", "\u0003");
+        // Porelo's own detach key for a login's terminal, pressed twice.
+        keys.put("Ctrl+]", "\u001d");
         // Sent only to a program that asked for them with ESC [ ? 1004 h.
         keys.put("focus in", ESC + "[I");
         keys.put("focus out", ESC + "[O");
