@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B684",
   "title": "A Private Package Repository Is Played Through As A Person Would",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 33,
@@ -84,3 +84,13 @@ the run says so and falls back to `stub-ecosystem`, and the settings and Maven p
 
 - The script's run on the VM shows every point of the story's test holding, or names each that does not with the
   issue it waits on.
+
+## Run on the test VM (2026-11-13)
+
+`st43.sh --test-account --maven-adapter <the maven adapter's deb>` as the test account, against Porelo 40b17b120
+(`0.5.1~snapshot.0+local.20261113T023009`) and the Maven adapter from porelo-ecosystems at 08b5971: all 23 points held,
+none failed, exit 0. Everything the run made was removed again, the adapter package included.
+
+The first run that night did not count: the test account keeps binaries of its own ahead of the system's in a login
+shell, and its daemon was an older one, which knew no `tool_repositories`. The run that counts swapped them for the
+package's and put them back after.
