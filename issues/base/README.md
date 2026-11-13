@@ -259,7 +259,6 @@ from its side, as *blocked by*.
 | <a id="b686"></a>[B686](B686-A-Credential-Found-By-Its-Address.md) | S | - | `porelo vault credential --for <url>` answers git's credential request for an https repository with the token Porelo would lend for that address itself, found in the account's declarations or by the names the address implies, so a program that reads a private repository with Porelo's login passes only the address. | 0 |
 | <a id="b666"></a>[B666](B666-The-Push-Judges-Arming-Stops-On-A-Link.md) | S | [B549](README.md#b549) | The host's push-judge arming stops on a linked repository or git directory, checks the hook and the link target as plain executable files without following links, leaves no link when it stops, and removal decides once | 0 |
 | <a id="b687"></a>[B687](B687-The-Vault-Typed-At-A-Terminal-Echoes-No-Secret.md) | S | - | Porelo's acceptance suite proves at a terminal that a typed vault passphrase is not echoed, that a stored key shows neither where it is typed nor in `vault list`, and that the vault file on disk does not hold the value. | 0 |
-| <a id="b651"></a>[B651](B651-Tests-That-Pass-Under-Any-Login-And-Umask.md) | S | - | The transport tests pass under a login such as Alex or runner_1, the directory tests show their fault under umask 002, and a tagged VM test shows a peer of another account | 0 |
 | <a id="b688"></a>[B688](B688-The-Host-Keeps-The-Projects-Data-In-Its-Store.md) | M | - | `porelo-host store put\|keep\|restore` copies each kept entry into the project's restic store and puts it back at `up`. | 0 |
 | <a id="b650"></a>[B650](B650-A-Starts-Smaller-Refusals-And-Leftovers.md) | M | - | A start leaves no unrecorded container, a no-gate task is removable, a long project name and a refused task name get a usable answer, two refusals answer one code, and a host start names the builds entry it misses | 0 |
 | <a id="b689"></a>[B689](B689-A-Start-Without-A-Session-Says-What-It-Printed.md) | XS | - | The acceptance kit's wait for a task's session, when none appears, ends with what the terminal showed, through the terminal's redaction, so a `task start` that exits at once says why. | 0 |
@@ -302,6 +301,7 @@ from its side, as *blocked by*.
 |---|---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
 | <a id="b669"></a>[B669](B669-A-Project-Names-Where-Its-Readings-Go.md) | S | - | project.yml takes an optional readings.directory, a repository's porelo.yml may give its own, relative to the repository root without '..' or a leading '/', default 'readings'; a bad one is refused when the file is read. | 0 |
+| <a id="b651"></a>[B651](B651-Tests-That-Pass-Under-Any-Login-And-Umask.md) | S | - | The transport tests pass under a login such as Alex or runner_1, the directory tests show their fault under umask 002, and a tagged VM test shows a peer of another account | 0 |
 
 ## Review
 

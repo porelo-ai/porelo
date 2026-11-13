@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B651",
   "title": "Tests That Pass Under Any Login And Umask",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 42,
