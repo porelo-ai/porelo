@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B752",
   "title": "Task Sockets Bound As Abstract Names In The Task",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 51,
