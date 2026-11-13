@@ -7,7 +7,7 @@
   "title": "The Tools Draft Written",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 6,
   "blockedBy": [
     "B220"

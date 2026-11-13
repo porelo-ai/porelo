@@ -7,7 +7,7 @@
   "title": "A Project Names Where Its Readings Go",
   "state": "Implementing",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 22,
   "blockedBy": [],
   "covers": "project.yml takes an optional readings.directory, a repository's porelo.yml may give its own, relative to the repository root without '..' or a leading '/', default 'readings'; a bad one is refused when the file is read.",

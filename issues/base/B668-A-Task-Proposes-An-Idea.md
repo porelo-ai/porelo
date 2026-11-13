@@ -7,7 +7,7 @@
   "title": "A Task Proposes An Idea",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 21,
   "blockedBy": [],
   "covers": "A task proposes an idea for itself over its own task socket, where the project file allows it, with Tasks1.ProposeIdea(title, whatMustBeTrue); the idea is kept with the task and offered on its List and Watch row.",

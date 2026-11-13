@@ -7,7 +7,7 @@
   "title": "The First Start Asks Once",
   "state": "Backlog",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 6,
   "blockedBy": [
     "B718",

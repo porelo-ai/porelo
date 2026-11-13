@@ -7,7 +7,7 @@
   "title": "The Gathered Findings Are Played Through As A Person Would",
   "state": "Implementing",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 34,
   "blockedBy": [],
   "covers": "A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own."

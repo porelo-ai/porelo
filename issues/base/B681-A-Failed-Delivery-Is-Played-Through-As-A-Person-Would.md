@@ -7,7 +7,7 @@
   "title": "A Failed Delivery Is Played Through As A Person Would",
   "state": "Implementing",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 30,
   "blockedBy": [],
   "covers": "A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up."

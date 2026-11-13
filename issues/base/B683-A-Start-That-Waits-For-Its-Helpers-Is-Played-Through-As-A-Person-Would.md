@@ -7,7 +7,7 @@
   "title": "A Start That Waits For Its Helpers Is Played Through As A Person Would",
   "state": "Implementing",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 32,
   "blockedBy": [],
   "covers": "A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task."

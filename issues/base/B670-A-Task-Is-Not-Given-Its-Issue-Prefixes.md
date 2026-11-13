@@ -7,7 +7,7 @@
   "title": "A Task Is Not Given Its Issue Prefixes",
   "state": "Backlog",
   "size": "XS",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 23,
   "blockedBy": [
     "B668"

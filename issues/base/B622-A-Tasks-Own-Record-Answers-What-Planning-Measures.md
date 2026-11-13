@@ -7,7 +7,7 @@
   "title": "A Task's Own Record Answers What Planning Measures",
   "state": "Review",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 20,
   "blockedBy": [],
   "covers": "porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time."

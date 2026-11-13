@@ -7,7 +7,7 @@
   "title": "A Task's Container Without The Doubled Project Name",
   "state": "Backlog",
   "size": "L",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 4,
   "blockedBy": [],
   "covers": "A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority."

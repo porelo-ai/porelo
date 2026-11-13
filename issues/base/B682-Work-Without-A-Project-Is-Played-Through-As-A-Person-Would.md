@@ -7,7 +7,7 @@
   "title": "Work Without A Project Is Played Through As A Person Would",
   "state": "Implementing",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 31,
   "blockedBy": [],
   "covers": "A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step."

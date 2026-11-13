@@ -7,7 +7,7 @@
   "title": "A Task Hands Back Its Result File",
   "state": "Implementing",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 2,
   "blockedBy": [],
   "covers": "A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon."

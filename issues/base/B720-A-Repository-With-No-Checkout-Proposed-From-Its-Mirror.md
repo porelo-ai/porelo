@@ -7,7 +7,7 @@
   "title": "A Repository With No Checkout Proposed From Its Mirror",
   "state": "Backlog",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 6,
   "blockedBy": [
     "B220"

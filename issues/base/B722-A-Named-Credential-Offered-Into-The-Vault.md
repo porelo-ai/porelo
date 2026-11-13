@@ -7,7 +7,7 @@
   "title": "A Named Credential Offered Into The Vault",
   "state": "Backlog",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 6,
   "blockedBy": [
     "B718"

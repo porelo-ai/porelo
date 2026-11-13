@@ -7,7 +7,7 @@
   "title": "A Private Package Repository Is Played Through As A Person Would",
   "state": "Review",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 33,
   "blockedBy": [],
   "covers": "A script plays ST43 at the command line on the test VM as a person would: a task builds against an authenticated Nexus or Artifactory stand-in; the build tool's settings are written at the start and the credential stays in the vault, never inside the task."

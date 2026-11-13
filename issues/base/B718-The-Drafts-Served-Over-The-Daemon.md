@@ -7,7 +7,7 @@
   "title": "The Drafts Served Over The Daemon",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 6,
   "blockedBy": [
     "B220"

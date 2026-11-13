@@ -7,7 +7,7 @@
   "title": "A Task Started Without A Certificate On A Host In Test Mode",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 5,
   "blockedBy": [],
   "covers": "On a host whose root switched on `start-uncertified`, `porelo task start` starts a task without a certificate after a clear warning and a yes, `--yes` answering it for scripts, and the host accepts such a start only while that switch is on.",
