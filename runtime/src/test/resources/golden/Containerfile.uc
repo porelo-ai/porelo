@@ -209,15 +209,15 @@ ARG PORELO_LAYER_EPOCH=0
 USER agent
 WORKDIR /workspace
 
-# Agents install into ~/.local/bin, which is not on PATH for a non-login
-# shell - and 'podman exec' is one. Without this the agent is present and
-# not findable, which reads as a broken install rather than a missing PATH.
-ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Some agents install into ~/.local/bin, which is not on PATH for a non-login
+# shell - and 'podman exec' is one. The agent owns that folder, so it comes
+# last: a binary the agent leaves there never shadows a root-owned one.
+ENV PATH=/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin
 
 # Without a UTF-8 locale an agent's interface arrives as underscores.
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="43658ff9faeb8b89"
+LABEL org.fuin.porelo.recipe="d519eaa40e90c9e4"
 LABEL org.fuin.porelo.security-class="guarded"
 LABEL org.fuin.porelo.settings=""

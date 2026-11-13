@@ -1,0 +1,2 @@
+title: "An agent's start reads no start file the agent wrote, and a binary the agent leaves in its own bin folder no longer shadows a root-owned one; task images rebuild once"
+type: security

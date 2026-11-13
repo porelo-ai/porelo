@@ -126,6 +126,22 @@ class TaskAttachCommandTest {
     }
 
     @Test
+    void theSessionReadsNoStartFileTheTaskWrote(@TempDir Path dir) throws java.io.IOException {
+
+        // What the session's first window runs goes through a shell, and a shell reads the file
+        // BASH_ENV or ENV names: both empty, so a file the agent wrote never sets what the next
+        // start runs with.
+        runner.answering(
+                "ps",
+                LegacyTaskFixture.listed("porelo-uc-shell-1\tUp 4 minutes\n", "a1b2c3d4e5f6"));
+
+        assertThat(run(dir, "task", "attach", "porelo-uc-shell-1")).isZero();
+
+        assertThat(attached.subList(0, attached.indexOf("porelo-uc-shell-1")))
+                .containsSubsequence("--env", "BASH_ENV=", "--env", "ENV=");
+    }
+
+    @Test
     void keepsTheProgramAndItsArgumentsApart(@TempDir Path dir) throws java.io.IOException {
 
         // Joined into one string, podman looks for an executable called "tmux new-session -A -s

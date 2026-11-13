@@ -46,6 +46,14 @@ public class Podman {
     public static final String NAMED = "porelo.podman";
 
     /**
+     * What every start in a task is given last, so no shell it runs through reads a file the task
+     * wrote: a non-interactive bash reads the file {@code BASH_ENV} names and an interactive sh the
+     * one {@code ENV} names, and both read nothing when the name is empty.
+     */
+    public static final List<String> NO_START_FILES =
+            List.of("--env", "BASH_ENV=", "--env", "ENV=");
+
+    /**
      * Constructor using the {@code podman} on the path.
      *
      * @param runner Runs the commands.
@@ -1107,6 +1115,7 @@ public class Podman {
             String container, Map<String, String> environment, List<String> command) {
         final List<String> arguments = new ArrayList<>(List.of(executable, "exec"));
         arguments.addAll(ContainerSpec.passedThrough(environment.keySet()));
+        arguments.addAll(NO_START_FILES);
         arguments.add(target(container));
         arguments.addAll(command);
         return List.copyOf(arguments);
@@ -1318,6 +1327,7 @@ public class Podman {
         final List<String> arguments =
                 new ArrayList<>(List.of(executable, "exec", "--interactive", "--tty"));
         arguments.addAll(environment);
+        arguments.addAll(NO_START_FILES);
         arguments.add(target(container));
         arguments.addAll(command);
         return List.copyOf(arguments);
@@ -1592,8 +1602,10 @@ public class Podman {
             @Nullable String command,
             @Nullable String label,
             List<String> environment) {
+        // Not a login shell: that reads ~/.profile, which the agent owns, before the agent starts.
+        // The terminal and the locale come from the exec and the image, not from a start file.
         return attachArguments(
-                container, List.of(shell, "-lc", attachScript(shell, command, label)), environment);
+                container, List.of(shell, "-c", attachScript(shell, command, label)), environment);
     }
 
     /**

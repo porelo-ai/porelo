@@ -586,9 +586,9 @@ public final class Containerfile {
         lines.add("USER agent");
         lines.add("WORKDIR /workspace");
         lines.add("");
-        lines.add("# Agents install into ~/.local/bin, which is not on PATH for a non-login");
-        lines.add("# shell - and 'podman exec' is one. Without this the agent is present and");
-        lines.add("# not findable, which reads as a broken install rather than a missing PATH.");
+        lines.add("# Some agents install into ~/.local/bin, which is not on PATH for a non-login");
+        lines.add("# shell - and 'podman exec' is one. The agent owns that folder, so it comes");
+        lines.add("# last: a binary the agent leaves there never shadows a root-owned one.");
         lines.add("ENV PATH=" + TaskVariables.fixed().get("PATH"));
         lines.add("");
         // Measured on the Ubuntu VM, 2026-09-12: without this LANG is unset and LC_CTYPE is POSIX,

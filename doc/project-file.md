@@ -518,7 +518,7 @@ image:
   `COPY --from=<image>@sha256:<digest>`, with the digest required: it copies from an image pinned before the line
   is written, never from the repository. A `COPY` from anything else, an image by its tag or a stage among them, is
   refused at its line. A variable Porelo sets in every task (`PATH`
-  the task account's local `bin` folder, then `/usr/local/bin:/usr/bin:/bin`, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
+  `/usr/local/bin:/usr/bin:/bin`, then the task account's local `bin` folder, last, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
   per task) is refused too, naming the value and that the line must be removed.
 - **Signed, in an organization's project.** A start takes `porelo.yml` at the mirror's default branch only when
   every commit that changed it since the last one this machine took is signed by a project admin or a developer whose

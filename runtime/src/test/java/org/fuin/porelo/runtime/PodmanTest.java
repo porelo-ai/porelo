@@ -514,6 +514,10 @@ class PodmanTest {
                         "exec",
                         "--interactive",
                         "--tty",
+                        "--env",
+                        "BASH_ENV=",
+                        "--env",
+                        "ENV=",
                         "porelo-uc-shell-1",
                         "/bin/bash");
         assertThat(runner.invocations()).isEmpty();
@@ -704,6 +708,10 @@ class PodmanTest {
                         "--tty",
                         "--env",
                         "TERM=xterm-256color",
+                        "--env",
+                        "BASH_ENV=",
+                        "--env",
+                        "ENV=",
                         "box",
                         "/bin/bash");
     }
@@ -787,6 +795,37 @@ class PodmanTest {
         assertThat(script)
                 .as("written after the shell returns")
                 .endsWith("/bin/bash -l; : > " + Containerfile.SESSION_ENDED);
+    }
+
+    @Test
+    void anAttachedStartRunsThroughNoLoginShell() {
+
+        // A login shell reads ~/.profile, which the agent owns: a variable an agent wrote there
+        // was what its next start ran with.
+        final List<String> arguments =
+                podman.attachArguments("box", "/bin/bash", "agent-cli", "p/t", List.of());
+
+        assertThat(arguments).doesNotContain("-lc").containsSubsequence("box", "/bin/bash", "-c");
+    }
+
+    @Test
+    void everyStartIsToldToReadNoStartFileWhateverTheContainerSays() {
+
+        // A non-interactive bash reads the file BASH_ENV names, sh the one ENV names: set empty
+        // before the container name, so neither names one the agent wrote.
+        final List<List<String>> starts =
+                List.of(
+                        podman.executeArguments(
+                                "box", Map.of("ANTHROPIC_API_KEY", "x"), List.of("agent-cli")),
+                        podman.sessionArguments("box", "agent-cli", List.of()),
+                        podman.attachArguments("box", List.of("/bin/bash"), List.of()),
+                        podman.attachArguments("box", "/bin/bash", "agent-cli", "p/t", List.of()));
+
+        for (final List<String> start : starts) {
+            assertThat(start.subList(0, start.indexOf("box")))
+                    .as(String.join(" ", start))
+                    .containsSubsequence("--env", "BASH_ENV=", "--env", "ENV=");
+        }
     }
 
     @Test

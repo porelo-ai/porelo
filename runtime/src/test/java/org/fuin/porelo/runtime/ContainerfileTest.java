@@ -80,6 +80,25 @@ class ContainerfileTest {
     }
 
     @Test
+    void aBinaryTheAgentLeavesInItsOwnBinFolderNeverShadowsARootOwnedOne() {
+
+        // The agent owns ~/.local/bin: a 'pi' it drops there was found before the root-owned
+        // wrapper in /usr/local/bin, and was what the next start ran. It stays on PATH, last, for
+        // what the agent installs for its own use.
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+        final String path =
+                Containerfile.render(project)
+                        .lines()
+                        .filter(line -> line.startsWith("ENV PATH="))
+                        .findFirst()
+                        .orElseThrow()
+                        .substring("ENV PATH=".length());
+
+        assertThat(List.of(path.split(":")))
+                .containsExactly("/usr/local/bin", "/usr/bin", "/bin", "/home/agent/.local/bin");
+    }
+
+    @Test
     void everyTaskImageGetsPython3WhereItCanAndNoImageFailsForWantOfIt() {
 
         // An agent that evaluates Python warned at every start in 'default': its image had no

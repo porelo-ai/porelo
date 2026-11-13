@@ -6,9 +6,14 @@ import org.jspecify.annotations.Nullable;
 /** The environment variables Porelo sets in every task. */
 public final class TaskVariables {
 
+    /**
+     * The root-owned directories first, so what the agent leaves in its own {@code ~/.local/bin}
+     * never shadows an agent's root-owned wrapper; that folder stays on it, last, for what the
+     * agent installs for its own use.
+     */
     private static final Map<String, String> FIXED =
             Map.of(
-                    "PATH", "/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin",
+                    "PATH", "/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin",
                     "HOME", "/home/agent",
                     "LANG", "C.UTF-8");
 
