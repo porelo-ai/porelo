@@ -1140,6 +1140,214 @@ class McpTaskSocketsTest {
                 .allSatisfy(task -> assertThat(((Map<?, ?>) task).get("project")).isEqualTo("uc"));
     }
 
+    /** Registers a second project of the person beside the caller's. */
+    private void another(final String name) throws IOException {
+        final Path file = Files.createDirectories(dir.resolve(name)).resolve("project.yml");
+        Files.writeString(file, HEAD.replace("\"uc\"", "\"" + name + "\""));
+        Files.writeString(dir.resolve("data/porelo/projects/" + name), file + "\n");
+    }
+
+    private static List<Object> named(final Map<String, Object> answer) {
+        return ((List<?>) answer.get("projects"))
+                .stream().<Object>map(row -> ((Map<?, ?>) row).get("name")).toList();
+    }
+
+    @Test
+    void theProjectsATaskReadsAreItsOwnAlone() throws IOException {
+        final Path socket =
+                opened(
+                        HEAD
+                                + SECTION.replace(
+                                        "\"Stop\"]", "\"Stop\", \"Projects\", \"WatchProjects\"]"));
+        another("other");
+
+        assertThat(named(call(socket, "Projects", Map.of())))
+                .as("a task's agent reads its own project, not the person's every one")
+                .containsExactly("uc");
+        assertThat(named(call(socket, "WatchProjects", Map.of())))
+                .as("a watch asked once")
+                .containsExactly("uc");
+    }
+
+    @Test
+    void everyReadingMethodWithoutAProjectOrTaskIsCutHeldOrTheAccountsByNature() {
+        final Set<String> unscoped = new java.util.TreeSet<>(McpMethods.READING);
+        unscoped.removeAll(McpTaskSockets.takingATask());
+        unscoped.removeAll(McpTaskSockets.takingAProject());
+        unscoped.removeAll(McpTaskSockets.ANY_PROJECT);
+        final List<Set<String>> classes =
+                List.of(
+                        McpTaskSockets.TASK_LISTS,
+                        McpTaskSockets.PROJECT_LISTS,
+                        McpTaskSockets.PROJECT_ROWS,
+                        McpTaskSockets.TASK_ROWS,
+                        McpTaskSockets.HELD,
+                        McpTaskSockets.ACCOUNT_WIDE);
+
+        for (final String method : unscoped) {
+            assertThat(classes.stream().filter(each -> each.contains(method)).count())
+                    .as("%s is cut, held or named the account's in exactly one place", method)
+                    .isEqualTo(1);
+        }
+        assertThat(McpTaskSockets.takingATask())
+                .as("a task's usage is read of the caller or its own child alone")
+                .contains("Usage");
+    }
+
+    @Test
+    void aReadingThatNamesOtherProjectsAndHasNoRowToCutIsHeldFromATask() throws IOException {
+        final Path socket =
+                opened(
+                        HEAD
+                                + SECTION.replace(
+                                        "\"Stop\"]",
+                                        "\"Stop\", \"Doctor\", \"DefaultRepositories\","
+                                                + " \"Ecosystems\"]"));
+
+        for (final String method : List.of("Doctor", "DefaultRepositories")) {
+            refused(
+                    socket,
+                    method,
+                    Map.of(),
+                    "ProjectNotItsOwn",
+                    Map.of("project", "", "own", "uc"));
+        }
+        refused(
+                socket,
+                "Ecosystems",
+                Map.of("checkout", dir.toString()),
+                "ProjectNotItsOwn",
+                Map.of("project", "", "own", "uc"));
+        final Object catalogue = attempt(socket, Map.of(), "Ecosystems").join();
+        if (catalogue instanceof VarlinkException ex) {
+            assertThat(ex.getErrorName())
+                    .as("the installed plugins without a checkout")
+                    .doesNotEndWith(".ProjectNotItsOwn");
+        }
+    }
+
+    @Test
+    void theEventsATaskReadsAreItsOwnProjectsAlone() throws IOException {
+        final Path socket = opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"Events\"]"));
+        org.fuin.porelo.app.EventLog.record(
+                sockets.context(), org.fuin.porelo.app.EventLog.APPROVED, "uc", LEAD, "own");
+        org.fuin.porelo.app.EventLog.record(
+                sockets.context(),
+                org.fuin.porelo.app.EventLog.APPROVED,
+                "other",
+                "porelo-other-x",
+                "another's");
+
+        final List<?> events = (List<?>) call(socket, "Events", Map.of()).get("events");
+
+        assertThat(events)
+                .as("a task reads its own project's events, not the machine's every one")
+                .isNotEmpty()
+                .allSatisfy(
+                        event -> assertThat(((Map<?, ?>) event).get("project")).isEqualTo("uc"));
+    }
+
+    @Test
+    void aPromptOrAMessageOfAnotherProjectsTaskIsNotATasksToRead() throws IOException {
+        final PoreloContext context = context(HEAD + SECTION);
+        identity(context, "porelo-other-x", "other", null);
+        final var ofItsTasks = McpTaskSockets.ofItsTasks(context, "uc");
+
+        assertThat(ofItsTasks.test(Map.of("task", LEAD))).as("its own").isTrue();
+        assertThat(ofItsTasks.test(Map.of("task", "porelo-uc-child"))).as("its child").isTrue();
+        assertThat(ofItsTasks.test(Map.of("task", "porelo-other-x")))
+                .as("another project's task")
+                .isFalse();
+        assertThat(ofItsTasks.test(Map.of("task", "porelo-uc-nobody")))
+                .as("a name like its project's without an identity")
+                .isFalse();
+        assertThat(ofItsTasks.test(Map.of("dropped", 3))).as("a row naming no task").isFalse();
+    }
+
+    @Test
+    void aStreamOfRowsKeepsOnlyTheRowsTheTestAllows() throws IOException {
+        final List<Map<String, Object>> sent = new java.util.ArrayList<>();
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
+                McpTaskSockets.ownRows(
+                        row -> "uc".equals(row.get("project")),
+                        new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
+                            @Override
+                            public void more(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public void last(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public boolean streaming() {
+                                return true;
+                            }
+
+                            @Override
+                            public boolean open() {
+                                return true;
+                            }
+                        });
+
+        replies.more(Map.of("credential", "a", "project", "other", "task", "porelo-other-x"));
+        replies.more(Map.of("credential", "b", "project", "uc", "task", LEAD));
+        replies.more(Map.of("dropped", 3));
+
+        assertThat(sent)
+                .as("another project's rows and a row naming none are not sent")
+                .containsExactly(Map.of("credential", "b", "project", "uc", "task", LEAD));
+    }
+
+    @Test
+    void aWatchOfProjectsSendsOnlyTheCallersOwnProjectInEveryReply() throws IOException {
+        final List<Map<String, Object>> sent = new java.util.ArrayList<>();
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
+                McpTaskSockets.ownProjectRows(
+                        "uc",
+                        new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
+                            @Override
+                            public void more(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public void last(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public boolean streaming() {
+                                return true;
+                            }
+
+                            @Override
+                            public boolean open() {
+                                return true;
+                            }
+                        });
+        final Map<String, Object> both =
+                Map.of(
+                        "projects",
+                        List.of(Map.of("name", "other"), Map.of("name", "uc"), Map.of()));
+
+        replies.more(both);
+        // Another project changed, the caller's did not: nothing is sent.
+        replies.more(
+                Map.of(
+                        "projects",
+                        List.of(Map.of("name", "other", "lastUsed", "now"), Map.of("name", "uc"))));
+        replies.last(both);
+
+        assertThat(McpTaskSockets.PROJECT_LISTS)
+                .containsExactlyInAnyOrder("Projects", "WatchProjects");
+        assertThat(sent)
+                .hasSize(2)
+                .allSatisfy(answer -> assertThat(named(answer)).containsExactly("uc"));
+    }
+
     @Test
     void aWatchShowsOnlyTheTasksOfTheCallersOwnProjectInEveryReply() throws IOException {
         final List<Map<String, Object>> sent = new java.util.ArrayList<>();

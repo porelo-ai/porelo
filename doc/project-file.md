@@ -467,6 +467,16 @@ acts only on the caller itself or its own; naming none, or another, is refused w
 project; naming none, or another, is refused with `ProjectNotItsOwn`, and `List` and `Watch` show only its project's
 tasks. Stopping every task stays a person's act.
 
+A reading method answers the task for its own project alone. One naming a `project` is refused another with
+`ProjectNotItsOwn`. `List` and `Watch` show the project's tasks, `Projects` and `WatchProjects` its own row, and a
+watch sends nothing when only another project changed. `Authorizations` and `Events` keep the rows of the project,
+and `Prompts` and `Talk` those of its tasks. `Doctor` and `DefaultRepositories` name other projects with no row to
+cut by, and `Ecosystems` given a checkout would look into any path, so each is refused with `ProjectNotItsOwn`. The
+rest answer whole, being the account's or the machine's by nature: the vault's names and devices, never a value
+(`Credentials`, `Keyslots`, `SshKeys`, `CredentialCheck`, `HostVaultShare`), the machine's destinations, egress sets,
+host keys, agents and providers, a check of the task's own draft, the event log's integrity as counts, the daemon's
+process and the methods it grants.
+
 ## Services on this host
 
 `egress.host_services` names services on the task's own host, such as its forge and registry. Each name uses the

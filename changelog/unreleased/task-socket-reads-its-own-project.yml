@@ -1,0 +1,2 @@
+title: "A task's socket answers its reading methods for the task's own project alone: Projects, WatchProjects, Authorizations, Events, Prompts and Talk keep its own rows, and Doctor, DefaultRepositories and Ecosystems with a checkout are refused"
+type: fixed

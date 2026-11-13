@@ -624,6 +624,55 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     static final Set<String> TASK_LISTS = Set.of("List", "Watch");
 
     /**
+     * The methods that list the person's projects, cut to the caller's own as a list of tasks is.
+     */
+    static final Set<String> PROJECT_LISTS = Set.of("Projects", "WatchProjects");
+
+    /** Methods whose every row names its project: a task reads its own project's rows alone. */
+    static final Set<String> PROJECT_ROWS = Set.of("Authorizations", "Events");
+
+    /** Methods whose every row names its task: a task reads its own project's tasks' rows alone. */
+    static final Set<String> TASK_ROWS = Set.of("Prompts", "Talk");
+
+    /**
+     * Reading methods held from a task: what each answers names other projects, and it has no row
+     * to cut by. {@code Doctor}'s findings name projects in their text; {@code DefaultRepositories}
+     * names the project that claims each repository. {@code Ecosystems} is held only when it is
+     * given a checkout, which it would look into wherever it lies.
+     */
+    static final Set<String> HELD = Set.of("Doctor", "DefaultRepositories");
+
+    /**
+     * Reading methods taking no project or task that are the account's or the machine's by nature,
+     * and so are answered whole: the one vault's names and devices, never a value ({@code
+     * Credentials}, {@code Keyslots}, {@code SshKeys}, {@code CredentialCheck}, {@code
+     * HostVaultShare}); the machine's destinations, egress sets, host keys and agent catalogue; a
+     * check of the caller's own text; the event log's integrity, counts alone; the daemon's process
+     * and the methods it grants.
+     */
+    static final Set<String> ACCOUNT_WIDE =
+            Set.of(
+                    "Agents",
+                    "AgentSignIns",
+                    "CheckProjectFile",
+                    "CredentialCheck",
+                    "Credentials",
+                    "Destination",
+                    "Destinations",
+                    "Ecosystems",
+                    "HostKeys",
+                    "HostVaultShare",
+                    "Installable",
+                    "Keyslots",
+                    "McpMethods",
+                    "Process",
+                    "ProjectFileSchema",
+                    "Providers",
+                    "Sets",
+                    "SshKeys",
+                    "VerifyEvents");
+
+    /**
      * The methods taking a project that the task socket does not hold to the caller's own: only
      * {@code Start}, which holds its project itself. Every read reaches only the caller's project.
      */
@@ -861,6 +910,141 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     }
 
     /**
+     * Returns replies that keep, of a list of projects, the caller's own alone.
+     *
+     * @param project The caller's project.
+     * @param replies Where the cut replies go.
+     * @return The replies to answer through.
+     */
+    static VarlinkServer.Replies ownProjectRows(
+            final String project, final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            private @Nullable Map<String, Object> sent;
+
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                // A change of another project leaves the caller's row as it was: sent again, it
+                // would tell the task that something changed where it may not look.
+                final Map<String, Object> answer = cut(parameters);
+                if (!answer.equals(sent)) {
+                    sent = answer;
+                    replies.more(answer);
+                }
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                replies.last(cut(parameters));
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+
+            private Map<String, Object> cut(final Map<String, Object> parameters) {
+                final Map<String, Object> answer = new LinkedHashMap<>(parameters);
+                if (parameters.get("projects") instanceof List<?> projects) {
+                    answer.put(
+                            "projects",
+                            projects.stream()
+                                    .filter(
+                                            row ->
+                                                    row instanceof Map<?, ?> each
+                                                            && project.equals(each.get("name")))
+                                    .toList());
+                }
+                return answer;
+            }
+        };
+    }
+
+    /**
+     * Returns replies that keep only the rows one test allows: each streamed row, and each row of
+     * the list a last answer carries under {@code events}.
+     *
+     * @param kept Whether a row stays.
+     * @param replies Where the cut replies go.
+     * @return The replies to answer through.
+     */
+    static VarlinkServer.Replies ownRows(
+            final java.util.function.Predicate<Map<?, ?>> kept,
+            final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                if (kept.test(parameters)) {
+                    replies.more(parameters);
+                }
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                if (parameters.get("events") instanceof List<?> rows) {
+                    final Map<String, Object> answer = new LinkedHashMap<>(parameters);
+                    answer.put(
+                            "events",
+                            rows.stream()
+                                    .filter(row -> row instanceof Map<?, ?> each && kept.test(each))
+                                    .toList());
+                    replies.last(answer);
+                } else {
+                    replies.last(kept.test(parameters) ? parameters : Map.of());
+                }
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+        };
+    }
+
+    /**
+     * Returns whether a row names a task of one project, by the task's identity, not its name. A
+     * task found to be the project's stays so, a container's project never changing, so it is not
+     * looked up again for each row of a stream; one not found is looked up again, as it may be a
+     * task just made.
+     *
+     * @param context The machine.
+     * @param project The caller's project.
+     * @return The test.
+     */
+    static java.util.function.Predicate<Map<?, ?>> ofItsTasks(
+            final PoreloContext context, final String project) {
+        final TaskIdentities identities = new TaskIdentities(context);
+        final Set<String> its = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        return row -> {
+            if (!(row.get("task") instanceof String task)) {
+                return false;
+            }
+            if (its.contains(task)) {
+                return true;
+            }
+            if (identities.lookup(task, project) instanceof TaskIdentities.Found) {
+                its.add(task);
+                return true;
+            }
+            return false;
+        };
+    }
+
+    private static VarlinkException heldFromATask(final String project) {
+        return new VarlinkException(
+                INTERFACE + ".ProjectNotItsOwn", Map.of("project", "", "own", project));
+    }
+
+    /**
      * Returns the methods that take a task, as the interface description declares their parameters:
      * over a task's socket each acts on the caller or its own child alone.
      *
@@ -1048,6 +1232,37 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                 held =
                         (parameters, replies) ->
                                 method.call(parameters, ownPrompts(context, project, replies));
+            } else if (HELD.contains(name)) {
+                held =
+                        (parameters, replies) -> {
+                            throw heldFromATask(project);
+                        };
+            } else if ("Ecosystems".equals(name)) {
+                held =
+                        (parameters, replies) -> {
+                            if (!PoreloDaemon.text(parameters, "checkout").isEmpty()) {
+                                throw heldFromATask(project);
+                            }
+                            method.call(parameters, replies);
+                        };
+            } else if (PROJECT_ROWS.contains(name)) {
+                held =
+                        (parameters, replies) ->
+                                method.call(
+                                        parameters,
+                                        ownRows(
+                                                row -> project.equals(row.get("project")),
+                                                replies));
+            } else if (TASK_ROWS.contains(name)) {
+                held =
+                        (parameters, replies) ->
+                                method.call(
+                                        parameters, ownRows(ofItsTasks(context, project), replies));
+            } else if (PROJECT_LISTS.contains(name)) {
+                // A task's agent reads its own project's row, not the person's every project.
+                held =
+                        (parameters, replies) ->
+                                method.call(parameters, ownProjectRows(project, replies));
             } else if (TASK_LISTS.contains(name)) {
                 // The person's every task is theirs to read; a task's agent reads its own
                 // project's.
