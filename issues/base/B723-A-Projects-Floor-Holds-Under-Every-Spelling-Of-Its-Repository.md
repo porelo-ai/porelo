@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B723",
   "title": "A Project's Floor Holds Under Every Spelling Of Its Repository",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 53,
