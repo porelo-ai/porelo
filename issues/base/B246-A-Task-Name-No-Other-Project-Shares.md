@@ -10,8 +10,8 @@
   "priority": "High",
   "rank": 10,
   "blockedBy": [],
-  "covers": "A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form",
-  "openQuestions": 2
+  "covers": "A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form; project `porelo` takes the separator too",
+  "openQuestions": 0
 }
 ```
 
@@ -66,9 +66,14 @@ tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
   project short name `<project>-a`.
 - `StartCheck`, `TaskCertifyCommand` and the window label read the task from the identity or the labels;
   `taskFrom`/`taskIn` keep only the legacy fallback where no identity exists.
-- The host: a task's record and forge token are kept by project and task; `end` takes the project and drops only
-  that task's. A record or token under the old key is read once and moved (see the questions). Red: two projects'
-  tasks `shell` of one person, the end of one leaves the other's record and token.
+- Project `porelo` takes the separator too (the operator, 2026-11-13): `ContainerName.encoded` names its new task
+  `porelo-porelo_<task>` (or `porelo-<project short>_<task>`), with no form without `_`. Its special form and the
+  reservation of `login-<digits>` for project `porelo`'s new tasks go, since no new task name can then meet the
+  login containers' `porelo-login-<digits>`. A task made before under `porelo-<task>` keeps its name through its
+  identity. Red: a new task `pi` of project `porelo` is `porelo-porelo_pi`.
+- The host: a task's record and forge token kept by project and task is built by [B735](README.md#b735). Records
+  and tokens under the old key are left to end with their tasks, and new tasks use the new key (the operator,
+  2026-11-13). Nothing is moved.
 - Docs and the four stories on the new form; `ContainerName.of` stays only as the contract's name.
 
 ## Acceptance
@@ -76,15 +81,15 @@ tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
 - No code path takes a project or task out of a container's name where an identity or a label names them; a test
   per place above, seen red first.
 - Two projects' tasks of one name and one person on a host each keep their record and token through the other's end.
-- Project `porelo`'s `porelo-<task>` and a short-named project's task are brought back by name outside a checkout.
+- Project `porelo`'s task made before as `porelo-<task>` and a short-named project's task are brought back by name
+  outside a checkout.
+- A new task of project `porelo` is `porelo-porelo_<task>`; no new task's name is without the separator.
 
-## Open questions
+## Answered
 
-- Project `porelo` keeps `porelo-<task>` with no separator (as decided for its doubled name). That name can equal a
-  task made before under the old form (`porelo-web-app` is project `web`'s task `app` too); the name's claim keeps
-  them apart, as it does now. Keep it so, or give project `porelo` the separator too (`porelo-porelo_<task>`)?
-- The host's task records and forge tokens under the old key on hosts that run today: moved at the host's next
-  update, or left to end with their tasks while new ones use the new key?
+- Project `porelo` takes the separator too: no name without it (the operator, 2026-11-13).
+- The host's records and forge tokens under the old key are left to end with their tasks, while new tasks use the
+  new key, as [B735](README.md#b735) builds it (the operator, 2026-11-13).
 
 ## To be checked
 
