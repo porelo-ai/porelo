@@ -1,0 +1,2 @@
+title: "A varlink call's deadline covers sending the request as well as its answer, the 4 MiB cap holds to the byte, and an agent's container setup and batched format get two minutes"
+type: fixed

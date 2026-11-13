@@ -277,14 +277,13 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
-| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. | - |
-| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. | - |
-| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. | - |
-| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. | - |
-| <a id="b695"></a>[B695](B695-A-Varlink-Call-Bounded-From-Send-To-Answer.md) | S | - | A varlink call's deadline covers its send as well as its answer, the 4 MiB cap is kept to the byte, and an agent's slow methods get a deadline that fits them. | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. |
+| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. |
+| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. |
+| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. |
 
 ## Review
 
@@ -431,6 +430,7 @@ from its side, as *blocked by*.
 | <a id="b528"></a>[B528](B528-A-Persons-Line-To-All-Agents-Wakes-Every-Task.md) | S | - | A person's line headed "All agents:" reaches and wakes every task; a task's cannot. | - |
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings | - |
 | <a id="b525"></a>[B525](B525-Each-Workflow-Run-Of-A-Build-By-Name.md) | M | - | A build names each workflow run of the commit with its own state, also while it runs. | - |
+| <a id="b695"></a>[B695](B695-A-Varlink-Call-Bounded-From-Send-To-Answer.md) | S | - | A varlink call's deadline covers its send as well as its answer, the 4 MiB cap is kept to the byte, and an agent's slow methods get a deadline that fits them. | 0 |
 | <a id="b219"></a>[B219](B219-A-Private-Package-Repository-Through-The-Broker.md) | L | - | A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task. | - |
 | <a id="b526"></a>[B526](B526-A-Task-Is-Shown-By-Its-Agent-Name.md) | S | - | A task is enrolled into its room under "Agent <Name>" where the transport takes `--display`. | - |
 | <a id="b735"></a>[B735](B735-A-Hosts-Task-Record-Is-One-Projects.md) | S | - | The host keeps a person's task record and forge token by project and task, so ending one project's task never ends another project's task of the same name: `tasks/<login>/<project>/<task>.json` and the token `porelo-task-<project>_<task>`. | 0 |

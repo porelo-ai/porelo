@@ -344,4 +344,71 @@ class InstalledAgentTest {
             released.countDown();
         }
     }
+
+    /**
+     * A connection to an agent on a stretched clock: each answer comes a given time after its
+     * question, so a call whose deadline is shorter ends as a call that got no answer in time, and
+     * one whose deadline is longer gets the agent's answer, without a test waiting that long.
+     *
+     * @param socket Where the stand-in agent listens.
+     * @param answersAfter When, on the stretched clock, each answer comes.
+     * @return The connection.
+     */
+    private static org.fuin.porelo.wire.varlink.VarlinkClient answeringAfter(
+            final Path socket, final java.time.Duration answersAfter) {
+        return new org.fuin.porelo.wire.varlink.VarlinkClient(socket) {
+            @Override
+            public java.util.Map<String, Object> call(
+                    final String method,
+                    final java.util.Map<String, Object> parameters,
+                    final java.time.Duration deadline) {
+                if (deadline.compareTo(answersAfter) < 0) {
+                    throw new org.fuin.porelo.wire.varlink.VarlinkTimeoutException(
+                            method, deadline);
+                }
+                return super.call(method, parameters, deadline);
+            }
+        };
+    }
+
+    @Test
+    void anAgentAnsweringABatchedFormatAfterThirtyOneSecondsIsWaitedFor(
+            @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        // Format had the 30 s every call has: a large batch answered rightly but slowly failed,
+        // and lost the connection with it.
+        final Path socket = dir.resolve("s.sock");
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Method formats =
+                (parameters, replies) ->
+                        replies.last(java.util.Map.of("lines", java.util.List.of("shown")));
+        try (var server = agent(socket, java.util.Map.of("Format", formats));
+                var client = answeringAfter(socket, java.time.Duration.ofSeconds(31))) {
+            assertThat(InstalledAgent.format(client, java.util.List.of("raw")))
+                    .containsExactly("shown");
+        }
+    }
+
+    @Test
+    void anAgentAnsweringContainerSetupAfterThirtyOneSecondsIsWaitedFor(
+            @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        // ContainerSetup had the 30 s every call has, and a start had no way to give it more.
+        final Path socket = dir.resolve("s.sock");
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Method setsUp =
+                (parameters, replies) ->
+                        replies.last(
+                                java.util.Map.of(
+                                        "files",
+                                        java.util.List.of(
+                                                java.util.Map.of(
+                                                        "path", "/home/agent/.config",
+                                                        "content", "set"))));
+        try (var server = agent(socket, java.util.Map.of("ContainerSetup", setsUp));
+                var client = answeringAfter(socket, java.time.Duration.ofSeconds(31))) {
+            assertThat(
+                            InstalledAgent.containerSetup(
+                                    client,
+                                    new SetupContext("t", "api-key", "/workspace", "", "p", 0)))
+                    .extracting(ContainerFile::content)
+                    .containsExactly("set");
+        }
+    }
 }

@@ -51,12 +51,64 @@ public class VarlinkConnection implements AutoCloseable {
      * @throws IOException If writing fails.
      */
     public void send(Map<String, Object> message) throws IOException {
-        final byte[] payload = Json.write(message).getBytes(StandardCharsets.UTF_8);
-        final ByteBuffer buffer = ByteBuffer.allocate(payload.length + 1);
-        buffer.put(payload).put((byte) 0).flip();
+        final ByteBuffer buffer = framed(message);
         while (buffer.hasRemaining()) {
             channel.write(buffer);
         }
+    }
+
+    /**
+     * Sends one message, waiting no longer than a limit for the peer to take it.
+     *
+     * <p>Only on this connection's one thread: it switches the channel to non-blocking for the
+     * wait, as {@link #receive(Duration)} does, since a unix-domain channel has no write timeout.
+     *
+     * @param message The object to send.
+     * @param within How long the whole message may take to be sent.
+     * @throws SocketTimeoutException If the peer did not take the whole message within the limit;
+     *     part of it may be sent, so the connection is the caller's to close.
+     * @throws IOException If writing fails, or the waiting thread is interrupted.
+     */
+    public void send(final Map<String, Object> message, final Duration within) throws IOException {
+        final long deadline = System.nanoTime() + within.toNanos();
+        final ByteBuffer buffer = framed(message);
+        channel.configureBlocking(false);
+        try {
+            channel.write(buffer);
+            if (!buffer.hasRemaining()) {
+                // Most messages fit the socket's buffer: no selector for them.
+                return;
+            }
+            try (Selector selector = Selector.open()) {
+                channel.register(selector, SelectionKey.OP_WRITE);
+                while (true) {
+                    final long left = deadline - System.nanoTime();
+                    if (left <= 0) {
+                        throw new SocketTimeoutException("Not sent within " + within);
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedIOException("Interrupted while sending");
+                    }
+                    selector.select(Math.max(1, TimeUnit.NANOSECONDS.toMillis(left + 999_999)));
+                    selector.selectedKeys().clear();
+                    channel.write(buffer);
+                    if (!buffer.hasRemaining()) {
+                        return;
+                    }
+                }
+            }
+        } finally {
+            // As after a bounded read: the selector is closed, so the channel can block again.
+            channel.configureBlocking(true);
+        }
+    }
+
+    /** A message as it goes on the wire: its JSON and the NUL that ends it. */
+    private static ByteBuffer framed(final Map<String, Object> message) {
+        final byte[] payload = Json.write(message).getBytes(StandardCharsets.UTF_8);
+        final ByteBuffer buffer = ByteBuffer.allocate(payload.length + 1);
+        buffer.put(payload).put((byte) 0).flip();
+        return buffer;
     }
 
     /**
@@ -148,6 +200,11 @@ public class VarlinkConnection implements AutoCloseable {
         final byte[] buffered = pending.toByteArray();
         for (int i = 0; i < buffered.length; i++) {
             if (buffered[i] == 0) {
+                if (i > MAX_MESSAGE) {
+                    // Looked at before it is parsed: a frame just over the limit whose end came
+                    // with the last read never reached the check below.
+                    throw tooLarge();
+                }
                 final String text = new String(buffered, 0, i, StandardCharsets.UTF_8);
                 pending.reset();
                 pending.write(buffered, i + 1, buffered.length - i - 1);
@@ -157,9 +214,13 @@ public class VarlinkConnection implements AutoCloseable {
         if (pending.size() > MAX_MESSAGE) {
             // A peer that never sends a NUL is either broken or trying to make this process
             // allocate without limit.
-            throw new VarlinkException("A varlink message exceeded " + MAX_MESSAGE + " bytes");
+            throw tooLarge();
         }
         return null;
+    }
+
+    private static VarlinkException tooLarge() {
+        return new VarlinkException("A varlink message exceeded " + MAX_MESSAGE + " bytes");
     }
 
     /** Keeps what the last read brought. */

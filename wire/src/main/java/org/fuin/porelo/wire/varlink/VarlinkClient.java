@@ -16,8 +16,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Calls a varlink method over a unix socket.
  *
- * <p>A call answered once waits for its reply at most {@link #DEFAULT_DEADLINE}, or the deadline
- * its caller gives; a stream waits without one unless its caller gives one.
+ * <p>A call answered once waits at most {@link #DEFAULT_DEADLINE}, or the deadline its caller
+ * gives, counted from its first byte sent to its answer; a stream waits without one unless its
+ * caller gives one.
  */
 public class VarlinkClient implements AutoCloseable {
 
@@ -88,12 +89,14 @@ public class VarlinkClient implements AutoCloseable {
     /**
      * Calls a method once and returns the reply, waiting at most a given time.
      *
-     * <p>A call that outlives its deadline closes the connection, since a late reply would be read
-     * as the next call's.
+     * <p>The deadline is counted from the first byte sent: a peer that stops reading a large
+     * request ends the call as one that never answers. A call that outlives its deadline closes the
+     * connection, since a late reply would be read as the next call's, and half a request would be
+     * read as the start of the next.
      *
      * @param method Fully qualified method name.
      * @param parameters Call parameters.
-     * @param deadline How long the reply may take.
+     * @param deadline How long sending the call and its reply may take together.
      * @return The reply parameters.
      * @throws VarlinkTimeoutException If no reply came within the deadline.
      * @throws VarlinkException If the peer returns an error or closes early.
@@ -101,8 +104,10 @@ public class VarlinkClient implements AutoCloseable {
     public Map<String, Object> call(
             String method, Map<String, Object> parameters, Duration deadline) {
         try {
-            send(method, parameters, false);
-            final Map<String, Object> reply = receive(method, deadline);
+            final long since = System.nanoTime();
+            send(method, parameters, false, deadline);
+            final Map<String, Object> reply =
+                    receive(method, deadline, deadline.minusNanos(System.nanoTime() - since));
             if (reply == null) {
                 throw new VarlinkException("The service closed the connection without replying");
             }
@@ -159,7 +164,8 @@ public class VarlinkClient implements AutoCloseable {
      * @param method Fully qualified method name.
      * @param parameters Call parameters.
      * @param consumer Receives each reply; returning {@code false} stops the stream.
-     * @param eachReply How long each reply may take, the first included.
+     * @param eachReply How long each reply may take, counted again after each one; the first shares
+     *     it with sending the call.
      * @throws VarlinkTimeoutException If a reply did not come within the limit; the connection is
      *     closed.
      * @throws VarlinkException If the peer returns an error.
@@ -170,10 +176,23 @@ public class VarlinkClient implements AutoCloseable {
             Predicate<Map<String, Object>> consumer,
             @Nullable Duration eachReply) {
         try {
-            send(method, parameters, true);
+            // Counted from the first byte sent for the first reply, and from the reply before for
+            // each after it.
+            long since = System.nanoTime();
+            if (eachReply == null) {
+                send(method, parameters, true);
+            } else {
+                send(method, parameters, true, eachReply);
+            }
             while (true) {
                 final Map<String, Object> reply =
-                        eachReply == null ? connection.receive() : receive(method, eachReply);
+                        eachReply == null
+                                ? connection.receive()
+                                : receive(
+                                        method,
+                                        eachReply,
+                                        eachReply.minusNanos(System.nanoTime() - since));
+                since = System.nanoTime();
                 if (reply == null) {
                     // The peer closed mid-stream. Returning here would be indistinguishable from a
                     // stream that ended properly - a client would stop watching and go on showing
@@ -199,13 +218,30 @@ public class VarlinkClient implements AutoCloseable {
     }
 
     /**
-     * Reads one reply within a deadline, closing the connection when none came or the wait was
-     * interrupted: either way the answer may still come, and would be read as the next call's.
+     * Reads one reply within what is left of a deadline, closing the connection when none came or
+     * the wait was interrupted: either way the answer may still come, and would be read as the next
+     * call's.
      */
-    private @Nullable Map<String, Object> receive(String method, Duration deadline)
+    private @Nullable Map<String, Object> receive(String method, Duration deadline, Duration left)
+            throws IOException {
+        return bounded(method, deadline, () -> connection.receive(left));
+    }
+
+    /** One step of a call within its deadline, the connection closed when it does not end in it. */
+    @FunctionalInterface
+    private interface Step<T> {
+        @Nullable T run() throws IOException;
+    }
+
+    /**
+     * Runs one step of a call within its deadline, closing the connection when the step did not end
+     * in it or its wait was interrupted: a late answer would be read as the next call's, and a
+     * request sent in part as the start of the next.
+     */
+    private <T> @Nullable T bounded(String method, Duration deadline, Step<T> step)
             throws IOException {
         try {
-            return connection.receive(deadline);
+            return step.run();
         } catch (InterruptedIOException ex) {
             try {
                 connection.close();
@@ -266,13 +302,32 @@ public class VarlinkClient implements AutoCloseable {
 
     private void send(String method, Map<String, Object> parameters, boolean more)
             throws IOException {
+        connection.send(message(method, parameters, more));
+    }
+
+    /** Sends a call within a deadline, which its answer then shares. */
+    private void send(
+            String method, Map<String, Object> parameters, boolean more, Duration deadline)
+            throws IOException {
+        final Map<String, Object> call = message(method, parameters, more);
+        bounded(
+                method,
+                deadline,
+                () -> {
+                    connection.send(call, deadline);
+                    return Boolean.TRUE;
+                });
+    }
+
+    private static Map<String, Object> message(
+            String method, Map<String, Object> parameters, boolean more) {
         final Map<String, Object> call = new LinkedHashMap<>();
         call.put("method", method);
         call.put("parameters", parameters);
         if (more) {
             call.put("more", Boolean.TRUE);
         }
-        connection.send(call);
+        return call;
     }
 
     @SuppressWarnings("unchecked")

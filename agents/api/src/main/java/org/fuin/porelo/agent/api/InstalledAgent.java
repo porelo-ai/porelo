@@ -35,6 +35,13 @@ public class InstalledAgent implements AutoCloseable {
     static final java.time.Duration READY_DEADLINE =
             java.time.Duration.ofSeconds(READY_TIMEOUT_SECONDS);
 
+    /**
+     * How long an agent may take for a method whose answer can rightly be slow: {@code
+     * ContainerSetup}, which may prepare what the agent needs, and {@code Format}, asked for a
+     * batch of lines. As long as a build reader may take for its question.
+     */
+    static final java.time.Duration SLOW_DEADLINE = java.time.Duration.ofSeconds(120);
+
     private final Path executable;
 
     private final Path socket;
@@ -558,7 +565,20 @@ public class InstalledAgent implements AutoCloseable {
      * @return Files to write, possibly empty.
      */
     public List<ContainerFile> containerSetup(SetupContext context) {
-        return containerSetup(client, context, VarlinkClient.DEFAULT_DEADLINE);
+        return containerSetup(client, context);
+    }
+
+    /**
+     * Asks an agent what it needs placed in a container before it starts, within {@link
+     * #SLOW_DEADLINE}.
+     *
+     * @param client The connection to the agent.
+     * @param context What the agent is told about this task.
+     * @return Files to write, possibly empty.
+     */
+    static List<ContainerFile> containerSetup(
+            final VarlinkClient client, final SetupContext context) {
+        return containerSetup(client, context, SLOW_DEADLINE);
     }
 
     /**
@@ -668,7 +688,7 @@ public class InstalledAgent implements AutoCloseable {
 
     static List<@Nullable String> format(final VarlinkClient client, final List<String> lines) {
         // An agent built before the method shows its lines as they are.
-        if (optional(client, AgentProtocol.FORMAT, Map.of("lines", lines))
+        if (optional(client, AgentProtocol.FORMAT, Map.of("lines", lines), SLOW_DEADLINE)
                         instanceof Answer.Answered(Map<String, Object> reply)
                 && reply.get("lines") instanceof List<?> shown
                 && shown.size() == lines.size()) {
