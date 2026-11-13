@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B744",
   "title": "A Push Told When Its Build Watch Has Ended",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 50,
