@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B733",
   "title": "One Unverifiable Task Refuses Only Its Own Gate",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 10,
@@ -39,3 +39,19 @@ left.
   its gate signs.
 - A lookup of the unverifiable task itself still refuses, with the same words.
 - A forced project clear with a running task leaves either all of that task's records or none.
+
+## Built
+
+- `TaskHistory.find`: a retained name whose ownership cannot be verified refuses, with the same words, only when the
+  reservation kept for it names the project and task asked for; any other lookup skips it. A name with no
+  reservation is skipped as before.
+- Red first in `TaskHistoryTest` (a lookup of B finds B beside an unverifiable A, a lookup of A still refuses) and
+  `TaskSigningSecretsTest` (a gate signs beside another task of its project whose ownership cannot be verified; the
+  unverifiable one's own gate still refuses).
+- The project clear already does what the plan asks: without `--force` it names the running task and removes
+  nothing; with it, every listed task goes through the task removal first, and a removal that is not clean fails the
+  clear before anything else is touched. Two tests in `ClearingTest` pin both; no red was possible.
+- Not changed: a running task whose identity was already unverifiable is not listed by the inventory, so a forced
+  clear removes the project around it and leaves its records. With the gate fix this no longer stops another task's
+  start; a clear that also finds unlisted containers of the project's label would be a change to how the clear finds
+  tasks.

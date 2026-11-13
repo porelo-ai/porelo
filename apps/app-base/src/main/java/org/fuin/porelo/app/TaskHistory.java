@@ -75,8 +75,14 @@ public final class TaskHistory {
                                     || Files.exists(
                                             paths.tasks().taskRecord(name),
                                             LinkOption.NOFOLLOW_LINKS))) {
-                        throw new ProjectException(
-                                "historical ownership cannot verify the surviving task files; list tasks before acting");
+                        // Only a lookup of the task its reservation names: one such name refused
+                        // every gate on the machine, and no new task could sign.
+                        if (kept.get().project().equals(project)
+                                && kept.get().task().equals(task)) {
+                            throw new ProjectException(
+                                    "historical ownership cannot verify the surviving task files; list tasks before acting");
+                        }
+                        continue;
                     }
                     identity = kept.orElse(null);
                 } else {

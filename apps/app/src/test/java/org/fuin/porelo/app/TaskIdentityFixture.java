@@ -41,4 +41,30 @@ final class TaskIdentityFixture {
         Sidecar.recordId(runtime, id);
         java.nio.file.Files.copy(durable.resolve("sidecar.json"), runtime.resolve("sidecar.json"));
     }
+
+    /**
+     * A name whose ownership cannot be verified: its reservation names the task and its id, and its
+     * task-record folder survives while its identity record is gone, as a late wake leaves it.
+     */
+    static void unverifiable(
+            PoreloContext context, String container, String project, String task, String id)
+            throws IOException {
+        try (var claim = new TaskReservations(context).reserve(project, task, container, "first")) {
+            running(context.paths(), container, project, task, id);
+            claim.created(id);
+        }
+        for (final Path directory :
+                java.util.List.of(
+                        context.paths().tasks().containerState(container),
+                        context.paths().tasks().taskRecord(container))) {
+            try (var walk = java.nio.file.Files.walk(directory)) {
+                for (final Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    java.nio.file.Files.delete(path);
+                }
+            }
+        }
+        java.nio.file.Files.createDirectories(context.paths().tasks().taskRecord(container));
+        java.nio.file.Files.createFile(
+                context.paths().tasks().taskRecord(container).resolve(".wake.lock"));
+    }
 }

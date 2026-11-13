@@ -1,0 +1,2 @@
+title: "A task whose ownership cannot be verified refuses only its own gate, so another task of its project starts and signs"
+type: fixed

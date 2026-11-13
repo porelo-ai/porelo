@@ -66,6 +66,45 @@ class TaskSigningSecretsTest {
     }
 
     @Test
+    void aGateSignsBesideAnotherTaskOfItsProjectWhoseOwnershipCannotBeVerified() throws Exception {
+        // On the test VM one task's surviving folder refused the gate of every new task of its
+        // project, so none of them could sign.
+        final PoreloContext context =
+                new PoreloContext(new FakeCommandRunner(), context().paths(), arguments -> 0)
+                        .asking(shown -> "fixture-passphrase".toCharArray());
+        TaskIdentityFixture.unverifiable(context, "porelo-p-old", "p", "old", "a".repeat(64));
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir.resolve("certificates"));
+        final var own = keys.task("p", "task");
+        TaskIdentityFixture.record(context.paths(), TASK, "p", "task", "b".repeat(64));
+        context.vault()
+                .write(
+                        Map.of(
+                                TaskSecrets.PREFIX + TASK + "/signing-key",
+                                        VaultEntry.of(own.seedBase64()),
+                                TaskSecrets.PREFIX + TASK + "/certificate",
+                                        VaultEntry.of(keys.certificate(own).line())),
+                        "fixture-passphrase".toCharArray());
+        try {
+            context.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter()));
+            final byte[] payload =
+                    "tree 1\n\nreviewed work\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(GateServeCommand.signing(context, "p", "task").sign(payload))
+                    .as("the new task's gate signs with its own key")
+                    .isEqualTo(
+                            org.fuin.porelo.vault.SshSignature.sign(
+                                    own, keys.certificate(own).blob(), payload, "git"));
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> GateServeCommand.signing(context, "p", "old"))
+                    .as("the unverifiable task's own gate still refuses")
+                    .hasMessage(
+                            "historical ownership cannot verify the surviving task files; list"
+                                    + " tasks before acting");
+        } finally {
+            context.forgetTyped();
+        }
+    }
+
+    @Test
     void anOldGateSignsAndPushesWithItsOwnKeyAndTokenBesideAnEncodedSibling() throws Exception {
         // The gate must never sign or spend the token of the owner with an overlapping old
         // spelling.

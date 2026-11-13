@@ -22,6 +22,10 @@ class ClearingTest {
     private Path root;
 
     private PoreloContext context(final Path dir) {
+        return context(dir, runner);
+    }
+
+    private PoreloContext context(final Path dir, final FakeCommandRunner runner) {
         root = dir;
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -54,6 +58,79 @@ class ClearingTest {
                 root.resolve("data/porelo/projects").resolve(name),
                 file + "\n",
                 StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void aClearWithoutForceNamesARunningTaskAndLeavesItsRecordsWhole(@TempDir final Path dir)
+            throws Exception {
+        final StoppingCommandRunner stopping = new StoppingCommandRunner();
+        final PoreloContext context = context(dir, stopping).recognizingTasks();
+        final String container = runningTask(context, stopping);
+
+        final Clearing.Result result = new Clearing(context).project("uc", false, false);
+
+        assertThat(result.refused()).isTrue();
+        assertThat(result.items()).anyMatch(item -> item.why().contains("still up"));
+        assertThat(
+                        org.fuin.porelo.wire.Sidecar.recordedId(
+                                context.paths().tasks().taskRecord(container)))
+                .as("its identity record stays")
+                .isNotNull();
+        assertThat(context.paths().tasks().containerState(container)).exists();
+        assertThat(TaskHistory.find(context.paths(), "uc", "shell")).isNotNull();
+        assertThat(stopping.lines()).noneMatch(line -> line.startsWith("podman rm"));
+    }
+
+    /** A running task "shell" of project "uc", with every record a start writes. */
+    private String runningTask(final PoreloContext context, final StoppingCommandRunner stopping)
+            throws Exception {
+        project("uc");
+        final String container = "porelo-uc-shell";
+        final String id = "a".repeat(64);
+        try (var claim = new TaskReservations(context).reserve("uc", "shell", container, "first")) {
+            TaskIdentityFixture.running(context.paths(), container, "uc", "shell", id);
+            claim.created(id);
+        }
+        stopping.answering("ps --all --format {{.Names}}", container + "\n");
+        stopping.answering(
+                "ps", container + "\tUp 4 minutes\t\t\tuc\tguarded\tr\t\t" + id + "\tshell\n");
+        stopping.answering("for-each-ref", "");
+        return container;
+    }
+
+    @Test
+    void aForcedClearTakesARunningTasksRecordsTogether(@TempDir final Path dir) throws Exception {
+        // On the test VM a forced clear left a running task's files without its identity record,
+        // and every later gate of the project refused.
+        final StoppingCommandRunner stopping = new StoppingCommandRunner();
+        final PoreloContext context = context(dir, stopping).recognizingTasks();
+        final String container = runningTask(context, stopping);
+
+        final Clearing.Result result = new Clearing(context).project("uc", false, true);
+
+        assertThat(result.items())
+                .as("the running task went through the task removal")
+                .anyMatch(
+                        item ->
+                                item.kind().equals("TASK")
+                                        && item.what().equals(container)
+                                        && item.status() == Clearing.Status.REMOVED);
+        final boolean taken =
+                Files.notExists(context.paths().tasks().containerState(container))
+                        && Files.notExists(context.paths().tasks().taskRecord(container));
+        final boolean whole =
+                org.fuin.porelo.wire.Sidecar.recordedId(
+                                context.paths().tasks().taskRecord(container))
+                        != null;
+        assertThat(taken || whole)
+                .as("the task's records are all taken or all kept: " + result.items())
+                .isTrue();
+        assertThat(TaskHistory.find(context.paths(), "uc", "next"))
+                .as("no name is left that a later task's gate cannot verify")
+                .isNull();
+        assertThat(TaskHistory.find(context.paths(), "uc", "shell"))
+                .as("the cleared task's ownership is still known")
+                .isNotNull();
     }
 
     @Test
