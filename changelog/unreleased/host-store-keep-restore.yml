@@ -1,0 +1,2 @@
+title: "The host keeps room and usage data in a project's store and restores it through account commands, with root-only credentials."
+type: added

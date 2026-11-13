@@ -245,6 +245,37 @@ final class HostFiles {
         Files.deleteIfExists(path);
     }
 
+    Path stagePrivate(Path destination, byte[] content) throws IOException {
+        final Path parent =
+                java.util.Objects.requireNonNull(
+                        destination.getParent(), "A private file has a parent");
+        check(parent, 73, true, true, 0700);
+        final Path temporary =
+                Files.createTempFile(
+                        parent,
+                        ProjectFiles.STAGED_PREFIX,
+                        "",
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                                java.nio.file.attribute.PosixFilePermissions.fromString(
+                                        "rw-------")));
+        try {
+            Files.setAttribute(temporary, "unix:mode", 0600);
+            try (final var channel =
+                    java.nio.channels.FileChannel.open(
+                            temporary,
+                            java.nio.file.StandardOpenOption.WRITE,
+                            LinkOption.NOFOLLOW_LINKS)) {
+                final ByteBuffer bytes = ByteBuffer.wrap(content);
+                while (bytes.hasRemaining()) channel.write(bytes);
+                channel.force(true);
+            }
+            return temporary;
+        } catch (IOException | RuntimeException ex) {
+            Files.deleteIfExists(temporary);
+            throw ex;
+        }
+    }
+
     void writePerson(String login, boolean locked, boolean pending) throws IOException {
         final Path path = path("/etc/porelo-host/people/" + login + ".conf");
         check(path, 73, true, false, 0600);

@@ -310,6 +310,7 @@ public final class PoreloHost implements Callable<Integer> {
                         .addSubcommand("purge", new PersonPurge(host))
                         .addSubcommand("restore-runtime", new PersonRestoreRuntime(host)));
         command.addSubcommand("pool", HostPoolCommands.commandLine(host.environment));
+        command.addSubcommand("store", HostStore.commandLine(host.files, host.runtime, host.input));
         command.addSubcommand("judge-push", new JudgePush(host));
         command.addSubcommand("test-switches", new TestSwitches(host));
         command.setExpandAtFiles(false);

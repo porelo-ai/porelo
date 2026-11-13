@@ -277,7 +277,6 @@ from its side, as *blocked by*.
 | <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. | - |
 | <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. | - |
 | <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. | - |
-| <a id="b688"></a>[B688](B688-The-Host-Keeps-The-Projects-Data-In-Its-Store.md) | M | - | `porelo-host store put\|keep\|restore` copies each kept entry into the project's restic store and puts it back at `up`. | 0 |
 
 ## Review
 
@@ -421,6 +420,7 @@ from its side, as *blocked by*.
 | <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](README.md#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. | - |
 | <a id="b555"></a>[B555](B555-A-Lock-Test-That-Misreads-The-Kernels-Lock-List.md) | S | - | The lock test reads the kernel's lock list until two reads agree, so a busy machine no longer fails it. | - |
 | <a id="b651"></a>[B651](B651-Tests-That-Pass-Under-Any-Login-And-Umask.md) | S | - | The transport tests pass under a login such as Alex or runner_1, the directory tests show their fault under umask 002, and a tagged VM test shows a peer of another account | 0 |
+| <a id="b688"></a>[B688](B688-The-Host-Keeps-The-Projects-Data-In-Its-Store.md) | M | - | `porelo-host store put\|keep\|restore` copies each kept entry into the project's restic store and puts it back at `up`. | 0 |
 | <a id="b535"></a>[B535](B535-A-Sign-Ins-Vault-Said-And-Kept-Open.md) | S | - | A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision). | - |
 | <a id="b531"></a>[B531](B531-A-Projects-Repositories-On-This-Machine.md) | L | - | Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here. | - |
 | <a id="b532"></a>[B532](B532-A-Task-Shown-By-Its-Name-Not-Its-Container.md) | M | - | A task is shown by the name given at its start or its short name from the repository, the container name only in its details, and in the room by its agent's name. | - |

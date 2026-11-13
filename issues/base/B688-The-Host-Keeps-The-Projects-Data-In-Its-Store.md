@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B688",
   "title": "The Host Keeps The Project's Data In Its Store",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 42,
@@ -111,3 +111,38 @@ host's runner).
 - `store keep` runs each due entry as its account and stops at the first failure without a forget; `store restore` at
   a first start says so.
 - Each seen to fail first.
+
+## Built
+
+- `PoreloHost` registers `store put`, `store keep [--all]` and `store restore` behind the existing root boundary.
+  `HostStore` runs every child through `ProjectRuntime` and the checked host runner.
+- `put` validates the complete input before writing, stages the three decoded files through `HostFiles` at 0600
+  beneath the 0700 store directory, and reports only file names. A shared flock serializes publication, keep and
+  restore so a running operation cannot consume mixed credential generations. Credential files are checked again
+  when used; restic receives their paths alone, and account commands receive none of those paths.
+- `StoreEntries` lists the hourly room and every person's usage records, including locked people's history, with
+  48 snapshots per tag. The vault and Maven cache are absent. `keep` has no due state between calls; `--all` also
+  selects down entries. Each account copies into fresh staging before root backs it up and applies retention.
+  Relative backup contents and grouping by tag keep staging paths and host names out of retention grouping.
+  Only restic's absent-repository status 10 permits initialization. Any failed entry stops the operation before
+  another entry, with no retention after a failed copy or backup.
+- `restore` distinguishes a missing repository or successful empty snapshot listing from a failed or malformed
+  query. Root restores into private staging before assigning its account's ownership and making the enclosing
+  directory searchable. The restore helper then runs as that account; a present room is unchanged and exit 69
+  remains 69. Cleanup removes only the operation's own tree without following links.
+- `HostStoreTest` covers credential publication and refusal, account execution and ordering, retention, initialization,
+  first start, restore refusal, credential isolation, staging ownership and cleanup, schedules and concurrent
+  publication. `porelo-host.8` describes the commands, files and exit codes checked by `HostManPageTest`.
+- The read-only code review used `graal` 2026.910.3 and `java-code-review`, `test-quality`, `security-audit`,
+  `concurrency-review`, `clean-code` and `solid-principles` 2026.906.3. Its shared-cache permission finding has a
+  regression test: trusted public ancestors retain their permissions, while private store and staging directories
+  require their own modes. No change reaches `app-base`, `app-model`, `wire` or `agents/api`.
+- Validation reported from the build box: `-pl host -am verify`, after formatting, ran 1453 tests with one failure
+  in `publicHostAndCacheAncestorsArePreservedWhilePrivateDirectoriesAreProtected`; the other 41 store cases and
+  every other host test passed. Log: `buildbox-porelo-f01b251918e1-20261113T182121Z.log`.
+- The failed fixture normalized ownership to uid 0 but created its `var` ancestor with ambient permissions, setting
+  only `var/cache` to 0755. It now creates both privately and explicitly sets both public ancestors to 0755.
+  Production ownership and ancestor checks are unchanged. New parameterized cases refuse a group-writable or
+  non-root-owned `var` even when `var/cache` itself is safe. The corrected success case and these guards await a
+  build-box rerun; no Maven or tests ran in the builder's sandbox. Rerun `HostStoreTest` and
+  `HostFilesDirectoriesTest`; neither is tagged slow. Live restic, `ps` and journal acceptance remain unrun.

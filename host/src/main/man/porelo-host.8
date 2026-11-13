@@ -267,6 +267,21 @@ The invocation environment contains an unapproved variable.
 Shared boundary codes: 77 no valid root or sudo person; 78 unapproved environment variable.
 Pool verbs require root (77); forge gate and measure still check the host namespace (77).
 .TP
+.B store put
+0 all three credential files published; 64 bad arguments; 65 incomplete, duplicate or malformed input;
+73 unsafe paths, lock or publication failure; 77 not root.
+.TP
+.B store keep
+0 every due entry kept; 64 bad arguments; 65 malformed people records;
+70 unsafe credentials, unavailable repository, entry, retention or cleanup failure;
+73 lock or unhandled file failure; 77 not root.
+.TP
+.B store restore
+0 entries restored, already present or first start; 64 bad arguments; 65 malformed people records;
+69 an account's restore command refused while a task runs;
+70 unsafe credentials, repository, snapshot, entry or cleanup failure;
+73 lock or unhandled file failure; 77 not root.
+.TP
 .B person purge
 0 person purged; 64 bad arguments or login; 65 unknown/system account, unlocked or not-due
 person, retained membership, or invalid/incomplete organization or people records;
@@ -412,6 +427,14 @@ remaining domain/volume, file or dependency failure; 65 sudo invocation.
 0 withdrawn, absent or forge gone; 64 bad arguments; 65 data, wrong lock or forge refusal;
 69 not root or dependency/read/lock failure; 73 output write failure.
 .SH FILES
+.TP
+.I /etc/porelo-host/store/
+Repository, password and S3 credentials, root-owned 0600 files in a 0700 directory.
+Store operations share the private /etc/porelo-host/store.lock flock.
+.TP
+.I /var/cache/porelo-host-store/
+Root-owned searchable staging parent. Each operation has its own private directory,
+opened for its account only after root has finished restoring and assigning ownership.
 .TP
 .I /etc/porelo\-host/test\-mode.json
 Root's test switches, written by the role at up and removed at down:
@@ -638,3 +661,40 @@ Pool and measure execution failures exit 1; give-back refusals exit 2.
 Gate activation refusals exit 1. Diagnostics name porelo-host and its grouped
 verbs; measurement diagnostics begin with "porelo-host forge measure:".
 Installed paths and service names keep the collection's names.
+.SH STORE
+.TP
+.B store put
+Read exactly one line each of store repository <base64>, store password <base64>
+and store s3-credentials <base64> from standard input. Validate the entire input
+before writing any key. Publish root-owned files at 0600 in
+/etc/porelo-host/store/, mode 0700. Print only the three file names.
+.TP
+.B store keep [--all]
+Run every hourly entry, adding down entries with --all. Nothing between runs
+tracks when an entry is due. The fixed entries are room, run as porelo-matrix by
+porelo-message-matrix backup, and usage-<login> for every host people record,
+run as that person by porelo keep. Each keeps 48 snapshots. Neither the vault
+nor a Maven cache is an entry.
+.PP
+Probe the repository with restic cat config; only exit 10 (repository absent)
+permits restic init. Use a fresh account-owned directory per entry, run its
+backup command through runuser, then root's restic backup and restic forget.
+Back up the directory's relative contents, grouping snapshots and retention by
+entry tag across staging paths and hosts. Stop at the first failed step and
+name its entry; a failed copy or backup runs no forget. Remove only this run's
+staging, without following links.
+.TP
+.B store restore
+Restore before the homeserver and the first task start. An absent repository
+or a successful empty snapshot listing is first start, reported per entry.
+Other repository or snapshot failures stop with 70. Restore the latest snapshot
+with the entry's tag into private staging before its restore command runs as
+the entry's account. The room's restore present answer is unchanged.
+A person's porelo keep --restore refusal with exit 69 stops the operation with 69.
+.PP
+Restic receives only paths in RESTIC_REPOSITORY_FILE, RESTIC_PASSWORD_FILE and
+AWS_SHARED_CREDENTIALS_FILE. No key value enters an argument, environment value
+or diagnostic, and account commands receive none of these paths. Store operations
+run only as root and serialize publication, keep and restore with one flock.
+The host collection installs restic, schedules keeps, orders up and down, and
+removes the credential directory after the last successful keep at down.
