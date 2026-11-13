@@ -582,6 +582,31 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
   its own port gets it and another port of that host does not; the entry's name names the host alone (`git.token.<host>`).
 - **An `oauth` record is not renewed.** An expired one is refused by name, with what to run.
 
+### A program reading a private repository
+
+A program that reads a private https repository with this account's login passes git the address, never
+the token or where it is kept:
+
+```
+git -c credential.useHttpPath=true \
+    -c 'credential.https://forge.example/acme/p.git.helper=!/usr/bin/porelo vault credential --for https://forge.example/acme/p.git' \
+    clone https://forge.example/acme/p.git
+```
+
+- **The token is the one Porelo's own git calls take:** the credential declared for the address, else the first
+  of `git.token.<host>` and `git.token` the vault holds. The program gets no entry name and no map from addresses
+  to entries.
+- **Only git's request for that address is answered:** `https`, the same host compared as ASCII lowercased, the
+  same port (443 when none is named), and the same path or one below it at a `/`; `/acme/p2` is not below
+  `/acme/p`. git sends the path only with `credential.useHttpPath=true`, and without it a `--for` that names a
+  path answers nothing.
+- **An ssh address, or a credential that is a key, is answered with nothing:** a key reaches git through the agent.
+- **A shut vault ends the helper with one line on standard error and a failure**, never a prompt, since the caller
+  is at no terminal; `porelo vault unlock` opens it. `store` and `erase` are ignored.
+- **The token goes to git's pipe alone:** never to standard error, a log or a file, and a terminal as standard
+  output gets nothing.
+- **`--for` stands alone:** it takes no `--entry`, `--env` or `--file`.
+
 ## An authority of your own
 
 Porelo checks every TLS connection it makes against the certificate authorities it was built with: to a model

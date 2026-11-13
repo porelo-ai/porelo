@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B686",
   "title": "A Credential Found By Its Address",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 40,
@@ -58,3 +58,25 @@ would make two copies of it.
 - A request for another port, or a path beside `--for`'s (`/acme/p2` for `/acme/p`), gets no token; the token is
   in no stderr line of any of these runs.
 - Agreed with the planner for PL87 on 2026-11-13.
+
+## Built
+
+- `FollowCredential` (app-model): the choice of a credential for an address is one private rule, `chosen` - the one
+  declared for the address, else the first implied name the vault holds. `credentialFor` uses it as before. New
+  `tokenFor(context, url)` answers a sealed `Token` (`Found` with the declared user, `Shut`, `None`) by the same rule,
+  lending nothing, opening no socket and never prompting; it is `None` for an address that is not https or names more
+  than one host, and for an ssh key or an agent's credential.
+- `porelo vault credential --for <url>` (app-vault): exclusive with `--entry`, `--env` and `--file` (exit 2). git's
+  request is kept field by field, a field sent twice dropped. It answers only for https, an ASCII host equal once
+  lowercased, the effective port (443 when none is named) and a path equal to `--for`'s or below it at a `/`; an
+  empty, `.` or `..` segment is refused, and a `--for` without a path takes any path. Anything else, or nothing held:
+  one stderr line, exit 0, no output. A shut vault: one stderr line, exit 1, no prompt. No stderr line names the
+  entry, the file, the variable or the address.
+- git sends a helper the path only with `credential.useHttpPath=true`; the caller passes it with
+  `-c credential.useHttpPath=true`, and a `--for` with a path answers nothing without it. doc/credentials.md says so
+  in "A program reading a private repository", with the limits; doc/commands.md names the option. Changelog:
+  credential-for-address.yml.
+- Red first: `VaultCredentialForTest` (37 cases, each point above) and
+  `TokenFetchOnItsOwnPortTest.aProgramReadsAPrivateRepositoryByItsAddressAlone`, where real git fetches over TLS from
+  a loopback forge with only the helper, the address and useHttpPath - for a declared file and an implied vault
+  entry; a `--for` naming another path brings no token to the forge.

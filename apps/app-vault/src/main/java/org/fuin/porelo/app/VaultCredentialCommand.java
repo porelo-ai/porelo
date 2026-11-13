@@ -5,8 +5,16 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.regex.Pattern;
+import org.fuin.porelo.core.credential.Credential;
+import org.fuin.porelo.vault.VaultEntry;
 import org.jspecify.annotations.Nullable;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -26,6 +34,11 @@ import picocli.CommandLine.Spec;
  * readable on both supported distributions, so a token on a command line is readable by every
  * account on the machine. What travels as an argument here is the <em>name of the vault entry</em>;
  * the value is read from the vault by this process and written to one pipe.
+ *
+ * <p><strong>{@code --for <url>} names the address, not where its token lives.</strong> A program
+ * that reads a private repository with this account's login passes git only the address; the token
+ * is found by the rule Porelo's own git calls follow ({@link FollowCredential#tokenFor}), and git's
+ * request is answered only for that address's scheme, host and port, and its path or below it.
  */
 @Command(
         name = "credential",
@@ -61,6 +74,17 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
     private @Nullable String file;
 
     @Option(
+            names = "--for",
+            paramLabel = "<url>",
+            description =
+                    "The https address the token is for, found as Porelo finds its own: declared"
+                            + " for it, else the vault entry its host implies. Answers only git's"
+                            + " request for that scheme, host and port, and that path or below it,"
+                            + " which git sends with credential.useHttpPath=true. Not with --entry,"
+                            + " --env or --file.")
+    private @Nullable String address;
+
+    @Option(
             names = "--username",
             paramLabel = "<name>",
             description = "What to answer as the user. Default: ${DEFAULT-VALUE}")
@@ -85,6 +109,12 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
 
+        if (address != null && (entry != null || variable != null || file != null)) {
+            throw new CommandLine.ParameterException(
+                    spec.commandLine(),
+                    "--for finds the token itself: it takes no --entry, --env or --file");
+        }
+
         // 'store' and 'erase' are git offering to remember or forget. The vault is not git's to
         // write, so both are accepted and do nothing - which is what git expects of a read-only
         // helper, and is quieter than failing on every successful fetch.
@@ -101,16 +131,29 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
             err.flush();
             return 2;
         }
-        // Read git's request even though every field is already known: git waits for the helper to
-        // consume it, and a helper that answers without reading can deadlock on a full pipe.
+        // Read git's request whole even where every field is already known: git waits for the
+        // helper to consume it, and a helper that answers without reading can deadlock on a full
+        // pipe.
+        final Map<String, String> request = new HashMap<>();
+        final Set<String> repeated = new HashSet<>();
         try (BufferedReader asked =
                 new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line = asked.readLine();
             while (line != null && !line.isBlank()) {
+                final int equals = line.indexOf('=');
+                if (equals > 0
+                        && request.put(line.substring(0, equals), line.substring(equals + 1))
+                                != null) {
+                    repeated.add(line.substring(0, equals));
+                }
                 line = asked.readLine();
             }
         }
+        repeated.forEach(request::remove);
 
+        if (address != null) {
+            return answerFor(address, request, out, err);
+        }
         final String secret = read(err);
         if (secret == null) {
             // Answering nothing makes git ask its next helper or fail with its own message, which
@@ -131,6 +174,250 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         out.println("password=" + secret);
         out.flush();
         return 0;
+    }
+
+    /**
+     * Answers git's request for the address {@code --for} names, with the token Porelo would lend
+     * for it. Nothing said on standard error names where the token lives: the caller is to know the
+     * address alone.
+     *
+     * @param url The address.
+     * @param request What git asked, a field a line.
+     * @param out git's pipe.
+     * @param err Where git shows a reason.
+     * @return 0, and 1 when the vault is shut, so git fails rather than asks a terminal.
+     */
+    private int answerFor(
+            final String url,
+            final Map<String, String> request,
+            final PrintWriter out,
+            final PrintWriter err) {
+        final Address own = Address.of(url);
+        if (own == null) {
+            err.println(
+                    "porelo: --for answers an https address naming one host only; a key reaches git"
+                            + " through the agent, not this helper");
+            err.flush();
+            return 0;
+        }
+        if (!own.asks(request)) {
+            err.println(
+                    "porelo: git asked for another address than --for names, or one beside its"
+                            + " path (is credential.useHttpPath=true set?); nothing was answered");
+            err.flush();
+            return 0;
+        }
+        final String shut =
+                "porelo: this account's vault is shut, so nothing was answered for the --for"
+                        + " address; 'porelo vault unlock' opens it";
+        final FollowCredential.Token token = FollowCredential.tokenFor(context, url);
+        if (token instanceof FollowCredential.Token.Shut) {
+            err.println(shut);
+            err.flush();
+            return 1;
+        }
+        if (!(token instanceof FollowCredential.Token.Found found)) {
+            err.println("porelo: no token is declared or stored for the --for address");
+            err.flush();
+            return 0;
+        }
+        final Credential credential = found.credential();
+        final var readable =
+                credential.source() == Credential.Source.VAULT
+                        ? context.readableCredentials()
+                        : java.util.Optional.of(Map.<String, VaultEntry>of());
+        if (readable.isEmpty()) {
+            err.println(shut);
+            err.flush();
+            return 1;
+        }
+        final @Nullable String secret =
+                switch (credential.source()) {
+                    case VAULT -> {
+                        final VaultEntry held = readable.get().get(credential.id());
+                        yield held == null ? null : held.value();
+                    }
+                    case FILE -> fileValue(credential.id());
+                    case ENVIRONMENT -> {
+                        final String value = context.environment().apply(credential.id());
+                        yield value == null ? null : value.strip();
+                    }
+                    case AGENT -> null;
+                };
+        if (secret == null || secret.isEmpty()) {
+            err.println(
+                    "porelo: the token declared or stored for the --for address cannot be read");
+            err.flush();
+            return 0;
+        }
+        final String declaredUser = found.user();
+        final String user = declaredUser == null ? username : declaredUser;
+        if (!oneLine(user) || !oneLine(secret)) {
+            err.println(
+                    "porelo: the value holds a line break or a NUL, which git's credential"
+                            + " protocol cannot carry; nothing was handed to git");
+            err.flush();
+            return 0;
+        }
+        out.println("username=" + user);
+        out.println("password=" + secret);
+        out.flush();
+        return 0;
+    }
+
+    private static @Nullable String fileValue(final String path) {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Path.of(path)).strip();
+        } catch (final IOException | RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * The scheme, host, effective port and path of an https address, as git's credential request is
+     * compared with them.
+     *
+     * <p><strong>A host of ASCII alone, compared as ASCII.</strong> As the organization's forge is:
+     * a case-insensitive comparison of anything else takes a lookalike for the host itself.
+     *
+     * @param host The host, lower-cased, an IPv6 one in its brackets.
+     * @param port The port, 443 when none is named.
+     * @param path The path without its leading and trailing {@code /}, empty for the whole host.
+     */
+    record Address(String host, int port, String path) {
+
+        private static final String HTTPS = "https://";
+
+        private static final Pattern HOST = Pattern.compile("[A-Za-z0-9.-]+|\\[[0-9A-Fa-f:.]+]");
+
+        private static final Pattern AUTHORITY_END = Pattern.compile("[/?#]");
+
+        private static final Pattern SCHEME = Pattern.compile("[A-Za-z]+");
+
+        /**
+         * Reads an https address.
+         *
+         * @param url The address.
+         * @return It, or {@code null} when it is not https, names more than one host, or holds a
+         *     path that is not plain.
+         */
+        static @Nullable Address of(final String url) {
+            final String scope = GitCredentialNames.helperScopeOf(url);
+            if (scope == null || !GitCredentialNames.namesOneHost(url)) {
+                return null;
+            }
+            final Address authority = authority(scope.substring(HTTPS.length()));
+            if (authority == null) {
+                return null;
+            }
+            final String rest = url.strip().substring(HTTPS.length());
+            final java.util.regex.Matcher end = AUTHORITY_END.matcher(rest);
+            @Nullable String path = "";
+            if (end.find() && rest.charAt(end.start()) == '/') {
+                final String after = rest.substring(end.start());
+                final int cut = firstOf(after, '?', '#');
+                path = decoded(cut < 0 ? after : after.substring(0, cut));
+            }
+            final String plain = path == null ? null : plain(path);
+            return plain == null ? null : new Address(authority.host, authority.port, plain);
+        }
+
+        /**
+         * Tells whether git's request is for this address: https, this host and port, and this path
+         * or one below it at a {@code /}.
+         *
+         * @param request git's fields.
+         * @return {@code true} when it is.
+         */
+        boolean asks(final Map<String, String> request) {
+            final String protocol = request.get("protocol");
+            final String host = request.get("host");
+            if (protocol == null
+                    || !SCHEME.matcher(protocol).matches()
+                    || !"https".equals(protocol.toLowerCase(java.util.Locale.ROOT))
+                    || host == null) {
+                return false;
+            }
+            final Address asked = authority(host);
+            if (asked == null || !asked.host.equals(this.host) || asked.port != port) {
+                return false;
+            }
+            if (path.isEmpty()) {
+                return true;
+            }
+            final String sent = request.get("path");
+            final String plain = sent == null ? null : plain(sent);
+            return plain != null && (plain.equals(path) || plain.startsWith(path + "/"));
+        }
+
+        /** A host and port as git writes them, the port 443 when none. */
+        private static @Nullable Address authority(final String hostAndPort) {
+            final int close = hostAndPort.startsWith("[") ? hostAndPort.indexOf(']') : -1;
+            final int colon = close >= 0 ? close + 1 : hostAndPort.indexOf(':');
+            final String host =
+                    colon < 0 || colon >= hostAndPort.length()
+                            ? hostAndPort
+                            : hostAndPort.substring(0, colon);
+            final String port =
+                    host.length() == hostAndPort.length()
+                            ? ""
+                            : hostAndPort.substring(host.length());
+            if (!HOST.matcher(host).matches()) {
+                return null;
+            }
+            final int number;
+            if (port.isEmpty()) {
+                number = 443;
+            } else if (port.matches(":[0-9]{1,5}")) {
+                number = Integer.parseInt(port.substring(1));
+            } else {
+                return null;
+            }
+            return number < 1 || number > 65535
+                    ? null
+                    : new Address(host.toLowerCase(java.util.Locale.ROOT), number, "");
+        }
+
+        /**
+         * A path without its leading and trailing {@code /}, or {@code null} when a segment is
+         * empty, {@code .} or {@code ..}: below an address textually is not below it on the forge.
+         */
+        private static @Nullable String plain(final String path) {
+            String trimmed = path;
+            while (trimmed.startsWith("/")) {
+                trimmed = trimmed.substring(1);
+            }
+            while (trimmed.endsWith("/")) {
+                trimmed = trimmed.substring(0, trimmed.length() - 1);
+            }
+            if (trimmed.isEmpty()) {
+                return "";
+            }
+            for (final String segment : trimmed.split("/", -1)) {
+                if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
+                    return null;
+                }
+            }
+            return trimmed;
+        }
+
+        /** A path with its {@code %} escapes decoded, as git sends it; {@code null} when broken. */
+        private static @Nullable String decoded(final String path) {
+            if (path.indexOf('%') < 0) {
+                return path;
+            }
+            try {
+                return java.net.URLDecoder.decode(path.replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (final IllegalArgumentException ex) {
+                return null;
+            }
+        }
+
+        private static int firstOf(final String text, final char one, final char other) {
+            final int first = text.indexOf(one);
+            final int second = text.indexOf(other);
+            return first < 0 ? second : second < 0 ? first : Math.min(first, second);
+        }
     }
 
     private static boolean oneLine(final String value) {

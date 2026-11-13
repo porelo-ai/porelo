@@ -23,6 +23,8 @@ import javax.net.ssl.SSLContext;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.credential.Credential;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.vault.KernelKeyring;
+import org.fuin.porelo.vault.VaultEntry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -135,6 +137,131 @@ class TokenFetchOnItsOwnPortTest {
         } finally {
             forge.stop(0);
         }
+    }
+
+    /**
+     * A program reads a private repository passing only its address: git runs {@code porelo vault
+     * credential --for <url>} as its helper, and the token reaches the forge and nothing else.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"declared-file", "implied-vault"})
+    void aProgramReadsAPrivateRepositoryByItsAddressAlone(final String held, @TempDir Path dir)
+            throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                held.equals("declared-file") || KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        final Path served = dir.resolve("served");
+        final String commit = repositoryServedAt(served, dir);
+        final PoreloContext context = contextTrustingTheForge(dir);
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        if (held.equals("declared-file")) {
+            final Path token = Files.writeString(dir.resolve("token"), TOKEN + "\n");
+            new CredentialDeclarations(context)
+                    .declare(
+                            new Credential(
+                                    token.toString(),
+                                    Credential.Kind.TOKEN,
+                                    "https://127.0.0.1",
+                                    null,
+                                    "git",
+                                    Credential.Source.FILE));
+        } else {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault()
+                    .write(
+                            Map.of("git.token.127.0.0.1", VaultEntry.of(TOKEN)),
+                            "test-passphrase".toCharArray());
+            keyring.store("test-passphrase".toCharArray());
+        }
+        final List<String> seen = new CopyOnWriteArrayList<>();
+        final HttpsServer forge = forge(served, seen);
+        try {
+            final String origin = "https://127.0.0.1:" + forge.getAddress().getPort();
+            final String url = origin + "/r.git";
+            final Path clone = Files.createDirectory(dir.resolve("clone"));
+            git(dir, Map.of(), List.of(), "init", "-q", clone.toString());
+            final Map<String, String> trust =
+                    Map.of("GIT_SSL_CAINFO", context.paths().caCertificates().toString());
+
+            final GitResult beside =
+                    git(
+                            clone,
+                            trust,
+                            helperFor(context, dir, origin, origin + "/other.git"),
+                            "fetch",
+                            "--quiet",
+                            "--end-of-options",
+                            url,
+                            "HEAD");
+            assertThat(seen)
+                    .as("a helper for another path lends nothing: %s", beside.said())
+                    .doesNotContain("x-access-token:" + TOKEN);
+            assertThat(beside.exit()).as(beside.said()).isNotZero();
+            assertThat(beside.said()).doesNotContain(TOKEN);
+
+            final List<String> arguments = helperFor(context, dir, origin, url);
+            final GitResult fetched =
+                    git(
+                            clone,
+                            trust,
+                            arguments,
+                            "fetch",
+                            "--quiet",
+                            "--end-of-options",
+                            url,
+                            "HEAD");
+
+            assertThat(seen)
+                    .as("the forge saw the token: %s", fetched.said())
+                    .contains("x-access-token:" + TOKEN);
+            assertThat(fetched.exit()).as(fetched.said()).isZero();
+            assertThat(fetched.said()).as("nothing git says holds the token").doesNotContain(TOKEN);
+            assertThat(String.join(" ", arguments))
+                    .as("the caller's arguments name the address alone")
+                    .doesNotContain(TOKEN)
+                    .doesNotContain("git.token");
+            assertThat(git(clone, Map.of(), List.of(), "rev-parse", "FETCH_HEAD").said().strip())
+                    .as("the repository's commit arrived")
+                    .isEqualTo(commit);
+        } finally {
+            forge.stop(0);
+            if (held.equals("implied-vault")) {
+                keyring.forget();
+            }
+        }
+    }
+
+    /**
+     * What a program passes git: the helper, run with the account's directories, told the address
+     * and nothing else, and git told to send the path the helper compares.
+     */
+    private static List<String> helperFor(
+            final PoreloContext context, final Path dir, final String origin, final String address)
+            throws IOException {
+        final XdgPaths xdg = context.paths().xdg();
+        return List.of(
+                "-c",
+                "credential.useHttpPath=true",
+                "-c",
+                "credential."
+                        + origin
+                        + ".helper=!HOME='"
+                        + xdg.home()
+                        + "' XDG_CONFIG_HOME='"
+                        + xdg.config().getParent()
+                        + "' XDG_DATA_HOME='"
+                        + xdg.data().getParent()
+                        + "' XDG_STATE_HOME='"
+                        + xdg.state().getParent()
+                        + "' "
+                        + PoreloPaths.VAULT_VARIABLE
+                        + "='"
+                        + context.vault().path().toAbsolutePath()
+                        + "' '"
+                        + ownPorelo(dir)
+                        + "' vault credential --for '"
+                        + address
+                        + "'");
     }
 
     /** A bare repository with one commit, laid out for git's plain file transport over http. */

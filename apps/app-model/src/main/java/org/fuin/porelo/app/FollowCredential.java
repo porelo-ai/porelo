@@ -281,31 +281,108 @@ public final class FollowCredential implements AutoCloseable {
         if (offered != null) {
             return lend(context, offered, url, label);
         }
+        // Nothing lent still needs the destination's policy: an ssh origin reached with the
+        // developer's own agent key is checked against this machine's known hosts, strictly, or ssh
+        // refuses a host this machine vouched for. At a terminal a shut vault is opened here for
+        // this command; the daemon has none and waits as before.
+        return switch (chosen(
+                context, url, purpose, () -> context.openIfShut(true, false, STDERR))) {
+            case Token.Found found -> lend(context, found.credential(), url, label);
+            case Token.Shut shut -> nothingLent(true);
+            case Token.None none -> nothingLent(false);
+        };
+    }
+
+    /**
+     * What answers git's credential request for an https address, found by the rule a lend follows
+     * and without lending anything: no socket, no helper, and nobody asked for a passphrase.
+     */
+    public sealed interface Token {
+
+        /**
+         * The credential the address takes.
+         *
+         * @param credential Where its value lives.
+         * @param user The user git is to send, or {@code null} for the helper's default.
+         */
+        record Found(Credential credential, @Nullable String user) implements Token {}
+
+        /** The vault exists and is shut, so what it holds for the address cannot be told. */
+        record Shut() implements Token {}
+
+        /** Nothing a helper answers with: no credential for it, not https, or a key. */
+        record None() implements Token {}
+    }
+
+    /**
+     * Returns the credential a lend would hand git for an https address, by the same rule: the
+     * credential the account declared for it, else the first of the names the address implies that
+     * the vault holds. Never prompts: the caller is git, at no terminal.
+     *
+     * @param context The machine.
+     * @param url The https address.
+     * @return The credential, {@link Token.Shut} when the vault that would answer is shut, or
+     *     {@link Token.None} for an address that is not https, names more than one host, or takes a
+     *     key.
+     */
+    public static Token tokenFor(final PoreloContext context, final String url) {
+        if (GitCredentialNames.kindOf(url) != GitCredentialNames.Kind.TOKEN
+                || !GitCredentialNames.namesOneHost(url)
+                || GitCredentialNames.helperScopeOf(url) == null) {
+            return new Token.None();
+        }
+        final Token chosen = chosen(context, url, "git", () -> {});
+        if (!(chosen instanceof Token.Found found)) {
+            return chosen;
+        }
+        final Credential credential = found.credential();
+        if (credential.kind() == Credential.Kind.SSH_KEY
+                || credential.source() == Credential.Source.AGENT) {
+            return new Token.None();
+        }
+        if (credential.source() == Credential.Source.VAULT && vaultShut(context)) {
+            return new Token.Shut();
+        }
+        return new Token.Found(credential, userOf(context, credential));
+    }
+
+    /** Whether the vault exists and nothing at hand opens it. */
+    private static boolean vaultShut(final PoreloContext context) {
+        return context.vault().exists() && context.opener().isEmpty();
+    }
+
+    /**
+     * The one rule a URL's credential is chosen by: declared for it, else the first implied name
+     * the vault holds.
+     *
+     * @param beforeTheVault Run before the vault is read for an implied name: a lend at a terminal
+     *     opens a shut vault there; git's helper asks nobody.
+     */
+    private static Token chosen(
+            final PoreloContext context,
+            final String url,
+            final String purpose,
+            final Runnable beforeTheVault) {
         final Credential declared = context.credentialRegistry().forUrl(purpose, url);
         if (declared != null) {
-            return lend(context, declared, url, label);
+            return new Token.Found(declared, null);
         }
         // Nothing declared: the names a git URL implies, which is what a machine that has never
         // written a registry has always used. Kept so that what somebody already stored is still
         // found, and so a machine needs no configuration for the ordinary case.
         final GitCredentialNames.Kind kind = GitCredentialNames.kindOf(url);
         if (kind == GitCredentialNames.Kind.NONE) {
-            return new FollowCredential(Map.of(), null, null, false);
+            return new Token.None();
         }
-        // Nothing lent still needs the destination's policy: an ssh origin reached with the
-        // developer's own agent key is checked against this machine's known hosts, strictly, or ssh
-        // refuses a host this machine vouched for. At a terminal a shut vault is opened here for
-        // this command; the daemon has none and waits as before.
-        context.openIfShut(true, false, STDERR);
-        if (context.vault().exists() && context.opener().isEmpty()) {
-            return nothingLent(true);
+        beforeTheVault.run();
+        if (vaultShut(context)) {
+            return new Token.Shut();
         }
         final Map<String, org.fuin.porelo.vault.VaultEntry> held =
                 context.readableCredentials().orElseGet(Map::of);
         for (final String candidate : GitCredentialNames.candidatesFor(url)) {
             if (held.containsKey(candidate)) {
-                return lend(
-                        context,
+                return new Token.Found(
                         new Credential(
                                 candidate,
                                 kind == GitCredentialNames.Kind.KEY
@@ -315,11 +392,10 @@ public final class FollowCredential implements AutoCloseable {
                                 null,
                                 purpose,
                                 Credential.Source.VAULT),
-                        url,
-                        label);
+                        null);
             }
         }
-        return nothingLent(false);
+        return new Token.None();
     }
 
     /**
