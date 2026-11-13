@@ -42,7 +42,28 @@ final class ProjectNames {
      * @return Container to project.
      */
     static Map<String, String> labels(PoreloContext context) {
+        return read(context).projects();
+    }
+
+    /**
+     * What one look at the runtime says of each Porelo container.
+     *
+     * @param projects Container to project, as {@link #labels} returns it.
+     * @param commits Container to the commit its start recorded its project's file verified at, for
+     *     a container the runtime has and whose ownership holds; "" where it recorded none.
+     */
+    record Read(Map<String, String> projects, Map<String, String> commits) {}
+
+    /**
+     * Returns each Porelo container's project, as {@link #labels} does, and what each live one's
+     * start recorded its project's file verified at, from one look at the runtime.
+     *
+     * @param context The machine.
+     * @return Both.
+     */
+    static Read read(PoreloContext context) {
         final Map<String, String> labels = new java.util.HashMap<>();
+        final Map<String, String> commits = new java.util.HashMap<>();
         final TaskIdentities identities = new TaskIdentities(context);
         final java.util.Set<String> live = new java.util.HashSet<>();
         for (final org.fuin.porelo.runtime.ContainerSummary task :
@@ -50,6 +71,9 @@ final class ProjectNames {
             live.add(task.name());
             if (identities.read(task) instanceof TaskIdentities.Found found) {
                 labels.put(task.name(), found.identity().project());
+                // From the container's label, which its start wrote: the project moves on, this
+                // must not.
+                commits.put(task.name(), task.commit() == null ? "" : task.commit());
             }
         }
         // A removed task's start recorded its project, which its name alone may not tell.
@@ -69,6 +93,6 @@ final class ProjectNames {
                 // Unlisted, the records say nothing; the runtime's labels still do.
             }
         }
-        return labels;
+        return new Read(labels, commits);
     }
 }

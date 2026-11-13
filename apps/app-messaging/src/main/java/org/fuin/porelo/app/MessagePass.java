@@ -165,6 +165,9 @@ public final class MessagePass {
         final MessageFiltering.Outcome filtered =
                 new MessageFiltering(runner, filter).run(mailbox, mail.outgoingReported());
 
+        // The sending task's mark on what leaves it, held or sent, so a line read later says it as
+        // the room's line did.
+        final String sending = marks.of(mailbox.root().getFileName().toString());
         final MessageBudget budget = new MessageBudget(record, mail);
         MessageDispatch.Outcome dispatched =
                 new MessageDispatch.Outcome(Map.of(), List.of(), Map.of());
@@ -188,7 +191,8 @@ public final class MessagePass {
                         "",
                         "",
                         stuck.reason(),
-                        MessageRecord.OUT);
+                        MessageRecord.OUT,
+                        sending);
                 // The sender is told the moment it is held, not when somebody gets round to the
                 // hold list: an agent with no answer waits forever or sends the same thing again.
                 new HostBounce()
@@ -209,7 +213,7 @@ public final class MessagePass {
                 final TransportSend.Result result = send.send(mailbox, transport);
                 sent.put(transport, result);
                 for (final String message : result.sent()) {
-                    record.append(MessageRecord.SENT, message, "", transport);
+                    record.append(MessageRecord.SENT, message, "", "", transport, "", sending);
                 }
                 for (final String message : result.deferred()) {
                     record.append(MessageRecord.DEFERRED, message, "", transport);
@@ -221,7 +225,8 @@ public final class MessagePass {
                             "",
                             "",
                             stuck.reason(),
-                            MessageRecord.OUT);
+                            MessageRecord.OUT,
+                            sending);
                     // A permanent transport failure is final, so the answer says so rather than
                     // leaving the agent to believe its message is still on its way.
                     new HostBounce()
@@ -348,6 +353,15 @@ public final class MessagePass {
      */
     public void marking(final TransportSend.Marks marking) {
         this.marks = marking;
+    }
+
+    /**
+     * Returns what this pass marks a sending task as.
+     *
+     * @return Each sending task's mark; "" for every task unless {@link #marking} set it.
+     */
+    TransportSend.Marks marks() {
+        return marks;
     }
 
     /**

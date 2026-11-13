@@ -81,11 +81,6 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
             return 1;
         }
         final String project = found.identity().project();
-        final var pass =
-                new MessagePass(
-                        context.runner(),
-                        context.paths().messaging().messageFilter(),
-                        context.paths().messaging().transportDirectory());
         // As the daemon's pass does it: the project's conversation first, the task's siblings as
         // its peers, and sending as the task - so a pass by hand and one by the timer cannot
         // disagree. Read first, so a project whose file is gone stops here and is named, rather
@@ -94,6 +89,9 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         // none: a removed task of a project whose name begins another's, say.
         final org.fuin.porelo.core.project.Project resolved = GateSupport.byName(context, project);
         final MessageWatch watch = new MessageWatch(context, java.time.Duration.ZERO);
+        // The daemon's own pass, marks and all: one made here sent an unverified task's line
+        // unmarked where the daemon marked it.
+        final MessagePass pass = watch.pass();
         watch.conversations(pass, java.util.List.of(mailbox.root()), resolved)
                 .forEach(failure -> err.println("porelo: " + TalkReadCommand.shown(failure)));
         final MessageSigners keys = MessageSigners.of(context, container, resolved);

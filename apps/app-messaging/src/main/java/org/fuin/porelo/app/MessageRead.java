@@ -187,8 +187,12 @@ public final class MessageRead {
                 reason = String.valueOf(line.getOrDefault("detail", ""));
                 heldLine = true;
                 direction = line.get("direction") instanceof String recorded ? recorded : "";
-                // The pass's own verdict when it held it; what the message says is never read.
-                mark = line.get("mark") instanceof String recorded ? recorded : "";
+                // The pass's own verdicts when it held it; what the message says is never read. A
+                // later line adds to a kept verdict and never erases it: held again on its way out,
+                // a message intake held unsigned is still unsigned.
+                if (line.get("mark") instanceof String recorded) {
+                    mark = joined(mark, recorded);
+                }
             }
         }
         if (peer.isEmpty() && metadata.get("to") instanceof String to) {
@@ -241,5 +245,22 @@ public final class MessageRead {
 
     private static String text(final @org.jspecify.annotations.Nullable Object value) {
         return value instanceof String string ? string : "";
+    }
+
+    /**
+     * Joins two marks, each a {@code ", "} separated set read as given, keeping each word once.
+     *
+     * @param kept What was kept so far.
+     * @param more What a later line says.
+     * @return Both, in the order first seen; "" for neither.
+     */
+    static String joined(final String kept, final String more) {
+        final java.util.Set<String> words = new java.util.LinkedHashSet<>();
+        for (final String each : (kept + ", " + more).split(",")) {
+            if (!each.isBlank()) {
+                words.add(each.strip());
+            }
+        }
+        return String.join(", ", words);
     }
 }

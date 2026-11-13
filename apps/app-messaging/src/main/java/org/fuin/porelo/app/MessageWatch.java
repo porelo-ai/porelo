@@ -358,24 +358,45 @@ public final class MessageWatch implements AutoCloseable {
         System.out.flush();
     }
 
-    /** What a pass moves with: its filter and its transports. */
-    private record Moving(MessagePass pass) {}
-
-    private Moving prepared(final List<Path> mailboxes) {
+    /**
+     * Returns a pass as the daemon makes one: this machine's filter and transports, and each
+     * sending task's mark. A pass by hand is made here too, so the two cannot mark differently.
+     *
+     * @return The pass.
+     */
+    MessagePass pass() {
         final MessagePass pass =
                 new MessagePass(
                         context.runner(),
                         context.paths().messaging().messageFilter(),
                         context.paths().messaging().transportDirectory());
+        pass.marking(marks());
+        return pass;
+    }
+
+    /**
+     * Returns what this machine marks a sending task as.
+     *
+     * @return Each sending task's mark.
+     */
+    TransportSend.Marks marks() {
         // A sending task signs, or its message never reaches a transport; what is left to mark is
         // a project nothing here verified.
-        pass.marking(
-                container -> {
-                    final String project = projectOf(container);
-                    return project == null || TrustMark.verifiedHere(context, project)
-                            ? ""
-                            : TrustMark.UNVERIFIED;
-                });
+        // By what the task's start recorded, as its own row says it, never by the project's source
+        // now: a placement made later must not take the mark away, nor a removed one add it.
+        return container -> {
+            final String project = projectOf(container);
+            return project == null || TrustMark.verified(project, read().commits().get(container))
+                    ? ""
+                    : TrustMark.UNVERIFIED;
+        };
+    }
+
+    /** What a pass moves with: its filter and its transports. */
+    private record Moving(MessagePass pass) {}
+
+    private Moving prepared(final List<Path> mailboxes) {
+        final MessagePass pass = pass();
         // Each pass, every mailbox again: one made after the watch started announced its directory
         // before its outbox existed, so the watch on it failed then and was never tried again - and
         // its agent's answers waited for this timer, a minute. Registering a directory twice is the
@@ -1059,14 +1080,19 @@ public final class MessageWatch implements AutoCloseable {
      */
     private static final long LABELS_KEPT_MILLIS = 5000;
 
-    private volatile java.util.Map<String, String> labels = java.util.Map.of();
+    private volatile ProjectNames.Read labels =
+            new ProjectNames.Read(java.util.Map.of(), java.util.Map.of());
 
     private volatile long labelsAt;
 
     private java.util.Map<String, String> labels() {
+        return read().projects();
+    }
+
+    private ProjectNames.Read read() {
         final long now = System.currentTimeMillis();
         if (now - labelsAt > LABELS_KEPT_MILLIS) {
-            labels = ProjectNames.labels(context);
+            labels = ProjectNames.read(context);
             labelsAt = now;
         }
         return labels;
