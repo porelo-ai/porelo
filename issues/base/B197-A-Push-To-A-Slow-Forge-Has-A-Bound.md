@@ -137,3 +137,24 @@ merged, and hands it over as `--pass-on-within <seconds>`, as it does `--branch`
     limit. `doc/running.md` and `doc/security.md` say that asking after a stalled push adds up to 30 s.
 - **Locally on this commit.** `-pl apps/app -am install` (tests included), the whole reactor's `install -DskipTests`,
   the root's `validate` and `-Pdocuments test` are green.
+
+## Found in play-through
+
+Played on a test VM on 2026-11-13 by [B681](README.md#b681)'s script. The project had no `limits.pass_on`, so the
+limit was the default 120 s. The forge's server was stopped and replaced on its port by a listener that takes the
+connection and never answers. A push from the task then ended after **151 s** (150 s in the first run), with exit 1:
+
+```
+remote: the forge did not answer within 120 s; whether it took the push is not known - push again, which sets only this task's branch
+ ! [remote rejected] HEAD -> refs/porelo/incoming/deliver (the forge did not answer within 120 s; whether it took the push is not known - …)
+```
+
+- **The bound.** The acceptance says the push ends within `limits.pass_on`, but it ends at `limits.pass_on` plus up
+  to 30 s. In `GitGate.passOn` (`gate`) the push runs with `withTimeout(passOnLimit)`. When it ends at its limit,
+  `holds()` asks the forge with `ls-remote` for up to `ASKING_AFTER` (30 s, or the limit when that is shorter), and
+  only then answers `ForgeSilent`. `doc/running.md` already says that asking after adds up to 30 s, so either the
+  acceptance is changed to say the limit plus the asking, or the asking fits inside the limit.
+- **The words.** The acceptance asks for "nothing was passed on". `GateException.ForgeSilent` deliberately says
+  "whether it took the push is not known" when the asking got no answer, and "did not hold the push when asked after"
+  when the forge answered without the commit. The open choice is between the acceptance's "nothing was passed on" and
+  the code's "not known", which is the truer statement for a forge that may have taken the push before it stalled.
