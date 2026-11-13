@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B355",
   "title": "No Switch That Turns Every Check Off",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 46,
