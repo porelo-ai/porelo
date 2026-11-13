@@ -209,7 +209,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
-| <a id="b742"></a>[B742](B742-A-Tasks-Tmux-Server-Starts-Fresh.md) | M | - | No setting an agent leaves in its tmux server (set-environment -g, default-shell, options) reaches the next start, which joins the `porelo` session. | 0 |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
 | <a id="b166"></a>[B166](B166-Line-Comments-Sent-Back-To-The-Agent.md) | L | [B136](README.md#b136), [B150](README.md#b150), [B291](README.md#b291), [B292](README.md#b292), [B323](README.md#b323) | Host-stored SARIF comments/findings on lines, files or whole reviews; validated fixes, reject delivery, local replies and authenticated origin through the shared message path. | 0 |
 | <a id="b592"></a>[B592](B592-The-Windows-Refresh-Calls-The-Hosts-Own-Program.md) | XS | - | `porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` once the collection installs it; no call names `porelo-host-person`. | - |
@@ -267,6 +266,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b742"></a>[B742](B742-A-Tasks-Tmux-Server-Starts-Fresh.md) | M | - | No setting an agent leaves in its tmux server (set-environment -g, default-shell, options) reaches the next start, which joins the `porelo` session. | 0 |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. | - |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines. | 0 |

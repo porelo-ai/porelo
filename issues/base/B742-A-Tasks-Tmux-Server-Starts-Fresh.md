@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B742",
   "title": "A Task's Tmux Server Starts Fresh",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 50,
