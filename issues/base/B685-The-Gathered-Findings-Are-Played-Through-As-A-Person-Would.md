@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B685",
   "title": "The Gathered Findings Are Played Through As A Person Would",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 34,
@@ -77,3 +77,27 @@ only while the indexes on GitHub are older than the local ones):
 
 - The script's run on the VM shows every point of the story's test holding, or names each that does not with the
   issue it waits on.
+
+## Built
+
+- Played on 2026-11-13 on walk4, an Ubuntu 26.04 guest, in the account `core` with no sudo, against Porelo `0.5.1~snapshot.20261113T172922` installed into that account (`$XDG_BIN_HOME`, its own `porelod.service`) and the stub agent. The run was `bash -l st56.sh --test-account --issues ~/issues`, with porelo's index from the stack and
+  porelo-host's and porelo-frontend's from GitHub's main, since GitHub's porelo index was older. The last run is
+  `st56.log`; the first, before the script fix, is `st56.first.log`.
+- **Held, all 32 points:**
+  - [B380](README.md#b380) and HO86 are closed and name where their points went. F288 is in Review.
+    [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203) and
+    [B666](README.md#b666) are filed and in Review.
+  - [B649](README.md#b649): `porelo commit verify` accepts the signed commit with a plain signers file, and beside a
+    lone CR, a line ssh-keygen cannot parse and a U+2000 before `#`, as `git verify-commit` does.
+  - [B650](README.md#b650):
+    - a stopped `--no-gate` task is removed without `--force`;
+    - `123 `, `People` and `Porelo-x` are refused with no suggestion that another rule refuses;
+    - an unknown `-r`, alone and beside a refused name, answers 64 both times;
+    - `project init --project` with 62 characters is refused with 64, naming the room.
+  - [B203](README.md#b203): `task files` and `task status` answer by the task's name and by its container's name.
+- **Did not hold:** nothing.
+- **Script fixes:**
+  - The container is named `porelo-<project>_<task>`.
+  - `project init` takes `--project`.
+  - The default `--expect-fail` is `none`.
+- The script fixes are on the stack, in the commit "Fit four story scripts to the product as played on a test VM".

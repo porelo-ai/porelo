@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B681",
   "title": "A Failed Delivery Is Played Through As A Person Would",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 30,
@@ -85,3 +85,29 @@ listener is stopped.
 
 - The script's run on the VM shows every point of the story's test holding, or names each that does not with the
   issue it waits on.
+
+## Built
+
+- Played on 2026-11-13 on walk4, an Ubuntu 26.04 guest, in the account `core` with no sudo, against Porelo `0.5.1~snapshot.20261113T172922` installed into that account (`$XDG_BIN_HOME`, its own `porelod.service`) and the stub agent. The run was `bash -l st39.sh --test-account`. The last run is `st39.log`; the first, before
+  the script fixes, is `st39.first.log`.
+- **Held (25):**
+  - The loopback forge answers, and a push from the task arrives there at once.
+  - A push the forge refuses fails within the bound and reaches the agent in the forge's own words.
+  - The gate refuses a push to `main` and a tag within the bound.
+  - A push to the silent forge fails rather than passing, says the forge did not answer, and is not called a
+    refusal. The forge's, the gate's and the silence's reasons are each their own.
+  - The task's `gate.log` keeps what the forge did. `task status` shows the work never pushed to the gate, `task
+    list` still lists the task, and `task status --json` names its repository.
+  - The task's next `git fetch porelo main` picks up the person's push, and a push from the task goes through again.
+  - A message to nobody is held; a release after `--refuse` is refused, saying so. The daemon's `Release` answers
+    `NOT_DELIVERABLE` with the code `REFUSED_BEFORE` ([B179](README.md#b179)).
+- **Did not hold, both [B197](README.md#b197)'s, recorded in its "Found in play-through":**
+  - The push to the silent forge ended after 151 s, against the bound of 120 s: the gate asks after the push for up
+    to 30 s more.
+  - Its refusal says "whether it took the push is not known", not "nothing was passed on".
+- **Script fixes:**
+  - The container is named `porelo-<project>_<task>`.
+  - The gate's refusals of a branch and of a tag share one reason, so the tag's is kept apart.
+  - "Not called a refusal" reads the words alone.
+  - The default `--expect-fail` is `none`.
+- The script fixes are on the stack, in the commit "Fit four story scripts to the product as played on a test VM".

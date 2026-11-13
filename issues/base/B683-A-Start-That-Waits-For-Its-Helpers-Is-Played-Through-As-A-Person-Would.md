@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B683",
   "title": "A Start That Waits For Its Helpers Is Played Through As A Person Would",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 32,
@@ -69,3 +69,24 @@ one of the two starts starts the task; `--expect-fail` changes the list (`none` 
 
 - The script's run on the VM shows every point of the story's test holding, or names each that does not with the
   issue it waits on.
+
+## Built
+
+- Played on 2026-11-13 on walk4, an Ubuntu 26.04 guest, in the account `core` with no sudo, against Porelo `0.5.1~snapshot.20261113T172922` installed into that account (`$XDG_BIN_HOME`, its own `porelod.service`) and the stub agent. The run was `bash -l st53.sh --test-account`. The last run is `st53.log`; the runs before the
+  script fixes are `st53.first.log`, `st53.second.log` and `st53.third.log`.
+- **Held, all 10 points:**
+  - A start answers 0 with its gate and its credential relay both running.
+  - A start whose gate, or whose relay, cannot record its pid ends with 70 ("the git gate did not come up", "the
+    endpoint relay did not come up") and leaves none of its helpers running.
+  - Of two starts of `twin` at the same moment, one answers 0 and the other 64, naming the task that holds the name.
+    The task keeps running with its gate.
+- **Did not hold:** nothing.
+- **Script fixes:**
+  - The container is named `porelo-<project>_<task>`.
+  - The pid file's directory is put in place once the start has made the state directory, since a state directory
+    there before the start is refused as "occupied or unrecognized".
+  - Every start passes a second credential (`--credential st53=openrouter`), since the stub agent needs no relay of
+    its own.
+  - A helper that failed clears its pid path, and its name in the start's words counts as the obstruction holding.
+  - The default `--expect-fail` is `none`.
+- The script fixes are on the stack, in the commit "Fit four story scripts to the product as played on a test VM".
