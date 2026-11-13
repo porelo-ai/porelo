@@ -38,6 +38,18 @@ final class TreeWalk {
 
     private static final String OWNERS = "owners.yml";
 
+    // What a walk waits with, the only words a kept record may carry for it.
+
+    static final String FOUNDER_OWNS =
+            "the identity source could not say that the founder owns the organisation";
+
+    static final String FOUNDING_KEY =
+            "the identity source could not say that the founding key is the founder's";
+
+    static final String WHOSE_CARD = "the identity source could not say whose card this is";
+
+    static final String NOT_VOUCHED = "the identity source has not vouched for the signer's card";
+
     /** Where the roles start: the commit that first holds it, with the rules from before under. */
     static final String ORGANIZATION_ADMINS = "organization-admins.yml";
 
@@ -567,14 +579,10 @@ final class TreeWalk {
             throw new Refused("no key " + signer + " is listed for " + founder.login());
         }
         if (owns.isEmpty()) {
-            throw new Undecided(
-                    "the identity source could not say that the founder owns the organisation",
-                    ownership);
+            throw new Undecided(FOUNDER_OWNS, ownership);
         }
         if (state.equals(Organization.FIRST_SEEN)) {
-            throw new Undecided(
-                    "the identity source could not say that the founding key is the founder's",
-                    heard);
+            throw new Undecided(FOUNDING_KEY, heard);
         }
     }
 
@@ -757,7 +765,7 @@ final class TreeWalk {
         }
         final String state = trust(login, card.fingerprint());
         if (state.equals(Organization.FIRST_SEEN)) {
-            throw new Undecided("the identity source could not say whose card this is", heard);
+            throw new Undecided(WHOSE_CARD, heard);
         }
         return state.equals(Organization.TRUSTED) ? state : null;
     }
@@ -898,6 +906,9 @@ final class TreeWalk {
         List.copyOf(all).forEach(key -> successors(login, key, all));
         String current = null;
         boolean undecided = false;
+        // Why the source could not say: kept from any key of the chain it could not say about,
+        // not dropped by a later one it answered.
+        heard = null;
         for (final String key : all.stream().limit(CHAIN).toList()) {
             final String state = listed(login, key);
             if (state.equals(Organization.TRUSTED)) {
@@ -928,7 +939,10 @@ final class TreeWalk {
     /** What the identity source says about this key alone. */
     private String listed(final String login, final String fingerprint) {
         final Optional<IdentitySource.Keys> keys = identities.keys(login, fingerprint);
-        heard = identities.cannotSay().orElse(null);
+        final Optional<String> why = identities.cannotSay();
+        if (why.isPresent()) {
+            heard = why.orElseThrow();
+        }
         if (keys.isEmpty()) {
             return Organization.FIRST_SEEN;
         }
@@ -1276,7 +1290,7 @@ final class TreeWalk {
             return false;
         }
         if (person.state().equals(Organization.FIRST_SEEN)) {
-            throw new Undecided("the identity source has not vouched for the signer's card", null);
+            throw new Undecided(NOT_VOUCHED, null);
         }
         return person.state().equals(Organization.TRUSTED);
     }

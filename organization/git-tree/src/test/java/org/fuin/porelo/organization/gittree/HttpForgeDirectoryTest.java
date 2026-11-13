@@ -759,6 +759,14 @@ class HttpForgeDirectoryTest {
         assertThat(member.owns("acme", "alice")).isEmpty();
         assertThat(member.cannotSay()).contains("rate limited");
 
+        replies.put(
+                "/api/user/memberships/orgs/acme",
+                Reply.with(403, "{}", "X-RateLimit-Remaining", "0"));
+        assertThat(member.owns("acme", "outsider")).isEmpty();
+        assertThat(member.cannotSay())
+                .as("a 404 after the token's own membership was rate limited")
+                .contains("rate limited");
+
         replies.put("/api/v1/users/alice/orgs/acme/permissions", Reply.of(403, "Forbidden"));
         final HttpForgeDirectory forgejo = forgejo(TOKEN);
         assertThat(forgejo.owns("acme", "alice")).isEmpty();

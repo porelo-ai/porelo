@@ -319,12 +319,22 @@ final class OrgAccess {
                         repository,
                         OrganizationAccess.lent(context),
                         state(context)),
-                new LazyIdentities(
+                lazy(
                         () ->
                                 new HttpForgeDirectory(
                                         origin.forge(),
                                         OrganizationAccess.forgeToken(context, origin),
                                         OrganizationAccess.http(context))));
+    }
+
+    /**
+     * Wraps an identity source so it is made only when first asked.
+     *
+     * @param opening Makes the source.
+     * @return The wrapper, answering as the source does.
+     */
+    static IdentitySource lazy(final java.util.function.Supplier<IdentitySource> opening) {
+        return new LazyIdentities(opening);
     }
 
     /** A kept display must not unlock credentials or construct a network client. */
@@ -354,6 +364,12 @@ final class OrgAccess {
         @Override
         public Optional<Boolean> owns(String organization, String login) {
             return get().owns(organization, login);
+        }
+
+        @Override
+        public synchronized Optional<String> cannotSay() {
+            // Nothing asked yet, nothing to say: asking this must not open the source.
+            return opened == null ? Optional.empty() : opened.cannotSay();
         }
     }
 

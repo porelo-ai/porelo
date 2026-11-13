@@ -109,3 +109,17 @@ Built as planned.
 - **Locally on this commit.** organization/api, organization/git-tree (375, and `GitTreeStoreTest` whole with the
   slow tag, 207), apps/app-organization and apps/app (4662) passed whole, one at a time, and so did the root's
   `validate` and `-Pdocuments test`.
+- **A Sonnet reading found one Red, fixed.** `LazyIdentities`, which `OrgAccess.real` wraps the directory in, did not
+  forward `cannotSay()`, so on a real machine `said` never named the kind. It forwards it now, and says nothing
+  without opening the source when nothing was asked yet. `OrgAccessIdentitiesTest` goes through `OrgAccess.lazy`; it
+  failed with the wrapper as it was.
+- **Yellows from that reading.** Fixed: a chain of keys keeps the kind of a key the source could not say about, not
+  dropped by a later one it answered; GitHub's 404 after the token's own membership was rate limited or not answered
+  says so, not "cannot see"; the four words are constants of `TreeWalk` that the record's reader takes, and
+  `TreeRecordWaitingTest` holds that an unknown word, an unknown kind or a step that is no hash refuses the record and
+  that a field the reader does not know is left alone, as an older build reads a record with a waiting step; the
+  doc's "whose card it is". Kept: Forgejo's 403 that is no rate limit stays "the token cannot see the organisation's
+  members", since Forgejo answers so for a token without the organisation's read; the chain's kind has no test of its
+  own.
+- **Locally on the fix.** organization/git-tree (380) and apps/app (4664) passed whole, one at a time, with
+  `OrgAccessIdentitiesTest` and `TreeRecordWaitingTest` among them.

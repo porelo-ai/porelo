@@ -51,10 +51,10 @@ record TreeRecord(
     /** The words a walk waits with: only these are kept, so a record quotes nothing else. */
     static final Set<String> WAITS =
             Set.of(
-                    "the identity source could not say that the founder owns the organisation",
-                    "the identity source could not say that the founding key is the founder's",
-                    "the identity source could not say whose card this is",
-                    "the identity source has not vouched for the signer's card");
+                    TreeWalk.FOUNDER_OWNS,
+                    TreeWalk.FOUNDING_KEY,
+                    TreeWalk.WHOSE_CARD,
+                    TreeWalk.NOT_VOUCHED);
 
     private static final Pattern OBJECT = Pattern.compile("[0-9a-f]{40}([0-9a-f]{24})?");
 

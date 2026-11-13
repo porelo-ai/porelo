@@ -544,6 +544,13 @@ public final class HttpForgeDirectory implements IdentitySource {
             return Optional.of(false);
         }
         if (answer.status() == 404) {
+            // The token's own membership could not be read: that, not the token, is why.
+            if (own == null) {
+                return cannot(NO_ANSWER);
+            }
+            if (own.status() == 429 || own.rateLimited()) {
+                return cannot(RATE_LIMITED);
+            }
             return cannot(BLIND_TOKEN);
         }
         if (answer.status() != 200 || !(json(answer.body()) instanceof Map<?, ?>)) {
