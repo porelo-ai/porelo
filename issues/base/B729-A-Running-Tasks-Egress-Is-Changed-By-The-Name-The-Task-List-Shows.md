@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B729",
   "title": "A Running Task's Egress Is Changed By The Name The Task List Shows",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 56,
