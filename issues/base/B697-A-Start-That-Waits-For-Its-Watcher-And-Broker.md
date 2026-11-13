@@ -28,7 +28,7 @@ that helper, cleans up and ends 70, naming the helper.
 ## Plan
 
 - `TaskLaunch`: the watcher's and the broker's start through `HelperPid.await`, as `startGate` and `startRelay`.
-- Tests: the starts that run a watcher or a broker use B384's `HelperStandIn`; red first, a watcher and a broker
+- Tests: the starts that run a watcher or a broker use [B384](README.md#b384)'s `HelperStandIn`; red first, a watcher and a broker
   that never record their pid each end the start 70.
 
 ## Acceptance
