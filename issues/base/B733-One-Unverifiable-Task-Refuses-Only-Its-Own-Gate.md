@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B733",
   "title": "One Unverifiable Task Refuses Only Its Own Gate",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 10,
