@@ -147,6 +147,52 @@ public class Podman {
      * shell reads. The {@code &&} is the lock: where the kernel refuses the profile, the command
      * does not run outside it. One {@code printf}, so the kernel reads the attribute as one write.
      */
+    /**
+     * What a start runs in the container to reach the task's session: join it where it is live, and
+     * otherwise end the server it would be on before making it anew.
+     *
+     * <p><strong>The server runs as the agent</strong>, which can keep it alive with a session of
+     * its own and set what the next session starts with - an option, a hook, {@code set-environment
+     * -g}, {@code default-shell}. tmux reads Porelo's configuration and takes podman's environment
+     * only when a server starts, so a start that finds no session ends the server first, by its
+     * name and nothing else, and what was planted ends with it. A live session is joined and its
+     * server kept, or attaching would end the task's work. The agent's own servers are other
+     * servers and are left alone.
+     *
+     * <p>What the session's first window runs, if anything, is {@code "$@"}, never text this shell
+     * reads.
+     */
+    public static final String SESSION_START =
+            String.join(
+                    "\n",
+                    "if ! tmux -L "
+                            + Containerfile.TMUX_SERVER
+                            + " has-session -t "
+                            + Containerfile.SESSION
+                            + " 2>/dev/null; then",
+                    "  tmux -L " + Containerfile.TMUX_SERVER + " kill-server 2>/dev/null || :",
+                    "fi",
+                    "exec tmux -L "
+                            + Containerfile.TMUX_SERVER
+                            + " -f "
+                            + Containerfile.TMUX_CONF
+                            + " new-session -A -s "
+                            + Containerfile.SESSION
+                            + " \"$@\"");
+
+    /**
+     * Returns a tmux command against Porelo's own server, {@link Containerfile#TMUX_SERVER}.
+     *
+     * @param arguments What to ask it.
+     * @return Program and arguments.
+     */
+    public static List<String> tmux(String... arguments) {
+        final List<String> command =
+                new ArrayList<>(List.of("tmux", "-L", Containerfile.TMUX_SERVER));
+        command.addAll(List.of(arguments));
+        return List.copyOf(command);
+    }
+
     public static final String ENTER =
             "printf 'exec %s' \"$0\" > /proc/self/attr/apparmor/exec && exec \"$@\"";
 
@@ -1478,15 +1524,7 @@ public class Podman {
     public List<String> sessionArguments(
             String container, @Nullable String script, List<String> environment) {
         final List<String> session =
-                new ArrayList<>(
-                        List.of(
-                                "tmux",
-                                "-f",
-                                Containerfile.TMUX_CONF,
-                                "new-session",
-                                "-A",
-                                "-s",
-                                Containerfile.SESSION));
+                new ArrayList<>(List.of("sh", "-c", SESSION_START, "porelo-session"));
         if (script != null) {
             session.add(script);
         }
@@ -1522,9 +1560,8 @@ public class Podman {
         final int lines = Math.max(1, Math.min(last, SCREEN_LINES));
         final CommandResult result;
         try {
-            final List<String> capture =
-                    new ArrayList<>(
-                            List.of("exec", target(container), "tmux", "capture-pane", "-p", "-J"));
+            final List<String> capture = new ArrayList<>(List.of("exec", target(container)));
+            capture.addAll(tmux("capture-pane", "-p", "-J"));
             if (escapes) {
                 capture.add("-e");
             }
@@ -1564,6 +1601,8 @@ public class Podman {
                                                     "exec",
                                                     id,
                                                     "tmux",
+                                                    "-L",
+                                                    Containerfile.TMUX_SERVER,
                                                     "send-keys",
                                                     "-t",
                                                     Containerfile.SESSION,
@@ -1576,6 +1615,8 @@ public class Podman {
                                                     "exec",
                                                     id,
                                                     "tmux",
+                                                    "-L",
+                                                    Containerfile.TMUX_SERVER,
                                                     "send-keys",
                                                     "-t",
                                                     Containerfile.SESSION,
@@ -1602,6 +1643,8 @@ public class Podman {
                                             "exec",
                                             target(container),
                                             "tmux",
+                                            "-L",
+                                            Containerfile.TMUX_SERVER,
                                             "send-keys",
                                             "-t",
                                             Containerfile.SESSION,

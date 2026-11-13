@@ -1,0 +1,2 @@
+title: "A task's session runs on a tmux server of its own, which every start without a live `porelo` session clears first, so no option, hook, environment or session the agent left there reaches the next start"
+type: security

@@ -215,7 +215,10 @@ public class ReadySteps {
      */
     private java.util.Optional<String> capture(String container) throws IOException {
         final Ssh.Output pane =
-                world.run("podman exec " + Shell.quote(container) + " tmux capture-pane -p -J");
+                world.run(
+                        "podman exec "
+                                + Shell.quote(container)
+                                + " tmux -L porelo capture-pane -p -J");
         return pane.status() == 0 ? java.util.Optional.of(pane.out()) : java.util.Optional.empty();
     }
 

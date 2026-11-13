@@ -53,3 +53,42 @@ agent cannot write), and the agent's own tmux sessions are left alone.
 
 - Porelo's session gets its own tmux server, on a socket the agent cannot write, and the agent's own sessions are
   left alone (the operator, 2026-11-13).
+
+## Built
+
+Step B of the plan: Porelo's session moves to a tmux server of its own, which every start without a live session
+clears first. The second acceptance point stays open.
+
+- **A server of Porelo's own.** Every tmux call of Porelo's names `tmux -L porelo`: the start, attach and resume
+  (`Podman.SESSION_START` through `Podman.sessionArguments`, which `task attach` now uses too), the screen read, the
+  keystrokes sent (`Podman.screen`, `type`, `enter`), the session probe in `TaskSession`, the activity read in
+  `AgentWaiting`, the screen drawer in `ScreenFile` and the acceptance kit's reads. `Podman.tmux(...)` builds the
+  call. The agent's own tmux servers are other servers and are left alone.
+- **Cleared at a start without a session.** `SESSION_START` asks `has-session -t porelo`. When there is none, it ends
+  the `porelo` server with `tmux -L porelo kill-server`, by its name and nothing else, and then runs `new-session -A`
+  with `-f /etc/porelo/tmux.conf`. An option, hook, `set-environment -g`, `default-shell` or detached session the
+  agent planted on that server ends with it, and the new server reads Porelo's configuration and podman's
+  environment. A live session is joined and its server kept, so attach and resume go on working. The kill runs
+  in the same exec as the start, as the agent.
+- **Still open: the agent can reach the server.** The server runs as the agent, which owns its socket, and tmux's
+  `server-access` cannot deny a server's own user. Between two starts the agent can still connect, set options and
+  type into the live session. Closing that needs the server to run as another user (A1 below).
+- **A task whose session predates this** runs on the default server, which `-L porelo` does not find. A start or an
+  attach then makes a new session beside it. No fallback to the default server was added: the agent could plant a
+  session named `porelo` there.
+- **Measured for A1** (the server as root, each pane dropped to the agent with `setpriv`), with podman 5.7 on this
+  machine:
+  - Under `--cap-drop ALL`, `setpriv --reuid/--regid/--init-groups` fails with EPERM. With
+    `--cap-add SETUID,SETGID` it works.
+  - `setpriv` is in ubuntu as it is. Fedora needs `util-linux`. Alpine needs the `setpriv` package, because
+    busybox's has no `--reuid`.
+- Tests, red first:
+  - `PodmanTest` runs `SESSION_START` against a fake tmux. A start without a session clears the server before
+    `new-session`; one with a live session does not. Every read and keystroke names Porelo's server.
+  - `ScreenFileTest` and `TaskAttachCommandTest` pin the server and the shared start.
+  - Before the change: `PodmanTest` 78 run, 5 failed (`b742-red2.log`); `ScreenFileTest` 4 run, 1 failed;
+    `TaskAttachCommandTest` 13 run, 1 failed (`b742-red.log`).
+  - After it, all pass: `PodmanTest` 78, `ContainerfileTest` 37, `TaskRunCommandTest` 301, `AgentWaitingTest` 21,
+    `TaskSessionTest` 12, `TerminalAttachTest` 12, `ScreenFileTest` 4, `TaskListingScreensTest` 1
+    (`b742-green.log`), and `TaskAttachCommandTest` 13 with `handsTheTerminalToTheShell`, both re-pinned to the shared
+    start (`b742-green2.log`). The acceptance kit compiles.

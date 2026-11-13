@@ -524,8 +524,7 @@ public final class AgentWaiting {
                                         .ask(
                                                 container,
                                                 Map.of(),
-                                                List.of(
-                                                        "tmux",
+                                                org.fuin.porelo.runtime.Podman.tmux(
                                                         "capture-pane",
                                                         "-p",
                                                         "-J",

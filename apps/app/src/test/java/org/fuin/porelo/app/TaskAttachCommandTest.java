@@ -89,7 +89,9 @@ class TaskAttachCommandTest {
                 .as("attach preserves the session's exit code")
                 .isEqualTo(code);
 
-        assertThat(attached).as("the existing tmux session is attached").contains("tmux");
+        assertThat(attached)
+                .as("the existing tmux session is attached")
+                .contains(org.fuin.porelo.runtime.Podman.SESSION_START);
         assertThat(runner.only("stty \"$1\"").arguments())
                 .as("the terminal settings saved before attach are restored")
                 .endsWith("saved-settings");
@@ -116,13 +118,9 @@ class TaskAttachCommandTest {
                         "--interactive",
                         "--tty",
                         "porelo-uc-shell-1",
-                        "tmux",
-                        "-f",
-                        "/etc/porelo/tmux.conf",
-                        "new-session",
-                        "-A",
-                        "-s",
-                        "porelo");
+                        "sh",
+                        "-c",
+                        org.fuin.porelo.runtime.Podman.SESSION_START);
     }
 
     @Test
@@ -153,8 +151,11 @@ class TaskAttachCommandTest {
 
         run(dir, "task", "attach", "porelo-uc-shell-1");
 
-        assertThat(attached).noneMatch(argument -> argument.contains(" "));
-        assertThat(attached).contains("tmux");
+        assertThat(
+                        attached.subList(
+                                0, attached.indexOf(org.fuin.porelo.runtime.Podman.SESSION_START)))
+                .noneMatch(argument -> argument.contains(" "));
+        assertThat(attached).contains(org.fuin.porelo.runtime.Podman.SESSION_START);
     }
 
     @Test
@@ -248,7 +249,9 @@ class TaskAttachCommandTest {
                 "a1b2c3d4e5f6");
 
         assertThat(run(dir, "task", "attach", "porelo_pi")).as("%s", err).isZero();
-        assertThat(attached).as("the task's session").contains("porelo_pi", "tmux");
+        assertThat(attached)
+                .as("the task's session")
+                .contains("porelo_pi", org.fuin.porelo.runtime.Podman.SESSION_START);
     }
 
     @Test
@@ -263,7 +266,7 @@ class TaskAttachCommandTest {
                         "porelo-offlineproj-shell-1\tUp 4 minutes\n", "a1b2c3d4e5f6"));
 
         assertThat(run(dir, "task", "attach", "porelo-offlineproj-shell-1")).isZero();
-        assertThat(attached).contains("tmux");
+        assertThat(attached).contains(org.fuin.porelo.runtime.Podman.SESSION_START);
     }
 
     @Test
@@ -279,6 +282,8 @@ class TaskAttachCommandTest {
 
         run(dir, "task", "attach", "porelo-uc-shell-1");
 
-        assertThat(attached).containsSubsequence("tmux", "-f", "/etc/porelo/tmux.conf");
+        assertThat(attached).contains(org.fuin.porelo.runtime.Podman.SESSION_START);
+        assertThat(org.fuin.porelo.runtime.Podman.SESSION_START)
+                .contains(" -f /etc/porelo/tmux.conf ");
     }
 }

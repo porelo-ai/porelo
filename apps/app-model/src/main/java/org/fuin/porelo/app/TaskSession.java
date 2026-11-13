@@ -301,8 +301,7 @@ public final class TaskSession {
                             .ask(
                                     container,
                                     Map.of(),
-                                    List.of(
-                                            "tmux",
+                                    org.fuin.porelo.runtime.Podman.tmux(
                                             "has-session",
                                             "-t",
                                             org.fuin.porelo.runtime.Containerfile.SESSION))

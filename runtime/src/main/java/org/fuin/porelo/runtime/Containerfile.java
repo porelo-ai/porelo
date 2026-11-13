@@ -70,6 +70,13 @@ public final class Containerfile {
     public static final String SESSION = "porelo";
 
     /**
+     * The name of the tmux server Porelo's session lives on, given to every tmux call of Porelo's
+     * with {@code -L}: a server of its own, apart from the agent's default one, so that ending it
+     * ends nothing the agent started for itself.
+     */
+    public static final String TMUX_SERVER = "porelo";
+
+    /**
      * File the session's own shell writes when it ends, inside the container.
      *
      * <p><strong>How finishing is told from detaching.</strong> Both end the command the terminal

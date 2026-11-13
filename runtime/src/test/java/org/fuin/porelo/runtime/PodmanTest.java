@@ -887,6 +887,8 @@ class PodmanTest {
                         "exec",
                         "box",
                         "tmux",
+                        "-L",
+                        Containerfile.TMUX_SERVER,
                         "capture-pane",
                         "-p",
                         "-J",
@@ -928,7 +930,7 @@ class PodmanTest {
                         line ->
                                 assertThat(line)
                                         .contains(
-                                                "exec box tmux send-keys -t "
+                                                "exec box tmux -L porelo send-keys -t "
                                                         + Containerfile.SESSION
                                                         + " -l A message waits; read it"))
                 .anySatisfy(
@@ -1138,5 +1140,78 @@ class PodmanTest {
 
         assertThat(confined.executeArguments("box", Map.of(), List.of("agent")))
                 .containsSubsequence("box", "sh", "-c", Podman.ENTER, "porelo-task", "agent");
+    }
+
+    /**
+     * Runs what a start runs in the container on this machine, against a tmux that logs what it is
+     * asked and answers whether a session is there.
+     */
+    private List<String> startedAgainst(Path dir, boolean live) throws Exception {
+        final Path bin = Files.createDirectories(dir.resolve("bin"));
+        final Path log = dir.resolve("tmux.log");
+        Files.writeString(
+                bin.resolve("tmux"),
+                "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '"
+                        + log
+                        + "'\ncase \"$*\" in *has-session*) exit "
+                        + (live ? 0 : 1)
+                        + " ;; esac\nexit 0\n");
+        bin.resolve("tmux").toFile().setExecutable(true);
+        final List<String> start = podman.sessionArguments("box", "agent-cli", List.of());
+        // Through a shell, so the command is found on the PATH given here, as in the container.
+        final List<String> command =
+                new java.util.ArrayList<>(List.of("/bin/sh", "-c", "exec \"$@\"", "start"));
+        command.addAll(start.subList(start.indexOf("box") + 1, start.size()));
+        final ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
+        builder.environment().put("PATH", bin + ":" + System.getenv("PATH"));
+        final Process process = builder.start();
+        process.getInputStream().readAllBytes();
+        assertThat(process.waitFor()).isZero();
+        return Files.exists(log) ? Files.readAllLines(log) : List.of();
+    }
+
+    @Test
+    void aStartThatFindsNoSessionClearsTheAgentsServerBeforeItsNewSession(@TempDir Path dir)
+            throws Exception {
+
+        // The server runs as the agent, which can keep it alive with a session of its own and
+        // set what the next session starts with: options, hooks, its global environment. Only a
+        // new server reads Porelo's configuration and podman's environment, so a start that
+        // finds no session ends the one that is there, by the server's name, before it begins.
+        assertThat(startedAgainst(dir, false))
+                .containsExactly(
+                        "-L porelo has-session -t porelo",
+                        "-L porelo kill-server",
+                        "-L porelo -f "
+                                + Containerfile.TMUX_CONF
+                                + " new-session -A -s porelo agent-cli");
+    }
+
+    @Test
+    void aStartThatFindsALiveSessionJoinsItAndKeepsItsServer(@TempDir Path dir) throws Exception {
+
+        // Attach and resume join what runs there; ending its server would end the task's work.
+        assertThat(startedAgainst(dir, true))
+                .containsExactly(
+                        "-L porelo has-session -t porelo",
+                        "-L porelo -f "
+                                + Containerfile.TMUX_CONF
+                                + " new-session -A -s porelo agent-cli");
+    }
+
+    @Test
+    void everyReadAndKeystrokeGoesToPorelosOwnServer() {
+
+        // Not the agent's default server, where it keeps sessions of its own.
+        runner.answering("capture-pane", "plain\n");
+        podman.screen("box", 5, false);
+        podman.type("box", "a line");
+        podman.enter("box");
+
+        assertThat(runner.invocations())
+                .extracting(command -> String.join(" ", command.arguments()))
+                .filteredOn(line -> line.contains("tmux"))
+                .hasSize(4)
+                .allSatisfy(line -> assertThat(line).contains("tmux -L porelo "));
     }
 }

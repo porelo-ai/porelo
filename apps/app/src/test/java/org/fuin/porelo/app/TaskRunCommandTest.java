@@ -8149,13 +8149,10 @@ class TaskRunCommandTest {
                         "--env",
                         "ENV=",
                         containerName(),
-                        "tmux",
-                        "-f",
-                        "/etc/porelo/tmux.conf",
-                        "new-session",
-                        "-A",
-                        "-s",
-                        "porelo");
+                        "sh",
+                        "-c",
+                        org.fuin.porelo.runtime.Podman.SESSION_START,
+                        "porelo-session");
         // One argument, because tmux joins several into one string with spaces and would take the
         // script apart at its quoting. The shell is a child, not an exec: the marker that says the
         // work ended is written after it returns, and 'exec' would leave nothing to write it.

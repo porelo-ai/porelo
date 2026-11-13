@@ -121,7 +121,9 @@ public final class ScreenFile {
      */
     static String drawerScript(final String drawn) {
         return "while :; do"
-                + "   if tmux capture-pane -p -J -t porelo > '"
+                + "   if tmux -L "
+                + org.fuin.porelo.runtime.Containerfile.TMUX_SERVER
+                + " capture-pane -p -J -t porelo > '"
                 + drawn
                 + ".next' 2>/dev/null; then"
                 + "     mv -f '"

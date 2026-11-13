@@ -68,7 +68,12 @@ class ScreenFileTest {
         final Path agents = state.resolve("agent-screen");
         Files.writeString(
                 bin.resolve("tmux"),
-                "#!/bin/sh\n[ -s " + drawn + " ] || exit 1\ncat " + drawn + "\n");
+                "#!/bin/sh\ncase \"$*\" in '-L porelo capture-pane'*) ;; *) exit 1 ;; esac\n"
+                        + "[ -s "
+                        + drawn
+                        + " ] || exit 1\ncat "
+                        + drawn
+                        + "\n");
         bin.resolve("tmux").toFile().setExecutable(true);
         Files.writeString(drawn, "stub: at work, nothing asked\n");
         final Process drawer = start(ScreenFile.drawerScript(agents.toString()), bin);

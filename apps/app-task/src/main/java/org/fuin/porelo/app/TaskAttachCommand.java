@@ -74,30 +74,6 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
     }
 
     /**
-     * Returns the command that attaches to the session, creating it if there is none.
-     *
-     * <p>{@code new-session -A} is attach-or-create in one call, so returning to a task and
-     * starting one for the first time are the same operation - which is what makes "coming back"
-     * reliable rather than a second code path that is exercised less.
-     *
-     * @return Program and arguments, to run inside the container.
-     */
-    static java.util.List<String> sessionCommand() {
-        // The configuration file is read explicitly rather than left to tmux's search: what a
-        // session remembers is the answer to "what may re-entering claim", and inheriting it from
-        // whatever the image or a user's dotfile happened to say would make that answer unknown to
-        // the one process that has to state it.
-        return java.util.List.of(
-                "tmux",
-                "-f",
-                org.fuin.porelo.runtime.Containerfile.TMUX_CONF,
-                "new-session",
-                "-A",
-                "-s",
-                SESSION);
-    }
-
-    /**
      * Asks whether to start a stopped task, when there is somebody there to ask.
      *
      * <p><strong>The terminal check is not optional.</strong> This command is also how a script
@@ -261,8 +237,8 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
                                 err)
                         : TerminalAttach.run(
                                 context,
-                                podman.attachArguments(
-                                        container, sessionCommand(), podman.terminalFor(container)),
+                                podman.sessionArguments(
+                                        container, null, podman.terminalFor(container)),
                                 terminal,
                                 out,
                                 err);
