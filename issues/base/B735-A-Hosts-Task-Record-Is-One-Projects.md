@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B735",
   "title": "A Host's Task Record Is One Project's",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 50,
