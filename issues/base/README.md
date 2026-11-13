@@ -260,6 +260,7 @@ from its side, as *blocked by*.
 | <a id="b716"></a>[B716](B716-The-Second-Account-Test-Run-Without-A-Hand.md) | S | [B651](README.md#b651) | The test that a peer of another account is not taken for this one runs in a CI job or VM role with two accounts, not only by hand. | 0 |
 | <a id="b749"></a>[B749](B749-Removing-An-Unknown-Default-Repository-Is-Wrong-Use.md) | XS | - | `porelo project default remove NAME` for a name 'default' does not hold answers 64, wrong use, and names what 'default' holds; never 70, which says Porelo failed. | 0 |
 | <a id="b751"></a>[B751](B751-Small-Faults-Found-Playing-Stories-On-A-Test-VM.md) | S | - | A forge's refusal reaches the agent without Porelo's internal git command line, an upstream that cannot be reached is said with one full stop, and an unknown option of `task start` answers 64 as other commands do. | 0 |
+| <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
 
 ## Implementing
 
