@@ -92,17 +92,21 @@ class HostServicesTest {
 
     @Test
     void everyAccountCountRunsHostServicesBeforeRestarts() {
-        // A reboot before the feature removes its transient listener and invalidates readiness.
+        // A reboot before the feature removes its transient listener and invalidates readiness, and
+        // a scenario that needs the package installed for everyone fails on a leg, which installs
+        // into its account.
         for (List<String> users : List.of(List.of("build"), List.of("build", "accept2"))) {
             final List<List<String>> passes = Leg.suitePasses(users);
             assertThat(passes).as("two passes for " + users).hasSize(2);
             assertThat(passes.getFirst())
                     .as("ordinary features first")
-                    .contains("-Dcucumber.filter.tags=not @restart and not @upgrade");
+                    .contains(
+                            "-Dcucumber.filter.tags=not @restart and not @upgrade"
+                                    + " and not @machine-package");
             assertThat(passes.getLast())
                     .as("restart scenarios last with a separate report")
                     .contains(
-                            "-Dcucumber.filter.tags=@restart",
+                            "-Dcucumber.filter.tags=@restart and not @machine-package",
                             "-Dporelo.acceptance.report=" + Leg.RESTART_REPORT);
         }
     }

@@ -2,6 +2,7 @@ package org.fuin.porelo.acceptance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import java.io.IOException;
 import java.util.List;
@@ -12,6 +13,7 @@ import org.fuin.porelo.machines.Ssh;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.JsonException;
 import org.jspecify.annotations.Nullable;
+import org.opentest4j.TestAbortedException;
 
 /**
  * What a scenario can say about the package that put Porelo, or an agent, on the machine.
@@ -30,6 +32,84 @@ public class PackageSteps {
      */
     public PackageSteps(World world) {
         this.world = world;
+    }
+
+    /** What {@link #MACHINE_WIDE} prints for a package the package manager calls installed. */
+    static final String PACKAGE_INSTALLED = "package installed";
+
+    /**
+     * Asks the machine where Porelo comes from: whether its package is installed, and which file a
+     * script runs for {@code porelo} and {@code porelod}, with every link resolved.
+     */
+    static final String MACHINE_WIDE =
+            String.join(
+                    "\n",
+                    "if dpkg-query -W -f='${Status}' porelo 2>/dev/null | grep -q 'ok installed'"
+                            + " || rpm -q porelo >/dev/null 2>&1;"
+                            + " then echo '"
+                            + PACKAGE_INSTALLED
+                            + "'; else echo 'package absent'; fi",
+                    "for b in porelo porelod; do"
+                            + " p=$(command -v \"$b\") && p=$(readlink -f \"$p\") || p=none;"
+                            + " echo \"$b $p\"; done");
+
+    /**
+     * Skips a scenario on a machine that does not run AppArmor.
+     *
+     * <p>There the task's profile has nothing to hold, and SELinux or nothing holds the lock
+     * instead: a scenario about the profile has nothing to prove, which is not the same as having
+     * proved it.
+     *
+     * @throws IOException If the machine cannot be asked.
+     */
+    @Given("the machine runs AppArmor")
+    public void theMachineRunsAppArmor() throws IOException {
+        final Ssh.Output output =
+                world.run("cat /sys/module/apparmor/parameters/enabled 2>/dev/null || true");
+        if (!output.out().strip().startsWith("Y")) {
+            throw new TestAbortedException("Skipped: this machine does not run AppArmor");
+        }
+    }
+
+    /**
+     * Asserts that the Porelo this account runs is the package's, installed for the whole machine:
+     * the package is installed, and the {@code porelo} and {@code porelod} every script here runs
+     * are its files under {@code /usr/bin}.
+     *
+     * <p>Only those wear the AppArmor label {@code porelo} by the path they lie at. A copy in the
+     * account's own directories shadowing them would make every later step about the account's
+     * install while the scenario says machine-wide.
+     *
+     * @throws IOException If the machine cannot be asked.
+     */
+    @Given("Porelo is installed machine-wide by its package")
+    public void poreloIsInstalledMachineWide() throws IOException {
+        final Ssh.Output output = world.run(MACHINE_WIDE);
+        world.output(output);
+        final String refused = notMachineWide(output.out());
+        if (refused != null) {
+            throw new AssertionError(refused + ":\n" + output.all().strip());
+        }
+    }
+
+    /**
+     * Says why what {@link #MACHINE_WIDE} printed is not a machine-wide install, or nothing when it
+     * is.
+     *
+     * @param said What the machine answered.
+     * @return The reason, or {@code null}.
+     */
+    static @Nullable String notMachineWide(String said) {
+        final List<String> lines = said.lines().map(String::strip).toList();
+        if (!lines.contains(PACKAGE_INSTALLED)) {
+            return "Porelo's package is not installed on this machine";
+        }
+        for (final String binary : List.of("porelo", "porelod")) {
+            if (!lines.contains(binary + " /usr/bin/" + binary)) {
+                return "the " + binary + " a script runs is not the package's /usr/bin/" + binary;
+            }
+        }
+        return null;
     }
 
     /**

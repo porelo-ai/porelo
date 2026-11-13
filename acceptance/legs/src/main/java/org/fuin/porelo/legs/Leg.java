@@ -50,7 +50,14 @@ public final class Leg {
     /** The tag of a scenario that touches the whole machine - a restart - and so runs alone. */
     private static final String MACHINE_WIDE = "@restart";
 
-    private static final String MACHINE_WIDE_EXCLUDED = "not " + MACHINE_WIDE + " and not @upgrade";
+    /**
+     * The tag of a scenario that needs Porelo's package installed for everyone, which a leg never
+     * does: it installs this tree's build into its account.
+     */
+    private static final String PACKAGE_ONLY = "@machine-package";
+
+    private static final String MACHINE_WIDE_EXCLUDED =
+            "not " + MACHINE_WIDE + " and not @upgrade and not " + PACKAGE_ONLY;
 
     /**
      * How the product is built, named once and identical to what CI runs.
@@ -479,7 +486,7 @@ public final class Leg {
                         "-Dporelo.acceptance.parallelism=" + users.size(),
                         "-Dcucumber.filter.tags=" + MACHINE_WIDE_EXCLUDED),
                 List.of(
-                        "-Dcucumber.filter.tags=" + MACHINE_WIDE,
+                        "-Dcucumber.filter.tags=" + MACHINE_WIDE + " and not " + PACKAGE_ONLY,
                         "-Dporelo.acceptance.report=" + RESTART_REPORT));
     }
 

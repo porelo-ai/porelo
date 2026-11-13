@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B755",
   "title": "The AppArmor Profile Proved On The Ubuntu Leg",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 54,
@@ -31,9 +31,11 @@ path socket, so this scenario proves no lock against a stand-in; that proof move
 
 ## Plan
 
-- A new feature in `acceptance/suite`, tagged `@restart`, on the ubuntu leg:
-  - installed machine-wide (the `.deb`, as `Leg.run` does as root for `--os ubuntu`), `porelo-task` is loaded under
-    `abi <abi/5.0>` from the package's `postinst`, and `apparmor_parser -Q` compiles it;
+- A new feature in `acceptance/suite`, tagged `@restart` and `@machine-package`, run on a VM deployed machine-wide
+  (`deploy` without `--account`). The CI legs leave `@machine-package` out: a leg installs this tree's build into its
+  account and loads only the profiles as root, so no package is installed there.
+  - installed machine-wide from the `.deb`, `porelo-task` is loaded under `abi <abi/5.0>` from the package's
+    `postinst`, and `apparmor_parser -Q` compiles it;
   - `doctor`'s `apparmor profile` line says `installed` for the machine-wide install, and for an account install says
     the lock is not held there and why;
   - a task starts, and its agent reaches the vault proxy through `/run/porelo-vault/vault.sock`.
@@ -42,6 +44,32 @@ path socket, so this scenario proves no lock against a stand-in; that proof move
 
 ## Acceptance
 
-- On the ubuntu leg the scenario passes, installed machine-wide with the profiles loaded and installed in the account.
+- On the Ubuntu VM deployed machine-wide, the scenario passes, installed machine-wide with the profiles loaded and as
+  an account's copy. The run replaces the machine's package, needs a native build first and may reboot, so it is
+  scheduled for the day.
   Seen to fail: run before [B754](README.md#b754), the account install's `doctor` says `installed`.
 - The scenario's run is announced before it starts, since `@restart` reboots the machine.
+
+## Built
+
+- `machine/apparmor-profile.feature` (`@slow @restart @machine-package`): the profile came from the package, under
+  `abi <abi/5.0>`, held in enforce mode and compiled, and held again after a reboot; `doctor` says `installed` for
+  the machine-wide install and `DEGRADED`, with why, for an account's copy; a `--agent stub` task's processes are in
+  `porelo-task`, its agent is given `/run/porelo-vault/vault.sock`, and its request reaches the vault proxy.
+- Two kit steps in `PackageSteps`: the machine runs AppArmor (skips otherwise), and Porelo is installed machine-wide
+  by its package; the second's decision is unit-tested, seen red then green. Every step is defined (a Cucumber dry
+  run). The legs leave `@machine-package` out in both passes, seen red then green in `HostServicesTest`.
+- Not yet run: the scenario itself, on the VM deployed machine-wide.
+- The reading (agy, gemini-4-argon-high) found two grave gaps, checked in the code, and both are closed:
+  - The label check read a task started with `--detach`, which runs no agent: that start returns before any
+    session. Now the scenario attaches in a terminal, where the stub, asked nothing, waits as a running agent, and
+    the container's root reads every process's label: the stub must be `porelo-task (enforce)`.
+  - Nothing asked for the effect `porelo-task` exists for. A new scenario starts a tmux server by a plain exec of
+    the agent's user (outside `porelo-task`, no `porelo` label): the same user reaches it from a plain exec, and the
+    task's session, in `porelo-task`, is refused. A profile weakened to a bare `unix` rule fails it.
+  - The after-restart check now reads `porelo-task` and `porelo` by their exact names and checks the script's status.
+  - Declined: the machine-wide step does not look for an account's hooks or user unit left by an earlier
+    `deploy --account` - the run is on a VM deployed machine-wide from scratch; the AppArmor step skipping where
+    AppArmor does not run is what the Fedora leg needs; `dpkg-query -S` names the owner, not the conffile's content -
+    the run installs a fresh package.
+  - Every step is defined: a Cucumber dry run of the feature with `-Pwhole` ran its 5 scenarios, 0 failures.
