@@ -668,6 +668,42 @@ public final class TaskReservations {
                 });
     }
 
+    /**
+     * Forgets the name's record of a container podman no longer knows: both copies of the recorded
+     * id, each only while it still names {@code id}. Podman is asked twice, by the id and in its
+     * listing, and a record is kept unless both say the container is gone, as it is when a claim
+     * holds that id as the container its start made.
+     *
+     * @param container The task's actual name.
+     * @param id The id the record names.
+     * @return Whether a record was forgotten.
+     * @throws IOException When a record cannot be read or removed.
+     */
+    public boolean forgetGone(String container, String id) throws IOException {
+        return locked(
+                () -> {
+                    final Claim claim = known(container);
+                    if (claim != null && claim.id().equals(id)) return false;
+                    if (context.podman().stateOf(id)
+                                    != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT
+                            || context.podman().taskCandidates().stream()
+                                    .anyMatch(row -> id.equals(row.id()))) return false;
+                    boolean forgotten = false;
+                    for (Path directory :
+                            List.of(
+                                    context.paths().tasks().containerState(container),
+                                    context.paths().tasks().taskRecord(container))) {
+                        final Path file = directory.resolve(Sidecar.RECORDED_ID);
+                        if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
+                                && id.equals(Sidecar.recordedId(directory))) {
+                            Files.delete(file);
+                            forgotten = true;
+                        }
+                    }
+                    return forgotten;
+                });
+    }
+
     /** Retains historical ownership after all task state and secrets have been removed. */
     public void retire(String container) throws IOException {
         locked(

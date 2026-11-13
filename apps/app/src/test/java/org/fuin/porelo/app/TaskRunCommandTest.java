@@ -4267,6 +4267,57 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aFailedStartForgetsTheNamesRecordOfAContainerThatIsGone(@TempDir Path dir)
+            throws IOException {
+
+        // A start that made nothing left the name's record of a container podman no longer
+        // knows: it touched nothing, as for a live one, and the record named a task that was
+        // gone.
+        final PoreloContext context = context(dir, true);
+        final String gone = "e".repeat(64);
+        final java.util.concurrent.atomic.AtomicReference<String> named =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ((StoppingCommandRunner) runner)
+                .beforeCreate(
+                        command -> {
+                            final String container =
+                                    command.arguments()
+                                            .get(command.arguments().indexOf("--name") + 1);
+                            named.set(container);
+                            try {
+                                // A record of a container that is gone, the moment before this
+                                // create.
+                                org.fuin.porelo.wire.Sidecar.recordId(
+                                        context.paths().tasks().containerState(container), gone);
+                                TaskIdentityFixture.record(
+                                        context.paths(), container, "uc", "shell", gone);
+                            } catch (IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                        });
+        runner.failing(
+                " create ",
+                125,
+                "Error: creating container storage: the container name is already in use");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("the start fails: %s", err).isNotZero();
+        assertThat(named.get()).as("it reached its create: %s", err).isNotNull();
+        assertThat(context.recordedId(named.get()))
+                .as("the record of the container that is gone is forgotten: %s", err)
+                .isNull();
+    }
+
+    @Test
     void aStartWhoseBrokerNeverGivesItsTokenFailsAndLeavesItNotRunning(@TempDir Path dir)
             throws IOException {
 

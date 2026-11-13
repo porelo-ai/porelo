@@ -6395,6 +6395,16 @@ public final class TaskLaunch {
         final boolean ownStart = launching && !handedOver;
         final String onDisk = context.recordedId(container);
         final String recorded = ownStart ? createdId : onDisk;
+        if (ownStart && recorded == null && onDisk != null) {
+            // A record of a container podman no longer knows names nothing: left, it named a task
+            // that was gone. One of a live container is another start's and stays.
+            try {
+                new TaskReservations(context).forgetGone(container, onDisk);
+            } catch (java.io.IOException | org.fuin.porelo.core.process.CommandException ex) {
+                err.println("porelo: could not forget the record of " + container + ": " + ex);
+                err.flush();
+            }
+        }
         if (ownStart
                 && recorded == null
                 && onDisk != null

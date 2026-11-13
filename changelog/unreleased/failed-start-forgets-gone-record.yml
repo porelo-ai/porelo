@@ -1,0 +1,2 @@
+title: "A failed start that made no container forgets the name's record of a container that no longer exists, and still leaves a live one's alone"
+type: fixed
