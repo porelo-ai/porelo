@@ -272,7 +272,6 @@ from its side, as *blocked by*.
 | <a id="b692"></a>[B692](B692-A-Task-List-Showing-An-Agent-Waiting-On-Its-Own-Question.md) | XS | - | `porelo task list` says when an attached agent's screen reads as waiting for its own question, apart from its activity, as `task status` already does. | 0 |
 | <a id="b33"></a>[B33](B33-A-Tasks-Own-Fetches.md) | S | - | The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios. | 0 |
 | <a id="b322"></a>[B322](B322-Porelos-Acceptance-Legs-Run-On-The-Hosts-Forge.md) | M | - | porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool; only GitHub publishes | 0 |
-| <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings | - |
 | <a id="b695"></a>[B695](B695-A-Varlink-Call-Bounded-From-Send-To-Answer.md) | S | - | A varlink call's deadline covers its send as well as its answer, the 4 MiB cap is kept to the byte, and an agent's slow methods get a deadline that fits them. | 0 |
 | <a id="b696"></a>[B696](B696-Start-Takes-An-Effort-Setting.md) | M | - | Tasks1's Start takes an optional reasoning effort, an open string each agent maps by its own declaration, and the task's record keeps it in `TaskRecord.effort`. | 0 |
 | <a id="b697"></a>[B697](B697-A-Start-That-Waits-For-Its-Watcher-And-Broker.md) | S | [B384](README.md#b384) | A start waits for its clearance watcher and its vault broker as it waits for its gate and relay, and one that does not come up stops the start with 70 and its cleanup. | 0 |
@@ -306,6 +305,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
+| <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings |
 
 ## Review
 
