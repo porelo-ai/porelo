@@ -1184,6 +1184,46 @@ public record AgentDefinition(
     }
 
     /**
+     * Returns the container-build fragments this agent contributes, in order.
+     *
+     * <p>Every image an agent is built into takes its layers from here - the adapter's own {@link
+     * Agent#imageLayer()} and the host's builds alike - so an artifact's owner decides on which
+     * side of the user switch it is fetched wherever the image is built.
+     *
+     * @return Image layer.
+     */
+    public ImageLayer imageLayer() {
+        // Fetches first: the hand-written fragments almost always operate on what was fetched, and
+        // a fragment that runs before its artifact exists fails in a way that reads as a problem
+        // with the fragment. A root artifact is fetched before the root fragments, as root, so one
+        // of them can unpack it; the agent's before its own, as today.
+        return new ImageLayer(
+                fetchedThen(
+                        artifacts.stream().filter(InstallArtifact::rootOwned).toList(),
+                        installAsRoot),
+                fetchedThen(
+                        artifacts.stream().filter(artifact -> !artifact.rootOwned()).toList(),
+                        installAsAgent));
+    }
+
+    /**
+     * Renders the fetch of some artifacts followed by the fragments that use them.
+     *
+     * @param fetched What to fetch and check first.
+     * @param fragments The hand-written fragments after them.
+     * @return Container-build lines, with one blank line between the two parts.
+     */
+    private static List<String> fetchedThen(
+            final List<InstallArtifact> fetched, final List<String> fragments) {
+        final List<String> lines = new java.util.ArrayList<>(InstallScript.render(fetched));
+        if (!lines.isEmpty() && !fragments.isEmpty()) {
+            lines.add("");
+        }
+        lines.addAll(fragments);
+        return List.copyOf(lines);
+    }
+
+    /**
      * Returns the environment variable a credential of the given type belongs in.
      *
      * <p>The agent's own answer only. Most agents no longer give one, because the variable a

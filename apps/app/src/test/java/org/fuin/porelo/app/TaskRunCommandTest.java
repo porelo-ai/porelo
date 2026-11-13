@@ -5326,6 +5326,75 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void anArtifactItsAdapterGivesToRootIsFetchedAsRootInTheImageBuiltForIt(@TempDir Path dir)
+            throws IOException {
+
+        // Every hop: the adapter's definition, its Describe over the agent protocol, the
+        // definition the start reads back, the layers it builds and the Containerfile podman gets.
+        // Measured on 2026-11-13: claude's root artifact was fetched after 'USER agent', and its
+        // install into /usr/local/share was refused.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(
+                context,
+                "preview",
+                """
+                install:
+                  version: "1.0.0"
+                  artifacts:
+                    - url: https://example.com/preview.tar.gz
+                      sha256: "%s"
+                      target: /usr/local/share/preview/preview.tar.gz
+                      mode: "0644"
+                      owner: root
+                    - url: https://example.com/preview-helper
+                      sha256: "%s"
+                      target: /home/agent/.local/bin/preview-helper
+                  as_root:
+                    - "RUN tar -xzf /usr/local/share/preview/preview.tar.gz -C /usr/local/bin"
+                """
+                        .formatted("a".repeat(64), "b".repeat(64)));
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "prepare",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview");
+
+        assertThat(code).as("prepared: %s", err).isZero();
+        final Path containerfile;
+        try (var tree = Files.walk(dir)) {
+            containerfile =
+                    tree.filter(path -> path.getFileName().toString().equals("Containerfile"))
+                            .findFirst()
+                            .orElseThrow();
+        }
+        final List<String> lines = Files.readAllLines(containerfile);
+        final int user = lines.indexOf("USER agent");
+        final int root = indexContaining(lines, "https://example.com/preview.tar.gz");
+        final int unpack = indexContaining(lines, "tar -xzf /usr/local/share/preview");
+        final int helper = indexContaining(lines, "https://example.com/preview-helper");
+        assertThat(root)
+                .as("the root artifact is fetched as root, before the root step that unpacks it")
+                .isGreaterThan(-1)
+                .isLessThan(unpack)
+                .isLessThan(user);
+        assertThat(helper).as("the agent's own, after the switch, as before").isGreaterThan(user);
+    }
+
+    private static int indexContaining(List<String> lines, String text) {
+        for (int index = 0; index < lines.size(); index++) {
+            if (lines.get(index).contains(text)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    @Test
     void aStoppedTaskContinuedWithAPromptHandsItsAgentTheNumberItWasStartedWith(@TempDir Path dir)
             throws IOException {
 

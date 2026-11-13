@@ -658,6 +658,7 @@ public final class PoreloDaemon {
         row.put("target", artifact.target());
         row.put("unverified", artifact.unverified());
         row.put("reason", artifact.reason() == null ? "" : artifact.reason());
+        row.put("owner", artifact.owner().word());
         return row;
     }
 

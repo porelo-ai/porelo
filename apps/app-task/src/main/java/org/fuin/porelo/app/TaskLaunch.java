@@ -4583,17 +4583,15 @@ public final class TaskLaunch {
                             + (agent.definition().version() == null
                                     ? ""
                                     : agent.definition().version()));
-            layers =
-                    layers.and(
-                            agent.definition().installAsRoot(),
-                            org.fuin.porelo.agent.api.InstallScript.render(
-                                    agent.definition().artifacts()));
+            // The definition's own layers, so each artifact is fetched on its owner's side of the
+            // user switch: a root one before the root steps, the agent's after it.
+            final org.fuin.porelo.agent.api.ImageLayer own = agent.definition().imageLayer();
+            layers = layers.and(own.asRoot(), own.asAgent());
             layers =
                     layers.and(
                             AgentStaging.stage(
                                     agent, project, context.paths(), context.runner(), out),
                             java.util.List.of());
-            layers = layers.and(java.util.List.of(), agent.definition().installAsAgent());
         }
 
         if (!project.imageSnippetLines().isEmpty()) {

@@ -164,17 +164,15 @@ public final class Preparation {
             if (selected.isPresent()) {
                 final var agent = selected.get();
                 out.println("agent     " + agent.name());
-                layers =
-                        layers.and(
-                                agent.definition().installAsRoot(),
-                                org.fuin.porelo.agent.api.InstallScript.render(
-                                        agent.definition().artifacts()));
+                // The definition's own layers, so each artifact is fetched on its owner's side of
+                // the user switch.
+                final org.fuin.porelo.agent.api.ImageLayer own = agent.definition().imageLayer();
+                layers = layers.and(own.asRoot(), own.asAgent());
                 layers =
                         layers.and(
                                 AgentStaging.stage(
                                         agent, project, context.paths(), context.runner(), out),
                                 java.util.List.of());
-                layers = layers.and(java.util.List.of(), agent.definition().installAsAgent());
             } else {
                 // An image without an agent is a real thing to want - it is what a person working
                 // in the container by hand needs - so this is reported rather than refused.

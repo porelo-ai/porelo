@@ -82,7 +82,10 @@ type InstallArtifact (
   # one with a reason is a decision somebody made and can be shown as such.
   unverified: bool,
   # Why it cannot be verified. "" unless 'unverified'.
-  reason: string
+  reason: string,
+  # Who installs it: "root", before the agent's root steps, or "agent", as the agent's user.
+  # Absent, from a daemon older than the field, means "agent".
+  owner: ?string
 )
 
 # An installed agent binary that never runs: either an earlier location holds one of the same

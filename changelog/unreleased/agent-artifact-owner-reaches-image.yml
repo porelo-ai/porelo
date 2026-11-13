@@ -1,0 +1,2 @@
+title: "An agent artifact owned by root is fetched as root in every image the host builds for that agent (task, prepare and login), and the daemon's agent rows say each artifact's owner"
+type: fixed

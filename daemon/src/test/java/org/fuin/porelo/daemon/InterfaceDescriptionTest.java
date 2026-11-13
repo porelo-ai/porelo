@@ -591,6 +591,34 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void artifactRowsCarryExactlyTheFieldsTheContractDeclaresTheirOwnerAmongThem() {
+        // An owner the contract does not carry is lost on the way to every client.
+        final Matcher artifactType =
+                Pattern.compile("(?ms)^type InstallArtifact \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(artifactType.find()).as("the contract declares InstallArtifact").isTrue();
+        final Map<String, Object> row =
+                PoreloDaemon.artifact(
+                        new org.fuin.porelo.agent.api.InstallArtifact(
+                                "https://example.test/tool.tar.gz",
+                                "a".repeat(64),
+                                "/usr/local/share/tool/tool.tar.gz",
+                                "0644",
+                                false,
+                                null,
+                                null,
+                                org.fuin.porelo.agent.api.InstallArtifact.Owner.ROOT));
+
+        assertThat(
+                        names(
+                                Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"),
+                                artifactType.group(1)))
+                .as("InstallArtifact versus a root artifact's row")
+                .isEqualTo(row.keySet())
+                .contains("owner");
+    }
+
+    @Test
     void namesItselfWithAVersionAndReportsTheBuildItIs(@TempDir Path dir) throws Exception {
         // Two different versions, deliberately. The digit on the interface name is the
         // compatibility promise a client picks by; the build version is what it shows a person.

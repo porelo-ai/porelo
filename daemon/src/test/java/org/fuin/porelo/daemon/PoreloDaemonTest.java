@@ -3956,6 +3956,36 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void anArtifactsOwnerReachesItsRowAndAnUnsaidOneIsTheAgents() {
+
+        // A client deciding whether an agent's binary is root's reads this row: a root artifact
+        // that answered as the agent's would read as the defect it was declared to avoid.
+        final Map<String, Object> root =
+                PoreloDaemon.artifact(
+                        new org.fuin.porelo.agent.api.InstallArtifact(
+                                "https://example.test/tool.tar.gz",
+                                "a".repeat(64),
+                                "/usr/local/share/tool/tool.tar.gz",
+                                "0644",
+                                false,
+                                null,
+                                null,
+                                org.fuin.porelo.agent.api.InstallArtifact.Owner.ROOT));
+        final Map<String, Object> agents =
+                PoreloDaemon.artifact(
+                        new org.fuin.porelo.agent.api.InstallArtifact(
+                                "https://example.test/tool",
+                                "a".repeat(64),
+                                "/home/agent/.local/bin/tool",
+                                "0755",
+                                false,
+                                null));
+
+        assertThat(root).containsEntry("owner", "root");
+        assertThat(agents).containsEntry("owner", "agent");
+    }
+
+    @Test
     void anArtifactThatIsUnverifiableOnPurposeKeepsItsReason() {
 
         // Three renderable states rather than one blank field: verified, nothing to fetch, and

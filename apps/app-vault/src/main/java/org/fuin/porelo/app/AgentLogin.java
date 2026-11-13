@@ -834,12 +834,10 @@ public final class AgentLogin {
 
         org.fuin.porelo.runtime.ImageLayers layers = org.fuin.porelo.runtime.ImageLayers.none();
         layers = layers.and(browserShim(), java.util.List.of());
-        layers =
-                layers.and(
-                        agent.definition().installAsRoot(),
-                        org.fuin.porelo.agent.api.InstallScript.render(
-                                agent.definition().artifacts()));
-        layers = layers.and(java.util.List.of(), agent.definition().installAsAgent());
+        // The definition's own layers, so each artifact is fetched on its owner's side of the
+        // user switch.
+        final org.fuin.porelo.agent.api.ImageLayer own = agent.definition().imageLayer();
+        layers = layers.and(own.asRoot(), own.asAgent());
 
         out.println("building  the login image - minutes the first time, seconds afterwards");
         out.println();
