@@ -147,6 +147,8 @@ final class CredentialWiring {
      * @param err Where problems are reported.
      * @return The broker's socket and each repository's address for the environment, or {@code
      *     null} when the project declares none with a credential, or none could be served.
+     * @throws BrokerDown When the broker was started and did not come up within the helpers'
+     *     patience; it is ended by its own handle, never left running.
      */
     @Nullable RepositoryPlumbing startRepositories(
             java.util.List<org.fuin.porelo.core.project.ToolRepository> declared,
@@ -189,25 +191,41 @@ final class CredentialWiring {
             out.flush();
             return null;
         }
+        final Process broker;
         try {
-            new ProcessBuilder(
-                            org.fuin.porelo.core.process.Scope.around(
-                                    "porelo " + container + " " + REPOSITORY_BROKER, command))
-                    .redirectErrorStream(true)
-                    .redirectOutput(state.resolve(REPOSITORY_BROKER + ".log").toFile())
-                    .start();
+            broker =
+                    new ProcessBuilder(
+                                    org.fuin.porelo.core.process.Scope.around(
+                                            "porelo " + container + " " + REPOSITORY_BROKER,
+                                            command))
+                            .redirectErrorStream(true)
+                            .redirectOutput(state.resolve(REPOSITORY_BROKER + ".log").toFile())
+                            .start();
+            owned.accept(broker.toHandle());
             record(REPOSITORY_BROKER, command, java.util.Map.of(), TaskHelpers.BEFORE);
         } catch (java.io.IOException ex) {
+            // Asked for and not there: the start went on, and the task's builds met the
+            // repository's own refusal.
             err.println("porelo: could not start the repository broker: " + ex.getMessage());
             err.flush();
-            return null;
+            throw new BrokerDown("could not start the repository broker");
         }
-        if (!awaitSocket(socket)) {
+        // From its start, as the credential broker's patience runs from its own.
+        final long deadline = org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
+        // Its pid as well as its socket: one that never records it is a broker nothing that cleans
+        // up by the pid files finds, and the start that went on left it running.
+        if (!awaitSocket(socket, deadline)
+                || org.fuin.porelo.wire.HelperPid.await(
+                                state.resolve(REPOSITORY_BROKER + ".pid"), deadline)
+                        .isEmpty()) {
+            // Ended here, by its own handle: it may never have recorded its pid, and the pid files
+            // of the name are every start's.
+            org.fuin.porelo.wire.HelperPid.end(broker.toHandle(), GateWiring.HELPER_GRACE);
             err.println(
                     "porelo: the repository broker did not come up, see "
                             + state.resolve(REPOSITORY_BROKER + ".log"));
             err.flush();
-            return null;
+            throw new BrokerDown("the repository broker did not come up");
         }
         environment.forEach(
                 (variable, url) -> out.println("repository " + url + " as " + variable));
@@ -320,9 +338,8 @@ final class CredentialWiring {
         }
     }
 
-    private static boolean awaitSocket(java.nio.file.Path socket) {
-        final long deadline = System.nanoTime() + java.time.Duration.ofSeconds(20).toNanos();
-        while (System.nanoTime() < deadline) {
+    private static boolean awaitSocket(java.nio.file.Path socket, long deadline) {
+        while (System.nanoTime() - deadline < 0) {
             if (java.nio.file.Files.exists(socket)) {
                 return true;
             }

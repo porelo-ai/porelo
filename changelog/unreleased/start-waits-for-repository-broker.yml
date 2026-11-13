@@ -1,0 +1,2 @@
+title: "A task's start waits until its repository broker records its pid, and ends with 70 and its cleanup when it does not come up, instead of starting without it"
+type: fixed

@@ -4256,6 +4256,124 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartWhoseRepositoryBrokerNeverRecordsItsPidFailsAndLeavesItNotRunning(@TempDir Path dir)
+            throws IOException {
+
+        // Taken as up once its socket was there, and said and gone on without when it was not, a
+        // repository broker that never recorded its pid let the start answer 0, and nothing that
+        // cleans up by the pid files ever found it.
+        final PoreloContext context = brokeredContext(dir);
+        context.vault()
+                .write(
+                        java.util.Map.of(
+                                "preview",
+                                new org.fuin.porelo.vault.VaultEntry("test-key", "api-key"),
+                                "corp-nexus",
+                                new org.fuin.porelo.vault.VaultEntry("test-secret", "api-key")),
+                        "test-passphrase".toCharArray());
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, repositoryBroker(helpers, ownPorelo).toString());
+        installedAdapter(context, "maven");
+        final EcosystemDetector adapters =
+                new EcosystemDetector() {
+                    @Override
+                    public org.fuin.porelo.ecosystem.api.Detection detect(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    plugin,
+                            final Path checkout,
+                            final Path home) {
+                        throw new AssertionError("a start with a project file detects nothing");
+                    }
+
+                    @Override
+                    public List<org.fuin.porelo.ecosystem.api.File> configure(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    plugin,
+                            final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
+                            final org.fuin.porelo.ecosystem.api.Extension extension) {
+                        return List.of();
+                    }
+                };
+        try {
+            projectFile(
+                    dir,
+                    MINIMAL
+                            + """
+                            tool_repositories:
+                              - ecosystem: maven
+                                name: corp
+                                url: "https://repo.example.org/maven/"
+                                credential: corp-nexus
+                            """);
+            final int started =
+                    startWithAdapters(
+                            context, adapters, "-p", "uc", "--agent", "preview", "--no-gate");
+
+            assertThat(started)
+                    .as("a repository broker that never recorded its pid fails the start: %s", err)
+                    .isEqualTo(70);
+            assertThat(err.toString()).contains("the repository broker did not come up");
+            assertThat(HelperStandIn.started(helpers))
+                    .as("the credential broker and the repository broker were started")
+                    .isEqualTo(2);
+            assertThat(HelperStandIn.anyRunning(helpers))
+                    .as("and neither is left running: %s", out)
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            // What the start's opening cached, as the account's keyring would have kept it.
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
+    /**
+     * A porelo whose {@code vault serve} is a stand-in that comes up, as {@link #broker(Path,
+     * boolean, String)} makes it, and whose {@code vault repositories} binds its socket and never
+     * records its pid; everything else is this build's.
+     */
+    private static Path repositoryBroker(Path helpers, String ownPorelo) throws IOException {
+        final Path program = helpers.resolve("repository-porelo");
+        Files.writeString(
+                program,
+                """
+                #!/bin/sh
+                if [ "$1" = vault ] && [ "$2" = serve ]; then
+                  previous=
+                  for argument; do
+                    case "$previous" in
+                      --socket) : > "$argument" ;;
+                      --token-file) echo stand-in-token > "$argument" ;;
+                    esac
+                    previous=$argument
+                  done
+                %1$s
+                fi
+                if [ "$1" = vault ] && [ "$2" = repositories ]; then
+                  previous=
+                  for argument; do
+                    [ "$previous" = --socket ] && : > "$argument"
+                    previous=$argument
+                  done
+                %2$s
+                fi
+                exec %3$s "$@"
+                """
+                        .formatted(
+                                HelperStandIn.lines(HelperStandIn.registry(helpers), true),
+                                HelperStandIn.lines(HelperStandIn.registry(helpers), false),
+                                shellArgument(ownPorelo)));
+        Files.setPosixFilePermissions(
+                program, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        return program;
+    }
+
+    @Test
     void aStartWhoseWatcherNeverRecordsItsPidFailsAndLeavesNoHelperRunning(@TempDir Path dir)
             throws IOException {
 
