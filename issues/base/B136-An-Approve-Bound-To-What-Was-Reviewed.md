@@ -7,7 +7,7 @@
   "title": "An Approve Bound To What Was Reviewed",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 3,
   "blockedBy": [],
   "covers": "Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding.",

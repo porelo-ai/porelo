@@ -7,7 +7,7 @@
   "title": "The Push Judge's Arming Stops On A Link",
   "state": "Backlog",
   "size": "S",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 41,
   "blockedBy": [
     "B549"

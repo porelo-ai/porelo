@@ -7,7 +7,7 @@
   "title": "A Credential Found By Its Address",
   "state": "Backlog",
   "size": "S",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 40,
   "blockedBy": [],
   "covers": "`porelo vault credential --for <url>` answers git's credential request for an https repository with the token Porelo would lend for that address itself, found in the account's declarations or by the names the address implies, so a program that reads a private repository with Porelo's login passes only the address.",

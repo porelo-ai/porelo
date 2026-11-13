@@ -7,7 +7,7 @@
   "title": "A Start's Smaller Refusals And Leftovers",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 43,
   "blockedBy": [],
   "covers": "A start leaves no unrecorded container, a no-gate task is removable, a long project name and a refused task name get a usable answer, two refusals answer one code, and a host start names the builds entry it misses",

@@ -7,7 +7,7 @@
   "title": "Credential Names In A Project File Checked",
   "state": "Accepted",
   "size": "-",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 12,
   "blockedBy": [],
   "covers": "A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided."

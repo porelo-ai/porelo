@@ -7,7 +7,7 @@
   "title": "A Task Name No Other Project Shares",
   "state": "Accepted",
   "size": "-",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 10,
   "blockedBy": [],
   "covers": "A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them"

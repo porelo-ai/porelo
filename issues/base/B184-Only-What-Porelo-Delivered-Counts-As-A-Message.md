@@ -7,7 +7,7 @@
   "title": "Only What Porelo Delivered Counts As A Message",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 2,
   "blockedBy": [],
   "covers": "A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner."

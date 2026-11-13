@@ -7,7 +7,7 @@
   "title": "A Removed Task's Kept Mail Record Frees Its Name",
   "state": "Accepted",
   "size": "S",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 20,
   "blockedBy": [],
   "covers": "`task remove` takes the task's mailbox with it, its signed recorded mail moved to an archive first, so the task can be started again under its name."

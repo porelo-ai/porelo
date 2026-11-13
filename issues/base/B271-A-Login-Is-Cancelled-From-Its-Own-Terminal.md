@@ -7,7 +7,7 @@
   "title": "A Login Is Cancelled From Its Own Terminal",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 12,
   "blockedBy": [],
   "covers": "`porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero; Ctrl-] twice, Porelo's own detach key, stops it whatever the agent does with Ctrl-C",

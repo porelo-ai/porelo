@@ -7,7 +7,7 @@
   "title": "A Name Granted Live Through A CNAME",
   "state": "Estimated",
   "size": "S",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 37,
   "blockedBy": [],
   "covers": "A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped"

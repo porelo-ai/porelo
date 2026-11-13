@@ -7,7 +7,7 @@
   "title": "A Task's Project Reads Held To Its Own Project",
   "state": "Analyzed",
   "size": "S",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 1,
   "blockedBy": [],
   "covers": "A task's MCP socket holds `Backups`, `ProviderModels`, `Egress`, `Pending`, `Review`, `Peers` and `MessageMembers` to the task's own project, as every other method taking a project. Severity high.",

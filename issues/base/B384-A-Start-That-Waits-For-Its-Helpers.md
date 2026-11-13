@@ -7,7 +7,7 @@
   "title": "A Start That Waits For Its Helpers",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 45,
   "blockedBy": [],
   "covers": "A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task",

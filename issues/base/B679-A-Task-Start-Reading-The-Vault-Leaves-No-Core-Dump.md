@@ -7,7 +7,7 @@
   "title": "A Task Start Reading The Vault Leaves No Core Dump",
   "state": "Backlog",
   "size": "XS",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 40,
   "blockedBy": [],
   "covers": "A `porelo task start` that reads the vault to see which credentials it can serve makes itself undumpable first, as the brokers do, so a crash of the starting process never writes a decrypted credential to a core file."

@@ -7,7 +7,7 @@
   "title": "A Push To A Slow Forge Has A Bound",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 52,
   "blockedBy": [],
   "covers": "A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer."
