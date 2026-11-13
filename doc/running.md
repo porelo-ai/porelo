@@ -285,7 +285,7 @@ A task in an `online` project pushes to its gate, which passes the task's own br
 `porelo/<task>`, or as the name the project's [`branch` block](project-file.md#branch) makes, and the forge builds it somewhere the task cannot see. A forge
 that has not taken the push within `limits.pass_on`, two minutes unless the project file says otherwise and fixed when
 the task starts, is ended there. The gate then asks the forge whether its branch holds the push, since a forge may set
-it and stall after: if it does, the agent's push succeeds; if not, or if the forge does not say, the push fails with
+it and stall after - for 30 seconds at most, or the limit when that is shorter, so the agent waits that much longer: if it does, the agent's push succeeds; if not, or if the forge does not say, the push fails with
 "the forge did not answer" and which of the two it was, the gate keeps nothing of it, and the agent pushes again. When the project file names the forge, Porelo follows every commit the task pushes and hands the build's verdict
 into the task as it changes - the task asks for nothing and holds no forge credential:
 

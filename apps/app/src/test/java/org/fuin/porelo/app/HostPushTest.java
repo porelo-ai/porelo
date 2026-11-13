@@ -259,6 +259,47 @@ class HostPushTest {
                 .containsSubsequence("update-ref", "refs/heads/porelo/fix", before, COMMIT);
     }
 
+    // What the wait for the lock took is gone from the push's own limit: the two share one bound.
+    @Test
+    void aPushAfterAWaitForTheLockHasWhatIsLeftOfTheLimit() throws Exception {
+        final Path mirror = dir.resolve("mirror.git");
+        final Path lock = mirror.resolve(GitGate.HOST_PUSHED).resolve(".fix.lock");
+        Files.createDirectories(lock.getParent());
+        final java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
+        final Thread other =
+                Thread.ofVirtual()
+                        .start(
+                                () -> {
+                                    try {
+                                        FileLocks.holding(
+                                                lock,
+                                                () -> {
+                                                    held.countDown();
+                                                    try {
+                                                        Thread.sleep(2000);
+                                                    } catch (InterruptedException ex) {
+                                                        Thread.currentThread().interrupt();
+                                                    }
+                                                    return null;
+                                                });
+                                    } catch (Exception ex) {
+                                        throw new IllegalStateException(ex);
+                                    }
+                                });
+        held.await();
+
+        assertThat(
+                        push(mirror, conf("git_port=3001\n"), TOKEN)
+                                .within(java.time.Duration.ofSeconds(10))
+                                .passOn(COMMIT))
+                .isNull();
+        other.join();
+        assertThat(runner.only(" push ").timeout())
+                .as("the limit less the wait of about two seconds")
+                .isLessThan(java.time.Duration.ofMillis(8500))
+                .isGreaterThan(java.time.Duration.ofSeconds(5));
+    }
+
     // Another push of the task waiting on a slow forge held the lock with no bound on the wait.
     @Test
     void theWaitForAnotherPushOfTheTaskIsPartOfTheLimit() throws Exception {

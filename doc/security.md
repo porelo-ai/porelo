@@ -114,7 +114,8 @@ lends for it, and the agent's push succeeds only when the
 upstream took it; a refusal by the forge fails the agent's push with the forge's words. A forge that does not answer
 within `limits.pass_on` of the [project file](project-file.md), two minutes unless it says otherwise, fails it too,
 saying the forge did not answer, so the agent's push never waits without end and holds none of the gate's slots for
-long - unless the forge, asked after, holds the push, which it may have set before it stalled. A wait for another push
+long - unless the forge, asked after for at most 30 seconds more, holds the push, which it may have set before it
+stalled. A wait for another push
 of the same task counts toward that limit, and a push that failed puts the gate's ref back only while it still holds
 what that push wrote. The gate
 refuses a push to any other branch, a tag, a deletion and any other repository; a push with force

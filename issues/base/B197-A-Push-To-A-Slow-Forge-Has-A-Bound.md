@@ -133,6 +133,7 @@ merged, and hands it over as `--pass-on-within <seconds>`, as it does `--branch`
     unbounded lock until the JVM was ended.
   - The runner test also checks that the process is gone after its limit and which limit ended it.
     `UnattendedGitTest` holds that a push keeps its limit, and `GateServeHostPushTest` holds the bounds of
-    `--pass-on-within`.
+    `--pass-on-within`, and `HostPushTest` holds that a push after a wait for the lock has only what is left of the
+    limit. `doc/running.md` and `doc/security.md` say that asking after a stalled push adds up to 30 s.
 - **Locally on this commit.** `-pl apps/app -am install` (tests included), the whole reactor's `install -DskipTests`,
   the root's `validate` and `-Pdocuments test` are green.
