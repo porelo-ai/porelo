@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B753",
   "title": "The Task Profile Connects Only To Porelo",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 52,
