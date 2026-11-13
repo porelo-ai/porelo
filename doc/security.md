@@ -328,21 +328,22 @@ of all tasks at once - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `po
 A task reaches the vault proxy, the ssh agent, its mailbox and the daemon through unix sockets in the account's
 runtime directory. The first lock, on every machine, is that directory: owner-only, so only the account itself can
 put a socket there. A process of the same account could still bind one in the place of Porelo's and collect what a
-task sends. The second lock, against that, holds on some machines only:
+task sends. A second lock against that holds on SELinux machines only:
 
-- **AppArmor machines whose kernel mediates unix sockets:** a task runs in the profile `porelo-task`, which may
-  connect only to a socket whose peer wears the label `porelo`, which Porelo's own binaries wear. A socket bound by any
-  other process is refused at the task's `connect`. The relay that gives an agent a URL connects from inside the same
-  profile. `porelo doctor` says `apparmor profile installed` where this holds.
 - **SELinux machines:** the policy module lets a task connect only to a socket labelled `porelo_socket_t`. The module
   still lets any process of the operator's set that label, so on SELinux this lock is not yet the binary-only one it
   is meant to become.
-- **Nowhere else**, including an AppArmor machine whose kernel does not mediate unix sockets (`doctor` says the lock is
-  absent there) or one without the profiles loaded.
+- **AppArmor machines:** no second lock holds. A task runs in the profile `porelo-task` and cannot leave it: `exec
+  porelo` and `changeprofile porelo` are refused inside it (measured on Ubuntu 26.04). Its rule that a `connect` reach
+  only a peer in `porelo` does not hold for Porelo's sockets, though. They are files in a directory, and AppArmor
+  judges a connect to such a socket by its file rules, not by the peer rule: "Unix domain sockets with file system
+  paths are mediated via file access rules" (`apparmor.d(5)`). Measured on Ubuntu 26.04, a task in `porelo-task`
+  connected to a socket an unconfined process bound. `porelo doctor`'s `apparmor profile installed` says the profiles
+  are loaded and Porelo runs in `porelo`, not that this lock holds.
+- **Everywhere else**, likewise none.
 
-**The bound:** any process of the account can enter the profile `porelo` by name, as one can label a socket on SELinux.
-The lock stops a process that is not Porelo, not one that claims to be it. A client on the host that is not Porelo's
-code is not held either: the lock is on the task's side
+**The bound:** where no second lock holds, the `0700` directory is the only one, and any process of the account can
+stand in for Porelo's sockets, as before
 ([decision](decisions.md#under-apparmor-a-task-is-held-to-porelos-sockets-on-the-connecting-side)).
 
 ## What is accepted rather than solved

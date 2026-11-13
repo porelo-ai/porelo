@@ -155,16 +155,16 @@ dnsmasq with nftset support (2.87 or later).
 
 `selinux policy` reads `not needed - this machine does not run SELinux`. Instead, the package loads two AppArmor
 profiles from `/etc/apparmor.d`: `porelo`, which Porelo's own binaries wear, and `porelo-task`, which a task runs in
-and which lets it connect only to a socket one of Porelo's binaries bound. `doctor` says whether that holds:
+and cannot leave. They do not yet keep a task from a socket another process of your account bound in the place of
+Porelo's ([security](security.md#who-may-stand-in-for-porelos-sockets)). `doctor` says whether they are in place:
 
 ```
 apparmor profile    installed
 ```
 
 Where it reads `porelo-task is not loaded`, the package could not load the profiles, for instance because
-`apparmor_parser` was missing; the line names the command that loads them. A task runs as before until then, without
-that lock. `absent on this kernel` means the kernel does not mediate unix sockets, so no profile can hold a task to
-Porelo's sockets there; there is nothing to load. Installed into your account rather than from the package, load them
+`apparmor_parser` was missing; the line names the command that loads them. A task runs as before until then, outside
+`porelo-task`. `absent on this kernel` means the kernel does not mediate unix sockets; there is nothing to load. Installed into your account rather than from the package, load them
 with `sudo apparmor/install-apparmor-profile.sh` from Porelo's source tree.
 
 ### Fedora and RHEL

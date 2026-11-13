@@ -142,6 +142,14 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
   of unwrapped processes in the container; `exec porelo` refused inside a task; doctor's answers; `apt install`,
   `remove` and `purge` on Ubuntu 26.04; the package check against the built packages; whether Debian 13's kernel has
   `features/network/af_unix`. The acceptance scenario of step 2 is still to be written.
+- Measured on walk4 (Ubuntu 26.04, kernel 7.0.0-38, the package installed machine-wide), the lock does not hold:
+  `doctor` says `installed` and `porelod` runs in `porelo`, and inside a task `exec porelo` and `changeprofile porelo`
+  are refused, but a process in `porelo-task` connected both to a socket an unconfined process bound and to one a
+  process in `porelo` bound, and so did the relay's thread; the kernel recorded no `connect` denial. `apparmor.d(5)`
+  says why: "Unix domain sockets with file system paths are mediated via file access rules." Porelo's sockets are
+  files, `porelo-task` grants every file, and the peer rule never sees the connect. An unprivileged `exec porelo`
+  from plain `unconfined` lands in the stack `porelo//&unconfined` (`apparmor_restrict_unprivileged_unconfined`).
+  `doc/security.md` and `doc/decisions.md` now say that on AppArmor the `0700` directory is the bound.
 
 ## Acceptance
 

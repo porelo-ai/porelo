@@ -46,7 +46,7 @@ would change the answer.
 | The event log is anchored in the user's journal and outlives a clearing | each line's hash in the user's journal, sent off the machine only by a setting; `porelo clear` keeps it | [entry](#the-event-log-is-anchored-in-the-users-journal-and-outlives-a-clearing) |
 | The daemon listens on no network port; another computer reaches it through ssh | `ssh -L` onto its socket or `ssh HOST porelo daemon connect`; a forward that breaks is repaired, not routed around | [entry](#the-daemon-listens-on-no-network-port-another-computer-reaches-it-through-ssh) |
 | An upgrade reloads a loaded SELinux module, and doctor names an older one | the rpm reloads `porelo_socket` where it is loaded; `doctor` asks the kernel what the loaded one grants | [entry](#an-upgrade-reloads-a-loaded-selinux-module-and-doctor-names-an-older-one) |
-| Under AppArmor a task is held to Porelo's sockets on the connecting side | accepted: the task's profile `porelo-task` connects only to a peer in `porelo`; an unconfined process may still bind, and a host-side client that is not Porelo is not held | [entry](#under-apparmor-a-task-is-held-to-porelos-sockets-on-the-connecting-side) |
+| Under AppArmor a task is held to Porelo's sockets on the connecting side | accepted, does not hold: a task cannot leave `porelo-task`, but a connect to a path socket is judged by file rules, not the peer rule; the `0700` directory is the bound | [entry](#under-apparmor-a-task-is-held-to-porelos-sockets-on-the-connecting-side) |
 | Porelo's binaries enter their AppArmor profile themselves | `porelo` and `porelod` outside `/usr` re-execute into `porelo` at start; the profile names no build path; any process of the account could enter it too | [entry](#porelos-binaries-enter-their-apparmor-profile-themselves) |
 | The daemon serves on platform threads, and a hang is read from its thread dump | connections and long-lived passes on platform threads; `SIGQUIT` dumps them to the journal; virtual threads kept for measuring | [entry](#the-daemon-serves-on-platform-threads-and-a-hang-is-read-from-its-thread-dump) |
 | A daemon at rest runs a loop only for what can be waited on | no loop for an exited task or one without an account; under 5 % of one core with exited tasks; about 1 % per project with a transport is left | [entry](#a-daemon-at-rest-runs-a-loop-only-for-what-can-be-waited-on) |
@@ -1570,11 +1570,14 @@ Porelo's binaries wear the label `porelo`, and a task runs in the profile `porel
 socket whose peer is not `porelo` or `porelo-task`. A stand-in bound by any other process is refused at the task's
 `connect`. The relay that gives an agent a URL connects on its behalf, so it makes every connection from a thread that
 entered `porelo-task` first, and the kernel holds it to the same rule; reading the peer's pid instead is not possible
-from Java without the channel's file descriptor. **The exposure:** a host-side client that is not Porelo's code is not
-held, and the lock holds only where the kernel mediates unix sockets; elsewhere `porelo doctor` says it is absent.
-**Why it stays:** the property that matters, that a task's credential requests reach Porelo and nothing else, holds
-for every task, which is what the SELinux label buys too. **What would change the answer:** an AppArmor that can
-restrict the bind of an unconfined process.
+from Java without the channel's file descriptor. **Measured, it does not hold:** on Ubuntu 26.04 a task in
+`porelo-task` cannot leave it (`exec porelo` and `changeprofile porelo` are refused), but it connected to a socket an
+unconfined process bound. Porelo's sockets are files in a directory, and "Unix domain sockets with file system paths
+are mediated via file access rules" (`apparmor.d(5)`): the peer rule never sees such a connect. **The exposure:** on
+AppArmor the `0700` directory is the only lock, and any process of the account can stand in for Porelo's sockets, as
+before. **Why it stays:** the profiles cost nothing, keep a task in `porelo-task`, and are what a lock on sockets
+without a path would build on. **What would change the answer:** a peer rule that holds for Porelo's sockets, such as
+sockets with no file path, which AppArmor's unix rules do mediate.
 
 ## Porelo's binaries enter their AppArmor profile themselves
 
