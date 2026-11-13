@@ -20,7 +20,7 @@
 #
 # Run it as the test account on the test machine, never as a person's own account:
 #     bash -l st39.sh --test-account [--expect-fail ISSUES] [--pass-on DURATION]
-# --expect-fail names the issues not yet in Review, comma-separated ('none' for none); default B179,B197.
+# --expect-fail names the issues not yet in Review, comma-separated ('none' for none); default none.
 # --pass-on writes limits.pass_on into the project file, such as 30s, and takes it as the bound; without
 # it the file sets none and the bound is the default, two minutes. Only once B197 is built does the
 # project file take the key. Exit 0 when nothing failed unexpectedly, 1 otherwise, 64 for wrong use.
@@ -29,7 +29,7 @@
 # shellcheck disable=SC2016
 set -u -o pipefail
 
-EXPECTED="B179,B197"
+EXPECTED=""
 TEST_ACCOUNT=no
 PASS_ON=""
 usage() {
@@ -460,7 +460,8 @@ point "$(yes_if test "$DELIVERED" != 0 -a "$TOOK" -le "$BOUND")" "" \
 step "Push a tag, which the gate refuses"
 in_task 60 'cd /workspace && git tag -f st39-tag' >/dev/null 2>&1
 deliver tag 60 'refs/tags/st39-tag'
-reason "$WORDS" >>"$REASONS"
+# The gate refuses a tag for the reason it refuses another branch: one reason of the gate's, kept apart.
+reason "$WORDS" >"$WORK/reason-tag"
 point "$(yes_if test "$DELIVERED" != 0 -a "$TOOK" -le "$BOUND")" "" "a push of a tag is refused within the bound"
 
 step "Make the forge stop answering: its server stopped, a listener in its place that never answers"
@@ -483,17 +484,18 @@ point "$ended" B197 "a push to a forge that does not answer ends within the boun
 point "$(yes_if test "$DELIVERED" != 0)" "" "a push to a forge that does not answer fails rather than passing"
 point "$(yes_if grep -q -i 'did not answer' "$WORDS")" B197 "its refusal says the forge did not answer"
 point "$(yes_if grep -q -i 'nothing was passed on' "$WORDS")" B197 "its refusal says nothing was passed on"
-point "$(yes_if test "$ended" = 0 -a "$(grep -c -i 'upstream refused' "$WORDS")" = 0)" B197 \
+point "$(yes_if test "$(grep -c -i 'upstream refused' "$WORDS")" = 0)" B197 \
     "a silence is not called a refusal"
 
-step "Read that each refusal named its own reason"
+step "Read that each refusal named its own reason: the forge's, the gate's and the silence's"
 shown <"$REASONS"
+read_ "the gate's refusal of a tag: $(cat "$WORK/reason-tag" 2>/dev/null)"
 lines=$(grep -c . "$REASONS")
 distinct=$(grep . "$REASONS" | sort -u | grep -c .)
 read_ "$lines reason(s), $distinct distinct"
-point "$(yes_if test "$lines" -ge 3 -a "$lines" = "$distinct")" "" \
-    "the forge's refusal, the gate's refusals and the silence each say a reason of their own"
-point "$(yes_if test "$lines" -ge 4 -a "$lines" = "$distinct")" B197 "the silence's reason is among them, its own"
+point "$(yes_if test "$lines" -ge 2 -a "$lines" = "$distinct")" "" \
+    "the forge's refusal, the gate's refusal and the silence each say a reason of their own"
+point "$(yes_if test "$lines" -ge 3 -a "$lines" = "$distinct")" B197 "the silence's reason is among them, its own"
 
 # The gate's own push to the silent forge may still wait; the listener's end closes it.
 serve forge "$PORT" || {

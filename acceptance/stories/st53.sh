@@ -13,13 +13,13 @@
 # helper writes its pid, so the helper never records it - what the start waits on once B384 is built.
 #
 # Run it as the test account on the test machine, never as a person's own account:
-#     bash -l st53.sh --test-account [--expect-fail B384]
+#     bash -l st53.sh --test-account [--expect-fail ISSUES]
 # --expect-fail names the issues not yet in Review, comma-separated ('none' for none); a point waiting on
-# one of them is listed as an expected failure. Exit 0 when nothing failed unexpectedly, 1 otherwise,
+# one of them is listed as an expected failure; default none. Exit 0 when nothing failed unexpectedly, 1 otherwise,
 # 64 for wrong use.
 set -u -o pipefail
 
-EXPECTED="B384"
+EXPECTED=""
 TEST_ACCOUNT=no
 usage() {
     awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
@@ -169,6 +169,10 @@ make_vault() {
     printf '%s\n' "$passphrase" | porelo vault init --passphrase-stdin 2>&1 | shown
     printf '%s\n' "$passphrase" | porelo vault unlock --passphrase-stdin 2>&1 | shown
     printf '%s' 'sk-porelo-story-not-a-real-key' | porelo vault put anthropic --type api-key 2>&1 | shown
+    # A credential beyond the agent's own, for a declared provider (openrouter): the stub reaches its own over the
+    # vault's socket, and only
+    # another credential, reached over a URL in the task's namespace, gives a start its relay.
+    printf '%s' 'st53-not-a-real-token' | porelo vault put st53 --type api-key 2>&1 | shown
     porelo vault status >/dev/null 2>&1
 }
 
@@ -199,7 +203,7 @@ start() {
     shift 2
     CONTAINERS+=("porelo-${PROJECT}_$task")
     timeout 900 porelo task start "$task" --project "$PROJECT" --repository "$PROJECT" --agent stub \
-        --detach --clearance deny "$@" >"$out" 2>&1
+        --detach --clearance deny --credential st53=openrouter "$@" >"$out" 2>&1
 }
 
 container_of() { sed -n 's/^container[[:space:]]\{1,\}\([^[:space:]]\{1,\}\).*/\1/p' "$1" | head -1; }
@@ -247,6 +251,10 @@ gate=1
 relay=1
 alive "$state/gate.pid" && gate=0
 alive "$state/relay.pid" && relay=0
+for each in gate relay; do
+    read_ "$each.pid holds '$(head -c 80 "$state/$each.pid" 2>/dev/null | tr '\n' ' ')'"
+done
+read_ "the state directory holds: $(ls "$state" 2>/dev/null | tr '\n' ' ')"
 read_ "gate.pid $([ "$gate" = 0 ] && echo 'names a running gate' || echo 'names no running gate')"
 read_ "relay.pid $([ "$relay" = 0 ] && echo 'names a running relay' || echo 'names no running relay')"
 point "$code" "" "a start of a task with a gate and a credential answers 0"
@@ -259,16 +267,33 @@ for helper in gate relay; do
     task="${helper}down"
     step "Start task '$task' whose $helper cannot record that it is up, and read the start's code"
     blocked="$RUNTIME/porelo-${PROJECT}_$task"
-    (umask 077 && mkdir -p "$blocked/$helper.pid")
-    read_ "a directory stands at $blocked/$helper.pid, where the $helper writes its pid"
+    # The start refuses a task whose state directory is there before it ("occupied or unrecognized"), so
+    # the directory is put in place once the start has made the state directory itself, well before its
+    # helpers start after the image and the container.
+    (
+        for _ in $(seq 1800); do
+            if [ -d "$blocked" ]; then
+                mkdir "$blocked/$helper.pid" 2>/dev/null
+                exit 0
+            fi
+            sleep 0.1
+        done
+    ) &
+    blocker=$!
+    read_ "a directory is put at $blocked/$helper.pid, where the $helper writes its pid, once the start makes $blocked"
     start "$task" "$WORK/$task.out"
     code=$?
+    kill "$blocker" 2>/dev/null
+    wait "$blocker" 2>/dev/null
     shown <"$WORK/$task.out" | tail -n 30
     read_ "exit $code"
     container=$(container_of "$WORK/$task.out")
     [ -n "$container" ] || container="porelo-${PROJECT}_$task"
     if [ -d "$RUNTIME/$container/$helper.pid" ]; then
         read_ "the $helper never recorded its pid: the obstruction held"
+    elif [ "$code" != 0 ] && grep -q -i "$helper" "$WORK/$task.out"; then
+        # A helper that fails clears what stands at its pid file; the start's words say which failed.
+        read_ "the $helper's pid file is gone after it failed, and the start names the $helper"
     else
         read_ "the $helper's pid file is not the directory this run put there: the obstruction missed"
         point 1 "" "the $helper was kept from coming up (script: the state directory moved)"

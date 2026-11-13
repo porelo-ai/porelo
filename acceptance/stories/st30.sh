@@ -18,14 +18,14 @@
 #
 # Run it as the test account on the test machine, never as a person's own account:
 #     bash -l st30.sh --test-account [--expect-fail ISSUES]
-# --expect-fail names the issues not yet in Review, comma-separated ('none' for none); default B33,B355.
+# --expect-fail names the issues not yet in Review, comma-separated ('none' for none); default none.
 # Exit 0 when nothing failed unexpectedly, 1 otherwise, 64 for wrong use.
 
 # The scripts sent into the task are single-quoted on purpose: they expand there, not here.
 # shellcheck disable=SC2016
 set -u -o pipefail
 
-EXPECTED="B33,B355"
+EXPECTED=""
 TEST_ACCOUNT=no
 usage() {
     awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
@@ -228,12 +228,13 @@ step "Make a plain checkout '$PLAIN' and start a task in it, naming no project"
 checkout "$PLAIN" yes
 start_in "$WORK/$PLAIN" "$TASK" "$WORK/plain.out"
 code=$?
-shown <"$WORK/plain.out" | tail -n 40
+shown <"$WORK/plain.out" | tail -n 60
 read_ "exit $code"
 CONTAINER=$(container_of "$WORK/plain.out")
 [ -n "$CONTAINER" ] || CONTAINER="porelo-default_$TASK"
 point "$code" "" "a task starts in a checkout with no project named"
-point "$(yes_if grep -q -F "in 'default' as '$PLAIN'" "$WORK/plain.out")" "" \
+# The start says it as "added to 'default' as '<name>'", the line a first start in a checkout prints.
+point "$(yes_if grep -q -F "'default' as '$PLAIN'" "$WORK/plain.out")" "" \
     "the start says the checkout went into 'default', and under which name"
 porelo project default list >"$WORK/default.out" 2>&1
 grep -E "^$PLAIN( |$)" "$WORK/default.out" | shown
@@ -242,11 +243,22 @@ point "$(yes_if grep -q -i "'default' has no room" "$WORK/plain.out")" B594 \
     "the start says once that 'default' has no room, and starts"
 timeout 60 porelo task list >"$WORK/list.out" 2>&1
 row=$(grep -E "^$TASK +default( |$)" "$WORK/list.out" | head -n 1)
-grep -E "^(TASK|task) " "$WORK/list.out" | head -n 1 | shown
+grep -E "^(NAME|TASK|task) " "$WORK/list.out" | head -n 1 | shown
 printf '%s\n' "$row" | shown
 point "$(yes_if test -n "$row")" "" "'task list' shows the task in 'default'"
-point "$(yes_if grep -q -i -E 'unsigned|unverified' <<<"$row")" B355 \
-    "'task list' marks a task that runs unsigned as such"
+# Whether it runs unsigned is the machine's to say: a task of 'default' is signed with a certified key
+# where the account has a signing authority. The mark must say what 'task status --json' answers.
+certified=$(timeout 60 porelo task status "$CONTAINER" --json 2>/dev/null | python3 -I -c 'import json, sys
+try:
+    print(str(json.load(sys.stdin).get("certified")).lower())
+except Exception:
+    print("")')
+read_ "the task's status answers certified: '${certified:-nothing}'"
+case "$certified" in
+true) point "$(yes_if test "$(grep -c -i 'unsigned' <<<"$row")" = 0)" B355 \
+    "'task list' marks a task whose commits a certified key signs as nothing unsigned" ;;
+*) point "$(yes_if grep -q -i 'unsigned' <<<"$row")" B355 "'task list' marks a task that runs unsigned as such" ;;
+esac
 
 step "Ask for the peers of 'default', which talks to nobody"
 timeout 60 porelo talk peers --project default >"$WORK/peers.out" 2>&1
@@ -262,7 +274,9 @@ timeout 60 porelo task start "insecure-$RUN_ID" --insecure --agent stub --no-inp
 code=$?
 shown <"$WORK/insecure.out" | head -n 4
 read_ "exit $code"
-point "$({ test "$code" = 64 && ! made "porelo-default_insecure-$RUN_ID"; } && echo 0 || echo 1)" "" \
+# The words decide, not the code: an unknown option of 'task start' answers picocli's 2, others 64.
+point "$({ test "$code" != 0 && grep -q -F "'--insecure' is not an option" "$WORK/insecure.out" &&
+    ! made "porelo-default_insecure-$RUN_ID"; } && echo 0 || echo 1)" "" \
     "there is no switch that turns every check off: '--insecure' is refused as unknown"
 
 step "Fetch from a forge inside the task, anonymously, as the work itself would"

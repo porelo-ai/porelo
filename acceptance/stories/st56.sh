@@ -18,13 +18,13 @@
 # Run it as the test account on the test machine, never as a person's own account:
 #     bash -l st56.sh --test-account [--expect-fail ISSUES] [--issues DIR]
 # --expect-fail names the issues not yet in Review, comma-separated ('none' for none); default
-# B649,B650,B651,B203,B666,F288. --issues names a directory holding porelo.md, porelo-host.md and
+# none. --issues names a directory holding porelo.md, porelo-host.md and
 # porelo-frontend.md, the three issue indexes; without it they are read from GitHub's main branches.
 # Exit 0 when nothing failed unexpectedly, 1 otherwise, 64 for wrong use.
 
 set -u -o pipefail
 
-EXPECTED="B649,B650,B651,B203,B666,F288"
+EXPECTED=""
 TEST_ACCOUNT=no
 ISSUES=""
 usage() {
@@ -431,7 +431,7 @@ MADE_DIRS+=("$CHECKOUT")
 git init -q -b main "$CHECKOUT" && printf 'x\n' >"$CHECKOUT/README.md" && git -C "$CHECKOUT" add -A &&
     git -C "$CHECKOUT" -c user.name=Story -c user.email=story@example.invalid commit -q -m initial
 read_ "the name '$LONG' has ${#LONG} characters"
-timeout 300 porelo project init "$CHECKOUT" --name "$LONG" >"$WORK/init.out" 2>&1
+timeout 300 porelo project init "$CHECKOUT" --project "$LONG" >"$WORK/init.out" 2>&1
 code=$?
 shown <"$WORK/init.out" | tail -n 8
 read_ "project init: exit $code"

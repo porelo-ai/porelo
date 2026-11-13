@@ -43,7 +43,8 @@ the command line: [B380](README.md#b380)'s, HO86's and F288's points each hold n
    on the same file read beside it.
 3. [B650](README.md#b650): a stopped `--no-gate` task removed without `--force`; the suggestions for the names `123 `,
    `People` and `Porelo-x` (not `123`, `people`, `porelo-x`); an unknown `-r` alone and beside a refused name
-   answering one code; `porelo project init --name` with a 62-character name refused, naming the room.
+   answering one code; `porelo project init --project` with a 62-character name refused, naming the room (`--name` names the
+   repository, not the project).
 4. [B203](README.md#b203): `porelo task files` and `porelo task status` answering by the task's name and by its
    container's name.
 
@@ -51,7 +52,8 @@ the command line: [B380](README.md#b380)'s, HO86's and F288's points each hold n
 show nothing at this command line and are checked as filed. A trap removes the tasks, the project, its image, the
 checkout and the vault.
 
-**Expected failures:** [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203), [B666](README.md#b666) and F288, none in Review; `--expect-fail` changes the list.
+**Expected failures:** none, since [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651),
+[B203](README.md#b203), [B666](README.md#b666) and F288 are in Review; `--expect-fail` changes the list.
 
 **How it is run** (through the coordinator, on the laptop, from this repository's root; the `--issues` directory
 only while the indexes on GitHub are older than the local ones):

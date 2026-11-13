@@ -37,8 +37,9 @@ run, each named `st30-<random>-<what>`:
 
 1. A plain checkout of an origin with one commit; a task started in it with no project named, `--no-input`: it starts,
    says it went into `default` under the checkout's name, `porelo project default` lists it, `task list` shows it in
-   `default`, the start says `default` has no room ([B594](README.md#b594)), and `task list` marks it unsigned
-   ([B355](README.md#b355)).
+   `default`, the start says `default` has no room ([B594](README.md#b594)), and `task list`'s mark says what
+   `task status --json` answers as `certified` ([B355](README.md#b355)): `unsigned` where no certified key signs the
+   task's commits, and no `unsigned` where the account has a signing authority, which signs a task of `default` too.
 2. `porelo talk peers --project default` refused with 78, naming a project repository as the way
    ([B594](README.md#b594)); `--insecure` refused as an unknown option, nothing started.
 3. Inside the task, an anonymous `git ls-remote` of a public forge fails, and not as a 401 or a credential
@@ -61,7 +62,8 @@ did not hold, and exits 1 when anything failed unexpectedly. A trap removes the 
 `default`, the checkouts and the vault. PJ14 and the interface's issues are not played here. No issue here names the
 words of step 5's refusals; a point of step 5 that does not hold is a finding to file.
 
-**Expected failures:** [B33](README.md#b33) and [B355](README.md#b355), in Backlog; `--expect-fail` changes the list.
+**Expected failures:** none, since [B33](README.md#b33) and [B355](README.md#b355) are in Review; `--expect-fail`
+changes the list.
 
 **How it is run** (through the coordinator, on the laptop, from this repository's root):
 
