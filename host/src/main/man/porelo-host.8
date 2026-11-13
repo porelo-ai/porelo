@@ -108,10 +108,25 @@ isolated systemd unit. Record the certificate privately before making the gate
  token; answer the token alone without a line end, or nothing on a forge-less host.
 An identical certificate is a retry and rotates its token. Another certificate
 for that task, or the same task key recorded elsewhere, is refused.
+An empty standard input asks for an uncertified start. It is accepted only while
+root's test switch start\-uncertified holds (see test\-switches), and refused with
+status 65 otherwise, whatever the caller sent. While it holds, a caller in
+porelo\-people, taken from SUDO_USER and SUDO_UID, is accepted for the project
+default whatever the organization says. The record names no certificate, key or
+principal; it says uncertified, and its validity is seven days, as a certificate's.
 .TP
 .B task end <task>
 Through sudo only: delete that task's gate token alone, retain its certificate,
 and print {"task":"<task>","ended":true}. An unrecorded task is refused.
+A task started uncertified is ended by its person whatever the organization says.
+.TP
+.B test\-switches \-\-json
+Root, or the role's sudo rule: answer {"switches":[...]} with the test switches
+that hold, [] when none. Root's role writes /etc/porelo\-host/test\-mode.json at up
+and removes it at down. Only start\-uncertified is known; another name is ignored.
+A file that is missing, a link, not root's, not mode 0600, below a directory that
+is not root's or that group or others can write, unreadable, not JSON or of another
+v holds no switch, never all. No flag of a caller's sets or widens a switch.
 .TP
 .B forge issue\-token
 Through sudo only: replace the person's forge tokens except lends younger than
@@ -296,8 +311,11 @@ configuration lock or receipt publication failure. Shared boundary codes still a
 .TP
 .B task start
 0 task recorded and token answered, if enabled; 64 bad arguments, input form or no SUDO_USER;
-65 caller, certificate or task conflict; 69 not root, file, dependency or forge failure;
+65 caller, certificate or task conflict, or an empty input without start\-uncertified; 69 not root, file, dependency or forge failure;
 73 unsafe task path, recording, lock or file failure.
+.TP
+.B test\-switches
+0 switches answered, none included; 64 bad arguments or no \-\-json.
 .TP
 .B task end
 0 token ended; 64 bad arguments, task name or no SUDO_USER; 65 caller, records or unknown task;
@@ -387,6 +405,11 @@ remaining domain/volume, file or dependency failure; 65 sudo invocation.
 0 withdrawn, absent or forge gone; 64 bad arguments; 65 data, wrong lock or forge refusal;
 69 not root or dependency/read/lock failure; 73 output write failure.
 .SH FILES
+.TP
+.I /etc/porelo\-host/test\-mode.json
+Root's test switches, written by the role at up and removed at down:
+{"v": 1, "switches": ["start\-uncertified"], "why": "<text>"}, a regular file of
+root's, mode 0600, in root's directories that neither group nor others can write.
 .TP
 .I /var/lib/porelo-host/arrivals/<project>/<repository>.jsonl
 Root's private append/fsync ledger of pre-receive judgements, mode 0600.

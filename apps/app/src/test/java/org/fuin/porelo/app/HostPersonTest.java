@@ -190,6 +190,66 @@ class HostPersonTest {
                         refusal -> assertThat(refusal.code()).isEqualTo(code));
     }
 
+    @Test
+    void theSwitchesAreWhatTheHostNamesAndNoneWhereItCannotSay() throws Exception {
+        final Path helper = Files.writeString(dir.resolve("helper"), "#!/bin/sh\n");
+        final HostPerson host = new HostPerson(context(), helper, dir.resolve("absent-host"));
+
+        runner.answering("test-switches --json", "{\"switches\":[\"start-uncertified\"]}\n");
+        assertThat(host.switches()).containsExactly(HostPerson.START_UNCERTIFIED);
+        assertThat(runner.invocations().getLast().arguments())
+                .containsExactly(
+                        HostForgeLending.SUDO.toString(),
+                        "-n",
+                        helper.toString(),
+                        "test-switches",
+                        "--json");
+        for (String answer :
+                java.util.List.of(
+                        "{\"switches\":[]}",
+                        "",
+                        "{\"switches\":\"start-uncertified\"}",
+                        "{\"switches\":[\"start-uncertified\",1]}",
+                        "[\"start-uncertified\"]",
+                        "{\"switches\":")) {
+            runner.answering("test-switches --json", answer);
+            assertThat(host.switches()).as(answer).isEmpty();
+        }
+        runner.failing("test-switches --json", 64, "Unmatched argument\n");
+        assertThat(host.switches()).as("a helper that does not know the verb").isEmpty();
+        runner.timingOut("test-switches --json");
+        assertThat(host.switches()).as("a helper that cannot be run").isEmpty();
+        assertThat(
+                        new HostPerson(context(), dir.resolve("absent"), dir.resolve("absent-host"))
+                                .switches())
+                .as("no helper")
+                .isEmpty();
+    }
+
+    @Test
+    void anUncertifiedStartGivesTheHostAnEmptyInput() throws Exception {
+        final Path helper = Files.writeString(dir.resolve("helper"), "#!/bin/sh\n");
+        runner.answering("task start fix", "forge-token-value\n");
+        final HostPerson host = new HostPerson(context(), helper, dir.resolve("absent-host"));
+
+        assertThat(host.startUncertified("fix")).isEqualTo("forge-token-value");
+        final var call = runner.invocations().getLast();
+        assertThat(call.arguments())
+                .containsExactly(
+                        HostForgeLending.SUDO.toString(),
+                        "-n",
+                        helper.toString(),
+                        "task",
+                        "start",
+                        "fix");
+        assertThat(call.input()).isEmpty();
+
+        runner.failing("task start other", 65, "this host is not in test mode\n");
+        assertThatThrownBy(() -> host.startUncertified("other"))
+                .isInstanceOf(HostPerson.Refused.class)
+                .satisfies(ex -> assertThat(((HostPerson.Refused) ex).code()).isEqualTo(65));
+    }
+
     private PoreloContext context() {
         return new PoreloContext(
                 runner,

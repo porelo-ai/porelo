@@ -311,6 +311,7 @@ public final class PoreloHost implements Callable<Integer> {
                         .addSubcommand("restore-runtime", new PersonRestoreRuntime(host)));
         command.addSubcommand("pool", HostPoolCommands.commandLine(host.environment));
         command.addSubcommand("judge-push", new JudgePush(host));
+        command.addSubcommand("test-switches", new TestSwitches(host));
         command.setExpandAtFiles(false);
         command.setExecutionExceptionHandler(
                 (exception, line, parse) -> {
@@ -478,6 +479,38 @@ public final class PoreloHost implements Callable<Integer> {
                             host.runtime,
                             host.clock,
                             host.spec.commandLine().getErr()));
+            return 0;
+        }
+    }
+
+    @Command(
+            name = "test-switches",
+            mixinStandardHelpOptions = true,
+            exitCodeOnInvalidInput = 64,
+            description = "Answer the test switches root's role holds on this host, as JSON.")
+    static final class TestSwitches implements Callable<Integer> {
+        private final PoreloHost host;
+
+        @CommandLine.Option(
+                names = "--json",
+                required = true,
+                description = "Answer {\"switches\": [...]}, the switches that hold.")
+        private boolean json;
+
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        TestSwitches(PoreloHost host) {
+            this.host = host;
+        }
+
+        @Override
+        public Integer call() {
+            spec.commandLine()
+                    .getOut()
+                    .println(
+                            HostJson.write(
+                                    HostJson.fields(
+                                            "switches", HostTestMode.switches(host.files))));
             return 0;
         }
     }

@@ -2171,6 +2171,61 @@ public final class TaskLaunch {
         return this;
     }
 
+    /**
+     * Who answers whether a task starts without a certificate on a host in test mode; {@code null}
+     * for a start nobody asked for at the command line, as through the daemon, which refuses.
+     */
+    private Offer.@Nullable Asker uncertifiedAsker;
+
+    /** Whether {@code --yes} answered that question. */
+    private boolean uncertifiedYes;
+
+    /** Whether this start goes on without a certificate, once the host and the person said. */
+    private @Nullable Boolean uncertified;
+
+    /**
+     * Lets a start on a host whose root switched on {@code start-uncertified} go on without a
+     * certificate, after a warning and a yes. The host alone decides whether it may: no answer here
+     * starts a task uncertified on a host that is not in test mode.
+     *
+     * @param yes Whether {@code --yes} answers the question.
+     * @param asker Who is asked; {@link Offer.Asker#NOBODY} without a terminal or with {@code
+     *     --no-input}, which refuses unless {@code yes}.
+     * @return This launch.
+     */
+    public TaskLaunch startingUncertified(final boolean yes, final Offer.Asker asker) {
+        this.uncertifiedYes = yes;
+        this.uncertifiedAsker = asker;
+        return this;
+    }
+
+    /**
+     * Whether this start goes on without a certificate: the host holds {@code start-uncertified},
+     * the warning was said, and the person or {@code --yes} said yes. Asked once per start.
+     */
+    private boolean startsUncertified(final PrintWriter err) {
+        if (uncertified == null) {
+            final Offer.Asker asker = uncertifiedAsker;
+            boolean going = false;
+            if (asker != null && host.switches().contains(HostPerson.START_UNCERTIFIED)) {
+                err.println(
+                        "porelo: this host is in test mode, so the task starts WITHOUT a"
+                                + " certificate: what it passes on is vouched for by nobody");
+                err.flush();
+                if (uncertifiedYes) {
+                    going = true;
+                } else {
+                    final String answer = asker.ask("Start the task without the check? y/N");
+                    final String given =
+                            answer == null ? "" : answer.strip().toLowerCase(java.util.Locale.ROOT);
+                    going = given.equals("y") || given.equals("yes");
+                }
+            }
+            uncertified = going;
+        }
+        return uncertified;
+    }
+
     /** The tasks whose landed work this task was started to read; none for every other task. */
     private java.util.List<String> reads = java.util.List.of();
 
@@ -3386,10 +3441,11 @@ public final class TaskLaunch {
                 final java.util.List<String> certifiers =
                         TaskCertifying.certifiers(context, project);
                 if (!TaskCertifying.canCertify(
-                        project.name(),
-                        certifiers,
-                        remoteCertifier(project.name(), true, certifiers),
-                        starterAgent)) {
+                                project.name(),
+                                certifiers,
+                                remoteCertifier(project.name(), true, certifiers),
+                                starterAgent)
+                        && !startsUncertified(err)) {
                     throw new TaskCertification.Refused(
                             TaskCertifying.noCertificate(
                                     project.name(),
@@ -3740,10 +3796,11 @@ public final class TaskLaunch {
                                     starterAgent,
                                     java.time.Clock.systemUTC());
             // A host records each task's certificate and makes its forge token: it starts none
-            // without one, since what it passes on is then vouched for by nobody.
+            // without one, since what it passes on is then vouched for by nobody - unless its root
+            // switched on test mode, and the person said yes to that after the warning.
             // Refused where every refusal is, so what was started for it, its vault's broker
             // first, is cleaned up with it.
-            if (workspace != null && issued == null && host.present()) {
+            if (workspace != null && issued == null && host.present() && !startsUncertified(err)) {
                 throw new TaskCertification.Refused(
                         TaskCertifying.noCertificate(
                                 project.name(),
@@ -3949,6 +4006,17 @@ public final class TaskLaunch {
                                     issued.certificate());
                 } catch (java.io.IOException ex) {
                     out.println("trace     the certificate is not kept: " + ex.getMessage());
+                }
+            } else if (workspace != null && host.present() && startsUncertified(err)) {
+                // The host's test mode, said and agreed to above: an empty input asks for it, and
+                // the host refuses it unless its root's switch holds.
+                final String forgeToken = host.startUncertified(request.task());
+                if (!forgeToken.isEmpty()) {
+                    final String unkeptToken =
+                            new TaskSecrets(context).keepForgeToken(container, forgeToken);
+                    if (!unkeptToken.isEmpty()) {
+                        out.println("forge     " + unkeptToken);
+                    }
                 }
             }
             discarding = false;

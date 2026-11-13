@@ -24,6 +24,10 @@ final class HostTasks {
     private static final DateTimeFormatter TIME =
             DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")
                     .withResolverStyle(ResolverStyle.STRICT);
+
+    /** As long as a task's certificate holds. */
+    private static final java.time.Duration UNCERTIFIED_VALIDITY = java.time.Duration.ofDays(7);
+
     private final HostFiles files;
     private final ProjectRuntime runtime;
     private final Clock clock;
@@ -47,9 +51,12 @@ final class HostTasks {
     }
 
     String start(HostPerson person, String task, InputStream input) throws IOException {
+        final byte[] supplied = input.readNBytes(HostCertificate.MAXIMUM + 1);
+        if (supplied.length == 0) {
+            return startUncertified(person, task);
+        }
         final HostRecords records = new HostRecords(files);
         final HostRecords.Person admitted = records.admitted(person.login());
-        final byte[] supplied = input.readNBytes(HostCertificate.MAXIMUM + 1);
         final String line;
         try {
             line = HostCertificate.line(supplied);
@@ -80,16 +87,57 @@ final class HostTasks {
                                 + " is recorded for another task");
             }
         }
-        final var config = runtime.configuration(person.login());
+        return recordAndToken(person.login(), task, entry);
+    }
+
+    /**
+     * Starts a task without a certificate, asked for by an empty input: only while root's role
+     * holds the switch {@code start-uncertified}, for a person in {@code porelo-people}, in the
+     * project {@code default} whatever the organization says. No flag of the caller's reaches this.
+     */
+    private String startUncertified(HostPerson person, String task) throws IOException {
+        if (!HostTestMode.holds(files, HostTestMode.START_UNCERTIFIED)) {
+            throw new HostRefusal(
+                    65,
+                    "a task starts without a certificate only on a host in test mode, and this"
+                            + " host is not");
+        }
+        if (runtime.gateLogin(person.login()) == null) {
+            throw new HostRefusal(
+                    65, person.login() + " is no person of porelo-people on this host");
+        }
+        final Instant now = clock.instant();
+        // Bounded as a certificate is, so the sweep ends its token as it ends a certified task's.
+        return recordAndToken(
+                person.login(),
+                task,
+                fields(
+                        "task",
+                        task,
+                        "login",
+                        person.login(),
+                        "uncertified",
+                        true,
+                        "project",
+                        "default",
+                        "valid_after",
+                        now.toString(),
+                        "valid_before",
+                        now.plus(UNCERTIFIED_VALIDITY).toString()));
+    }
+
+    private String recordAndToken(String login, String task, Map<String, @Nullable Object> entry)
+            throws IOException {
+        final var config = runtime.configuration(login);
         if (config != null) {
             runtime.personEndpoint(config);
         }
-        publish(person.login(), task, entry);
+        publish(login, task, entry);
         if (config == null) {
             return "";
         }
-        try (var session = runtime.session(person.login())) {
-            final String identity = "porelo-" + person.login();
+        try (var session = runtime.session(login)) {
+            final String identity = "porelo-" + login;
             final String name = "porelo-task-" + task;
             session.drop(identity, java.util.Set.of(name));
             return session.token(identity, "write:repository,read:package", name);
@@ -97,7 +145,13 @@ final class HostTasks {
     }
 
     Map<String, @Nullable Object> end(HostPerson person, String task) {
-        new HostRecords(files).admitted(person.login());
+        try {
+            new HostRecords(files).admitted(person.login());
+        } catch (HostRefusal ex) {
+            // A task started uncertified was started whatever the organization says: its person
+            // ends it, and so its token, as anyone ends their own.
+            if (!uncertified(person.login(), task)) throw ex;
+        }
         final Path root = files.path("/var/lib/porelo-host/tasks");
         files.check(root, 73, false, true, 0700);
         files.check(root.resolve(person.login()), 73, false, true, 0700);
@@ -112,6 +166,16 @@ final class HostTasks {
             }
         }
         return fields("task", task, "ended", true);
+    }
+
+    private boolean uncertified(String login, String task) {
+        final Path path = files.path("/var/lib/porelo-host/tasks/" + login + "/" + task + ".json");
+        try {
+            return files.check(path, 73, false, false, 0600)
+                    && Boolean.TRUE.equals(taskRecord(path, login, task).get("uncertified"));
+        } catch (HostRefusal ex) {
+            return false;
+        }
     }
 
     private void publish(String login, String task, Map<String, @Nullable Object> entry)
@@ -250,10 +314,18 @@ final class HostTasks {
         final String text = files.read(path);
         try {
             final Map<String, @Nullable Object> entry = object(parse(text));
+            // An uncertified task's record holds no certificate, key or principal at all.
+            final boolean wellFormed =
+                    Boolean.TRUE.equals(entry.get("uncertified"))
+                            ? "default".equals(entry.get("project"))
+                                    && !entry.containsKey("certificate")
+                                    && !entry.containsKey("fingerprint")
+                                    && !entry.containsKey("principals")
+                            : entry.get("certificate") instanceof String
+                                    && entry.get("fingerprint") instanceof String;
             if (!task.equals(entry.get("task"))
                     || !login.equals(entry.get("login"))
-                    || !(entry.get("certificate") instanceof String)
-                    || !(entry.get("fingerprint") instanceof String)) {
+                    || !wellFormed) {
                 throw new IllegalArgumentException("Invalid task fields");
             }
             final String time = string(entry.get("valid_before"));

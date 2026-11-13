@@ -62,6 +62,156 @@ class TaskRunCommandTest {
                 .noneMatch(line -> line.contains("podman create"));
     }
 
+    /** Plants a host helper in the context; the fake runner answers what it is asked. */
+    private PoreloContext hostInTestMode(Path dir, String switches) throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path program = context.paths().hostProgram();
+        Files.createDirectories(program.getParent());
+        Files.writeString(program, "#!/bin/sh\nexit 0\n");
+        Files.setPosixFilePermissions(
+                program, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("test-switches --json", switches);
+        return context;
+    }
+
+    private static final String TEST_MODE = "{\"switches\":[\"start-uncertified\"]}\n";
+
+    private static final String WARNING =
+            "this host is in test mode, so the task starts WITHOUT a certificate";
+
+    @Test
+    void aHostInTestModeStartsAnUncertifiedTaskWithYesAndNoInput(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = hostInTestMode(dir, TEST_MODE);
+
+        final int code =
+                startAt(
+                        context,
+                        false,
+                        "--attach",
+                        "shell",
+                        "--no-input",
+                        "--yes",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("--yes answers the question: %s", err).isZero();
+        assertThat(err.toString())
+                .as("the warning is said on standard error")
+                .contains(WARNING)
+                .contains("what it passes on is vouched for by nobody");
+        assertThat(runner.only(" task start shell").input())
+                .as("the host is asked for an uncertified start by an empty input")
+                .isEmpty();
+        assertThat(runner.lines())
+                .as("the switches are asked of the host before")
+                .anyMatch(line -> line.endsWith("porelo-host test-switches --json"))
+                .anyMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aHostInTestModeRefusesAnUncertifiedStartWithoutTerminalOrYes(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = hostInTestMode(dir, TEST_MODE);
+
+        final int code =
+                startAt(context, false, "--attach", "shell", "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as("nobody answered: %s", err).isEqualTo(65);
+        assertThat(err.toString())
+                .contains(WARNING)
+                .contains("this host starts a task only with a key of its own that you certify");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains(" task start shell"))
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aHostInTestModeRefusesAnUncertifiedStartAnsweredNo(@TempDir Path dir) throws IOException {
+        final PoreloContext context = hostInTestMode(dir, TEST_MODE);
+        final List<String> asked = new ArrayList<>();
+        uncertifiedAnswer =
+                question -> {
+                    asked.add(question);
+                    return "n";
+                };
+
+        final int code =
+                startAt(context, true, "--attach", "shell", "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as("answered no: %s", err).isEqualTo(65);
+        assertThat(asked).containsExactly("Start the task without the check? y/N");
+        assertThat(err.toString()).contains(WARNING);
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains(" task start shell"))
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aHostInTestModeStartsAnUncertifiedTaskAnsweredYesAtATerminal(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = hostInTestMode(dir, TEST_MODE);
+        uncertifiedAnswer = question -> "y";
+
+        final int code =
+                startAt(context, true, "--attach", "shell", "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as("answered yes: %s", err).isZero();
+        assertThat(runner.only(" task start shell").input()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "{\"switches\":[]}\n",
+                "{\"switches\":[\"start-uncertified-later\"]}\n",
+                "",
+                "start-uncertified\n"
+            })
+    void aHostNotInTestModeRefusesAsTodayWhateverTheFlags(String switches, @TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = hostInTestMode(dir, switches);
+
+        final int code =
+                startAt(
+                        context,
+                        false,
+                        "--attach",
+                        "shell",
+                        "--no-input",
+                        "--yes",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("no switch, no uncertified start: %s", err).isEqualTo(65);
+        assertThat(err.toString())
+                .doesNotContain(WARNING)
+                .contains("this host starts a task only with a key of its own that you certify");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains(" task start shell"))
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aHostThatDoesNotKnowTheQuestionHasNoSwitches(@TempDir Path dir) throws IOException {
+        final PoreloContext context = hostInTestMode(dir, "");
+        runner.failing("test-switches --json", 64, "Unmatched argument at index 0\n");
+
+        final int code =
+                startAt(
+                        context,
+                        false,
+                        "--attach",
+                        "shell",
+                        "--no-input",
+                        "--yes",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("%s", err).isEqualTo(65);
+        assertThat(err.toString()).doesNotContain(WARNING);
+    }
+
     @Test
     void aTaskStartsWhenItsContextHasNoHostHelperOrDirectory(@TempDir Path dir) throws IOException {
         final PoreloContext context = context(dir, true);
@@ -1524,19 +1674,19 @@ class TaskRunCommandTest {
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
-        ((TaskRunCommand)
-                                cmd.getSubcommands()
-                                        .get("task")
-                                        .getSubcommands()
-                                        .get("start")
-                                        .getCommand())
-                        .terminal =
-                () -> terminal;
+        final TaskRunCommand start =
+                (TaskRunCommand)
+                        cmd.getSubcommands().get("task").getSubcommands().get("start").getCommand();
+        start.terminal = () -> terminal;
+        start.uncertifiedAsker = uncertifiedAnswer;
         final List<String> all =
                 new ArrayList<>(List.of("task", "start", "shell", "--repository", "uc"));
         all.addAll(List.of(args));
         return cmd.execute(all.toArray(new String[0]));
     }
+
+    /** What the person answers about a start without a certificate on a host in test mode. */
+    private Offer.Asker uncertifiedAnswer = Offer.Asker.NOBODY;
 
     private boolean firstStartDetected;
 

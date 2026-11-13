@@ -45,6 +45,10 @@ final class HostTaskFixture {
     final List<Duration> deadlines = new ArrayList<>();
     final List<Map<String, String>> environments = new ArrayList<>();
     final Map<String, String> accounts = new HashMap<>();
+
+    /** What getent answers for "<database> <key>", where a test says; else the stand-in line. */
+    final Map<String, String> getent = new HashMap<>();
+
     int judgementCode;
     String failIdentity = "";
     String generated = "";
@@ -232,6 +236,10 @@ final class HostTaskFixture {
                 .as("no invoking account environment reaches a child")
                 .isSubsetOf("PATH", "LANG", "LC_ALL");
         final String name = Path.of(argv.getFirst()).getFileName().toString();
+        if (name.equals("getent")
+                && getent.containsKey(String.join(" ", argv.subList(1, argv.size()))))
+            return new HostPrograms.Result(
+                    0, getent.get(String.join(" ", argv.subList(1, argv.size()))));
         if (name.equals("getent"))
             return new HostPrograms.Result(
                     0, argv.getLast() + ":x:900:900::/nonexistent:/bin/sh\n");

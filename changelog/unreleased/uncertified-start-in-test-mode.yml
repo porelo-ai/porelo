@@ -1,0 +1,2 @@
+title: "On a host whose root switched on `start-uncertified` in `/etc/porelo-host/test-mode.json`, `porelo task start` starts a task without a certificate after a warning and a yes at a terminal, `--yes` answering it for scripts; `porelo-host test-switches --json` answers the switches that hold, and `porelo-host task start` accepts an empty input only while that switch holds, refusing it with 65 otherwise, and records the task as uncertified"
+type: added

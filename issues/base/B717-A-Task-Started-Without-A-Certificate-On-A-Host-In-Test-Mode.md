@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B717",
   "title": "A Task Started Without A Certificate On A Host In Test Mode",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 5,

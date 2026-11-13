@@ -309,7 +309,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     @Option(
             names = "--yes",
             description =
-                    "Takes a harmless remedy for what is missing without asking; never trusts or discards.")
+                    "Takes a harmless remedy for what is missing without asking; never trusts or discards."
+                            + " On a host in test mode it also starts a task without a certificate.")
     private boolean yes;
 
     @Option(
@@ -349,6 +350,11 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
     /** Who answers a first start's question. */
     Offer.Asker firstStartAsker = Offer.Asker.terminal();
+
+    /**
+     * Asks whether to start a task without a certificate on a host in test mode; a test answers it.
+     */
+    Offer.Asker uncertifiedAsker = Offer.Asker.terminal();
 
     /** Asks whether to go into the task this checkout already has; a test answers it. */
     Offer.Asker taskAsker = Offer.Asker.terminal();
@@ -1019,6 +1025,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
                         .offering(offer(noInput, yes, Offer.atTerminal(), err))
+                        // Only where the host is in test mode; --yes answers, a script without it
+                        // is
+                        // refused as before.
+                        .startingUncertified(
+                                yes,
+                                noInput || dryRun || !terminal.getAsBoolean()
+                                        ? Offer.Asker.NOBODY
+                                        : uncertifiedAsker)
                         .reading(reads)
                         .keyedBy(callerKey)
                         .configuringWith(detector)

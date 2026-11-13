@@ -292,6 +292,22 @@ porelo task check-certificate --task <task> --login <login> --keys <file> [--krl
   unreadable, the revocation list included, and 70 for Porelo's own fault. The host records the certificate only
   after exit 0, and checks itself that `project` is one the person belongs to.
 
+## A task started without a certificate on a host in test mode
+
+A measuring host has no applied organization and no certifier, so no task could start there. Only root switches
+on test mode: its role writes `/etc/porelo-host/test-mode.json` at `up`, `{"v": 1, "switches":
+["start-uncertified"], "why": "<text>"}`, and removes it at `down`. The host acts on it only as a regular file, not a
+link, root's, mode `0600`, in root's directories that neither group nor others can write; a file that is missing,
+of another `v`, unreadable or failing a check holds no switch, never all, and a name the host does not know is
+ignored. `sudo porelo-host test-switches --json` answers `{"switches": [...]}`. Where a start gets no certificate,
+Porelo asks it; without `start-uncertified` it refuses as before. With it, Porelo warns on standard error that the
+task starts **without** a certificate and that what it passes on is vouched for by nobody, asks "Start the task
+without the check? y/N" at a terminal, and takes `--yes` as the answer; without a terminal and without `--yes` it
+refuses. It then runs `porelo-host task start <task>` with an empty standard input, which the host accepts only
+while the switch holds, for a person in `porelo-people` and the project `default`, and records as uncertified.
+No flag of Porelo's turns the check off on a host that is not in test mode, and a start through the daemon is
+refused as before.
+
 ## A push judged when it arrives
 
 The pre-receive hook of the host's forge has Porelo judge every commit a push brings, rather than a checker of its

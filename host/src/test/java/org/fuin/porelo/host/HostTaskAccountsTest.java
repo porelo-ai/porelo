@@ -184,7 +184,9 @@ class HostTaskAccountsTest {
         }
         final var before = host.snapshot();
         final var answer = start(certificate);
-        final boolean usage = List.of("plain", "long", "two", "empty").contains(defect);
+        // No certificate at all asks for a start without one, which a host not in test mode
+        // refuses as a refusal, not as wrong use.
+        final boolean usage = List.of("plain", "long", "two").contains(defect);
         assertThat(answer.code()).as(answer.err()).isEqualTo(usage ? 64 : 65);
         assertThat(answer.out()).isEmpty();
         assertThat(host.record("t1")).doesNotExist();

@@ -84,6 +84,66 @@ final class HostPerson {
     }
 
     /**
+     * Records a task's start without a certificate, which a host accepts only while root's test
+     * switch {@code start-uncertified} holds: the empty input is how it is asked.
+     *
+     * @param task The task's name.
+     * @return The forge token, or {@code ""} on a host without a forge.
+     * @throws Refused If the host refused it, or could not be asked.
+     */
+    String startUncertified(String task) {
+        final CommandResult started =
+                run(HostForgeLending.onHost(program, "task", "start", task).withInput(""));
+        final String token = started.standardOutput();
+        return token.endsWith("\n") ? token.substring(0, token.length() - 1) : token;
+    }
+
+    /** The one test switch Porelo acts on: a task may start without a certificate. */
+    static final String START_UNCERTIFIED = "start-uncertified";
+
+    /**
+     * The test switches root's role holds on this host, as {@code porelo-host test-switches}
+     * answers them.
+     *
+     * <p>A host that cannot be asked, a helper that does not know the question, and an answer that
+     * does not read all hold none: never more than the host said.
+     *
+     * @return The switches the host named.
+     */
+    java.util.Set<String> switches() {
+        if (!Files.isRegularFile(program)) {
+            return java.util.Set.of();
+        }
+        final CommandResult asked;
+        try {
+            asked =
+                    context.runner()
+                            .run(HostForgeLending.onHost(program, "test-switches", "--json"));
+        } catch (CommandException ex) {
+            return java.util.Set.of();
+        }
+        if (!asked.successful()) {
+            return java.util.Set.of();
+        }
+        try {
+            if (!(Json.parse(asked.standardOutput().strip()) instanceof Map<?, ?> answer)
+                    || !(answer.get("switches") instanceof java.util.List<?> names)) {
+                return java.util.Set.of();
+            }
+            final java.util.Set<String> held = new java.util.TreeSet<>();
+            for (final Object name : names) {
+                if (!(name instanceof String text)) {
+                    return java.util.Set.of();
+                }
+                held.add(text);
+            }
+            return java.util.Set.copyOf(held);
+        } catch (IllegalArgumentException | org.fuin.porelo.wire.JsonException ex) {
+            return java.util.Set.of();
+        }
+    }
+
+    /**
      * Tells the host a task ended, so its forge token goes.
      *
      * @param task The task's name.
