@@ -12,6 +12,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -58,6 +60,7 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
     /** What became of one record. */
     private enum Outcome {
         NOTHING_COMPLETE,
+        NOT_COPIED,
         COPIED,
         UNCHANGED,
         LONGER_LEFT,
@@ -99,7 +102,7 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
             final boolean usage = Files.isDirectory(kept, LinkOption.NOFOLLOW_LINKS);
             final boolean work = Files.isDirectory(keptWork, LinkOption.NOFOLLOW_LINKS);
             if (!usage && !work) {
-                err.println("porelo: no records were kept in " + kept);
+                err.println("porelo: no usage or work records were kept in " + directory);
                 err.flush();
                 return 70;
             }
@@ -155,10 +158,20 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
                                 records.stream().filter(KeepCommand::isRemovedWork).toList();
                         final List<Path> live =
                                 records.stream().filter(path -> !isRemovedWork(path)).toList();
-                        copyEach(removed, machine, kept, tally, KeepCommand::copyWorkOut);
-                        for (final Path record : removed) {
-                            retireWork(kept, String.valueOf(record.getFileName()), tally);
-                        }
+                        copyEach(
+                                removed,
+                                machine,
+                                kept,
+                                tally,
+                                (from, to) -> {
+                                    final Outcome outcome = copyWorkOut(from, to);
+                                    if (outcome == Outcome.COPIED
+                                            || outcome == Outcome.UNCHANGED
+                                            || outcome == Outcome.NEWER_LEFT) {
+                                        retireWork(kept, String.valueOf(from.getFileName()), tally);
+                                    }
+                                    return outcome;
+                                });
                         copyEach(live, machine, kept, tally, KeepCommand::copyWorkOut);
                         return Boolean.TRUE;
                     });
@@ -169,7 +182,7 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
         return finishedWork(tally, kept);
     }
 
-    /** Puts kept work records back on a machine, never over the machine's own of the same task. */
+    /** Puts kept work records back on a machine, keeping the later update of the same task. */
     private int restoreWork(Path kept, Path machine) {
         final PrintWriter err = spec.commandLine().getErr();
         final List<Path> records;
@@ -215,9 +228,9 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
     }
 
     /**
-     * Drops the copy kept under a task's live name once the removed task's record is the same
-     * task's: left there, a restore would give the task twice, and a new task of that name would
-     * differ from it at every keep and never be kept.
+     * Drops the copy kept under a task's live name once the removed task's record holds its later
+     * update: left there, a restore would give the task twice, and a new task of that name would
+     * differ from it at every keep and never be kept. Legacy records are retired by identity alone.
      */
     private void retireWork(Path kept, String removedName, Tally tally) {
         final Path whole = kept.resolve(removedName);
@@ -225,8 +238,9 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
         try {
             if (Files.isRegularFile(whole, LinkOption.NOFOLLOW_LINKS)
                     && Files.isRegularFile(old, LinkOption.NOFOLLOW_LINKS)) {
-                final String task = identity(readWhole(whole));
-                if (task != null && task.equals(identity(readWhole(old)))) {
+                final WorkRecord removed = workRecord(readWhole(whole));
+                final WorkRecord live = workRecord(readWhole(old));
+                if (removed.identity().equals(live.identity()) && replaces(removed, live, true)) {
                     Files.delete(old);
                 }
             }
@@ -238,12 +252,14 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
         }
     }
 
-    /** Copies a machine's work record out: the machine's of a task is its newest. */
+    /**
+     * Copies a machine's work record out, preferring the machine's when both are legacy records.
+     */
     private static Outcome copyWorkOut(Path from, Path to) throws IOException {
         return copyWork(from, to, true);
     }
 
-    /** Copies a kept work record onto a machine, leaving the machine's own of the same task. */
+    /** Copies a kept work record back, preferring the machine's when both are legacy records. */
     private static Outcome copyWorkIn(Path from, Path to) throws IOException {
         return copyWork(from, to, false);
     }
@@ -251,21 +267,28 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
     /**
      * Copies one work record over another. A work record is rewritten whole as its task goes on, so
      * no prefix says which is newer: two of the same task (the same {@code task} and {@code
-     * startedAt}) are told apart by which side is the machine's.
+     * startedAt}) are ordered by {@code updatedAt}. One without an update time is older than one
+     * with it; between two without it the machine's copy wins.
      *
      * @param from The record, never followed if a link.
      * @param to Where it goes.
-     * @param replacesSameTask Whether a copy of the same task's record is replaced.
+     * @param replacesLegacy Whether the source replaces a legacy copy when both lack an update
+     *     time.
      * @return What became of it.
-     * @throws IOException If either cannot be read or written, or the source is no work record.
+     * @throws IOException If the destination cannot be read or written, or the source is no work
+     *     record.
      */
-    private static Outcome copyWork(Path from, Path to, boolean replacesSameTask)
-            throws IOException {
-        final byte[] record = readWhole(from);
-        final String task = identity(record);
-        if (task == null) {
-            throw new IOException("it is no work record");
+    private static Outcome copyWork(Path from, Path to, boolean replacesLegacy) throws IOException {
+        if (!Files.isRegularFile(from, LinkOption.NOFOLLOW_LINKS)) {
+            return Outcome.NOT_COPIED;
         }
+        final byte[] record;
+        try {
+            record = readWhole(from);
+        } catch (IOException ex) {
+            return Outcome.NOT_COPIED;
+        }
+        final WorkRecord source = workRecord(record);
         if (Files.exists(to, LinkOption.NOFOLLOW_LINKS)) {
             if (!Files.isRegularFile(to, LinkOption.NOFOLLOW_LINKS)) {
                 throw new IOException(to + " is not a plain file");
@@ -274,10 +297,11 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
             if (java.util.Arrays.equals(record, existing)) {
                 return Outcome.UNCHANGED;
             }
-            if (!task.equals(identity(existing))) {
+            final WorkRecord target = workRecord(existing);
+            if (!source.identity().equals(target.identity())) {
                 return Outcome.DIVERGED;
             }
-            if (!replacesSameTask) {
+            if (!replaces(source, target, replacesLegacy)) {
                 return Outcome.NEWER_LEFT;
             }
         }
@@ -301,24 +325,42 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
         }
     }
 
-    /**
-     * Names the task a work record is of: its container name and when it was made.
-     *
-     * @return The identity, or {@code null} for what is no work record.
-     */
-    private static @Nullable String identity(byte[] record) {
+    /** The task's identity and its record's own update time, absent in legacy records. */
+    private record WorkRecord(String identity, @Nullable Instant updatedAt) {}
+
+    private static boolean replaces(
+            final WorkRecord source, final WorkRecord target, final boolean replacesLegacy) {
+        final Instant from = source.updatedAt();
+        final Instant to = target.updatedAt();
+        if (from == null) {
+            return to == null && replacesLegacy;
+        }
+        return to == null || from.isAfter(to);
+    }
+
+    private static WorkRecord workRecord(final byte[] record) throws IOException {
         final Object document;
         try {
             document = Json.parseExact(new String(record, StandardCharsets.UTF_8));
         } catch (RuntimeException ex) {
-            return null;
+            throw new IOException("it is no work record", ex);
         }
         if (document instanceof Map<?, ?> fields
                 && fields.get("task") instanceof String task
                 && fields.get("startedAt") instanceof String startedAt) {
-            return task + "\n" + startedAt;
+            if (!fields.containsKey("updatedAt")) {
+                return new WorkRecord(task + "\n" + startedAt, null);
+            }
+            if (fields.get("updatedAt") instanceof String updatedAt) {
+                try {
+                    return new WorkRecord(task + "\n" + startedAt, Instant.parse(updatedAt));
+                } catch (DateTimeParseException ex) {
+                    throw new IOException("its updatedAt is no instant", ex);
+                }
+            }
+            throw new IOException("its updatedAt is no instant");
         }
-        return null;
+        throw new IOException("it is no work record");
     }
 
     private static byte[] readWhole(Path file) throws IOException {
@@ -431,6 +473,11 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
                 final Outcome outcome = copier.copy(record, to.resolve(name));
                 switch (outcome) {
                     case NOTHING_COMPLETE -> {}
+                    case NOT_COPIED ->
+                            err.println(
+                                    "porelo: "
+                                            + record
+                                            + " is not a readable plain file; not copied");
                     case DIVERGED -> {
                         tally.failed++;
                         err.println(

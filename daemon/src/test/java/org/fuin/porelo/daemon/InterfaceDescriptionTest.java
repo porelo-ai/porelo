@@ -38,6 +38,19 @@ import org.junit.jupiter.params.provider.ValueSource;
 class InterfaceDescriptionTest {
 
     @Test
+    void workRecordsDeclareAnOptionalUpdateTime() {
+        // Clients order kept records by their own write time and still accept older records.
+        final Matcher record =
+                Pattern.compile("(?ms)^type TaskRecord \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+
+        assertThat(record.find()).as("the work record type is declared").isTrue();
+        assertThat(record.group(1))
+                .as("new writes expose their time without requiring it of older records")
+                .contains("updatedAt: ?string");
+    }
+
+    @Test
     void bothStartMethodsAcceptAnOptionalShortSpelling() {
         // A client must be able to preflight exactly the request it starts.
         for (String method : List.of("Start", "CanStart")) {

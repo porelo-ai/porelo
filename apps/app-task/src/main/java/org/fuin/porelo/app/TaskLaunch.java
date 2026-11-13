@@ -1063,8 +1063,7 @@ public final class TaskLaunch {
             try {
                 serving = credentials().provider(agent);
             } catch (org.fuin.porelo.agent.api.AgentException ex) {
-                // Refused with its own words where the credential is looked at, as before.
-                serving = null;
+                refused = CliErrors.reason(ex);
             }
         }
         if (refused == null) {

@@ -323,6 +323,57 @@ class TaskUsageTest {
     private static final String WORK = "B622:Implementing"; // not-a-citation
 
     @Test
+    void everyWorkRecordWriteCarriesItsOwnUpdateTime(@TempDir final Path dir) throws Exception {
+        // Resumed work clears its end, so only a separate update time can order its kept copies.
+        final PoreloContext context = context(dir);
+        final TaskWorkRecords records = new TaskWorkRecords(context);
+        final Path file = context.paths().tasks().workRecord(TASK);
+        records.started(TASK, "uc", "work", null, "worker-one", null, "start");
+        assertUpdated(file);
+
+        markEarlier(file);
+        records.runEnded(TASK, new ToolCalls(TASK, new CommandMask(java.util.List.of())), 0);
+        assertUpdated(file);
+
+        markEarlier(file);
+        records.runStarted(TASK);
+        assertUpdated(file);
+        assertThat(fields(Json.parseExact(Files.readString(file))).get("endedAt"))
+                .as("resumed work has an update time even though its end was cleared")
+                .isNull();
+
+        markEarlier(file);
+        records.stopped(TASK);
+        assertUpdated(file);
+
+        markEarlier(file);
+        records.removed(TASK);
+        try (final var files = Files.list(file.getParent())) {
+            final Path retained =
+                    files.filter(path -> path.getFileName().toString().endsWith(".json"))
+                            .findFirst()
+                            .orElseThrow();
+            assertUpdated(retained);
+        }
+    }
+
+    private static void markEarlier(final Path file) throws Exception {
+        final Map<String, Object> record = fields(Json.parseExact(Files.readString(file)));
+        record.put("updatedAt", java.time.Instant.MIN.toString());
+        Files.writeString(file, Json.write(record));
+    }
+
+    private static void assertUpdated(final Path file) throws Exception {
+        final Object updated = fields(Json.parseExact(Files.readString(file))).get("updatedAt");
+        assertThat(updated)
+                .as("every write records an updatedAt instant")
+                .isInstanceOf(String.class);
+        assertThat(java.time.Instant.parse((String) updated))
+                .as("the write replaces the earlier marker with its own time")
+                .isAfter(java.time.Instant.MIN);
+    }
+
+    @Test
     void aTasksRecordHoldsItsWorkTimesTotalsAndToolCallsAndOutlivesItsRemoval(@TempDir Path dir)
             throws Exception {
         final PoreloContext context = context(dir);

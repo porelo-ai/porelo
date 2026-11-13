@@ -6,13 +6,18 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The one file a task hands back: taken from its box at its end, bounded, never through a link, and
@@ -205,16 +210,20 @@ class TaskResultTest {
                 .isEqualTo(Map.of("name", NAME, "state", "handed", "bytes", 4L));
     }
 
-    @Test
-    void aCreatedTaskNotYetRunningIsListedWithoutTakingAndItsEndHandsTheFile() throws IOException {
+    @ParameterizedTest
+    @ValueSource(strings = {"Created", "Initialized", ""})
+    void aTaskNotKnownToHaveRunIsListedWithoutTakingAndItsEndHandsTheFile(final String status)
+            throws IOException {
         // A created container is not running, yet nothing ran in it: a "missing" taken then is read
         // as final and the file its agent writes half a second later is dropped.
         final PoreloContext context = context();
-        final TaskResult result = task(context, "Created");
+        final TaskResult result = task(context, status);
 
         new TaskInventory(context).tasks();
 
-        assertThat(result.taken(TASK)).as("a listing of a created task takes nothing").isNull();
+        assertThat(result.taken(TASK))
+                .as("a listing takes nothing before the runtime says the task ran: %s", status)
+                .isNull();
 
         written(result, "done".getBytes(StandardCharsets.UTF_8));
         listedAs("Exited (0) 1 second ago");
@@ -224,6 +233,69 @@ class TaskResultTest {
         assertThat(listed)
                 .as("its end hands the file")
                 .isEqualTo(Map.of("name", NAME, "state", "handed", "bytes", 4L));
+    }
+
+    @Test
+    void repeatedListingsOfATaskThatWroteNothingLeaveItsKeptMissingAlone() throws IOException {
+        // Rewriting each missing result on every listing makes an idle task keep writing to disk.
+        final PoreloContext context = context();
+        final TaskResult result = task(context, false);
+        new TaskInventory(context).tasks();
+        final Path record = context.paths().tasks().result(TASK).resolve("taken.json");
+        Files.setLastModifiedTime(record, FileTime.fromMillis(1_000));
+        final FileTime before = Files.getLastModifiedTime(record);
+
+        new TaskInventory(context).tasks();
+        new TaskInventory(context).tasks();
+
+        assertThat(result.taken(TASK))
+                .as("missing stays provisional without changing the answer")
+                .isEqualTo(new TaskResult.Taken(NAME, TaskResult.State.MISSING, 0));
+        assertThat(Files.getLastModifiedTime(record))
+                .as("an equal result is never rewritten")
+                .isEqualTo(before);
+    }
+
+    @Test
+    void twoRetakesOfAKeptMissingKeepTheSameWholeResult() throws Exception {
+        // Two readers must neither lose the late result nor replace it with a racing missing.
+        final TaskResult result = task(context(), false);
+        result.takeOnce(TASK);
+        written(result, "late".getBytes(StandardCharsets.UTF_8));
+        final CountDownLatch ready = new CountDownLatch(2);
+        final CountDownLatch start = new CountDownLatch(1);
+        final java.util.concurrent.Callable<TaskResult.Taken> retake =
+                () -> {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("the retakes were not released");
+                    }
+                    return result.takeOnce(TASK);
+                };
+        try (final var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            final var first = executor.submit(retake);
+            final var second = executor.submit(retake);
+            try {
+                assertThat(ready.await(5, TimeUnit.SECONDS))
+                        .as("both retakes are ready together")
+                        .isTrue();
+            } finally {
+                start.countDown();
+            }
+            final TaskResult.Taken expected =
+                    new TaskResult.Taken(NAME, TaskResult.State.HANDED, 4);
+            assertThat(first.get(5, TimeUnit.SECONDS))
+                    .as("the first reader gets the whole result")
+                    .isEqualTo(expected);
+            assertThat(second.get(5, TimeUnit.SECONDS))
+                    .as("the second reader gets the same result")
+                    .isEqualTo(expected);
+        }
+        assertThat(result.answer(TASK))
+                .as("the kept answer retains the complete content")
+                .isEqualTo(
+                        new TaskResult.Answer(
+                                new TaskResult.Taken(NAME, TaskResult.State.HANDED, 4), "late"));
     }
 
     @Test

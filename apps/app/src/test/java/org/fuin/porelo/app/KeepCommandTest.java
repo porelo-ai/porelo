@@ -15,6 +15,8 @@ import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /** Tests for {@link KeepCommand}: the usage records carried off a machine and back onto one. */
@@ -43,21 +45,29 @@ class KeepCommandTest {
     }
 
     private PoreloContext context() {
+        return context(dir);
+    }
+
+    private PoreloContext context(final Path root) {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
                                 switch (name) {
-                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    case "XDG_DATA_HOME" -> root.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> root.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> root.resolve("run").toString();
                                     default -> null;
                                 },
-                        dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                        root);
+        return new PoreloContext(runner, new PoreloPaths(xdg, root.resolve("bin")), arguments -> 0);
     }
 
     private int execute(String... args) {
-        final CommandLine cmd = PoreloCli.commandLine(context());
+        return execute(context(), args);
+    }
+
+    private int execute(final PoreloContext context, final String... args) {
+        final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
         return cmd.execute(args);
@@ -319,6 +329,9 @@ class KeepCommandTest {
         assertThat(execute("keep", "--restore", dir.resolve("nowhere").toString())).isEqualTo(70);
 
         assertThat(err.toString()).as("named").contains(dir.resolve("nowhere").toString());
+        assertThat(err.toString())
+                .as("the refusal covers both kinds of kept history")
+                .contains("usage", "work");
     }
 
     @Test
@@ -475,6 +488,188 @@ class KeepCommandTest {
                 + "}";
     }
 
+    private static String updatedWork(final String end, final String updatedAt) {
+        final String legacy = work(FIRST, end);
+        return legacy.substring(0, legacy.length() - 1) + ",\"updatedAt\":\"" + updatedAt + "\"}";
+    }
+
+    @Test
+    void aSecondRestoreTakesTheWorkTheOriginalMachineKeptAfterTheFirstRestore() throws IOException {
+        // A restored copy is not necessarily newer than the next keep from the original machine.
+        final PoreloContext original = context();
+        final PoreloContext other = context(dir.resolve("other-machine"));
+        final Path restored = other.paths().tasks().workRecords().resolve(WORK);
+        final String early = updatedWork("null", "2026-11-01T10:01:00Z");
+        final String later = updatedWork("\"done\"", "2026-11-01T10:02:00Z");
+        final String store = dir.resolve("store").toString();
+        runner.answering("ps", "");
+        write(machineWork().resolve(WORK), early);
+        assertThat(execute(original, "keep", store))
+                .as("the original's first keep: %s", err)
+                .isZero();
+        assertThat(execute(other, "keep", "--restore", store))
+                .as("the other machine's first restore: %s", err)
+                .isZero();
+        assertThat(restored).as("the other machine starts with the early record").hasContent(early);
+
+        write(machineWork().resolve(WORK), later);
+        assertThat(execute(original, "keep", store))
+                .as("the original's next keep: %s", err)
+                .isZero();
+        assertThat(execute(other, "keep", "--restore", store))
+                .as("the other machine's next restore: %s", err)
+                .isZero();
+
+        assertThat(restored)
+                .as("the original machine's later work replaces the earlier restored copy")
+                .hasContent(later);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aWorkRecordWithAnOlderUpdateCannotReplaceANewerCopy(final boolean restoring)
+            throws IOException {
+        final Path source = (restoring ? keptWork() : machineWork()).resolve(WORK);
+        final Path target = (restoring ? machineWork() : keptWork()).resolve(WORK);
+        final String newer = updatedWork("null", "2026-11-01T10:02:00Z");
+        write(source, updatedWork("\"done\"", "2026-11-01T10:01:00Z"));
+        write(target, newer);
+        runner.answering("ps", "");
+
+        assertThat(
+                        execute(
+                                restoring
+                                        ? new String[] {
+                                            "keep", "--restore", dir.resolve("store").toString()
+                                        }
+                                        : new String[] {"keep", dir.resolve("store").toString()}))
+                .as("keeping or restoring succeeds without replacing newer work: %s", err)
+                .isZero();
+
+        assertThat(target)
+                .as("updatedAt decides recency even when the newer record has no end")
+                .hasContent(newer);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aTimestampedWorkRecordTakesPrecedenceOverALegacyCopyInEitherDirection(
+            final boolean restoring) throws IOException {
+        final Path source = (restoring ? keptWork() : machineWork()).resolve(WORK);
+        final Path target = (restoring ? machineWork() : keptWork()).resolve(WORK);
+        final String timestamped = updatedWork("null", "2026-11-01T10:01:00Z");
+        final String legacy = work(FIRST, "\"done\"");
+        final String[] args =
+                restoring
+                        ? new String[] {"keep", "--restore", dir.resolve("store").toString()}
+                        : new String[] {"keep", dir.resolve("store").toString()};
+        runner.answering("ps", "");
+        write(source, timestamped);
+        write(target, legacy);
+
+        assertThat(execute(args)).as("the timestamped source is copied: %s", err).isZero();
+        assertThat(target).as("a legacy destination is older").hasContent(timestamped);
+
+        write(source, legacy);
+        assertThat(execute(args)).as("the legacy source is left behind: %s", err).isZero();
+        assertThat(target)
+                .as("a legacy source cannot displace an update time")
+                .hasContent(timestamped);
+    }
+
+    @Test
+    void aRemovedWorkRecordCannotRetireANewerLiveCopy() throws IOException {
+        final String removed = "porelo-uc-shell-1.removed-7.json";
+        final String newer = updatedWork("null", "2026-11-01T10:02:00Z");
+        write(machineWork().resolve(removed), updatedWork("\"removed\"", "2026-11-01T10:01:00Z"));
+        write(keptWork().resolve(WORK), newer);
+
+        assertThat(execute("keep", dir.resolve("store").toString()))
+                .as("the removed record is kept: %s", err)
+                .isZero();
+
+        assertThat(keptWork().resolve(WORK))
+                .as("retirement cannot delete work newer than the removed copy")
+                .hasContent(newer);
+    }
+
+    @Test
+    void aRemovedWorkRecordCannotRetireADifferentLiveCopyWithTheSameUpdateTime()
+            throws IOException {
+        final String removed = "porelo-uc-shell-1.removed-7.json";
+        final String live = updatedWork("null", "2026-11-01T10:01:00Z");
+        write(machineWork().resolve(removed), updatedWork("\"removed\"", "2026-11-01T10:01:00Z"));
+        write(keptWork().resolve(WORK), live);
+
+        assertThat(execute("keep", dir.resolve("store").toString()))
+                .as("the removed record is kept without resolving a time tie: %s", err)
+                .isZero();
+
+        assertThat(keptWork().resolve(WORK))
+                .as("an equally dated removed copy is no reason to discard different live work")
+                .hasContent(live);
+    }
+
+    @Test
+    void anOlderRemovedSourceStillRetiresTheLiveCopyHeldByTheNewerKeptRecord() throws IOException {
+        final String removed = "porelo-uc-shell-1.removed-7.json";
+        final String newer = updatedWork("\"removed\"", "2026-11-01T10:02:00Z");
+        write(machineWork().resolve(removed), updatedWork("\"removed\"", "2026-11-01T10:01:00Z"));
+        write(keptWork().resolve(removed), newer);
+        write(keptWork().resolve(WORK), updatedWork("null", "2026-11-01T10:00:00Z"));
+
+        assertThat(execute("keep", dir.resolve("store").toString()))
+                .as("the newer removed record is left in place: %s", err)
+                .isZero();
+
+        assertThat(keptWork().resolve(removed))
+                .as("the latest removed record stays")
+                .hasContent(newer);
+        assertThat(keptWork().resolve(WORK))
+                .as("older live work is already held by the kept removed record")
+                .doesNotExist();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void equalWorkRecordUpdateTimesLeaveTheDestinationAlone(final boolean restoring)
+            throws IOException {
+        final Path source = (restoring ? keptWork() : machineWork()).resolve(WORK);
+        final Path target = (restoring ? machineWork() : keptWork()).resolve(WORK);
+        final String retained = updatedWork("null", "2026-11-01T10:01:00Z");
+        write(source, updatedWork("\"done\"", "2026-11-01T10:01:00Z"));
+        write(target, retained);
+        runner.answering("ps", "");
+
+        assertThat(
+                        execute(
+                                restoring
+                                        ? new String[] {
+                                            "keep", "--restore", dir.resolve("store").toString()
+                                        }
+                                        : new String[] {"keep", dir.resolve("store").toString()}))
+                .as("neither copy is later: %s", err)
+                .isZero();
+
+        assertThat(target).as("an equal time is no reason to replace work").hasContent(retained);
+    }
+
+    @Test
+    void aWorkRecordWithAnInvalidUpdateTimeIsRefusedWithoutReplacingKeptWork() throws IOException {
+        final String kept = updatedWork("null", "2026-11-01T10:01:00Z");
+        write(keptWork().resolve(WORK), kept);
+        write(machineWork().resolve(WORK), updatedWork("\"done\"", "not-an-instant"));
+
+        assertThat(execute("keep", dir.resolve("store").toString()))
+                .as("an invalid time cannot be guessed older or newer")
+                .isEqualTo(70);
+
+        assertThat(keptWork().resolve(WORK)).as("the valid copy stays").hasContent(kept);
+        assertThat(err.toString())
+                .as("the bad record and field are named")
+                .contains(WORK, "updatedAt");
+    }
+
     @Test
     void theWorkRecordsAreKeptBesideTheUsageRecords() throws IOException {
         // What a task worked on and for how long is what planning measures: it outlives the
@@ -562,7 +757,7 @@ class KeepCommandTest {
 
     @Test
     void theWorkRecordsAreRestoredAndTheMachinesOwnOfATaskIsLeft() throws IOException {
-        // The machine's record of a task is never older than a copy taken from it.
+        // Legacy records without update times keep the machine's copy, as older keeps did.
         write(keptWork().resolve(WORK), work(FIRST, "null"));
         write(keptWork().resolve("porelo-uc-old-1.removed-5.json"), work(FIRST, "\"removed\""));
         write(machineWork().resolve(WORK), work(FIRST, "\"done\""));
@@ -610,10 +805,94 @@ class KeepCommandTest {
         Files.createDirectories(machineWork());
         Files.createSymbolicLink(machineWork().resolve(WORK), secret);
 
-        assertThat(execute("keep", dir.resolve("store").toString())).isEqualTo(70);
+        assertThat(execute("keep", dir.resolve("store").toString()))
+                .as("a linked work record is skipped rather than failing the keep: %s", err)
+                .isZero();
 
         assertThat(keptWork().resolve(WORK)).doesNotExist();
         assertThat(err.toString()).as("named").contains(WORK);
+    }
+
+    @Test
+    void aLinkAmongTheKeptWorkRecordsIsNotRestored() throws IOException {
+        final Path elsewhere = dir.resolve("elsewhere.json");
+        write(elsewhere, work(FIRST, "null"));
+        Files.createDirectories(keptWork());
+        Files.createSymbolicLink(keptWork().resolve(WORK), elsewhere);
+        write(keptWork().resolve("other.json"), work(FIRST, "null"));
+        runner.answering("ps", "");
+
+        assertThat(execute("keep", "--restore", dir.resolve("store").toString()))
+                .as("a linked source is skipped and the remaining history is restored: %s", err)
+                .isZero();
+
+        assertThat(machineWork().resolve(WORK)).as("no link is followed").doesNotExist();
+        assertThat(machineWork().resolve("other.json"))
+                .as("a skipped source does not stop other copies")
+                .hasContent(work(FIRST, "null"));
+        assertThat(err.toString()).as("the skipped record is named").contains(WORK);
+    }
+
+    @Test
+    void anUnreadableWorkRecordIsSkippedWhileTheOthersAreKept() throws IOException {
+        final Path unreadable = machineWork().resolve(WORK);
+        write(unreadable, work(FIRST, "null"));
+        write(machineWork().resolve("other.json"), work(FIRST, "null"));
+        Files.setPosixFilePermissions(unreadable, PosixFilePermissions.fromString("---------"));
+        try {
+            org.junit.jupiter.api.Assumptions.assumeFalse(
+                    Files.isReadable(unreadable),
+                    "this account can read files without read permission");
+
+            assertThat(execute("keep", dir.resolve("store").toString()))
+                    .as("an unreadable source is skipped: %s", err)
+                    .isZero();
+
+            assertThat(keptWork().resolve(WORK)).as("nothing unreadable is copied").doesNotExist();
+            assertThat(keptWork().resolve("other.json"))
+                    .as("the remaining work is kept")
+                    .hasContent(work(FIRST, "null"));
+            assertThat(err.toString()).as("the skipped record is named").contains(WORK);
+        } finally {
+            Files.setPosixFilePermissions(unreadable, PosixFilePermissions.fromString("rw-------"));
+        }
+    }
+
+    @Test
+    void aSkippedRemovedWorkRecordCannotRetireTheKeptLiveRecord() throws IOException {
+        final String removed = "porelo-uc-shell-1.removed-7.json";
+        write(keptWork().resolve(WORK), work(FIRST, "null"));
+        write(keptWork().resolve(removed), work(FIRST, "\"removed\""));
+        Files.createDirectories(machineWork());
+        Files.createSymbolicLink(machineWork().resolve(removed), dir.resolve("absent.json"));
+
+        assertThat(execute("keep", dir.resolve("store").toString()))
+                .as("the linked removed record is skipped: %s", err)
+                .isZero();
+
+        assertThat(keptWork().resolve(WORK))
+                .as("an uncopied removed record grants no permission to delete kept work")
+                .hasContent(work(FIRST, "null"));
+    }
+
+    @Test
+    void aLinkWhereAKeptWorkRecordGoesStillFailsAndLeavesItsTargetAlone() throws IOException {
+        final Path elsewhere = dir.resolve("elsewhere.json");
+        write(elsewhere, work(FIRST, "null"));
+        write(machineWork().resolve(WORK), work(FIRST, "\"done\""));
+        Files.createDirectories(keptWork());
+        Files.createSymbolicLink(keptWork().resolve(WORK), elsewhere);
+
+        assertThat(execute("keep", dir.resolve("store").toString()))
+                .as("a destination failure is not a skipped source")
+                .isEqualTo(70);
+
+        assertThat(elsewhere)
+                .as("the destination link is never followed")
+                .hasContent(work(FIRST, "null"));
+        assertThat(Files.isSymbolicLink(keptWork().resolve(WORK)))
+                .as("the link is left in place")
+                .isTrue();
     }
 
     @Test

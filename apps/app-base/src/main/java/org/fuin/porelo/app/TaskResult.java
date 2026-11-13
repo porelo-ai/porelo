@@ -263,6 +263,9 @@ public record TaskResult(PoreloPaths paths) {
                                 return java.util.Optional.ofNullable(before);
                             }
                             final Taken now = fromBox(directory, name);
+                            if (now.equals(before)) {
+                                return java.util.Optional.of(now);
+                            }
                             if (now.state() != State.HANDED) {
                                 Files.deleteIfExists(directory.resolve(CONTENT));
                             }

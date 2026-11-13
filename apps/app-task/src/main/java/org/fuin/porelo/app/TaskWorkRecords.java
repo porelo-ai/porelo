@@ -340,6 +340,7 @@ public record TaskWorkRecords(PoreloContext context) {
 
     private static void write(final Path file, final Map<String, Object> record)
             throws IOException {
+        record.put("updatedAt", Instant.now().toString());
         final Path directory =
                 Objects.requireNonNull(file.getParent(), "work records have a directory");
         org.fuin.porelo.wire.Directories.create(directory);

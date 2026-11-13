@@ -1985,6 +1985,7 @@ public final class TaskInventory {
      */
     private static boolean stoppedAfterRunning(final ContainerSummary summary) {
         return !summary.running()
+                && !summary.state().isBlank()
                 && !summary.state().startsWith("Created")
                 && !summary.state().startsWith("Initialized");
     }

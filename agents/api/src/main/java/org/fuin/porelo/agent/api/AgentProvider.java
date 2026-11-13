@@ -233,6 +233,12 @@ public record AgentProvider(
                 throw new AgentException("'provider.knows' must not list a blank name");
             }
         }
+        if (defaultProvider != null && !knows.isEmpty() && !knows.contains(defaultProvider)) {
+            throw new AgentException(
+                    "'provider.default' names '"
+                            + defaultProvider
+                            + "', which is not in 'provider.knows'");
+        }
     }
 
     /**

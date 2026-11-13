@@ -694,6 +694,75 @@ class AgentDefinitionReaderTest {
     }
 
     @Test
+    void refusesADefaultProviderOutsideTheAgentsKnownProviders() {
+        // A definition that cannot drive its own default refuses every ordinary start.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                                                provider:
+                                                  default: elsewhere
+                                                  dialect: native
+                                                  endpoint: url
+                                                  knows: [example]
+                                                """))
+                .as("the unusable default is refused when the definition is read")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("provider.default")
+                .hasMessageContaining("elsewhere")
+                .hasMessageContaining("provider.knows");
+    }
+
+    @Test
+    void aDefaultOutsideTheKnownProvidersIsRefusedOnTheWireToo() {
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
+                                provider:
+                                  default: example
+                                  dialect: native
+                                  endpoint: url
+                                  knows: [example]
+                                """);
+        final java.util.Map<String, Object> invalid =
+                new java.util.LinkedHashMap<>(AgentDefinitionJson.write(definition));
+        @SuppressWarnings("unchecked")
+        final java.util.Map<String, Object> provider =
+                new java.util.LinkedHashMap<>(
+                        (java.util.Map<String, Object>) invalid.get("provider"));
+        provider.put("default", "elsewhere");
+        invalid.put("provider", provider);
+
+        assertThatThrownBy(() -> AgentDefinitionJson.read(invalid))
+                .as("an installed agent cannot bypass the definition's default check through JSON")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("provider.default")
+                .hasMessageContaining("provider.knows");
+    }
+
+    @Test
+    void aKnownProviderListMayLeaveTheChoiceToTheCaller() {
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
+                                provider:
+                                  dialect: native
+                                  endpoint: url
+                                  knows: [example]
+                                """);
+
+        assertThat(definition.provider().defaultProvider())
+                .as("a list need not choose a default")
+                .isNull();
+        assertThat(definition.provider().knows())
+                .as("the providers offered to the caller stay restricted")
+                .containsExactly("example");
+    }
+
+    @Test
     void theProvidersANativeAgentKnowsSurviveTheWire() {
         // An installed agent reaches Porelo as JSON: a list lost there would pair the agent with
         // every provider again, and the refusal of one it does not know would never come.

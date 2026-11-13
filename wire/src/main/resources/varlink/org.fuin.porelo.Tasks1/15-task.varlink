@@ -1689,6 +1689,8 @@ type TaskRecord (
   effort: ?string,
   # ISO-8601. endedAt and end are absent while it works.
   startedAt: string,
+  # ISO-8601 time of the record's last write, preserved by keep and restore; absent in older records.
+  updatedAt: ?string,
   endedAt: ?string,
   # done or failed for a run's exit code, else stopped or removed, whichever came first since its last run.
   end: ?string,

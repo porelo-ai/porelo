@@ -5854,6 +5854,59 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aProviderUnknownToTheAgentIsATypedStartRefusalAndLeavesNothingBehind(
+            @TempDir final Path dir) throws IOException {
+        // An interface must not offer a start that the agent will reject after a container is made.
+        final PoreloContext context = modelContext(dir, true);
+        final Path definition = context.paths().xdg().data().resolve("agents/preview.yaml");
+        Files.writeString(
+                definition,
+                Files.readString(definition)
+                        .replace("dialect: preview", "dialect: native\n  knows: [preview]"));
+        Files.writeString(
+                context.paths().xdg().data().resolve("providers/elsewhere.yaml"),
+                """
+                name: elsewhere
+                upstream: https://provider.example.org
+                dialects: { preview: "" }
+                """);
+        final String project = projectFile(dir, MINIMAL);
+
+        final StartCheck.Result checked =
+                StartCheck.check(context, dir.resolve("project.yml"), "preview", "elsewhere", null);
+
+        assertThat(checked.outcome())
+                .as("CanStart preserves the provider's specific refusal")
+                .isEqualTo(StartCheck.Outcome.UNKNOWN_TO_AGENT);
+        assertThat(checked.ready()).as("the client must not offer this start").isFalse();
+        assertThat(checked.asMap())
+                .as("the refusal crosses the wire as a value with the chosen names")
+                .containsEntry("outcome", "UNKNOWN_TO_AGENT")
+                .containsEntry("agent", "preview")
+                .containsEntry("provider", "elsewhere");
+        assertThat(
+                        execute(
+                                context,
+                                "task",
+                                "start",
+                                "-p",
+                                project,
+                                "--agent",
+                                "preview",
+                                "--provider",
+                                "elsewhere",
+                                "--dry-run"))
+                .as("a dry run refuses the same choice: %s", err)
+                .isEqualTo(2);
+        assertThat(echoingStart(context, dir, MINIMAL, "--provider", "elsewhere"))
+                .as("the actual start refuses before creating anything: %s", err)
+                .isEqualTo(2);
+        assertThat(runner.lines())
+                .as("neither start builds an image or creates a container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    @Test
     void canStartRefusesAProjectsModelForAnAgentWithoutAModelFlagAsStartRefusesIt(@TempDir Path dir)
             throws IOException {
 

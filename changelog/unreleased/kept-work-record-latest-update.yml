@@ -1,0 +1,2 @@
+title: "Kept work records retain the latest update across machines, invalid provider defaults are refused, and unchanged missing results avoid repeated writes"
+type: fixed
