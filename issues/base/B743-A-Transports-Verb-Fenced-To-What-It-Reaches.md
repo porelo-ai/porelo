@@ -21,11 +21,11 @@
 **What must be true.** A transport's verb that connects to a host outside its `reaches` fails; one inside it passes;
 an offline project's verb reaches loopback alone.
 
-Filed 2026-11-13 from [B199](README.md#b199), as the operator decided: B199 makes the pages say what holds and records
+Filed 2026-11-13 from [B199](README.md#b199), as the operator decided: [B199](README.md#b199) makes the pages say what holds and records
 the accepted risk; this builds the rule. What it fences is a transport's mistakes, not a hostile transport: the user
 bus and unix sockets stay open to it.
 
-Read in today's code (B199's reading): every verb runs as a plain process of the account through `context.runner()`
+Read in today's code ([B199](README.md#b199)'s reading): every verb runs as a plain process of the account through `context.runner()`
 under `HelperEnvironment.chosen`, with the account's network and user bus. The host's nftables are out of the
 account's reach, and a user scope's `IPAddressDeny` is ignored by a user manager (measured on systemd 259). Shield's
 nftables apply only inside a container's network namespace.
@@ -46,4 +46,4 @@ nftables apply only inside a container's network namespace.
 
 - On the VM, a transport verb connecting to a host outside `reaches` fails, and one inside it passes.
 - An offline project's verb reaches loopback alone.
-- The pages B199 corrected say that the rule now holds, and the accepted-risk row is closed.
+- The pages [B199](README.md#b199) corrected say that the rule now holds, and the accepted-risk row is closed.
