@@ -40,6 +40,12 @@ class WholeSuiteProfileTest {
 
     private static final String SLOW = "slow";
 
+    /**
+     * The tag of the tests that take a second account on the machine, which neither a hand-over's
+     * machine nor CI has: left out by the profile too.
+     */
+    private static final String SECOND_ACCOUNT = "second-account";
+
     private static final String PROFILE = "whole";
 
     private static final Pattern PROPERTY = Pattern.compile("\\$\\{([^}]+)}");
@@ -47,11 +53,16 @@ class WholeSuiteProfileTest {
     /**
      * The tag on the class itself, not on one method, nor in a comment: only annotations between.
      */
-    private static final Pattern SLOW_TAG =
-            Pattern.compile(
-                    "(?m)^@Tag\\(\""
-                            + SLOW
-                            + "\"\\)\\s*\\n(?:@[^\\n]*\\n)*(?:public\\s+|final\\s+)*class\\s");
+    private static final Pattern SLOW_TAG = classTag(SLOW);
+
+    private static final Pattern SECOND_ACCOUNT_TAG = classTag(SECOND_ACCOUNT);
+
+    private static Pattern classTag(final String tag) {
+        return Pattern.compile(
+                "(?m)^@Tag\\(\""
+                        + tag
+                        + "\"\\)\\s*\\n(?:@[^\\n]*\\n)*(?:public\\s+|final\\s+)*class\\s");
+    }
 
     private static Element pom() throws Exception {
         final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -208,7 +219,13 @@ class WholeSuiteProfileTest {
         withWhole.putAll(properties(whole));
         assertThat(excluded(surefire, withWhole))
                 .as("the tags a build with -P%s leaves out", PROFILE)
-                .isEmpty();
+                .containsExactly(SECOND_ACCOUNT);
+        assertThat(
+                        testSources().stream()
+                                .filter(path -> SECOND_ACCOUNT_TAG.matcher(read(path)).find())
+                                .map(path -> path.getFileName().toString()))
+                .as("test classes tagged %s, which no run takes unless asked for", SECOND_ACCOUNT)
+                .containsExactly("SocketPeerOtherAccountTest.java");
         assertThat(child(whole, "build"))
                 .as("a surefire configuration of the profile's own, which this test does not read")
                 .isEmpty();

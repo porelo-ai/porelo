@@ -91,8 +91,9 @@
         <porelo.ffm.skip>true</porelo.ffm.skip>
         <!-- The CPU check runs only in a native profile, which names its images here and turns it on. -->
         <porelo.cpu.skip>true</porelo.cpu.skip>
-        <!-- The tests too slow for a run of the touched modules; the whole suite turns the profile 'whole' on, which runs them. -->
-        <porelo.tests.excluded>slow</porelo.tests.excluded>
+        <!-- The tests too slow for a run of the touched modules; the whole suite turns the profile 'whole' on, which runs them.
+             And those that take a second account on the machine, which no run takes unless asked for. -->
+        <porelo.tests.excluded>slow,second-account</porelo.tests.excluded>
         <porelo.cpu.images></porelo.cpu.images>
         <picocli.version>4.7.7</picocli.version>
         <!-- picocli injects these fields, so NullAway takes them as initialised; added to porelo-parent's NullAway. -->
@@ -916,10 +917,11 @@
             </properties>
         </profile>
         <profile>
-            <!-- The whole suite, before a hand-over and in CI: the tests tagged slow as well. -->
+            <!-- The whole suite, before a hand-over and in CI: the tests tagged slow as well. Not those
+                 that take a second account, which neither a hand-over's machine nor CI has. -->
             <id>whole</id>
             <properties>
-                <porelo.tests.excluded></porelo.tests.excluded>
+                <porelo.tests.excluded>second-account</porelo.tests.excluded>
             </properties>
         </profile>
         <profile>

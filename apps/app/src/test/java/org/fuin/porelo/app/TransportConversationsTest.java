@@ -27,6 +27,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for a transport that keeps a conversation of its own - a room - as Porelo sees it: without
  * knowing which transport it is.
  */
+@org.junit.jupiter.api.extension.ExtendWith(TransportLogin.class)
 class TransportConversationsTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();

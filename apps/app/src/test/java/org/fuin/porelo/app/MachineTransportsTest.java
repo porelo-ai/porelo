@@ -31,6 +31,7 @@ import picocli.CommandLine;
  * Tests for the machines a machine admits: only the machine let in is named, an offline project
  * admits nobody, and a secret never lands where a person or a log can read it.
  */
+@org.junit.jupiter.api.extension.ExtendWith(TransportLogin.class)
 class MachineTransportsTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();

@@ -4,6 +4,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,12 @@ class NoForeignFunctionMemoryTest {
     @Test
     void noClassMayDependOnTheForeignFunctionAndMemoryApi() {
 
-        final JavaClasses classes = new ClassFileImporter().importPackages("org.fuin.porelo.wire");
+        // What ships alone: a test's own helper, such as the one that sets the umask, is never in
+        // the hooks' image.
+        final JavaClasses classes =
+                new ClassFileImporter()
+                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                        .importPackages("org.fuin.porelo.wire");
 
         final ArchRule rule =
                 noClasses()

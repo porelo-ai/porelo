@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /** What {@code porelo talk machine} prints, which a project admin lists to let an account in. */
+@org.junit.jupiter.api.extension.ExtendWith(TransportLogin.class)
 class TalkMachineCommandTest {
 
     @TempDir Path dir;
