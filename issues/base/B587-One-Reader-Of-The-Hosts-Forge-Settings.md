@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B587",
   "title": "One Reader Of The Host's Forge Settings",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 9,
