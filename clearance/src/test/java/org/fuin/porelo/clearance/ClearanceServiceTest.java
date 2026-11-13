@@ -66,4 +66,59 @@ class ClearanceServiceTest {
                 .containsEntry("destination", "1.1.1.1")
                 .doesNotContainKeys("verdict", "source");
     }
+
+    @Test
+    void aSubscriberThatComesLaterIsStillToldTheQuestionsStillOpen(@TempDir Path dir)
+            throws Exception {
+
+        // The daemon subscribes when a list asks it to: a question put before then reached
+        // nobody, and its retries are not put again, so the list never showed it.
+        final ClearanceHub hub =
+                new ClearanceHub("uc", "shell", request -> Verdict.DENY, (address, name) -> {});
+        final List<Map<String, Object>> events = new CopyOnWriteArrayList<>();
+        try (ClearanceService service = new ClearanceService(dir.resolve("c.sock"), hub)) {
+            service.start();
+            service.publish(question("tcp/1.1.1.1/443", "1.1.1.1"));
+            service.publish(question("tcp/9.9.9.9/443", "9.9.9.9"));
+            hub.decide("tcp/9.9.9.9/443", "9.9.9.9", Verdict.DENY);
+
+            subscribe(dir, events, 1);
+        }
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst())
+                .containsEntry("key", "tcp/1.1.1.1/443")
+                .doesNotContainKey("verdict");
+    }
+
+    private static Map<String, Object> question(String key, String address) {
+        final Map<String, Object> question = new java.util.LinkedHashMap<>();
+        question.put("key", key);
+        question.put("destination", address);
+        question.put("address", address);
+        question.put("protocol", "tcp");
+        question.put("port", 443);
+        return question;
+    }
+
+    /** Takes what arrives within a second, at most this many events. */
+    private static void subscribe(Path dir, List<Map<String, Object>> events, int most)
+            throws InterruptedException {
+        final Thread listener =
+                Thread.ofVirtual()
+                        .start(
+                                () -> {
+                                    try (VarlinkClient client =
+                                            new VarlinkClient(dir.resolve("c.sock"))) {
+                                        client.callMore(
+                                                ClearanceService.INTERFACE + ".Subscribe",
+                                                Map.of(),
+                                                event -> events.add(event) && events.size() < most);
+                                    } catch (Exception ex) {
+                                        // The test reads what arrived.
+                                    }
+                                });
+        listener.join(TimeUnit.SECONDS.toMillis(1));
+        Thread.sleep(300);
+    }
 }

@@ -432,7 +432,8 @@ own.
 **The clearance prompt** is for the other case: a name that resolved to an address the
 firewall does not allow yet. You get a desktop notification with Allow and Deny, once per
 destination. `--clearance` on `task start` sets `prompt` (default), `allow`, `deny` or `off`.
-**Without a desktop session use one of the last three**; `prompt` does not start without one.
+Without a desktop session, `prompt` puts each question to the interface instead: it waits 60 seconds there, and
+`porelo task list` shows the task waiting for it. **On a machine nobody watches, use one of the last three.**
 
 Every connection attempt the firewall stops is one line in `events.jsonl` in the task's state directory
 (`/run/user/<uid>/porelo/<container>/`, cleared when your session ends): when it was stopped, where it went, and its

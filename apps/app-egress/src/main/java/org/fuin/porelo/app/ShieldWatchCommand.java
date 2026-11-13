@@ -171,19 +171,25 @@ public class ShieldWatchCommand implements Callable<Integer>, PoreloFactory.Cont
                     new ClearanceHub(
                             project,
                             task,
-                            // Wrapped so the task can say it is waiting for a person. Written when
-                            // the question is put and removed when it is answered, which is the
-                            // work's own signal - a quiet task is not a waiting one, and anything
-                            // inferred from a clock would be wrong in the direction that costs the
-                            // most.
+                            // Said once, not per question: a desktop that cannot be reached
+                            // stays unreachable, and the hub keeps each question open for a
+                            // client instead.
                             request -> {
-                                final org.fuin.porelo.wire.Waiting waiting =
-                                        new org.fuin.porelo.wire.Waiting(socketDirectory());
-                                waiting.asking(request.destination());
                                 try {
                                     return ((ClearancePrompt) prompt).ask(request);
-                                } finally {
-                                    waiting.answered();
+                                } catch (ClearanceException ex) {
+                                    if (!toldNoDesktop) {
+                                        toldNoDesktop = true;
+                                        err.println(
+                                                "porelo: "
+                                                        + ex.getMessage()
+                                                        + " - each question waits "
+                                                        + timeoutSeconds
+                                                        + " s for an answer from porelo or an"
+                                                        + " interface");
+                                        err.flush();
+                                    }
+                                    throw ex;
                                 }
                             },
                             (address, name) -> {
@@ -234,6 +240,15 @@ public class ShieldWatchCommand implements Callable<Integer>, PoreloFactory.Cont
                                 }
                                 out.flush();
                             });
+
+            // So the task can say it is waiting for a person: written when the question is put and
+            // removed when it ends, the prompt and any hold after it, which is the work's own
+            // signal - a quiet task is not a waiting one, and anything inferred from a clock would
+            // be wrong in the direction that costs the most.
+            final org.fuin.porelo.wire.Waiting waiting =
+                    new org.fuin.porelo.wire.Waiting(socketDirectory());
+            hub.onAsking(waiting::asking, waiting::answered);
+            hub.holdFor(Duration.ofSeconds(Math.max(0, timeoutSeconds)));
 
             hub.onDecision(
                     decision -> {
@@ -664,7 +679,36 @@ public class ShieldWatchCommand implements Callable<Integer>, PoreloFactory.Cont
         if (allowAll || denyAll) {
             return new FixedPrompt(allowAll ? Verdict.ALLOW : Verdict.DENY);
         }
-        return new DesktopPrompt(Duration.ofSeconds(timeoutSeconds));
+        try {
+            return new DesktopPrompt(Duration.ofSeconds(timeoutSeconds));
+        } catch (ClearanceException ex) {
+            // No session bus at all is a headless machine, not a reason to have no watcher: the
+            // questions are still put to porelo and an interface, and only the desktop is missing.
+            return new NoDesktop(String.valueOf(ex.getMessage()));
+        }
+    }
+
+    /** Whether the desktop's failure was said already. */
+    private volatile boolean toldNoDesktop;
+
+    /** A desktop that could not be reached: every question is left to a client. */
+    private static final class NoDesktop implements ClearancePrompt, AutoCloseable {
+
+        private final String why;
+
+        private NoDesktop(String why) {
+            this.why = why;
+        }
+
+        @Override
+        public Verdict ask(ClearanceRequest request) {
+            throw new ClearanceException(why);
+        }
+
+        @Override
+        public void close() {
+            // Nothing to release.
+        }
     }
 
     /** Answers every question the same way, without asking anyone. */

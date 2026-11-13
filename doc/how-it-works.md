@@ -206,8 +206,11 @@ to the task's log as it happens, whether or not anybody is watching. See [reach]
 **clearance** decides what happens. With `prompt`, the default, a desktop notification asks
 **Allow** or **Deny**, once per destination and never again, in either direction, so an agent cannot
 wear you down by retrying. A question nobody answers within 60 seconds is a **Deny**: the destination stays
-blocked for the run, and only a person can still allow it, from the interface while the task runs. `allow`, `deny` and `off` (do not ask) are the other modes; choose one
-with `porelo task start --clearance` on a machine without a desktop, or change a running task with
+blocked for the run, and only a person can still allow it, from the interface while the task runs. Without a
+desktop, or without a notification service on it, the question is not dropped: it waits the same 60 seconds for an
+answer from the interface, the task is listed as waiting for it, and `porelo task list --watch` names it above its
+table. `allow`, `deny` and `off` (do not ask) are the other modes; choose one
+with `porelo task start --clearance` on a machine nobody watches, or change a running task with
 `porelo task clearance`. If your build really needs a host, declare it in `project.yml` rather than
 clicking Allow: a clearance is one address on one run, a declaration is reviewed and applies to
 everyone.

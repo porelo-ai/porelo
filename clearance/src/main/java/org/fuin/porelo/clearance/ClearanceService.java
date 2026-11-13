@@ -37,6 +37,14 @@ public class ClearanceService implements AutoCloseable {
     private final List<Backlog> subscribers = new CopyOnWriteArrayList<>();
 
     /**
+     * The questions put and not yet decided, by key, so a subscriber that comes later is told them.
+     * The daemon subscribes when a list or an interface asks it to, and a question put before then
+     * is not put again: its retries are settled for the hub.
+     */
+    private final Map<String, Map<String, Object>> open =
+            java.util.Collections.synchronizedMap(new LinkedHashMap<>());
+
+    /**
      * Binds the socket and registers the methods.
      *
      * @param socket Where to create the socket.
@@ -87,6 +95,11 @@ public class ClearanceService implements AutoCloseable {
                     }
                     final Backlog queue = new Backlog(1024);
                     subscribers.add(queue);
+                    // After joining, so a question put meanwhile is not missed; one told twice is
+                    // the same question to a client, by its key.
+                    synchronized (open) {
+                        open.values().forEach(queue::offer);
+                    }
                     try {
                         // Until its client goes: a subscriber that left was waited for until the
                         // next event, for ever when none came.
@@ -153,6 +166,13 @@ public class ClearanceService implements AutoCloseable {
     }
 
     private void broadcast(Map<String, Object> event) {
+        if (event.get("key") instanceof String key) {
+            if (event.containsKey("verdict")) {
+                open.remove(key);
+            } else {
+                open.put(key, event);
+            }
+        }
         // Never waits: a subscriber that has stopped reading must not block the reader, which is on
         // the path of every dropped packet. What does not fit is counted and told.
         subscribers.forEach(queue -> queue.offer(event));

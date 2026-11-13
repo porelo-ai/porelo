@@ -67,6 +67,15 @@ public class ClearanceHub {
      */
     private java.util.function.Predicate<String> unasked = address -> false;
 
+    private java.time.Duration hold = java.time.Duration.ZERO;
+
+    private Consumer<String> askingAbout = about -> {};
+
+    private Runnable answeredAll = () -> {};
+
+    /** Woken when a client answers, so a held question ends at once. */
+    private final Object answers = new Object();
+
     /**
      * Constructor.
      *
@@ -84,6 +93,34 @@ public class ClearanceHub {
         this.task = task;
         this.prompt = prompt;
         this.allow = allow;
+    }
+
+    /**
+     * Sets how long a question the prompt could not put stays open for a client to answer.
+     *
+     * <p>A session bus without a notification service, or none at all, is where a test account and
+     * a headless machine run. Without this the question was gone at once: nothing said the task was
+     * waiting, and the list and an interface had nothing they could answer. Zero, the default,
+     * keeps that behaviour for a hub that has no client to wait for.
+     *
+     * @param hold How long, normally the prompt's own timeout.
+     */
+    public void holdFor(java.time.Duration hold) {
+        this.hold = hold;
+    }
+
+    /**
+     * Registers what is told when a question is put and when it ends, however it ends.
+     *
+     * <p>Around the whole question, the prompt and the hold after it, so a task waits for exactly
+     * as long as a person can still answer.
+     *
+     * @param asking Told what is being asked about, as it is shown.
+     * @param answered Told that nothing is being asked any more.
+     */
+    public void onAsking(Consumer<String> asking, Runnable answered) {
+        this.askingAbout = asking;
+        this.answeredAll = answered;
     }
 
     /**
@@ -179,14 +216,23 @@ public class ClearanceHub {
         }
         asking.add(key);
 
-        final Verdict verdict =
-                prompt.ask(
-                        new ClearanceRequest(
-                                project,
-                                task,
-                                blocked.shown(),
-                                blocked.destination(),
-                                blocked.protocol()));
+        Verdict verdict;
+        askingAbout.accept(blocked.shown());
+        try {
+            verdict =
+                    prompt.ask(
+                            new ClearanceRequest(
+                                    project,
+                                    task,
+                                    blocked.shown(),
+                                    blocked.destination(),
+                                    blocked.protocol()));
+        } catch (ClearanceException ex) {
+            // Not put on any screen, so still open: a client can answer it until the hold runs out.
+            verdict = held(key);
+        } finally {
+            answeredAll.run();
+        }
         // A person who answered from a client while the notification waited has decided: its
         // running out says nothing. Written over, the firewall was open while the hub said it was
         // not, and a resume never allowed it again. An answer at the notification itself came last,
@@ -203,6 +249,23 @@ public class ClearanceHub {
         return verdict;
     }
 
+    /** Waits until a client answers the question or the hold runs out. */
+    private Verdict held(String key) {
+        final long until = System.nanoTime() + hold.toNanos();
+        synchronized (answers) {
+            long left;
+            while (asking.contains(key) && (left = until - System.nanoTime()) > 0) {
+                try {
+                    java.util.concurrent.TimeUnit.NANOSECONDS.timedWait(answers, left);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        return Verdict.TIMEOUT;
+    }
+
     /**
      * Records a verdict that came from somewhere other than this hub's own prompt.
      *
@@ -216,23 +279,31 @@ public class ClearanceHub {
      * @param verdict What was decided.
      */
     public void decide(String key, String address, Verdict verdict) {
-        asking.remove(key);
-        final Blocked blocked =
-                seen.computeIfAbsent(key, unknown -> Blocked.fromKey(unknown, address));
-        if (neverAsked(address) || neverAsked(blocked.destination())) {
-            // Recorded once, when it was first denied; a client's answer changes nothing.
-            if (decided.put(key, Verdict.DENY) == null) {
-                announce(blocked, Verdict.DENY, Decision.HOST);
+        // Whole under the lock a held question waits on: woken before the verdict was in, it read
+        // the stand-in deny and wrote that over the person's allow.
+        synchronized (answers) {
+            asking.remove(key);
+            try {
+                final Blocked blocked =
+                        seen.computeIfAbsent(key, unknown -> Blocked.fromKey(unknown, address));
+                if (neverAsked(address) || neverAsked(blocked.destination())) {
+                    // Recorded once, when it was first denied; a client's answer changes nothing.
+                    if (decided.put(key, Verdict.DENY) == null) {
+                        announce(blocked, Verdict.DENY, Decision.HOST);
+                    }
+                    return;
+                }
+                final Verdict previous = decided.put(key, verdict);
+                if (verdict.allows() && (previous == null || !previous.allows())) {
+                    // No name here: a verdict from a client names an address, and the name it was
+                    // reached by is not part of that call.
+                    allow.accept(address, null);
+                }
+                announce(blocked, verdict, Decision.CLIENT);
+            } finally {
+                answers.notifyAll();
             }
-            return;
         }
-        final Verdict previous = decided.put(key, verdict);
-        if (verdict.allows() && (previous == null || !previous.allows())) {
-            // No name here: a verdict from a client names an address, and the name it was reached
-            // by is not part of that call.
-            allow.accept(address, null);
-        }
-        announce(blocked, verdict, Decision.CLIENT);
     }
 
     /**

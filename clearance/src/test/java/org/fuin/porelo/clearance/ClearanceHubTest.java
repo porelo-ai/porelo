@@ -381,4 +381,56 @@ class ClearanceHubTest {
         assertThat(announced.getLast().source()).isEqualTo(Decision.LIMIT);
         assertThat(announced.getLast().verdict()).isEqualTo(Verdict.DENY);
     }
+
+    @Test
+    void aQuestionTheDesktopCannotShowWaitsForAClientAndSaysItIsAsking() throws Exception {
+
+        // A session bus without a notification service: the question went at once, nothing said
+        // the task was waiting, and nobody could answer it from the list or an interface.
+        final List<String> waiting = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final ClearanceHub hub =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            throw new ClearanceException("no notification service");
+                        },
+                        (address, name) -> allowed.add(address));
+        hub.onDecision(announced::add);
+        hub.holdFor(java.time.Duration.ofSeconds(10));
+        hub.onAsking(waiting::add, () -> waiting.add("answered"));
+        final Thread client =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    while (waiting.isEmpty()) {
+                                        Thread.onSpinWait();
+                                    }
+                                    hub.decide("tcp/1.1.1.1/443", "1.1.1.1", Verdict.ALLOW);
+                                });
+
+        assertThat(hub.handle(ONE_ONE_ONE_ONE)).isEqualTo(Verdict.ALLOW);
+        client.join(5_000);
+        assertThat(waiting).containsExactly("1.1.1.1:443", "answered");
+        assertThat(allowed).containsExactly("1.1.1.1");
+    }
+
+    @Test
+    void aQuestionNobodyCanShowRunsOutAfterItsHold() {
+
+        final ClearanceHub hub =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            throw new ClearanceException("no notification service");
+                        },
+                        (address, name) -> allowed.add(address));
+        hub.onDecision(announced::add);
+        hub.holdFor(java.time.Duration.ofMillis(200));
+
+        assertThat(hub.handle(ONE_ONE_ONE_ONE).allows()).isFalse();
+        assertThat(announced.getLast().verdict()).isEqualTo(Verdict.TIMEOUT);
+        assertThat(allowed).isEmpty();
+    }
 }
