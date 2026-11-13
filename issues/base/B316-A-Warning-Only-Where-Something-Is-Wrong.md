@@ -94,7 +94,7 @@ Changed:
   "… reached work").
 - `apps/app/.../DaemonHardening.java:93` (standard output, `doctor`, named by the plan): "daemon dumpable no - pid N,
   its /proc entries belong to root", a hardening that holds printed like a finding: "no, as it should be - pid N;
-  its /proc entries belong to root, so no core dump or ptrace of it reads the vault's secrets".
+  its /proc entries belong to root, so no process of this account can dump or trace it to read the vault's secrets".
 
 Kept, with the reason:
 

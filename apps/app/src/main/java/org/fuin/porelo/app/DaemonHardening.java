@@ -93,8 +93,8 @@ record DaemonHardening(@Nullable Long pid, State state) {
             case NOT_DUMPABLE ->
                     "no, as it should be - pid "
                             + pid
-                            + "; its /proc entries belong to root, so no core dump or ptrace of it"
-                            + " reads the vault's secrets";
+                            + "; its /proc entries belong to root, so no process of this account can"
+                            + " dump or trace it to read the vault's secrets";
             case DUMPABLE ->
                     "yes - pid "
                             + pid
