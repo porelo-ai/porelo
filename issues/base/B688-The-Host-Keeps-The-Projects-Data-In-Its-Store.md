@@ -52,7 +52,57 @@ end of `down`.
 
 ## Plan
 
-To be written when it is taken: read `host`'s command tree and its existing root-only file writes first.
+Written 2026-11-13 by Agent Core, after reading `host`'s command tree (`PoreloHost`, picocli), its root-only files
+(`HostFiles`, `RootOwnedFile`) and how it runs a command as another account (`FollowRooms`, `runuser` through the
+host's runner).
+
+- **A `store` subcommand of `porelo-host`**, with `put`, `keep [--all]` and `restore`, in a new `HostStore` beside the
+  other host commands. It runs as root only, refused otherwise as the other root commands are. Every process goes
+  through the host's runner, so tests fake it.
+- **`store put`:** reads `store <name> <base64>` lines from stdin, with names `repository`, `password` and
+  `s3-credentials` and nothing else. It writes each decoded to `/etc/porelo-host/store/<name>` through `HostFiles`,
+  root's, mode 0600, the directory 0700. A refused line writes nothing at all, so the three are written together or
+  not. Values are never printed; the answer names only the files written.
+- **The entries are data, decided here:**
+  - A fixed list in the host module, `StoreEntries`, each with:
+    - its name (the restic tag)
+    - its account
+    - its backup and restore commands, each with `<dir>` standing for the directory
+    - how many snapshots it keeps
+    - its schedule, `hourly` or `down`
+  - The room: tag `room`, account `porelo-matrix`, `porelo-message-matrix backup|restore <dir>`, keep 48, hourly.
+  - Each person's usage records: tag `usage-<login>`, the person's account, `porelo keep [--restore] <dir>`, keep 48,
+    hourly. The persons come from the host's people records (`HostRecords`), so each person is an entry.
+  - The Maven cache is not listed until Porelo's shared cache exists. The vault is never listed, and a test pins
+    that.
+- **Due entries:** `keep` runs every `hourly` entry. `--all` adds the `down` ones (none today). Nothing is
+  remembered between runs: the timer that calls `keep` sets the pace.
+- **`store keep`:** for each due entry, in the list's order:
+  1. Make a fresh directory owned by the entry's account.
+  2. Run the backup command there as the account (`runuser -u <account> --`).
+  3. Run `restic backup --tag <entry>` and then `restic forget --tag <entry> --keep-last <n>`, as root.
+  4. Remove the directory.
+
+  It stops at the first entry that fails, with no forget after it, and exits 70 naming the entry and the step. Before
+  the first entry, a store not yet made (`restic cat config` failing as no repository) is made once with
+  `restic init`.
+- **restic's keys:** `RESTIC_REPOSITORY_FILE` and `RESTIC_PASSWORD_FILE` name the files, and
+  `AWS_SHARED_CREDENTIALS_FILE` names the S3 credentials file. These are file paths in the environment, never values;
+  no argument carries a key.
+- **`store restore`:**
+  - A store not yet made, or one with no snapshot of an entry, is a first start and is said so per entry.
+  - Otherwise each entry gets `restic restore latest --tag <entry> --target <dir>`, then its restore command as its
+    account.
+  - The room's answer `{"restore": "present"}` counts as unchanged. A person's `porelo keep --restore` exiting 69
+    (a task runs) is said and stops the restore with 69.
+- **Red first, in `host`'s tests** (a new `HostStoreTest` over a fake runner and a temporary root):
+  - `put` writes the three files 0600 and refuses a fourth name with nothing written; no value appears in the
+    output or in any argument the runner saw.
+  - `keep` runs a due entry's backup as its account and then restic with the tag. With a failing second entry it
+    stops, runs no forget for it, and exits 70 naming it.
+  - restic's arguments and environment carry file paths, never a key.
+  - `restore` on a store with no snapshot says first start.
+  - The entries list has no vault.
 
 ## Acceptance
 
