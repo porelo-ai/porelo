@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B674",
   "title": "A Removal Retires Its Name Though The Daemon Writes Its Mailbox",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 2,
@@ -70,3 +70,24 @@ no temp file behind. `project remove` and `project clear` then find no unfinishe
 - A task removed while the daemon writes its mailbox leaves its claim retired, and `project remove --force` of its
   project answers 0; a test fails while the delete's failure skips the retire.
 - No `.guide*.tmp` is left in a mailbox after a failed guide write.
+
+## Built (2026-11-13)
+
+- **Red first, unit level:** `MailboxTest` (a file written between the delete's walk and its deletes goes with
+  it; a writer that never stops fails the delete after a few walks), `MailboxGuideTest` (a write whose move fails
+  leaves no `.guide*.tmp`), `MessageWatchTest` (a pass over a removed task's mailbox moves and writes nothing),
+  `TaskReservationsTest` (a removal whose mailbox cannot be deleted, made and unmade, still retires the claim,
+  `projectBusy` answers null, and the failure is still said: `task remove` exits 70 with "could not delete its
+  mailbox"). Each was seen red for that reason before the fix.
+- **`MailboxGuide.put`** deletes its staged file when the write, the permissions or the move fail.
+- **`MessageWatch`** leaves out every mailbox whose name's claim is retired (`TaskReservations.removed`, read
+  without the name lock, so a pass never waits for a removal). A name with no claim is still served: tasks made
+  before claims existed have none.
+- **`Mailbox.delete`** walks again after a `DirectoryNotEmptyException` (or a file gone during the walk), five
+  walks at most, 10 ms apart, then fails.
+- **`TaskControl`** deletes the mailbox, the guide, the repositories file (and, for an unmade start, the handed-back
+  file) each on its own, retires the claim whatever of that failed, and only then throws the first failure as
+  before, "Removed the task but could not delete its mailbox: <container>".
+- **Clean-up:** `LooseFiles` only exempts `.guide*.tmp` from tightening; what offers a leftover mailbox is `Prune`,
+  which counts a retired name as gone. `PruneTest` holds that a mailbox left by a removal is offered once its name
+  is retired (seen red with retired names kept protected).

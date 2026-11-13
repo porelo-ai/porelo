@@ -111,4 +111,34 @@ class MessageWatchTest {
                 .exists();
         assertThat(orphan.outboxNew().resolve("m-1.json")).doesNotExist();
     }
+
+    /**
+     * A removed task's mailbox that outlived its removal is a leftover, not a task's: a pass that
+     * wrote its guide there piled up a temp file a minute, and the next delete of it failed.
+     */
+    @Test
+    void a_pass_writes_nothing_into_the_mailbox_of_a_removed_task(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final String container = "porelo-demo-gone";
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("demo", "gone", container, "first")) {}
+        final Mailbox left = new Mailbox(context.paths().messaging().mailbox(container));
+        left.create();
+        final Path waiting = left.outboxNew().resolve("m-1.json");
+        Files.writeString(waiting, "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}");
+        reservations.retire(container);
+
+        assertThat(new MessageWatch(context, Duration.ofSeconds(60)).passOnce())
+                .as("no mailbox of a task moved")
+                .isZero();
+        assertThat(left.guide()).as("no guide for a removed task").doesNotExist();
+        assertThat(left.card()).as("no card for a removed task").doesNotExist();
+        assertThat(waiting).as("nothing taken from it").exists();
+        try (var root = Files.list(left.root())) {
+            assertThat(root.map(path -> path.getFileName().toString()))
+                    .as("nothing staged in its root")
+                    .noneMatch(name -> name.startsWith(".guide"));
+        }
+    }
 }

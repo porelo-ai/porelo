@@ -1,0 +1,2 @@
+title: "A task's removal retires its name even when the daemon writes into its mailbox meanwhile, so its project's removal no longer finds an unfinished start, and no guide write leaves a temp file behind"
+type: fixed

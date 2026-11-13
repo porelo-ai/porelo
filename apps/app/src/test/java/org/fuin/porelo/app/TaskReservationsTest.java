@@ -122,6 +122,72 @@ class TaskReservationsTest {
     }
 
     @Test
+    void aRemovalWhoseMailboxStaysStillRetiresTheNameAndSaysSo() throws Exception {
+        // The daemon wrote into the mailbox while it was deleted: the delete failed, the claim
+        // stayed created with its container gone, and its project could no longer be removed.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final String id = "a".repeat(64);
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("web", "x", container, "first")) {
+            record(context, container, id);
+        }
+        runner.answering("ps", container + "\tExited (0)\t\t\tweb\tguarded\tr\t\t" + id + "\n");
+        final Path stuck = undeletable(context, container);
+        try {
+            assertThatThrownBy(() -> new TaskControl(context).remove(container, false, true))
+                    .as("the mailbox that stayed is still said")
+                    .hasMessageContaining("could not delete its mailbox");
+            assertThat(reservations.locked(() -> reservations.projectBusy("web")))
+                    .as("the removed task's name is no unfinished start of its project")
+                    .isNull();
+            assertThat(reservations.protectedNames()).doesNotContain(container);
+        } finally {
+            Files.setPosixFilePermissions(
+                    stuck, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    @Test
+    void aRemovalOfAnUnmadeStartWhoseMailboxStaysStillRetiresTheNameAndSaysSo() throws Exception {
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("web", "x", container, "first")) {}
+        final Path stuck = undeletable(context, container);
+        try {
+            final var cli = PoreloCli.commandLine(context);
+            final java.io.StringWriter said = new java.io.StringWriter();
+            cli.setOut(new java.io.PrintWriter(java.io.Writer.nullWriter()));
+            cli.setErr(new java.io.PrintWriter(said, true));
+            assertThat(cli.execute("task", "remove", container, "--no-input", "--force"))
+                    .as("a removal that left a directory is no success: %s", said)
+                    .isEqualTo(70);
+            assertThat(reservations.locked(() -> reservations.projectBusy("web")))
+                    .as("the removed start's name is no unfinished start of its project")
+                    .isNull();
+            assertThat(reservations.protectedNames()).doesNotContain(container);
+            assertThat(said.toString())
+                    .as("it says what stayed")
+                    .contains("could not delete its mailbox: " + container);
+        } finally {
+            Files.setPosixFilePermissions(
+                    stuck, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    /** Makes a mailbox whose delete fails: one of its directories holds a file and is read-only. */
+    private static Path undeletable(PoreloContext context, String container) throws Exception {
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        mailbox.create();
+        Files.writeString(mailbox.record().resolve("entry"), "kept");
+        Files.setPosixFilePermissions(
+                mailbox.record(),
+                java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+        return mailbox.record();
+    }
+
+    @Test
     void resumeCannotBypassContradictoryLegacyOwnership() throws Exception {
         final PoreloContext context = context().recognizingTasks();
         final String container = "porelo-web-x";

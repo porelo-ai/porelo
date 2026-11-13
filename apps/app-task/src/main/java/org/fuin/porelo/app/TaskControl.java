@@ -278,11 +278,8 @@ public final class TaskControl {
                         new TaskState(context).forget(container);
                         new TaskSession(context).forget(container);
                         new TaskSecrets(context).forget(container);
-                        new Mailbox(context.paths().messaging().mailbox(container)).delete();
-                        new TaskGuide(context.paths(), container).delete();
-                        new TaskRepositories(context.paths(), container).delete();
-                        new TaskResult(context.paths()).forget(container);
-                        reservations.retire(container);
+                        retireDeleting(
+                                container, () -> new TaskResult(context.paths()).forget(container));
                         return new Stopped(
                                 Outcome.STOPPED, null, null, true, 0, List.of(), null, null, 0);
                     });
@@ -389,6 +386,53 @@ public final class TaskControl {
             Files.deleteIfExists(state.resolve(UnhandedWork.FILE));
         } catch (java.io.IOException ex) {
             // The task stops regardless; a note that stays says what was asked last.
+        }
+    }
+
+    /** Something a removal deletes. */
+    @FunctionalInterface
+    private interface Deletion {
+        void run() throws java.io.IOException;
+    }
+
+    /**
+     * Deletes what a removed task kept beside its container - its mailbox, its guide, its
+     * repositories file, then {@code more} - and retires its name whatever of that fails: a claim
+     * left behind is an unfinished start that refuses its project's removal. What could not be
+     * deleted is the removal's failure, said after the retire, and a prune takes it later.
+     *
+     * @param container The removed task.
+     * @param more What else goes before the name is retired.
+     */
+    private void retireDeleting(String container, Deletion more) {
+        java.io.IOException failed = null;
+        for (final Deletion deletion :
+                List.<Deletion>of(
+                        () -> new Mailbox(context.paths().messaging().mailbox(container)).delete(),
+                        () -> new TaskGuide(context.paths(), container).delete(),
+                        () -> new TaskRepositories(context.paths(), container).delete(),
+                        more)) {
+            try {
+                deletion.run();
+            } catch (final java.io.IOException ex) {
+                if (failed == null) {
+                    failed = ex;
+                } else {
+                    failed.addSuppressed(ex);
+                }
+            }
+        }
+        try {
+            new TaskReservations(context).retire(container);
+        } catch (final java.io.IOException ex) {
+            if (failed != null) {
+                ex.addSuppressed(failed);
+            }
+            throw new java.io.UncheckedIOException("Cannot retire task identity", ex);
+        }
+        if (failed != null) {
+            throw new java.io.UncheckedIOException(
+                    "Removed the task but could not delete its mailbox: " + container, failed);
         }
     }
 
@@ -668,19 +712,7 @@ public final class TaskControl {
                                 + ex.getMessage());
             }
             // The mailbox outlives the container on purpose, so this is the one place it ends.
-            try {
-                new Mailbox(context.paths().messaging().mailbox(container)).delete();
-                new TaskGuide(context.paths(), container).delete();
-                new TaskRepositories(context.paths(), container).delete();
-            } catch (final java.io.IOException e) {
-                throw new java.io.UncheckedIOException(
-                        "Removed the task but could not delete its mailbox: " + container, e);
-            }
-            try {
-                new TaskReservations(context).retire(container);
-            } catch (java.io.IOException ex) {
-                throw new java.io.UncheckedIOException("Cannot retire task identity", ex);
-            }
+            retireDeleting(container, () -> {});
         }
         return new Stopped(
                 Outcome.STOPPED,

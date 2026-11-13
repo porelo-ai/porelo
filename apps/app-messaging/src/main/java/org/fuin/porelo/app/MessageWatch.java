@@ -1222,8 +1222,18 @@ public final class MessageWatch implements AutoCloseable {
         if (!Files.isDirectory(root)) {
             return List.of();
         }
+        final TaskReservations claims = new TaskReservations(context);
         try (Stream<Path> entries = Files.list(root)) {
-            final List<Path> found = new ArrayList<>(entries.filter(Files::isDirectory).toList());
+            final List<Path> found =
+                    new ArrayList<>(
+                            entries.filter(Files::isDirectory)
+                                    // What a removal could not delete is a leftover, no task's: a
+                                    // pass writing into it raced the delete and piled up files.
+                                    .filter(
+                                            mailbox ->
+                                                    !claims.removed(
+                                                            mailbox.getFileName().toString()))
+                                    .toList());
             found.sort(Comparator.comparing(path -> path.getFileName().toString()));
             return found;
         } catch (final IOException ex) {

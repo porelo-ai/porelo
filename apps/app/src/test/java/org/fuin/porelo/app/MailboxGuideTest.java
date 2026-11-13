@@ -108,6 +108,30 @@ class MailboxGuideTest {
     }
 
     @Test
+    void aWriteWhoseMoveFailsLeavesNoStagedFileBehind(@TempDir final Path dir) throws IOException {
+        // A box deleted under the writer: every later pass added one more temp file, and the
+        // mailbox could no longer be deleted.
+        final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
+        mailbox.create();
+        try (var tree = Files.walk(mailbox.box())) {
+            for (final Path path : tree.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> MailboxGuide.write(mailbox, Mail.none()))
+                .as("the guide has nowhere to go")
+                .isInstanceOf(IOException.class);
+
+        try (var left = Files.list(mailbox.root())) {
+            assertThat(left.map(path -> path.getFileName().toString()))
+                    .as("nothing staged is left in the mailbox's root")
+                    .noneMatch(name -> name.startsWith(".guide"));
+        }
+    }
+
+    @Test
     @Tag("documents")
     void theUserDocumentationShowsTheTextAgentsAreGivenWordForWord() throws IOException {
 

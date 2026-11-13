@@ -768,6 +768,16 @@ public final class TaskReservations {
     }
 
     /**
+     * Whether the name's task was removed: its claim is retired. Read without the name lock, so a
+     * pass over every mailbox never waits for a removal holding it; a missing or unreadable claim
+     * is no removal.
+     */
+    public boolean removed(String container) {
+        final Claim owner = known(container);
+        return owner != null && owner.stage() == Stage.RETIRED;
+    }
+
+    /**
      * Only explicitly retired scopes may be pruned; unidentified vault leftovers keep their name.
      */
     public boolean retired(String container) {

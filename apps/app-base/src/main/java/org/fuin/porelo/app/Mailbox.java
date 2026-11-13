@@ -5,10 +5,14 @@ import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.fuin.porelo.wire.Directories;
@@ -64,6 +68,12 @@ public final class Mailbox {
     /** A message the host hands the agent. */
     private static final Set<PosixFilePermission> AGENT_READABLE =
             java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--");
+
+    /** How often a delete walks a mailbox that something wrote into while it was deleted. */
+    private static final int DELETE_TRIES = 5;
+
+    /** How long a delete waits before it walks again: a writer's staged file lives that long. */
+    private static final java.time.Duration DELETE_PAUSE = java.time.Duration.ofMillis(10);
 
     private final Path root;
 
@@ -445,13 +455,54 @@ public final class Mailbox {
      * @throws IOException Deleting failed.
      */
     public void delete() throws IOException {
+        delete(() -> {});
+    }
+
+    /**
+     * Deletes the mailbox as {@link #delete()} does, running {@code walked} after each walk of it
+     * and before anything of that walk is deleted.
+     *
+     * @param walked What happens between a walk and its deletes, as a writer's late file would.
+     * @throws IOException Deleting failed.
+     */
+    void delete(final Runnable walked) throws IOException {
+        for (int tried = 1; ; tried++) {
+            try {
+                deleteOnce(walked);
+                return;
+            } catch (final DirectoryNotEmptyException | NoSuchFileException ex) {
+                // A writer's file landed after the walk, or one it moved went during it: walked
+                // again, a few times only, so a writer that never stops fails the delete.
+                if (tried == DELETE_TRIES) {
+                    throw ex;
+                }
+                pause(ex);
+            }
+        }
+    }
+
+    private void deleteOnce(final Runnable walked) throws IOException {
         if (!Files.exists(root)) {
             return;
         }
-        try (Stream<Path> tree = Files.walk(root)) {
-            for (final Path path : tree.sorted(Comparator.reverseOrder()).toList()) {
-                Files.deleteIfExists(path);
-            }
+        final List<Path> tree;
+        try (Stream<Path> walk = Files.walk(root)) {
+            tree = walk.sorted(Comparator.reverseOrder()).toList();
+        } catch (final UncheckedIOException ex) {
+            throw ex.getCause();
+        }
+        walked.run();
+        for (final Path path : tree) {
+            Files.deleteIfExists(path);
+        }
+    }
+
+    private static void pause(final IOException failed) throws IOException {
+        try {
+            Thread.sleep(DELETE_PAUSE);
+        } catch (final InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw failed;
         }
     }
 

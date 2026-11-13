@@ -196,4 +196,55 @@ class MailboxTest {
     void deleting_a_mailbox_that_was_never_made_is_not_an_error() throws IOException {
         new Mailbox(temp.resolve("never")).delete();
     }
+
+    @Test
+    void a_file_written_into_it_while_it_is_deleted_goes_with_it() throws IOException {
+        // The daemon's guide writer staged a temp file in the root between the delete's walk and
+        // its last rmdir: the delete failed, and the removal it was part of left its name claimed.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final java.util.concurrent.atomic.AtomicInteger walks =
+                new java.util.concurrent.atomic.AtomicInteger();
+
+        mailbox.delete(
+                () -> {
+                    if (walks.incrementAndGet() == 1) {
+                        late(mailbox.root().resolve(".guide1.tmp"));
+                    }
+                });
+
+        assertThat(mailbox.root()).as("the late file went too").doesNotExist();
+    }
+
+    @Test
+    void a_writer_that_never_stops_fails_the_delete_after_a_few_tries() throws IOException {
+        // Bounded: a removal is never held by a writer that keeps writing.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final java.util.concurrent.atomic.AtomicInteger walks =
+                new java.util.concurrent.atomic.AtomicInteger();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                mailbox.delete(
+                                        () ->
+                                                late(
+                                                        mailbox.root()
+                                                                .resolve(
+                                                                        ".guide"
+                                                                                + walks
+                                                                                        .incrementAndGet()
+                                                                                + ".tmp"))))
+                .as("a mailbox that does not empty is a failed delete")
+                .isInstanceOf(java.nio.file.DirectoryNotEmptyException.class);
+        assertThat(walks.get()).as("walked again, a bounded number of times").isBetween(2, 10);
+    }
+
+    private static void late(final Path file) {
+        try {
+            Files.writeString(file, "late");
+        } catch (final IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
 }

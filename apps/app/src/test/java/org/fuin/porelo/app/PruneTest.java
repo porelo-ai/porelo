@@ -306,6 +306,27 @@ class PruneTest {
     }
 
     @Test
+    void aMailboxItsRemovalCouldNotDeleteIsALeftoverOnceItsNameIsRetired() throws IOException {
+        // A removal retires the name though the mailbox stayed: what stayed is offered here.
+        final PoreloContext context = context();
+        final String container = "porelo-web-x";
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("web", "x", container, "first")) {}
+        final Mailbox left = new Mailbox(context.paths().messaging().mailbox(container));
+        left.create();
+        reservations.retire(container);
+        age(context.paths().xdg().state());
+
+        final Prune.Result result = new Prune(context).run(true, false);
+
+        assertThat(result.removes())
+                .as(result.toString())
+                .extracting(Prune.Item::name)
+                .contains(container);
+        assertThat(left.root()).as("the leftover went").doesNotExist();
+    }
+
+    @Test
     void aTaskStartingNowIsNotLeftOverThoughItsContainerIsNotThereYet() throws IOException {
         // Its mailbox and state are made before its container: a prune at that moment must not take
         // them.

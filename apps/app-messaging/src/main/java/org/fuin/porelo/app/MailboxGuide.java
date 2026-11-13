@@ -177,9 +177,22 @@ public final class MailboxGuide {
         // Beside it and renamed, so the agent never reads half of it; readable by the agent,
         // writable only here.
         final Path staged = Files.createTempFile(mailbox.root(), ".guide", ".tmp");
-        Files.writeString(staged, text, StandardCharsets.UTF_8);
-        Files.setPosixFilePermissions(staged, PosixFilePermissions.fromString("rw-r--r--"));
-        Files.move(
-                staged, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        try {
+            Files.writeString(staged, text, StandardCharsets.UTF_8);
+            Files.setPosixFilePermissions(staged, PosixFilePermissions.fromString("rw-r--r--"));
+            Files.move(
+                    staged,
+                    file,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } catch (final IOException | RuntimeException ex) {
+            // Left behind, one more piled up at every pass, and the mailbox could not be deleted.
+            try {
+                Files.deleteIfExists(staged);
+            } catch (final IOException cleanup) {
+                ex.addSuppressed(cleanup);
+            }
+            throw ex;
+        }
     }
 }
