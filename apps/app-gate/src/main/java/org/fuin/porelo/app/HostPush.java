@@ -143,37 +143,73 @@ final class HostPush {
         final String base = "http://127.0.0.1:" + port;
         final String branch = "refs/heads/porelo/" + task;
         final Path record = mirror.resolve(GitGate.HOST_PUSHED).resolve(task);
+        final long until = System.nanoTime() + limit.toNanos();
         try {
             // Two pushes of one task at once read the same lease, and one's record named a commit
-            // the other had put on the forge: the lease, the push and the record go together.
-            return FileLocks.holding(
+            // the other had put on the forge: the lease, the push and the record go together. The
+            // wait for the other is part of this push's limit, not before it.
+            final Optional<Optional<String>> done =
+                    FileLocks.holdingWithin(
                             record.resolveSibling("." + task + ".lock"),
+                            limit,
                             () ->
                                     Optional.ofNullable(
-                                            pushHeld(commit, secret, base, branch, record)))
-                    .orElse(null);
+                                            pushHeld(commit, secret, base, branch, record, until)));
+            if (done.isEmpty()) {
+                return "another push of porelo/"
+                        + task
+                        + " held it longer than "
+                        + limit.toSeconds()
+                        + " s; nothing was passed on - push again";
+            }
+            return done.get().orElse(null);
         } catch (IOException ex) {
             return "the gate could not lock porelo/"
                     + task
                     + ": "
                     + printable(String.valueOf(ex.getMessage()));
         } catch (CommandException ex) {
-            if (ex.timedOut()) {
-                return new org.fuin.porelo.gate.GateException.ForgeSilent(limit).getMessage();
-            }
             return "the push to the host's forge could not be run: "
                     + printable(masked(String.valueOf(ex.getMessage()), secret));
         }
     }
 
-    /** Sets, pushes and records the task's branch, while its lock is held. */
+    /**
+     * Sets, pushes and records the task's branch, while its lock is held; puts the mirror's branch
+     * back when the forge did not take it.
+     */
     private @Nullable String pushHeld(
             final String commit,
             final String secret,
             final String base,
             final String branch,
-            final Path record) {
+            final Path record,
+            final long until) {
+        final java.time.Duration left = java.time.Duration.ofNanos(until - System.nanoTime());
+        if (left.compareTo(java.time.Duration.ofSeconds(1)) < 0) {
+            return "another push of porelo/"
+                    + task
+                    + " held it longer than "
+                    + limit.toSeconds()
+                    + " s; nothing was passed on - push again";
+        }
         final String leased = lastPushed(record);
+        final CommandResult before =
+                context.runner()
+                        .run(
+                                Command.of(
+                                                "git",
+                                                "-c",
+                                                "core.hooksPath=/dev/null",
+                                                "--git-dir",
+                                                mirror.toString(),
+                                                "rev-parse",
+                                                "--verify",
+                                                "--quiet",
+                                                branch)
+                                        .withChosenEnvironment(gitEnvironment()));
+        final String found = before.successful() ? before.standardOutput().strip() : "";
+        final @Nullable String was = found.matches("[0-9a-f]{40}|[0-9a-f]{64}") ? found : null;
         final CommandResult set =
                 context.runner()
                         .run(
@@ -193,54 +229,16 @@ final class HostPush {
                     + ": "
                     + printable(set.standardError().strip());
         }
-        final CommandResult pushed =
-                context.runner()
-                        .run(
-                                Command.of(
-                                                "git",
-                                                // No config but this: no hooks, no proxy, no
-                                                // transport but http, no helper but ours.
-                                                "-c",
-                                                "core.hooksPath=/dev/null",
-                                                "-c",
-                                                "protocol.allow=never",
-                                                "-c",
-                                                "protocol.http.allow=always",
-                                                "-c",
-                                                "http.proxy=",
-                                                "-c",
-                                                "credential.helper=",
-                                                "-c",
-                                                "credential."
-                                                        + base
-                                                        + ".helper=!"
-                                                        + word(PoreloBinary.path().toString())
-                                                        + " vault credential --env "
-                                                        + TOKEN_VARIABLE,
-                                                "--git-dir",
-                                                mirror.toString(),
-                                                "push",
-                                                "--no-verify",
-                                                leased == null
-                                                        ? "--no-force-with-lease"
-                                                        : "--force-with-lease="
-                                                                + branch
-                                                                + ":"
-                                                                + leased,
-                                                base + "/" + repository + ".git",
-                                                // The commit the record will name; the mirror's
-                                                // branch may hold another push's by now.
-                                                commit + ":" + branch)
-                                        .withEnvironment(Map.of(TOKEN_VARIABLE, secret))
-                                        .withChosenEnvironment(gitEnvironment())
-                                        .withTimeout(limit));
-        if (!pushed.successful()) {
-            return "the host's forge did not take porelo/"
-                    + task
-                    + " (exit "
-                    + pushed.exitCode()
-                    + "): "
-                    + printable(masked(pushed.standardError().strip(), secret));
+        final @Nullable String failed;
+        try {
+            failed = push(commit, secret, base, branch, leased, left);
+        } catch (RuntimeException ex) {
+            putBack(branch, was, commit);
+            throw ex;
+        }
+        if (failed != null) {
+            putBack(branch, was, commit);
+            return failed;
         }
         try {
             Files.createDirectories(record.getParent());
@@ -249,6 +247,165 @@ final class HostPush {
             // Pushed all the same; the next amend is then refused as stale and says so.
         }
         return null;
+    }
+
+    /**
+     * Pushes the commit; after a push ended at its limit, asks the forge whether it holds it.
+     *
+     * @return {@code null} when the forge holds it, else why not.
+     */
+    private @Nullable String push(
+            final String commit,
+            final String secret,
+            final String base,
+            final String branch,
+            final @Nullable String leased,
+            final java.time.Duration left) {
+        final java.util.List<String> push = new java.util.ArrayList<>(remote(base));
+        push.addAll(
+                java.util.List.of(
+                        "push",
+                        "--no-verify",
+                        leased == null
+                                ? "--no-force-with-lease"
+                                : "--force-with-lease=" + branch + ":" + leased,
+                        base + "/" + repository + ".git",
+                        // The commit the record will name; the mirror's branch may hold another
+                        // push's by now.
+                        commit + ":" + branch));
+        final CommandResult pushed;
+        try {
+            pushed =
+                    context.runner()
+                            .run(
+                                    Command.of(push)
+                                            .withEnvironment(Map.of(TOKEN_VARIABLE, secret))
+                                            .withChosenEnvironment(gitEnvironment())
+                                            .withTimeout(left));
+        } catch (CommandException ex) {
+            final java.time.Duration waited = ex.limit();
+            if (waited == null) {
+                throw ex;
+            }
+            // It may have landed before the forge stalled: what the forge holds now decides.
+            final Boolean held = holds(commit, secret, base, branch, waited);
+            if (Boolean.TRUE.equals(held)) {
+                return null;
+            }
+            // The pass-on limit when the push had what was left of it, the runner's when shorter.
+            return new org.fuin.porelo.gate.GateException.ForgeSilent(
+                            waited.compareTo(left) < 0 ? waited : limit, held != null)
+                    .getMessage();
+        }
+        if (!pushed.successful()) {
+            return "the host's forge did not take porelo/"
+                    + task
+                    + " (exit "
+                    + pushed.exitCode()
+                    + "): "
+                    + printable(masked(pushed.standardError().strip(), secret));
+        }
+        return null;
+    }
+
+    /**
+     * Asks the forge whether its branch holds the commit.
+     *
+     * @return Whether it does, or {@code null} when it did not answer that either.
+     */
+    private @Nullable Boolean holds(
+            final String commit,
+            final String secret,
+            final String base,
+            final String branch,
+            final java.time.Duration waited) {
+        final java.util.List<String> ask = new java.util.ArrayList<>(remote(base));
+        ask.addAll(java.util.List.of("ls-remote", base + "/" + repository + ".git", branch));
+        try {
+            final CommandResult said =
+                    context.runner()
+                            .run(
+                                    Command.of(ask)
+                                            .withEnvironment(Map.of(TOKEN_VARIABLE, secret))
+                                            .withChosenEnvironment(gitEnvironment())
+                                            .withTimeout(
+                                                    waited.compareTo(ASKING_AFTER) < 0
+                                                            ? waited
+                                                            : ASKING_AFTER));
+            if (!said.successful()) {
+                return null;
+            }
+            return said.standardOutput()
+                    .lines()
+                    .anyMatch(line -> line.equals(commit + "\t" + branch));
+        } catch (CommandException ex) {
+            return null;
+        }
+    }
+
+    /** How long the gate asks after a push the forge did not answer, at most. */
+    private static final java.time.Duration ASKING_AFTER = java.time.Duration.ofSeconds(30);
+
+    /**
+     * Git's arguments for the forge, before the command: no config but this - no hooks, no proxy,
+     * no transport but http, no helper but ours.
+     */
+    private java.util.List<String> remote(final String base) {
+        return java.util.List.of(
+                "git",
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "protocol.allow=never",
+                "-c",
+                "protocol.http.allow=always",
+                "-c",
+                "http.proxy=",
+                "-c",
+                "credential.helper=",
+                "-c",
+                "credential."
+                        + base
+                        + ".helper=!"
+                        + word(PoreloBinary.path().toString())
+                        + " vault credential --env "
+                        + TOKEN_VARIABLE,
+                "--git-dir",
+                mirror.toString());
+    }
+
+    /**
+     * Puts the mirror's branch back to what it held before this push, only while it still holds
+     * this push's commit.
+     */
+    private void putBack(final String branch, final @Nullable String was, final String commit) {
+        final java.util.List<String> back =
+                was == null
+                        ? java.util.List.of(
+                                "git",
+                                "-c",
+                                "core.hooksPath=/dev/null",
+                                "--git-dir",
+                                mirror.toString(),
+                                "update-ref",
+                                "-d",
+                                branch,
+                                commit)
+                        : java.util.List.of(
+                                "git",
+                                "-c",
+                                "core.hooksPath=/dev/null",
+                                "--git-dir",
+                                mirror.toString(),
+                                "update-ref",
+                                branch,
+                                was,
+                                commit);
+        try {
+            context.runner().run(Command.of(back).withChosenEnvironment(gitEnvironment()));
+        } catch (CommandException ex) {
+            // Left as it is; the next push sets it again.
+        }
     }
 
     /** The commit last pushed, or {@code null} before the first push or for a record not one. */

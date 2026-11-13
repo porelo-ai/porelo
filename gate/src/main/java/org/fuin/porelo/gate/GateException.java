@@ -35,13 +35,22 @@ public class GateException extends RuntimeException {
         /**
          * Constructor.
          *
+         * <p>A push ended at its limit may still have reached the forge, which then stalled: the
+         * gate asks after it, and says only what the answer bears out.
+         *
          * @param limit How long the gate waited.
+         * @param notHeld Whether the forge, asked after, did not hold the commit; {@code false}
+         *     when that is not known either.
          */
-        public ForgeSilent(final java.time.Duration limit) {
+        public ForgeSilent(final java.time.Duration limit, final boolean notHeld) {
             super(
                     "the forge did not answer within "
                             + limit.toSeconds()
-                            + " s; nothing was passed on - push again");
+                            + " s"
+                            + (notHeld
+                                    ? " and did not hold the push when asked after - push again"
+                                    : "; whether it took the push is not known - push again, which"
+                                            + " sets only this task's branch"));
         }
     }
 

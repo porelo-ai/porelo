@@ -253,7 +253,39 @@ class ProcessCommandRunnerTest {
                                 impatient.run(
                                         Command.of("sleep", "30").withTimeout(Duration.ofHours(1))))
                 .isInstanceOfSatisfying(
+                        CommandException.class,
+                        ex ->
+                                assertThat(ex.limit())
+                                        .as("the limit that ended it, which a message names")
+                                        .isEqualTo(Duration.ofMillis(200)));
+    }
+
+    @Test
+    void aProgramEndedAtItsLimitIsGoneAfterwards(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+
+        final java.nio.file.Path pid = dir.resolve("pid");
+
+        assertThatThrownBy(
+                        () ->
+                                runner.run(
+                                        Command.of(
+                                                        "sh",
+                                                        "-c",
+                                                        "echo $$ > \"$1\"; exec sleep 30",
+                                                        "sh",
+                                                        pid.toString())
+                                                .withTimeout(Duration.ofMillis(500))))
+                .isInstanceOfSatisfying(
                         CommandException.class, ex -> assertThat(ex.timedOut()).isTrue());
+        final long ended = Long.parseLong(java.nio.file.Files.readString(pid).strip());
+        // Said to have timed out is not enough: a push left running would still reach the forge.
+        final java.time.Instant until = java.time.Instant.now().plusSeconds(5);
+        while (ProcessHandle.of(ended).map(ProcessHandle::isAlive).orElse(false)
+                && java.time.Instant.now().isBefore(until)) {
+            Thread.onSpinWait();
+        }
+        assertThat(ProcessHandle.of(ended).map(ProcessHandle::isAlive).orElse(false)).isFalse();
     }
 
     @Test

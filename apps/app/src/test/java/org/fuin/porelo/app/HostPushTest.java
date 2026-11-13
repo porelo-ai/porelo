@@ -203,17 +203,108 @@ class HostPushTest {
     @Test
     void aPushTheForgeDoesNotAnswerEndsAtTheLimitAndSaysSo() throws IOException {
         runner.timingOut(" push ");
+        final Path mirror = dir.resolve("mirror.git");
         final String said =
-                push(dir.resolve("mirror.git"), conf("git_port=3001\n"), TOKEN)
+                push(mirror, conf("git_port=3001\n"), TOKEN)
                         .within(java.time.Duration.ofSeconds(90))
                         .passOn(COMMIT);
 
         assertThat(said)
                 .isEqualTo(
-                        "the forge did not answer within 90 s; nothing was passed on - push again");
-        assertThat(runner.invocations().getLast().timeout())
-                .as("the push carries the limit, so the runner ends it there")
-                .isEqualTo(java.time.Duration.ofSeconds(90));
+                        "the forge did not answer within 90 s and did not hold the push when"
+                                + " asked after - push again");
+        assertThat(runner.only(" push ").timeout())
+                .as("the push carries what is left of the limit, so the runner ends it there")
+                .isBetween(java.time.Duration.ofSeconds(80), java.time.Duration.ofSeconds(90));
+        assertThat(runner.only(" ls-remote ").arguments())
+                .contains("http://127.0.0.1:3001/acme/demo.git", "refs/heads/porelo/fix");
+        assertThat(runner.only(" ls-remote ").environment())
+                .containsEntry(HostPush.TOKEN_VARIABLE, TOKEN);
+        assertThat(runner.invocations().getLast().arguments())
+                .as("the mirror's branch goes back to before, while it holds this push's")
+                .containsSubsequence("update-ref", "-d", "refs/heads/porelo/fix", COMMIT);
+        assertThat(mirror.resolve(GitGate.HOST_PUSHED).resolve("fix")).doesNotExist();
+    }
+
+    // The forge set the branch and then hung: "nothing was passed on" would have been untrue.
+    @Test
+    void aPushThatLandedBeforeTheForgeStalledIsRecorded() throws IOException {
+        runner.timingOut(" push ").answering(" ls-remote ", COMMIT + "\trefs/heads/porelo/fix\n");
+        final Path mirror = dir.resolve("mirror.git");
+
+        assertThat(push(mirror, conf("git_port=3001\n"), TOKEN).passOn(COMMIT)).isNull();
+        assertThat(mirror.resolve(GitGate.HOST_PUSHED).resolve("fix")).hasContent(COMMIT);
+        assertThat(runner.invocations().getLast().arguments()).contains("ls-remote");
+    }
+
+    @Test
+    void aForgeThatDoesNotSayWhatItHoldsLeavesTheOutcomeOpen() throws IOException {
+        runner.timingOut(" push ").timingOut(" ls-remote ");
+
+        assertThat(push(dir.resolve("mirror.git"), conf("git_port=3001\n"), TOKEN).passOn(COMMIT))
+                .startsWith(
+                        "the forge did not answer within 120 s; whether it took the push is"
+                                + " not known");
+    }
+
+    // The mirror's branch was set before the push and stayed there when the forge refused it.
+    @Test
+    void aRefusedPushPutsTheMirrorsBranchBackToWhatItHeld() throws IOException {
+        final String before = "fedcba9876543210fedcba9876543210fedcba98";
+        runner.answering(" rev-parse ", before + "\n").failing("push", 1, "! [rejected]\n");
+
+        assertThat(push(dir.resolve("mirror.git"), conf("git_port=3001\n"), TOKEN).passOn(COMMIT))
+                .contains("rejected");
+        assertThat(runner.invocations().getLast().arguments())
+                .containsSubsequence("update-ref", "refs/heads/porelo/fix", before, COMMIT);
+    }
+
+    // Another push of the task waiting on a slow forge held the lock with no bound on the wait.
+    @Test
+    void theWaitForAnotherPushOfTheTaskIsPartOfTheLimit() throws Exception {
+        final Path mirror = dir.resolve("mirror.git");
+        final Path lock = mirror.resolve(GitGate.HOST_PUSHED).resolve(".fix.lock");
+        Files.createDirectories(lock.getParent());
+        final java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        final Thread other =
+                Thread.ofVirtual()
+                        .start(
+                                () -> {
+                                    try {
+                                        FileLocks.holding(
+                                                lock,
+                                                () -> {
+                                                    held.countDown();
+                                                    try {
+                                                        done.await();
+                                                    } catch (InterruptedException ex) {
+                                                        Thread.currentThread().interrupt();
+                                                    }
+                                                    return null;
+                                                });
+                                    } catch (Exception ex) {
+                                        throw new IllegalStateException(ex);
+                                    }
+                                });
+        held.await();
+        try {
+            final java.time.Instant started = java.time.Instant.now();
+
+            assertThat(
+                            push(mirror, conf("git_port=3001\n"), TOKEN)
+                                    .within(java.time.Duration.ofSeconds(2))
+                                    .passOn(COMMIT))
+                    .isEqualTo(
+                            "another push of porelo/fix held it longer than 2 s; nothing was"
+                                    + " passed on - push again");
+            assertThat(java.time.Duration.between(started, java.time.Instant.now()))
+                    .isLessThan(java.time.Duration.ofSeconds(10));
+            assertThat(runner.invocations()).isEmpty();
+        } finally {
+            done.countDown();
+            other.join();
+        }
     }
 
     // Git's error output goes back to the task: the token must not travel with it.

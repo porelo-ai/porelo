@@ -740,7 +740,7 @@ class GitGateTest {
                                                 "HEAD:" + GitGate.INCOMING + "task-1"))
                         .hasMessageContaining("remote rejected")
                         .hasMessageContaining("the forge did not answer within 2 s")
-                        .hasMessageContaining("nothing was passed on")
+                        .hasMessageContaining("whether it took the push is not known")
                         .hasMessageNotContaining("refused it");
             }
             assertThat(Duration.between(started, java.time.Instant.now()))
@@ -754,6 +754,110 @@ class GitGateTest {
                 socket.close();
             }
         }
+    }
+
+    @Test
+    void aPushTheForgeRefusesDoesNotSetBackOneThatWasTakenWhileItWaited() throws IOException {
+        // The refused push put the ref back to where it found it, over the push that came after
+        // and was taken: the mirror then held neither.
+        final GitGate gate = gate(GateMode.ONLINE, upstreamWithMain().toString());
+        final String later =
+                git(root, "--git-dir", mirror.toString(), "rev-parse", "refs/heads/main")
+                        .standardOutput()
+                        .strip();
+        final TaskToken token = TaskToken.mint();
+        final GitHttpServer server =
+                new GitHttpServer(
+                        new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                        mirror,
+                        token,
+                        new GitSubprocess(),
+                        GitGate.INCOMING + "task-1",
+                        new GitHttpServer.Upstream() {
+                            @Override
+                            public void refresh() {
+                                gate.refresh();
+                            }
+
+                            @Override
+                            public @org.jspecify.annotations.Nullable String passOn(
+                                    String ref, String commit) {
+                                // Another push of the task, taken while this one waited.
+                                git(root, "--git-dir", mirror.toString(), "update-ref", ref, later);
+                                return "the forge is busy";
+                            }
+                        },
+                        Duration.ZERO);
+        server.start();
+        try (server) {
+            git(
+                    root,
+                    "clone",
+                    "--quiet",
+                    "-c",
+                    "http.extraHeader=Authorization: " + token.basicAuthorization(),
+                    url(server),
+                    work.toString());
+            makeCommit("agent.txt", "written by the agent");
+
+            assertThatThrownBy(
+                            () ->
+                                    git(
+                                            work,
+                                            "push",
+                                            url(server),
+                                            "HEAD:" + GitGate.INCOMING + "task-1"))
+                    .hasMessageContaining("the forge is busy");
+        }
+        assertThat(
+                        git(
+                                        root,
+                                        "--git-dir",
+                                        mirror.toString(),
+                                        "rev-parse",
+                                        GitGate.INCOMING + "task-1")
+                                .standardOutput()
+                                .strip())
+                .isEqualTo(later);
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(60)
+    void aPushThatLandedBeforeTheForgeStalledIsPassedOn() throws IOException {
+        // The forge set the branch and then hung: ended at the limit is not "nothing was passed
+        // on", and saying so would have the agent believe its work is not there.
+        final Path upstream = upstreamWithMain();
+        Files.writeString(upstream.resolve("hooks/post-receive"), "#!/bin/sh\nexec sleep 30\n");
+        upstream.resolve("hooks/post-receive").toFile().setExecutable(true);
+        final GitGate gate =
+                gate(GateMode.ONLINE, upstream.toString()).passingOnWithin(Duration.ofSeconds(2));
+        final String commit =
+                git(root, "--git-dir", mirror.toString(), "rev-parse", "refs/heads/main")
+                        .standardOutput()
+                        .strip();
+
+        assertThat(gate.passOn("porelo/task-1", commit)).isNull();
+        assertThat(git(upstream, "rev-parse", "refs/heads/porelo/task-1").standardOutput().strip())
+                .isEqualTo(commit);
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(60)
+    void aPushTheStalledForgeDoesNotHoldSaysSo() throws IOException {
+        final Path upstream = upstreamWithMain();
+        Files.writeString(upstream.resolve("hooks/pre-receive"), "#!/bin/sh\nexec sleep 30\n");
+        upstream.resolve("hooks/pre-receive").toFile().setExecutable(true);
+        final GitGate gate =
+                gate(GateMode.ONLINE, upstream.toString()).passingOnWithin(Duration.ofSeconds(2));
+        final String commit =
+                git(root, "--git-dir", mirror.toString(), "rev-parse", "refs/heads/main")
+                        .standardOutput()
+                        .strip();
+
+        assertThat(gate.passOn("porelo/task-1", commit))
+                .isEqualTo(
+                        "the forge did not answer within 2 s and did not hold the push when"
+                                + " asked after - push again");
     }
 
     @Test

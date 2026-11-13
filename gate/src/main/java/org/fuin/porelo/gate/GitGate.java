@@ -1807,8 +1807,14 @@ public class GitGate {
                                 .withTimeout(passOnLimit));
                 return null;
             } catch (CommandException ex) {
-                if (ex.timedOut()) {
-                    return new GateException.ForgeSilent(passOnLimit).getMessage();
+                final java.time.Duration waited = ex.limit();
+                if (waited != null) {
+                    // It may have landed before the forge stalled: what it holds now decides.
+                    final Boolean held = holds(lease, branch, commit);
+                    if (Boolean.TRUE.equals(held)) {
+                        return null;
+                    }
+                    return new GateException.ForgeSilent(waited, held != null).getMessage();
                 }
                 return "the upstream refused it: " + lease.failure(ex).getMessage();
             }
@@ -1816,6 +1822,49 @@ public class GitGate {
             return ex.getMessage();
         }
     }
+
+    /**
+     * Asks the upstream, after a push that ended at its limit, whether its branch holds the commit.
+     *
+     * @return Whether it does, or {@code null} when it did not answer that either.
+     */
+    private @org.jspecify.annotations.Nullable Boolean holds(
+            final GitCredentials.Lease lease, final String branch, final String commit) {
+        final String upstream = upstreamUrl;
+        if (upstream == null) {
+            return null;
+        }
+        final List<String> all = new ArrayList<>(List.of("git"));
+        all.addAll(lease.arguments());
+        all.addAll(
+                List.of(
+                        "--git-dir",
+                        mirror.toString(),
+                        "ls-remote",
+                        "--end-of-options",
+                        upstream,
+                        "refs/heads/" + branch));
+        try {
+            final String said =
+                    runner.runOrFail(
+                                    Command.of(all)
+                                            .withEnvironment(lease.environment())
+                                            .withTimeout(
+                                                    passOnLimit.compareTo(ASKING_AFTER) < 0
+                                                            ? passOnLimit
+                                                            : ASKING_AFTER))
+                            .standardOutput();
+            return said.lines().anyMatch(line -> line.equals(commit + "\trefs/heads/" + branch));
+        } catch (CommandException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * How long the gate asks after a push the forge did not answer, at most: it was slow already,
+     * and a shorter pass-on limit holds here too.
+     */
+    private static final java.time.Duration ASKING_AFTER = java.time.Duration.ofSeconds(30);
 
     /**
      * Returns the commit an incoming ref holds, refusing when it is not the one a person reviewed.

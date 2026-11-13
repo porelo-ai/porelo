@@ -95,6 +95,27 @@ class GateServeHostPushTest {
         assertThat(run.out()).contains("passing refs/porelo/incoming/fix on as porelo/fix");
     }
 
+    @Test
+    void aPassOnLimitOutsideTenSecondsToAnHourOrWithoutPassOnIsRefused() {
+        for (final List<String> each :
+                List.of(
+                        List.of("--pass-on", "--pass-on-within", "9"),
+                        List.of("--pass-on", "--pass-on-within", "3601"),
+                        List.of("--pass-on-within", "60"))) {
+            final Run run = serve(each);
+
+            assertThat(run.code()).as(each + ": " + run.err()).isEqualTo(2);
+            assertThat(run.err())
+                    .as(each.toString())
+                    .contains("--pass-on-within takes 10 to 3600 seconds, with --pass-on");
+        }
+        for (final String within : List.of("10", "3600")) {
+            final Run run = serve(List.of("--pass-on", "--pass-on-within", within));
+
+            assertThat(run.code()).as(within + ": " + run.err()).isZero();
+        }
+    }
+
     private record Run(int code, String out, String err) {}
 
     /** Serves the task {@code fix}'s gate for a second, with these arguments as well. */

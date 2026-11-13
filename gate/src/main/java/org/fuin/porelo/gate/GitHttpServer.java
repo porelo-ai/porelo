@@ -780,17 +780,28 @@ public class GitHttpServer implements AutoCloseable {
         }
     }
 
-    /** Puts the mirror's ref back to where a push found it. */
+    /**
+     * Puts the mirror's ref back to where a push found it, only while it still holds what this push
+     * wrote: a push that came after and was taken stays, and one waiting on a slow forge must not
+     * set it back once it ends.
+     */
     private void putBack(final String[] command) throws IOException {
         final List<String> back =
                 ZERO.equals(command[0])
-                        ? List.of("--git-dir", mirror.toString(), "update-ref", "-d", command[2])
+                        ? List.of(
+                                "--git-dir",
+                                mirror.toString(),
+                                "update-ref",
+                                "-d",
+                                command[2],
+                                command[1])
                         : List.of(
                                 "--git-dir",
                                 mirror.toString(),
                                 "update-ref",
                                 command[2],
-                                command[0]);
+                                command[0],
+                                command[1]);
         git.run(back, new byte[0]);
     }
 

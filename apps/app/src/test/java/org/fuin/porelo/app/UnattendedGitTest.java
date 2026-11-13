@@ -86,6 +86,17 @@ class UnattendedGitTest {
         assertThat(commands).noneMatch(command -> command.arguments().contains("merge"));
     }
 
+    // The gate's push to the forge carries the pass-on limit; dropped on the way, it waited for
+    // the runner's ten minutes again.
+    @Test
+    void aPushKeepsItsOwnLimit() {
+        UnattendedGit.runner(context())
+                .run(
+                        Command.of("git", "push", "origin", "main")
+                                .withTimeout(java.time.Duration.ofSeconds(90)));
+        assertThat(commands.getLast().timeout()).isEqualTo(java.time.Duration.ofSeconds(90));
+    }
+
     @Test
     void aFetchKeepsTheSocketAndConfigurationLentForItsRemote() {
         UnattendedGit.runner(context())

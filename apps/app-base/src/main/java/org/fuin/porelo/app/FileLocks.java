@@ -113,12 +113,32 @@ final class FileLocks {
      */
     static <T> java.util.Optional<T> holdingIfFree(final Path lock, final Locked<T> locked)
             throws IOException {
+        // A probe holds it for a moment; a sign-in for minutes.
+        return holdingWithin(lock, PROBE, locked);
+    }
+
+    /**
+     * Runs something while holding the lock on a file, made if it is not there, when it comes free
+     * within the wait given: what runs under it has a bound of its own, which a wait without one
+     * would take away.
+     *
+     * @param <T> What it answers.
+     * @param lock The lock file.
+     * @param wait How long it may take to come free, in this process and in others together.
+     * @param locked What runs.
+     * @return Its answer, or empty when the lock did not come free within the wait - or this thread
+     *     holds it already.
+     * @throws IOException Locking, reading or writing failed.
+     */
+    static <T> java.util.Optional<T> holdingWithin(
+            final Path lock, final java.time.Duration wait, final Locked<T> locked)
+            throws IOException {
+        final long until = System.nanoTime() + wait.toNanos();
         final ReentrantLock here =
                 HELD.computeIfAbsent(
                         lock.toAbsolutePath().normalize(), path -> new ReentrantLock());
         try {
-            // A probe holds it for a moment; a sign-in for minutes.
-            if (!here.tryLock(PROBE.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)) {
+            if (!here.tryLock(wait.toNanos(), java.util.concurrent.TimeUnit.NANOSECONDS)) {
                 return java.util.Optional.empty();
             }
         } catch (InterruptedException ex) {
@@ -153,7 +173,7 @@ final class FileLocks {
                 try (channel) {
                     final FileLock held;
                     try {
-                        held = tryLockAWhile(channel);
+                        held = tryLockUntil(channel, until);
                     } catch (java.nio.channels.OverlappingFileLockException ex) {
                         return java.util.Optional.empty();
                     }
@@ -181,10 +201,12 @@ final class FileLocks {
     /** How long a lock held by another process's probe may take to come free. */
     private static final java.time.Duration PROBE = java.time.Duration.ofSeconds(1);
 
-    /** Takes a file lock, trying again for a moment: another process's probe holds it briefly. */
-    private static @org.jspecify.annotations.Nullable FileLock tryLockAWhile(
-            final FileChannel channel) throws IOException {
-        final long until = System.nanoTime() + PROBE.toNanos();
+    /**
+     * Takes a file lock, trying again until the deadline: another process's probe holds it briefly,
+     * and another push for as long as its forge takes.
+     */
+    private static @org.jspecify.annotations.Nullable FileLock tryLockUntil(
+            final FileChannel channel, final long until) throws IOException {
         while (true) {
             final FileLock taken = channel.tryLock();
             if (taken != null || System.nanoTime() - until > 0) {

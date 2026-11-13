@@ -106,15 +106,33 @@ merged, and hands it over as `--pass-on-within <seconds>`, as it does `--branch`
 - **A command's own limit.** `Command.withTimeout` sets it, and `ProcessCommandRunner` takes the shorter of its own
   and the command's. `CommandException.timedOut()` tells a limit from a failure, and `UnattendedGit` carries the limit
   through its preparation.
-- **The gate.** `GitGate.passOn` pushes within its limit. A timeout returns `GateException.ForgeSilent`'s message,
-  "the forge did not answer within N s; nothing was passed on - push again", and a forge's refusal keeps its own words
-  after "the upstream refused it:". `GitHttpServer` passes the message on as it comes, so a silence is not called a
-  refusal, and it still sets the incoming ref back. `HostPush`, the host's own forge, is bounded the same way.
+- **The gate.** `GitGate.passOn` pushes within its limit, and a forge's refusal keeps its own words after "the
+  upstream refused it:". A push ended at its limit may have landed before the forge stalled, so the gate asks with a
+  bounded `ls-remote` (the limit, at most 30 s): if the branch holds the commit the push succeeds; otherwise
+  `GateException.ForgeSilent` says the forge did not answer within N s and either did not hold the push when asked
+  after, or that whether it took it is not known. N is the limit that ended it, which `CommandException.limit()`
+  carries - the runner's when that was shorter. `GitHttpServer` passes the message on as it comes, so a silence is
+  not called a refusal.
+- **Setting the ref back.** `GitHttpServer` sets the incoming ref back with a conditional `update-ref`, only while it
+  still holds what the refused push wrote, so a push taken meanwhile stays.
+- **The host's own forge.** `HostPush` waits for another push of the same task within the same limit
+  (`FileLocks.holdingWithin`) and pushes with what is left of it. It sets the mirror's branch back, conditionally,
+  when the forge did not take the push, and asks after a push ended at its limit as the gate does, writing its record
+  when the forge holds the commit.
 - **Red first.**
   - `ProcessCommandRunnerTest`'s two limit tests failed against stubs, and 7 of `PassOnLimitTest`'s 16 cases did. Its
     refusals passed already, since a key Porelo does not know is refused by name too; they now hold the bounds.
   - `GitGateTest`'s forge that takes the connection and never answers held the agent's push past the test's 60 s
     without the limit; with it the push ends within the gate's 2 s, saying the forge did not answer.
   - `GateServingTest` and `HostPushTest` failed without `--pass-on-within` and without the timeout branch.
+  - Reading the line found four gaps: a timeout claimed nothing was passed on, `HostPush` left the mirror's branch
+    set after a failure, its wait for the task's lock had no bound, and setting a ref back overwrote a push taken
+    meanwhile. The new tests for them were run against the commit before the fixes. In `GitGateTest`, the forge
+    that landed then stalled and the one that held nothing failed on the old message, and the ref taken meanwhile
+    was deleted by the old set-back. In `HostPushTest`, the wait for another push of the task hung on the old
+    unbounded lock until the JVM was ended.
+  - The runner test also checks that the process is gone after its limit and which limit ended it.
+    `UnattendedGitTest` holds that a push keeps its limit, and `GateServeHostPushTest` holds the bounds of
+    `--pass-on-within`.
 - **Locally on this commit.** `-pl apps/app -am install` (tests included), the whole reactor's `install -DskipTests`,
   the root's `validate` and `-Pdocuments test` are green.

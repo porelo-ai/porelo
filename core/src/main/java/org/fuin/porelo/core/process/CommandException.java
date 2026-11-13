@@ -16,7 +16,8 @@ public class CommandException extends RuntimeException {
 
     @Nullable private final transient CommandResult result;
 
-    private final boolean timedOut;
+    /** The limit the program was ended at, or {@code null} when it ended by itself. */
+    private final java.time.@Nullable Duration limit;
 
     /**
      * Constructor for a program that ran and failed.
@@ -29,7 +30,7 @@ public class CommandException extends RuntimeException {
         this.command = command;
         this.result = result;
         this.standardError = result.standardError();
-        this.timedOut = false;
+        this.limit = null;
     }
 
     /**
@@ -50,11 +51,14 @@ public class CommandException extends RuntimeException {
      * @param standardError What it read before ending.
      */
     public CommandException(Command command, Throwable cause, String standardError) {
-        this(command, cause, standardError, false);
+        this(command, cause, standardError, null);
     }
 
     private CommandException(
-            Command command, Throwable cause, String standardError, boolean timedOut) {
+            Command command,
+            Throwable cause,
+            String standardError,
+            java.time.@Nullable Duration limit) {
         super(
                 "Cannot run '"
                         + command.describe()
@@ -64,7 +68,7 @@ public class CommandException extends RuntimeException {
         this.command = command;
         this.result = null;
         this.standardError = standardError;
-        this.timedOut = timedOut;
+        this.limit = limit;
     }
 
     /**
@@ -81,7 +85,7 @@ public class CommandException extends RuntimeException {
                 command,
                 new java.io.IOException("Timed out after " + limit.toSeconds() + " s"),
                 standardError,
-                true);
+                limit);
     }
 
     /**
@@ -100,14 +104,23 @@ public class CommandException extends RuntimeException {
      * @return Whether the limit was reached.
      */
     public boolean timedOut() {
-        return timedOut;
+        return limit != null;
+    }
+
+    /**
+     * Returns the limit the program was ended at: the shorter of its own and the runner's.
+     *
+     * @return The limit, or {@code null} when it ended by itself.
+     */
+    public java.time.@Nullable Duration limit() {
+        return limit;
     }
 
     private CommandException(CommandException original, String standardError) {
         super(original.getMessage(), original.getCause());
         this.command = original.command;
         this.standardError = standardError;
-        this.timedOut = original.timedOut;
+        this.limit = original.limit;
         final CommandResult previous = original.result;
         this.result =
                 previous == null
