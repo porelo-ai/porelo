@@ -287,7 +287,6 @@ from its side, as *blocked by*.
 | <a id="b637"></a>[B637](B637-A-Loopback-Homeserver-Is-Lent-Its-Token.md) | S | - | porelo lends matrix-registration-token.<server> to a homeserver on loopback http, as it does to an https or Unix socket one, so a person's local homeserver can be named for a project; any other plain http address still lends nothing. | - |
 | <a id="b693"></a>[B693](B693-A-Stub-Asking-In-The-Workspace-It-Is-Given.md) | XS | - | The stub agent's script looks for `.porelo-stub-asks` in `$PORELO_STUB_WORKSPACE` when it is set, so a test can run it to its question outside a container. | 0 |
 | <a id="b694"></a>[B694](B694-A-Detached-Start-Said-As-It-Waits.md) | XS | - | The commands page says `task start --detach` returns once the task runs, without a session, rather than that it hands over nothing. | 0 |
-| <a id="b672"></a>[B672](B672-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The daily Shared rules check runs porelo-release's `issues check issues`, so an issue head that breaks the issue format is found within a day. | - |
 | <a id="b699"></a>[B699](B699-A-Failed-Start-Clears-A-Record-Of-Nothing.md) | S | [B384](README.md#b384) | A failed start that made no container of its own, finding the name's record pointing at a container that is gone, removes that record instead of leaving it behind. | 0 |
 | <a id="b676"></a>[B676](B676-A-Record-Path-Matches-A-Boolean-Or-A-Number.md) | XS | - | An agent description's `.record` match (`last_message.record`, `session_id.record`) can name a boolean or number field: `is_error: false` matches the record's false, as a string field matches today. | - |
 | <a id="b680"></a>[B680](B680-A-Kept-Start-That-Never-Ran-Keeps-Its-Callers-Key.md) | XS | - | A start that fails under `--keep`, one that only reads, or one handed over, whose container podman made but never ran, saves its caller's key to the task's record, so a reboot before it runs does not lose the key its caller finds it by. | - |
@@ -303,6 +302,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b672"></a>[B672](B672-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The daily Shared rules check runs porelo-release's `issues check issues`, so an issue head that breaks the issue format is found within a day. |
 
 ## Review
 
