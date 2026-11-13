@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B150",
   "title": "The Whole Diff In Review",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 4,
