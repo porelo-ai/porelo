@@ -137,20 +137,22 @@ public final class MessagePass {
             final Moderation moderation)
             throws IOException {
         final MessageRecord record = new MessageRecord(mailbox);
-        final MessageIntake intake = new MessageIntake(own);
+        // Each hold recorded with its mark as it is held, so the interface shows it held as
+        // unsigned and offers the release a person decides - and a later message that makes the
+        // intake fail cannot leave one held without its verdict.
+        final MessageIntake intake =
+                new MessageIntake(
+                        own,
+                        held ->
+                                record.append(
+                                        MessageRecord.HELD,
+                                        held.message(),
+                                        "",
+                                        "",
+                                        held.reason(),
+                                        MessageRecord.OUT,
+                                        held.mark()));
         final List<String> taken = intake.take(mailbox);
-        for (final MessageDelivery.Held unsigned : intake.heldUnsigned()) {
-            // Recorded with its mark, so the interface shows it held as unsigned and offers the
-            // release a person decides.
-            record.append(
-                    MessageRecord.HELD,
-                    unsigned.message(),
-                    "",
-                    "",
-                    unsigned.reason(),
-                    MessageRecord.OUT,
-                    unsigned.mark());
-        }
         for (final String message : taken) {
             // The role goes into the record: a person writing into a conversation has to be
             // distinguishable from the agent afterwards, and the message itself may be gone by the
@@ -183,7 +185,9 @@ public final class MessagePass {
                         queued.getKey(),
                         "",
                         dispatched.peers().getOrDefault(queued.getKey(), ""),
-                        queued.getValue());
+                        queued.getValue(),
+                        "",
+                        MessageRead.joined(record.markOf(queued.getKey()), sending));
             }
             for (final MessageDelivery.Held stuck : dispatched.held()) {
                 record.append(
@@ -224,7 +228,14 @@ public final class MessagePass {
                             MessageRead.joined(record.markOf(message), sending));
                 }
                 for (final String message : result.deferred()) {
-                    record.append(MessageRecord.DEFERRED, message, "", transport);
+                    record.append(
+                            MessageRecord.DEFERRED,
+                            message,
+                            "",
+                            "",
+                            transport,
+                            "",
+                            MessageRead.joined(record.markOf(message), sending));
                 }
                 for (final MessageDelivery.Held stuck : result.refused()) {
                     record.append(

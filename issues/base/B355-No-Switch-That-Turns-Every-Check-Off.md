@@ -263,3 +263,11 @@ arrival line for a task that has no judge.
 - **Left.** The interface rendering `mark` with the release action is the interface's own issue. Releasing an
   intake-held unsigned message still behaves as before. Plan line numbers had moved: the judge wiring sits at
   `GateServeCommand.java:325`, the believing check in `MessageDelivery` at `:293`.
+- **After the third reading.** Each unsigned hold's verdict is recorded the moment the message is held, through a
+  callback from `MessageIntake`, so a later failure in the same intake cannot leave a held message unmarked. Staging
+  names are `.take-<sha256 of the name>.tmp`, and a name longer than 200 bytes is held and its sender told, so a
+  long name stops no intake. `talk read`, `talk held` and `talk log --json` show the mark. The queued, deferred,
+  refused and overridden lines carry the message's mark, and the daemon's live stream with them. Red first for each:
+  `SenderMarkWiringTest`, `MessageIntakeTest`, `TalkReadCommandTest`, `TalkHeldCommandTest`, `TalkLogCommandTest`
+  and the daemon's `MessagingMethodsTest`. Left: `talk release` of a held message whose name is about 247 bytes or
+  more fails on the file beside it, and nothing is lost.

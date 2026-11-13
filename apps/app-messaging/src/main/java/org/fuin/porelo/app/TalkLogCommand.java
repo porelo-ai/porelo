@@ -125,6 +125,8 @@ public class TalkLogCommand implements Callable<Integer>, PoreloFactory.ContextA
         line.put("via", audience == null ? null : audience.via());
         line.put("all", audience == null ? null : audience.all());
         line.put("woken", announced.contains(name));
+        // This host's verdict as the line keeps it, never the message's word; "" where it has none.
+        line.put("mark", entry.get("mark") instanceof String mark ? mark : "");
         return line;
     }
 

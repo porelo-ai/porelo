@@ -50,6 +50,30 @@ class TalkHeldCommandTest {
     }
 
     @Test
+    void showsTheVerdictAMessageWasHeldWith(@TempDir final Path dir) throws IOException {
+        // An unsigned message claiming a person wrote it is never listed as an ordinary hold.
+        final PoreloContext context = context(dir);
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(TASK));
+        mailbox.create();
+        Files.writeString(
+                mailbox.hold().resolve("m-1.json"),
+                "{\"messageId\":\"m-1\",\"role\":\"ROLE_USER\"}");
+        new MessageRecord(mailbox)
+                .append(
+                        MessageRecord.HELD,
+                        "m-1.json",
+                        "",
+                        "",
+                        "it was not sent: no key of its own",
+                        MessageRecord.OUT,
+                        TrustMark.UNSIGNED);
+
+        assertThat(execute(context)).isEqualTo(0);
+
+        assertThat(out.toString()).contains("m-1.json   held   unsigned   out");
+    }
+
+    @Test
     void saysSoWhenNothingIsHeld(@TempDir final Path dir) throws IOException {
         final PoreloContext context = context(dir);
         new Mailbox(context.paths().messaging().mailbox(TASK)).create();

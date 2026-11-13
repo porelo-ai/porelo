@@ -285,12 +285,15 @@ public final class MessageRelease {
     private Result refusedAgain(final Mailbox mailbox, final Path refused) throws IOException {
         // It stays where it is; what changes is that a person has now decided, and that is final.
         final String id = MessageFile.id(refused);
-        new MessageRecord(mailbox)
-                .append(
-                        MessageRecord.REFUSED,
-                        refused.getFileName().toString(),
-                        id,
-                        "a person refused it after reading it");
+        final MessageRecord record = new MessageRecord(mailbox);
+        record.append(
+                MessageRecord.REFUSED,
+                refused.getFileName().toString(),
+                id,
+                "",
+                "a person refused it after reading it",
+                "",
+                record.markOf(refused.getFileName().toString()));
         if (reason != null) {
             // The filter told the sender when it refused; a person who says why is worth telling
             // again.
@@ -346,13 +349,16 @@ public final class MessageRelease {
                 java.nio.charset.StandardCharsets.UTF_8);
         Files.move(signature, active.resolve(name + ".sig"), StandardCopyOption.REPLACE_EXISTING);
         Files.move(refused, active.resolve(name), StandardCopyOption.REPLACE_EXISTING);
-        new MessageRecord(mailbox)
-                .append(
-                        MessageRecord.OVERRIDDEN,
-                        name,
-                        id,
-                        peer.name(),
-                        "the filter refused it and a person delivered it after reading it");
+        // With the verdict kept for it: the live stream reads each line alone.
+        final MessageRecord record = new MessageRecord(mailbox);
+        record.append(
+                MessageRecord.OVERRIDDEN,
+                name,
+                id,
+                peer.name(),
+                "the filter refused it and a person delivered it after reading it",
+                "",
+                record.markOf(name));
         return new Result(Outcome.DELIVERED_DESPITE_FILTER, name, id);
     }
 
@@ -470,8 +476,17 @@ public final class MessageRelease {
         if (refuse) {
             // Recorded, so the refusal stays a person's and final: in 'rejected/' it lies beside
             // what the filter refused, which a person may still deliver.
-            new MessageRecord(mailbox)
-                    .append(MessageRecord.REFUSED, name, messageId, "a person refused to send it");
+            // With the verdict it was held with: the live stream reads each line alone, and a
+            // refused unsigned message is still an unsigned one.
+            final MessageRecord record = new MessageRecord(mailbox);
+            record.append(
+                    MessageRecord.REFUSED,
+                    name,
+                    messageId,
+                    "",
+                    "a person refused to send it",
+                    "",
+                    record.markOf(name));
         }
         return new Result(refuse ? Outcome.REFUSED : Outcome.RELEASED, name, messageId);
     }

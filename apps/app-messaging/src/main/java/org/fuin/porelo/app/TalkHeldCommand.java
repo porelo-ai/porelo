@@ -57,6 +57,9 @@ public class TalkHeldCommand implements Callable<Integer>, PoreloFactory.Context
                     TalkReadCommand.shown(held.message())
                             + "   "
                             + held.standing()
+                            + (held.mark().isEmpty()
+                                    ? ""
+                                    : "   " + TalkReadCommand.shown(held.mark()))
                             + (held.direction().isEmpty() ? "" : "   " + held.direction())
                             + (held.peer().isEmpty()
                                     ? ""

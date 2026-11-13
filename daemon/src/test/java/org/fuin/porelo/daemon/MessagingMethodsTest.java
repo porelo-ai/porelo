@@ -87,6 +87,35 @@ class MessagingMethodsTest {
     }
 
     @Test
+    void aPersonsRefusalOfAnUnsignedMessageReachesTheLiveStreamWithItsVerdict(
+            @TempDir final Path mail) throws Exception {
+        // The stream reads each line alone: the refusal's own line must carry what intake found.
+        final org.fuin.porelo.app.Mailbox mailbox =
+                new org.fuin.porelo.app.Mailbox(mail.resolve("porelo-p-t"));
+        mailbox.create();
+        Files.writeString(
+                mailbox.hold().resolve("m-1.json"),
+                "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\"}");
+        new org.fuin.porelo.app.MessageRecord(mailbox)
+                .append(
+                        org.fuin.porelo.app.MessageRecord.HELD,
+                        "m-1.json",
+                        "",
+                        "",
+                        "it was not sent: no key of its own",
+                        org.fuin.porelo.app.MessageRecord.OUT,
+                        org.fuin.porelo.app.TrustMark.UNSIGNED);
+
+        new org.fuin.porelo.app.MessageRelease().decide(mailbox, "m-1", true);
+
+        final java.util.List<Map<String, Object>> lines =
+                new org.fuin.porelo.app.MessageRecord(mailbox).entries();
+        assertThat(MessagingMethods.talkEvent("porelo-p-t", lines.getLast()))
+                .containsEntry("event", org.fuin.porelo.app.MessageRecord.REFUSED)
+                .containsEntry("mark", org.fuin.porelo.app.TrustMark.UNSIGNED);
+    }
+
+    @Test
     void aJoinAndTheSetupBeforeItAreGivenThisAccountsLogin() throws Exception {
         // A transport suffixes every account it makes with the login: without it, two persons'
         // tasks of one name would share an account on a shared homeserver.

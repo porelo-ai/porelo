@@ -316,6 +316,189 @@ class SenderMarkWiringTest {
         assertThat(new MessageRead().read(mailbox, "m").mark()).isEqualTo(TrustMark.UNSIGNED);
     }
 
+    /** A task that has no key of its own: everything it writes is held unsigned. */
+    private static final MessageSigners.Own KEYLESS =
+            () -> {
+                throw new MessageSigners.Unsigned("no key of its own", false);
+            };
+
+    private Moderation moderation() {
+        return new Moderation(dir.resolve("moderation").resolve("web.json"));
+    }
+
+    private static List<Map<String, Object>> lines(
+            final Mailbox mailbox, final String message, final String event) throws IOException {
+        return new MessageRecord(mailbox)
+                .entries().stream()
+                        .filter(line -> message.equals(line.get("message")))
+                        .filter(line -> event.equals(line.get("event")))
+                        .toList();
+    }
+
+    /**
+     * Leaves one message as a person's release of an intake-held unsigned message leaves it: in
+     * {@code accepted/}, released, with the line that held it unsigned in the record.
+     */
+    private static Mailbox releasedUnsigned(final Path root, final String to) throws IOException {
+        final Mailbox mailbox = new Mailbox(root.resolve("mail").resolve("porelo-web_x"));
+        mailbox.create();
+        new MessageRecord(mailbox)
+                .append(
+                        MessageRecord.HELD,
+                        "m-1.json",
+                        "",
+                        "",
+                        "it was not sent: no key of its own",
+                        MessageRecord.OUT,
+                        TrustMark.UNSIGNED);
+        Files.createDirectories(mailbox.accepted());
+        Files.writeString(
+                mailbox.accepted().resolve("m-1.json"),
+                "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\""
+                        + to
+                        + "\"}}");
+        Files.writeString(
+                mailbox.accepted().resolve("m-1.json.sig"), "-----BEGIN SSH SIGNATURE-----");
+        Files.writeString(
+                mailbox.accepted().resolve("m-1.json" + MessageDispatch.RELEASED_SUFFIX), "");
+        return mailbox;
+    }
+
+    private static final Mail REVIEWER =
+            new Mail(List.of(new Mail.Peer("reviewer", "local:peer", Mail.Peer.VOUCHED)));
+
+    @Test
+    void anUnsignedHoldIsRecordedAsItIsHeldEvenWhenALaterMessageStopsTheIntake()
+            throws IOException {
+        // A keyless task claims a person wrote its first message, then makes the intake of the
+        // next one fail: the first is held, and its verdict must already be on record.
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-web_x"));
+        mailbox.create();
+        Files.writeString(
+                mailbox.outboxNew().resolve("a.json"),
+                "{\"messageId\":\"a\",\"role\":\"ROLE_USER\"}");
+        Files.writeString(
+                mailbox.outboxNew().resolve("c.json"),
+                "{\"messageId\":\"c\",\"role\":\"ROLE_AGENT\"}");
+        Files.createDirectories(mailbox.hold().resolve("c.json").resolve("in-the-way"));
+        final MessagePass pass =
+                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                pass.run(
+                                        mailbox,
+                                        new Mail(List.of()),
+                                        KEYLESS,
+                                        PeerKeys.NONE,
+                                        moderation()))
+                .isInstanceOf(IOException.class);
+
+        assertThat(mailbox.hold().resolve("a.json")).exists();
+        assertThat(lines(mailbox, "a.json", MessageRecord.HELD))
+                .singleElement()
+                .satisfies(line -> assertThat(line.get("mark")).isEqualTo(TrustMark.UNSIGNED));
+        assertThat(new MessageRead().read(mailbox, "a").mark()).isEqualTo(TrustMark.UNSIGNED);
+    }
+
+    @Test
+    void aNameTooLongToStageBesideItDoesNotStopTheIntakeOfTheOthers() throws IOException {
+        // 255 bytes is as long as a file name may be; a staging name built from it is longer.
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-web_x"));
+        mailbox.create();
+        final String longest = "b".repeat(250) + ".json";
+        Files.writeString(
+                mailbox.outboxNew().resolve("a.json"),
+                "{\"messageId\":\"a\",\"role\":\"ROLE_USER\"}");
+        Files.writeString(mailbox.outboxNew().resolve(longest), "{\"messageId\":\"b\"}");
+        Files.writeString(mailbox.outboxNew().resolve("c.json"), "{\"messageId\":\"c\"}");
+
+        new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                .run(mailbox, new Mail(List.of()), KEYLESS, PeerKeys.NONE, moderation());
+
+        for (final String name : List.of("a.json", longest, "c.json")) {
+            assertThat(mailbox.hold().resolve(name)).as(name).exists();
+            assertThat(lines(mailbox, name, MessageRecord.HELD))
+                    .as(name)
+                    .singleElement()
+                    .satisfies(line -> assertThat(line.get("mark")).isEqualTo(TrustMark.UNSIGNED));
+        }
+    }
+
+    @Test
+    void aReleasedUnsignedMessageIsQueuedAndDeferredWithItsVerdict() throws IOException {
+        // No adapter for its transport: queued, then deferred, and each line says unsigned.
+        final Path filter = dir.resolve("filter");
+        executable(filter);
+        final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
+
+        new MessagePass(runner, filter, new TransportDirectory(List.of(dir.resolve("none"))))
+                .run(mailbox, REVIEWER, KEYLESS, PeerKeys.NONE, moderation());
+
+        assertThat(lines(mailbox, "m-1.json", MessageRecord.QUEUED))
+                .singleElement()
+                .satisfies(line -> assertThat(line.get("mark")).isEqualTo(TrustMark.UNSIGNED));
+        assertThat(lines(mailbox, "m-1.json", MessageRecord.DEFERRED))
+                .singleElement()
+                .satisfies(line -> assertThat(line.get("mark")).isEqualTo(TrustMark.UNSIGNED));
+        assertThat(new MessageRecord(mailbox).firstBrokenLine()).isZero();
+    }
+
+    @Test
+    void aReleasedUnsignedMessageASendCarriesKeepsItsVerdictOnTheSentLine() throws IOException {
+        // The sending task itself carries no mark here: only the kept verdict can put it there.
+        final Path filter = dir.resolve("filter");
+        executable(filter);
+        final Path transports = dir.resolve("transports");
+        executable(transports.resolve(TransportDirectory.PREFIX + "local"));
+        runner.answering("describe", "{\"scheme\":\"local\"}");
+        runner.answering(" send ", "{}");
+        final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
+
+        new MessagePass(runner, filter, new TransportDirectory(List.of(transports)))
+                .run(mailbox, REVIEWER, KEYLESS, PeerKeys.NONE, moderation());
+
+        assertThat(lines(mailbox, "m-1.json", MessageRecord.SENT))
+                .singleElement()
+                .satisfies(line -> assertThat(line.get("mark")).isEqualTo(TrustMark.UNSIGNED));
+    }
+
+    @Test
+    void aReleasedUnsignedMessageATransportRefusesKeepsItsVerdictOnTheHeldLine()
+            throws IOException {
+        final Path filter = dir.resolve("filter");
+        executable(filter);
+        final Path transports = dir.resolve("transports");
+        executable(transports.resolve(TransportDirectory.PREFIX + "local"));
+        runner.answering("describe", "{\"scheme\":\"local\"}");
+        runner.failing(" send ", 65, "no such peer");
+        final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
+
+        new MessagePass(runner, filter, new TransportDirectory(List.of(transports)))
+                .run(mailbox, REVIEWER, KEYLESS, PeerKeys.NONE, moderation());
+
+        final List<Map<String, Object>> held = lines(mailbox, "m-1.json", MessageRecord.HELD);
+        assertThat(held).as("intake's line, then the transport's").hasSize(2);
+        assertThat(held.get(1).get("mark")).as("the new line itself").isEqualTo(TrustMark.UNSIGNED);
+    }
+
+    @Test
+    void aPersonsRefusalOfAnUnsignedMessageIsRecordedWithItsVerdict() throws IOException {
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-web_x"));
+        mailbox.create();
+        Files.writeString(
+                mailbox.outboxNew().resolve("m-1.json"),
+                "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\"}");
+        new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                .run(mailbox, new Mail(List.of()), KEYLESS, PeerKeys.NONE, moderation());
+
+        new MessageRelease().decide(mailbox, "m-1", true);
+
+        assertThat(lines(mailbox, "m-1.json", MessageRecord.REFUSED))
+                .singleElement()
+                .satisfies(line -> assertThat(line.get("mark")).isEqualTo(TrustMark.UNSIGNED));
+    }
+
     @Test
     void aRecordWrittenBeforeMarksStillVerifiesByTheHashesItWasWrittenWith() throws IOException {
         // Hashes computed outside Java, from the material before marks: no direction slot on a

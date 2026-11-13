@@ -188,6 +188,24 @@ class MessageIntakeTest {
     }
 
     @Test
+    void aNameTooLongToSignBesideItIsHeldAndTheOthersAreStillTaken(@TempDir final Path dir)
+            throws IOException {
+        // 255 bytes is as long as a file name may be: neither a staging name nor the signature
+        // beside it fits, and a task that wrote one must not stop the intake of the others.
+        final Mailbox mailbox = mailbox(dir);
+        final String longest = "a".repeat(250) + ".json";
+        Files.writeString(mailbox.outboxNew().resolve(longest), "{\"messageId\":\"a\"}");
+        Files.writeString(mailbox.outboxNew().resolve("b.json"), "{\"messageId\":\"b\"}");
+
+        final MessageIntake intake = new MessageIntake(() -> key);
+
+        assertThat(intake.take(mailbox)).containsExactly("b.json");
+        assertThat(mailbox.outboxNew().resolve(longest)).doesNotExist();
+        assertThat(mailbox.hold().resolve(longest)).exists();
+        assertThat(mailbox.incoming().resolve("b.json.sig")).exists();
+    }
+
+    @Test
     void anOutboxTheAgentReplacedWithALinkIsNotReadAndWhatItPointsAtIsLeftAlone(
             @TempDir final Path dir) throws IOException {
 

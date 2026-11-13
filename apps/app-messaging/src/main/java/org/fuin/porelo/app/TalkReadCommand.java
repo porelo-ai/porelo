@@ -67,8 +67,13 @@ public class TalkReadCommand implements Callable<Integer>, PoreloFactory.Context
                                             ? "in, to this task"
                                             : "out, from this task"));
                 }
+                // The role is the message's own word; the mark is this host's verdict on it, so
+                // an unsigned message claiming a person is never shown as simply from one.
                 out.println(
-                        "from      " + ("ROLE_USER".equals(held.role()) ? "a person" : "the task"));
+                        "from      "
+                                + ("ROLE_USER".equals(held.role()) ? "a person" : "the task")
+                                + (held.mark().isEmpty() ? "" : ", " + shown(held.mark())));
+                out.println("mark      " + (held.mark().isEmpty() ? "-" : shown(held.mark())));
                 out.println("when      " + (held.at().isEmpty() ? "-" : shown(held.at())));
                 out.println("peer      " + (held.peer().isEmpty() ? "-" : shown(held.peer())));
                 out.println("kind      " + (held.kind().isEmpty() ? "-" : shown(held.kind())));

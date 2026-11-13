@@ -48,6 +48,26 @@ public final class MessageIntake {
 
     private final List<MessageDelivery.Held> unsigned = new ArrayList<>();
 
+    private final Holding holding;
+
+    /**
+     * Told of each message the intake holds with a verdict, the moment it lies in {@code hold/}.
+     *
+     * <p>Not after the whole intake returns: a later message that makes the intake fail would
+     * otherwise leave one already held with no verdict on record, which a task could do on purpose.
+     */
+    @FunctionalInterface
+    public interface Holding {
+
+        /**
+         * Takes note of one held message.
+         *
+         * @param held The message, why and its mark.
+         * @throws IOException Recording it failed; the intake stops.
+         */
+        void held(MessageDelivery.Held held) throws IOException;
+    }
+
     /**
      * Constructor with the task's own key.
      *
@@ -55,7 +75,18 @@ public final class MessageIntake {
      *     something to sign.
      */
     public MessageIntake(final MessageSigners.Own key) {
+        this(key, held -> {});
+    }
+
+    /**
+     * Constructor with the task's own key and what is told of each hold.
+     *
+     * @param key Its key, held on the host and never inside a container.
+     * @param holding Told of each message held with a verdict, as it is held.
+     */
+    public MessageIntake(final MessageSigners.Own key, final Holding holding) {
         this.key = key;
+        this.holding = holding;
     }
 
     /**
@@ -122,7 +153,7 @@ public final class MessageIntake {
                 place(bytes, mailbox.hold().resolve(name));
                 if (signing == null) {
                     // Still unsigned: the role it claims takes nothing away from that verdict.
-                    this.unsigned.add(
+                    held(
                             new MessageDelivery.Held(
                                     name, "it was not sent: " + unsigned, "", TrustMark.UNSIGNED));
                 }
@@ -130,13 +161,29 @@ public final class MessageIntake {
             }
 
             if (signing == null) {
-                // Held, with the sender told: unsigned, no receiver could believe it.
+                // Held, with the sender told: unsigned, no receiver could believe it. Recorded
+                // before the sender is told, so nothing after the hold can lose the verdict.
                 final Path held = mailbox.hold().resolve(name);
                 place(bytes, held);
-                new HostBounce().write(mailbox, held, "it was not sent: " + unsigned, true);
-                this.unsigned.add(
+                held(
                         new MessageDelivery.Held(
                                 name, "it was not sent: " + unsigned, "", TrustMark.UNSIGNED));
+                new HostBounce().write(mailbox, held, "it was not sent: " + unsigned, true);
+                continue;
+            }
+
+            if (name.getBytes(StandardCharsets.UTF_8).length > MAX_NAME_BYTES) {
+                // Held, with the sender told: the signature beside it, and the names it is given on
+                // its way out, would not fit a file name, and failing on it stopped the intake of
+                // every message after it.
+                final Path held = mailbox.hold().resolve(name);
+                place(bytes, held);
+                final String why =
+                        "it was not sent: its file name is longer than "
+                                + MAX_NAME_BYTES
+                                + " bytes";
+                held(new MessageDelivery.Held(name, why, "", ""));
+                new HostBounce().write(mailbox, held, why, true);
                 continue;
             }
 
@@ -145,7 +192,7 @@ public final class MessageIntake {
             // a message with no signature, and nothing downstream could tell whether it had been
             // signed or tampered with.
             final Path signature = mailbox.incoming().resolve(name + ".sig");
-            final Path partial = mailbox.incoming().resolve("." + name + ".sig.tmp");
+            final Path partial = staging(mailbox.incoming().resolve(name + ".sig"));
             Files.writeString(
                     partial, SshSignature.sign(signing, bytes, NAMESPACE), StandardCharsets.UTF_8);
             Files.move(
@@ -159,9 +206,15 @@ public final class MessageIntake {
         return taken;
     }
 
+    private void held(final MessageDelivery.Held held) throws IOException {
+        unsigned.add(held);
+        holding.held(held);
+    }
+
     /**
-     * Returns what the last {@link #take} held because the task has no key to sign it with, each
-     * marked {@code unsigned}: this machine's own verdict, so a person sees it held as such.
+     * Returns what the last {@link #take} held with a verdict: because the task has no key to sign
+     * it with, each marked {@code unsigned} - this machine's own verdict, so a person sees it held
+     * as such - or because its name is too long to sign beside it.
      *
      * @return The held messages, in the order they were held.
      */
@@ -174,6 +227,12 @@ public final class MessageIntake {
      * memory.
      */
     static final int MAX_BYTES = 1024 * 1024;
+
+    /**
+     * The longest message file name taken, in bytes: a file name holds 255, and a message is given
+     * names beside it on its way out ({@code .sig}, {@code .to}, {@code .released}).
+     */
+    static final int MAX_NAME_BYTES = 200;
 
     /**
      * Reads a message without following a link, or returns {@code null} when it is beyond the
@@ -207,13 +266,34 @@ public final class MessageIntake {
 
     /** Writes the host's own copy, complete or not at all. */
     private static void place(final byte[] bytes, final Path target) throws IOException {
-        final Path partial = target.resolveSibling("." + target.getFileName() + ".tmp");
+        final Path partial = staging(target);
         Files.write(partial, bytes);
         Files.move(
                 partial,
                 target,
                 StandardCopyOption.REPLACE_EXISTING,
                 StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    /**
+     * Returns where a file is written before it is renamed into place: a dot file beside it, named
+     * by a digest of its name. Built from the name itself, a task's longest name made one longer
+     * than a file name may be, and the intake of every message after it failed. The same name gives
+     * the same staging file, so what a crash left is overwritten by the next run.
+     */
+    private static Path staging(final Path target) {
+        try {
+            final byte[] digest =
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(
+                                    target.getFileName()
+                                            .toString()
+                                            .getBytes(StandardCharsets.UTF_8));
+            return target.resolveSibling(
+                    ".take-" + java.util.HexFormat.of().formatHex(digest) + ".tmp");
+        } catch (final java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is missing", ex);
+        }
     }
 
     private List<Path> finished(final Path outbox) throws IOException {

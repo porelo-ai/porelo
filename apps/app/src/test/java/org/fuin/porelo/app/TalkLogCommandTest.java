@@ -252,6 +252,29 @@ class TalkLogCommandTest {
     }
 
     @Test
+    void writesEachLinesVerdictAndAnEmptyOneWhereItHasNone(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final Mailbox mailbox = mailbox(context, TASK);
+        final MessageRecord record = new MessageRecord(mailbox);
+        record.append(
+                MessageRecord.HELD,
+                "m-1.json",
+                "",
+                "",
+                "it was not sent: no key of its own",
+                MessageRecord.OUT,
+                TrustMark.UNSIGNED);
+        record.append(MessageRecord.DELIVERED, "m-2.json", "m-2", "person", "");
+
+        assertThat(execute(context, TASK, "--json")).isZero();
+
+        assertThat(jsonLines())
+                .extracting(line -> line.get("mark"))
+                .containsExactly(TrustMark.UNSIGNED, "");
+    }
+
+    @Test
     void keepsTheTableExactlyAsItWas(@TempDir final Path dir) throws IOException {
         // Harm: adding a machine-readable log must preserve the existing terminal command's output.
         final PoreloContext context = context(dir);
