@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B718",
   "title": "The Drafts Served Over The Daemon",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
