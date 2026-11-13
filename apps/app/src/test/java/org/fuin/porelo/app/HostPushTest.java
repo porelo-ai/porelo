@@ -247,6 +247,168 @@ class HostPushTest {
                                 + " not known");
     }
 
+    // The forge took a stalled push after the gate had asked and given up, so the record of
+    // its branch lagged it, and the agent's next push on top was refused as stale for good.
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void aPushAgainAfterTheForgeTookAStalledPushLateIsLeasedOnWhatTheForgeHoldsNow(
+            final boolean askedAfterAnswered) throws IOException {
+        final String first = "1111111111111111111111111111111111111111";
+        final String stalled = "2222222222222222222222222222222222222222";
+        final String onTop = "3333333333333333333333333333333333333333";
+        final Forge forge = new Forge(java.util.Map.of(stalled, first, onTop, stalled));
+        final Path mirror = dir.resolve("mirror.git");
+        final Path conf = conf("git_port=3001\n");
+        assertThat(forgePush(forge, mirror, conf).passOn(first)).isNull();
+
+        forge.stallNextPush(askedAfterAnswered);
+        assertThat(forgePush(forge, mirror, conf).passOn(stalled))
+                .startsWith("the forge did not answer within 120 s")
+                .contains(askedAfterAnswered ? "did not hold the push" : "is not known");
+        forge.takeTheStalledPush();
+
+        assertThat(forgePush(forge, mirror, conf).passOn(onTop))
+                .as("the push again is leased on what the forge holds, not on the gate's record")
+                .isNull();
+        assertThat(forge.held).isEqualTo(onTop);
+        assertThat(forge.lastPush())
+                .contains("--force-with-lease=refs/heads/porelo/fix:" + stalled);
+        assertThat(mirror.resolve(GitGate.HOST_PUSHED).resolve("fix")).hasContent(onTop);
+
+        final int asked = forge.asked;
+        final String next = "4444444444444444444444444444444444444444";
+        forge.parents.put(next, onTop);
+        assertThat(forgePush(forge, mirror, conf).passOn(next)).isNull();
+        assertThat(forge.asked)
+                .as("once a push was taken, the next one leases on the record and asks nothing")
+                .isEqualTo(asked);
+        assertThat(forge.lastPush()).contains("--force-with-lease=refs/heads/porelo/fix:" + onTop);
+    }
+
+    // The forge says nothing when asked before the push again either: the record is all there is.
+    @Test
+    void aPushAgainWhoseForgeDoesNotSayWhatItHoldsLeasesOnTheRecord() throws IOException {
+        final String first = "1111111111111111111111111111111111111111";
+        final String stalled = "2222222222222222222222222222222222222222";
+        final Forge forge = new Forge(java.util.Map.of(stalled, first));
+        final Path mirror = dir.resolve("mirror.git");
+        final Path conf = conf("git_port=3001\n");
+        assertThat(forgePush(forge, mirror, conf).passOn(first)).isNull();
+        forge.stallNextPush(true);
+        assertThat(forgePush(forge, mirror, conf).passOn(stalled)).isNotNull();
+
+        forge.silentWhenAsked = true;
+        assertThat(forgePush(forge, mirror, conf).passOn(stalled)).isNull();
+
+        assertThat(forge.lastPush()).contains("--force-with-lease=refs/heads/porelo/fix:" + first);
+        assertThat(forge.asked).as("once after the stall, once before the push again").isEqualTo(2);
+    }
+
+    private HostPush forgePush(final Forge forge, final Path mirror, final Path conf) {
+        return new HostPush(
+                new PoreloContext(
+                        forge,
+                        new PoreloPaths(
+                                XdgPaths.of(name -> null, dir.resolve("home")), dir.resolve("bin")),
+                        args -> 0),
+                mirror,
+                "fix",
+                "acme/demo",
+                () -> Optional.of(TOKEN),
+                conf);
+    }
+
+    /**
+     * A forge stand-in for the task's branch: it holds a commit, refuses a lease that is not what
+     * it holds and a plain push that is not on top of it, and may stall a push it takes only later.
+     */
+    private static final class Forge implements org.fuin.porelo.core.process.CommandRunner {
+
+        private static final String BRANCH = "refs/heads/porelo/fix";
+
+        final java.util.Map<String, String> parents;
+
+        @org.jspecify.annotations.Nullable String held;
+
+        @org.jspecify.annotations.Nullable String stalledCommit;
+
+        boolean stallNext;
+
+        boolean answerAfterStall;
+
+        boolean silentWhenAsked;
+
+        int asked;
+
+        private final java.util.List<java.util.List<String>> pushes = new java.util.ArrayList<>();
+
+        Forge(final java.util.Map<String, String> parents) {
+            this.parents = new java.util.HashMap<>(parents);
+        }
+
+        void stallNextPush(final boolean answerAfter) {
+            stallNext = true;
+            answerAfterStall = answerAfter;
+        }
+
+        void takeTheStalledPush() {
+            held = java.util.Objects.requireNonNull(stalledCommit, "no push stalled");
+            stalledCommit = null;
+        }
+
+        java.util.List<String> lastPush() {
+            return pushes.getLast();
+        }
+
+        @Override
+        public org.fuin.porelo.core.process.CommandResult run(
+                final org.fuin.porelo.core.process.Command command) {
+            final java.util.List<String> arguments = command.arguments();
+            if (arguments.contains("ls-remote")) {
+                asked++;
+                if (silentWhenAsked || (stalledCommit != null && !answerAfterStall)) {
+                    throw org.fuin.porelo.core.process.CommandException.timedOut(
+                            command, java.util.Objects.requireNonNull(command.timeout()), "");
+                }
+                return result(command, 0, held == null ? "" : held + "\t" + BRANCH + "\n");
+            }
+            if (!arguments.contains("push")) {
+                return result(command, 0, "");
+            }
+            pushes.add(arguments);
+            final String commit = arguments.getLast().split(":", 2)[0];
+            if (stallNext) {
+                stallNext = false;
+                stalledCommit = commit;
+                throw org.fuin.porelo.core.process.CommandException.timedOut(
+                        command, java.util.Objects.requireNonNull(command.timeout()), "");
+            }
+            final String lease =
+                    arguments.stream()
+                            .filter(argument -> argument.startsWith("--force-with-lease="))
+                            .map(argument -> argument.substring(argument.lastIndexOf(':') + 1))
+                            .findFirst()
+                            .orElse(null);
+            final boolean refused =
+                    lease != null
+                            ? !lease.equals(held)
+                            : held != null && !held.equals(parents.get(commit));
+            if (refused) {
+                return result(command, 1, "! [rejected] porelo/fix (stale info)\n");
+            }
+            held = commit;
+            return result(command, 0, "");
+        }
+
+        private static org.fuin.porelo.core.process.CommandResult result(
+                final org.fuin.porelo.core.process.Command command,
+                final int exit,
+                final String output) {
+            return new org.fuin.porelo.core.process.CommandResult(
+                    command, exit, exit == 0 ? output : "", exit == 0 ? "" : output);
+        }
+    }
+
     // The mirror's branch was set before the push and stayed there when the forge refused it.
     @Test
     void aRefusedPushPutsTheMirrorsBranchBackToWhatItHeld() throws IOException {

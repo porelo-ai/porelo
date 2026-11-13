@@ -62,6 +62,12 @@ public class GitGate {
      */
     public static final String HOST_PUSHED = "porelo-host-pushed";
 
+    /**
+     * Ends the name, in {@link #HOST_PUSHED}, of what keeps that a task's last pass-on to its
+     * host's forge ended with the forge not holding it or not saying: {@code .<task>} and this.
+     */
+    public static final String HOST_PUSH_UNSETTLED = ".unsettled";
+
     private final CommandRunner runner;
 
     private final Path mirror;
@@ -1719,6 +1725,9 @@ public class GitGate {
         }
         try {
             Files.deleteIfExists(record);
+            // Else a new task of the name asks the forge first and leases on the removed task's
+            // branch, which it then replaces.
+            Files.deleteIfExists(pushed.resolve("." + name + HOST_PUSH_UNSETTLED));
         } catch (IOException ex) {
             throw new GateException(
                     "Could not forget what was last pushed for " + name + ": " + ex.getMessage(),

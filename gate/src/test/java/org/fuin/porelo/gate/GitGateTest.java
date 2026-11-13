@@ -1055,12 +1055,18 @@ class GitGateTest {
         Files.createDirectories(pushed);
         Files.writeString(pushed.resolve("task-1"), "a".repeat(40) + "\n");
         Files.writeString(pushed.resolve("task-2"), "b".repeat(40) + "\n");
+        // A pass-on of task-1 ended unsettled: a new task-1 must not ask the forge and lease on the
+        // removed task's branch.
+        Files.writeString(pushed.resolve(".task-1" + GitGate.HOST_PUSH_UNSETTLED), "");
+        Files.writeString(pushed.resolve(".task-2" + GitGate.HOST_PUSH_UNSETTLED), "");
 
         gate.forget("task-1");
         gate.forget("task-3");
 
         assertThat(pushed.resolve("task-1")).doesNotExist();
+        assertThat(pushed.resolve(".task-1" + GitGate.HOST_PUSH_UNSETTLED)).doesNotExist();
         assertThat(pushed.resolve("task-2")).as("another task's record").exists();
+        assertThat(pushed.resolve(".task-2" + GitGate.HOST_PUSH_UNSETTLED)).exists();
     }
 
     @Test

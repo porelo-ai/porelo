@@ -26,6 +26,11 @@ import org.jspecify.annotations.Nullable;
  * kept beside the mirror once the forge took it: never another branch, never work it did not push.
  * Before its first push nothing is leased, so nothing is replaced.
  *
+ * <p><strong>A push again after a stall is leased on what the forge holds.</strong> A forge may
+ * take a push after the gate ended it and asked, so when the task's last pass-on ended with the
+ * forge not holding it or not saying, the gate keeps that beside the record, and the next push asks
+ * the forge with the same bounded {@code ls-remote} first and leases on its answer.
+ *
  * <p><strong>The token reaches git through its credential protocol.</strong> It is in the push's
  * environment, which only this account and root can read, and {@code porelo vault credential}
  * answers git from there; the URL and the arguments hold only the variable's name.
@@ -193,7 +198,17 @@ final class HostPush {
                     + limit.toSeconds()
                     + " s; nothing was passed on - push again";
         }
-        final String leased = lastPushed(record);
+        final Path unsettled = unsettled(record);
+        @Nullable String leased = lastPushed(record);
+        if (Files.exists(unsettled)) {
+            // The forge may have taken the stalled push after the gate asked: the record lags.
+            // At most half of what is left, so the push keeps the other half.
+            final Optional<Optional<String>> now =
+                    forgeBranch(secret, base, branch, min(ASKING_AFTER, left.dividedBy(2)));
+            if (now.isPresent()) {
+                leased = now.get().orElse(null);
+            }
+        }
         final CommandResult before =
                 context.runner()
                         .run(
@@ -231,7 +246,15 @@ final class HostPush {
         }
         final @Nullable String failed;
         try {
-            failed = push(commit, secret, base, branch, leased, left);
+            failed =
+                    push(
+                            commit,
+                            secret,
+                            base,
+                            branch,
+                            leased,
+                            java.time.Duration.ofNanos(until - System.nanoTime()),
+                            unsettled);
         } catch (RuntimeException ex) {
             putBack(branch, was, commit);
             throw ex;
@@ -243,6 +266,7 @@ final class HostPush {
         try {
             Files.createDirectories(record.getParent());
             Files.writeString(record, commit + "\n");
+            Files.deleteIfExists(unsettled);
         } catch (IOException ex) {
             // Pushed all the same; the next amend is then refused as stale and says so.
         }
@@ -260,7 +284,8 @@ final class HostPush {
             final String base,
             final String branch,
             final @Nullable String leased,
-            final java.time.Duration left) {
+            final java.time.Duration left,
+            final Path unsettled) {
         final java.util.List<String> push = new java.util.ArrayList<>(remote(base));
         push.addAll(
                 java.util.List.of(
@@ -292,6 +317,12 @@ final class HostPush {
             if (Boolean.TRUE.equals(held)) {
                 return null;
             }
+            try {
+                Files.createDirectories(unsettled.getParent());
+                Files.writeString(unsettled, "");
+            } catch (IOException written) {
+                // Not kept: the next push leases on the record, as before.
+            }
             // The pass-on limit when the push had what was left of it, the runner's when shorter.
             return new org.fuin.porelo.gate.GateException.ForgeSilent(
                             waited.compareTo(left) < 0 ? waited : limit, held != null)
@@ -319,6 +350,22 @@ final class HostPush {
             final String base,
             final String branch,
             final java.time.Duration waited) {
+        final Optional<Optional<String>> held =
+                forgeBranch(secret, base, branch, min(waited, ASKING_AFTER));
+        return held.isEmpty() ? null : held.get().filter(commit::equals).isPresent();
+    }
+
+    /**
+     * Asks the forge what its branch holds, within the bound.
+     *
+     * @return The commit, or empty inside when the forge holds no such branch; empty when it did
+     *     not answer.
+     */
+    private Optional<Optional<String>> forgeBranch(
+            final String secret,
+            final String base,
+            final String branch,
+            final java.time.Duration bound) {
         final java.util.List<String> ask = new java.util.ArrayList<>(remote(base));
         ask.addAll(java.util.List.of("ls-remote", base + "/" + repository + ".git", branch));
         try {
@@ -328,19 +375,33 @@ final class HostPush {
                                     Command.of(ask)
                                             .withEnvironment(Map.of(TOKEN_VARIABLE, secret))
                                             .withChosenEnvironment(gitEnvironment())
-                                            .withTimeout(
-                                                    waited.compareTo(ASKING_AFTER) < 0
-                                                            ? waited
-                                                            : ASKING_AFTER));
+                                            .withTimeout(bound));
             if (!said.successful()) {
-                return null;
+                return Optional.empty();
             }
-            return said.standardOutput()
-                    .lines()
-                    .anyMatch(line -> line.equals(commit + "\t" + branch));
+            return Optional.of(
+                    said.standardOutput()
+                            .lines()
+                            .filter(line -> line.endsWith("\t" + branch))
+                            .map(line -> line.substring(0, line.length() - branch.length() - 1))
+                            .filter(held -> held.matches("[0-9a-f]{40}|[0-9a-f]{64}"))
+                            .findFirst());
         } catch (CommandException ex) {
-            return null;
+            return Optional.empty();
         }
+    }
+
+    private static java.time.Duration min(
+            final java.time.Duration one, final java.time.Duration other) {
+        return one.compareTo(other) < 0 ? one : other;
+    }
+
+    /**
+     * Where the gate keeps that the task's last pass-on ended with the forge not holding it or not
+     * saying: beside the record, named with a leading dot, which no task's name has.
+     */
+    static Path unsettled(final Path record) {
+        return record.resolveSibling("." + record.getFileName() + GitGate.HOST_PUSH_UNSETTLED);
     }
 
     /** How long the gate asks after a push the forge did not answer, at most. */
