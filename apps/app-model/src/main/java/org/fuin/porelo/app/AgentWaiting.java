@@ -521,16 +521,13 @@ public final class AgentWaiting {
                 new java.util.concurrent.FutureTask<>(
                         () ->
                                 context.podman()
-                                        .ask(
+                                        .askSession(
                                                 container,
-                                                Map.of(),
-                                                org.fuin.porelo.runtime.Podman.tmux(
-                                                        "capture-pane",
-                                                        "-p",
-                                                        "-J",
-                                                        "-t",
-                                                        org.fuin.porelo.runtime.Containerfile
-                                                                .SESSION)));
+                                                "capture-pane",
+                                                "-p",
+                                                "-J",
+                                                "-t",
+                                                org.fuin.porelo.runtime.Containerfile.SESSION));
         // A platform thread of its own, so a capture that hangs is given up, and interrupted,
         // which ends its process.
         Thread.ofPlatform().daemon().name("porelo-capture-" + container).start(capture);

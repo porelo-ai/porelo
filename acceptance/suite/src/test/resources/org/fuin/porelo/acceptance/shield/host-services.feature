@@ -46,7 +46,7 @@ Feature: A declared name reaches a service on this host on TCP 443
         And its output contains "the undeclared name did not resolve"
         When a script runs about the task:
             """
-            podman exec {task} bash -c 'timeout 5 bash -c "echo > /dev/tcp/169.254.1.2/80"' 2>/dev/null
+            podman exec --user agent {task} bash -c 'timeout 5 bash -c "echo > /dev/tcp/169.254.1.2/80"' 2>/dev/null
             rc=$?
             [ "$rc" = 124 ] || { echo "expected a logged drop on host port 80, got $rc"; exit 1; }
             sleep 2

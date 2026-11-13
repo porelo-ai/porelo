@@ -51,7 +51,8 @@ RUN set -eux; \
 
 RUN --mount=type=cache,id=porelo-apt-ubuntu-24.04,target=/var/cache/apt/archives,sharing=locked set -eux; \
     if command -v curl >/dev/null 2>&1 && command -v git >/dev/null 2>&1 \
-        && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then :; \
+        && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1 \
+        && command -v setpriv >/dev/null 2>&1; then :; \
     elif command -v apt-get >/dev/null 2>&1; then \
         porelo_update() { code=0; out=$(apt-get update 2>&1) || code=$?; printf '%s\n' "$out"; \
             [ "$code" = 0 ] || return 1; \
@@ -75,11 +76,11 @@ RUN --mount=type=cache,id=porelo-apt-ubuntu-24.04,target=/var/cache/apt/archives
             || porelo_next 'http://deb.debian.org/debian' '^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(debian)/*([[:space:]].*)?$' \
             || porelo_warned; \
         rm -rf /var/tmp/porelo-apt-warned; \
-        apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux \
+        apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux util-linux \
         && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \
-    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux; \
-    elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux && dnf clean all; \
-    else echo 'no curl/git/ssh/tmux and no known package manager in ubuntu:24.04' >&2; exit 1; \
+    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux setpriv; \
+    elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux util-linux && dnf clean all; \
+    else echo 'no curl/git/ssh/tmux/setpriv and no known package manager in ubuntu:24.04' >&2; exit 1; \
     fi
 
 # Python 3 for the agents that evaluate it, added where the image has a package manager. Not one of
@@ -175,6 +176,7 @@ RUN mkdir -p /etc/porelo \
     && printf '%s\n' \
         'set -g status on' \
         'bind d detach-client' \
+        'set -g default-command "exec /etc/porelo/as-agent"' \
         'set -g status-right-length 200' \
         'set -ga status-right " #{s/C-/Ctrl+/:prefix} d: leave, the task goes on"' \
         >> /etc/porelo/tmux-required.conf \
@@ -188,6 +190,27 @@ RUN mkdir -p /etc/porelo \
 # to an unprivileged host uid, so this is defense in depth rather than the only line.
 # No uid is pinned: 1000 is already taken on several common base images.
 RUN id -u agent >/dev/null 2>&1 || useradd --create-home --shell /bin/bash agent
+
+# Porelo's tmux server runs as root, in a directory only root reaches, so the agent
+# can neither connect to it nor plant what the next session starts with. Each pane
+# leaves root through this script: tmux's own variables cleared, the agent's home,
+# user and shell set, and root given up with setpriv - which needs the two
+# capabilities a task container adds back, and leaves the agent holding none.
+RUN command -v setpriv >/dev/null 2>&1 \
+        || { echo 'porelo: no setpriv in ubuntu:24.04' >&2; exit 1; } \
+    && printf '%s\n' \
+        '#!/bin/sh' \
+        'unset TMUX TMUX_PANE' \
+        'entry=$(grep "^agent:" /etc/passwd) || exit 1' \
+        'home=${entry#*:*:*:*:*:}; home=${home%%:*}' \
+        'shell=${entry##*:}; [ -x "$shell" ] || shell=/bin/sh' \
+        'export HOME="$home" USER=agent LOGNAME=agent SHELL="$shell"' \
+        'drop=$(PATH=/usr/sbin:/usr/bin:/sbin:/bin; command -v setpriv) || exit 1' \
+        'case $# in 0) set -- "$shell" -l ;; 1) set -- "$shell" -c "$1" ;; esac' \
+        'exec "$drop" --reuid=agent --regid=agent --init-groups -- "$@"' \
+        > /etc/porelo/as-agent \
+    && chmod 0755 /etc/porelo/as-agent \
+    && mkdir -p /run/porelo && chmod 0700 /run/porelo
 
 RUN mkdir -p /workspace && chown agent:agent /workspace
 
@@ -218,6 +241,6 @@ ENV PATH=/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="d519eaa40e90c9e4"
+LABEL org.fuin.porelo.recipe="f5f9bbd1faab0fd5"
 LABEL org.fuin.porelo.security-class="guarded"
 LABEL org.fuin.porelo.settings=""

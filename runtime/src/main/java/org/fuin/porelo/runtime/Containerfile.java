@@ -70,11 +70,26 @@ public final class Containerfile {
     public static final String SESSION = "porelo";
 
     /**
-     * The name of the tmux server Porelo's session lives on, given to every tmux call of Porelo's
-     * with {@code -L}: a server of its own, apart from the agent's default one, so that ending it
-     * ends nothing the agent started for itself.
+     * The directory of Porelo's tmux server: the container's root's alone, mode 0700, so the agent
+     * cannot reach the socket in it.
      */
-    public static final String TMUX_SERVER = "porelo";
+    public static final String TMUX_DIRECTORY = "/run/porelo";
+
+    /**
+     * The socket of Porelo's tmux server, given to every tmux call of Porelo's with {@code -S}.
+     *
+     * <p>The server runs as the container's root and every pane drops to the agent through {@link
+     * #AS_AGENT}, so the agent can neither connect to it nor set what the next session starts with.
+     * The agent's own tmux servers are other servers and are left alone.
+     */
+    public static final String TMUX_SOCKET = TMUX_DIRECTORY + "/tmux";
+
+    /**
+     * What every pane of Porelo's session runs through: a root-owned script that clears tmux's own
+     * variables, sets the agent's home, user and shell, and gives up root with {@code setpriv}
+     * before it runs the agent's command, or the agent's login shell without one.
+     */
+    public static final String AS_AGENT = "/etc/porelo/as-agent";
 
     /**
      * File the session's own shell writes when it ends, inside the container.
@@ -116,7 +131,14 @@ public final class Containerfile {
 
     /** What the image's own package steps ask for, as the Debian family names it. */
     static final List<String> TOOLS =
-            List.of("curl", "ca-certificates", "git", "openssh-client", "tmux", "python3");
+            List.of(
+                    "curl",
+                    "ca-certificates",
+                    "git",
+                    "openssh-client",
+                    "tmux",
+                    "util-linux",
+                    "python3");
 
     /**
      * The mirrors an apt step goes on to, in order, after a project's own sources, when an update
@@ -433,14 +455,15 @@ public final class Containerfile {
                                 "",
                                 aptRun(project),
                                 "    if command -v curl >/dev/null 2>&1 && command -v git >/dev/null 2>&1 \\",
-                                "        && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then :; \\",
+                                "        && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1 \\",
+                                "        && command -v setpriv >/dev/null 2>&1; then :; \\",
                                 "    elif command -v apt-get >/dev/null 2>&1; then \\",
                                 UPDATE,
-                                "        apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux \\",
+                                "        apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux util-linux \\",
                                 "        && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \\",
-                                "    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux; \\",
-                                "    elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux && dnf clean all; \\",
-                                "    else echo 'no curl/git/ssh/tmux and no known package manager in "
+                                "    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux setpriv; \\",
+                                "    elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux util-linux && dnf clean all; \\",
+                                "    else echo 'no curl/git/ssh/tmux/setpriv and no known package manager in "
                                         + project.baseImage()
                                         + "' >&2; exit 1; \\",
                                 "    fi",
@@ -523,6 +546,7 @@ public final class Containerfile {
                                 "    && printf '%s\\n' \\",
                                 "        'set -g status on' \\",
                                 "        'bind d detach-client' \\",
+                                "        'set -g default-command \"exec " + AS_AGENT + "\"' \\",
                                 "        'set -g status-right-length 200' \\",
                                 "        'set -ga status-right \" #{s/C-/Ctrl+/:prefix} d: leave, the task goes on\"' \\",
                                 "        >> " + REQUIRED_TMUX_CONF + " \\",
@@ -540,6 +564,32 @@ public final class Containerfile {
                                 "# to an unprivileged host uid, so this is defense in depth rather than the only line.",
                                 "# No uid is pinned: 1000 is already taken on several common base images.",
                                 "RUN id -u agent >/dev/null 2>&1 || useradd --create-home --shell /bin/bash agent",
+                                "",
+                                "# Porelo's tmux server runs as root, in a directory only root reaches, so the agent",
+                                "# can neither connect to it nor plant what the next session starts with. Each pane",
+                                "# leaves root through this script: tmux's own variables cleared, the agent's home,",
+                                "# user and shell set, and root given up with setpriv - which needs the two",
+                                "# capabilities a task container adds back, and leaves the agent holding none.",
+                                "RUN command -v setpriv >/dev/null 2>&1 \\",
+                                "        || { echo 'porelo: no setpriv in "
+                                        + project.baseImage()
+                                        + "' >&2; exit 1; } \\",
+                                "    && printf '%s\\n' \\",
+                                "        '#!/bin/sh' \\",
+                                "        'unset TMUX TMUX_PANE' \\",
+                                "        'entry=$(grep \"^agent:\" /etc/passwd) || exit 1' \\",
+                                "        'home=${entry#*:*:*:*:*:}; home=${home%%:*}' \\",
+                                "        'shell=${entry##*:}; [ -x \"$shell\" ] || shell=/bin/sh' \\",
+                                "        'export HOME=\"$home\" USER=agent LOGNAME=agent SHELL=\"$shell\"' \\",
+                                "        'drop=$(PATH=/usr/sbin:/usr/bin:/sbin:/bin; command -v setpriv) || exit 1' \\",
+                                "        'case $# in 0) set -- \"$shell\" -l ;; 1) set -- \"$shell\" -c \"$1\" ;; esac' \\",
+                                "        'exec \"$drop\" --reuid=agent --regid=agent --init-groups -- \"$@\"' \\",
+                                "        > " + AS_AGENT + " \\",
+                                "    && chmod 0755 " + AS_AGENT + " \\",
+                                "    && mkdir -p "
+                                        + TMUX_DIRECTORY
+                                        + " && chmod 0700 "
+                                        + TMUX_DIRECTORY,
                                 "",
                                 "RUN mkdir -p /workspace && chown agent:agent /workspace",
                                 "",

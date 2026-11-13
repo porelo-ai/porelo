@@ -20,7 +20,7 @@ Feature: A task's branch named by the project's scheme
         And a script runs about the task:
             """
             porelo task status {task} | awk '$1 == "forge" { print "forge " $2 }'
-            podman exec {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "acceptance: scheme" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' \
+            podman exec --user agent {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "acceptance: scheme" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' \
                 && echo "pushed"
             sleep 2
             git --git-dir ~/scheme/.git/upstream.git for-each-ref --format='upstream %(refname)' refs/heads/

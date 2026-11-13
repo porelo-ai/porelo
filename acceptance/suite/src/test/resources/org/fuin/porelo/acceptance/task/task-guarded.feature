@@ -48,10 +48,10 @@ Feature: A task in a guarded project, from its image to what it hands back
         When a task called "hardened" is started in "guarded" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'grep -E "^(NoNewPrivs|CapEff):" /proc/self/status' | awk '{ print $1 $2 }'
+            podman exec --user agent {task} sh -c 'grep -E "^(NoNewPrivs|CapEff):" /proc/self/status' | awk '{ print $1 $2 }'
             grep -q 'nft createRuntime ok' {state}/hooks.log && echo "the firewall hook ran when the container was created"
             # Closed is refused (1) or dropped until the limit (124); a probe that could not run is neither.
-            podman exec {task} bash -c 'timeout 5 bash -c "echo > /dev/tcp/1.1.1.1/443"' 2>/dev/null; rc=$?
+            podman exec --user agent {task} bash -c 'timeout 5 bash -c "echo > /dev/tcp/1.1.1.1/443"' 2>/dev/null; rc=$?
             case $rc in
               0) echo "an undeclared address is open" ;;
               1|124) echo "an undeclared address is closed" ;;
@@ -64,7 +64,7 @@ Feature: A task in a guarded project, from its image to what it hands back
             pid=$(podman inspect --format '{{.State.Pid}}' {task})
             up=$(podman unshare nsenter --target "$pid" --net nft list ruleset | awk '/skuid 0/ && /dport 53/ { print $3; exit }')
             [ -n "$up" ] && echo "the upstream resolver is named in the firewall"
-            podman exec {task} bash -c "timeout 5 bash -c 'echo > /dev/tcp/$up/53'" 2>/dev/null; rc=$?
+            podman exec --user agent {task} bash -c "timeout 5 bash -c 'echo > /dev/tcp/$up/53'" 2>/dev/null; rc=$?
             case $rc in
               0) echo "the upstream resolver is open to the agent" ;;
               1|124) echo "the upstream resolver is closed to the agent" ;;
@@ -116,7 +116,7 @@ Feature: A task in a guarded project, from its image to what it hands back
         When a script runs about the task:
             """
             sleep 2
-            search=$(podman exec {task} sed -n 's/^search //p' /etc/resolv.conf)
+            search=$(podman exec --user agent {task} sed -n 's/^search //p' /etc/resolv.conf)
             allowed=$(porelo agents --verbose | awk '/^[^ ]/ { row = ($1 == "stub") }
                 row && $1 == "refused:" { $1 = ""; print }
                 row && $1 == "provider:" { for (i = 1; i < NF; i++) if ($i == "->") print $(i + 1) }' | tr ', ' '\n\n')
@@ -142,11 +142,11 @@ Feature: A task in a guarded project, from its image to what it hands back
         And a script runs about the task:
             """
             for host in repo.maven.apache.org pypi.org; do
-                podman exec {task} getent hosts "$host" >/dev/null && echo "$host resolves" || echo "$host does not resolve"
+                podman exec --user agent {task} getent hosts "$host" >/dev/null && echo "$host resolves" || echo "$host does not resolve"
             done
             # 28 is a timeout, which is what a dropped packet looks like; 35, 52 and 56 mean TCP got through and only TLS failed.
             for port in 443 22; do
-                code=$(podman exec {task} sh -c "curl -s -o /dev/null --max-time 12 https://github.com:$port/; echo \$?")
+                code=$(podman exec --user agent {task} sh -c "curl -s -o /dev/null --max-time 12 https://github.com:$port/; echo \$?")
                 case "$code" in 0|35|52|56) echo "github.com:$port is open" ;; *) echo "github.com:$port is closed ($code)" ;; esac
             done
             """
@@ -160,11 +160,11 @@ Feature: A task in a guarded project, from its image to what it hands back
         When a task called "widened" is started in "guarded" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} getent hosts pypi.org >/dev/null && echo "before: resolves" || echo "before: does not resolve"
+            podman exec --user agent {task} getent hosts pypi.org >/dev/null && echo "before: resolves" || echo "before: does not resolve"
             porelo shield egress --task {task} --add-domain pypi.org
-            podman exec {task} getent hosts pypi.org >/dev/null && echo "widened: resolves" || echo "widened: does not resolve"
+            podman exec --user agent {task} getent hosts pypi.org >/dev/null && echo "widened: resolves" || echo "widened: does not resolve"
             # Reached once, so an address really enters the firewall and is recorded against the name.
-            podman exec {task} sh -c 'curl -s -o /dev/null --max-time 12 https://pypi.org/'
+            podman exec --user agent {task} sh -c 'curl -s -o /dev/null --max-time 12 https://pypi.org/'
             address=$(awk -F '\t' '$1 == "pypi.org" { print $2; exit }' {state}/granted-addresses)
             [ -n "$address" ] && echo "an address is recorded against the name"
             # Read before it is narrowed too: a firewall that cannot be read said "out of the firewall" below.
@@ -174,9 +174,9 @@ Feature: A task in a guarded project, from its image to what it hands back
             # What the watcher decided, shown so that a failure below says why.
             sed 's/^/watcher: /' {state}/clearance.log
             porelo shield egress --task {task} --remove-domain pypi.org --dry-run
-            podman exec {task} getent hosts pypi.org >/dev/null && echo "after a dry run: resolves" || echo "after a dry run: does not resolve"
+            podman exec --user agent {task} getent hosts pypi.org >/dev/null && echo "after a dry run: resolves" || echo "after a dry run: does not resolve"
             porelo shield egress --task {task} --remove-domain pypi.org
-            podman exec {task} getent hosts pypi.org >/dev/null && echo "narrowed: resolves" || echo "narrowed: does not resolve"
+            podman exec --user agent {task} getent hosts pypi.org >/dev/null && echo "narrowed: resolves" || echo "narrowed: does not resolve"
             if after=$(allowed); then
               printf '%s\n' "$after" | grep -qF "$address" && echo "the address is still in the firewall" \
                   || echo "the address is out of the firewall"
@@ -199,11 +199,11 @@ Feature: A task in a guarded project, from its image to what it hands back
         When a task called "handed" is started in "guarded" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'cd /workspace && test -d .git && git remote get-url porelo' && echo "the workspace has a remote to the gate"
-            podman exec {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "acceptance: work from the agent" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' \
+            podman exec --user agent {task} sh -c 'cd /workspace && test -d .git && git remote get-url porelo' && echo "the workspace has a remote to the gate"
+            podman exec --user agent {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "acceptance: work from the agent" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' \
                 && echo "the push went through"
             porelo gate pending --project guarded
-            port=$(podman exec {task} sh -c 'cd /workspace && git remote get-url porelo' | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+            port=$(podman exec --user agent {task} sh -c 'cd /workspace && git remote get-url porelo' | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
             # Java binds a dual-stack socket, so loopback reads as [::ffff:127.0.0.1] here.
             ss -ltnH "sport = :$port" | grep -qE '(127\.0\.0\.1|\[::1\]|\[::ffff:127\.0\.0\.1\]):'"$port" \
                 && echo "the gate listens on loopback only" || ss -ltnH "sport = :$port"
@@ -220,7 +220,7 @@ Feature: A task in a guarded project, from its image to what it hands back
         When a task called "holding" is started in "guarded" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "acceptance: never pushed"'
+            podman exec --user agent {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "acceptance: never pushed"'
             porelo task stop {task} >/dev/null 2>&1
             podman container exists {task} && echo "stopping kept it"
             porelo task remove {task}

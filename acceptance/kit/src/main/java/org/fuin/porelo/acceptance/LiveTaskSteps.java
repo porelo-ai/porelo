@@ -259,7 +259,8 @@ public class LiveTaskSteps {
      * @return The command.
      */
     static String execCommand(String container, String script, Map<String, String> environment) {
-        final StringBuilder command = new StringBuilder("timeout " + EXEC_SECONDS + " podman exec");
+        final StringBuilder command =
+                new StringBuilder("timeout " + EXEC_SECONDS + " podman exec --user agent");
         environment.forEach(
                 (name, value) -> command.append(" --env ").append(Shell.quote(name + "=" + value)));
         return command.append(' ')

@@ -57,7 +57,7 @@ class AccountTmuxTest {
 
         assertThat(steps).hasSize(2);
         assertThat(steps.get(0))
-                .containsSubsequence("exec", "--interactive", "--user", "root")
+                .containsSubsequence("exec", "--user", "root", "--interactive")
                 .contains("of=" + Containerfile.ACCOUNT_TMUX_CONF);
         assertThat(steps.get(1))
                 .containsSubsequence("exec", "--user", "root")

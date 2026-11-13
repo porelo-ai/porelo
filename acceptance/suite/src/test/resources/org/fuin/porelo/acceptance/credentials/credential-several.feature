@@ -26,7 +26,7 @@ Feature: A task holds more than one credential
         When a task called "holding" is started in "credentialed" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'echo "url: $PORELO_URL_SEARCH"; curl -s --max-time 30 -H "X-Echo-Key: $PORELO_TOKEN_SEARCH" "$PORELO_URL_SEARCH/headers"'
+            podman exec --user agent {task} sh -c 'echo "url: $PORELO_URL_SEARCH"; curl -s --max-time 30 -H "X-Echo-Key: $PORELO_TOKEN_SEARCH" "$PORELO_URL_SEARCH/headers"'
             """
         Then its output contains "url: http://127.0.0.1:9419"
         # The echo shows the header as it arrived upstream: the real key, put there by the broker.
@@ -36,7 +36,7 @@ Feature: A task holds more than one credential
         # makes of it, the broker does not refuse the request - no 400, 403, 413 or 415.
         When a script runs about the task:
             """
-            post() { base64 -d | podman exec -i {task} sh -c 'curl -s -o /tmp/said -w "%{http_code}" --max-time 30 -X POST -H "X-Echo-Key: $PORELO_TOKEN_SEARCH" -H "Content-Encoding: zstd" --data-binary @- "$PORELO_URL_SEARCH/post"; grep -q "porelo:" /tmp/said && echo " by porelo" || echo " not by porelo"'; }
+            post() { base64 -d | podman exec --user agent -i {task} sh -c 'curl -s -o /tmp/said -w "%{http_code}" --max-time 30 -X POST -H "X-Echo-Key: $PORELO_TOKEN_SEARCH" -H "Content-Encoding: zstd" --data-binary @- "$PORELO_URL_SEARCH/post"; grep -q "porelo:" /tmp/said && echo " by porelo" || echo " not by porelo"'; }
             printf '%s' 'KLUv/QRoBQEA0HJlZnJlc2hfdG9rZW4mZ3JhbnRfdHlwZT1yAQAyN8e3ZVOE' | post | sed 's/^/zstd grant: /'
             printf '%s' 'KLUv/QRYiQAAeyJpbnB1dCI6ImhlbGxvIn1ogvc5' | post | sed 's/^/zstd clean: /'
             """
@@ -48,8 +48,8 @@ Feature: A task holds more than one credential
         And its output does not contain "zstd clean: 415"
         When a script runs about the task:
             """
-            podman exec {task} env | grep -c 'sk-porelo-acceptance-not-a-real-key' | sed 's/^/real key in the container: /'
-            podman exec {task} sh -c 'test -n "$PORELO_TOKEN_SEARCH" && echo "a token for search is there"'
+            podman exec --user agent {task} env | grep -c 'sk-porelo-acceptance-not-a-real-key' | sed 's/^/real key in the container: /'
+            podman exec --user agent {task} sh -c 'test -n "$PORELO_TOKEN_SEARCH" && echo "a token for search is there"'
             """
         Then its output contains "real key in the container: 0"
         And its output contains "a token for search is there"

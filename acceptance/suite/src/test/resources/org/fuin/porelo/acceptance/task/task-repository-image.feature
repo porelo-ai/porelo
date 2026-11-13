@@ -51,7 +51,7 @@ Feature: A repository says what its tasks are built in
         And the terminal shows "porelo/imaged_tooled"
         When a script runs:
             """
-            podman exec porelo-imaged_shaped sh -c 'cat /etc/porelo-repository-image; echo "env: $REPOSITORY_IMAGE"'
+            podman exec --user agent porelo-imaged_shaped sh -c 'cat /etc/porelo-repository-image; echo "env: $REPOSITORY_IMAGE"'
             porelo task remove porelo-imaged_shaped --force > /dev/null
             podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
             """
@@ -84,7 +84,7 @@ Feature: A repository says what its tasks are built in
         And the terminal shows "from porelo.yml at refs/heads/main of pinned"
         When a script runs:
             """
-            podman exec porelo-imaged_copied sh -c 'grep -c "^ID=ubuntu" /etc/porelo-copied-os-release'
+            podman exec --user agent porelo-imaged_copied sh -c 'grep -c "^ID=ubuntu" /etc/porelo-copied-os-release'
             porelo task remove porelo-imaged_copied --force > /dev/null
             podman rmi porelo/imaged_pinned > /dev/null 2>&1 || true
             """
@@ -143,7 +143,7 @@ Feature: A repository says what its tasks are built in
             """
             override="${XDG_CONFIG_HOME:-$HOME/.config}/porelo/projects/imaged/tooled"
             trap 'rm -rf -- "$override"' EXIT
-            podman exec porelo-imaged_overridden sh -c \
+            podman exec --user agent porelo-imaged_overridden sh -c \
                 'echo "env: $REPOSITORY_IMAGE / ${KEPT:-unset}"; cat /etc/porelo-repository-image 2>/dev/null || echo "no repository lines"'
             porelo task remove porelo-imaged_overridden --force > /dev/null
             podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
@@ -191,7 +191,7 @@ Feature: A repository says what its tasks are built in
         When a script runs:
             """
             trap 'porelo task remove porelo-default_fromco --force > /dev/null 2>&1; porelo project default remove dimgprobe > /dev/null 2>&1; podman rmi porelo/default_dimgprobe > /dev/null 2>&1; rm -rf ~/default-image-probe' EXIT
-            podman exec porelo-default_fromco sh -c \
+            podman exec --user agent porelo-default_fromco sh -c \
                 'echo "env: $CHECKOUT_IMAGE"; cat /etc/porelo-checkout-image 2>/dev/null || echo "no checked-in lines"'
             """
         Then it exits zero

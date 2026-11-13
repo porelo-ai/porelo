@@ -27,11 +27,11 @@ Feature: A name refused by declaration does not resolve, whatever allows it
         When a script runs about the task:
             """
             for host in iana.org www.iana.org example.net; do
-                podman exec {task} getent hosts "$host" >/dev/null && echo "$host resolves" || echo "$host does not resolve"
+                podman exec --user agent {task} getent hosts "$host" >/dev/null && echo "$host resolves" || echo "$host does not resolve"
             done
             # Every name 'porelo agents' reports as refused for this agent, asked of the task itself.
             for host in $(porelo agents --verbose | awk '/^[^ ]/ { row = ($1 == "stub") } row && $1 == "refused:" { $1 = ""; print }' | tr ',' ' '); do
-                podman exec {task} getent hosts "$host" >/dev/null && echo "reported refused and resolves: $host"
+                podman exec --user agent {task} getent hosts "$host" >/dev/null && echo "reported refused and resolves: $host"
             done
             true
             """
@@ -45,5 +45,5 @@ Feature: A name refused by declaration does not resolve, whatever allows it
         And a script runs "porelo shield egress --task {task} --add-domain cdn.www.iana.org" about the task
         Then it exits non-zero
         And its output contains "cdn.www.iana.org is refused for this task, under www.iana.org"
-        When a script runs "podman exec {task} getent hosts www.iana.org || echo 'still refused'" about the task
+        When a script runs "podman exec --user agent {task} getent hosts www.iana.org || echo 'still refused'" about the task
         Then its output contains "still refused"

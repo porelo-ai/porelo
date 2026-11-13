@@ -642,10 +642,6 @@ public class TaskRunner {
     public void startScreenWriter(final String container) {
         try {
             runOrFail(
-                    podman.asUserDetachedArguments(container, "agent", ScreenFile.drawer()),
-                    null,
-                    "the screen drawer did not start");
-            runOrFail(
                     podman.asRootDetachedArguments(container, ScreenFile.writer()),
                     null,
                     "the screen writer did not start");

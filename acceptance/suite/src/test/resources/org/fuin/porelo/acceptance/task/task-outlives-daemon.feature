@@ -41,7 +41,7 @@ Feature: A task outlives the daemon that started it
             c=porelo-outlived_outlives; state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$c"
             podman ps --filter "name=^$c\$" --format '{{.Status}}' | sed 's/^/container: /'
             for f in "$state"/*.pid; do kill -0 "$(cut -d' ' -f1 "$f")" 2>/dev/null && echo "alive: $(basename "$f" .pid)" || echo "gone: $(basename "$f" .pid)"; done
-            podman exec "$c" sh -c 'cd /workspace && timeout 20 git ls-remote porelo >/dev/null' && echo "the gate answers"
+            podman exec --user agent "$c" sh -c 'cd /workspace && timeout 20 git ls-remote porelo >/dev/null' && echo "the gate answers"
             """
         Then its output contains "container: Up"
         And its output contains "alive: gate"
@@ -53,7 +53,7 @@ Feature: A task outlives the daemon that started it
             """
             c=porelo-outlived_outlives
             podman ps --filter "name=^$c\$" --format '{{.Status}}' | sed 's/^/container: /'
-            podman exec "$c" sh -c 'cd /workspace && timeout 20 git ls-remote porelo >/dev/null' && echo "the gate answers"
+            podman exec --user agent "$c" sh -c 'cd /workspace && timeout 20 git ls-remote porelo >/dev/null' && echo "the gate answers"
             """
         Then its output contains "container: Up"
         And its output contains "the gate answers"

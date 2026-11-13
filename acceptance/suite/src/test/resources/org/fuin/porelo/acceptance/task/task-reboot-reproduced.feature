@@ -45,7 +45,7 @@ Feature: A task the machine's restart took down comes back whole when it is star
         # And the gate took the token the container's git holds.
         When a script runs about the task:
             """
-            podman exec {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "after the restart" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' \
+            podman exec --user agent {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "after the restart" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' \
                 && echo "the push went through after the restart"
             """
         Then its output contains "the push went through after the restart"

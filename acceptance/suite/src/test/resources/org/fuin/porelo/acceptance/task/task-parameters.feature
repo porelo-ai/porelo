@@ -61,8 +61,8 @@ Feature: A task is started with the values its project declares
             timeout 600 porelo task start kept --project valued --repository valued --agent stub \
                 --attach shell --detach --clearance deny \
                 --set type=bugfix --set ticket --set-file ~/valued-values.yml
-            podman exec porelo-valued_kept sh -c 'echo "env: $PORELO_PARAM_TYPE $TASK_TICKET $PORELO_PARAM_LABEL"'
-            podman exec porelo-valued_kept cat /run/porelo/guide/README.md
+            podman exec --user agent porelo-valued_kept sh -c 'echo "env: $PORELO_PARAM_TYPE $TASK_TICKET $PORELO_PARAM_LABEL"'
+            podman exec --user agent porelo-valued_kept cat /run/porelo/guide/README.md
             porelo task status porelo-valued_kept
             porelo task stop porelo-valued_kept > /dev/null
             set +e

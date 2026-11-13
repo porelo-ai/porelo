@@ -175,10 +175,10 @@ nothing inside can reach them. The guarantee is all three facts together:
    namespaces and before it pivots into the container's filesystem. The hook runs
    `nsenter --target <pid> --net nft --file -`, with the ruleset on standard input and both programs
    taken from the system's root-owned directories rather than `PATH`.
-3. **Unreachable from inside.** The container runs with `--cap-drop ALL` and
-   `--security-opt no-new-privileges`. Changing the rules needs `CAP_NET_ADMIN` in that namespace,
-   and the agent has no capabilities at all. It can be stopped by the rules; it cannot read them
-   away or widen them.
+3. **Unreachable from inside.** The container runs with `--cap-drop ALL`, `--cap-add SETUID,SETGID`
+   and `--security-opt no-new-privileges` ([the container's flags](#the-containers-user-and-capabilities)).
+   Changing the rules needs `CAP_NET_ADMIN` in that namespace, and the agent has no capabilities at
+   all. It can be stopped by the rules; it cannot read them away or widen them.
 
 So "inside or outside the container?" has no one-word answer: the rules are enforced in the
 container's own namespace, which makes them per task, and the authority to write them stays on the
@@ -299,6 +299,42 @@ firewall half goes through the clearance watcher.
 a missing resolver lets nothing escape, because the packet filter still drops by default. Refusing
 to start would turn a degraded run into no run. The failure shows at the point of use, since the
 agent can resolve nothing at all, and the hook records why.
+
+## The container's user and capabilities
+
+A task's container is created with these flags, whatever its image says:
+
+- `--cap-drop ALL`, then `--cap-add SETUID,SETGID`. The two are added back for one purpose: Porelo's
+  tmux server runs as the container's root and drops each window of the task's session to the agent
+  with `setpriv`, which needs them.
+- `--security-opt no-new-privileges`, so nothing the agent runs gains a capability or a user, whatever
+  file it executes.
+- `--user root`: the container's own user is root, and **every exec names its user**. Porelo's own
+  execs (the session's tmux server, the screen it reads, the files it hands in) run as `--user root`.
+  Everything of the agent's (its run, an attached shell, a question Porelo asks it) runs as
+  `--user agent`. One method in the runtime spells an exec, and a test fails the build on any other.
+
+Why the container's user is root: measured with podman 5.7, a container whose user is not root gets
+every added capability in the ambient set of every exec. An agent holding `SETUID` could make itself
+root. Created as root, an exec with `--user agent` holds none, and `setpriv --reuid=0` fails for it.
+
+What the two capabilities do not give the agent:
+
+- A window of the session leaves root through the root-owned `/etc/porelo/as-agent`. After it,
+  `CapPrm`, `CapEff` and `CapAmb` are 0 and `NoNewPrivs` is 1. The same holds for every exec of the
+  agent's.
+- The server's socket is `/run/porelo/tmux`, in a directory only root reaches. The agent cannot
+  connect, type into the session or set what the next server starts with.
+- What the server reads and runs (`/etc/porelo/tmux.conf`, the files it sources and `as-agent`) is
+  root's alone. Each start checks every one of them, and every directory above them, for an owner
+  other than root, a group or other write bit, or a link. It refuses to start if one fails. A
+  person's own tmux file reaches the container as a root-owned copy.
+- A start that finds no session ends the server first, so nothing set on it reaches the next one.
+
+What remains: a window's terminal device belongs to root, so a program that reopens it by its
+`/dev/pts` name is refused. Its open descriptors and `/dev/tty` work. A person's own tmux file runs
+in a root server, so a `run-shell` line in it runs as the container's root. That is the person's own
+file, never the agent's.
 
 ## The event log
 

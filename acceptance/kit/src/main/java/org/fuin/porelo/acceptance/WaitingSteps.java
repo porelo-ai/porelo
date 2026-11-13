@@ -298,9 +298,9 @@ public class WaitingSteps {
         while (Instant.now().isBefore(deadline)) {
             final Ssh.Output pane =
                     world.run(
-                            "podman exec "
+                            "podman exec --user root "
                                     + Shell.quote(container)
-                                    + " tmux -L porelo capture-pane -p -J");
+                                    + " tmux -S /run/porelo/tmux capture-pane -p -J");
             screen = pane.out();
             if (pane.status() == 0 && screen.contains(shown)) {
                 return;

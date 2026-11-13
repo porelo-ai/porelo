@@ -72,7 +72,13 @@ class ImageSettingsTest {
         assertThat(written.tools())
                 .as("what the image's own package step asks for")
                 .containsExactly(
-                        "curl", "ca-certificates", "git", "openssh-client", "tmux", "python3");
+                        "curl",
+                        "ca-certificates",
+                        "git",
+                        "openssh-client",
+                        "tmux",
+                        "util-linux",
+                        "python3");
     }
 
     @Test

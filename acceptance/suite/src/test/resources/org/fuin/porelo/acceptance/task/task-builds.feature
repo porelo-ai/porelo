@@ -41,7 +41,7 @@ Feature: The build of what an online task pushed
             """
         Then within 90 seconds this script about the task exits zero:
             """
-            podman exec {task} grep -q '^verdict: running' /porelo/files/build-cccccccccccc.txt
+            podman exec --user agent {task} grep -q '^verdict: running' /porelo/files/build-cccccccccccc.txt
             """
         When a script runs about the task:
             """
@@ -55,7 +55,7 @@ Feature: The build of what an online task pushed
             """
         Then within 90 seconds this script about the task exits zero:
             """
-            podman exec {task} grep -q '^verdict: failure' /porelo/files/build-cccccccccccc.txt
+            podman exec --user agent {task} grep -q '^verdict: failure' /porelo/files/build-cccccccccccc.txt
             """
         When the task's container runs:
             """

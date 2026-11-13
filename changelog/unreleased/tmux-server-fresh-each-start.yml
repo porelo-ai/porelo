@@ -1,2 +1,2 @@
-title: "A task's session runs on a tmux server of its own, which every start without a live `porelo` session clears first, so no option, hook, environment or session the agent left there reaches the next start"
+title: "A task's session runs on a tmux server of the container's root that the agent cannot reach, cleared at each start without a live session, and each window drops to the agent holding no capability; the container adds back only SETUID and SETGID, and every exec of the agent's names its user"
 type: security

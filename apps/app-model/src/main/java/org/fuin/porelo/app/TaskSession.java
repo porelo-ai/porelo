@@ -298,13 +298,11 @@ public final class TaskSession {
         }
         try {
             if (context.podman()
-                            .ask(
+                            .askSession(
                                     container,
-                                    Map.of(),
-                                    org.fuin.porelo.runtime.Podman.tmux(
-                                            "has-session",
-                                            "-t",
-                                            org.fuin.porelo.runtime.Containerfile.SESSION))
+                                    "has-session",
+                                    "-t",
+                                    org.fuin.porelo.runtime.Containerfile.SESSION)
                             .exitCode()
                     == 0) {
                 return null;

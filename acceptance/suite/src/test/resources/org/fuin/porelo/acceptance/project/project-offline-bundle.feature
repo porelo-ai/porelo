@@ -24,14 +24,14 @@ Feature: An offline project takes its code from a bundle and carries its work ou
         When a task called "carried" is started in "carried" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'cd /workspace && cat code.txt && echo work > WORK.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work carried out" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            podman exec --user agent {task} sh -c 'cd /workspace && cat code.txt && echo work > WORK.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work carried out" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
             """
         Then it exits zero
         And its output contains "the code"
         When a script runs about the task:
             """
             carried="$HOME/carried/.git"
-            commit=$(podman exec {task} git -C /workspace rev-parse HEAD)
+            commit=$(podman exec --user agent {task} git -C /workspace rev-parse HEAD)
             porelo gate backup "$carried/out.bundle" --project carried
             git bundle list-heads "$carried/out.bundle" | grep -q "^$commit " && echo "the backup holds the task's commit"
             """

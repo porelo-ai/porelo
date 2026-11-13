@@ -13,7 +13,7 @@ Feature: A person alone, working locally, with no forge
         When a task called "work" is started in "solo" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'cd /workspace && echo "done by the agent" >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: solo work" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            podman exec --user agent {task} sh -c 'cd /workspace && echo "done by the agent" >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: solo work" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
             """
         Then it exits zero
         When a script runs:

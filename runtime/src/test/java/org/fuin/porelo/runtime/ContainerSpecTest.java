@@ -102,6 +102,31 @@ class ContainerSpecTest {
     }
 
     @Test
+    void addsBackExactlyTheTwoCapabilitiesThatDropAPaneToTheAgent() {
+
+        // Porelo's tmux server runs as the container's root and drops each pane to the agent with
+        // setpriv, which needs these two. Nothing else is added back.
+        final List<String> arguments = arguments();
+        final List<String> added = new java.util.ArrayList<>();
+        for (int i = 0; i < arguments.size() - 1; i++) {
+            if (arguments.get(i).equals("--cap-add")) {
+                added.add(arguments.get(i + 1));
+            }
+        }
+        assertThat(added).containsExactly("SETUID,SETGID");
+        assertThat(arguments).noneMatch(argument -> argument.startsWith("--cap-add="));
+    }
+
+    @Test
+    void createsTheContainerAsRootSoTheAgentsExecsHoldNoCapability() {
+
+        // Measured with podman 5.7: a container whose user is not root gets every added capability
+        // in its ambient set, in every exec, and the agent could setuid(0). Created as root, an
+        // exec with '--user agent' holds none.
+        assertThat(arguments()).containsSequence("--user", "root");
+    }
+
+    @Test
     void namesAVariableOnTheCommandLineAndCarriesItsValueElsewhere() {
 
         // An argument list is world-readable - /proc/<pid>/cmdline is mode 444 and neither

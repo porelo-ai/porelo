@@ -53,6 +53,29 @@ public class Podman {
     public static final List<String> NO_START_FILES =
             List.of("--env", "BASH_ENV=", "--env", "ENV=");
 
+    /** The agent's user in a task's container: what every exec runs as unless it is Porelo's. */
+    public static final String AGENT_USER = "agent";
+
+    /** The container's root: Porelo's own execs, among them every tmux call. */
+    public static final String ROOT_USER = "root";
+
+    /**
+     * Returns the start of every exec in a task's container, its user always named.
+     *
+     * <p><strong>The only place an exec is spelled.</strong> A task's container is created as root,
+     * so an exec that named no user would run as root, with the two capabilities the container adds
+     * back. A test reads this source and fails on any other exec.
+     *
+     * @param user {@link #AGENT_USER} or {@link #ROOT_USER}.
+     * @param rest What follows: options, the container and the command.
+     * @return The arguments, without the executable.
+     */
+    static List<String> exec(String user, String... rest) {
+        final List<String> arguments = new ArrayList<>(List.of("exec", "--user", user));
+        arguments.addAll(List.of(rest));
+        return arguments;
+    }
+
     /**
      * Constructor using the {@code podman} on the path.
      *
@@ -148,16 +171,36 @@ public class Podman {
      * does not run outside it. One {@code printf}, so the kernel reads the attribute as one write.
      */
     /**
-     * What a start runs in the container to reach the task's session: join it where it is live, and
-     * otherwise end the server it would be on before making it anew.
+     * A shell function, {@code porelo_owned}, that refuses every path it is given that is a link,
+     * not owned by root, or writable by anyone but its owner, naming the first such path.
      *
-     * <p><strong>The server runs as the agent</strong>, which can keep it alive with a session of
-     * its own and set what the next session starts with - an option, a hook, {@code set-environment
-     * -g}, {@code default-shell}. tmux reads Porelo's configuration and takes podman's environment
-     * only when a server starts, so a start that finds no session ends the server first, by its
-     * name and nothing else, and what was planted ends with it. A live session is joined and its
-     * server kept, or attaching would end the task's work. The agent's own servers are other
-     * servers and are left alone.
+     * <p>What the session's root server reads and runs must be root's alone: a file, or a directory
+     * on its path, that the agent could write would let it set what the next server starts with.
+     */
+    public static final String ROOT_ALONE =
+            String.join(
+                    "\n",
+                    "porelo_owned() {",
+                    "  for f do",
+                    "    if [ -L \"$f\" ]; then echo \"porelo: $f is a link, refused\" >&2; return 1; fi",
+                    "    m=$(stat -c '%u %a' \"$f\") || return 1",
+                    "    if [ \"${m%% *}\" != 0 ] || [ $((0${m#* } & 022)) -ne 0 ]; then",
+                    "      echo \"porelo: $f is not root's alone, refused\" >&2; return 1",
+                    "    fi",
+                    "  done",
+                    "}");
+
+    /**
+     * What a start runs in the container, as its root, to reach the task's session: join it where
+     * it is live, and otherwise end the server it would be on before making it anew.
+     *
+     * <p><strong>The server runs as root</strong>, on {@link Containerfile#TMUX_SOCKET} in a
+     * directory only root reaches, and every pane leaves root through {@link
+     * Containerfile#AS_AGENT}. Before it starts, everything it reads or runs is checked to be
+     * root's alone ({@link #ROOT_ALONE}), and refused otherwise. tmux reads Porelo's configuration
+     * and takes podman's environment only when a server starts, so a start that finds no session
+     * ends the server first, and nothing set on it reaches the new one. A live session is joined
+     * and its server kept, or attaching would end the task's work.
      *
      * <p>What the session's first window runs, if anything, is {@code "$@"}, never text this shell
      * reads.
@@ -165,15 +208,37 @@ public class Podman {
     public static final String SESSION_START =
             String.join(
                     "\n",
-                    "if ! tmux -L "
-                            + Containerfile.TMUX_SERVER
+                    ROOT_ALONE,
+                    "mkdir -p "
+                            + Containerfile.TMUX_DIRECTORY
+                            + " && chmod 0700 "
+                            + Containerfile.TMUX_DIRECTORY
+                            + " || exit 1",
+                    "read=\""
+                            + Containerfile.TMUX_CONF
+                            + " "
+                            + Containerfile.REQUIRED_TMUX_CONF
+                            + " "
+                            + Containerfile.AS_AGENT
+                            + "\"",
+                    "[ ! -e "
+                            + Containerfile.ACCOUNT_TMUX_CONF
+                            + " ] || read=\"$read "
+                            + Containerfile.ACCOUNT_TMUX_CONF
+                            + "\"",
+                    "porelo_owned / /etc /etc/porelo $read /run "
+                            + Containerfile.TMUX_DIRECTORY
+                            + " || exit 1",
+                    "if ! tmux -S "
+                            + Containerfile.TMUX_SOCKET
                             + " has-session -t "
                             + Containerfile.SESSION
                             + " 2>/dev/null; then",
-                    "  tmux -L " + Containerfile.TMUX_SERVER + " kill-server 2>/dev/null || :",
+                    "  tmux -S " + Containerfile.TMUX_SOCKET + " kill-server 2>/dev/null || :",
                     "fi",
-                    "exec tmux -L "
-                            + Containerfile.TMUX_SERVER
+                    "[ $# -eq 0 ] || set -- " + Containerfile.AS_AGENT + " \"$@\"",
+                    "exec tmux -S "
+                            + Containerfile.TMUX_SOCKET
                             + " -f "
                             + Containerfile.TMUX_CONF
                             + " new-session -A -s "
@@ -181,14 +246,15 @@ public class Podman {
                             + " \"$@\"");
 
     /**
-     * Returns a tmux command against Porelo's own server, {@link Containerfile#TMUX_SERVER}.
+     * Returns a tmux command against Porelo's own server, {@link Containerfile#TMUX_SOCKET}, to be
+     * run as the container's root.
      *
      * @param arguments What to ask it.
      * @return Program and arguments.
      */
     public static List<String> tmux(String... arguments) {
         final List<String> command =
-                new ArrayList<>(List.of("tmux", "-L", Containerfile.TMUX_SERVER));
+                new ArrayList<>(List.of("tmux", "-S", Containerfile.TMUX_SOCKET));
         command.addAll(List.of(arguments));
         return List.copyOf(command);
     }
@@ -324,7 +390,8 @@ public class Podman {
      */
     private boolean knows(String container, String terminal) {
         try {
-            return runner.run(podman("exec", target(container), "infocmp", terminal)).exitCode()
+            return runner.run(podman(exec(AGENT_USER, target(container), "infocmp", terminal)))
+                            .exitCode()
                     == 0;
         } catch (RuntimeException ex) {
             // A container that cannot be asked is one that cannot be attached to either, and the
@@ -338,6 +405,23 @@ public class Podman {
         all.add(executable);
         all.addAll(List.of(arguments));
         return Command.of(all);
+    }
+
+    private Command podman(List<String> arguments) {
+        return podman(arguments.toArray(String[]::new));
+    }
+
+    /**
+     * Returns an exec of a tmux call against Porelo's server, as the container's root.
+     *
+     * @param container What {@link #target(String)} gave for the task.
+     * @param arguments What to ask tmux, after the socket.
+     * @return The arguments, without the executable.
+     */
+    private static List<String> sessionCall(String container, String... arguments) {
+        final List<String> all = exec(ROOT_USER, container);
+        all.addAll(tmux(arguments));
+        return all;
     }
 
     /**
@@ -954,11 +1038,22 @@ public class Podman {
      */
     public CommandResult ask(
             String container, Map<String, String> environment, List<String> command) {
-        final List<String> arguments = new ArrayList<>(List.of("exec"));
+        final List<String> arguments = exec(AGENT_USER);
         arguments.addAll(ContainerSpec.passedThrough(environment.keySet()));
         arguments.add(target(container));
         arguments.addAll(command);
         return runner.run(podman(arguments.toArray(new String[0])).withEnvironment(environment));
+    }
+
+    /**
+     * Asks Porelo's tmux server something, as the container's root: the only user that reaches it.
+     *
+     * @param container Container name or id.
+     * @param arguments What to ask tmux, after the socket.
+     * @return The result, successful or not.
+     */
+    public CommandResult askSession(String container, String... arguments) {
+        return runner.run(podman(sessionCall(target(container), arguments)));
     }
 
     /**
@@ -1209,7 +1304,8 @@ public class Podman {
      */
     List<String> executeArguments(
             String container, Map<String, String> environment, List<String> command) {
-        final List<String> arguments = new ArrayList<>(List.of(executable, "exec"));
+        final List<String> arguments = new ArrayList<>(List.of(executable));
+        arguments.addAll(exec(AGENT_USER));
         arguments.addAll(ContainerSpec.passedThrough(environment.keySet()));
         arguments.addAll(NO_START_FILES);
         arguments.add(target(container));
@@ -1280,7 +1376,9 @@ public class Podman {
         // Nothing here needs a shell: the content arrives on standard input and tee writes it,
         // which is the whole of what the removed script did apart from mkdir and chmod - and those
         // are their own calls now, for the same reason.
-        return List.of(executable, "exec", "--interactive", target(container), "tee", path);
+        final List<String> arguments = new ArrayList<>(List.of(executable));
+        arguments.addAll(exec(AGENT_USER, "--interactive", target(container), "tee", path));
+        return List.copyOf(arguments);
     }
 
     /**
@@ -1295,9 +1393,8 @@ public class Podman {
      * @return Arguments.
      */
     public List<String> asRootArguments(String container, List<String> command) {
-        final List<String> arguments =
-                new java.util.ArrayList<>(
-                        List.of(executable, "exec", "--user", "root", target(container)));
+        final List<String> arguments = new java.util.ArrayList<>(List.of(executable));
+        arguments.addAll(exec(ROOT_USER, target(container)));
         arguments.addAll(command);
         return arguments;
     }
@@ -1325,9 +1422,8 @@ public class Podman {
      */
     public List<String> asUserDetachedArguments(
             String container, String user, List<String> command) {
-        final List<String> arguments =
-                new java.util.ArrayList<>(
-                        List.of(executable, "exec", "--detach", "--user", user, target(container)));
+        final List<String> arguments = new java.util.ArrayList<>(List.of(executable));
+        arguments.addAll(exec(user, "--detach", target(container)));
         arguments.addAll(command);
         return arguments;
     }
@@ -1341,15 +1437,8 @@ public class Podman {
      * @return Arguments.
      */
     public List<String> asRootWithInputArguments(String container, List<String> command) {
-        final List<String> arguments =
-                new java.util.ArrayList<>(
-                        List.of(
-                                executable,
-                                "exec",
-                                "--interactive",
-                                "--user",
-                                "root",
-                                target(container)));
+        final List<String> arguments = new java.util.ArrayList<>(List.of(executable));
+        arguments.addAll(exec(ROOT_USER, "--interactive", target(container)));
         arguments.addAll(command);
         return arguments;
     }
@@ -1362,13 +1451,15 @@ public class Podman {
      * @return Arguments.
      */
     public List<String> makeParentArguments(String container, String path) {
-        return List.of(
-                executable,
-                "exec",
-                target(container),
-                "mkdir",
-                "-p",
-                path.substring(0, path.lastIndexOf('/')));
+        final List<String> arguments = new ArrayList<>(List.of(executable));
+        arguments.addAll(
+                exec(
+                        AGENT_USER,
+                        target(container),
+                        "mkdir",
+                        "-p",
+                        path.substring(0, path.lastIndexOf('/'))));
+        return List.copyOf(arguments);
     }
 
     /**
@@ -1380,7 +1471,9 @@ public class Podman {
      * @return Arguments.
      */
     public List<String> setModeArguments(String container, String path, String mode) {
-        return List.of(executable, "exec", target(container), "chmod", mode, path);
+        final List<String> arguments = new ArrayList<>(List.of(executable));
+        arguments.addAll(exec(AGENT_USER, target(container), "chmod", mode, path));
+        return List.copyOf(arguments);
     }
 
     /**
@@ -1420,8 +1513,22 @@ public class Podman {
      */
     public List<String> attachArguments(
             String container, List<String> command, List<String> environment) {
-        final List<String> arguments =
-                new ArrayList<>(List.of(executable, "exec", "--interactive", "--tty"));
+        return attachArguments(AGENT_USER, container, command, environment);
+    }
+
+    /**
+     * Returns the arguments that attach a terminal to a program run as a given user.
+     *
+     * @param user {@link #AGENT_USER}, or {@link #ROOT_USER} for the session's start.
+     * @param container Container name.
+     * @param command Program and arguments to run inside it.
+     * @param environment Extra arguments for {@code exec}, before the container name.
+     * @return Arguments.
+     */
+    private List<String> attachArguments(
+            String user, String container, List<String> command, List<String> environment) {
+        final List<String> arguments = new ArrayList<>(List.of(executable));
+        arguments.addAll(exec(user, "--interactive", "--tty"));
         arguments.addAll(environment);
         arguments.addAll(NO_START_FILES);
         arguments.add(target(container));
@@ -1528,7 +1635,7 @@ public class Podman {
         if (script != null) {
             session.add(script);
         }
-        return attachArguments(container, List.copyOf(session), environment);
+        return attachArguments(ROOT_USER, container, List.copyOf(session), environment);
     }
 
     /**
@@ -1560,7 +1667,7 @@ public class Podman {
         final int lines = Math.max(1, Math.min(last, SCREEN_LINES));
         final CommandResult result;
         try {
-            final List<String> capture = new ArrayList<>(List.of("exec", target(container)));
+            final List<String> capture = exec(ROOT_USER, target(container));
             capture.addAll(tmux("capture-pane", "-p", "-J"));
             if (escapes) {
                 capture.add("-e");
@@ -1598,29 +1705,23 @@ public class Podman {
             final String id = target(container);
             return runner.run(
                                             podman(
-                                                    "exec",
-                                                    id,
-                                                    "tmux",
-                                                    "-L",
-                                                    Containerfile.TMUX_SERVER,
-                                                    "send-keys",
-                                                    "-t",
-                                                    Containerfile.SESSION,
-                                                    "-l",
-                                                    line))
+                                                    sessionCall(
+                                                            id,
+                                                            "send-keys",
+                                                            "-t",
+                                                            Containerfile.SESSION,
+                                                            "-l",
+                                                            line)))
                                     .exitCode()
                             == 0
                     && runner.run(
                                             podman(
-                                                    "exec",
-                                                    id,
-                                                    "tmux",
-                                                    "-L",
-                                                    Containerfile.TMUX_SERVER,
-                                                    "send-keys",
-                                                    "-t",
-                                                    Containerfile.SESSION,
-                                                    "Enter"))
+                                                    sessionCall(
+                                                            id,
+                                                            "send-keys",
+                                                            "-t",
+                                                            Containerfile.SESSION,
+                                                            "Enter")))
                                     .exitCode()
                             == 0;
         } catch (RuntimeException ex) {
@@ -1640,15 +1741,12 @@ public class Podman {
         try {
             return runner.run(
                                     podman(
-                                            "exec",
-                                            target(container),
-                                            "tmux",
-                                            "-L",
-                                            Containerfile.TMUX_SERVER,
-                                            "send-keys",
-                                            "-t",
-                                            Containerfile.SESSION,
-                                            "Enter"))
+                                            sessionCall(
+                                                    target(container),
+                                                    "send-keys",
+                                                    "-t",
+                                                    Containerfile.SESSION,
+                                                    "Enter")))
                             .exitCode()
                     == 0;
         } catch (RuntimeException ex) {
@@ -1675,11 +1773,12 @@ public class Podman {
         try {
             return runner.run(
                                     podman(
-                                            "exec",
-                                            target(container),
-                                            "test",
-                                            "-f",
-                                            Containerfile.SESSION_ENDED))
+                                            exec(
+                                                    AGENT_USER,
+                                                    target(container),
+                                                    "test",
+                                                    "-f",
+                                                    Containerfile.SESSION_ENDED)))
                             .exitCode()
                     == 0;
         } catch (RuntimeException ex) {

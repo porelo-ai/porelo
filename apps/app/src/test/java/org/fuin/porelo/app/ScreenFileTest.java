@@ -59,26 +59,24 @@ class ScreenFileTest {
     }
 
     @Test
-    void theAgentsDrawingIsCopiedWhenItChangesAndNoSessionIsSaid() throws Exception {
+    void theScreenIsCopiedFromPorelosServerWhenItChangesAndNoSessionIsSaid() throws Exception {
 
-        // Both sides of the task, against a tmux that draws what a file says.
+        // The root's writer, against a tmux that draws what a file says - and only when it is
+        // asked on Porelo's own socket.
         final Path directory = ScreenFile.prepare(state);
         final Path bin = Files.createDirectories(state.resolve("bin"));
         final Path drawn = state.resolve("drawn.txt");
-        final Path agents = state.resolve("agent-screen");
         Files.writeString(
                 bin.resolve("tmux"),
-                "#!/bin/sh\ncase \"$*\" in '-L porelo capture-pane'*) ;; *) exit 1 ;; esac\n"
-                        + "[ -s "
+                "#!/bin/sh\ncase \"$*\" in '-S /run/porelo/tmux capture-pane'*) ;; *) exit 1 ;;"
+                        + " esac\n[ -s "
                         + drawn
                         + " ] || exit 1\ncat "
                         + drawn
                         + "\n");
         bin.resolve("tmux").toFile().setExecutable(true);
         Files.writeString(drawn, "stub: at work, nothing asked\n");
-        final Process drawer = start(ScreenFile.drawerScript(agents.toString()), bin);
-        final Process writer =
-                start(ScreenFile.writerScript(directory.toString(), agents.toString()), bin);
+        final Process writer = start(ScreenFile.writerScript(directory.toString()), bin);
         try {
             final Path screen = directory.resolve(ScreenFile.SCREEN);
             waitFor(() -> Files.isRegularFile(screen));
@@ -90,45 +88,6 @@ class ScreenFileTest {
 
             Files.writeString(drawn, "");
             waitFor(() -> !Files.exists(screen));
-        } finally {
-            drawer.destroy();
-            writer.destroy();
-            drawer.waitFor(5, TimeUnit.SECONDS);
-            writer.waitFor(5, TimeUnit.SECONDS);
-        }
-    }
-
-    @Test
-    void whatTheAgentLeavesInsteadOfADrawingIsNotCopiedAndNothingWaits() throws Exception {
-
-        // The agent's side is the agent's: a link to a file of the root's, or a pipe nobody writes,
-        // must neither be read through nor hold the copy.
-        final Path directory = ScreenFile.prepare(state);
-        final Path agents = state.resolve("agent-screen");
-        final Path secret =
-                Files.writeString(state.resolve("roots-own.txt"), "not the agent's to read\n");
-        Files.createSymbolicLink(agents, secret);
-        final Process writer =
-                start(ScreenFile.writerScript(directory.toString(), agents.toString()), null);
-        try {
-            waitFor(() -> Files.exists(directory.resolve(ScreenFile.ALIVE)));
-            Thread.sleep(1500);
-            assertThat(directory.resolve(ScreenFile.SCREEN))
-                    .as("a link is not followed")
-                    .doesNotExist();
-
-            Files.delete(agents);
-            new ProcessBuilder("mkfifo", agents.toString()).start().waitFor();
-            final java.nio.file.attribute.FileTime before =
-                    Files.getLastModifiedTime(directory.resolve(ScreenFile.ALIVE));
-            waitFor(
-                    () ->
-                            Files.getLastModifiedTime(directory.resolve(ScreenFile.ALIVE))
-                                            .compareTo(before)
-                                    > 0);
-            assertThat(directory.resolve(ScreenFile.SCREEN))
-                    .as("a pipe holds nothing up")
-                    .doesNotExist();
         } finally {
             writer.destroy();
             writer.waitFor(5, TimeUnit.SECONDS);

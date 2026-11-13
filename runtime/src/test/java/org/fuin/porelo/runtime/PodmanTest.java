@@ -1,5 +1,6 @@
 package org.fuin.porelo.runtime;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -512,6 +513,8 @@ class PodmanTest {
                 .containsExactly(
                         "podman",
                         "exec",
+                        "--user",
+                        "agent",
                         "--interactive",
                         "--tty",
                         "--env",
@@ -585,7 +588,7 @@ class PodmanTest {
         // Measured on 2026-09-12: 'podman exec -t' invents TERM=xterm and passes nothing else,
         // whatever the operator is actually sitting at. Everything inside then renders in eight
         // colours.
-        runner.answering("podman exec box infocmp xterm-256color", "");
+        runner.answering("podman exec --user agent box infocmp xterm-256color", "");
         final Podman probing =
                 new Podman(
                         runner,
@@ -603,8 +606,8 @@ class PodmanTest {
         // nothing else - no alacritty, no xterm-kitty, no foot - and sending one of those names to
         // a container that cannot look it up is worse than saying nothing: a program that cannot
         // resolve its terminal falls back further than xterm would have.
-        runner.failing("podman exec box infocmp alacritty", 1, "");
-        runner.answering("podman exec box infocmp xterm-256color", "");
+        runner.failing("podman exec --user agent box infocmp alacritty", 1, "");
+        runner.answering("podman exec --user agent box infocmp xterm-256color", "");
         final Podman probing =
                 new Podman(
                         runner, "podman", null, name -> "TERM".equals(name) ? "alacritty" : null);
@@ -618,8 +621,8 @@ class PodmanTest {
 
         // An image with a terminfo set smaller than ncurses' base. Leaving podman's own TERM in
         // place is the honest answer; naming something it does not have is not.
-        runner.failing("podman exec box infocmp alacritty", 1, "");
-        runner.failing("podman exec box infocmp xterm-256color", 1, "");
+        runner.failing("podman exec --user agent box infocmp alacritty", 1, "");
+        runner.failing("podman exec --user agent box infocmp xterm-256color", 1, "");
         final Podman probing =
                 new Podman(
                         runner, "podman", null, name -> "TERM".equals(name) ? "alacritty" : null);
@@ -642,7 +645,7 @@ class PodmanTest {
     @Test
     void colourSupportRidesAlongBecauseItNamesNoTerminfoEntry() {
 
-        runner.answering("podman exec box infocmp xterm-256color", "");
+        runner.answering("podman exec --user agent box infocmp xterm-256color", "");
         final Podman probing =
                 new Podman(
                         runner,
@@ -664,7 +667,7 @@ class PodmanTest {
 
         // Attaching, leaving and attaching again is the ordinary way to use this, and the answer
         // cannot change while the container lives.
-        runner.answering("podman exec box infocmp xterm-256color", "");
+        runner.answering("podman exec --user agent box infocmp xterm-256color", "");
         final Podman probing =
                 new Podman(
                         runner,
@@ -704,6 +707,8 @@ class PodmanTest {
                 .containsExactly(
                         "podman",
                         "exec",
+                        "--user",
+                        "agent",
                         "--interactive",
                         "--tty",
                         "--env",
@@ -885,10 +890,12 @@ class PodmanTest {
         assertThat(runner.only("capture-pane").arguments())
                 .containsSubsequence(
                         "exec",
+                        "--user",
+                        "root",
                         "box",
                         "tmux",
-                        "-L",
-                        Containerfile.TMUX_SERVER,
+                        "-S",
+                        Containerfile.TMUX_SOCKET,
                         "capture-pane",
                         "-p",
                         "-J",
@@ -930,7 +937,7 @@ class PodmanTest {
                         line ->
                                 assertThat(line)
                                         .contains(
-                                                "exec box tmux -L porelo send-keys -t "
+                                                "exec --user root box tmux -S /run/porelo/tmux send-keys -t "
                                                         + Containerfile.SESSION
                                                         + " -l A message waits; read it"))
                 .anySatisfy(
@@ -1144,19 +1151,27 @@ class PodmanTest {
 
     /**
      * Runs what a start runs in the container on this machine, against a tmux that logs what it is
-     * asked and answers whether a session is there.
+     * asked and answers whether a session is there, and a stat that answers for every path as
+     * {@code owned} says unless {@code agents} names the path.
      */
-    private List<String> startedAgainst(Path dir, boolean live) throws Exception {
+    private Started startedAgainst(Path dir, boolean live, String agents) throws Exception {
         final Path bin = Files.createDirectories(dir.resolve("bin"));
         final Path log = dir.resolve("tmux.log");
-        Files.writeString(
+        write(
                 bin.resolve("tmux"),
-                "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '"
+                "printf '%s\\n' \"$*\" >> '"
                         + log
                         + "'\ncase \"$*\" in *has-session*) exit "
                         + (live ? 0 : 1)
                         + " ;; esac\nexit 0\n");
-        bin.resolve("tmux").toFile().setExecutable(true);
+        // The container's root makes the server's directory; here nothing is made.
+        write(bin.resolve("mkdir"), "exit 0\n");
+        write(bin.resolve("chmod"), "exit 0\n");
+        write(
+                bin.resolve("stat"),
+                "for f do :; done\ncase \"$f\" in '"
+                        + agents
+                        + "') echo '1001 644' ;; *) echo '0 755' ;; esac\n");
         final List<String> start = podman.sessionArguments("box", "agent-cli", List.of());
         // Through a shell, so the command is found on the PATH given here, as in the container.
         final List<String> command =
@@ -1165,53 +1180,178 @@ class PodmanTest {
         final ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
         builder.environment().put("PATH", bin + ":" + System.getenv("PATH"));
         final Process process = builder.start();
-        process.getInputStream().readAllBytes();
-        assertThat(process.waitFor()).isZero();
-        return Files.exists(log) ? Files.readAllLines(log) : List.of();
+        final String said = new String(process.getInputStream().readAllBytes(), UTF_8);
+        final int exit = process.waitFor();
+        return new Started(exit, said, Files.exists(log) ? Files.readAllLines(log) : List.of());
+    }
+
+    private record Started(int exit, String said, List<String> asked) {}
+
+    private static void write(Path file, String body) throws java.io.IOException {
+        Files.writeString(file, "#!/bin/sh\n" + body);
+        file.toFile().setExecutable(true);
     }
 
     @Test
-    void aStartThatFindsNoSessionClearsTheAgentsServerBeforeItsNewSession(@TempDir Path dir)
+    void aStartThatFindsNoSessionClearsTheServerBeforeItsNewSession(@TempDir Path dir)
             throws Exception {
 
-        // The server runs as the agent, which can keep it alive with a session of its own and
-        // set what the next session starts with: options, hooks, its global environment. Only a
-        // new server reads Porelo's configuration and podman's environment, so a start that
-        // finds no session ends the one that is there, by the server's name, before it begins.
-        assertThat(startedAgainst(dir, false))
+        // Only a new server reads Porelo's configuration and podman's environment, so a start
+        // that finds no session ends the one that is there, by its socket, before it begins. The
+        // first window leaves root through the drop.
+        final Started started = startedAgainst(dir, false, "");
+        assertThat(started.exit()).as(started.said()).isZero();
+        assertThat(started.asked())
                 .containsExactly(
-                        "-L porelo has-session -t porelo",
-                        "-L porelo kill-server",
-                        "-L porelo -f "
+                        "-S /run/porelo/tmux has-session -t porelo",
+                        "-S /run/porelo/tmux kill-server",
+                        "-S /run/porelo/tmux -f "
                                 + Containerfile.TMUX_CONF
-                                + " new-session -A -s porelo agent-cli");
+                                + " new-session -A -s porelo "
+                                + Containerfile.AS_AGENT
+                                + " agent-cli");
     }
 
     @Test
     void aStartThatFindsALiveSessionJoinsItAndKeepsItsServer(@TempDir Path dir) throws Exception {
 
         // Attach and resume join what runs there; ending its server would end the task's work.
-        assertThat(startedAgainst(dir, true))
+        final Started started = startedAgainst(dir, true, "");
+        assertThat(started.exit()).as(started.said()).isZero();
+        assertThat(started.asked())
                 .containsExactly(
-                        "-L porelo has-session -t porelo",
-                        "-L porelo -f "
+                        "-S /run/porelo/tmux has-session -t porelo",
+                        "-S /run/porelo/tmux -f "
                                 + Containerfile.TMUX_CONF
-                                + " new-session -A -s porelo agent-cli");
+                                + " new-session -A -s porelo "
+                                + Containerfile.AS_AGENT
+                                + " agent-cli");
     }
 
     @Test
-    void everyReadAndKeystrokeGoesToPorelosOwnServer() {
+    void aStartRefusesAConfigurationTheAgentCouldWrite(@TempDir Path dir) throws Exception {
 
-        // Not the agent's default server, where it keeps sessions of its own.
+        // The root server reads it: a file, or a directory on its path, the agent could write
+        // would let it set what the next server starts with. No server is asked anything.
+        for (final String path :
+                List.of(
+                        Containerfile.TMUX_CONF,
+                        Containerfile.REQUIRED_TMUX_CONF,
+                        Containerfile.AS_AGENT,
+                        "/etc/porelo",
+                        "/etc",
+                        Containerfile.TMUX_DIRECTORY)) {
+            final Path each = Files.createDirectories(dir.resolve(path.replace('/', '_')));
+            final Started started = startedAgainst(each, false, path);
+            assertThat(started.exit()).as(path).isNotZero();
+            assertThat(started.said()).contains("porelo: " + path + " is not root's alone");
+            assertThat(started.asked()).as(path).isEmpty();
+        }
+    }
+
+    @Test
+    void onlyAPathThatIsRootsAloneIsTakenAndNoLink(@TempDir Path dir) throws Exception {
+
+        // The real stat: a file anyone may write is refused, whoever owns it; so is a link.
+        final Path open = Files.writeString(dir.resolve("open.conf"), "");
+        Files.setPosixFilePermissions(
+                open, java.nio.file.attribute.PosixFilePermissions.fromString("rw-rw-rw-"));
+        final Path link = Files.createSymbolicLink(dir.resolve("link.conf"), Path.of("/"));
+
+        assertThat(owned("/")).isZero();
+        assertThat(owned(open.toString())).isNotZero();
+        assertThat(owned(link.toString())).isNotZero();
+    }
+
+    private static int owned(String path) throws Exception {
+        final Process process =
+                new ProcessBuilder(
+                                "/bin/sh",
+                                "-c",
+                                Podman.ROOT_ALONE + "\nporelo_owned \"$1\"",
+                                "owned",
+                                path)
+                        .redirectErrorStream(true)
+                        .start();
+        process.getInputStream().readAllBytes();
+        return process.waitFor();
+    }
+
+    @Test
+    void theSessionStartsAsRootAndEveryOtherAttachAsTheAgent() {
+        assertThat(podman.sessionArguments("box", null, List.of()))
+                .containsSubsequence("exec", "--user", "root", "--interactive", "--tty");
+        assertThat(podman.attachArguments("box", List.of("sh")))
+                .containsSubsequence("exec", "--user", "agent", "--interactive", "--tty");
+    }
+
+    @Test
+    void everyReadAndKeystrokeGoesToPorelosOwnServerAsRoot() {
+
+        // Only the container's root reaches the server's socket.
         runner.answering("capture-pane", "plain\n");
         podman.screen("box", 5, false);
         podman.type("box", "a line");
         podman.enter("box");
+        podman.askSession("box", "has-session", "-t", Containerfile.SESSION);
 
         assertThat(runner.invocations())
                 .extracting(command -> String.join(" ", command.arguments()))
                 .filteredOn(line -> line.contains("tmux"))
-                .hasSize(4)
-                .allSatisfy(line -> assertThat(line).contains("tmux -L porelo "));
+                .hasSize(5)
+                .allSatisfy(
+                        line ->
+                                assertThat(line)
+                                        .contains(
+                                                "exec --user root box tmux -S /run/porelo/tmux "));
+    }
+
+    @Test
+    void noExecInPodmanOrTheAppsLeavesItsUserToTheContainer() throws Exception {
+
+        // A task's container is created as root, so an exec that named no user would run as root
+        // with the two capabilities it adds back. Every exec goes through Podman.exec, which
+        // always names one; a new exec spelled anywhere else fails here.
+        final Path root = Path.of("..").toAbsolutePath().normalize();
+        final List<Path> sources = new java.util.ArrayList<>();
+        for (final String module : List.of("runtime", "apps")) {
+            try (var walk = Files.walk(root.resolve(module))) {
+                walk.filter(path -> path.toString().endsWith(".java"))
+                        .filter(path -> path.toString().contains("/src/main/java/"))
+                        .forEach(sources::add);
+            }
+        }
+        assertThat(sources).isNotEmpty();
+        final java.util.regex.Pattern spelled =
+                java.util.regex.Pattern.compile("\"exec\"|\"podman exec");
+        final List<String> found = new java.util.ArrayList<>();
+        for (final Path source : sources) {
+            final List<String> lines = Files.readAllLines(source);
+            for (int i = 0; i < lines.size(); i++) {
+                final String line = lines.get(i).strip();
+                if (line.startsWith("*") || line.startsWith("//")) {
+                    continue;
+                }
+                if (spelled.matcher(line).find()) {
+                    found.add(root.relativize(source) + ":" + (i + 1) + ": " + line);
+                }
+            }
+        }
+        assertThat(found)
+                .containsExactly(
+                        "runtime/src/main/java/org/fuin/porelo/runtime/Podman.java:"
+                                + execLine()
+                                + ": final List<String> arguments = new ArrayList<>(List.of(\"exec\", \"--user\", user));");
+    }
+
+    private static int execLine() throws Exception {
+        final List<String> lines =
+                Files.readAllLines(Path.of("src/main/java/org/fuin/porelo/runtime/Podman.java"));
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).contains("List.of(\"exec\", \"--user\", user)")) {
+                return i + 1;
+            }
+        }
+        throw new AssertionError("Podman.exec is gone");
     }
 }

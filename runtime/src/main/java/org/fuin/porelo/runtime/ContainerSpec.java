@@ -231,8 +231,22 @@ public class ContainerSpec {
         arguments.add("--security-opt");
         arguments.add("no-new-privileges");
 
+        // Every capability goes, but two. Porelo's tmux server runs as the container's root and
+        // drops each pane to the agent with setpriv, which needs SETUID and SETGID; after the drop
+        // the agent holds no capability at all, and no-new-privileges keeps it from gaining one.
+        // Nothing else is added back: the root these two belong to has no capability to read,
+        // write or signal what is not its own.
         arguments.add("--cap-drop");
         arguments.add("ALL");
+        arguments.add("--cap-add");
+        arguments.add("SETUID,SETGID");
+
+        // The container's own user is root, and every exec names its user. Measured with podman
+        // 5.7: in a container whose user is not root, podman puts every added capability into the
+        // ambient set of every exec, and the agent could setuid(0). Created as root, an exec with
+        // '--user agent' holds none.
+        arguments.add("--user");
+        arguments.add("root");
 
         // PID 1 is 'sleep infinity' and never reaps, so without this every process the agent
         // orphans stays a zombie holding a PID until the container dies.

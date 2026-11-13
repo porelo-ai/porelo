@@ -82,7 +82,8 @@ class LiveTaskStepsTest {
                         Map.of("PORELO_E2E_MODEL", "z-ai/glm'5"));
 
         assertThat(command)
-                .startsWith("timeout 300 podman exec --env 'PORELO_E2E_MODEL=z-ai/glm'\\''5'")
+                .startsWith(
+                        "timeout 300 podman exec --user agent --env 'PORELO_E2E_MODEL=z-ai/glm'\\''5'")
                 .contains(" 'porelo-live-1' sh -c ")
                 .as("the value must not be pasted into the script")
                 .contains("${PORELO_E2E_MODEL}");

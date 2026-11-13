@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Asked with {@code podman exec tmux capture-pane}, one read took 100 ms, and 400-600 ms with
  * fifteen tasks at work; a listing read every running task's screen, and an open interface asks for
- * a listing every half second. Here the task draws its screen once a second, and its root copies it
+ * a listing every half second. Here the task's root captures its screen once a second and copies it
  * when it changed.
  *
  * <p><strong>Copied by the container's root into a directory the agent cannot write.</strong> In a
@@ -83,85 +83,35 @@ public final class ScreenFile {
     }
 
     /**
-     * Where the agent's side leaves its screen for the root's side to copy: the agent's own, in the
-     * task.
-     */
-    static final String DRAWN = "/tmp/.porelo-screen";
-
-    /**
-     * Returns what the task runs as its agent: the agent's screen drawn into {@link #DRAWN} once a
-     * second.
+     * Returns what the task runs as its root: the screen captured from Porelo's tmux server once a
+     * second, copied when it changed into the directory the host reads, and the sign of life
+     * touched. It ends when the directory is not mounted, so a task made before this does nothing.
      *
-     * <p>The agent's side, because only the agent's own user reaches its tmux: the task's root
-     * holds no capability to pass another user's permissions, so it cannot open the session's
-     * socket.
-     *
-     * @return The command and its arguments.
-     */
-    public static List<String> drawer() {
-        return List.of("sh", "-c", drawerScript(DRAWN));
-    }
-
-    /**
-     * Returns what the task runs as its root: what the agent's side drew, copied when it changed
-     * into the directory the host reads, and the sign of life touched. It ends when the directory
-     * is not mounted, so a task made before this does nothing.
+     * <p>The root's alone: the server is root's, on a socket the agent cannot reach, so the agent
+     * has no part in what is copied beyond what its screen shows.
      *
      * @return The command and its arguments.
      */
     public static List<String> writer() {
-        return List.of("sh", "-c", writerScript(MOUNT, DRAWN));
+        return List.of("sh", "-c", writerScript(MOUNT));
     }
 
     /**
-     * Returns the agent's side's script.
-     *
-     * @param drawn Where it draws.
-     * @return The script.
-     */
-    static String drawerScript(final String drawn) {
-        return "while :; do"
-                + "   if tmux -L "
-                + org.fuin.porelo.runtime.Containerfile.TMUX_SERVER
-                + " capture-pane -p -J -t porelo > '"
-                + drawn
-                + ".next' 2>/dev/null; then"
-                + "     mv -f '"
-                + drawn
-                + ".next' '"
-                + drawn
-                + "';"
-                + "   else rm -f '"
-                + drawn
-                + "' '"
-                + drawn
-                + ".next'; fi;"
-                + "   sleep 1;"
-                + " done";
-    }
-
-    /**
-     * Returns the root's side's script.
-     *
-     * <p>What the agent drew is its own to make anything of: read without following a link, without
-     * waiting on a pipe, and no more than {@link #MOST} bytes of it. Copied, it is a plain file in
-     * a directory only the root writes.
+     * Returns the root's script.
      *
      * @param directory Where it writes.
-     * @param drawn What it copies.
      * @return The script.
      */
-    static String writerScript(final String directory, final String drawn) {
+    static String writerScript(final String directory) {
         return "d='"
                 + directory
                 + "'; [ -d \"$d\" ] || exit 0;"
                 + " while :; do"
-                + "   if dd if='"
-                + drawn
-                + "' iflag=nofollow,nonblock bs="
-                + MOST
-                + " count=1 of=\"$d/.next\""
-                + "        2>/dev/null && [ -s \"$d/.next\" ]; then"
+                + "   if "
+                + String.join(" ", org.fuin.porelo.runtime.Podman.tmux("capture-pane", "-p", "-J"))
+                + " -t "
+                + org.fuin.porelo.runtime.Containerfile.SESSION
+                + " > \"$d/.next\" 2>/dev/null && [ -s \"$d/.next\" ]; then"
                 + "     cmp -s \"$d/.next\" \"$d/screen\" || mv -f \"$d/.next\" \"$d/screen\";"
                 + "   else rm -f \"$d/screen\" \"$d/.next\"; fi;"
                 + "   : > \"$d/alive\"; sleep 1;"

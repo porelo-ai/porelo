@@ -74,10 +74,10 @@ Feature: Work starts without a project, in the project every machine has
             timeout 300 porelo task start sshwork -p default -r "$repo" --agent stub --detach --clearance deny > "$base/start" 2>&1
             echo "start exit $?"
             # Detached, so the start returns before the workspace is cloned from the gate.
-            for i in $(seq 1 120); do podman exec porelo-default_sshwork git -C /workspace rev-parse HEAD > /dev/null 2>&1 && break; sleep 1; done
-            podman exec porelo-default_sshwork sh -c 'cd /workspace && echo "done by the agent" >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work for an ssh origin" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            for i in $(seq 1 120); do podman exec --user agent porelo-default_sshwork git -C /workspace rev-parse HEAD > /dev/null 2>&1 && break; sleep 1; done
+            podman exec --user agent porelo-default_sshwork sh -c 'cd /workspace && echo "done by the agent" >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work for an ssh origin" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
             echo "pushed to the gate $?"
-            podman exec porelo-default_sshwork sh -c 'env | grep -c "^SSH_AUTH_SOCK=" ; grep -rl "porelo-acceptance-" "$HOME" /workspace 2>/dev/null | wc -l' | tr '\n' ' ' | sed 's/^/in the task (agent socket, key): /'
+            podman exec --user agent porelo-default_sshwork sh -c 'env | grep -c "^SSH_AUTH_SOCK=" ; grep -rl "porelo-acceptance-" "$HOME" /workspace 2>/dev/null | wc -l' | tr '\n' ' ' | sed 's/^/in the task (agent socket, key): /'
             echo
             # As a person types it: no repository named. The task's own record says which one it worked on.
             porelo gate pending --project default | grep -c "^$repo  *sshwork " | sed 's/^/listed as pending: /'

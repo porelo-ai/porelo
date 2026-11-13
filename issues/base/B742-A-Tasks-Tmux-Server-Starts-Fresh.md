@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B742",
   "title": "A Task's Tmux Server Starts Fresh",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 50,
@@ -56,39 +56,87 @@ agent cannot write), and the agent's own tmux sessions are left alone.
 
 ## Built
 
-Step B of the plan: Porelo's session moves to a tmux server of its own, which every start without a live session
-clears first. The second acceptance point stays open.
+Built in two steps. Step B gave Porelo's session a tmux server of its own, cleared at every start without a live
+session. A1 (the operator's choice of 2026-11-13) moves that server to root and drops each pane to the agent.
 
-- **A server of Porelo's own.** Every tmux call of Porelo's names `tmux -L porelo`: the start, attach and resume
-  (`Podman.SESSION_START` through `Podman.sessionArguments`, which `task attach` now uses too), the screen read, the
-  keystrokes sent (`Podman.screen`, `type`, `enter`), the session probe in `TaskSession`, the activity read in
-  `AgentWaiting`, the screen drawer in `ScreenFile` and the acceptance kit's reads. `Podman.tmux(...)` builds the
-  call. The agent's own tmux servers are other servers and are left alone.
-- **Cleared at a start without a session.** `SESSION_START` asks `has-session -t porelo`. When there is none, it ends
-  the `porelo` server with `tmux -L porelo kill-server`, by its name and nothing else, and then runs `new-session -A`
-  with `-f /etc/porelo/tmux.conf`. An option, hook, `set-environment -g`, `default-shell` or detached session the
-  agent planted on that server ends with it, and the new server reads Porelo's configuration and podman's
-  environment. A live session is joined and its server kept, so attach and resume go on working. The kill runs
-  in the same exec as the start, as the agent.
-- **Still open: the agent can reach the server.** The server runs as the agent, which owns its socket, and tmux's
-  `server-access` cannot deny a server's own user. Between two starts the agent can still connect, set options and
-  type into the live session. Closing that needs the server to run as another user (A1 below).
-- **A task whose session predates this** runs on the default server, which `-L porelo` does not find. A start or an
-  attach then makes a new session beside it. No fallback to the default server was added: the agent could plant a
-  session named `porelo` there.
-- **Measured for A1** (the server as root, each pane dropped to the agent with `setpriv`), with podman 5.7 on this
-  machine:
-  - Under `--cap-drop ALL`, `setpriv --reuid/--regid/--init-groups` fails with EPERM. With
-    `--cap-add SETUID,SETGID` it works.
-  - `setpriv` is in ubuntu as it is. Fedora needs `util-linux`. Alpine needs the `setpriv` package, because
-    busybox's has no `--reuid`.
+- **Cleared at a start without a session.** `Podman.SESSION_START` asks `has-session -t porelo`. When there is none,
+  it ends Porelo's server with `kill-server`, by its socket and nothing else, and then runs `new-session -A` with
+  `-f /etc/porelo/tmux.conf`. An option, hook, `set-environment -g`, `default-shell` or detached session left on that
+  server ends with it, and the new server reads Porelo's configuration and podman's environment. A live session is
+  joined and its server kept, so attach and resume go on working. `task attach` uses the same start.
+- **The server is root's.** Every tmux call of Porelo's is `--user root` and `tmux -S /run/porelo/tmux`:
+  - the start, attach and resume (`sessionArguments`);
+  - the session probe in `TaskSession` and the activity read in `AgentWaiting`, through `Podman.askSession`;
+  - `screen`, `type` and `enter`;
+  - the screen writer in `ScreenFile`, which now captures as root itself; the agent's drawer is gone;
+  - the acceptance kit's reads.
+
+  The start makes `/run/porelo` mode 0700, and the image makes it too.
+- **Each pane drops to the agent.** The image writes a root-owned `/etc/porelo/as-agent`. It clears `TMUX` and
+  `TMUX_PANE`, sets `HOME`, `USER`, `LOGNAME` and `SHELL` from `/etc/passwd`, and finds `setpriv` on system paths
+  only. It then runs the agent's command, or its login shell, under `setpriv --reuid/--regid/--init-groups`.
+  The session's first window goes through it, and `default-command` in the required configuration sends every new
+  window through it too. podman's `--env` values reach the pane, since the server starts from the exec's environment.
+- **The image.** `setpriv` is in every image: ubuntu as it is, `util-linux` on Debian-family and fedora, the `setpriv`
+  package on alpine (busybox's has no `--reuid`). `Containerfile.TOOLS` names `util-linux`. A base without it fails
+  the build with a message naming it.
+- **The container's flags.** `ContainerSpec` adds `--cap-add SETUID,SETGID` after `--cap-drop ALL`; no-new-privileges
+  and `--init` stay. The container is created with `--user root`. Measured with podman 5.7, a container whose user is
+  not root gets the added capabilities in the ambient set of every exec, and the agent ran
+  `setpriv --reuid=0 --regid=0 --clear-groups id` to `uid=0(root)`.
+- **The exec sweep.** The container's default user is now root, so every exec names its user. `Podman.exec(user, ...)`
+  is the one place an exec is spelled:
+  - `--user agent`: the unattended run, attach, `ask`, `tee`, `mkdir`, `chmod`, `infocmp` and the session-ended check;
+  - `--user root`: the session, the tmux calls and the file hand-ins.
+
+  `PodmanTest.noExecInPodmanOrTheAppsLeavesItsUserToTheContainer` reads the sources of `runtime` and `apps` and fails
+  on any other exec. The acceptance features' and kit's `podman exec` lines now name `--user agent`, or `--user root`
+  for the tmux reads.
+- **The configuration the server reads.** It is root's alone:
+  - `/etc/porelo/tmux.conf`, `tmux-required.conf`, `as-agent` and every directory above them are made by the image
+    as root, 0644 and 0755;
+  - a person's own `account-tmux.conf` reaches the container as a root-owned 0644 copy, written by a root exec.
+
+  Before the server starts, `SESSION_START` checks each of them, `/`, `/etc`, `/etc/porelo`, `/run` and
+  `/run/porelo` (`Podman.ROOT_ALONE`). A link, an owner other than root, or a group or other write bit refuses the
+  start and names the path, and no tmux is asked anything.
+- **Tasks made before A1** (the operator, 2026-11-13): "tasks made before A1 don't matter, and there is no backward
+  compatibility." There is no refusal, no hint and no old-server path for them.
+- **Risks:**
+  - *The pty is root's.* A pane's terminal device belongs to root. A program that reopens it by its `/dev/pts` name
+    is refused; its open descriptors and `/dev/tty` work.
+  - *A person's own tmux.conf runs in a root server.* A `run-shell` line in it runs as the container's root. That file
+    is the person's own, copied from their account as root, never one the agent writes.
+  - *A new exec without a user would run as root* with the two capabilities. The guard test is the bound.
+  - *Not checked:* whether Debian trixie ships `setpriv` outside `util-linux`. If so, its build fails loudly.
+- **Docs:** `doc/security.md` gains "The container's user and capabilities". `doc/decisions.md` gains "A task's
+  session runs as root, and every pane drops to the agent". `ContainerSpec`'s comment names the two capabilities and
+  why.
 - Tests, red first:
-  - `PodmanTest` runs `SESSION_START` against a fake tmux. A start without a session clears the server before
-    `new-session`; one with a live session does not. Every read and keystroke names Porelo's server.
-  - `ScreenFileTest` and `TaskAttachCommandTest` pin the server and the shared start.
-  - Before the change: `PodmanTest` 78 run, 5 failed (`b742-red2.log`); `ScreenFileTest` 4 run, 1 failed;
+  - Step B, before the change: `PodmanTest` 78 run, 5 failed (`b742-red2.log`); `ScreenFileTest` 4 run, 1 failed;
     `TaskAttachCommandTest` 13 run, 1 failed (`b742-red.log`).
-  - After it, all pass: `PodmanTest` 78, `ContainerfileTest` 37, `TaskRunCommandTest` 301, `AgentWaitingTest` 21,
-    `TaskSessionTest` 12, `TerminalAttachTest` 12, `ScreenFileTest` 4, `TaskListingScreensTest` 1
-    (`b742-green.log`), and `TaskAttachCommandTest` 13 with `handsTheTerminalToTheShell`, both re-pinned to the shared
-    start (`b742-green2.log`). The acceptance kit compiles.
+  - A1, the two new `ContainerSpecTest` cases on the step-B tree: 17 run, 2 failed (`b742-a1-red.log`). The other new
+    tests use the new constants and methods, so they do not compile there.
+  - A1, after the change: runtime `PodmanTest` 82, `ContainerSpecTest` 17, `ContainerfileTest` 37,
+    `ImageSettingsTest` 56, and `TaskSessionPrivilegeTest` 1, which builds a real ubuntu image with podman 5.7 and
+    skips without podman or without `-Dporelo.test.podman.build=true`. All pass (`b742-a1-runtime.log`,
+    `b742-a1-runtime2.log`). It checks:
+    - the pane runs as `agent` with `CapPrm`, `CapEff` and `CapAmb` 0, `NoNewPrivs` 1 and no `TMUX`;
+    - an agent exec likewise, and `setpriv --reuid=0` fails for it;
+    - the session runs on root's socket, and the agent cannot list it;
+    - the agent cannot write, replace or add to the configuration, `as-agent` or `/run/porelo`.
+  - A1 in `apps/app`, all passing (`b742-a1-apps.log`):
+    - 301: `TaskRunCommandTest`;
+    - 28: `AgentWakeTest`;
+    - 21 each: `AgentWaitingTest`, `HandInsTest`;
+    - 17: `SetupScriptChannelTest`;
+    - 15: `TaskCertificatesTest`;
+    - 14 each: `CheckoutApprovalTest`, `EventLogTest`;
+    - 13: `TaskAttachCommandTest`;
+    - 12 each: `TaskSessionTest`, `TerminalAttachTest`;
+    - 8: `TaskRunLimitTest`;
+    - 6: `AppArmorEntryTest`;
+    - 3 each: `ScreenFileTest`, `TaskRepositoriesTest`, `AccountTmuxTest`;
+    - 1: `TaskListingScreensTest`.
+
+    In the acceptance kit, `LiveTaskStepsTest` 17 also passes.

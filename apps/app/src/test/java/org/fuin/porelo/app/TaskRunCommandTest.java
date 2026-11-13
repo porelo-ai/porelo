@@ -8142,6 +8142,8 @@ class TaskRunCommandTest {
                 .startsWith(
                         "podman",
                         "exec",
+                        "--user",
+                        "root",
                         "--interactive",
                         "--tty",
                         "--env",

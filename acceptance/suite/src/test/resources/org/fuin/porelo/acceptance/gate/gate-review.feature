@@ -18,7 +18,7 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
         When a task called "reviewed" is started in "gated" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'cd /workspace && echo change >> README.md && mkdir -p .github/workflows && echo "on: push" > .github/workflows/ci.yml && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: a change to review" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            podman exec --user agent {task} sh -c 'cd /workspace && echo change >> README.md && mkdir -p .github/workflows && echo "on: push" > .github/workflows/ci.yml && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: a change to review" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
             """
         Then it exits zero
         When a script runs "porelo gate pending --project gated"
@@ -104,7 +104,7 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
         When a task called "past" is started in "carried" for the "stub" agent and left running
         And a script runs about the task:
             """
-            podman exec {task} sh -c 'cd /workspace && echo carried >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work carried past the gate" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            podman exec --user agent {task} sh -c 'cd /workspace && echo carried >> README.md && git add -A && git -c user.email=agent@localhost -c user.name=agent commit -qm "acceptance: work carried past the gate" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
             """
         Then it exits zero
         When a script runs:

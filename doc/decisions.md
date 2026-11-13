@@ -1564,6 +1564,22 @@ module grants (`/sys/fs/selinux/access`, which any process may ask), for every d
 one refused reads as "the loaded module is older than this package's", with what fails, such as sshd for a socket
 forward, and the reload command.
 
+## A task's session runs as root, and every pane drops to the agent
+
+The operator's decision of 2026-11-13. The tmux server of a task's session runs as the container's root, on a socket
+in a directory only root reaches, and each window leaves root through `setpriv` before it runs anything of the agent's.
+A task container therefore adds back `SETUID` and `SETGID` after `--cap-drop ALL`; no-new-privileges stays. **Why:**
+as the agent, the server was the agent's own. tmux's `server-access` cannot deny a server's own user, so the agent
+could connect between two starts, type into the session and set what the next one started with. **What the two
+capabilities do not give the agent:** after the drop it holds none (`CapPrm`, `CapEff` and `CapAmb` 0,
+`NoNewPrivs` 1). Because podman puts added capabilities into the ambient set of every exec in a container whose user
+is not root (measured, podman 5.7), the container is created as root and every exec of the agent's names
+`--user agent`. One method spells an exec and a test fails the build on any other. **The exposure:** an exec that
+named no user would run as root with the two capabilities, which is what the test is for. Under the root server a
+window's terminal device is root's, and a person's own tmux file runs as root. **Tasks made before:** they do not
+matter, and there is no backward compatibility. **What would change the answer:** a podman flag that sets an exec's
+capabilities, or a tmux that can deny its own user.
+
 ## Under AppArmor a task is held to Porelo's sockets on the connecting side
 
 On an SELinux machine the second lock behind the `0700` runtime directory is a label on the socket. AppArmor cannot

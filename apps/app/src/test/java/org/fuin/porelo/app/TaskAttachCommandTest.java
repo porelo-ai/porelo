@@ -115,6 +115,8 @@ class TaskAttachCommandTest {
         assertThat(attached)
                 .containsSubsequence(
                         "exec",
+                        "--user",
+                        "root",
                         "--interactive",
                         "--tty",
                         "porelo-uc-shell-1",
