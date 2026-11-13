@@ -829,6 +829,23 @@ class ProjectFileTest {
     }
 
     @Test
+    void aFloorKeptUnderTheFiledAddressHoldsOnceTheRepositoryIsReachedOverSsh(
+            @TempDir final Path memory) throws IOException {
+        // A machine kept its floor under the https address as filed; the organization now reaches
+        // the same repository over ssh, so that floor is read under another spelling.
+        Files.createDirectories(memory);
+        Files.writeString(
+                memory.resolve(TreeRepository.digest("https://forge.example/acme/foo.git")),
+                "2090-01-01T00:00:00Z\n",
+                java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(ProjectFile.accepted(memory, "git@forge.example:acme/foo.git"))
+                .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+        assertThat(ProjectFile.accepted(memory, "ssh://git@forge.example:2222/acme/foo.git"))
+                .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+    }
+
+    @Test
     void aMergeThatBringsBackAnOlderFileIsRefusedOnceANewerWasAccepted() throws Exception {
         final String older = git("rev-parse", "HEAD");
         aLaterChange("2090-01-01T00:00:00Z");

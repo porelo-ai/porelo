@@ -294,22 +294,49 @@ public final class ProjectFile {
     }
 
     /**
-     * Returns the date last accepted for a repository, under either key it may be kept under.
+     * Returns the date last accepted for a repository, under any key it may be kept under.
      *
      * @param memory The directory of the dates accepted.
      * @param address The repository's address, in any form.
-     * @return The later date, or {@code null} for none.
+     * @return The latest date, or {@code null} for none.
      * @throws IOException When a record cannot be read.
      */
     static @Nullable Instant accepted(final Path memory, final String address) throws IOException {
-        // Kept under the address as it was given before one form was kept: the later of the two
+        // Kept under the address as it was given before one form was kept: the latest of them
         // holds.
-        final Instant one = accepted(memory.resolve(TreeRepository.digest(oneForm(address))));
-        final Instant given = accepted(memory.resolve(TreeRepository.digest(address)));
-        if (one == null) {
-            return given;
+        @Nullable Instant latest = null;
+        for (final String key : keys(address)) {
+            final Instant each = accepted(memory.resolve(TreeRepository.digest(key)));
+            if (each != null && (latest == null || each.isAfter(latest))) {
+                latest = each;
+            }
         }
-        return given == null || one.isAfter(given) ? one : given;
+        return latest;
+    }
+
+    /**
+     * Returns every key a floor for the address may be kept under: its one form, the address as
+     * given, and for an ssh address the https address it was reached from, as filed. A machine kept
+     * the floor under that filed address before it reached the repository over ssh.
+     */
+    private static java.util.Set<String> keys(final String address) {
+        final java.util.Set<String> keys = new java.util.LinkedHashSet<>();
+        keys.add(oneForm(address));
+        keys.add(address);
+        final java.util.regex.Matcher scp = SCP.matcher(address);
+        final java.util.regex.Matcher ssh = SSH.matcher(address);
+        final java.util.regex.Matcher form = scp.matches() ? scp : ssh.matches() ? ssh : null;
+        if (form != null) {
+            // The ssh address carries the filed path as it was, and the host in the organization's
+            // spelling; a forge's host is mostly filed in lower case.
+            keys.add("https://" + form.group(1) + "/" + form.group(2));
+            keys.add(
+                    "https://"
+                            + form.group(1).toLowerCase(java.util.Locale.ROOT)
+                            + "/"
+                            + form.group(2));
+        }
+        return keys;
     }
 
     private static @Nullable Instant accepted(final Path file) throws IOException {
@@ -323,20 +350,23 @@ public final class ProjectFile {
         }
     }
 
+    private static final java.util.regex.Pattern SCP =
+            java.util.regex.Pattern.compile("git@([^:/@]+):(.+)");
+
+    private static final java.util.regex.Pattern SSH =
+            java.util.regex.Pattern.compile("ssh://git@([^:/@]+)(?::[0-9]+)?/(.+)");
+
     /**
      * Returns an address in the one form its memory is kept under: a repository reached over ssh is
      * the repository its https address names, so a switch of form never drops the floor its
      * accepted revisions set.
      */
     static String oneForm(final String address) {
-        final java.util.regex.Matcher scp =
-                java.util.regex.Pattern.compile("git@([^:/@]+):(.+)").matcher(address);
+        final java.util.regex.Matcher scp = SCP.matcher(address);
         if (scp.matches()) {
             return https(scp.group(1), scp.group(2));
         }
-        final java.util.regex.Matcher ssh =
-                java.util.regex.Pattern.compile("ssh://git@([^:/@]+)(?::[0-9]+)?/(.+)")
-                        .matcher(address);
+        final java.util.regex.Matcher ssh = SSH.matcher(address);
         if (ssh.matches()) {
             return https(ssh.group(1), ssh.group(2));
         }

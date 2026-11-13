@@ -70,6 +70,12 @@ used as filed. The refusal names the repository it could not read.
 - Seen: the lookalike test failed against the old compare; the spelling and old-floor tests could not compile there,
   since `oneForm`'s new rules and `accepted(Path, String)` did not exist. The modules whole and apps/app whole
   (4608) passed, but for McpWiringTest's stop under the host's load, which passed alone.
+- Built after the reading: the three Reds of the brief were fixed already. One floor was still lost on upgrade: 0.5.0
+  kept it under the address as filed, `https://forge.example/acme/p.git`, and a project the organization now reaches
+  over ssh read only the one form and the ssh address. `ProjectFile.accepted` now also reads the https address the ssh
+  one was made from, with the host as spelled and in lower case; the latest of all keys holds. A filed host in mixed
+  case that the organization spells otherwise is still not found. The test failed with no floor and passes;
+  organization/git-tree whole (372) passed.
 - Not done here: the lead of a failed clone still says "the organization's repository" for a project's repository;
   `TreeRepository.fetch` gives every clone that lead, and tests pin it.
 
