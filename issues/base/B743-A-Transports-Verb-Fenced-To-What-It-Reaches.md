@@ -42,6 +42,22 @@ nftables apply only inside a container's network namespace.
 - To be measured first, on each supported host: whether `pasta` is present, and how a verb's namespace reaches the
   account's homeserver on the host's loopback.
 
+## Built
+
+- Part (a), 2026-11-13 (Codex CLI, gpt-6.1-sol; the lead ran the tests). Measured on the build box (Ubuntu 26.04.1,
+  kernel 7.0, `apparmor_restrict_unprivileged_userns=1`): `unshare --user --net` is refused for an unprivileged
+  account, while `pasta --config-net -- <command>` runs the command as uid 0 in its own user and network namespace,
+  where `nft` loads a ruleset. So the fenced runner `TransportFence` is built on pasta, not unshare: the ruleset is
+  loaded inside the namespace before the verb is executed, allowing loopback and the literal addresses `reaches`
+  names, IPv6 neighbour discovery only where an IPv6 reach is declared (ICMPv6 types 133-136, hop limit 255,
+  link-local), and dropping everything else; an offline project's verb gets loopback alone. A missing pasta, a failed
+  pasta or a failed ruleset load refuses and never runs the verb unfenced; a host name in `reaches` is refused until
+  part (c). `members` is its first user.
+- Box: green, 184 tests, 1 skipped (`TransportFenceMachineTest`, which runs real pasta only when its property and a
+  listener are given), buildbox-porelo-3965ba3371bc-20261113T192726Z.log. The new class's own tests could not be red
+  at runtime without it; the red run of the tests alone did not compile (buildbox-porelo-da4721be8baa-20261113T192318Z.log).
+- Parts (b) and (c) remain.
+
 ## Acceptance
 
 - On the VM, a transport verb connecting to a host outside `reaches` fails, and one inside it passes.

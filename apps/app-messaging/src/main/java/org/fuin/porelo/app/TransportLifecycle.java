@@ -152,6 +152,8 @@ final class TransportLifecycle {
     /** Where a host's files are; another place only in a test. */
     private final Path hostFiles;
 
+    private final java.util.function.Function<String, Path> programs;
+
     /** From this length a value is withheld inside a word too. */
     private static final int WHOLE_ANYWHERE = 8;
 
@@ -180,9 +182,21 @@ final class TransportLifecycle {
      * @param hostFiles Where a host's files are.
      */
     TransportLifecycle(PoreloContext context, TransportDirectory transports, Path hostFiles) {
+        this(context, transports, hostFiles, org.fuin.porelo.wire.SystemProgram::find);
+    }
+
+    /**
+     * Resolves namespace tools separately from launching them, so tests need no installed tools.
+     */
+    TransportLifecycle(
+            final PoreloContext context,
+            final TransportDirectory transports,
+            final Path hostFiles,
+            final java.util.function.Function<String, Path> programs) {
         this.context = context;
         this.transports = transports;
         this.hostFiles = hostFiles;
+        this.programs = programs;
     }
 
     /**
@@ -1402,16 +1416,33 @@ final class TransportLifecycle {
             throw new Refused(
                     "the " + scheme + " transport must offer members with secrets on stdin", 78);
         }
-        final Map<?, ?> said =
-                run(
-                        scheme,
-                        described,
-                        settings,
-                        given(scheme, project),
-                        loopbackOnly,
-                        "members",
-                        "--project",
-                        project);
+        final Conversation conversation = conversation(scheme, project);
+        final Map<?, ?> said;
+        try {
+            said =
+                    run(
+                            scheme,
+                            described,
+                            settings,
+                            given(scheme, project),
+                            loopbackOnly,
+                            new TransportFence(
+                                    context.runner(),
+                                    conversation == null ? List.of() : conversation.reaches(),
+                                    loopbackOnly,
+                                    programs),
+                            "members",
+                            "--project",
+                            project);
+        } catch (final IllegalArgumentException
+                | org.fuin.porelo.core.process.CommandException ex) {
+            throw new Refused(
+                    "the "
+                            + scheme
+                            + " transport's members could not run fenced: "
+                            + StartStep.cleanLines(String.valueOf(ex.getMessage())),
+                    77);
+        }
         return judgedMembers(said, project, described.takes(LOGIN), containersOf(scheme, project));
     }
 
@@ -1885,6 +1916,19 @@ final class TransportLifecycle {
             boolean loopbackOnly,
             String... verb)
             throws Refused {
+        return run(scheme, described, settings, kept, loopbackOnly, context.runner(), verb);
+    }
+
+    /** Keeps rendering and secret handling identical for fenced and ordinary verbs. */
+    private Map<?, ?> run(
+            final String scheme,
+            final TransportDescription described,
+            final Map<String, Object> settings,
+            final Map<String, String> kept,
+            final boolean loopbackOnly,
+            final org.fuin.porelo.core.process.CommandRunner runner,
+            final String... verb)
+            throws Refused {
         final Path adapter = transports.find(scheme);
         if (adapter == null) {
             throw new Refused("no transport for '" + scheme + "' is installed", 0);
@@ -1919,15 +1963,11 @@ final class TransportLifecycle {
         final CommandResult result;
         try {
             result =
-                    context.runner()
-                            .run(
-                                    HelperEnvironment.chosen(
-                                            TransportInput.handed(
-                                                    Command.of(arguments),
-                                                    described,
-                                                    settings,
-                                                    secrets)),
-                                    line -> say(scheme, line, secrets));
+                    runner.run(
+                            HelperEnvironment.chosen(
+                                    TransportInput.handed(
+                                            Command.of(arguments), described, settings, secrets)),
+                            line -> say(scheme, line, secrets));
         } catch (org.fuin.porelo.core.process.CommandException ex) {
             throw ex.withStandardError(withheld(StartStep.cleanLines(ex.standardError()), secrets));
         }

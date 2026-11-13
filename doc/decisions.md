@@ -134,7 +134,7 @@ would change the answer.
 | One account per task, deactivated with it | made at start, deactivated at removal; the signature, not the account, carries authorship | [entry](#one-account-per-task-deactivated-with-it) |
 | Porelo knows transports; the transport knows Matrix | a generic lifecycle; no Matrix code or settings parsing in `porelo` | [entry](#porelo-knows-transports-the-transport-knows-matrix) |
 | The homeserver is one endpoint Porelo names, and offline means loopback | the declared URL or the account's own; offline asks the transport for loopback only and refuses a `reaches` beyond it | [entry](#the-homeserver-is-one-endpoint-porelo-names-and-offline-means-loopback) |
-| A transport reaches what the account reaches | accepted: it runs as the account's own program with the account's network, and `reaches` is its word, shown and checked for offline, never enforced; the rule is not yet built | [entry](#a-transport-reaches-what-the-account-reaches) |
+| A transport reaches what the account reaches | accepted for verbs other than `members`: they use the account's network and rely on the transport's word; `members` is fenced to saved literal reaches and namespace loopback | [entry](#a-transport-reaches-what-the-account-reaches) |
 | A person joins by an account made for them | the login is printed once, no registration stays open, and the recorded account's words reach the project's tasks as `ROLE_USER` | [entry](#a-person-joins-by-an-account-made-for-them) |
 | A machine on a shared server is admitted by a person | a person lets it in, from their client or with `talk admit` on the serving machine; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
 | An admitted machine's token may lie in a file | accepted: `talk admit --into` writes it in the clear to a new owner-only file; the interface keeps it in its secrets file instead | [entry](#an-admitted-machines-token-may-lie-in-a-file) |
@@ -818,8 +818,8 @@ transports, conversations, identities and opaque secrets, through a generic life
 
 The homeserver is the project's declared URL, or the account's own on loopback: a user unit on a port Porelo picks and
 keeps in the account's state, with no root, so two users never share a server's administrator. What a project's
-messages reach is what the transport's `setup` reports in `reaches`: the transport's word, which Porelo shows and
-does not enforce, since the transport runs as the account's own program with the account's network (see
+messages reach is what the transport's `setup` reports in `reaches`: the transport's word, which Porelo shows.
+Sending and polling still use the account's network (see
 [a transport reaches what the account reaches](#a-transport-reaches-what-the-account-reaches)). An `offline`
 project's conversation may reach nothing but loopback: Porelo passes `--loopback-only`, so the transport refuses
 before it contacts anything else, and checks `reaches` after every `setup`, before it keeps anything the transport
@@ -827,17 +827,20 @@ handed back, refusing a conversation that names a host other than loopback.
 
 ## A transport reaches what the account reaches
 
-**The exposure:** a transport runs on the host as the account's own program, every verb, `poll` and `send`
-among them, with the account's network, its files and its user bus. Porelo does not hold it to the hosts its `setup`
-names in `reaches`, so an installed transport can reach any host the account can. What Porelo checks is the
+**The exposure:** a transport's verbs other than `members`, including `poll` and `send`, run on the host as the
+account's own program with the account's network, its files and its user bus. Those verbs are not held to the hosts
+its `setup` names in `reaches`, so an installed transport can reach any host the account can. What Porelo checks is the
 transport's word: `reaches` is shown, and for an offline project the transport is passed `--loopback-only` and a
-conversation whose `reaches` names a host other than loopback is refused.
+conversation whose `reaches` names a host other than loopback is refused. The `members` verb uses a pasta
+namespace with an nftables output policy allowing only saved literal reaches and namespace loopback; offline
+allows loopback alone. An external IPv6 reach also permits ICMPv6 types 133–136 with a link-local source or
+destination and hop limit 255 for neighbor discovery. It retains the account's files and user bus. Its limits
+are in [writing a transport](transports.md).
 
 **Why it stays:** the transport is the person's own program, installed by them and holding their credentials and
 their user bus, which no network rule would fence: a program of the account that wants out has the account's other
 ways out. The host gives an account no place for such a rule either: it cannot load nftables without root, and the
-user manager ignores a user unit's IP firewall; only a user and network namespace per verb would hold it (not yet
-built).
+user manager ignores a user unit's IP firewall. The namespace fence is applied to `members` alone.
 
 **What would change the answer:** transports installed from somewhere other than the person's choice, or a class of
 project that must not rely on a transport's word for where its messages go.

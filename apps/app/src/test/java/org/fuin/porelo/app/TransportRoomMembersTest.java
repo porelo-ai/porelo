@@ -37,6 +37,131 @@ class TransportRoomMembersTest {
     private static final String TASK = "porelo-p-api";
     private static final String SECRET = "transport-fixture-secret";
 
+    @Test
+    void membersCannotUseTheAccountsNetworkBeyondTheSavedReaches() throws Exception {
+        // Harm: a live membership read accidentally connects to a host the conversation never
+        // named.
+        final PoreloContext context = context();
+        remember(context, List.of("192.0.2.10:8448"));
+        answer(Map.of("room", "!p", "members", List.of(member("person"))));
+
+        read(context, project());
+
+        final Command command = runner.only(" members ");
+        assertThat(command.program())
+                .as("members goes through the fenced runner")
+                .isEqualTo("/usr/bin/pasta");
+        assertThat(fenceScript(command))
+                .as("only the saved numeric reach and namespace loopback can pass")
+                .contains("policy drop;", "oifname \"lo\" accept", "ip daddr 192.0.2.10 accept")
+                .doesNotContain("ct state", "dport 53");
+    }
+
+    @Test
+    void anOfflineMembershipReadCannotTrustAnExternalSavedReach() throws Exception {
+        // Harm: stale online state opens the network after a project becomes offline.
+        final PoreloContext context = context();
+        remember(context, List.of("192.0.2.10"));
+        final Path projectFile = dir.resolve("project.yml");
+        Files.writeString(projectFile, Files.readString(projectFile).replace("guarded", "offline"));
+        answer(Map.of("room", "!p", "members", List.of(member("person"))));
+
+        read(context, project());
+
+        final Command command = runner.only(" members ");
+        assertThat(command.program())
+                .as("offline membership runs through the namespace too")
+                .isEqualTo("/usr/bin/pasta");
+        assertThat(command.arguments())
+                .as("the cooperative offline flag remains")
+                .contains("--loopback-only");
+        assertThat(fenceScript(command))
+                .as("the enforced rule is loopback alone")
+                .contains("policy drop;", "oifname \"lo\" accept")
+                .doesNotContain("192.0.2.10", "ip daddr", "ip6 daddr");
+    }
+
+    @Test
+    void membersBeforeSetupCannotGainNetworkAccessByHavingNoSavedReaches() throws Exception {
+        // Harm: absent conversation state is mistaken for unrestricted access.
+        final PoreloContext context = context();
+        answer(Map.of("room", "", "members", List.of()));
+
+        assertThatThrownBy(() -> read(context, project()))
+                .as("the pre-setup answer still means no room")
+                .isInstanceOfSatisfying(
+                        RoomMembers.Refused.class,
+                        ex ->
+                                assertThat(ex.failure())
+                                        .as("no room was made")
+                                        .isEqualTo(RoomMembers.Failure.NO_ROOM));
+        final Command command = runner.only(" members ");
+        assertThat(command.program())
+                .as("missing reaches cannot bypass the namespace")
+                .isEqualTo("/usr/bin/pasta");
+        assertThat(fenceScript(command))
+                .as("a read before setup has only namespace loopback")
+                .contains("policy drop;", "oifname \"lo\" accept")
+                .doesNotContain("ip daddr", "ip6 daddr");
+    }
+
+    @Test
+    void membersCannotFallBackWhenPastaIsMissing() throws Exception {
+        // Harm: the production membership entry point catches a missing tool and runs on the host.
+        final PoreloContext context = context();
+
+        assertThatThrownBy(
+                        () ->
+                                RoomMembers.read(
+                                        context,
+                                        project(),
+                                        name -> {
+                                            throw new java.io.UncheckedIOException(
+                                                    new java.io.IOException(name + " is missing"));
+                                        }))
+                .as("the caller receives a named refusal and the missing dependency")
+                .isInstanceOfSatisfying(
+                        RoomMembers.Refused.class,
+                        ex -> {
+                            assertThat(ex.failure())
+                                    .as("the read was refused")
+                                    .isEqualTo(RoomMembers.Failure.REFUSED);
+                            assertThat(ex.code()).as("it never ran").isEqualTo(77);
+                            assertThat(ex.getMessage())
+                                    .as("the remedy names the namespace dependency")
+                                    .contains("pasta");
+                        });
+        assertThat(runner.lines())
+                .as("no members launch or fallback occurred")
+                .noneMatch(line -> line.contains(" members "));
+    }
+
+    @Test
+    void anUnsupportedSavedNameCannotRunMembersUnfenced() throws Exception {
+        // Harm: a hostname unsupported by this slice silently loses the network fence.
+        final PoreloContext context = context();
+        remember(context, List.of("server.example.org"));
+
+        assertThatThrownBy(() -> read(context, project()))
+                .as("names fail closed until resolution is supported")
+                .isInstanceOf(RoomMembers.Refused.class)
+                .hasMessageContaining("literal");
+        assertThat(runner.lines())
+                .as("no unfenced members invocation")
+                .noneMatch(line -> line.contains(" members "));
+    }
+
+    private static String fenceScript(final Command command) {
+        return command.arguments().get(command.arguments().indexOf("-c") + 1);
+    }
+
+    private static void remember(final PoreloContext context, final List<String> reaches)
+            throws java.io.IOException {
+        final Path state = context.paths().xdg().state().resolve("transport/room/p.json");
+        Files.createDirectories(state.getParent());
+        Files.writeString(state, Json.write(Map.of("conversation", "!p", "reaches", reaches)));
+    }
+
     @BeforeEach
     void login() {
         previousLogin = System.getProperty("user.name");
@@ -71,7 +196,7 @@ class TransportRoomMembersTest {
                 List.of(task, member("person"), member("helper"), member("other"));
         answer(Map.of("room", "!p", "members", members, "secrets", Map.of("PRIVATE", "opaque")));
 
-        final RoomMembers result = RoomMembers.read(opened, project());
+        final RoomMembers result = read(opened, project());
 
         assertThat(result.asMap())
                 .as("only the judged fields cross to the client")
@@ -143,7 +268,7 @@ class TransportRoomMembersTest {
         foreign.put("task", "porelo-other-api");
         answer(Map.of("room", "!p", "members", List.of(foreign, member("task"), member("person"))));
 
-        assertThat(RoomMembers.read(context, project()).members())
+        assertThat(read(context, project()).members())
                 .as("foreign tasks are omitted")
                 .extracting(RoomMembers.Member::id)
                 .containsExactly("@task", "@person");
@@ -169,7 +294,7 @@ class TransportRoomMembersTest {
         task.remove("login");
         answer(Map.of("room", "!p", "members", List.of(task)));
 
-        assertThat(RoomMembers.read(context, project()).members())
+        assertThat(read(context, project()).members())
                 .as("a private task is recognized")
                 .extracting(RoomMembers.Member::task)
                 .containsExactly(TASK);
@@ -182,7 +307,7 @@ class TransportRoomMembersTest {
         runner.failing("ps", 125, "runtime unavailable");
         answer(Map.of("room", "!p", "members", List.of(member("person"), member("helper"))));
 
-        assertThat(RoomMembers.read(context, project()).members())
+        assertThat(read(context, project()).members())
                 .as("people can still be listed")
                 .extracting(RoomMembers.Member::kind)
                 .containsExactly("person", "helper");
@@ -216,7 +341,7 @@ class TransportRoomMembersTest {
         task.put("login", "bob");
         answer(Map.of("room", "!p", "members", List.of(task)));
 
-        assertThat(RoomMembers.read(context, project()).members())
+        assertThat(read(context, project()).members())
                 .as("the other person's task is omitted")
                 .isEmpty();
         assertThat(runner.only(" members ").arguments())
@@ -289,7 +414,7 @@ class TransportRoomMembersTest {
         if ("room".equals(field)) answer(Map.of("room", SECRET, "members", List.of()));
         else answer(changed(field, SECRET));
 
-        assertThatThrownBy(() -> RoomMembers.read(opened, project()))
+        assertThatThrownBy(() -> read(opened, project()))
                 .as("an echoed credential is withheld")
                 .isInstanceOf(RoomMembers.Refused.class)
                 .hasMessageContaining("credential")
@@ -304,7 +429,7 @@ class TransportRoomMembersTest {
         final PoreloContext context = context();
         describe(true, offers, false);
 
-        assertThatThrownBy(() -> RoomMembers.read(context, project()))
+        assertThatThrownBy(() -> read(context, project()))
                 .as("missing capability is named")
                 .isInstanceOfSatisfying(
                         RoomMembers.Refused.class,
@@ -326,7 +451,14 @@ class TransportRoomMembersTest {
         final PoreloContext context = context();
         Files.writeString(
                 dir.resolve("project.yml"),
-                "project:\n  name: p\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\nmail:\n  transports:\n    matrix: {}\n");
+                "project:\n"
+                        + "  name: p\n"
+                        + "  security_class: guarded\n"
+                        + "image:\n"
+                        + "  from: ubuntu:24.04\n"
+                        + "mail:\n"
+                        + "  transports:\n"
+                        + "    matrix: {}\n");
         OrganizationProjects.of(context)
                 .write(
                         new OrganizationProjects.Placed(
@@ -339,7 +471,7 @@ class TransportRoomMembersTest {
                                 null,
                                 null));
 
-        assertThatThrownBy(() -> RoomMembers.read(context, project()))
+        assertThatThrownBy(() -> read(context, project()))
                 .as("no homeserver is no room")
                 .isInstanceOfSatisfying(
                         RoomMembers.Refused.class,
@@ -354,8 +486,13 @@ class TransportRoomMembersTest {
                 .noneMatch(line -> line.contains(" members "));
     }
 
+    private static RoomMembers read(final PoreloContext context, final Project project)
+            throws RoomMembers.Refused {
+        return RoomMembers.read(context, project, name -> Path.of("/usr/bin", name));
+    }
+
     private void refused(PoreloContext context, String field, int code) {
-        assertThatThrownBy(() -> RoomMembers.read(context, project()))
+        assertThatThrownBy(() -> read(context, project()))
                 .as("the invalid " + field + " is refused")
                 .isInstanceOfSatisfying(
                         RoomMembers.Refused.class,
@@ -440,7 +577,14 @@ class TransportRoomMembersTest {
         describe(true, true, true);
         Files.writeString(
                 dir.resolve("project.yml"),
-                "project:\n  name: p\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\nmail:\n  transports:\n    room: {}\n");
+                "project:\n"
+                        + "  name: p\n"
+                        + "  security_class: guarded\n"
+                        + "image:\n"
+                        + "  from: ubuntu:24.04\n"
+                        + "mail:\n"
+                        + "  transports:\n"
+                        + "    room: {}\n");
         Files.createDirectories(context.paths().tasks().taskRecord(TASK));
         Files.writeString(
                 context.paths().tasks().taskRecord(TASK).resolve(Sidecar.RECORDED_ID),

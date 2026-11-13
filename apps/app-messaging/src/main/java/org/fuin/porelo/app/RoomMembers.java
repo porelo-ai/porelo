@@ -72,6 +72,15 @@ public record RoomMembers(String room, List<Member> members) {
 
     /** Reads the live room without setting it up or changing membership. */
     public static RoomMembers read(PoreloContext context, Project project) throws Refused {
+        return read(context, project, org.fuin.porelo.wire.SystemProgram::find);
+    }
+
+    /** Replaces only program resolution for tests whose runner never starts namespace tools. */
+    static RoomMembers read(
+            final PoreloContext context,
+            final Project project,
+            final java.util.function.Function<String, java.nio.file.Path> programs)
+            throws Refused {
         if (project.mail().conversations().isEmpty()) {
             throw new Refused(Failure.NO_ROOM, "", "the project has no room", 0);
         }
@@ -100,7 +109,8 @@ public record RoomMembers(String room, List<Member> members) {
         }
         try {
             final RoomMembers result =
-                    new TransportLifecycle(context, transports)
+                    new TransportLifecycle(
+                                    context, transports, OrganizationProjects.HOST_FILES, programs)
                             .members(
                                     scheme,
                                     project.name(),

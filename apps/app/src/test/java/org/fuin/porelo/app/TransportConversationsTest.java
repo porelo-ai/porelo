@@ -844,7 +844,9 @@ class TransportConversationsTest {
         final TransportLifecycle asked =
                 new TransportLifecycle(
                         context().asking(prompt -> PASSPHRASE.clone()),
-                        context().paths().messaging().transportDirectory());
+                        context().paths().messaging().transportDirectory(),
+                        OrganizationProjects.HOST_FILES,
+                        name -> Path.of("/usr/bin", name));
 
         assertThat(asked.members("room", "p", Map.of(), false).members())
                 .as("the member is the task's container")

@@ -136,9 +136,17 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
   project: it adds `--loopback-only` to `setup`, `enroll`, `join`, `part` and `members`, and the transport refuses
   (78) before it contacts anything but loopback; after every `setup`, and again before a task enrolls, Porelo refuses
   a conversation whose `reaches` names a host other than loopback.
-- **Porelo does not confine a transport.** Every verb, `poll` and `send` among them, runs as the account's own
-  program with the account's network, its files and its user bus; nothing holds it to the hosts `reaches` names.
-  Installing a transport trusts it as any other program of the account.
+- **`members` has a network fence.** It runs in a user and network namespace created by `pasta --config-net`.
+  Before the verb starts, nftables allows namespace loopback and the literal IPv4 and IPv6 addresses in the saved
+  conversation's `reaches`, with optional ports stripped; an offline project allows loopback alone. Missing
+  conversation state allows loopback alone too. An external IPv6 reach also allows ICMPv6 discovery types
+  133–136, only with a link-local source or destination and hop limit 255. Other traffic outside the declared
+  addresses and loopback is dropped. Pasta's automatic port forwarding and host-address translations
+  are disabled in both directions.
+  Missing pasta or nftables, a failed ruleset load, or an unsupported reach refuses the read. Hostname resolution
+  and mapping the account's homeserver into namespace loopback are not supported. Other verbs, including `poll`
+  and `send`, still use the account's network. Every verb retains the account's files and user bus, so installing
+  a transport still trusts it as a program of the account; the fence catches mistakes, not a hostile transport.
 - **`--login LOGIN`** is added to `setup`, `enroll`, `retire`, `join`, `members` and `clear` for a transport that `takes`
   it; `admit` and `dismiss` carry the other machine's name instead, and no login is added. `LOGIN` is this account's
   login on the host, which is the person's, always, never the `login` a `setup` answered; Porelo refuses (78) before
