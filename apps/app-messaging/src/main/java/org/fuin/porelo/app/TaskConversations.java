@@ -787,7 +787,7 @@ final class TaskConversations {
 
     /**
      * Says why a project has no conversation by a transport: it names no homeserver, and no host
-     * gives one. Its tasks start all the same.
+     * gives one. Its tasks start all the same, and the words name the step that ends it.
      *
      * @param project The project.
      * @param scheme The transport.
@@ -803,7 +803,10 @@ final class TaskConversations {
                     + project.name()
                     + " names no homeserver for "
                     + scheme
-                    + ", so this task's agents cannot talk to each other";
+                    + ", so this task's agents cannot talk to each other; it ends when a project"
+                    + " admin names mail.transports."
+                    + scheme
+                    + ".homeserver and, if it wants one, a room in project.yml and signs it";
         } catch (ProjectMembers.Withheld ex) {
             return null;
         }

@@ -117,7 +117,14 @@ class TaskConversationsTest {
                         event -> {
                             assertThat(event.step()).isEqualTo(StartStep.Step.CONVERSATION);
                             assertThat(event.text())
-                                    .contains("demo", "no homeserver", "No conversation");
+                                    .contains("demo", "no homeserver", "No conversation")
+                                    .as("it names the step that ends it")
+                                    .contains(
+                                            "a project admin",
+                                            "mail.transports.matrix.homeserver",
+                                            "project.yml",
+                                            "if it wants one, a room",
+                                            "signs it");
                         });
         assertThat(events).noneMatch(event -> event.state() == StartStep.State.FAILED);
         assertThat(runner.invocations()).as("no transport was run").isEmpty();

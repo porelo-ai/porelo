@@ -650,10 +650,12 @@ line. A token, or a key in the vault or a file, works for both.
 
 **A project of the organization without a homeserver starts with no conversation.** Where a room peer is named, or
 `mail.transports.matrix` is given, and neither the file nor this host says where its homeserver is, the task starts all
-the same: the start says once that it has no conversation, and its agents cannot talk to each other. No homeserver of the
-account's own is started in its place. A project admin gives it one by naming `mail.transports.matrix.homeserver` in
-`project.yml` and signing that change; its room is then set up as for any project. A project of this machine alone keeps
-the account's own homeserver.
+the same: the start says once that it has no conversation, that its agents cannot talk to each other, and the step that
+ends it. No homeserver of the account's own is started in its place. A project admin ends it by naming
+`mail.transports.matrix.homeserver` and, if it wants one, a room in `project.yml` and signing that change; its room is
+then set up as for any project, with the vault holding `matrix-registration-token.<server>` where its tasks register
+(see [a transport that keeps a conversation](transports.md#a-transport-that-keeps-a-conversation)). A project of this
+machine alone keeps the account's own homeserver.
 
 **A key revoked in the organization counts until the project's next start.** It stays a believed certifier of the
 project's messages on a machine until then: nothing reads the organization between starts. On a host, the host's file
