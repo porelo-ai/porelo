@@ -292,6 +292,7 @@ from its side, as *blocked by*.
 | <a id="b676"></a>[B676](B676-A-Record-Path-Matches-A-Boolean-Or-A-Number.md) | XS | - | An agent description's `.record` match (`last_message.record`, `session_id.record`) can name a boolean or number field: `is_error: false` matches the record's false, as a string field matches today. | - |
 | <a id="b680"></a>[B680](B680-A-Kept-Start-That-Never-Ran-Keeps-Its-Callers-Key.md) | XS | - | A start that fails under `--keep`, one that only reads, or one handed over, whose container podman made but never ran, saves its caller's key to the task's record, so a reboot before it runs does not lose the key its caller finds it by. | - |
 | <a id="b702"></a>[B702](B702-Every-Vault-Write-Says-What-Uses-The-Entry.md) | S | [B316](README.md#b316) | `host stop-secrets`, `talk join --into-vault`, `vault login`, `vault authorize` and `vault import` say what uses the entry they store, through the one check `vault put` has, instead of writing past it. | 0 |
+| <a id="b703"></a>[B703](B703-A-Removed-Project-Leaves-No-Retired-Claim.md) | S | - | `project remove` takes away the retired task claims of the project's tasks once their leftovers are gone, and the docs say how long a retired claim lives. | 0 |
 
 ## Implementing
 
