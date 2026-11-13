@@ -687,6 +687,27 @@ class ContainerfileTest {
     }
 
     @Test
+    void theStatusLineAlwaysSaysHowToLeaveWithoutEndingTheTask() {
+
+        // Harm: a person who forgets the keys presses Ctrl+z and fg instead, and the task is left
+        // stopped in a terminal. Set after the person's own file, so no file turns it off, takes it
+        // away or names a key that does not detach.
+        final String rendered =
+                Containerfile.render(
+                        new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null));
+        final String required =
+                rendered.substring(
+                        rendered.indexOf("source-file " + Containerfile.REQUIRED_TMUX_CONF));
+
+        assertThat(required)
+                .as("set again after the person's file")
+                .contains("'set -g status on'")
+                .contains("'bind d detach-client'")
+                .contains(
+                        "'set -ga status-right \" #{s/C-/Ctrl+/:prefix} d: leave, the task goes on\"'");
+    }
+
+    @Test
     void everyImageCarriesAUtf8Locale() {
 
         // Measured on the Ubuntu VM, 2026-09-12, and reported before that: the base image sets no

@@ -286,14 +286,13 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b725"></a>[B725](B725-The-Way-To-Leave-A-Task-Always-On-Its-Status-Line.md) | S | - | A task's tmux status line always shows how to leave without ending the task ("Ctrl+b d: leave, the task goes on"), naming the prefix actually in force when the person's own tmux.conf sets another. | 0 |
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
-| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. | - |
-| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. | - |
-| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. | - |
-| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. | - |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. |
+| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. |
+| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. |
+| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. |
 
 ## Review
 
@@ -330,6 +329,7 @@ from its side, as *blocked by*.
 | <a id="b596"></a>[B596](B596-One-Identity-For-A-Task-Old-Name-Or-New.md) | M | - | One identity lookup for old and new container names; creation unchanged. | - |
 | <a id="b600"></a>[B600](B600-A-Tasks-Mail-And-Sockets-Found-By-Its-Identity.md) | M | [B596](README.md#b596), [B598](README.md#b598) | Mail, watches and sockets are reached through a task's identity. | - |
 | <a id="b601"></a>[B601](B601-New-Tasks-Get-The-Short-Container-Name.md) | S | [B597](README.md#b597), [B598](README.md#b598), [B599](README.md#b599), [B600](README.md#b600) | New tasks are created under the new container names. | - |
+| <a id="b725"></a>[B725](B725-The-Way-To-Leave-A-Task-Always-On-Its-Status-Line.md) | S | - | A task's tmux status line always shows how to leave without ending the task ("Ctrl+b d: leave, the task goes on"), naming the prefix actually in force when the person's own tmux.conf sets another. | 0 |
 | <a id="b602"></a>[B602](B602-A-Task-Made-Before-Comes-Through-The-Upgrade.md) | M | [B601](README.md#b601) | A task made before the change survives the upgrade whole. | - |
 | <a id="b727"></a>[B727](B727-A-Repository-The-First-Start-Found-Reaches-The-Tasks-Tool-Settings.md) | S | - | A tool repository the first start's draft names, and its `extensions.maven` block, once the person takes the draft, reach the adapter's Configure at the start in `default`, so the task holds the settings file with the broker's mirror, as the egress host already reaches its egress. | 0 |
 | <a id="b732"></a>[B732](B732-A-Tasks-Socket-Lists-Only-Its-Own-Project.md) | S | - | Over a task's own socket, Projects and WatchProjects answer only the task's project, as List and Watch do; every other account-wide reading method granted there is held or named as an exception. | 0 |

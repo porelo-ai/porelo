@@ -236,16 +236,19 @@ agent that asked for the mouse. Measured with tmux 3.4, the version of the defau
 - **Images** reach the terminal only from a program that wraps them for tmux; most agents do not.
 
 **Leaving without ending it.** Press Ctrl+b, then d: tmux detaches, the session and the agent go on, and
-`porelo task attach TASK` or `porelo task start TASK` at a terminal brings you back. Porelo sets no prefix of its
-own, so this is tmux's default; a prefix set in your own `$XDG_CONFIG_HOME/porelo/tmux.conf` (below) takes its place.
+`porelo task attach TASK` or `porelo task start TASK` at a terminal brings you back. The task's status line always
+says so, at its right end. Porelo sets no prefix of its own, so this is tmux's default; a prefix set in your own
+`$XDG_CONFIG_HOME/porelo/tmux.conf` (below) takes its place, and the status line names it. Ctrl+z does not leave: it
+stops the attach in your terminal, and the task waits there until `fg`.
 Closing the terminal window detaches the same way. Leaving the agent itself, with its own quit command, ends the
 session.
 
 **Your own settings.** A file `$XDG_CONFIG_HOME/porelo/tmux.conf` is copied into each task you start, read-only for the agent,
 and read after Porelo's settings: key bindings, the prefix, the mouse and colours, set once for all your tasks with no
 image rebuilt. It takes effect for tasks started after you change it. Two things are set again after it, because
-Porelo depends on them: how much a session remembers (`history-limit`), which `porelo task attach` states, and the
-terminal the agent is told it has (`default-terminal`).
+Porelo depends on them: how much a session remembers (`history-limit`), which `porelo task attach` states, the
+terminal the agent is told it has (`default-terminal`), and the way to leave: the status line is on, `d` after the
+prefix detaches, and the hint is added to the end of your own `status-right`.
 
 ## Handing a file to a running task
 

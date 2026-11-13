@@ -1,0 +1,2 @@
+title: "A task's tmux status line always says how to leave without ending the task (\"Ctrl+b d: leave, the task goes on\"), under the prefix in force when your own tmux.conf sets another, and set again after that file so it cannot be turned off; task images are rebuilt once for it"
+type: added

@@ -488,7 +488,9 @@ public final class Containerfile {
                                 "# time; a person's own file may set 'smallest' to keep one size.",
                                 "#",
                                 "# Then a person's own file, copied in when a task starts, and last what Porelo itself",
-                                "# depends on, so nothing in that file changes it unawares.",
+                                "# depends on, so nothing in that file changes it unawares: among it the way to leave",
+                                "# without ending the task, on the status line under the prefix in force, since people",
+                                "# who forget it press Ctrl+z and leave the task stopped in their terminal.",
                                 "RUN mkdir -p /etc/porelo \\",
                                 "    && printf '%s\\n' \\",
                                 "        'set -sg escape-time 10' \\",
@@ -511,6 +513,12 @@ public final class Containerfile {
                                         + "\\n' > "
                                         + REQUIRED_TMUX_CONF
                                         + " \\",
+                                "    && printf '%s\\n' \\",
+                                "        'set -g status on' \\",
+                                "        'bind d detach-client' \\",
+                                "        'set -g status-right-length 200' \\",
+                                "        'set -ga status-right \" #{s/C-/Ctrl+/:prefix} d: leave, the task goes on\"' \\",
+                                "        >> " + REQUIRED_TMUX_CONF + " \\",
                                 "    && if infocmp tmux-256color >/dev/null 2>&1; then \\",
                                 "        printf 'set -g default-terminal \"tmux-256color\"\\n' >> "
                                         + REQUIRED_TMUX_CONF

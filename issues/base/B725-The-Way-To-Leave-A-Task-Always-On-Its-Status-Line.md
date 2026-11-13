@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B725",
   "title": "The Way To Leave A Task Always On Its Status Line",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 6,
@@ -31,3 +31,19 @@ Decided by the operator on 2026-11-13. People forget the keys and try Ctrl+z and
 - Red first: a task without a tmux.conf shows "Ctrl+b d: leave, the task goes on".
 - With a tmux.conf setting `prefix C-a`, the line says Ctrl+a d.
 - A tmux.conf that turns the status line off or rewrites it still leaves the hint.
+
+## Built
+
+- `Containerfile`'s required tmux settings, read after the person's own file as `history-limit` is, now set
+  `status on`, bind `d` to `detach-client`, raise `status-right-length` to 200 and append
+  ` #{s/C-/Ctrl+/:prefix} d: leave, the task goes on` to `status-right` with `set -ga`, so the person's own right side
+  stays in front of it. The golden Containerfile and its recipe label follow; task images build once anew.
+- `ContainerfileTest.theStatusLineAlwaysSaysHowToLeaveWithoutEndingTheTask` reads the four lines in the part after the
+  person's file; seen red on the old `Containerfile.java`.
+- doc/running.md: "Leaving without ending it" names the status line and why Ctrl+z is no way out; "Your own settings"
+  names the hint among what Porelo sets again.
+- Checked in tmux 3.4 (ubuntu:24.04): no own file shows `Ctrl+b d: leave, the task goes on`; an own file setting
+  `prefix C-a`, `status off` and `status-right MINE` shows `MINE Ctrl+a d: leave, the task goes on`, with the line on
+  and `d` detaching. At 80 columns the hint is shown whole, tmux shortens the window list instead.
+- Limits, left as they are: sourcing the settings again inside a task appends the hint twice; a person's
+  `status-format` rewrite or `prefix None` can still hide or misname it; `#{s/…}` needs tmux 2.6 or newer.
