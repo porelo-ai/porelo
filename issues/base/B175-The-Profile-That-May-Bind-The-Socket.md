@@ -16,7 +16,10 @@
 ```
 
 **Why this size.** AppArmor cannot carry over the SELinux rule as written, so a design is decided first; then two profiles,
-the task's way into one, the package's scripts, `doctor`, and a scenario on the ubuntu leg.
+the task's way into one, the package's scripts, `doctor`, and a scenario on the ubuntu leg. Re-estimated on 2026-11-13
+after the walk4 measurements: steps 1-8 are built, but the lock they build does not hold for path sockets, and step 9
+moves every socket a task reaches to an abstract name bound in the task's network namespace. What is left is still L
+and is to be split, the transport change of step 9 apart from its profile, `doctor` and leg parts.
 
 **What must be true.** On a machine that confines programs by AppArmor rather than SELinux, a task connects only to a
 socket that one of Porelo's binaries bound, as the SELinux domain proposed by [B40](README.md#b40) requires,
@@ -109,6 +112,29 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
 8. **Docs:** `doc/security.md` states where the second lock holds - SELinux machines by label, AppArmor machines whose
    kernel mediates unix sockets by the task's profile, nowhere else - and its bound; `doc/getting-started.md`, the
    Debian and Ubuntu section; `doc/decisions.md` an entry for the lock on the connecting side and for the self-entry.
+9. **The redesign: Porelo's in-task sockets become abstract names** (decided on the walk4 measurements of
+   2026-11-13, see Built). A peer rule does not hold for a socket with a file path, which AppArmor judges by file
+   rules; it holds for an abstract one.
+   - The vault proxy, the ssh agent, the mailbox and the broker's socket a task reaches are bound as abstract names
+     (`@porelo-...`) by the packaged `porelod`, inside each task's network namespace, which it joins with `setns`
+     (user and network namespace of the container, as `nsenter -t <pid> -U -n --preserve-credentials` does). Abstract
+     names are per network namespace, so they are bound there, not on the host; the bind mounts of these sockets go.
+   - `porelo-task` keeps one connect rule, `unix (connect) peer=(label=porelo)`, beside `peer=(label=porelo-task)` for
+     the task's own sockets, under `abi <abi/5.0>`.
+   - The lock holds for a machine-wide install only: only a binary the profile `porelo` attaches to by path wears plain
+     `porelo`. An account install or a developer's build enters `porelo` by name, which on Ubuntu
+     (`apparmor_restrict_unprivileged_unconfined`) becomes the stack `porelo//&unconfined`, and its own tasks refuse
+     it. `doctor` says so, and Porelo does not wrap a task there; the self-entry of step 5 goes, or stays only for the
+     label it gives where no stacking is enforced.
+   - **The bounds:** `porelo` is flagged `unconfined`, so an account process can still start `/usr/bin/porelod` with
+     `LD_PRELOAD`, or trace a `porelod` it started, and bind in its name. The lock stops a process that is not
+     Porelo's binary, not one that runs inside it. A host-side client that is not Porelo's code is not held.
+   - **Proved by:** `AppArmorProfileTest` (wire) for the stacked label read as not `porelo`; unit tests of the
+     namespace join and of the abstract bind in `wire` and `supervisor`, red first against today's path sockets;
+     `AppArmorProfilesTest` (`dist/package-check`) for the rule and the abi line; and the scenario of step 2 on the
+     ubuntu leg, installed machine-wide (`@restart` legs): a script outside `porelo`, joined to the task's namespace,
+     binds the name before `porelod` does and the agent is refused, a task served by Porelo reaches the vault proxy, the
+     ssh agent and the mailbox, and the measurements of v2 and v3 below repeat as one scenario.
 
 ## Built (2026-11-13)
 
@@ -150,6 +176,21 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
   files, `porelo-task` grants every file, and the peer rule never sees the connect. An unprivileged `exec porelo`
   from plain `unconfined` lands in the stack `porelo//&unconfined` (`apparmor_restrict_unprivileged_unconfined`).
   `doc/security.md` and `doc/decisions.md` now say that on AppArmor the `0700` directory is the bound.
+- Measured on walk4 the same day, candidate task profiles beside the packaged ones (`v4`: as built, `abi 4.0`;
+  `v5`: `abi 5.0`; `v5s`: also `peer=(label=porelo//&unconfined)`; `v5f`: also `deny /s/** w`), each binder once
+  plain `unconfined`, once after `exec porelo` and once after `changeprofile porelo`:
+  - Path sockets: every candidate connected to all three, with no record in the kernel's log; even `deny /s/** w`
+    did not stop it.
+  - Abstract sockets: every candidate refused all three, `operation="connect" class="net" family="unix"` denied with
+    `peer="unconfined"`. Both `exec porelo` and `changeprofile porelo` from plain `unconfined` gave the stack
+    `porelo//&unconfined`, which the kernel logs as "change_profile unprivileged unconfined converted to stacking";
+    the peer rule is checked against each part of the stack, and the `unconfined` part matches none. `SO_PEERSEC`
+    read the whole stack.
+- Measured on walk4 next, with a copy of `python3` at `/usr/libexec/porelo/b175-python3`, where `porelo` attaches by
+  path, and the candidate `v5`: that binary wears plain `porelo`, and a task in the candidate reaches its abstract
+  socket both in the host's network namespace and in the task's own, the binder having joined it with `nsenter`. A
+  binder that entered `porelo` by name (the stack) and a plain `unconfined` one are refused; the kernel recorded three
+  denied connects with `peer="unconfined"`. 9 expectations held, none failed. This decides step 9.
 
 ## Acceptance
 
