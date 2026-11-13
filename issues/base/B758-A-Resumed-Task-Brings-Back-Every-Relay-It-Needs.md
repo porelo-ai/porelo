@@ -7,6 +7,8 @@
   "title": "A Resumed Task Brings Back Every Relay It Needs",
   "state": "Idea",
   "priority": "Medium",
+  "size": "S",
+  "rank": 56,
   "blockedBy": [],
   "covers": "A resume never answers success for a task whose relay is missing or belongs to the run before, and a relay serving two endpoints ends when one of them ends",
   "openQuestions": 0

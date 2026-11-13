@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b758"></a>[B758](B758-A-Resumed-Task-Brings-Back-Every-Relay-It-Needs.md) | - | - | A resume never answers success for a task whose relay is missing or belongs to the run before, and a relay serving two endpoints ends when one of them ends. | - |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. | - |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. | - |
 | <a id="b516"></a>[B516](B516-Task-Records-Exported-Over-OTLP.md) | M | [B514](README.md#b514) | [B514](#b514)'s records exported as OpenTelemetry logs to a collector the organization names, off by default, chosen per kind, by the CLI only. | - |
@@ -38,6 +37,7 @@ from its side, as *blocked by*.
 | <a id="b626"></a>[B626](B626-A-Start-Step-Fails-When-The-Start-Ends.md) | - | - | The acceptance kit's step that waits for an agent's session fails as soon as the terminal's `porelo task start` has ended without one, naming the start's exit and output, instead of waiting out its 900 seconds. | - |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | - | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own | - |
 | <a id="b757"></a>[B757](B757-The-Vault-Socket-As-An-Abstract-Name-In-The-Task.md) | M | [B752](README.md#b752) | Where an agent's client takes an abstract address, Porelo's relay binds the vault socket as `@porelo-vault` in the task's network namespace, so `porelo-task`'s peer rule holds for it; it waits for a client that takes one. | 0 |
+| <a id="b758"></a>[B758](B758-A-Resumed-Task-Brings-Back-Every-Relay-It-Needs.md) | S | - | A resume never answers success for a task whose relay is missing or belongs to the run before, and a relay serving two endpoints ends when one of them ends | 0 |
 | <a id="b292"></a>[B292](B292-Hardened-SARIF-Reading-On-java-sarif.md) | - | [B291](README.md#b291) | Strict java-sarif/Jackson reader and fresh-object writer, plus isolated scanner normalization with byte, CPU and memory bounds and explicit completeness. | - |
 | <a id="b283"></a>[B283](B283-A-Retargeted-Symbolic-Link-Ranked-Dangerous.md) | - | - | Every changed symbolic link ranks dangerous, including retarget, deletion and replacement; feeds C3 evidence without traversal. | - |
 | <a id="b293"></a>[B293](B293-Source-Levels-And-Risk-Classes-Enforced.md) | - | [B323](README.md#b323), [B136](README.md#b136), [B141](README.md#b141), [B283](README.md#b283) | Daemon-authenticated source levels and deterministic C0-C3 rules constrain delivery, builds, secrets, replies and required human approvals; policies only tighten defaults. | - |
@@ -274,7 +274,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b752"></a>[B752](B752-The-Vault-Socket-Bound-In-The-Tasks-Mount-Namespace.md) | S | - | The vault socket a task's agent reaches is a socket file Porelo's relay binds in the task's own mount namespace, through the container's root, never a file bind-mounted from the host. | 0 |
 | <a id="b625"></a>[B625](B625-A-Unit-Test-Never-Reads-The-Machines-Host-Helper.md) | S | - | No unit test's task start asks the real machine whether it is a host: on a machine with the host package installed, `apps/app`'s start tests are as green as on one without. | - |
 | <a id="b628"></a>[B628](B628-A-Removed-Task-Leaves-No-Direct-Chats.md) | XS | - | Retiring a task from a conversation removes what its direct chats were polled into, `transport/<scheme>/direct/<container>`, so a removed task leaves nothing of itself in the machine's state. | - |
 | <a id="b631"></a>[B631](B631-A-Task-That-Read-Its-Project-Ends-Without-Failing.md) | XS | - | A prompted task that reads every repository of its project is removed at its run's end without the clean-up asking podman about it by name, so a run that went well answers its own exit code, never 70 "no task Porelo made". | - |
@@ -440,6 +439,7 @@ from its side, as *blocked by*.
 | <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | M | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. | 0 |
 | <a id="b524"></a>[B524](B524-The-Makers-Of-A-Push-In-Review.md) | S | - | `PendingPush` and `Review` carry each commit's author, committer and trailers. | - |
 | <a id="b697"></a>[B697](B697-A-Start-That-Waits-For-Its-Watcher-And-Broker.md) | S | [B384](README.md#b384) | A start waits for its clearance watcher and its vault broker as it waits for its gate and relay, and one that does not come up stops the start with 70 and its cleanup. | 0 |
+| <a id="b752"></a>[B752](B752-The-Vault-Socket-Bound-In-The-Tasks-Mount-Namespace.md) | S | - | The vault socket a task's agent reaches is a socket file Porelo's relay binds in the task's own mount namespace, through the container's root, never a file bind-mounted from the host. | 0 |
 | <a id="b523"></a>[B523](B523-A-Message-To-People-Reaches-Persons-Only.md) | S | - | A task's message to `people` reaches the persons only, no other task; the card names the room and the admitted persons. | - |
 | <a id="b698"></a>[B698](B698-A-Losing-Start-Takes-No-Broker-State.md) | M | - | Of two starts racing for one task name, the one that loses starts no vault broker in the winner's state directory and touches no vault.pid, socket or token of it. | 0 |
 | <a id="b753"></a>[B753](B753-The-Task-Profile-Connects-Only-To-Porelo.md) | S | [B752](README.md#b752) | `porelo-task` holds one unix connect rule, to a peer labelled `porelo` or `porelo-task`, under `abi <abi/5.0>`, and the package check holds the packaged profile to it. | 0 |
