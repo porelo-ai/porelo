@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B591",
   "title": "The Room Receives A Person's Chosen Name",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
