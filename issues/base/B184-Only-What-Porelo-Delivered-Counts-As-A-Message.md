@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B184",
   "title": "Only What Porelo Delivered Counts As A Message",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 2,
@@ -81,3 +81,35 @@ Steps and tests:
    does not wake for it and `task status` names it. It needs a VM and runs in the stack's run on the VM.
 4. The tests of app-base and app-messaging and the documents; the whole reactor once before the hand-over, one
    `apps/app` run at a time on this machine.
+
+## Built (2026-11-13)
+
+- `Mailbox.delivered` takes a regular file, not followed, whose owner is the mailbox root's. `Mailbox.readDelivered`
+  reads one through a hard link the host makes in `inbox/tmp`, which the agent cannot write, so a name replaced
+  between check and read, a link and a pipe are never read; `link(2)` links a link itself, and the kernel refuses to
+  link another account's file.
+- The readers that read a message's bytes - `AgentWake`, `MessageVerify` and `TalkLogCommand` - read the inbox only
+  through `readDelivered`; `TransportConversations.taken` and `TaskInventory.inboxWaiting` take only delivered names.
+  `MessageVerify` reports an inbox file of a recorded name that Porelo did not deliver.
+- `InboxPlants`, run after each pass of `MessageWatch`, records each name in `inbox/new` and `inbox/cur` that Porelo did
+  not deliver as a `planted` line, once, and at most 100 per mailbox, so a process renaming one file without end
+  cannot grow the record without end. `task status` shows them on an `inbox` line in the warning colour.
+- The guide and its copy in `doc/messages.md` tell the agent to read only root's regular files and to check the file
+  it opened, not its name, with a one-line recipe over `/proc/self/fd`.
+- Tests: `MailboxTest` (delivered, a pin that leaves nothing, a link, a pipe, another account's file, the limit),
+  `InboxPlantsTest` (once each, bounded), and one each in `AgentWakeTest`, `TransportConversationsTest` and
+  `MessageVerifyTest` that a file of another account is not taken. Each was seen red with the owner check taken out,
+  and the bound's test with the bound taken out. The count and the log's audience have no test of their own: a wrong
+  count or audience only reads wrong.
+- A plan reading by Codex found three reds, all taken: the check-then-read race and a pipe (now the pin), the guide's
+  check of a name (now the opened file), and a record growing per fresh name (now bounded).
+
+Accepted, and why:
+
+- **A renamed delivered message keeps its owner.** The agent can rename a delivered message to another arrived name
+  in `inbox/cur`, or back into `new`: that marks the other read or wakes it once more. It changes nothing Porelo
+  delivered and reaches no one beyond the task's own conversation.
+- **A machine whose podman maps the account to the agent's user** (`userns=keep-id` in the account's containers.conf)
+  makes every file in the container the account's, and the check passes everything. Porelo sets no user namespace;
+  that mapping is the person's own choice for their account.
+- **Acceptance:** the scenario that plants a file with `podman exec --user` needs a VM; it runs in the stack's VM run.

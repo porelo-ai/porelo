@@ -2383,4 +2383,20 @@ class TransportConversationsTest {
                 display,
                 org.fuin.porelo.runtime.ContainerName.taskIn(project, container));
     }
+
+    @Test
+    void aFileOfAnArrivedNameThatPoreloDidNotDeliverIsNotMarkedRead() throws IOException {
+        // Harm: the container could tell the person's side that a message was read which the agent
+        // never had.
+        final Mailbox review = mailbox("porelo-p-review");
+        Files.writeString(review.record().resolve(TransportConversations.ARRIVED), "$a.json\n");
+        Files.writeString(review.inboxCur().resolve("$a.json"), "{}");
+
+        assertThat(TransportConversations.taken(new Mailbox(review.root(), () -> "someone-else")))
+                .as("a file the account does not own was not taken from Porelo")
+                .isEmpty();
+        assertThat(TransportConversations.taken(review))
+                .as("the account's own file was")
+                .containsExactly("$a.json");
+    }
 }

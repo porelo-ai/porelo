@@ -240,6 +240,91 @@ class MailboxTest {
         assertThat(walks.get()).as("walked again, a bounded number of times").isBetween(2, 10);
     }
 
+    @Test
+    void a_message_the_host_delivered_counts_as_delivered() throws IOException {
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path staged = Files.writeString(mailbox.inboxTmp().resolve("m.json"), "{}");
+
+        final Path delivered = mailbox.intoInbox(staged);
+
+        assertThat(mailbox.delivered(delivered))
+                .as("renamed in by the account running Porelo, so its own")
+                .isTrue();
+    }
+
+    @Test
+    void a_file_of_another_account_in_the_inbox_is_not_delivered() throws IOException {
+        // As the agent's user writes one inside the container: the account running Porelo is not
+        // its owner.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"), () -> "someone-else");
+        mailbox.create();
+        final Path planted = Files.writeString(mailbox.inboxNew().resolve("m.json"), "{}");
+
+        assertThat(mailbox.delivered(planted))
+                .as("a file the account does not own was not delivered by Porelo")
+                .isFalse();
+    }
+
+    @Test
+    void a_link_in_the_inbox_is_not_delivered_even_to_a_delivered_message() throws IOException {
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path real =
+                mailbox.intoInbox(Files.writeString(mailbox.inboxTmp().resolve("m.json"), "{}"));
+        final Path link = Files.createSymbolicLink(mailbox.inboxCur().resolve("copy.json"), real);
+
+        assertThat(mailbox.delivered(link)).as("a link is never followed").isFalse();
+    }
+
+    @Test
+    void a_directory_or_a_missing_name_in_the_inbox_is_not_delivered() throws IOException {
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path directory = Files.createDirectory(mailbox.inboxNew().resolve("d.json"));
+
+        assertThat(mailbox.delivered(directory)).as("a directory is no message").isFalse();
+        assertThat(mailbox.delivered(mailbox.inboxNew().resolve("gone.json")))
+                .as("a name with nothing behind it is no message")
+                .isFalse();
+    }
+
+    @Test
+    void a_delivered_message_is_read_through_a_pin_that_leaves_nothing_behind() throws IOException {
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path delivered =
+                mailbox.intoInbox(Files.writeString(mailbox.inboxTmp().resolve("m.json"), "{}"));
+
+        assertThat(mailbox.readDelivered(delivered, 1024))
+                .as("its bytes")
+                .isEqualTo("{}".getBytes());
+        assertThat(mailbox.inboxTmp()).as("the pin is gone again").isEmptyDirectory();
+    }
+
+    @Test
+    void a_link_a_pipe_or_another_accounts_file_in_the_inbox_is_never_read() throws Exception {
+        // Harm: a pipe put in place of a message held the host's read and every mailbox's pass; a
+        // link or another account's file would be read as Porelo's message.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path delivered =
+                mailbox.intoInbox(Files.writeString(mailbox.inboxTmp().resolve("m.json"), "{}"));
+        final Path link = Files.createSymbolicLink(mailbox.inboxCur().resolve("l.json"), delivered);
+        final Path pipe = mailbox.inboxNew().resolve("p.json");
+        assertThat(new ProcessBuilder("mkfifo", pipe.toString()).start().waitFor())
+                .as("mkfifo made the pipe")
+                .isZero();
+
+        assertThat(mailbox.readDelivered(link, 1024)).as("a link is not followed").isNull();
+        assertThat(mailbox.readDelivered(pipe, 1024)).as("a pipe is never opened").isNull();
+        assertThat(new Mailbox(mailbox.root(), () -> "someone-else").readDelivered(delivered, 1024))
+                .as("another account's file is not read")
+                .isNull();
+        assertThat(mailbox.readDelivered(delivered, 1)).as("beyond the limit").isNull();
+        assertThat(mailbox.inboxTmp()).as("no pin is left").isEmptyDirectory();
+    }
+
     private static void late(final Path file) {
         try {
             Files.writeString(file, "late");

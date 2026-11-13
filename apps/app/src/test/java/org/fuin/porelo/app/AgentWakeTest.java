@@ -705,4 +705,31 @@ class AgentWakeTest {
                 .isFalse();
         assertThat(typed.get()).isEqualTo(1);
     }
+
+    @Test
+    void aFileInTheInboxThatPoreloDidNotDeliverWakesNobody() throws IOException {
+        // Harm: a file a process in the container wrote, looking like a person's direct line, would
+        // type into the agent as if a person had written.
+        final PoreloContext context = context();
+        final Path root = dir.resolve("mail/porelo-p-review");
+        new Mailbox(root).create();
+        Files.writeString(
+                root.resolve("box/inbox/new/m.json"),
+                "{\"role\":\"" + MessageSay.ROLE + "\",\"metadata\":{\"direct\":true}}");
+
+        assertThat(
+                        new AgentWake(context)
+                                .announce(
+                                        new Mailbox(root, () -> "someone-else"),
+                                        "porelo-p-review",
+                                        "p",
+                                        () -> true))
+                .as("not the account's file, so not Porelo's message")
+                .isFalse();
+        assertThat(
+                        new AgentWake(context)
+                                .announce(new Mailbox(root), "porelo-p-review", "p", () -> true))
+                .as("the same file, delivered by the account, wakes it")
+                .isTrue();
+    }
 }

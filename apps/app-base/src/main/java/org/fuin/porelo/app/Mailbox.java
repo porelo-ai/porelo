@@ -77,13 +77,31 @@ public final class Mailbox {
 
     private final Path root;
 
+    /** Who delivers into it, or {@code null} for the owner of {@link #root()}. */
+    private final java.nio.file.attribute.@org.jspecify.annotations.Nullable UserPrincipal account;
+
     /**
      * Constructor with the directory this mailbox lives in. Creates nothing.
      *
      * @param root Root of the mailbox, per task.
      */
     public Mailbox(final Path root) {
+        this(root, null);
+    }
+
+    /**
+     * Constructor with the account that delivers into it, so a test can name an account its files
+     * do not belong to.
+     *
+     * @param root Root of the mailbox, per task.
+     * @param account The account running Porelo, or {@code null} for the owner of the root.
+     */
+    Mailbox(
+            final Path root,
+            final java.nio.file.attribute.@org.jspecify.annotations.Nullable UserPrincipal
+                    account) {
         this.root = root;
+        this.account = account;
     }
 
     /**
@@ -435,6 +453,75 @@ public final class Mailbox {
         final Path delivered = inboxNew().resolve(staged.getFileName());
         Files.move(staged, delivered, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
         return delivered;
+    }
+
+    /**
+     * Returns whether a file in the inbox is one Porelo delivered: a regular file, not followed,
+     * owned by the account running Porelo.
+     *
+     * <p>The inbox is the agent's to write, so anything in the container can put a file there that
+     * reads like a person's or a peer's message. Only the owner tells them apart: the host renames
+     * what it delivers, which keeps the account as its owner, and the agent's user - root's
+     * subordinate inside the container - cannot make a file the account's. A file whose owner
+     * cannot be read is not delivered.
+     *
+     * @param file A file in {@link #inboxNew()} or {@link #inboxCur()}.
+     * @return {@code true} when Porelo delivered it.
+     */
+    public boolean delivered(final Path file) {
+        try {
+            final java.nio.file.attribute.PosixFileAttributes attributes =
+                    Files.readAttributes(
+                            file,
+                            java.nio.file.attribute.PosixFileAttributes.class,
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            return attributes.isRegularFile() && attributes.owner().equals(account());
+        } catch (final IOException | UnsupportedOperationException ex) {
+            return false;
+        }
+    }
+
+    /**
+     * Reads a file in the inbox when Porelo delivered it, as it was when it was looked at, or
+     * returns {@code null}.
+     *
+     * <p>Through a hard link the host makes in {@link #inboxTmp()}, which the agent cannot write: a
+     * name in the inbox can be replaced between a check and a read, a link cannot. A link is never
+     * followed - {@code link(2)} links the link itself - and nothing but a regular file is opened,
+     * so a pipe put there never holds the host's read.
+     *
+     * @param file A file in {@link #inboxNew()} or {@link #inboxCur()}.
+     * @param most The most bytes a message may hold.
+     * @return Its bytes, or {@code null} when it is gone, not Porelo's, or beyond {@code most}.
+     * @throws IOException If reading the pinned file failed.
+     */
+    public byte @org.jspecify.annotations.Nullable [] readDelivered(final Path file, final int most)
+            throws IOException {
+        final Path pinned = inboxTmp().resolve(".pin-" + java.util.UUID.randomUUID());
+        try {
+            Files.createLink(pinned, file);
+        } catch (final IOException | UnsupportedOperationException ex) {
+            // Gone, another account's (the kernel refuses to link it), or not a file at all.
+            return null;
+        }
+        try {
+            if (!delivered(pinned)) {
+                return null;
+            }
+            try (java.io.InputStream in =
+                    Files.newInputStream(pinned, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                final byte[] read = in.readNBytes(most + 1);
+                return read.length > most ? null : read;
+            }
+        } finally {
+            Files.deleteIfExists(pinned);
+        }
+    }
+
+    private java.nio.file.attribute.UserPrincipal account() throws IOException {
+        return account != null
+                ? account
+                : Files.getOwner(root, java.nio.file.LinkOption.NOFOLLOW_LINKS);
     }
 
     /**

@@ -1,0 +1,2 @@
+title: "A file a process in the task put into its own inbox is never taken for a message Porelo delivered: the host neither wakes the agent for it, counts it, reads it for the message log nor marks it read, `porelo task status` names it on an `inbox` line, and the agent's guide says to read only root's regular files"
+type: security

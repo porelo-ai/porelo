@@ -76,6 +76,16 @@ public final class MessageVerify {
                 continue;
             }
             checked++;
+            final boolean inbox = !mailbox.sent().equals(message.getParent());
+            final byte[] bytes =
+                    inbox
+                            ? mailbox.readDelivered(message, MessageIntake.MAX_BYTES)
+                            : MessageIntake.taskWritten(message);
+            if (inbox && bytes == null && !mailbox.delivered(message)) {
+                // Anything in the container can write into the inbox, under a recorded name too.
+                faults.add(new Fault(messageName, "it was not delivered by Porelo"));
+                continue;
+            }
             final String armored = Files.readString(signature, StandardCharsets.UTF_8);
             final byte[] signer = SshSignature.signerOf(armored);
             if (signer == null || !certified.test(signer)) {
@@ -83,7 +93,7 @@ public final class MessageVerify {
                         new Fault(
                                 messageName,
                                 "its signature is by no task key whose certificate is kept"));
-            } else if (!matches(message, armored, signer)) {
+            } else if (!matches(bytes, armored, signer)) {
                 faults.add(
                         new Fault(
                                 messageName, "it no longer matches the signature it arrived with"));
@@ -96,9 +106,10 @@ public final class MessageVerify {
      * Says whether a message still is what its signature was made over: read as the task left it in
      * its inbox, so a link or a file beyond a message's size is no longer that message.
      */
-    private static boolean matches(final Path message, final String armored, final byte[] signer)
-            throws IOException {
-        final byte[] bytes = MessageIntake.taskWritten(message);
+    private static boolean matches(
+            final byte @org.jspecify.annotations.Nullable [] bytes,
+            final String armored,
+            final byte[] signer) {
         return bytes != null
                 && SshSignature.verify(bytes, armored, signer, MessageIntake.NAMESPACE);
     }

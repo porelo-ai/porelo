@@ -2234,13 +2234,14 @@ public final class TaskInventory {
 
     /** Counts waiting files without entering the container or creating a mailbox. */
     private int inboxWaiting(String container) {
-        final Path inbox = new Mailbox(context.paths().messaging().mailbox(container)).inboxNew();
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        final Path inbox = mailbox.inboxNew();
         if (!Files.isDirectory(inbox)) {
             return 0;
         }
         try (java.util.stream.Stream<Path> files = Files.list(inbox)) {
             return Math.toIntExact(
-                    files.filter(Files::isRegularFile)
+                    files.filter(mailbox::delivered)
                             .filter(path -> path.getFileName().toString().endsWith(".json"))
                             .count());
         } catch (java.io.IOException | java.io.UncheckedIOException ex) {

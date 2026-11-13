@@ -99,4 +99,20 @@ class MessageVerifyTest {
         assertThat(report.faults()).isEmpty();
         assertThat(report.signatures()).isZero();
     }
+
+    @Test
+    void names_a_message_that_porelo_did_not_deliver(@TempDir final Path dir) throws IOException {
+        // Harm: a file the container put under a recorded name must not pass for that message.
+        final Mailbox mailbox = delivered(dir, "{\"messageId\":\"m-1\"}");
+
+        assertThat(
+                        new MessageVerify()
+                                .check(new Mailbox(mailbox.root(), () -> "someone-else"), certified)
+                                .faults())
+                .singleElement()
+                .satisfies(
+                        fault ->
+                                assertThat(fault.detail())
+                                        .isEqualTo("it was not delivered by Porelo"));
+    }
 }

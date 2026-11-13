@@ -69,6 +69,9 @@ public final class MessageRecord {
     /** What a task sent was read where it went, as the transport's {@code receipt} says. */
     public static final String READ = "read";
 
+    /** A file in the inbox that Porelo did not deliver, named once and never read. */
+    public static final String PLANTED = "planted";
+
     private final Path file;
 
     /**

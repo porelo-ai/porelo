@@ -128,8 +128,16 @@ public final class AgentWake {
             final String container,
             final @org.jspecify.annotations.Nullable String task,
             final Path answers) {
+        final byte[] bytes;
+        try {
+            // The task writes its inbox: what is read there is a regular file of a message's size.
+            bytes = MessageIntake.taskWritten(message);
+        } catch (final IOException ex) {
+            return false;
+        }
         return namesIt(
                 message,
+                bytes,
                 container,
                 task,
                 answers,
@@ -138,13 +146,12 @@ public final class AgentWake {
 
     private static boolean namesIt(
             final Path message,
+            final byte @org.jspecify.annotations.Nullable [] bytes,
             final String container,
             final @org.jspecify.annotations.Nullable String task,
             final Path answers,
             final List<String> displays) {
         try {
-            // The task writes its inbox: what is read there is a regular file of a message's size.
-            final byte[] bytes = MessageIntake.taskWritten(message);
             if (bytes == null
                     || !(Json.parse(new String(bytes, StandardCharsets.UTF_8))
                             instanceof Map<?, ?> document)) {
@@ -193,6 +200,15 @@ public final class AgentWake {
                     .anyMatch(name -> TaskRecipients.names(container, task, displays, name));
         } catch (final IOException | RuntimeException ex) {
             return false;
+        }
+    }
+
+    private static byte @org.jspecify.annotations.Nullable [] pinnedRead(
+            final Mailbox mailbox, final Path message) {
+        try {
+            return mailbox.readDelivered(message, MessageIntake.MAX_BYTES);
+        } catch (final IOException ex) {
+            return null;
         }
     }
 
@@ -322,6 +338,9 @@ public final class AgentWake {
                                     path ->
                                             namesIt(
                                                     path,
+                                                    // Anything in the container can write here;
+                                                    // only what Porelo delivered wakes it.
+                                                    pinnedRead(mailbox, path),
                                                     container,
                                                     TaskRecipients.task(
                                                             context, container, knownProject),

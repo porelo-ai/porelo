@@ -73,7 +73,7 @@ public class TalkLogCommand implements Callable<Integer>, PoreloFactory.ContextA
             final Set<String> announced = announced(mailbox);
             final List<Path> directories = messageDirectories(mailbox);
             for (final Map<String, Object> entry : entries) {
-                out.println(Json.write(jsonEntry(entry, directories, announced)));
+                out.println(Json.write(jsonEntry(entry, mailbox, directories, announced)));
             }
             out.flush();
             return 0;
@@ -109,6 +109,7 @@ public class TalkLogCommand implements Callable<Integer>, PoreloFactory.ContextA
 
     private static Map<String, @Nullable Object> jsonEntry(
             final Map<String, Object> entry,
+            final Mailbox mailbox,
             final List<Path> directories,
             final Set<String> announced)
             throws IOException {
@@ -118,7 +119,7 @@ public class TalkLogCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
         final String name = String.valueOf(entry.getOrDefault("message", ""));
         final String id = String.valueOf(entry.getOrDefault("id", ""));
-        final Audience audience = audience(directories, name, id);
+        final Audience audience = audience(mailbox, directories, name, id);
         line.put("messageMissing", audience == null);
         line.put("to", audience == null ? null : audience.to());
         line.put("via", audience == null ? null : audience.via());
@@ -151,7 +152,8 @@ public class TalkLogCommand implements Callable<Integer>, PoreloFactory.ContextA
     }
 
     private static @Nullable Audience audience(
-            final List<Path> directories, final String name, final String id) throws IOException {
+            final Mailbox mailbox, final List<Path> directories, final String name, final String id)
+            throws IOException {
         if (name.isEmpty()) {
             return null;
         }
@@ -163,9 +165,22 @@ public class TalkLogCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
         for (final Path directory : directories) {
             final Path file = directory.resolve(name);
+            final boolean inbox =
+                    directory.equals(mailbox.inboxNew()) || directory.equals(mailbox.inboxCur());
+            if (inbox && !Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+                continue;
+            }
             final byte[] bytes;
             try {
-                bytes = MessageIntake.taskWritten(file);
+                // In the inbox only what Porelo delivered: anything in the container can write a
+                // file there under a recorded name.
+                bytes =
+                        inbox
+                                ? mailbox.readDelivered(file, MessageIntake.MAX_BYTES)
+                                : MessageIntake.taskWritten(file);
+                if (inbox && bytes == null) {
+                    continue;
+                }
             } catch (final NoSuchFileException ex) {
                 // An agent may have moved a message from new to cur while the log was read.
                 continue;

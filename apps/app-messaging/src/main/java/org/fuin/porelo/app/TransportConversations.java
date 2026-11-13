@@ -1009,7 +1009,9 @@ final class TransportConversations {
         arrived.removeAll(lines(mailbox.record().resolve(MARK_REFUSED)));
         final Set<String> taken = new LinkedHashSet<>();
         try (Stream<Path> current = Files.list(mailbox.inboxCur())) {
-            current.map(path -> path.getFileName().toString())
+            // A file of that name the container wrote tells the transport nothing was read.
+            current.filter(mailbox::delivered)
+                    .map(path -> path.getFileName().toString())
                     // A maildir reader may append flags to the name it moves into cur
                     // ("<name>:2,S").
                     .map(name -> name.contains(":") ? name.substring(0, name.indexOf(':')) : name)

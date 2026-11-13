@@ -187,6 +187,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                 "off".equals(task.clearance())
                         ? warn("off - nothing asks and nothing is refused")
                         : task.clearance());
+        // Whatever wrote into the inbox is running in the task: a person should know.
+        line(out, "inbox", plantedLine(task.name()));
         out.println();
         line(out, "branch", task.branch());
         // Beyond the gate: what an online push arrives as, and where an approval goes by default.
@@ -352,6 +354,33 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
      * @param text What to mark.
      * @return The text, painted or not.
      */
+    /**
+     * Says which files in the task's inbox Porelo did not deliver, as its record names them, or
+     * {@code null} when there are none or the record cannot be read.
+     */
+    private @org.jspecify.annotations.Nullable String plantedLine(final String container) {
+        final List<String> planted;
+        try {
+            planted =
+                    InboxPlants.planted(
+                            new MessageRecord(
+                                    new Mailbox(context.paths().messaging().mailbox(container))));
+        } catch (final java.io.IOException | RuntimeException ex) {
+            return null;
+        }
+        if (planted.isEmpty()) {
+            return null;
+        }
+        final int shown = Math.min(3, planted.size());
+        return warn(
+                planted.size()
+                        + " not delivered by Porelo, left unread: "
+                        + planted.subList(0, shown).stream()
+                                .map(TalkReadCommand::shown)
+                                .collect(java.util.stream.Collectors.joining(", "))
+                        + (planted.size() > shown ? ", ..." : ""));
+    }
+
     private static String warn(String text) {
         return picocli.CommandLine.Help.Ansi.AUTO.string("@|yellow " + text + "|@");
     }

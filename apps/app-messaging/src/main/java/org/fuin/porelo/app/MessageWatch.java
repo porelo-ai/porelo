@@ -407,6 +407,7 @@ public final class MessageWatch implements AutoCloseable {
                                         keys,
                                         moderationOf(container));
                 woken(container, new Mailbox(mailbox), report);
+                InboxPlants.note(new Mailbox(mailbox));
                 moved++;
             } catch (final IOException | RuntimeException ex) {
                 continue;
