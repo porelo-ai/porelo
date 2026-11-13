@@ -433,4 +433,85 @@ class ClearanceHubTest {
         assertThat(announced.getLast().verdict()).isEqualTo(Verdict.TIMEOUT);
         assertThat(allowed).isEmpty();
     }
+
+    private static final Blocked DOCS =
+            new Blocked("1.1.1.1", 443, "tcp", "docs.example.test:443", "docs.example.test");
+
+    @Test
+    void aGrantAfterAQuestionNobodyAnsweredAllowsTheAddress() {
+
+        // Granting the name live did nothing while the address kept its earlier, unanswered
+        // verdict: every connection was still dropped.
+        final ClearanceHub hub = hub(Verdict.TIMEOUT);
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.TIMEOUT);
+
+        hub.granted("docs.example.test"::equals);
+
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.ALLOW);
+        assertThat(allowed).containsExactly("1.1.1.1");
+        assertThat(announced.getLast().source()).isEqualTo(Decision.GRANTED);
+    }
+
+    @Test
+    void aGrantAfterTheLimitOfQuestionsAllowsTheAddress() {
+
+        final ClearanceHub hub = hub(Verdict.TIMEOUT);
+        for (int port = 1; port <= ClearanceHub.MAX_QUESTIONS; port++) {
+            hub.handle(new Blocked("9.9.9.9", port, "tcp", "9.9.9.9:" + port));
+        }
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.DENY);
+        assertThat(announced.getLast().source()).isEqualTo(Decision.LIMIT);
+
+        hub.granted("docs.example.test"::equals);
+
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.ALLOW);
+        assertThat(allowed).containsExactly("1.1.1.1");
+    }
+
+    @Test
+    void aGrantWhileTheQuestionWaitsAllowsAndItsRunningOutDoesNotUndoIt() {
+
+        final ClearanceHub[] holder = new ClearanceHub[1];
+        final List<Verdict> meanwhile = new ArrayList<>();
+        holder[0] =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            holder[0].granted("docs.example.test"::equals);
+                            meanwhile.add(holder[0].handle(DOCS));
+                            return Verdict.TIMEOUT;
+                        },
+                        (address, name) -> allowed.add(address));
+
+        assertThat(holder[0].handle(DOCS)).isEqualTo(Verdict.ALLOW);
+        assertThat(meanwhile).containsExactly(Verdict.ALLOW);
+        assertThat(holder[0].decisions()).containsEntry(DOCS.key(), Verdict.ALLOW);
+        assertThat(allowed).containsExactly("1.1.1.1");
+    }
+
+    @Test
+    void aGrantDoesNotUndoAPersonsDeny() {
+
+        // A person said no to this address; a grant of a name it answers for does not overrule
+        // them.
+        final ClearanceHub hub = hub(Verdict.DENY);
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.DENY);
+        hub.decide(QUAD_NINE.key(), "9.9.9.9", Verdict.DENY);
+
+        hub.granted(name -> true);
+
+        assertThat(hub.handle(DOCS)).isEqualTo(Verdict.DENY);
+        assertThat(
+                        hub.handle(
+                                new Blocked(
+                                        "9.9.9.9",
+                                        443,
+                                        "tcp",
+                                        "docs.example.test:443",
+                                        "docs.example.test")))
+                .as("nor a client's")
+                .isEqualTo(Verdict.DENY);
+        assertThat(allowed).isEmpty();
+    }
 }

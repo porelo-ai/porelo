@@ -20,27 +20,67 @@ public final class ResolvedNames {
         throw new UnsupportedOperationException("Utility class");
     }
 
+    /** What dnsmasq logs for an answer that is a CNAME rather than an address. */
+    private static final String CNAME = "<CNAME>";
+
     /**
-     * Returns the name most recently answered with an address.
+     * Returns the name most recently answered with an address: under a CNAME, the name the
+     * container asked for, not the name the chain ended at.
      *
      * @param log Contents of the resolver's log.
      * @param address Address to look up.
      * @return The name, or empty when the resolver never answered it.
      */
     public static Optional<String> nameFor(String log, String address) {
-        final String suffix = " is " + address;
         String found = null;
+        // The name a chain of CNAMEs started at, while its lines last.
+        String asked = null;
+        // The name the chain ended at, whose addresses are the asked name's.
+        String target = null;
+        boolean inChain = false;
         for (final String line : log.split("\\R")) {
             // 'reply' is a fresh answer and 'cached' is a repeat of one; both say what the
             // container was told, which is what the operator is being asked about.
-            final int marker = markerAt(line);
-            if (marker < 0 || !line.endsWith(suffix)) {
+            if (line.contains(" query[")) {
+                // A new question: what follows answers it, not the chain before.
+                asked = null;
+                target = null;
+                inChain = false;
                 continue;
             }
-            final String name = line.substring(marker, line.length() - suffix.length()).strip();
-            if (!name.isEmpty() && !name.contains(" ")) {
+            final int marker = markerAt(line);
+            final int is = line.lastIndexOf(" is ");
+            if (marker < 0 || is < marker) {
+                continue;
+            }
+            final String name = line.substring(marker, is).strip();
+            final String value = line.substring(is + " is ".length()).strip();
+            if (name.isEmpty() || name.contains(" ")) {
+                continue;
+            }
+            if (value.equals(CNAME)) {
+                // dnsmasq logs a chain as consecutive lines, the name asked for first.
+                if (!inChain) {
+                    asked = name;
+                }
+                inChain = true;
+                continue;
+            }
+            final String owner;
+            if (inChain) {
+                target = name;
+                owner = asked;
+            } else if (name.equals(target) && asked != null) {
+                owner = asked;
+            } else {
+                asked = null;
+                target = null;
+                owner = name;
+            }
+            inChain = false;
+            if (value.equals(address)) {
                 // Keep looking: the last answer is the one that led to this connection.
-                found = name;
+                found = owner;
             }
         }
         return Optional.ofNullable(found);

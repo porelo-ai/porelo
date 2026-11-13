@@ -57,6 +57,13 @@ public class ClearanceHub {
     private final List<Consumer<Decision>> listeners = new CopyOnWriteArrayList<>();
 
     /**
+     * The destinations a person answered, at the notification or from a client. A grant of a name
+     * gives way to their answer; it overrides only a verdict nobody gave: a question that ran out,
+     * one past the limit, or one still on screen.
+     */
+    private final java.util.Set<String> answered = ConcurrentHashMap.newKeySet();
+
+    /**
      * Names this run was granted while it was running; asked afresh, because grants arrive late.
      */
     private java.util.function.Predicate<String> granted = name -> false;
@@ -184,7 +191,12 @@ public class ClearanceHub {
 
         final String key = blocked.key();
         final Verdict already = decided.get(key);
-        if (already != null) {
+        if (already != null
+                && (already.allows()
+                        || answered.contains(key)
+                        || neverAsked(blocked.destination())
+                        || blocked.name() == null
+                        || !granted.test(blocked.name()))) {
             return already;
         }
 
@@ -199,6 +211,8 @@ public class ClearanceHub {
         // first connection to it was still dropped - the packet is gone and the agent will retry -
         // and every one after this is not.
         if (blocked.name() != null && granted.test(blocked.name())) {
+            // A question still on screen is settled: its running out must not undo this.
+            asking.remove(key);
             decided.put(key, Verdict.ALLOW);
             seen.put(key, blocked);
             allow.accept(blocked.destination(), blocked.name());
@@ -239,6 +253,9 @@ public class ClearanceHub {
         // and stands.
         if (!asking.remove(key) && verdict == Verdict.TIMEOUT) {
             return decided.getOrDefault(key, Verdict.DENY);
+        }
+        if (verdict != Verdict.TIMEOUT) {
+            answered.add(key);
         }
         decided.put(key, verdict);
 
@@ -293,6 +310,9 @@ public class ClearanceHub {
                     }
                     return;
                 }
+                if (verdict != Verdict.TIMEOUT) {
+                    answered.add(key);
+                }
                 final Verdict previous = decided.put(key, verdict);
                 if (verdict.allows() && (previous == null || !previous.allows())) {
                     // No name here: a verdict from a client names an address, and the name it was
@@ -334,6 +354,11 @@ public class ClearanceHub {
                 continue;
             }
             decided.put(decision.key(), decision.verdict());
+            if (decision.verdict() != Verdict.TIMEOUT
+                    && (Decision.PROMPT.equals(decision.source())
+                            || Decision.CLIENT.equals(decision.source()))) {
+                answered.add(decision.key());
+            }
             seen.put(
                     decision.key(),
                     new Blocked(

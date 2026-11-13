@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B237",
   "title": "A Name Granted Live Through A CNAME",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 37,
@@ -58,3 +58,31 @@ Read in `DnsPolicy`, `RunningEgress`, `ResolvedNames`, `ShieldWatchCommand`, `Cl
 
 - The task's `dnsmasq.log` lines for a CNAME answer, read on the VM, and that the "target granted too" failure was
   the earlier verdict.
+
+## Done
+
+Built as planned.
+
+- **The name asked for.** `ResolvedNames.nameFor` follows dnsmasq's lines for a CNAME: the name asked for with
+  `<CNAME>`, each name of the chain, then the addresses under the last. Every address of that answer is the asked
+  name's. A target asked for by its own name, after a new `query[` line, is that name. `ShieldWatchCommand` needed no
+  change: it builds `Blocked` with what `ResolvedNames.lookup` gives, so the grant check, the name shown and the
+  addresses recorded for the grant all use the granted name.
+- **A grant over an earlier verdict.** `ClearanceHub.handle` lets a grant override a verdict for the address that no
+  person gave: a question that ran out, one past the limit, or one still on screen, whose running out then no longer
+  undoes the grant. A person's answer at the notification or from a client stays, also after a restore.
+- **Red first.** `ResolvedNamesTest.namesTheNameAskedForWhenTheAnswerCameThroughACname` and three of the four new
+  `ClearanceHubTest` cases failed; the fourth, that a person's deny stays, passed from the start, as it should.
+  shield whole (88) and clearance whole (47) passed, and so did the root's `validate` and `-Pdocuments test`.
+- **On the VM** (ubuntu, smith2, account-local `porelo` and `porelod` from this branch, the packaged hooks, the stub
+  agent, a guarded project without a gate, clearance `prompt`):
+  - The task's `dnsmasq.log` shows a CNAME as read: `reply fuinorg.jfrog.io is <CNAME>`, then
+    `reply endpointdns-gcprod-2-use1-inc-lb.jfrog.io is 34.26.205.234`, and `... is NODATA-IPv6` for AAAA.
+  - `fuinorg.jfrog.io` granted live answered 200 at the first try (1.8 s) after one drop, then 0.9 s and 0.75 s; the
+    clearance log says `decided allow fuinorg.jfrog.io:443 (34.26.205.234) by granted`.
+  - `--remove-domain fuinorg.jfrog.io` removed its address, and the next fetch failed at once. `github.com` granted
+    live answered 200 twice.
+  - Seen to fail first: the same steps with the packaged `porelo` of this morning timed out at 40 s twice, 4 drops.
+- **Seen on the way, not changed here.** `shield egress --task` takes the container's name (`porelo-cnt_cnt-2`); the
+  name `task list` shows (`cnt-2`) is refused as "no running task". A start refused at the gate left a reservation
+  that `task remove --force` does not find, so `project clear` refused until the start was retried.
