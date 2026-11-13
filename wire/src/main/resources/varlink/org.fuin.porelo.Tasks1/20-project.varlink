@@ -387,8 +387,140 @@ type DefaultRepository (
   remote: string,
   # The placed project that names the same repository, or "". Its tasks then start there, and an
   # interface offers to take the repository out of 'default'.
-  claimedBy: string
+  claimedBy: string,
+  # Whether a proposal is still to be offered for it: UNASKED (never answered), ASKED (TakeProposal
+  # took the person's answer, whichever it was) or CONFIGURED (a porelo.yml or .porelo.yml in its
+  # checkout, or a project of the organization naming it). CONFIGURED is worked out from what is
+  # there each time it is asked, never recorded, so no client derives whether to ask. An older
+  # daemon sends no such field.
+  proposal: string
 )
+
+# Asks every installed ecosystem adapter what it recognizes in a repository of 'default' and merges
+# the answers into a project.yml draft, as 'porelo project init' does: one implementation, two
+# renderings. Streamed: one reply per adapter as it answers, carrying 'adapter', then a last reply
+# carrying 'proposal'; asked without 'more' it is refused with StreamRequired. Nothing is written
+# and nothing is recorded - TakeProposal records the person's answer. Only a repository of 'default'
+# added from a checkout on this machine is read, as the person sees it; any other is refused with
+# NotProposable and stays UNASKED. A credential is named by its id alone: no reply carries a value.
+# An older daemon answers MethodNotFound, which a client reads as "this machine cannot propose".
+method ProposeProject(
+  # The project: "default" alone.
+  project: string,
+  # The repository's name in 'default', as DefaultRepositories gives it.
+  repository: string
+) -> (
+  # One adapter's answer, in every reply but the last.
+  adapter: ?ProposalAdapter,
+  # The merged proposal, in the last reply alone.
+  proposal: ?Proposal
+)
+
+# One ecosystem adapter's answer to ProposeProject.
+type ProposalAdapter (
+  # Its name, as Ecosystems lists it.
+  name: string,
+  # recognized; refused (it could not be started or asked); or its own refusal as its contract
+  # names it, NotRecognized or Unreadable.
+  state: string,
+  # Why, for any state but recognized; else "".
+  why: string
+)
+
+# What the adapters' answers make together.
+type Proposal (
+  # The repository's name in the draft.
+  repository: string,
+  # Where a task of the drafted project takes it from, or absent when the checkout names no address
+  # that can be kept.
+  upstream: ?string,
+  # The project.yml draft, as it would be written: read back through the project file's reader
+  # before it is answered.
+  draft: string,
+  # Every value an adapter found, but a credential.
+  values: []ProposedValue,
+  # Keys two adapters gave different values for; left out of the draft.
+  disagreements: []Disagreement,
+  # What an adapter read and could place nowhere.
+  unplaced: []ProposalUnplaced,
+  # Values found but left out of the draft: unknown, or running into another.
+  notPlaced: []ProposedValue,
+  # Each credential an adapter named, by its id, with what stores it on this machine.
+  credentials: []ProposedCredential,
+  # Why a value was refused from the draft, one sentence each.
+  refused: []string,
+  # What an adapter could not look up, where what it read stands; one sentence each.
+  notes: []string
+)
+
+# One value an adapter found.
+type ProposedValue (
+  # TOOLS or RULES.
+  part: string,
+  key: string,
+  # "" when unknown.
+  value: string,
+  # Where it was read, relative to the checkout or the person's home; "" for the machine's own.
+  file: string,
+  # Its line there, 0 when the file says it as a whole.
+  line: int,
+  # YOURS (the account porelod runs as), CHECKOUT or MACHINE.
+  origin: string,
+  # The adapter knows the key and could not read its value.
+  unknown: bool,
+  # What the adapter says of it, or "".
+  note: string,
+  # The adapter that found it.
+  adapter: string
+)
+
+# A key two adapters gave different values for.
+type Disagreement (
+  key: string,
+  # Every value given for it, with its adapter.
+  values: []ProposedValue
+)
+
+# What an adapter read and could place nowhere.
+type ProposalUnplaced (
+  file: string,
+  line: int,
+  note: string,
+  adapter: string
+)
+
+# A credential an adapter named. Its value is never asked of an adapter and never answered.
+type ProposedCredential (
+  id: string,
+  # What to run ON THIS MACHINE to store its value, as arguments: its declared record's command,
+  # else the vault's own.
+  storeCommand: []string,
+  # What that command needs on its standard input, in words, or "" when it asks for the value.
+  storeStdin: string
+)
+
+# Records the person's answer to a proposal for a repository of 'default': ASKED, whichever the
+# choice, so no interface asks again. Writes no file. TOOLS_AND_DRAFT asks the adapters again and
+# answers the project.yml draft, which the person files themselves; nothing is recorded when that
+# fails. Refused as ProposeProject is, and the repository then stays UNASKED.
+method TakeProposal(
+  # The project: "default" alone.
+  project: string,
+  # The repository's name in 'default'.
+  repository: string,
+  # TOOLS, TOOLS_AND_DRAFT or NONE.
+  choice: string
+) -> (
+  # The repository as it is now.
+  repository: DefaultRepository,
+  # The project.yml draft, under TOOLS_AND_DRAFT alone.
+  draft: ?string
+)
+
+# ProposeProject or TakeProposal cannot read this repository: 'reason' is no-checkout (a repository
+# added by address, or whose checkout is gone - its mirror is not read yet) or not-default (a
+# project other than 'default'). Nothing was asked or recorded.
+error NotProposable(reason: string)
 
 # Shows what nothing on this machine owns any more, and removes it with apply - what 'porelo prune'
 # does. Orphaned means only: a project with no running task and no readable project

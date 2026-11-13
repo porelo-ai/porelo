@@ -31,6 +31,64 @@ final class ProjectMethods {
                 throws org.fuin.porelo.app.ProjectTaking.Refused;
     }
 
+    /** Asks the installed ecosystem adapters; a test installs stub ones. */
+    private static org.fuin.porelo.app.DefaultProposal proposals(final PoreloContext context) {
+        return new org.fuin.porelo.app.DefaultProposal(
+                context, org.fuin.porelo.app.EcosystemDetector.INSTALLED);
+    }
+
+    /** One step of a proposal, which may be refused. */
+    @FunctionalInterface
+    private interface Proposing<T> {
+        T run()
+                throws org.fuin.porelo.app.DefaultProposal.NotProposable,
+                        org.fuin.porelo.app.DefaultProposal.NoSuchRepository,
+                        java.io.IOException;
+    }
+
+    /** Runs a step of a proposal, each refusal its named error. */
+    private static <T> T proposing(final Proposing<T> step) {
+        try {
+            return step.run();
+        } catch (org.fuin.porelo.app.DefaultProposal.NotProposable ex) {
+            throw new VarlinkException(INTERFACE + ".NotProposable", Map.of("reason", ex.reason()));
+        } catch (org.fuin.porelo.app.DefaultProposal.NoSuchRepository ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".NoSuchDefaultRepository",
+                    Map.of("name", String.valueOf(ex.getMessage())));
+        } catch (org.fuin.porelo.ecosystem.api.EcosystemException ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".EcosystemsNotListed",
+                    Map.of(
+                            "detail",
+                            org.fuin.porelo.vault.RegistryText.printable(
+                                    String.valueOf(ex.getMessage()))));
+        } catch (java.io.IOException ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".Failed",
+                    Map.of(
+                            "message",
+                            org.fuin.porelo.vault.RegistryText.printable(
+                                    String.valueOf(ex.getMessage()))));
+        }
+    }
+
+    /**
+     * Returns a repository of 'default' as DefaultRepository: with the project that claims it and
+     * its proposal, worked out now.
+     */
+    private static Map<String, Object> defaultRow(
+            final PoreloContext context, final org.fuin.porelo.app.DefaultProject.Entry entry) {
+        final Map<String, Object> row =
+                new org.fuin.porelo.app.DefaultProposal(
+                                context, org.fuin.porelo.app.EcosystemDetector.INSTALLED)
+                        .row(entry);
+        final org.fuin.porelo.app.WorkOrigin.Choice claimed =
+                org.fuin.porelo.app.WorkOrigin.placedNaming(context, entry.upstream());
+        row.put("claimedBy", claimed == null ? "" : claimed.project());
+        return row;
+    }
+
     /**
      * Takes a project a host carries for this person, for their one act and never for a list: it
      * fetches, and on a host replaces the person's forge token.
@@ -387,12 +445,7 @@ final class ProjectMethods {
                     final java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
                     for (final org.fuin.porelo.app.DefaultProject.Entry entry :
                             new org.fuin.porelo.app.DefaultProject(context).usableEntries()) {
-                        final Map<String, Object> row = new LinkedHashMap<>(entry.asMap());
-                        final org.fuin.porelo.app.WorkOrigin.Choice claimed =
-                                org.fuin.porelo.app.WorkOrigin.placedNaming(
-                                        context, entry.upstream());
-                        row.put("claimedBy", claimed == null ? "" : claimed.project());
-                        rows.add(row);
+                        rows.add(defaultRow(context, entry));
                     }
                     replies.last(Map.of("repositories", rows));
                 });
@@ -407,17 +460,75 @@ final class ProjectMethods {
                                                 address(parameters, "upstream"),
                                                 empty(parameters, "name"),
                                                 "");
-                        final Map<String, Object> row = new LinkedHashMap<>(entry.asMap());
-                        final org.fuin.porelo.app.WorkOrigin.Choice claimed =
-                                org.fuin.porelo.app.WorkOrigin.placedNaming(
-                                        context, entry.upstream());
-                        row.put("claimedBy", claimed == null ? "" : claimed.project());
-                        replies.last(Map.of("repository", row));
+                        replies.last(Map.of("repository", defaultRow(context, entry)));
                     } catch (org.fuin.porelo.app.DefaultProject.Refused ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
                                 Map.of("message", String.valueOf(ex.getMessage())));
                     }
+                });
+
+        server.method(
+                "ProposeProject",
+                (parameters, replies) -> {
+                    if (!replies.streaming()) {
+                        throw new VarlinkException(
+                                INTERFACE + ".StreamRequired", Map.of("method", "ProposeProject"));
+                    }
+                    final Map<String, Object> proposal =
+                            proposing(
+                                    () -> {
+                                        try {
+                                            return proposals(context)
+                                                    .propose(
+                                                            text(parameters, "project"),
+                                                            text(parameters, "repository"),
+                                                            done -> {
+                                                                try {
+                                                                    replies.more(
+                                                                            Map.of(
+                                                                                    "adapter",
+                                                                                    done.asMap()));
+                                                                } catch (java.io.IOException ex) {
+                                                                    throw new java.io
+                                                                            .UncheckedIOException(
+                                                                            ex);
+                                                                }
+                                                            });
+                                        } catch (java.io.UncheckedIOException ex) {
+                                            throw ex.getCause();
+                                        }
+                                    });
+                    replies.last(Map.of("proposal", proposal));
+                });
+
+        server.method(
+                "TakeProposal",
+                (parameters, replies) -> {
+                    final org.fuin.porelo.app.DefaultProposal.Choice choice;
+                    try {
+                        choice =
+                                org.fuin.porelo.app.DefaultProposal.Choice.valueOf(
+                                        text(parameters, "choice"));
+                    } catch (IllegalArgumentException ex) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", "choice"));
+                    }
+                    final org.fuin.porelo.app.DefaultProposal.Taken taken =
+                            proposing(
+                                    () ->
+                                            proposals(context)
+                                                    .take(
+                                                            text(parameters, "project"),
+                                                            text(parameters, "repository"),
+                                                            choice));
+                    final Map<String, Object> reply = new LinkedHashMap<>();
+                    reply.put("repository", defaultRow(context, taken.entry()));
+                    if (taken.draft() != null) {
+                        reply.put("draft", taken.draft());
+                    }
+                    replies.last(reply);
                 });
 
         server.method(
@@ -640,6 +751,11 @@ final class ProjectMethods {
                 final org.fuin.porelo.app.DefaultNamed.@org.jspecify.annotations.Nullable Named
                         named = removed.named();
                 row.put("claimedBy", named == null ? "" : named.project());
+                row.put(
+                        "proposal",
+                        new org.fuin.porelo.app.DefaultProject(context)
+                                .proposal(removed.entry())
+                                .name());
                 yield Map.of(
                         "removed",
                         row,

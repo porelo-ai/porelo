@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B718",
   "title": "The Drafts Served Over The Daemon",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
@@ -32,3 +32,22 @@ Split from PJ52 on 2026-11-13. [B221](README.md#b221) built its smallest form an
 - Red first: a daemon test with a stub plugin streams one reply per plugin and `TakeProposal` records ASKED.
 - An older daemon answering MethodNotFound gives "cannot propose", never an error.
 - No credential appears in any reply.
+
+## Built
+
+- `20-project.varlink`: `DefaultRepository.proposal`; `ProposeProject`, streamed (refused with `StreamRequired`
+  without `more`), one reply per adapter with its name, state and why, then a last reply with the merged proposal:
+  the draft, the values with their part, disagreements, what was not placed, each credential by id with the command
+  that stores it, refusals and notes; `TakeProposal` with TOOLS, TOOLS_AND_DRAFT or NONE; `NotProposable` for a
+  repository with no checkout on this machine or a project other than `default`.
+- `DefaultProject` records ASKED in `repositories.json` under its lock; an absent field reads UNASKED. CONFIGURED is
+  worked out each time from a `porelo.yml` or `.porelo.yml` in the checkout or a project of the organization naming
+  the repository, never recorded.
+- `TakeProposal` writes no file; TOOLS_AND_DRAFT answers the `project.yml` draft. The `.porelo.yml` writer, a
+  repository with no checkout and the command line's question are left to their own issues.
+- The adapter loop moved from `ProjectInitCommand` into `ProjectProposal.propose`, which the daemon and the command
+  both render; `project init`'s output is unchanged.
+- `ProposalClient` reads an older daemon's MethodNotFound as "cannot propose", never an error.
+- The red no-credential assertion found that the sentence on what an adapter could not look up named credential
+  findings with their values, reaching `project init`'s notes; it now leaves them out.
+- Red first in `ProposalMethodsTest` (a stub adapter started as two plugins over the real protocol).

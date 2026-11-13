@@ -68,6 +68,24 @@ public final class DefaultProject {
     }
 
     /**
+     * Whether a proposal is still to be offered for a repository in it.
+     *
+     * <p>Only {@link #UNASKED} and {@link #ASKED} are recorded; {@link #CONFIGURED} is worked out
+     * from what is there each time it is asked, so a file added or removed by hand is seen at once.
+     */
+    public enum Proposal {
+
+        /** Never answered: an interface offers the proposal. */
+        UNASKED,
+
+        /** The person answered, whichever way: nothing asks again. */
+        ASKED,
+
+        /** The repository has settings of its own, or a project names it: nothing to propose. */
+        CONFIGURED
+    }
+
+    /**
      * One repository in it.
      *
      * @param name What {@code --repository} takes.
@@ -77,8 +95,42 @@ public final class DefaultProject {
      *     interface.
      * @param remote The checkout's {@code origin} when it was added from one, shown and never used;
      *     else the address.
+     * @param proposal What is recorded of a proposal for it: {@link Proposal#UNASKED} or {@link
+     *     Proposal#ASKED}, never {@link Proposal#CONFIGURED}.
      */
-    public record Entry(String name, String upstream, String checkout, String remote) {
+    public record Entry(
+            String name, String upstream, String checkout, String remote, Proposal proposal) {
+
+        /**
+         * Constructor.
+         *
+         * @param name What {@code --repository} takes.
+         * @param upstream Where its history comes from and approved work goes.
+         * @param checkout The checkout it was added from, or "".
+         * @param remote The checkout's {@code origin}, or the address.
+         * @param proposal What is recorded of a proposal for it.
+         */
+        public Entry {
+            if (proposal == Proposal.CONFIGURED) {
+                throw new IllegalArgumentException("a proposal is never recorded as configured");
+            }
+        }
+
+        /**
+         * Constructor for an entry no proposal was answered for.
+         *
+         * @param name What {@code --repository} takes.
+         * @param upstream Where its history comes from and approved work goes.
+         * @param checkout The checkout it was added from, or "".
+         * @param remote The checkout's {@code origin}, or the address.
+         */
+        public Entry(
+                final String name,
+                final String upstream,
+                final String checkout,
+                final String remote) {
+            this(name, upstream, checkout, remote, Proposal.UNASKED);
+        }
 
         /**
          * Constructor for an entry by address, or one recorded before the checkout was a source.
@@ -175,6 +227,8 @@ public final class DefaultProject {
                             && entry.get("upstream") instanceof String upstream) {
                         final String checkout =
                                 entry.get("checkout") instanceof String given ? given : "";
+                        // Anything but a recorded ASKED, an older record's absent field among
+                        // them, reads as never asked.
                         entries.add(
                                 new Entry(
                                         name,
@@ -182,7 +236,10 @@ public final class DefaultProject {
                                         checkout,
                                         entry.get("remote") instanceof String remote
                                                 ? remote
-                                                : upstream));
+                                                : upstream,
+                                        Proposal.ASKED.name().equals(entry.get("proposal"))
+                                                ? Proposal.ASKED
+                                                : Proposal.UNASKED));
                     }
                 }
             }
@@ -455,7 +512,7 @@ public final class DefaultProject {
                     Files.createTempFile(file.getParent(), ".repositories.json.", ".new");
             Files.writeString(
                     staged,
-                    Json.write(entries.stream().map(Entry::asMap).toList()),
+                    Json.write(entries.stream().map(DefaultProject::recorded).toList()),
                     StandardCharsets.UTF_8);
             Files.move(
                     staged,
@@ -466,6 +523,66 @@ public final class DefaultProject {
             throw new IllegalStateException(
                     "the repositories of '" + NAME + "' cannot be written: " + ex.getMessage(), ex);
         }
+    }
+
+    /** An entry as its record keeps it: as the wire has it, with what was asked of it. */
+    private static Map<String, Object> recorded(final Entry entry) {
+        final Map<String, Object> map = new LinkedHashMap<>(entry.asMap());
+        map.put("proposal", entry.proposal().name());
+        return map;
+    }
+
+    /**
+     * Records that the person answered a proposal for a repository, whichever way.
+     *
+     * @param name The repository.
+     * @return The entry as it is now, or {@code null} when it is not there.
+     */
+    public @Nullable Entry asked(final String name) {
+        return locked(
+                () -> {
+                    final List<Entry> entries = new ArrayList<>(entries());
+                    for (int index = 0; index < entries.size(); index++) {
+                        final Entry each = entries.get(index);
+                        if (each.name().equals(name)) {
+                            final Entry asked =
+                                    new Entry(
+                                            each.name(),
+                                            each.upstream(),
+                                            each.checkout(),
+                                            each.remote(),
+                                            Proposal.ASKED);
+                            entries.set(index, asked);
+                            write(entries);
+                            return asked;
+                        }
+                    }
+                    return null;
+                });
+    }
+
+    /**
+     * Returns whether a proposal is still to be offered for a repository: {@link
+     * Proposal#CONFIGURED} when its checkout holds a {@code porelo.yml} or {@code .porelo.yml}, or
+     * a placed project names it; else what is recorded.
+     *
+     * @param entry The repository.
+     * @return Its state, worked out now.
+     */
+    public Proposal proposal(final Entry entry) {
+        if (entry.source() == Source.CHECKOUT) {
+            for (final String name : List.of(ImageChoice.FILE, "." + ImageChoice.FILE)) {
+                if (Files.isRegularFile(
+                        Path.of(entry.checkout()).resolve(name),
+                        java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    return Proposal.CONFIGURED;
+                }
+            }
+        }
+        if (WorkOrigin.placedNaming(context, entry.upstream()) != null) {
+            return Proposal.CONFIGURED;
+        }
+        return entry.proposal();
     }
 
     private static String unused(final String wanted, final List<Entry> entries) {

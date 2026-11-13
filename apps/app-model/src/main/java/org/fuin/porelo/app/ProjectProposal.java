@@ -66,6 +66,10 @@ final class ProjectProposal {
 
     private final Map<String, Object> row = new LinkedHashMap<>();
     private final List<Map<String, Object>> values = new ArrayList<>();
+
+    /** Each value's part, kept beside it so the command's own answer stays as it was. */
+    private final Map<Map<String, Object>, Finding.Part> parts = new java.util.IdentityHashMap<>();
+
     private final Map<Key, List<Map<String, Object>>> groups = new LinkedHashMap<>();
     private final List<Map<String, Object>> unplaced = new ArrayList<>();
     private final Map<String, Object> credentials = new LinkedHashMap<>();
@@ -167,11 +171,97 @@ final class ProjectProposal {
         if (review != null) row.put("review", review);
     }
 
+    /**
+     * Asks every installed adapter about a directory and adds what each recognizes: the one loop
+     * {@code porelo project init} prints and the daemon's {@code ProposeProject} streams.
+     *
+     * @param machine This machine.
+     * @param checkout The directory the adapters read, never written.
+     * @param detector Who asks them.
+     * @param lookUp Whether each adapter looks up what it read, through the person's proxy.
+     * @param done Takes each adapter's answer as it comes.
+     * @return What an adapter could not look up, one sentence each.
+     * @throws IOException When an adapter cannot be asked at all.
+     * @throws org.fuin.porelo.ecosystem.api.EcosystemException When the adapters cannot be listed.
+     */
+    List<String> propose(
+            final PoreloContext machine,
+            final java.nio.file.Path checkout,
+            final EcosystemDetector detector,
+            final boolean lookUp,
+            final java.util.function.Consumer<AdapterDone> done)
+            throws java.io.IOException {
+        final List<String> notes = new ArrayList<>();
+        // A draft is made: each plugin looks up what it read, through this person's proxy.
+        final Map<String, String> proxies = EcosystemLookup.proxies(machine.environment());
+        final java.nio.file.Path home = machine.paths().xdg().home();
+        for (var description :
+                org.fuin.porelo.ecosystem.api.InstalledEcosystems.all(
+                        machine.paths().ecosystemDirectories())) {
+            final String refusal = description.refusal();
+            if (refusal != null) {
+                done.accept(new AdapterDone(description.name(), AdapterDone.REFUSED, refusal));
+                continue;
+            }
+            AdapterDone answered;
+            try {
+                final Detection detected = detector.detect(description, checkout, home);
+                final EcosystemLookup.Looked looked =
+                        lookUp
+                                ? EcosystemLookup.resolve(
+                                        detector, description, checkout, home, detected, proxies)
+                                : new EcosystemLookup.Looked(detected, null);
+                if (looked.note() != null) {
+                    notes.add(looked.note());
+                }
+                add(description.name(), looked.detection());
+                answered = new AdapterDone(description.name(), AdapterDone.RECOGNIZED, "");
+            } catch (org.fuin.porelo.ecosystem.api.EcosystemRefused ex) {
+                answered = new AdapterDone(description.name(), ex.reason().wire(), ex.detail());
+            } catch (org.fuin.porelo.ecosystem.api.EcosystemException ex) {
+                answered =
+                        new AdapterDone(
+                                description.name(),
+                                AdapterDone.REFUSED,
+                                "the ecosystem adapter failed to answer Detect");
+            }
+            done.accept(answered);
+        }
+        return notes;
+    }
+
+    /**
+     * Returns one value of the last {@link #answer()} as the wire's {@code ProposedValue}.
+     *
+     * @param value A value, as the answer holds it.
+     * @return It with its part, its adapter named so.
+     */
+    Map<String, Object> wireValue(final Object value) {
+        final Map<?, ?> held = (Map<?, ?>) value;
+        final Finding.Part part = parts.get(held);
+        final Map<String, Object> wire = new LinkedHashMap<>();
+        wire.put("part", (part == null ? Finding.Part.TOOLS : part).name());
+        for (final String key :
+                List.of("key", "value", "file", "line", "origin", "unknown", "note")) {
+            wire.put(key, java.util.Objects.requireNonNull(held.get(key)));
+        }
+        wire.put("adapter", String.valueOf(held.get("plugin")));
+        return wire;
+    }
+
+    /**
+     * Returns whether a finding names a credential, whose value is never placed, answered or said.
+     *
+     * @param finding A finding.
+     * @return {@code true} for {@code credential} and {@code credential.<id>}.
+     */
+    static boolean credential(final Finding finding) {
+        return finding.key().startsWith("credential.") || finding.key().equals("credential");
+    }
+
     void add(String plugin, Detection detection) {
         for (var finding : detection.findings()) {
-            final boolean credential =
-                    finding.key().startsWith("credential.") || finding.key().equals("credential");
-            if (credential) {
+            if (credential(finding)) {
                 final String id =
                         finding.key().equals("credential")
                                 ? finding.value()
@@ -194,6 +284,7 @@ final class ProjectProposal {
             value.put("note", finding.note());
             value.put("plugin", plugin);
             values.add(value);
+            parts.put(value, finding.part());
             if (finding.part() == Finding.Part.RULES && finding.key().startsWith(EXTENSION)) {
                 // Each plugin's own: two plugins' blocks never disagree.
                 extensionValues.add(value);

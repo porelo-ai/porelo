@@ -1024,6 +1024,16 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   `DefaultRepositoryInUse` while a task of `default` works on it and `NoSuchDefaultRepository` for a name `default` does
   not have. `porelo project default remove NAME` refuses the same way, naming the tasks of `default` on it, changes
   nothing and exits 70 while they work on it.
+- Each repository of `default` carries `proposal` in `DefaultRepositories()`: `UNASKED`, `ASKED`, or `CONFIGURED` when
+  its checkout holds a `porelo.yml` or `.porelo.yml` or a project of the organization names it. `CONFIGURED` is
+  worked out each time and never recorded. `ProposeProject(project, repository)` asks every installed ecosystem
+  adapter about the repository's checkout, as `porelo project init` does, and streams one reply per adapter, then
+  the merged proposal: the `project.yml` draft, each value with its file, line and adapter, disagreements, and each
+  credential by its id with the command that stores it, never its value. Asked without `more` it is refused with
+  `StreamRequired`. `TakeProposal(project, repository, choice)` with `TOOLS`, `TOOLS_AND_DRAFT` or `NONE` records
+  `ASKED`, writes no file, and under `TOOLS_AND_DRAFT` answers the draft. A repository added by address, or a project
+  other than `default`, is refused with `NotProposable` (`no-checkout`, `not-default`) and stays `UNASKED`. An older
+  daemon answers `MethodNotFound`, which a client reads as "this machine cannot propose".
 - Approved work in `default` reaches `origin` with your own ssh agent or key, or a token stored with
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a
   key without a passphrase works. Trust an ssh host first with `porelo credentials trust-host`; until then the

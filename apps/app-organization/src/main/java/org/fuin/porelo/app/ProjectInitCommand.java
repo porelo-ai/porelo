@@ -6,9 +6,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.fuin.porelo.ecosystem.api.EcosystemException;
-import org.fuin.porelo.ecosystem.api.EcosystemRefused;
-import org.fuin.porelo.ecosystem.api.InstalledEcosystems;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Option;
@@ -98,40 +95,10 @@ public class ProjectInitCommand extends OrgReading {
                         review == null ? null : ProjectRepositoryCommand.review(review),
                         project);
         final List<Map<String, Object>> plugins = new ArrayList<>();
-        final List<String> notes = new ArrayList<>();
-        // A draft is made: each plugin looks up what it read, through this person's proxy.
-        final Map<String, String> proxies = EcosystemLookup.proxies(machine.environment());
-        final java.nio.file.Path home = machine.paths().xdg().home();
-        for (var description : InstalledEcosystems.all(machine.paths().ecosystemDirectories())) {
-            if (description.refusal() != null) {
-                plugins.add(plugin(description.name(), "refused", description.refusal()));
-                continue;
-            }
-            try {
-                final org.fuin.porelo.ecosystem.api.Detection detected =
-                        detector.detect(description, checkout, home);
-                // A yes is refused, as it would change a file that exists: nothing is made, so
-                // nothing is looked up, and the proxy goes nowhere.
-                final EcosystemLookup.Looked looked =
-                        yes
-                                ? new EcosystemLookup.Looked(detected, null)
-                                : EcosystemLookup.resolve(
-                                        detector, description, checkout, home, detected, proxies);
-                if (looked.note() != null) {
-                    notes.add(looked.note());
-                }
-                made.add(description.name(), looked.detection());
-                plugins.add(plugin(description.name(), "recognized", ""));
-            } catch (EcosystemRefused ex) {
-                plugins.add(plugin(description.name(), ex.reason().wire(), ex.detail()));
-            } catch (EcosystemException ex) {
-                plugins.add(
-                        plugin(
-                                description.name(),
-                                "refused",
-                                "the ecosystem adapter failed to answer Detect"));
-            }
-        }
+        // A yes is refused, as it would change a file that exists: nothing is made, so nothing is
+        // looked up, and the proxy goes nowhere.
+        final List<String> notes =
+                made.propose(machine, checkout, detector, !yes, done -> plugins.add(done.asMap()));
         final Map<String, @Nullable Object> answer = made.answer();
         answer.put("plugins", plugins);
         answer.put("notes", notes);
@@ -157,10 +124,6 @@ public class ProjectInitCommand extends OrgReading {
                         entry);
         }
         return answer;
-    }
-
-    private static Map<String, Object> plugin(String name, String state, String why) {
-        return Map.of("name", name, "state", state, "why", why);
     }
 
     @Override

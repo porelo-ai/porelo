@@ -151,6 +151,8 @@ public final class EcosystemLookup {
         final String all =
                 findings.stream()
                         .filter(each -> each.part() == Finding.Part.TOOLS && !each.unknown())
+                        // A credential's line holds what a person's file keeps of it.
+                        .filter(each -> !ProjectProposal.credential(each))
                         .filter(each -> PLAIN_KEY.matcher(each.key()).matches())
                         .map(
                                 each ->

@@ -48,6 +48,10 @@ class McpMethodsTest {
                     "TakeProject",
                     "SyncUpstream",
                     "AddToDefault",
+                    // Runs every ecosystem adapter on a checkout, which may look up through the
+                    // person's proxy; and records the person's answer.
+                    "ProposeProject",
+                    "TakeProposal",
                     "RemoveFromDefault",
                     "DeployKey",
                     "SetEgress",
