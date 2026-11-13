@@ -9,16 +9,21 @@ Feature: The task list that stays open
     The scenario removes its task at the end, as the other scenarios with a task do. An agent's task is
     started only with the agent's credential in the vault, so the scenario puts one in a vault of its own.
 
+    The list stays open only while the daemon's Watch answers. Without a daemon it prints the list once and ends,
+    so the scenario has a daemon of its own and fails if the list says it cannot be watched.
+
     Scenario: a stopped task's row changes in the open list, and Ctrl-C leaves the terminal as it was
         Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
         And a vault of this scenario's own, unlocked with the passphrase "acceptance"
         And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
+        And a daemon of this scenario's own
         And a project called "watched" with a file in it
         When a script runs "timeout 600 porelo task start shell --project watched --repository watched --agent stub --clearance deny --detach"
         Then it exits zero
         Given a terminal on the machine
         When I run "stty -a > stty-before-watch; porelo task list --watch --project watched"
         Then within 30 seconds the terminal shows "HELPERS"
+        And the terminal does not show "cannot be watched"
         When a script runs "porelo task stop porelo-watched_shell"
         Then within 30 seconds the terminal shows "Exited ("
         When I press the key "Ctrl+C"
