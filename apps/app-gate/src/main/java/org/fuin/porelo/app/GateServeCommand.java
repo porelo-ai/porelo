@@ -233,6 +233,21 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
         };
     }
 
+    /**
+     * Returns the pid file of the task's build watch, where its start has it write it; {@code null}
+     * for a task that is not recorded.
+     */
+    static @Nullable Path watchPid(
+            final PoreloContext context, final String project, final String task) {
+        final TaskIdentity identity = TaskHistory.find(context, project, task);
+        return identity == null
+                ? null
+                : context.paths()
+                        .tasks()
+                        .containerState(identity.container())
+                        .resolve(TaskBuilds.HELPER + ".pid");
+    }
+
     private void writePidFile(PrintWriter err) {
         if (pidFile == null) {
             return;
@@ -405,6 +420,14 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                     project.name(),
                                     ref.substring(GitGate.INCOMING.length()),
                                     unbuilt));
+                } else if (ref != null && ref.startsWith(GitGate.INCOMING)) {
+                    // The watch started, and may end while the task runs, its reader failing:
+                    // asked at each push, so a push after it is not left waiting either.
+                    final String task = ref.substring(GitGate.INCOMING.length());
+                    server.taking(
+                            UnbuiltPush.unlessWatched(
+                                    () -> watchPid(context, project.name(), task),
+                                    unbuilt(context, project.name(), task, UnbuiltPush.UNWATCHED)));
                 }
                 if (ref != null && !reads.isEmpty()) {
                     server.reading(reads);

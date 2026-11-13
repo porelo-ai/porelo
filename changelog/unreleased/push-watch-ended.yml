@@ -1,0 +1,2 @@
+title: "A push made after a task's build watch has ended is told at once that no build of it will be reported"
+type: fixed

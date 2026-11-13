@@ -9,6 +9,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.fuin.porelo.gate.GitHttpServer;
 import org.fuin.porelo.wire.Directories;
+import org.fuin.porelo.wire.HelperPid;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -21,9 +22,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Here and not in the build watch, because only the gate sees a push it holds: the watch asks
  * the forge, which a held push reaches only when a person passes it on, and a project that follows
- * no builds has no watch at all, and a task whose watch did not start has none either. A push
- * passed on and built later is followed by the watch, which hands in the same file name and so
- * replaces this one.
+ * no builds has no watch at all, and a task whose watch did not start, or has ended, has none
+ * either. A push passed on and built later is followed by the watch, which hands in the same file
+ * name and so replaces this one.
  */
 public final class UnbuiltPush implements GitHttpServer.Taken {
 
@@ -37,10 +38,10 @@ public final class UnbuiltPush implements GitHttpServer.Taken {
 
     /**
      * Why a push passed on at once is not reported on although the project follows its builds: the
-     * task's build watch did not start.
+     * task's build watch did not start, or has ended since.
      */
     public static final String UNWATCHED =
-            "the watch that reports this task's builds did not start; no build of this push is"
+            "the watch that reports this task's builds is not running; no build of this push is"
                     + " reported";
 
     /** The verdict of a push no build of which is reported while the task runs. */
@@ -115,6 +116,27 @@ public final class UnbuiltPush implements GitHttpServer.Taken {
             return NO_BUILDS;
         }
         return watched ? null : UNWATCHED;
+    }
+
+    /**
+     * Returns what a gate whose task's build watch started does at a push: nothing while the watch
+     * still runs, which hands in its own verdict, and what {@code unwatched} does once it has
+     * ended.
+     *
+     * @param watch The watch's pid file, read at each push; {@code null} when there is none to
+     *     read.
+     * @param unwatched What answers a push no watch reports on.
+     * @return It.
+     */
+    public static GitHttpServer.Taken unlessWatched(
+            final java.util.function.Supplier<@Nullable Path> watch,
+            final GitHttpServer.Taken unwatched) {
+        return commit -> {
+            final Path file = watch.get();
+            if (file != null && HelperPid.verified(file).isEmpty()) {
+                unwatched.taken(commit);
+            }
+        };
     }
 
     @Override

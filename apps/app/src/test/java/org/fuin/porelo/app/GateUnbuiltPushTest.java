@@ -152,6 +152,71 @@ class GateUnbuiltPushTest {
     }
 
     @Test
+    void aPushPassedOnAfterItsBuildWatchEndedIsAnsweredAtOnceWithWhy() throws Exception {
+        // The watch started, then its reader failed; the agent waited for a build nobody reports.
+        final Path pid = root.resolve("state").resolve(TaskBuilds.HELPER + ".pid");
+        Files.createDirectories(pid.getParent());
+        final Process watch = new ProcessBuilder("sleep", "60").start();
+        org.fuin.porelo.wire.HelperPid.record(pid, watch.toHandle());
+        watch.destroy();
+        watch.waitFor();
+        final GitGate gate = new GitGate(runner, mirror, GateMode.ONLINE, upstream.toString());
+        gate.initialize();
+        final TaskToken token = TaskToken.mint();
+        try (GitHttpServer server = serving(token, passingOn(gate), watched(pid))) {
+            final String commit = pushed(server, token);
+
+            assertThat(handed.get("build-" + commit.substring(0, 12) + ".txt"))
+                    .as("passed on, and its watch no longer runs")
+                    .contains("verdict: none\n")
+                    .contains("detail: " + UnbuiltPush.UNWATCHED + "\n");
+        }
+    }
+
+    @Test
+    void aPushPassedOnWhileItsBuildWatchRunsIsLeftToTheWatch() throws IOException {
+        final Path pid = root.resolve("state").resolve(TaskBuilds.HELPER + ".pid");
+        Files.createDirectories(pid.getParent());
+        org.fuin.porelo.wire.HelperPid.record(pid);
+        final GitGate gate = new GitGate(runner, mirror, GateMode.ONLINE, upstream.toString());
+        gate.initialize();
+        final TaskToken token = TaskToken.mint();
+        try (GitHttpServer server = serving(token, passingOn(gate), watched(pid))) {
+            pushed(server, token);
+
+            assertThat(handed).as("the running watch hands in its verdict").isEmpty();
+        }
+    }
+
+    /** A gate's pass-on to the upstream's task branch. */
+    private static GitHttpServer.Upstream passingOn(final GitGate gate) {
+        return new GitHttpServer.Upstream() {
+            @Override
+            public void refresh() {
+                gate.refresh();
+            }
+
+            @Override
+            public @Nullable String passOn(final String ref, final String commit) {
+                return gate.passOn("porelo/" + TASK, commit);
+            }
+        };
+    }
+
+    /** What a gate of a project that follows builds, whose watch started, does at a push. */
+    private GitHttpServer.Taken watched(final Path pid) {
+        return UnbuiltPush.unlessWatched(() -> pid, answering(UnbuiltPush.UNWATCHED));
+    }
+
+    private UnbuiltPush answering(final String why) {
+        return new UnbuiltPush(
+                (name, file) -> handed.put(name, Files.readString(file)),
+                root.resolve("state").resolve("builds"),
+                Clock.fixed(NOW.plusMillis(400), ZoneOffset.UTC),
+                why);
+    }
+
+    @Test
     void aPushThatIsRefusedHandsInNothing() throws IOException {
         final GitGate gate = new GitGate(runner, mirror, GateMode.GATEKEEPING, upstream.toString());
         gate.initialize();
@@ -208,6 +273,13 @@ class GateUnbuiltPushTest {
             final TaskToken token,
             final GitHttpServer.@Nullable Upstream through,
             final @Nullable String why) {
+        return serving(token, through, why == null ? null : answering(why));
+    }
+
+    private GitHttpServer serving(
+            final TaskToken token,
+            final GitHttpServer.@Nullable Upstream through,
+            final GitHttpServer.@Nullable Taken taken) {
         final GitHttpServer server =
                 new GitHttpServer(
                         new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
@@ -217,13 +289,8 @@ class GateUnbuiltPushTest {
                         GitGate.INCOMING + TASK,
                         through,
                         Duration.ZERO);
-        if (why != null) {
-            server.taking(
-                    new UnbuiltPush(
-                            (name, file) -> handed.put(name, Files.readString(file)),
-                            root.resolve("state").resolve("builds"),
-                            Clock.fixed(NOW.plusMillis(400), ZoneOffset.UTC),
-                            why));
+        if (taken != null) {
+            server.taking(taken);
         }
         server.start();
         return server;

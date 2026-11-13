@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B744",
   "title": "A Push Told When Its Build Watch Has Ended",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 50,
@@ -37,3 +37,22 @@ a build that is never reported.
 
 - A push after the task's build watch has ended is told at once that no build of it will be reported.
 - A push while the watch runs is unchanged.
+
+## Built
+
+- `UnbuiltPush.unlessWatched`: at each passed-on push of a project that follows builds and whose watch started, the
+  gate reads the watch's pid file (`builds.pid` in the task's state, the file `BuildsWiring` gives the watch) and
+  checks it with `HelperPid.verified`. When no running process matches, the push gets the verdict `none` with the
+  reason `UNWATCHED` at once. While the watch runs, nothing changes. `GateServeCommand.watchPid` finds the file at
+  each push through the task's recorded container.
+- `UNWATCHED` now reads "the watch that reports this task's builds is not running; no build of this push is
+  reported", since it now also covers a watch that started and ended.
+- Tests in `GateUnbuiltPushTest`:
+  - `aPushPassedOnAfterItsBuildWatchEndedIsAnsweredAtOnceWithWhy` (a recorded pid whose process has ended)
+  - `aPushPassedOnWhileItsBuildWatchRunsIsLeftToTheWatch`
+
+  The first failed on the build box before the change (`buildbox-porelo-62e4e8b32232-20261113T175007Z.log`). Both
+  pass after it (`buildbox-porelo-7d46a881c362-20261113T175411Z.log`): 61 tests across the gate and builds tests,
+  0 skipped.
+- Left as is: a push between the watch's start and its first write of the pid file would be told `UNWATCHED`. The
+  watch writes the file first thing, long before an agent's first push.
