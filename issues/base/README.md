@@ -270,7 +270,7 @@ from its side, as *blocked by*.
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. | - |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines. | 0 |
 | <a id="b743"></a>[B743](B743-A-Transports-Verb-Fenced-To-What-It-Reaches.md) | L | - | Every verb of a transport runs in a network namespace of its own whose ruleset lets it reach only what its `reaches` names and loopback, so a transport's mistake cannot reach another host. | 0 |
-| <a id="b752"></a>[B752](B752-Task-Sockets-Bound-As-Abstract-Names-In-The-Task.md) | M | - | The vault proxy, the ssh agent, the mailbox and the broker's socket that a task reaches are abstract unix names bound by Porelo inside the task's network namespace, not files bind-mounted from the host. | 0 |
+| <a id="b752"></a>[B752](B752-Task-Sockets-Bound-As-Abstract-Names-In-The-Task.md) | M | - | The vault socket a task's agent reaches is bound by Porelo's relay in the task, an abstract name `@porelo-vault` where the agent's client takes one and a socket file in the task's own filesystem where it does not, never a file bind-mounted from the host. | 2 |
 
 ## Review
 
