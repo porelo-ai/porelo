@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B33",
   "title": "A Task's Own Fetches",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 47,

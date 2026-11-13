@@ -270,7 +270,6 @@ from its side, as *blocked by*.
 | <a id="b691"></a>[B691](B691-A-Task-Resume-Reachable-From-The-Command-Line.md) | XS | - | `porelo task resume <task>` runs the resume command that `task list` and the changelog name, instead of being refused as an unknown command. | 0 |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | M | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so | 0 |
 | <a id="b692"></a>[B692](B692-A-Task-List-Showing-An-Agent-Waiting-On-Its-Own-Question.md) | XS | - | `porelo task list` says when an attached agent's screen reads as waiting for its own question, apart from its activity, as `task status` already does. | 0 |
-| <a id="b33"></a>[B33](B33-A-Tasks-Own-Fetches.md) | S | - | The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios. | 0 |
 | <a id="b322"></a>[B322](B322-Porelos-Acceptance-Legs-Run-On-The-Hosts-Forge.md) | M | - | porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool; only GitHub publishes | 0 |
 | <a id="b695"></a>[B695](B695-A-Varlink-Call-Bounded-From-Send-To-Answer.md) | S | - | A varlink call's deadline covers its send as well as its answer, the 4 MiB cap is kept to the byte, and an agent's slow methods get a deadline that fits them. | 0 |
 | <a id="b696"></a>[B696](B696-Start-Takes-An-Effort-Setting.md) | M | - | Tasks1's Start takes an optional reasoning effort, an open string each agent maps by its own declaration, and the task's record keeps it in `TaskRecord.effort`. | 0 |
@@ -301,9 +300,10 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
+| <a id="b33"></a>[B33](B33-A-Tasks-Own-Fetches.md) | S | - | The noble 401 reproduced on the VM first; if it does, one noble-only Containerfile line and scenarios. | 0 |
 
 ## Review
 
