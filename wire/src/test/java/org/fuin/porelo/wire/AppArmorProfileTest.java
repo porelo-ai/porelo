@@ -51,9 +51,13 @@ class AppArmorProfileTest {
         Files.writeString(entry.resolve("mode"), "enforce\n");
     }
 
-    /** The feature directory a kernel that mediates unix sockets has. */
+    /** The feature file a kernel that mediates unix sockets has. */
     private void mediatesUnixSockets() throws IOException {
-        Files.createDirectories(sys().resolve("kernel/security/apparmor/features/network/af_unix"));
+        // A file holding "yes", measured on Ubuntu 26.04 (kernel 7.0): not a directory, as the
+        // feature directories above it are.
+        final Path feature = sys().resolve("kernel/security/apparmor/features/network/af_unix");
+        Files.createDirectories(feature.getParent());
+        Files.writeString(feature, "yes\n");
     }
 
     /** This thread's label, as the kernel prints it: name, mode in brackets, a line end. */

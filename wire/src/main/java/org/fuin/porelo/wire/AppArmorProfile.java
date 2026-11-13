@@ -153,7 +153,9 @@ public final class AppArmorProfile {
      * @return {@code true} where the feature is there.
      */
     public boolean mediatesUnixSockets() {
-        return Files.isDirectory(sys.resolve("kernel/security/apparmor/features/network/af_unix"));
+        // A file holding "yes" on Ubuntu 26.04 (kernel 7.0), where the feature directories around
+        // it are directories: whatever it is, being there is the answer.
+        return Files.exists(sys.resolve("kernel/security/apparmor/features/network/af_unix"));
     }
 
     /**
