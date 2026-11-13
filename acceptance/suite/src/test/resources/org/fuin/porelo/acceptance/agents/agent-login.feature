@@ -60,10 +60,10 @@ Feature: An agent's login is stored, through the same chain a real login takes
 
     # Measured with an agent's device-code page that ignored Ctrl-C: nothing in the terminal ended the login, and its
     # container stayed up until stopped from a second connection. The stub's waiting login ignores Ctrl-C the same way;
-    # Ctrl-] is Porelo's own way out. It is pressed twice here, as people do: podman missed a detach key of the same
-    # key twice when both presses arrived in one read, and the login never ended. The exit's word is typed in two
-    # quoted halves, so the echoed line never matches it.
-    Scenario: a login whose screen ignores Ctrl-C is ended from its terminal with Ctrl-], pressed twice, and stores nothing
+    # Ctrl-] is Porelo's own way out, pressed once. podman takes the detach key only when it arrives alone in one read:
+    # two presses that the terminal's connection hands over together are passed on to the login, which then never
+    # ends (both legs, 2026-11-13). The exit's word is typed in two quoted halves, so the echoed line never matches it.
+    Scenario: a login whose screen ignores Ctrl-C is ended from its terminal with Ctrl-] and stores nothing
         Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
         And a terminal on the machine
         When a script runs "touch ~/.porelo-login-began"
@@ -74,7 +74,6 @@ Feature: An agent's login is stored, through the same chain a real login takes
         And a script runs "sleep 3"
         Then the terminal does not show "login-ended"
         When I press the key "Ctrl+]"
-        And I press the key "Ctrl+]"
         Then within 120 seconds the terminal shows "login-ended 130"
         And the terminal shows "cancelled  the login was ended from this terminal"
         And the terminal does not show "stub: logged in"
