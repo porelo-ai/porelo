@@ -5,9 +5,9 @@
   "$schema": "issue-1.json",
   "id": "B609",
   "title": "A Resumed Task Takes Its Project's Changed MCP Methods",
-  "state": "Accepted",
+  "state": "Analyzed",
   "size": "S",
-  "priority": "Low",
+  "priority": "Medium",
   "rank": 30,
   "blockedBy": [],
   "covers": "A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away.",
@@ -18,7 +18,9 @@
 **Why this size.** One class of the daemon and its test, no contract another repository reads: `McpTaskSockets`
 reads the project's `mcp` section again on every open and swaps what its live socket checks against, instead of
 returning the socket it has. The interface description, the methods' wire shapes and `McpWiring` stay as they are.
-Estimate: 45 minutes (Core's median for S).
+Estimate: 45 minutes (Core's median for S). The analysis below was read again in today's code and holds.
+Medium, not High: the story's own test starts, reads and stops a task and never resumes one; this closes a gap a
+resumed task leaves.
 
 Filed 2026-11-11 from [B600](README.md#b600)'s As built, which left it for a later issue.
 
@@ -51,10 +53,25 @@ running task keeps what it was started with, as its guide does.
    `readsTheRun` and the `Logs`/`Tail` cut read the current endpoint at the call, not the one the socket was made with.
 4. The class comment's "Only what the file allows" says the methods are those of the file at the task's last start.
 
-Red first: a `McpTaskSocketsTest` case opens a task's socket with `Start` and `Stop`, narrows the project's
+## Red-first test
+
+A `McpTaskSocketsTest` case opens a task's socket with `Start` and `Stop`, narrows the project's
 `mcp.methods` to `Stop`, opens again, and expects `Start` answered `MethodNotFound` and absent from the socket's
 description, while the socket's `unix:ino` is unchanged. A second case removes the `mcp` section and expects the
 repeated open empty and the socket gone.
+
+## Risks
+
+- Registering every method on a task socket and refusing at the call moves the refusal from the registry to one
+  check. A method missed by that check would answer. The third acceptance line holds it for every method.
+- An open that swaps the endpoint while a call runs: the call keeps the endpoint it read at its start (a volatile
+  read once per call), so no call sees half of each.
+- [B600](README.md#b600), which keeps the served socket, is built; this builds on it and does
+  not wait for it.
+
+## Blockers
+
+None.
 
 ## Acceptance
 
@@ -70,7 +87,5 @@ None.
 
 ## To be checked
 
-- Whether any test or caller reads a task socket's `methodNames()` and expects only the allowed ones; registering
-  every method changes that set (the daemon socket's registration tests do not cover task sockets).
 - That a start running on the old endpoint while another open swaps it finishes under the endpoint it began with,
   and the next call takes the new one.

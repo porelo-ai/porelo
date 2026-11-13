@@ -7,7 +7,7 @@
   "title": "A Credential With No Expiry Said So",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Low",
+  "priority": "High",
   "rank": 15,
   "blockedBy": [],
   "covers": "Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`.",
@@ -16,7 +16,9 @@
 ```
 
 **Why this size.** one rule in `app-model` read by three ways of storing and two lists, a field added to `Credential` in
-`30-vault.varlink` (a contract the interface reads), and `doc/credentials.md`; small for an M.
+`30-vault.varlink` (a contract the interface reads), and `doc/credentials.md`; small for an M. Estimate: 63 minutes
+(Core's median for M), p80 229. The analysis below was read again in today's code and holds; one correction is in
+step 1.
 
 **What must be true.** Storing a credential that carries no end - by `vault put`, `vault login` or `ImportCredential` -
 says so when it is stored, rather than refusing it, since some providers issue nothing else. The credential list
@@ -40,7 +42,9 @@ name, type, length and settings; `VaultMethods` answers `Credential` with the sa
 1. **One rule.** A public `CredentialLifetime.endless(VaultEntry entry, @Nullable VaultEntry grant)` in `app-model`,
    beside `LoginCredentials`: a grant entry has no end when its grant is `HELD`, and none to judge while nobody has
    granted it; any other entry has no end when it has no `expires_at`. A renewable sign-in keeps `expires_at`, so it
-   is never marked; an imported one that ends is not marked either.
+   is never marked; an imported one that ends is not marked either. `app-model` cannot read `app-vault`, where
+   `VaultAuthorizeCommand.HELD` is, so the type name `access-token` moves into `CredentialLifetime` and `HELD`
+   refers to it.
 2. **Said when stored.**
    - `VaultPutCommand`: after `stored ...`, a line `expires   never - nothing ends this credential; if the provider
      issues one that ends, store that instead, or record its end with --setting expires_at=<instant>`. An
@@ -59,10 +63,23 @@ name, type, length and settings; `VaultMethods` answers `Credential` with the sa
 4. **Docs:** `doc/credentials.md` says which entries are marked, what the line at storing says, and that
    `--setting expires_at=<instant>` records an end a provider gave a key; the contract's comment.
 
-Red first: `VaultPutCommandTest` - storing a key with no settings prints the no-expiry line (today it does not);
+## Red-first test
+
+`VaultPutCommandTest` - storing a key with no settings prints the no-expiry line (today it does not);
 then the rule's own test over the five cases (plain key, `expires_at`, renewable sign-in, `HELD` grant, refresh-token
 grant), a `PoreloDaemonTest` case that `Credentials()` answers `noExpiry` true and false, and
 `InterfaceDescriptionTest` holding the field.
+
+## Risks
+
+- A person who stores many keys sees the line each time. It is one line, and it names the way to record an end.
+- Refusing a malformed `expires_at` changes `vault put` for a script that passes one today. Such a value counted as
+  an end it was not, so the refusal is the point; `doc/credentials.md` says it.
+- `noExpiry` is a field added to a record that crosses varlink: two edits, and `InterfaceDescriptionTest` holds it.
+
+## Blockers
+
+None.
 
 ## Acceptance
 
@@ -74,3 +91,7 @@ grant), a `PoreloDaemonTest` case that `Credentials()` answers `noExpiry` true a
   renewable sign-in, an entry with `expires_at`, or a refresh-token grant; seen to fail first as no mark at all.
 - In `vault-commands.feature`, a key stored with `vault put` is listed with `no expiry`.
 - `doc/credentials.md` says it.
+
+## Open questions
+
+None.

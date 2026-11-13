@@ -5,41 +5,104 @@
   "$schema": "issue-1.json",
   "id": "B249",
   "title": "The Hooks Run dnsmasq and podman by a Fixed Path",
-  "state": "Idea",
-  "size": "-",
-  "priority": "Medium",
+  "state": "Analyzed",
+  "size": "S",
+  "priority": "High",
   "rank": 76,
   "blockedBy": [],
-  "covers": "The hooks start `dnsmasq` and `podman` by a fixed root-owned path, as [B239](#b239) does `nsenter` and `nft`, where today both are found through the caller's `PATH`"
+  "covers": "The resolver hook, the shield's resolver and the doctor's probe take `dnsmasq` by a fixed root-owned path, as [B239](README.md#b239) does `nsenter` and `nft`; whether `podman` follows is the operator's choice",
+  "openQuestions": 1
 }
 ```
 
+**Why this size.** S: one word made a resolved path in three places (`hooks`, `shield`, the doctor in `apps/app`),
+each with a small test, and no contract another repository reads. Estimate: 45 minutes (Core's median for S). It
+grows to M if `podman` is taken by a fixed path everywhere Porelo runs it (see *Open questions*).
+
 **What must be true.** Every program a hook starts inside or for a container's namespace is taken by a fixed,
-root-owned path, as [B239](README.md#b239) takes `nsenter` and `nft`. None is found
-through the caller's `PATH`.
+root-owned path, as [B239](README.md#b239) takes `nsenter` and `nft`. None is found through the caller's `PATH`.
+Changing `PATH` does not change which `dnsmasq` resolves a task's names.
 
 ## Why
 
-[B239](README.md#b239) resolves `nsenter` and `nft` with `SystemProgram.find`. Two programs on the same path are still bare names:
+[B239](README.md#b239) resolves `nsenter` and `nft` with `SystemProgram.find`. Two programs on the same path are
+still bare names:
 
-- **`dnsmasq`:** `SupervisorHook.run` and `DnsPolicy.command` hand `nsenter` the bare word `dnsmasq`, and `nsenter`
-  looks it up in `PATH`. A `dnsmasq` placed earlier in `PATH` (for example the account's local `bin` folder) runs in the task's
-  network namespace instead of the system's, and the task's DNS and nftset enforcement is then whatever it does.
-- **`podman`:** `EgressPolicy.inNamespace` starts `podman unshare` by name.
+- **`dnsmasq`:** the supervisor hook hands `nsenter` the bare word `dnsmasq`, and `nsenter` looks it up in the
+  `PATH` it was given. A `dnsmasq` placed earlier there (for example in `$XDG_BIN_HOME`) runs in the task's network
+  namespace instead of the system's, and the task's DNS and nftset enforcement is then whatever it does.
+  `porelo shield dns` builds the same command through `DnsPolicy.command`. `porelo doctor` asks the bare
+  `dnsmasq --version` (`DnsmasqProbe.versionCommand`) whether nftset is supported, so it may judge another
+  `dnsmasq` than the one the hook runs.
+- **`podman`:** `EgressPolicy.inNamespace` starts `podman unshare` by name. This is not a hook: it runs in
+  `porelo shield watch` and `porelo shield dns`, as the person. Porelo starts every task with a bare `podman` too
+  (`PoreloContext.podman`, `TaskRunner`), so there is no resolved `podman` path to reuse today.
 
-Both start with the caller's own rights, not with more, so this is not the escalation [B239](README.md#b239) closed. But each one
-decides what a task may reach.
+Both start with the caller's own rights, not with more, so this is not the escalation [B239](README.md#b239)
+closed. But each one decides what a task may reach.
 
-## The shape proposed
+## Plan
 
-- `dnsmasq` through `programs.apply`, as `nft` goes, in both places. `SystemProgram.find` already refuses one that is
-  not root-owned in a root-owned directory.
-- `podman` by the path Porelo already resolved for the task's own start, if there is one; to be read.
+Read in today's code. `SupervisorHook.startResolver` (`hooks`) builds `nsenter --target <pid> --net dnsmasq ...`
+with `SystemProgram.find("nsenter")` and the bare `dnsmasq`. `DnsPolicy.command` (`shield`) takes a
+`Function<String, Path>` for `nsenter` already, but passes `dnsmasq` bare. `EgressPolicy.nsenter` shows the way:
+it resolves `command[0]` through the same function. The hook entry `HookInstaller` writes carries no `env`, so
+the `PATH` `nsenter` searches is whatever the runtime hands the hook.
+
+1. **The hook.** `SupervisorHook` gains a package-private `static List<String> resolverCommand(long pid, Path
+   config, Function<String, Path> programs)`, as `NftHook.command` has one. It resolves both `nsenter` and
+   `dnsmasq` through `programs`. `startResolver` calls it with `SystemProgram::find`. A `dnsmasq` that is missing
+   or not root-owned fails the hook as an unsafe `nsenter` does today. The hook is soft-fail, so the container
+   starts without a resolver and the hook's log says why.
+2. **The shield's resolver.** `DnsPolicy.command` resolves `dnsmasq` through its `programs` function, as
+   `EgressPolicy.nsenter` resolves `nft`.
+3. **The doctor.** `DnsmasqProbe.versionCommand` returns the resolved path (`SystemProgram.find("dnsmasq")`).
+   When none is found, the doctor's `dnsmasq nftset` line says so instead of running a `dnsmasq` from `PATH`.
+4. **`podman`.** As the operator decides (see *Open questions*). The proposal: leave it by name. It is not a hook,
+   it runs with the person's rights, and Porelo trusts the same `podman` for the whole task. The docs say so.
+5. **A dangling link.** `SystemProgram.find` refuses when a fixed directory holds a dangling link of the name
+   (`toRealPath` throws). The directories are root-owned, so only root can place one. It stays fail-closed; the
+   method's comment says so.
+6. **Docs.** `doc/security.md`, where it says which programs the hooks run, names `dnsmasq` among those taken by a
+   fixed path.
+
+## Red-first test
+
+- `DnsPolicyTest.runsInsideTheContainersNamespace` (`shield`) expects `/usr/sbin/dnsmasq` from its stand-in
+  lookup. Today it gets the bare `dnsmasq`, so it fails.
+- A new `SupervisorHookTest` in `hooks` (beside `NftHookTest`) asks `resolverCommand` with a stand-in lookup and
+  expects both programs resolved. A second case gives a lookup that refuses `dnsmasq` and expects the refusal to
+  reach the hook's log, as `NftHookTest` does for `nsenter`.
+- `DnsmasqProbeTest` expects an absolute path in `versionCommand`; today it asserts the bare name.
+
+## Risks
+
+- A system whose only `dnsmasq` is outside `/usr/sbin`, `/usr/bin`, `/sbin` and `/bin` (for example under
+  `/usr/local/sbin`) loses its resolver. Today that works. The doctor then says so, and the docs name the fixed
+  directories.
+- Under rootless podman an unmapped owner reads as the overflow uid, and `SystemProgram` accepts that only in
+  the fixed distribution directories. `dnsmasq` from a distribution package is there, so this holds. To be seen
+  on the test VM.
+
+## Blockers
+
+None.
+
+## Acceptance
+
+- With a `dnsmasq` stand-in placed first in `PATH`, a task's resolver is still the system's `dnsmasq` (its pid's
+  `/proc/<pid>/exe`). Seen to fail first: today the stand-in runs.
+- `porelo doctor` judges the `dnsmasq` the hook runs, not one from `PATH`.
+- The red-first tests above pass.
+
+## Open questions
+
+- Should `podman` also be taken by a fixed path? That would hold for every place Porelo runs it, not only
+  `podman unshare`, since a task's own container is started by the same bare name. A `podman` installed outside
+  the fixed directories (a newer one under `/usr/local/bin`, say) would then be refused. The proposal is to leave
+  `podman` by name and say so in the docs.
 
 ## To be checked
 
-- Which path the hooks' `podman` comes from today, and whether the start already holds a resolved one.
-- `DnsPolicyTest.runsInsideTheContainersNamespace` asserts the bare `dnsmasq` today and changes with the fix.
-- `SystemProgram.find` refuses when an earlier directory holds a dangling link of that name (`toRealPath` throws
-  outside the absent-file case) instead of trying the next directory. It fails closed; whether to go on is to be
-  decided with this.
+- On the test VM: that the hook finds `/usr/sbin/dnsmasq` under rootless podman's user namespace, and that a
+  stand-in first in `PATH` is not run.
