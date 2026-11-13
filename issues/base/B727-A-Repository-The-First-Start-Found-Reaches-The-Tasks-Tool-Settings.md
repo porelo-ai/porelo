@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B727",
   "title": "A Repository The First Start Found Reaches The Task's Tool Settings",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 8,
@@ -32,3 +32,25 @@ Found on snapshot.512 in the project `default`: the host of a private repository
 - The file names the broker's address and no password.
 - A draft whose `extensions.maven` block is taken hands that block to Configure: with `ownSettings` the stand-in answers no file, and none is written.
 - A draft without `tool_repositories` starts as today.
+
+## Done
+
+- **Why it was lost.** `FirstStart.repositoryDraft` wrote the taken draft as the repository's `porelo.yml` through the
+  twelve-part `ProjectFile`, which keeps image, build, egress and the rest but no `tool_repositories` and no
+  `extensions`. It now writes both. A repository's `porelo.yml` may carry them: `RepositorySettings` merges them onto
+  the project, and the start's own settings in `default` hand that project to `ToolSettings.ask`, which asks the
+  adapter's `Configure` and writes what it answers into the task.
+- **Line 2, as Core and Ecosystems answered it.** A `repository.<name>` for which `Detect` also found
+  `credential.<name>` names that credential in the draft, when the name is a vault entry's and the URL one the broker
+  can hold. `ToolSettings.ask` then gives `Configure` the broker's address, and the broker adds the credential from
+  the vault. A repository without one keeps its own URL. Neither file holds a password.
+- **The block.** The draft's `extensions.<adapter>` block reaches `Configure` by the same path; with `ownSettings`
+  the stand-in answers no file, and none is written.
+- **Red first.** In `FirstStartTest`, through a terminal yes, the start's own settings in `default` and
+  `ToolSettings.ask` with a stand-in maven adapter: `aRepositoryTheDraftNamesReachesTheStartsToolSettings`,
+  `theDraftsBlockForAnAdapterReachesItsConfigure` and `aRepositoryWithoutACredentialIsReachedAtItsOwnAddress` failed
+  at main. With `repositoryDraft` fixed alone, the first still failed: the adapter got the repository's own URL.
+- **Docs.** `doc/ecosystem-adapters.md` says when a draft's repository names its credential and that a start asks
+  `Configure` for it once the draft is taken. Changelog under *Fixed*.
+- A draft without `tool_repositories` starts as before: `FirstStartTest`'s other 91 cases are unchanged and pass.
+- **Locally on this commit.** apps/app (4728) passed whole, and so did the root's `validate` and `-Pdocuments test`.

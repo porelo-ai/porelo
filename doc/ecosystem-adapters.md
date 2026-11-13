@@ -118,7 +118,10 @@ its file, line, and note. Do not execute a build file to learn what it would do.
 Three kinds of `RULES` key carry what a first start's draft writes beside the image:
 
 - `repository.<name>`: a repository the tool reaches, its value the URL. The draft declares it as a tool repository
-  of that name, and its host in `egress`. The name is `[A-Za-z0-9_-]`, at most 64 characters.
+  of that name, and its host in `egress`. The name is `[A-Za-z0-9_-]`, at most 64 characters. When a
+  `credential.<name>` of the same name is found too, and the URL is one the broker can hold, the entry names that
+  credential: the task reaches the repository through its broker, and `Configure` is given the broker's address.
+  Once the person takes the draft, a start asks `Configure` for these repositories with this adapter's block.
 - `extension.<key>`: a text value the draft writes under `extensions.<adapter>.<key>`, the key's dots nesting, for
   this adapter's `Configure` to read; `extension.mirrorOf.corp` becomes `mirrorOf: {corp: ...}`.
 - `credential.<id>`, its value the id, and beside it `credential-kind.<id>`: `basic` (a username and a password),

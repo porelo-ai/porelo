@@ -420,7 +420,16 @@ final class ProjectProposal {
                     notPlaced.addAll(known);
                     continue;
                 }
-                repositories.add(new ToolRepositoryEntry(plugin, name, value));
+                // A repository the person's settings hold a credential for is read through the
+                // task's broker, which adds it from the vault: the task gets the broker's address
+                // and never the password. Without one it is reached at its own address.
+                final String credential =
+                        credentials.containsKey(name)
+                                        && name.matches(ToolRepository.CREDENTIAL_PATTERN)
+                                        && ToolRepository.isPrefix(value)
+                                ? name
+                                : null;
+                repositories.add(new ToolRepositoryEntry(plugin, name, value, credential));
                 if (!ToolRepository.isLoopback(host) && !domains.contains(host)) {
                     domains.add(host);
                     if (known.stream().allMatch(each -> "CHECKOUT".equals(each.get("origin")))) {

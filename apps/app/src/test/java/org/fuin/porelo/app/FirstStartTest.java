@@ -1942,4 +1942,147 @@ class FirstStartTest {
         assertThat(detected).isPositive();
         assertThat(lookedUp).isEmpty();
     }
+
+    private static Finding rule(final String key, final String value) {
+        return new Finding(
+                Finding.Part.RULES, key, value, "settings.xml", 1, Finding.Origin.YOURS, false, "");
+    }
+
+    /** A stand-in maven adapter: a settings file naming each repository it is given, or none. */
+    private static EcosystemDetector configuring(
+            final List<org.fuin.porelo.ecosystem.api.Repository> asked,
+            final List<org.fuin.porelo.ecosystem.api.Extension> blocks) {
+        return new EcosystemDetector() {
+            @Override
+            public Detection detect(
+                    final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description plugin,
+                    final Path checkout,
+                    final Path home) {
+                throw new AssertionError("a start detects nothing");
+            }
+
+            @Override
+            public List<org.fuin.porelo.ecosystem.api.File> configure(
+                    final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description plugin,
+                    final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
+                    final org.fuin.porelo.ecosystem.api.Extension extension) {
+                asked.addAll(repositories);
+                blocks.add(extension);
+                if ("true".equals(extension.values().get("ownSettings"))) {
+                    return List.of();
+                }
+                final StringBuilder mirrors = new StringBuilder();
+                repositories.forEach(
+                        each ->
+                                mirrors.append("<mirror><url>")
+                                        .append(each.url())
+                                        .append("</url></mirror>"));
+                return List.of(
+                        new org.fuin.porelo.ecosystem.api.File(
+                                ".m2/settings.xml", mirrors.toString(), true));
+            }
+        };
+    }
+
+    /** What the start in 'default' takes from the checkout's own settings, as it is started. */
+    private org.fuin.porelo.core.project.Project startedProject() {
+        final Path file = new DefaultProject(context).file();
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(file);
+        final var found = RepositoryOwnSettings.of(context, file, project.repository("shop"));
+        assertThat(found).isNotNull();
+        assertThat(found.toAllow(context, "shop")).as("the yes allowed all of it").isEmpty();
+        return found.project();
+    }
+
+    @Test
+    void aRepositoryTheDraftNamesReachesTheStartsToolSettings() throws Exception {
+        // The egress host reached the task while the repository did not: the task held no
+        // settings file, and the build asked the tool's default hosts.
+        plugin();
+        detector =
+                answering(
+                        tool("package.maven", "", "pom.xml"),
+                        rule("repository.inhouse", "https://nexus.corp.example/repository/maven/"),
+                        rule("credential.inhouse", "inhouse"));
+
+        assertThat(atTerminal("y").project()).isEqualTo("default");
+
+        final List<org.fuin.porelo.ecosystem.api.Repository> asked = new ArrayList<>();
+        final ToolSettings.Answer answer =
+                ToolSettings.ask(
+                        startedProject(),
+                        context.paths().ecosystemDirectories(),
+                        configuring(asked, new ArrayList<>()));
+
+        assertThat(asked)
+                .as("a repository the person holds a credential for is read through the broker")
+                .containsExactly(
+                        new org.fuin.porelo.ecosystem.api.Repository(
+                                "inhouse", TaskWiring.repositoryUrl("inhouse")));
+        assertThat(answer)
+                .isInstanceOfSatisfying(
+                        ToolSettings.Answer.Files.class,
+                        files ->
+                                assertThat(files.files())
+                                        .singleElement()
+                                        .satisfies(
+                                                one -> {
+                                                    assertThat(one.path())
+                                                            .endsWith("/.m2/settings.xml");
+                                                    assertThat(one.content())
+                                                            .contains(
+                                                                    TaskWiring.repositoryUrl(
+                                                                            "inhouse"))
+                                                            .doesNotContain("password");
+                                                }));
+    }
+
+    @Test
+    void theDraftsBlockForAnAdapterReachesItsConfigure() throws Exception {
+        // A person who keeps their own settings file says so in the block, and the adapter
+        // then answers no file.
+        plugin();
+        detector =
+                answering(
+                        tool("package.maven", "", "pom.xml"),
+                        rule("repository.inhouse", "https://nexus.corp.example/repository/maven/"),
+                        rule("extension.ownSettings", "true"));
+
+        atTerminal("y");
+
+        final List<org.fuin.porelo.ecosystem.api.Extension> blocks = new ArrayList<>();
+        final ToolSettings.Answer answer =
+                ToolSettings.ask(
+                        startedProject(),
+                        context.paths().ecosystemDirectories(),
+                        configuring(new ArrayList<>(), blocks));
+
+        assertThat(blocks)
+                .singleElement()
+                .satisfies(
+                        block -> assertThat(block.values()).containsEntry("ownSettings", "true"));
+        assertThat(answer).isEqualTo(new ToolSettings.Answer.Files(List.of()));
+    }
+
+    @Test
+    void aRepositoryWithoutACredentialIsReachedAtItsOwnAddress() throws Exception {
+        plugin();
+        detector =
+                answering(
+                        tool("package.maven", "", "pom.xml"),
+                        rule("repository.public", "https://repo.example.org/maven/"));
+
+        atTerminal("y");
+
+        final List<org.fuin.porelo.ecosystem.api.Repository> asked = new ArrayList<>();
+        ToolSettings.ask(
+                startedProject(),
+                context.paths().ecosystemDirectories(),
+                configuring(asked, new ArrayList<>()));
+
+        assertThat(asked)
+                .containsExactly(
+                        new org.fuin.porelo.ecosystem.api.Repository(
+                                "public", "https://repo.example.org/maven/"));
+    }
 }

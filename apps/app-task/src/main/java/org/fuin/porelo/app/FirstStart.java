@@ -1213,7 +1213,14 @@ public final class FirstStart {
                                 project.branch(),
                                 project.credentials(),
                                 Map.of(),
-                                project.baseBranch()));
+                                project.baseBranch(),
+                                null,
+                                Map.of(),
+                                // The repositories the build tools reach and each adapter's block
+                                // go with the egress hosts: without them the start asks no
+                                // adapter, and the task holds no settings file.
+                                project.toolRepositories(),
+                                project.extensions()));
         org.fuin.porelo.core.project.file.RepositoryFileReader.readBesideSettings(
                 new java.io.StringReader(written), REPOSITORY_FILE, null);
         return written;
