@@ -156,7 +156,7 @@ class KeepCommandTest {
     }
 
     @Test
-    void onlyTheUsageRecordsAreCopied() throws IOException {
+    void onlyTheRecordsAreCopied() throws IOException {
         // The copy goes to a project's store: nothing of a vault or a task's state may go along.
         write(machine.resolve(RECORD), LINES);
         write(dir.resolve("state/porelo/vault.kdbx"), "held");
@@ -453,6 +453,167 @@ class KeepCommandTest {
         assertThat(read(elsewhere)).isEqualTo("{\"a\":1}\n");
         assertThat(Files.isSymbolicLink(kept.resolve(RECORD))).as("left as it was").isTrue();
         assertThat(err.toString()).as("named").contains(RECORD);
+    }
+
+    private Path machineWork() {
+        return dir.resolve("state/porelo/work");
+    }
+
+    private Path keptWork() {
+        return dir.resolve("store/work");
+    }
+
+    private static final String WORK = "porelo-uc-shell-1.json";
+
+    private static final String FIRST = "2026-11-01T10:00:00Z";
+
+    private static String work(String startedAt, String end) {
+        return "{\"task\":\"porelo-uc-shell-1\",\"project\":\"uc\",\"startedAt\":\""
+                + startedAt
+                + "\",\"end\":"
+                + end
+                + "}";
+    }
+
+    @Test
+    void theWorkRecordsAreKeptBesideTheUsageRecords() throws IOException {
+        // What a task worked on and for how long is what planning measures: it outlives the
+        // machine as the tokens do.
+        write(machine.resolve(RECORD), LINES);
+        write(machineWork().resolve(WORK), work(FIRST, "null"));
+        write(
+                machineWork().resolve("porelo-uc-old-1.removed-5.json"),
+                work("2026-10-01T10:00:00Z", "\"removed\""));
+        write(machineWork().resolve(".lock"), "");
+        write(machineWork().resolve(WORK + ".new"), "{\"half");
+
+        assertThat(execute("keep", dir.resolve("store").toString())).as(err.toString()).isZero();
+
+        assertThat(read(keptWork().resolve(WORK))).isEqualTo(work(FIRST, "null"));
+        assertThat(read(keptWork().resolve("porelo-uc-old-1.removed-5.json")))
+                .isEqualTo(work("2026-10-01T10:00:00Z", "\"removed\""));
+        try (var copied = Files.list(keptWork())) {
+            assertThat(copied.map(Path::getFileName).map(Path::toString))
+                    .as("no lock and no staged record")
+                    .containsExactlyInAnyOrder(WORK, "porelo-uc-old-1.removed-5.json");
+        }
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(keptWork())))
+                .isEqualTo("rwx------");
+        assertThat(
+                        PosixFilePermissions.toString(
+                                Files.getPosixFilePermissions(keptWork().resolve(WORK))))
+                .isEqualTo("rw-------");
+        assertThat(out.toString()).contains("2 work records in " + keptWork());
+    }
+
+    @Test
+    void aKeptWorkRecordOfTheSameTaskTakesTheMachinesNewerOne() throws IOException {
+        // A work record is rewritten whole as its task goes on, never appended to.
+        write(keptWork().resolve(WORK), work(FIRST, "null"));
+        write(machineWork().resolve(WORK), work(FIRST, "\"done\""));
+
+        assertThat(execute("keep", dir.resolve("store").toString())).as(err.toString()).isZero();
+
+        assertThat(read(keptWork().resolve(WORK))).isEqualTo(work(FIRST, "\"done\""));
+    }
+
+    @Test
+    void aKeptWorkRecordOfAnotherTaskOfTheSameNameIsNamedAndBothStay() throws IOException {
+        // Either way a copy would lose a task's record nothing else holds.
+        write(keptWork().resolve(WORK), work(FIRST, "\"done\""));
+        write(machineWork().resolve(WORK), work("2026-11-02T10:00:00Z", "null"));
+
+        assertThat(execute("keep", dir.resolve("store").toString())).isEqualTo(70);
+
+        assertThat(read(keptWork().resolve(WORK))).isEqualTo(work(FIRST, "\"done\""));
+        assertThat(err.toString()).as("named").contains(WORK);
+    }
+
+    @Test
+    void aRemovedTasksWorkRecordReplacesTheCopyKeptUnderItsLiveName() throws IOException {
+        // Left there, a restore would give one task twice, and a new task of the name would
+        // differ from it at every keep.
+        write(keptWork().resolve(WORK), work(FIRST, "null"));
+        write(
+                machineWork().resolve("porelo-uc-shell-1.removed-7.json"),
+                work(FIRST, "\"removed\""));
+        write(machineWork().resolve(WORK), work("2026-11-02T10:00:00Z", "null"));
+
+        assertThat(execute("keep", dir.resolve("store").toString())).as(err.toString()).isZero();
+
+        assertThat(read(keptWork().resolve("porelo-uc-shell-1.removed-7.json")))
+                .isEqualTo(work(FIRST, "\"removed\""));
+        assertThat(read(keptWork().resolve(WORK)))
+                .as("the new task's")
+                .isEqualTo(work("2026-11-02T10:00:00Z", "null"));
+    }
+
+    @Test
+    void aWorkRecordThatIsNoRecordIsNamedAndTheOthersAreKept() throws IOException {
+        write(machineWork().resolve("broken.json"), "{\"half");
+        write(machineWork().resolve(WORK), work(FIRST, "null"));
+
+        assertThat(execute("keep", dir.resolve("store").toString())).isEqualTo(70);
+
+        assertThat(keptWork().resolve("broken.json")).doesNotExist();
+        assertThat(read(keptWork().resolve(WORK))).isEqualTo(work(FIRST, "null"));
+        assertThat(err.toString()).as("named").contains("broken.json");
+    }
+
+    @Test
+    void theWorkRecordsAreRestoredAndTheMachinesOwnOfATaskIsLeft() throws IOException {
+        // The machine's record of a task is never older than a copy taken from it.
+        write(keptWork().resolve(WORK), work(FIRST, "null"));
+        write(keptWork().resolve("porelo-uc-old-1.removed-5.json"), work(FIRST, "\"removed\""));
+        write(machineWork().resolve(WORK), work(FIRST, "\"done\""));
+        runner.answering("ps", "");
+
+        assertThat(execute("keep", "--restore", dir.resolve("store").toString()))
+                .as(err.toString())
+                .isZero();
+
+        assertThat(read(machineWork().resolve(WORK))).isEqualTo(work(FIRST, "\"done\""));
+        assertThat(read(machineWork().resolve("porelo-uc-old-1.removed-5.json")))
+                .isEqualTo(work(FIRST, "\"removed\""));
+    }
+
+    @Test
+    void workRecordsRestoredOnAFreshAccountAreReadableByItAlone() throws IOException {
+        write(keptWork().resolve(WORK), work(FIRST, "null"));
+        runner.answering("ps", "");
+
+        assertThat(execute("keep", "--restore", dir.resolve("store").toString()))
+                .as(err.toString())
+                .isZero();
+
+        assertThat(read(machineWork().resolve(WORK))).isEqualTo(work(FIRST, "null"));
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(machineWork())))
+                .isEqualTo("rwx------");
+    }
+
+    @Test
+    void aStoreKeptBeforeTheWorkRecordsIsStillRestored() throws IOException {
+        write(kept.resolve(RECORD), LINES);
+        runner.answering("ps", "");
+
+        assertThat(execute("keep", "--restore", dir.resolve("store").toString()))
+                .as(err.toString())
+                .isZero();
+
+        assertThat(read(machine.resolve(RECORD))).isEqualTo(LINES);
+    }
+
+    @Test
+    void aLinkAmongTheWorkRecordsIsNotFollowedOffTheMachine() throws IOException {
+        final Path secret = dir.resolve("secret.json");
+        write(secret, work(FIRST, "null"));
+        Files.createDirectories(machineWork());
+        Files.createSymbolicLink(machineWork().resolve(WORK), secret);
+
+        assertThat(execute("keep", dir.resolve("store").toString())).isEqualTo(70);
+
+        assertThat(keptWork().resolve(WORK)).doesNotExist();
+        assertThat(err.toString()).as("named").contains(WORK);
     }
 
     @Test

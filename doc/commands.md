@@ -25,7 +25,7 @@ file are in [the project file](project-file.md).
 | [`prune`](#prune) | Shows what nothing owns any more; removes it with `--yes`. |
 | [`tighten`](#tighten) | Makes what Porelo left behind readable by this account alone, and says what it changed. |
 | [`panic`](#panic) | Stops every task and helper, removing nothing. |
-| [`keep`](#keep) | Copies the usage records into a directory, or puts them back from one. |
+| [`keep`](#keep) | Copies the usage and work records into a directory, or puts them back from one. |
 | [`daemon`](#daemon) | Reaches the daemon on this machine. |
 | [`service`](#service) | Reaches a service this host serves, by its role. |
 | [`completion`](#completion) | Prints the TAB completion script for a shell. |
@@ -187,7 +187,7 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 **`task start`**
 - `--work ISSUE:PHASE`: names the issue and the phase of the project's own workflow (such as `Implementing`) the
   task works on, kept in its record as given; each one line of 1 to 64 characters, else exit code 64. Over the
-  daemon, Start's `work: (issue, phase)`.
+  daemon, Start's `work: (issue, phase)`, which `CanStart` takes too and answers `WORK_REFUSED` for.
 - `--short NAME`: records an optional container spelling for the task: `[a-z][a-z0-9-]*`, at most 16 characters,
   no underscore and no `porelo-` prefix. It stays fixed with the project's short spelling when the task is created.
   Container creation currently keeps the legacy name.
@@ -1167,14 +1167,20 @@ and only waits for its parent to reap it (a zombie) counts as stopped.
 
 ## keep
 
-`porelo keep <dir>` copies the tasks' usage records, `usage/*.jsonl` in the state directory and nothing else, into
-`<dir>/usage/`, up to each record's last complete line. It writes the copy into the directory it is given; taking it
-elsewhere and when are the caller's. `porelo keep --restore <dir>` puts them back before a task starts, and is refused
-with exit 69 while a task runs or when the runtime cannot say.
+`porelo keep <dir>` copies the tasks' usage records, `usage/*.jsonl` in the state directory, into `<dir>/usage/`, up
+to each record's last complete line, and their work records, `work/*.json`, into `<dir>/work/`, and nothing else. It
+writes the copy into the directory it is given; taking it elsewhere and when are the caller's. `porelo keep --restore
+<dir>` puts them back before a task starts, and is refused with exit 69 while a task runs or when the runtime cannot
+say. A directory kept before the work records were is restored as it is.
 
 A longer record is never shortened, in either direction, and only complete lines are copied. Once a removed task's
 record holds all of what was kept under the task's own name, that copy is dropped, so a restore gives no request twice. Two records that differ before the shorter one ends are named,
 both stay as they are, and the others are still copied. Exit 0, or 70 naming what could not be read or written.
+
+A work record is rewritten whole as its task goes on, so it is taken whole: a copy of the same task's record (the same
+`task` and `startedAt`) takes the machine's at a keep, and a restore leaves the machine's own, which is never older.
+A removed task's record drops the copy kept under the task's own name, and a record of another task of that name is
+named, both left as they are. A file that is no work record is named and not copied.
 
 ## daemon
 

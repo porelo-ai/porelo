@@ -1061,7 +1061,10 @@ type StartOutcome (
   # a project admin or a developer with access to that repository. 'file' and 'commit' name it,
   # 'detail' says it in words; a history rewritten under the change this machine took last is refused
   # the same way, with 'commit' "". Nothing here can allow it: a person signs with their own commit.
-  SETTINGS_UNSIGNED
+  SETTINGS_UNSIGNED,
+  # The work given, its issue or its phase, is not one line of 1 to 64 characters. 'detail' says which,
+  # in the words Start refuses with (exitCode 64). Answered before anything else, as Start refuses it.
+  WORK_REFUSED
 )
 
 # One setting a repository's porelo.yml asks for that this machine has not allowed.
@@ -1147,7 +1150,9 @@ method CanStart(
   parameters: ?[string]ParameterValue,
   # The task's branch at the forge, named outright, as Start takes it. Omitted, the one project.yml's
   # branch scheme makes. One its pattern refuses is BRANCH_REFUSED.
-  branch: ?string
+  branch: ?string,
+  # The issue and the phase the task would work on, as Start takes them. One Start would refuse is WORK_REFUSED.
+  work: ?(issue: string, phase: string)
 ) -> (
   # Whether work could start. True exactly when outcome is READY, so branch on whichever suits -
   # but never infer the ACTION from this alone: three different things somebody has to do all

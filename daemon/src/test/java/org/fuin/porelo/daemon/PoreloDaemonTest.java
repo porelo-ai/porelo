@@ -691,6 +691,90 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aWorkStartRefusesIsRefusedByCanStartBeforeAnythingStarts(@TempDir Path dir)
+            throws Exception {
+
+        // A client hears a bad issue and phase from the question, not from a start that fails.
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("podman version", "5.8.1");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> start =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "shell",
+                                                "repository",
+                                                "uc",
+                                                "work",
+                                                Map.of("issue", "ISSUE-1", "phase", "")));
+                        assertThat(((Number) start.get("exitCode")).intValue()).isEqualTo(64);
+
+                        final Map<String, Object> bad =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".CanStart",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "shell",
+                                                "repository",
+                                                "uc",
+                                                "work",
+                                                Map.of("issue", "ISSUE-1", "phase", "")));
+                        assertThat(bad)
+                                .containsEntry("outcome", "WORK_REFUSED")
+                                .containsEntry("ready", false);
+                        assertThat(String.valueOf(bad.get("detail"))).contains("phase");
+
+                        assertThat(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".CanStart",
+                                                Map.of(
+                                                        "project",
+                                                        PROJECT,
+                                                        "task",
+                                                        "shell",
+                                                        "repository",
+                                                        "uc",
+                                                        "work",
+                                                        Map.of(
+                                                                "issue",
+                                                                "ISSUE-1",
+                                                                "phase",
+                                                                "x".repeat(65)))))
+                                .as("a phase longer than a start keeps")
+                                .containsEntry("outcome", "WORK_REFUSED");
+                        assertThat(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".CanStart",
+                                                Map.of(
+                                                        "project",
+                                                        PROJECT,
+                                                        "task",
+                                                        "shell",
+                                                        "repository",
+                                                        "uc",
+                                                        "work",
+                                                        Map.of(
+                                                                "issue",
+                                                                "ISSUE-1",
+                                                                "phase",
+                                                                "Implementing"))))
+                                .doesNotContainEntry("outcome", "WORK_REFUSED");
+                    }
+                });
+    }
+
+    @Test
     void aValueTheProjectDoesNotAllowIsRefusedByCanStartAndStartAlike(@TempDir Path dir)
             throws Exception {
 

@@ -1,9 +1,11 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -11,9 +13,11 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -22,18 +26,28 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * Copies the tasks' usage records into a directory it is given, and puts them back on a new
- * machine, so the history a project's velocity is computed from outlives the machine it was written
- * on. Taking the copy elsewhere, and when, is for whoever calls it.
+ * Copies the tasks' usage and work records into a directory it is given, and puts them back on a
+ * new machine, so the history a project's velocity is computed from outlives the machine it was
+ * written on. Taking the copy elsewhere, and when, is for whoever calls it.
  */
 @Command(
         name = "keep",
         mixinStandardHelpOptions = true,
-        description = "Copies the usage records into a directory, or puts them back from one.")
+        description =
+                "Copies the usage and work records into a directory, or puts them back from one.")
 public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     /** The directory beneath the one given that holds the copies. */
     private static final String USAGE = "usage";
+
+    /** The directory beneath the one given that holds the copies of the work records. */
+    private static final String WORK = "work";
+
+    /** The work records' lock, which porelod and a command line hold while they write one. */
+    private static final String WORK_LOCK = ".lock";
+
+    /** The name a work record is given when its task is removed. */
+    private static final Pattern REMOVED_WORK = Pattern.compile("\\.removed-\\d+\\.json$");
 
     /** Only a record's complete lines are copied, so its end is read back this much at a time. */
     private static final int BACKWARD = 64 * 1024;
@@ -47,6 +61,7 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
         COPIED,
         UNCHANGED,
         LONGER_LEFT,
+        NEWER_LEFT,
         DIVERGED
     }
 
@@ -71,6 +86,8 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
         final PrintWriter err = spec.commandLine().getErr();
         final Path machine = context.paths().tasks().usageRecords();
         final Path kept = directory.resolve(USAGE);
+        final Path machineWork = context.paths().tasks().workRecords();
+        final Path keptWork = directory.resolve(WORK);
         final int code;
         if (restore) {
             final String refused = whyATaskForbidsIt();
@@ -79,14 +96,19 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
                 err.flush();
                 return 69;
             }
-            if (!Files.isDirectory(kept, LinkOption.NOFOLLOW_LINKS)) {
+            final boolean usage = Files.isDirectory(kept, LinkOption.NOFOLLOW_LINKS);
+            final boolean work = Files.isDirectory(keptWork, LinkOption.NOFOLLOW_LINKS);
+            if (!usage && !work) {
                 err.println("porelo: no records were kept in " + kept);
                 err.flush();
                 return 70;
             }
-            code = restore(kept, machine);
+            // A directory kept before the work records were holds none of them.
+            final int usageCode = usage ? restore(kept, machine) : 0;
+            final int workCode = work ? restoreWork(keptWork, machineWork) : 0;
+            code = Math.max(usageCode, workCode);
         } else {
-            code = keep(machine, kept);
+            code = Math.max(keep(machine, kept), keepWork(machineWork, keptWork));
         }
         out.flush();
         err.flush();
@@ -111,6 +133,222 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
                 : "a task is running, and its broker may be appending to its record: "
                         + String.join(", ", running)
                         + "; stop it first";
+    }
+
+    /**
+     * Copies a machine's work records out, under the lock their writers hold: a removed task's
+     * first, so the copy kept under its live name can be retired.
+     */
+    private int keepWork(Path machine, Path kept) {
+        final PrintWriter err = spec.commandLine().getErr();
+        if (!prepared(kept)) {
+            return 70;
+        }
+        final Tally tally = new Tally();
+        try {
+            lockedIfThere(
+                    machine,
+                    () -> {
+                        // Listed under the lock: a removal renames a record meanwhile.
+                        final List<Path> records = workRecords(machine);
+                        final List<Path> removed =
+                                records.stream().filter(KeepCommand::isRemovedWork).toList();
+                        final List<Path> live =
+                                records.stream().filter(path -> !isRemovedWork(path)).toList();
+                        copyEach(removed, machine, kept, tally, KeepCommand::copyWorkOut);
+                        for (final Path record : removed) {
+                            retireWork(kept, String.valueOf(record.getFileName()), tally);
+                        }
+                        copyEach(live, machine, kept, tally, KeepCommand::copyWorkOut);
+                        return Boolean.TRUE;
+                    });
+        } catch (IOException ex) {
+            err.println("porelo: cannot read " + machine + ": " + ex.getMessage());
+            return 70;
+        }
+        return finishedWork(tally, kept);
+    }
+
+    /** Puts kept work records back on a machine, never over the machine's own of the same task. */
+    private int restoreWork(Path kept, Path machine) {
+        final PrintWriter err = spec.commandLine().getErr();
+        final List<Path> records;
+        try {
+            records = workRecords(kept);
+        } catch (IOException ex) {
+            err.println("porelo: cannot read " + kept + ": " + ex.getMessage());
+            return 70;
+        }
+        if (!prepared(machine)) {
+            return 70;
+        }
+        final Tally tally = new Tally();
+        try {
+            lockedIfThere(
+                    machine,
+                    () -> {
+                        copyEach(records, kept, machine, tally, KeepCommand::copyWorkIn);
+                        return Boolean.TRUE;
+                    });
+        } catch (IOException ex) {
+            err.println("porelo: cannot lock " + machine + ": " + ex.getMessage());
+            return 70;
+        }
+        return finishedWork(tally, machine);
+    }
+
+    private int finishedWork(Tally tally, Path to) {
+        spec.commandLine().getOut().println(tally.held + " work records in " + to);
+        return tally.failed == 0 ? 0 : 70;
+    }
+
+    /**
+     * Holds the machine's work records' lock while they are read or written, when they are there.
+     */
+    private static void lockedIfThere(Path machine, FileLocks.Locked<Boolean> locked)
+            throws IOException {
+        if (Files.isDirectory(machine, LinkOption.NOFOLLOW_LINKS)) {
+            FileLocks.holding(machine.resolve(WORK_LOCK), locked);
+        } else {
+            locked.run();
+        }
+    }
+
+    /**
+     * Drops the copy kept under a task's live name once the removed task's record is the same
+     * task's: left there, a restore would give the task twice, and a new task of that name would
+     * differ from it at every keep and never be kept.
+     */
+    private void retireWork(Path kept, String removedName, Tally tally) {
+        final Path whole = kept.resolve(removedName);
+        final Path old = kept.resolve(REMOVED_WORK.matcher(removedName).replaceFirst(".json"));
+        try {
+            if (Files.isRegularFile(whole, LinkOption.NOFOLLOW_LINKS)
+                    && Files.isRegularFile(old, LinkOption.NOFOLLOW_LINKS)) {
+                final String task = identity(readWhole(whole));
+                if (task != null && task.equals(identity(readWhole(old)))) {
+                    Files.delete(old);
+                }
+            }
+        } catch (IOException ex) {
+            tally.failed++;
+            spec.commandLine()
+                    .getErr()
+                    .println("porelo: cannot retire " + old + ": " + ex.getMessage());
+        }
+    }
+
+    /** Copies a machine's work record out: the machine's of a task is its newest. */
+    private static Outcome copyWorkOut(Path from, Path to) throws IOException {
+        return copyWork(from, to, true);
+    }
+
+    /** Copies a kept work record onto a machine, leaving the machine's own of the same task. */
+    private static Outcome copyWorkIn(Path from, Path to) throws IOException {
+        return copyWork(from, to, false);
+    }
+
+    /**
+     * Copies one work record over another. A work record is rewritten whole as its task goes on, so
+     * no prefix says which is newer: two of the same task (the same {@code task} and {@code
+     * startedAt}) are told apart by which side is the machine's.
+     *
+     * @param from The record, never followed if a link.
+     * @param to Where it goes.
+     * @param replacesSameTask Whether a copy of the same task's record is replaced.
+     * @return What became of it.
+     * @throws IOException If either cannot be read or written, or the source is no work record.
+     */
+    private static Outcome copyWork(Path from, Path to, boolean replacesSameTask)
+            throws IOException {
+        final byte[] record = readWhole(from);
+        final String task = identity(record);
+        if (task == null) {
+            throw new IOException("it is no work record");
+        }
+        if (Files.exists(to, LinkOption.NOFOLLOW_LINKS)) {
+            if (!Files.isRegularFile(to, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IOException(to + " is not a plain file");
+            }
+            final byte[] existing = readWhole(to);
+            if (java.util.Arrays.equals(record, existing)) {
+                return Outcome.UNCHANGED;
+            }
+            if (!task.equals(identity(existing))) {
+                return Outcome.DIVERGED;
+            }
+            if (!replacesSameTask) {
+                return Outcome.NEWER_LEFT;
+            }
+        }
+        final Path staged =
+                Files.createTempFile(
+                        to.getParent(),
+                        ".keep-",
+                        ".tmp",
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rw-------")));
+        try {
+            Files.write(staged, record, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+            Files.move(
+                    staged,
+                    to,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+            return Outcome.COPIED;
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+    }
+
+    /**
+     * Names the task a work record is of: its container name and when it was made.
+     *
+     * @return The identity, or {@code null} for what is no work record.
+     */
+    private static @Nullable String identity(byte[] record) {
+        final Object document;
+        try {
+            document = Json.parseExact(new String(record, StandardCharsets.UTF_8));
+        } catch (RuntimeException ex) {
+            return null;
+        }
+        if (document instanceof Map<?, ?> fields
+                && fields.get("task") instanceof String task
+                && fields.get("startedAt") instanceof String startedAt) {
+            return task + "\n" + startedAt;
+        }
+        return null;
+    }
+
+    private static byte[] readWhole(Path file) throws IOException {
+        try (InputStream in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+            return in.readAllBytes();
+        }
+    }
+
+    /**
+     * Lists the work records of a directory: a lock, a staged write or a temporary file is none.
+     */
+    private static List<Path> workRecords(Path directory) throws IOException {
+        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
+            return List.of();
+        }
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("not a directory");
+        }
+        try (Stream<Path> entries = Files.list(directory)) {
+            return entries.filter(KeepCommand::isWorkRecord).sorted().toList();
+        }
+    }
+
+    private static boolean isWorkRecord(Path path) {
+        final String name = String.valueOf(path.getFileName());
+        return name.endsWith(".json") && !name.startsWith(".");
+    }
+
+    private static boolean isRemovedWork(Path path) {
+        return REMOVED_WORK.matcher(String.valueOf(path.getFileName())).find();
     }
 
     /** Copies a machine's records out: a removed task's first, so its old copy can be retired. */
@@ -173,14 +411,24 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
         return tally.failed == 0 ? 0 : 70;
     }
 
+    /** How one record is copied over another. */
+    @FunctionalInterface
+    private interface Copier {
+        Outcome copy(Path from, Path to) throws IOException;
+    }
+
     /** Copies each record, going on past one that fails: what can be saved is saved. */
     private void copyEach(List<Path> records, Path from, Path to, Tally tally) {
+        copyEach(records, from, to, tally, KeepCommand::copy);
+    }
+
+    private void copyEach(List<Path> records, Path from, Path to, Tally tally, Copier copier) {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
         for (final Path record : records) {
             final String name = String.valueOf(record.getFileName());
             try {
-                final Outcome outcome = copy(record, to.resolve(name));
+                final Outcome outcome = copier.copy(record, to.resolve(name));
                 switch (outcome) {
                     case NOTHING_COMPLETE -> {}
                     case DIVERGED -> {
@@ -205,6 +453,10 @@ public class KeepCommand implements Callable<Integer>, PoreloFactory.ContextAwar
                     case LONGER_LEFT -> {
                         tally.held++;
                         out.println("longer    " + name);
+                    }
+                    case NEWER_LEFT -> {
+                        tally.held++;
+                        out.println("newer     " + name);
                     }
                 }
             } catch (IOException ex) {

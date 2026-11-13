@@ -1,0 +1,2 @@
+title: "`porelo keep <dir>` copies the tasks' work records into `<dir>/work/` beside the usage records and `--restore` puts them back, and Tasks1 `CanStart` takes Start's `work` and answers `WORK_REFUSED` for an issue or phase Start would refuse"
+type: added

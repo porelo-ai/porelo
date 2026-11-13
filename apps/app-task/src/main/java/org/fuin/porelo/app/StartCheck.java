@@ -195,7 +195,13 @@ public final class StartCheck {
          * rewritten under the change this machine took last. {@code file} and {@code commit} name
          * it; nothing here can allow it.
          */
-        SETTINGS_UNSIGNED
+        SETTINGS_UNSIGNED,
+
+        /**
+         * The issue or the phase the task would work on is not one line of 1 to {@value
+         * TaskWork#MOST} characters. {@code detail} says which, in the words Start refuses with.
+         */
+        WORK_REFUSED
     }
 
     /**
@@ -712,6 +718,62 @@ public final class StartCheck {
                 parameters,
                 branch,
                 null);
+    }
+
+    /**
+     * Settles everything a start would, the work it is started for among them: work Start refuses
+     * is refused first, as Start refuses it before anything else of the run.
+     *
+     * @param context Where the machine's state comes from.
+     * @param projectFile The project file, or {@code null}.
+     * @param taskName The task's name, or {@code null}.
+     * @param agentName Agent to run, or {@code null} for the only one installed.
+     * @param providerName Provider to route through, or {@code null}.
+     * @param credentialType Overrides the stored credential kind, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @param needsRepository Whether this run would have a gate at all: {@code false} for {@code
+     *     noGate}.
+     * @param credentials The credentials the run adds.
+     * @param parameters The values the start hands in, each with where it came from.
+     * @param branch The branch named outright, or {@code null} for the one the scheme makes.
+     * @param shortName The optional container spelling, or {@code null}.
+     * @param allRepositories Whether the task would read every repository of the project.
+     * @param work The issue and phase the task would work on, or {@code null} when none is given.
+     * @return What was found.
+     */
+    public static Result check(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch,
+            @Nullable String shortName,
+            boolean allRepositories,
+            @Nullable TaskWork work) {
+        final String workRefused = work == null ? null : work.refusal();
+        if (workRefused != null) {
+            return refused(Outcome.WORK_REFUSED, workRefused);
+        }
+        return check(
+                context,
+                projectFile,
+                taskName,
+                agentName,
+                providerName,
+                credentialType,
+                repository,
+                needsRepository,
+                credentials,
+                parameters,
+                branch,
+                shortName,
+                allRepositories);
     }
 
     /**

@@ -198,7 +198,9 @@ final class TaskMethods {
                 values(parameters),
                 empty(parameters, "branch"),
                 PoreloDaemon.shortName(parameters),
-                flag(parameters, "allRepositories"));
+                flag(parameters, "allRepositories"),
+                // Start's own, and refused by the same rule before anything else.
+                org.fuin.porelo.app.TaskWork.of(parameters.get("work")));
     }
 
     /**

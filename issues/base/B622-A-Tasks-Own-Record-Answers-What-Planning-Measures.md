@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B622",
   "title": "A Task's Own Record Answers What Planning Measures",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 20,
@@ -162,3 +162,21 @@ answer its totals, by model, agent, day and hour. So tokens per kind, cache toke
   - Rejected: `_KEY` assignments are masked already. A start time taken from a duration is right. A run in an
     existing task replaces the record's end, as one record per task says.
   - Left for later: `--work` given to a task that exists already is not taken.
+
+## Finished points (2026-11-13)
+
+- `porelo keep <dir>` copies the work records, `work/*.json` in the state directory and the removed tasks'
+  `.removed-<time>.json`, into `<dir>/work/`, and `--restore` puts them back, under the lock their writers hold. The
+  usage records' rules hold, adapted to a record rewritten whole rather than appended to: a removed task's record is
+  copied first and drops the copy kept under the task's own name when that is the same task (the same `task` and
+  `startedAt`); a copy of the same task takes the machine's at a keep, and a restore leaves the machine's own, which
+  is never older; a record of another task under the same name is named and both stay (exit 70); a file that is no
+  work record, a link, the lock and a staged write are not copied; a directory kept before the work records is
+  restored as it is.
+- Tasks1 `CanStart` takes Start's `work: ?(issue, phase)` and answers the new `StartOutcome` `WORK_REFUSED`, in the
+  words of `TaskWork.refusal`, before anything else, as Start refuses it with exitCode 64 (`StartCheck.check` with
+  the work). An added enum value and an optional field: no break within Tasks1.
+- Red first: `KeepCommandTest`'s eight work-record cases (seven red; the one over a store kept before the work records
+  passed already; a ninth, a fresh machine's directory being the account's alone, came after), and `PoreloDaemonTest.aWorkStartRefusesIsRefusedByCanStartBeforeAnythingStarts` (CanStart answered
+  `NO_AGENT` for an empty phase).
+- Left: Start's `works` ([B630](README.md#b630)) is not taken by CanStart yet; it follows once it lands.
