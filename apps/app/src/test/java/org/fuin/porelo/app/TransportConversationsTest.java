@@ -668,6 +668,77 @@ class TransportConversationsTest {
     }
 
     @Test
+    void aStartThatHoldsTheTasksNameIsNotTakenOutOfItsRoom() throws Exception {
+        // Looked at and left without the name's lock, a start that enrolled in between had its
+        // fresh account forgotten by the retire.
+        final TransportLifecycle lifecycle =
+                room("{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}");
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+        final PoreloContext starting = context();
+        final Thread start =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    try {
+                                        new TaskReservations(starting)
+                                                .reserve(
+                                                        "p",
+                                                        "unit",
+                                                        "porelo-p-unit",
+                                                        java.util.UUID.randomUUID().toString());
+                                    } catch (IOException ex) {
+                                        throw new java.io.UncheckedIOException(ex);
+                                    }
+                                });
+        start.join(5_000);
+
+        final List<String> left =
+                lifecycle.leaveEnded("room", "p", Map.of(), task -> false, (task, why) -> {});
+
+        assertThat(left).as("its start holds the name").isEmpty();
+        assertThat(tasksGiven("retire")).as("no retire").isEmpty();
+        assertThat(lifecycle.enrolled("room", "p")).containsExactly("porelo-p-unit");
+    }
+
+    @Test
+    void aProjectWhoseSweepFailsKeepsNoOtherFromLeaving() throws Exception {
+        // One project's failure ended the sweep, and every project after it waited for ever.
+        final TransportLifecycle lifecycle =
+                room("{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}");
+        final PoreloContext context = context();
+        for (final String name : List.of("a", "p")) {
+            final Path file = dir.resolve(name + ".yml");
+            Files.writeString(
+                    file,
+                    "project:\n  name: "
+                            + name
+                            + "\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n"
+                            + "mail:\n  transports:\n    room:\n      server: https://example.org\n");
+            new ProjectRegistry(context.paths().projects().projectRegistry()).remember(name, file);
+        }
+        lifecycle.setup("room", "a", Map.of());
+        lifecycle.enroll("room", "a", "porelo-a-unit", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-unit", "scout", Map.of(), false);
+        final List<String> failed = new java.util.ArrayList<>();
+
+        final List<String> left =
+                new TaskConversations(context)
+                        .sweep(
+                                context,
+                                task -> {
+                                    if (task.startsWith("porelo-a-")) {
+                                        throw new IllegalStateException("a cannot be read");
+                                    }
+                                    return false;
+                                },
+                                (key, sentence) -> failed.add(key));
+
+        assertThat(left).as("p's task left all the same").containsExactly("porelo-p-unit room");
+        assertThat(failed).as("a's said").containsExactly("porelo-a-unit room");
+        assertThat(tasksGiven("retire")).containsExactly("porelo-p-unit");
+    }
+
+    @Test
     void aTaskTheTransportCannotRetireNowIsSaidAndTriedAgainAtTheNextSweep() throws Exception {
         final TransportLifecycle lifecycle =
                 room("{\"TASK\":\"t-1\",\"PORELO_MATRIX_LOGIN\":\"ms\"}");

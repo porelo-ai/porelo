@@ -300,7 +300,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b616"></a>[B616](B616-A-Task-That-Ends-Without-A-Stop-Leaves-Its-Room.md) | M | [B615](README.md#b615) | A task whose container ends without `task stop` (it exits, crashes, or the machine was off) leaves its room on a central homeserver as a stopped task does: `porelod` finds every enrolled task that is not running, at its start, while it runs and when the vault opens, and has it leave. | 0 |
+| <a id="b616"></a>[B616](B616-A-Task-That-Ends-Without-A-Stop-Leaves-Its-Room.md) | M | [B615](README.md#b615) | A task whose container ends without `task stop` (it exits, crashes, or the machine was off) leaves its room on a central homeserver as a stopped task does: `porelod` finds every enrolled task that is not running, at its start, while it runs and when the vault opens, and has it leave. | - |
 | <a id="b706"></a>[B706](B706-An-Undeclared-Address-Asked-About-In-The-List.md) | S | - | A task of a guarded project that reaches an address its project did not declare is listed waiting for that clearance question within seconds, and the watch names the question above its table. | 0 |
 | <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped | - |
 | <a id="b625"></a>[B625](B625-A-Unit-Test-Never-Reads-The-Machines-Host-Helper.md) | S | - | No unit test's task start asks the real machine whether it is a host: on a machine with the host package installed, `apps/app`'s start tests are as green as on one without. | - |

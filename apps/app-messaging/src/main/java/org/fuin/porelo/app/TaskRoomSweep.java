@@ -38,7 +38,13 @@ public final class TaskRoomSweep implements AutoCloseable {
 
     private final Supplier<Instant> clock;
 
-    /** What was said already, as {@code task scheme}: said once, tried again at every sweep. */
+    /** The key of a sweep that failed as a whole. */
+    private static final String SWEEP = "";
+
+    /**
+     * What was said already, as {@code task scheme}: said once while it lasts, tried again at every
+     * sweep.
+     */
     private final Set<String> told = ConcurrentHashMap.newKeySet();
 
     private volatile boolean running = true;
@@ -111,6 +117,7 @@ public final class TaskRoomSweep implements AutoCloseable {
             return List.of();
         }
         final List<String> left;
+        final Set<String> failing = new java.util.HashSet<>();
         try {
             final Set<String> runs = running();
             left =
@@ -119,17 +126,26 @@ public final class TaskRoomSweep implements AutoCloseable {
                                     context,
                                     task -> runs.contains(task) || here(task),
                                     (key, sentence) -> {
+                                        failing.add(key);
                                         if (told.add(key)) {
                                             log.accept(sentence + "; tried again at each sweep");
                                         }
                                     });
         } catch (RuntimeException ex) {
-            log.accept(
-                    "the tasks that ended were not taken out of their rooms: " + ex.getMessage());
+            // Said once for as long as it lasts, not every minute.
+            failing.add(SWEEP);
+            if (told.add(SWEEP)) {
+                log.accept(
+                        "the tasks that ended are not taken out of their rooms: "
+                                + ex.getMessage()
+                                + "; tried again at each sweep");
+            }
             return List.of();
+        } finally {
+            // What no longer fails is said again when it fails again.
+            told.retainAll(failing);
         }
         for (final String each : left) {
-            told.remove(each);
             final int space = each.indexOf(' ');
             log.accept(
                     each.substring(0, space)
@@ -140,10 +156,14 @@ public final class TaskRoomSweep implements AutoCloseable {
         return left;
     }
 
-    /** The containers running now, once per sweep. */
-    private Set<String> running() {
+    /**
+     * The containers running now, once per sweep: every task-shaped one, its record matching or
+     * not. A running task whose record was lost or names another id is here all the same; taken for
+     * ended, it was retired at every sweep.
+     */
+    Set<String> running() {
         final Set<String> names = new java.util.HashSet<>();
-        for (final ContainerSummary summary : context.podman().poreloTasks()) {
+        for (final ContainerSummary summary : context.podman().taskCandidates()) {
             if (summary.running()) {
                 names.add(summary.name());
             }

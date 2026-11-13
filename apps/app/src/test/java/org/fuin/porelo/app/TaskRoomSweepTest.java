@@ -28,30 +28,27 @@ class TaskRoomSweepTest {
     private final List<String> said = new ArrayList<>();
 
     private TaskRoomSweep sweep() {
-        return new TaskRoomSweep(
-                new PoreloContext(
-                        runner,
-                        new PoreloPaths(
-                                org.fuin.porelo.core.config.XdgPaths.of(
-                                        name ->
-                                                switch (name) {
-                                                    case "XDG_CONFIG_HOME" ->
-                                                            dir.resolve("config").toString();
-                                                    case "XDG_DATA_HOME" ->
-                                                            dir.resolve("data").toString();
-                                                    case "XDG_STATE_HOME" ->
-                                                            dir.resolve("state").toString();
-                                                    case "XDG_RUNTIME_DIR" ->
-                                                            dir.resolve("run").toString();
-                                                    default -> null;
-                                                },
-                                        dir),
-                                dir.resolve("bin")),
-                        args -> 0),
-                Duration.ofMinutes(1),
-                open::get,
-                said::add,
-                now::get);
+        return new TaskRoomSweep(context(), Duration.ofMinutes(1), open::get, said::add, now::get);
+    }
+
+    private PoreloContext context() {
+        return new PoreloContext(
+                runner,
+                new PoreloPaths(
+                        org.fuin.porelo.core.config.XdgPaths.of(
+                                name ->
+                                        switch (name) {
+                                            case "XDG_CONFIG_HOME" ->
+                                                    dir.resolve("config").toString();
+                                            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                            case "XDG_STATE_HOME" ->
+                                                    dir.resolve("state").toString();
+                                            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                            default -> null;
+                                        },
+                                dir),
+                        dir.resolve("bin")),
+                args -> 0);
     }
 
     @Test
@@ -76,5 +73,28 @@ class TaskRoomSweepTest {
         assertThat(sweep().sweepOnce()).isEmpty();
         assertThat(runner.invocations()).as("nothing run").isEmpty();
         assertThat(said).isEmpty();
+    }
+
+    @Test
+    void aRunningTaskWhoseRecordNamesAnotherIdIsHereAllTheSame() throws Exception {
+        // Read through the verified list, a running task with a lost or stale record was taken for
+        // ended and retired at every sweep.
+        LegacyTaskFixture.record(context(), "porelo-p-unit", "p", "b".repeat(64));
+        runner.answering(
+                "podman ps",
+                "porelo-p-unit\tUp 4 minutes\t1700000000\t0\tp\tguarded\tp\t\t"
+                        + "a".repeat(64)
+                        + "\tunit\n");
+
+        // As the daemon's context does: a task only by the id Porelo recorded.
+        final TaskRoomSweep sweep =
+                new TaskRoomSweep(
+                        context().recognizingTasks(),
+                        Duration.ofMinutes(1),
+                        open::get,
+                        said::add,
+                        now::get);
+
+        assertThat(sweep.running()).containsExactly("porelo-p-unit");
     }
 }

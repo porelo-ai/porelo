@@ -1012,15 +1012,40 @@ final class TransportLifecycle {
             java.util.function.BiConsumer<String, String> failed) {
         final List<String> left = new java.util.ArrayList<>();
         for (final String task : enrolled(scheme, project)) {
-            if (here.test(task)) {
+            // The cheap question first, from the vault already read: a task on its own homeserver
+            // never leaves, so it costs no look at the containers.
+            final String login = secrets(scheme, "task/" + task).get(CENTRAL_LOGIN);
+            if (login == null || login.isBlank()) {
                 continue;
             }
+            final Refused[] refused = new Refused[1];
             try {
-                if (leave(scheme, project, task, settings)) {
+                // Looked at and left under the name's lock a start takes too: a start that began
+                // after the look would have its fresh account forgotten by this retire.
+                final boolean gone =
+                        new TaskReservations(context)
+                                .mutate(
+                                        task,
+                                        () -> {
+                                            if (here.test(task)) {
+                                                return Boolean.FALSE;
+                                            }
+                                            try {
+                                                return leave(scheme, project, task, settings);
+                                            } catch (Refused ex) {
+                                                refused[0] = ex;
+                                                return Boolean.FALSE;
+                                            }
+                                        });
+                if (gone) {
                     left.add(task);
+                } else if (refused[0] != null) {
+                    failed.accept(task, refused[0].getMessage());
                 }
-            } catch (Refused ex) {
-                failed.accept(task, ex.getMessage());
+            } catch (TaskReservations.ContainerNameTaken ex) {
+                // A start of it holds the name: it is here.
+            } catch (IOException ex) {
+                failed.accept(task, "its name could not be locked: " + ex.getMessage());
             } catch (RuntimeException ex) {
                 // Its words are not passed on: a process's output may quote what it was lent.
                 failed.accept(task, "the transport could not be run");

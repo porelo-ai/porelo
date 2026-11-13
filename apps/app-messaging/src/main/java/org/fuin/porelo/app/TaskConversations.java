@@ -285,40 +285,50 @@ final class TaskConversations {
             if (summary.file() == null || DefaultProject.is(summary.name())) {
                 continue;
             }
-            final Project project = projectNamed(context, summary.name());
-            if (project == null) {
-                continue;
-            }
-            for (final String scheme : project.mail().conversations()) {
-                final Map<String, Object> settings;
-                try {
-                    settings = settings(project, scheme);
-                } catch (TransportLifecycle.Refused ex) {
-                    failed.accept(
-                            project.name() + " " + scheme,
-                            "the ended tasks of "
-                                    + project.name()
-                                    + " stay in its "
-                                    + scheme
-                                    + " conversation: "
-                                    + ex.getMessage());
+            // Each project on its own: one that cannot be read keeps no other from leaving.
+            try {
+                final Project project = projectNamed(context, summary.name());
+                if (project == null) {
                     continue;
                 }
-                lifecycle
-                        .leaveEnded(
-                                scheme,
-                                project.name(),
-                                settings,
-                                here,
-                                (task, why) ->
-                                        failed.accept(
-                                                task + " " + scheme,
-                                                task
-                                                        + " ended and is still in the "
-                                                        + scheme
-                                                        + " conversation: "
-                                                        + why))
-                        .forEach(task -> left.add(task + " " + scheme));
+                for (final String scheme : project.mail().conversations()) {
+                    final Map<String, Object> settings;
+                    try {
+                        settings = settings(project, scheme);
+                    } catch (TransportLifecycle.Refused ex) {
+                        failed.accept(
+                                project.name() + " " + scheme,
+                                "the ended tasks of "
+                                        + project.name()
+                                        + " stay in its "
+                                        + scheme
+                                        + " conversation: "
+                                        + ex.getMessage());
+                        continue;
+                    }
+                    lifecycle
+                            .leaveEnded(
+                                    scheme,
+                                    project.name(),
+                                    settings,
+                                    here,
+                                    (task, why) ->
+                                            failed.accept(
+                                                    task + " " + scheme,
+                                                    task
+                                                            + " ended and is still in the "
+                                                            + scheme
+                                                            + " conversation: "
+                                                            + why))
+                            .forEach(task -> left.add(task + " " + scheme));
+                }
+            } catch (RuntimeException ex) {
+                failed.accept(
+                        summary.name(),
+                        "the ended tasks of "
+                                + summary.name()
+                                + " were not looked at: "
+                                + ex.getMessage());
             }
         }
         return left;

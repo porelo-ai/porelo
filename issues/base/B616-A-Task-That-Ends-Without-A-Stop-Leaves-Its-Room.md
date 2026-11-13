@@ -18,7 +18,7 @@
 run at the daemon's start, on a timer and when the vault opens; [B615](README.md#b615)'s leave reused; unit tests with
 a stand-in transport, a fake podman and a clock.
 
-Filed 2026-11-11 from [B615](README.md#b615)'s open point. Accepted by the operator 2026-11-11.
+An open point of [B615](README.md#b615).
 
 **What must be true.** A task that ends without `porelo task stop` stays a member of its project's room today. That
 covers a container that exits on its own, one that crashes, and a machine that was turned off or restarted. "@room"
@@ -55,7 +55,7 @@ back.
   the sweep after it opens does.
 - `doc/transports.md`, the `retire` row; changelog under *Fixed*.
 
-## Built (2026-11-13)
+## Built
 
 - `TransportLifecycle.enrolled` names a project's tasks at a transport: those whose name, address or enrolled name
   this machine keeps, and those whose `task/<container>` secrets the vault holds for the project.
@@ -79,3 +79,21 @@ back.
   refused retire is said and done at the next sweep. `TaskRoomSweepTest`: the start, the minute and the vault's
   opening each sweep, and a shut vault runs nothing.
 - `doc/transports.md`, the `retire` row; changelog under *Fixed*.
+
+## Built after the reading
+
+- A running task is one podman lists running, whether its record matches or not, so the sweep errs toward
+  here. Read through the verified list, a running task whose record was lost or names another id was taken for
+  ended and retired at every sweep. Red first: `TaskRoomSweepTest.aRunningTaskWhoseRecordNamesAnotherIdIsHereAllTheSame`.
+- Each task is looked at and left under its name's lock, the one a start and a stop take, so a start that began
+  after the look keeps its fresh account. A name held by a start in progress is skipped. Red first:
+  `TransportConversationsTest.aStartThatHoldsTheTasksNameIsNotTakenOutOfItsRoom` (retired without the lock).
+- Each project is swept on its own, so one that fails keeps no other from leaving. Red first:
+  `aProjectWhoseSweepFailsKeepsNoOtherFromLeaving` (the failure ended the sweep before `p`).
+- The task's own `PORELO_MATRIX_LOGIN` is read first: a task on its own homeserver costs no look at the
+  containers.
+- A failure, of a task or of the whole sweep, is said once while it lasts, and again if it comes back after it
+  stopped.
+- Not changed: a retire whose direct-chat directory cannot be removed has already released the task, so the next
+  sweep does not find it and the directory stays. It is the same in [B615](README.md#b615)'s stop and removal, and
+  stays for a follow-up that orders the removal before the release.
