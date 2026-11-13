@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B731",
   "title": "A Start Without A Homeserver Has No Conversation",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 1,
