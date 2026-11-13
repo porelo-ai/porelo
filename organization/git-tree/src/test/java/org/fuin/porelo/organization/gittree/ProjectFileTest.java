@@ -790,7 +790,8 @@ class ProjectFileTest {
         // revision accepted, or an older file would be taken once.
         assertThat(ProjectFile.oneForm("git@forge.example:acme/foo.git"))
                 .isEqualTo(ProjectFile.oneForm("https://forge.example/acme/foo.git"))
-                .isEqualTo(ProjectFile.oneForm("ssh://git@forge.example:2222/acme/foo.git"));
+                .isEqualTo(ProjectFile.oneForm("ssh://git@forge.example/acme/foo.git"))
+                .isEqualTo(ProjectFile.oneForm("ssh://git@forge.example:22/acme/foo.git"));
         assertThat(ProjectFile.oneForm("git@other.example:acme/foo.git"))
                 .isNotEqualTo(ProjectFile.oneForm("https://forge.example/acme/foo.git"));
     }
@@ -842,6 +843,180 @@ class ProjectFileTest {
         assertThat(ProjectFile.accepted(memory, "git@forge.example:acme/foo.git"))
                 .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
         assertThat(ProjectFile.accepted(memory, "ssh://git@forge.example:2222/acme/foo.git"))
+                .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+    }
+
+    private static void floor(final Path memory, final String key, final String date)
+            throws IOException {
+        Files.createDirectories(memory);
+        Files.writeString(
+                memory.resolve(TreeRepository.digest(key)),
+                date + "\n",
+                java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void everySpellingAForgeTakesFindsTheFloorKeptUnderThePlainHttpsForm(@TempDir final Path memory)
+            throws IOException {
+        // Whoever can change the filed spelling must not bring back an older signed file by it.
+        floor(memory, "https://forge.example/acme/foo", "2090-01-01T00:00:00Z");
+
+        for (final String spelling :
+                List.of(
+                        "https://forge.example/ACME/Foo.git",
+                        "HTTPS://forge.example/acme/foo",
+                        "http://forge.example/acme/foo",
+                        "https://user@forge.example/acme/foo.git",
+                        "ssh://other@forge.example/acme/foo.git",
+                        "SSH://git@Forge.Example/Acme/Foo",
+                        "git@forge.example:Acme/foo.git")) {
+            assertThat(ProjectFile.accepted(memory, spelling))
+                    .as(spelling)
+                    .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+        }
+    }
+
+    @Test
+    void everyKeyAnOlderPoreloKeptTheFloorUnderIsFoundFromTheSshAddress(@TempDir final Path memory)
+            throws IOException {
+        // 0.5.0 kept the floor under the https address as filed; ssh carries its path as filed.
+        final Map<String, String> filedAndReached =
+                Map.of(
+                        "https://forge.example/acme/foo", "git@forge.example:acme/foo.git",
+                        "https://forge.example/acme/foo.git/", "git@forge.example:acme/foo.git",
+                        "https://forge.example:443/acme/foo.git", "git@forge.example:acme/foo.git",
+                        "https://forge.example/acme/foo/", "git@forge.example:acme/foo",
+                        "https://forge.example/Acme/Foo.git",
+                                "ssh://git@forge.example:2222/Acme/Foo.git");
+        int each = 0;
+        for (final Map.Entry<String, String> one : filedAndReached.entrySet()) {
+            final Path apart = memory.resolve(String.valueOf(each++));
+            floor(apart, one.getKey(), "2090-01-01T00:00:00Z");
+            assertThat(ProjectFile.accepted(apart, one.getValue()))
+                    .as(one.getKey() + " from " + one.getValue())
+                    .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+        }
+    }
+
+    @Test
+    void aFloorKeptUnderTheOneFormBeforePathsWereFoldedStillHolds(@TempDir final Path memory)
+            throws IOException {
+        // The one form kept a path's case until now.
+        floor(memory, "https://forge.example/Acme/Foo", "2090-01-01T00:00:00Z");
+
+        assertThat(ProjectFile.accepted(memory, "https://forge.example/Acme/Foo.git"))
+                .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+    }
+
+    @Test
+    void twoSshPortsOfOneHostDoNotShareAFloor(@TempDir final Path memory) throws IOException {
+        // Two ports are two servers, and may be two repositories under one path.
+        final String one = "ssh://git@forge.example:2222/acme/foo.git";
+        final String other = "ssh://git@forge.example:2223/acme/foo.git";
+        assertThat(ProjectFile.oneForm(one)).isNotEqualTo(ProjectFile.oneForm(other));
+        floor(memory, ProjectFile.oneForm(one), "2090-01-01T00:00:00Z");
+
+        assertThat(ProjectFile.accepted(memory, other)).isNull();
+        assertThat(ProjectFile.accepted(memory, one))
+                .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+    }
+
+    @Test
+    void aLookalikeHostIsNotFoldedIntoTheOneItLooksLike() {
+        // The Kelvin sign is lower case 'k' to Java's lower-casing, but another name to DNS.
+        assertThat(ProjectFile.oneForm("https://\u212Aforge.example/acme/foo"))
+                .isNotEqualTo(ProjectFile.oneForm("https://kforge.example/acme/foo"));
+    }
+
+    @Test
+    void aSigningAnewLowersTheFloorUnderEveryKeyItIsKeptUnder() throws Exception {
+        // A later date kept under an older key would hold the floor up past the way out.
+        final String ssh = "git@forge.example:acme/demo.git";
+        final CommandRunner rewriting =
+                command ->
+                        runner.run(
+                                command.withEnvironment(
+                                        Map.of(
+                                                "GIT_CONFIG_COUNT",
+                                                "1",
+                                                "GIT_CONFIG_KEY_0",
+                                                "url." + repo + ".insteadOf",
+                                                "GIT_CONFIG_VALUE_0",
+                                                ssh)));
+        final Map<String, Path> files = new HashMap<>();
+        keys.keySet().forEach(each -> files.put(key(each), keyFiles.get(each)));
+        final Path memory = dir.resolve("memory");
+        final ProjectFile overSsh =
+                new ProjectFile(
+                        rewriting, FetchAccess.NONE, new CommitSigning(Map.of(), files), memory);
+        floor(memory, "https://forge.example/acme/demo.git/", "2090-01-01T00:00:00Z");
+        assertThat(overSsh.read(ssh, rows()).state())
+                .as("the floor kept under the filed address holds")
+                .isEqualTo(ProjectFile.REFUSED);
+
+        overSsh.sign(changeOn("alice", "again", git("rev-parse", "HEAD")), ssh, rows(), "demo");
+
+        assertThat(overSsh.read(ssh, rows()).state()).isEqualTo(ProjectFile.READ);
+        assertThat(ProjectFile.accepted(memory, ssh))
+                .isBefore(java.time.Instant.parse("2090-01-01T00:00:00Z"));
+    }
+
+    @Test
+    void twoReadsAtOnceCannotBothAcceptAFileOlderThanTheFirstAccepted() throws Exception {
+        // The older read passed the floor before the newer one wrote it, and is held while the
+        // file is read, between the floor's check and its write as they stood.
+        final java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicReference<Thread> slow =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final CommandRunner holding =
+                command -> {
+                    if (Thread.currentThread() == slow.get()
+                            && command.arguments().contains("cat-file")
+                            && command.arguments().contains("-s")
+                            && held.getCount() > 0) {
+                        held.countDown();
+                        try {
+                            go.await();
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                    return runner.run(command);
+                };
+        final Map<String, Path> files = new HashMap<>();
+        keys.keySet().forEach(each -> files.put(key(each), keyFiles.get(each)));
+        final ProjectFile older =
+                new ProjectFile(
+                        holding,
+                        FetchAccess.NONE,
+                        new CommitSigning(Map.of(), files),
+                        dir.resolve("memory"));
+        final java.util.concurrent.CompletableFuture<ProjectFile.Read> first =
+                new java.util.concurrent.CompletableFuture<>();
+        final Thread reading =
+                new Thread(
+                        () -> {
+                            try {
+                                first.complete(older.read(repo.toString(), rows()));
+                            } catch (IOException | RuntimeException ex) {
+                                first.completeExceptionally(ex);
+                            }
+                        });
+        slow.set(reading);
+        reading.start();
+        assertThat(held.await(60, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+
+        aLaterChange("2090-01-01T00:00:00Z");
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
+        go.countDown();
+
+        final ProjectFile.Read late = first.get(60, java.util.concurrent.TimeUnit.SECONDS);
+        assertThat(late.state())
+                .as("the older file was judged before the newer was accepted, and kept after")
+                .isEqualTo(ProjectFile.REFUSED);
+        assertThat(late.why()).contains("older");
+        assertThat(ProjectFile.accepted(dir.resolve("memory"), repo.toString()))
                 .isEqualTo(java.time.Instant.parse("2090-01-01T00:00:00Z"));
     }
 

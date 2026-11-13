@@ -240,13 +240,7 @@ public final class ProjectFile {
             final Instant dated = OffsetDateTime.parse(clone.dated(commit)).toInstant();
             final Instant accepted = guard == null ? null : guard.accepted(address);
             if (accepted != null && dated.isBefore(accepted)) {
-                return refused(
-                        "the project.yml of "
-                                + commit
-                                + " is older than the one this machine accepted, from "
-                                + accepted
-                                + wayOut(clone, tip),
-                        signer);
+                return older(clone, tip, commit, accepted, signer);
             }
             final String text = clone.text(blob.orElseThrow());
             final Project project = parsed(text, inClone(clone, tip));
@@ -267,7 +261,12 @@ public final class ProjectFile {
                             signer,
                             org.fuin.porelo.core.project.file.OldNames.of(text));
             if (guard != null) {
-                guard.remember(address, dated);
+                // Judged again where it is written: another read may have accepted a newer file
+                // since the check above.
+                final Instant newer = guard.held(address, dated);
+                if (newer != null) {
+                    return older(clone, tip, commit, newer, signer);
+                }
             }
             return read;
         } catch (CardException ex) {
@@ -283,6 +282,21 @@ public final class ProjectFile {
             // What the reader says quotes the file, which anyone with write access wrote.
             return refused("the project repository's project.yml does not read");
         }
+    }
+
+    private static Read older(
+            final TreeRepository clone,
+            final String tip,
+            final String commit,
+            final Instant accepted,
+            final String signer) {
+        return refused(
+                "the project.yml of "
+                        + commit
+                        + " is older than the one this machine accepted, from "
+                        + accepted
+                        + wayOut(clone, tip),
+                signer);
     }
 
     /**
@@ -315,26 +329,37 @@ public final class ProjectFile {
     }
 
     /**
-     * Returns every key a floor for the address may be kept under: its one form, the address as
-     * given, and for an ssh address the https address it was reached from, as filed. A machine kept
-     * the floor under that filed address before it reached the repository over ssh.
+     * Returns every key a floor for the address may be kept under: its one form, and the keys an
+     * older Porelo kept it under. Those were the address as given, the one form before a path's
+     * case was folded and ports were told apart, and, for an ssh address, the https address it was
+     * made from as filed: the ssh address carries that path as it was, the host in the
+     * organization's spelling.
      */
     private static java.util.Set<String> keys(final String address) {
         final java.util.Set<String> keys = new java.util.LinkedHashSet<>();
         keys.add(oneForm(address));
         keys.add(address);
-        final java.util.regex.Matcher scp = SCP.matcher(address);
-        final java.util.regex.Matcher ssh = SSH.matcher(address);
+        keys.add(earlierForm(address));
+        final java.util.regex.Matcher scp = EARLIER_SCP.matcher(address);
+        final java.util.regex.Matcher ssh = EARLIER_SSH.matcher(address);
         final java.util.regex.Matcher form = scp.matches() ? scp : ssh.matches() ? ssh : null;
         if (form != null) {
-            // The ssh address carries the filed path as it was, and the host in the organization's
-            // spelling; a forge's host is mostly filed in lower case.
-            keys.add("https://" + form.group(1) + "/" + form.group(2));
-            keys.add(
-                    "https://"
-                            + form.group(1).toLowerCase(java.util.Locale.ROOT)
-                            + "/"
-                            + form.group(2));
+            final String path = form.group(2);
+            String base = path;
+            while (base.endsWith("/")) {
+                base = base.substring(0, base.length() - 1);
+            }
+            if (base.endsWith(".git")) {
+                base = base.substring(0, base.length() - ".git".length());
+            }
+            for (final String host : List.of(form.group(1), asciiLower(form.group(1)))) {
+                for (final String port : List.of("", ":443")) {
+                    for (final String filed :
+                            List.of(path, base, base + "/", base + ".git", base + ".git/")) {
+                        keys.add("https://" + host + port + "/" + filed);
+                    }
+                }
+            }
         }
         return keys;
     }
@@ -350,58 +375,190 @@ public final class ProjectFile {
         }
     }
 
-    private static final java.util.regex.Pattern SCP =
+    private static final java.util.regex.Pattern EARLIER_SCP =
             java.util.regex.Pattern.compile("git@([^:/@]+):(.+)");
 
-    private static final java.util.regex.Pattern SSH =
+    private static final java.util.regex.Pattern EARLIER_SSH =
             java.util.regex.Pattern.compile("ssh://git@([^:/@]+)(?::[0-9]+)?/(.+)");
 
+    private static final java.util.regex.Pattern EARLIER_HTTPS =
+            java.util.regex.Pattern.compile("https://([^:/@]+)(?::443)?/(.+)");
+
     /**
-     * Returns an address in the one form its memory is kept under: a repository reached over ssh is
-     * the repository its https address names, so a switch of form never drops the floor its
-     * accepted revisions set.
+     * Returns the one form as Porelo kept it before this: the host in lower case, no trailing slash
+     * and no trailing {@code .git}, the path's case kept and an ssh port dropped. Read only, so a
+     * floor kept under it still holds.
      */
-    static String oneForm(final String address) {
-        final java.util.regex.Matcher scp = SCP.matcher(address);
-        if (scp.matches()) {
-            return https(scp.group(1), scp.group(2));
-        }
-        final java.util.regex.Matcher ssh = SSH.matcher(address);
-        if (ssh.matches()) {
-            return https(ssh.group(1), ssh.group(2));
-        }
-        final java.util.regex.Matcher https =
-                java.util.regex.Pattern.compile("https://([^:/@]+)(?::443)?/(.+)").matcher(address);
-        if (https.matches()) {
-            return https(https.group(1), https.group(2));
+    private static String earlierForm(final String address) {
+        for (final java.util.regex.Pattern each :
+                List.of(EARLIER_SCP, EARLIER_SSH, EARLIER_HTTPS)) {
+            final java.util.regex.Matcher form = each.matcher(address);
+            if (form.matches()) {
+                String trimmed = form.group(2);
+                while (trimmed.endsWith("/")) {
+                    trimmed = trimmed.substring(0, trimmed.length() - 1);
+                }
+                if (trimmed.endsWith(".git")) {
+                    trimmed = trimmed.substring(0, trimmed.length() - ".git".length());
+                }
+                return "https://"
+                        + form.group(1).toLowerCase(java.util.Locale.ROOT)
+                        + "/"
+                        + trimmed;
+            }
         }
         return address;
     }
 
+    /** {@code scheme://[user@]host[:port]/path}, the scheme in any case. */
+    private static final java.util.regex.Pattern URL =
+            java.util.regex.Pattern.compile(
+                    "(?<scheme>[A-Za-z][A-Za-z0-9+.-]*)://(?:[^@/]*@)?(?<host>[^:/@]+)"
+                            + "(?::(?<port>[0-9]+))?/(?<path>.+)");
+
+    /** {@code user@host:path}, as git reads it over ssh. */
+    private static final java.util.regex.Pattern SCP =
+            java.util.regex.Pattern.compile("[^@/:]+@(?<host>[^:/@]+):(?<path>.+)");
+
     /**
-     * Returns the https form a forge answers to under every spelling: the host in lower case, no
-     * trailing slash and no trailing {@code .git}. Two spellings of one repository share a floor; a
-     * floor shared by mistake only refuses.
+     * Returns an address in the one form its floor is kept under. A forge answers to every spelling
+     * of one repository: over https, http or ssh, as any user, with the scheme and host in any
+     * case, the path in any case, with or without a trailing slash or {@code .git}, and on the
+     * default port written or not. Those share the form {@code https://host/path}, host and path in
+     * lower case. Another port is another server: it is kept in the form, so two ssh ports of one
+     * host never share a floor. A host is folded as ASCII alone, so a lookalike keeps a form of its
+     * own. A floor shared by mistake only refuses.
      */
-    private static String https(final String host, final String path) {
+    static String oneForm(final String address) {
+        final java.util.regex.Matcher url = URL.matcher(address);
+        if (url.matches()) {
+            final String scheme = asciiLower(url.group("scheme"));
+            final String port = url.group("port");
+            final String kind =
+                    switch (scheme) {
+                        case "https", "http" -> "https";
+                        case "ssh", "git+ssh", "ssh+git" -> "ssh";
+                        default -> null;
+                    };
+            if (kind == null || port != null && port.length() > 5) {
+                return address;
+            }
+            final int number = port == null ? -1 : Integer.parseInt(port);
+            final int usual = "ssh".equals(kind) ? 22 : "https".equals(scheme) ? 443 : 80;
+            return number < 0 || number == usual
+                    ? form("https", url.group("host"), "", url.group("path"))
+                    : form(
+                            "ssh".equals(kind) ? "ssh" : scheme,
+                            url.group("host"),
+                            ":" + number,
+                            url.group("path"));
+        }
+        final java.util.regex.Matcher scp = SCP.matcher(address);
+        if (scp.matches()) {
+            return form("https", scp.group("host"), "", scp.group("path"));
+        }
+        return address;
+    }
+
+    private static String form(
+            final String scheme, final String host, final String port, final String path) {
         String trimmed = path;
         while (trimmed.endsWith("/")) {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
-        if (trimmed.endsWith(".git")) {
+        if (asciiLower(trimmed).endsWith(".git")) {
             trimmed = trimmed.substring(0, trimmed.length() - ".git".length());
         }
-        return "https://" + host.toLowerCase(java.util.Locale.ROOT) + "/" + trimmed;
+        return scheme + "://" + asciiLower(host) + port + "/" + asciiLower(trimmed);
     }
 
+    /** Folds A to Z alone: Java's lower case takes the Kelvin sign for 'k'. */
+    private static String asciiLower(final String text) {
+        final StringBuilder folded = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            final char each = text.charAt(i);
+            folded.append(each >= 'A' && each <= 'Z' ? (char) (each + ('a' - 'A')) : each);
+        }
+        return folded.toString();
+    }
+
+    /** One check and write of a floor at a time in this JVM; a file lock holds it across them. */
+    private static final java.util.concurrent.locks.ReentrantLock FLOOR =
+            new java.util.concurrent.locks.ReentrantLock();
+
+    /** A step on the floor, taken under its lock. */
+    @FunctionalInterface
+    private interface FloorStep<T> {
+        @Nullable T take() throws IOException;
+    }
+
+    /** Takes a step on the floor under a lock this JVM and every other process here take. */
+    private <T> @Nullable T locked(final FloorStep<T> step) throws IOException {
+        FLOOR.lock();
+        try {
+            Files.createDirectories(memory);
+            try (java.nio.channels.FileChannel channel =
+                            java.nio.channels.FileChannel.open(
+                                    memory.resolve("floor.lock"),
+                                    java.nio.file.StandardOpenOption.CREATE,
+                                    java.nio.file.StandardOpenOption.WRITE,
+                                    LinkOption.NOFOLLOW_LINKS);
+                    java.nio.channels.FileLock ignored = channel.lock()) {
+                return step.take();
+            }
+        } finally {
+            FLOOR.unlock();
+        }
+    }
+
+    /**
+     * Checks the floor and raises it in one step.
+     *
+     * @return The newer date accepted meanwhile, which the file is older than, or {@code null} when
+     *     the date is now the floor.
+     */
+    private @Nullable Instant held(final String address, final Instant dated) throws IOException {
+        return locked(
+                () -> {
+                    final Instant accepted = accepted(address);
+                    if (accepted != null && dated.isBefore(accepted)) {
+                        return accepted;
+                    }
+                    write(address, dated);
+                    return null;
+                });
+    }
+
+    /**
+     * Sets the floor to the date of a signing anew, which may lower it: that is its way out. A
+     * later date kept under an older key is lowered with it, or it would hold the floor up.
+     */
     private void remember(final String address, final Instant dated) throws IOException {
-        Files.createDirectories(memory);
+        locked(
+                () -> {
+                    write(address, dated);
+                    for (final String key : keys(address)) {
+                        final Path kept = memory.resolve(TreeRepository.digest(key));
+                        final Instant was = accepted(kept);
+                        if (was != null && was.isAfter(dated)) {
+                            write(kept, dated);
+                        }
+                    }
+                    return null;
+                });
+    }
+
+    private void write(final String address, final Instant dated) throws IOException {
+        write(memory.resolve(TreeRepository.digest(oneForm(address))), dated);
+    }
+
+    private void write(final Path file, final Instant dated) throws IOException {
         final Path temporary = Files.createTempFile(memory, "accepted", ".tmp");
         try {
             Files.writeString(temporary, dated + "\n", StandardCharsets.UTF_8);
             Files.move(
                     temporary,
-                    memory.resolve(TreeRepository.digest(oneForm(address))),
+                    file,
                     StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.ATOMIC_MOVE);
         } finally {

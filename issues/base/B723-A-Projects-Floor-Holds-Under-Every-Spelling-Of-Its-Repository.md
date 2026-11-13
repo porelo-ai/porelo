@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B723",
   "title": "A Project's Floor Holds Under Every Spelling Of Its Repository",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 53,
@@ -47,3 +47,39 @@ Y1 and Y2 are the ones someone who can change the filed spelling could use to br
 ## Estimate
 
 M, est=53 (p80 122) by the median velocity. There are no open questions.
+
+## Built
+
+All of it is in `ProjectFile` (organization/git-tree).
+
+- **Y1, one form for every spelling.** A repository's address becomes one key, whatever spelling it is given in:
+  - any scheme in any case (http, https, ssh, git+ssh), or `user@host:path`
+  - with the user dropped, and a default port (443, 80 or 22) taken as no port
+  - with the host and path lowercased, and a trailing `/` or `.git` dropped
+
+  All of these become `https://host/path`.
+- **Y2, older keys.** `keys()` also reads the keys an older Porelo kept the floor under. That is the one form as it
+  was until now, and for an ssh address the filed https spellings it could have been given: the host as spelled and
+  lowercased, with and without `:443`, and the path bare, with `/`, with `.git` and with `.git/`. They are read and
+  lowered, never written anew.
+- **Y3, ports.** A non-default ssh or http(s) port stays in the key, so `:2222` and `:2223` keep two floors.
+  `p.git` and `p` still share one, since `.git` is a respelling by Y1, and sharing only refuses.
+- **Y4, lookalike hosts.** A host is lowercased in A–Z only, so a lookalike such as the Kelvin sign stays its own host.
+- **Y5, check and write in one step.** The early check stays unlocked, so a refusal makes no memory directory. After
+  the file is parsed, the check is made again and the floor written under one lock: a lock within the process and a
+  file lock on `floor.lock` across processes. A newer floor accepted meanwhile refuses the read as older.
+- **A file signed anew lowers the floor under every key**, old ones included, so a later date left under an old key
+  cannot keep it up.
+- **Tests.** Six new tests in `ProjectFileTest`, one per point and one for signing anew. The Y5 test holds one read
+  between its check and its write while a newer file is accepted, with no timing. One existing test pinned
+  `ssh://…:2222` as the https form against Y3; it now pins `ssh://git@host/…` and `:22`. On the build box the new
+  tests failed before the change (`buildbox-porelo-a82a53ed8230-20261113T173844Z.log`,
+  `buildbox-porelo-9e68ea90727f-20261113T174445Z.log`) and pass after it
+  (`buildbox-porelo-820a7ad27315-20261113T174556Z.log`: ProjectFileTest 61 and ProjectFileCheckoutTest 15, 0
+  skipped).
+- **Known limits:**
+  - A floor that 0.5.0 filed under a host spelled in another case than the organization's (`https://Forge.Example/…`
+    beside `git@forge.example:`) is not found from the ssh address. Finding it would mean passing the filed address
+    into every reader, and the loss is accepted.
+  - A floor written through `ssh://host:2222/…` is not found by a later https read of the same project, such as a
+    start's fallback to the filed https address. The other order is found through the old keys.
