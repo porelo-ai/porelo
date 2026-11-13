@@ -2,3 +2,5 @@
 acceptance/stories/st43.sh
 acceptance/stories/st53.sh
 acceptance/stories/st56.sh
+acceptance/stories/st30.sh
+acceptance/stories/st39.sh
