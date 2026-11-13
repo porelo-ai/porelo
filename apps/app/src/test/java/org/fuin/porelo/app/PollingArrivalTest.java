@@ -65,9 +65,12 @@ class PollingArrivalTest {
         mailbox.create();
         // No filter installed, which stops nothing arriving: what a peer sent is delivered whether
         // or not this machine can send anything today.
+        // The poll runs fenced, and a build machine need not have pasta: the fence's own programs
+        // are stood in for, the adapter runs for real.
         final MessagePass pass =
                 new MessagePass(
-                        new ProcessCommandRunner(),
+                        TransportTestRunner.processes(
+                                new ProcessCommandRunner(), dir.resolve("fence-tools")),
                         null,
                         new TransportDirectory(List.of(transports)));
         return pass.run(
@@ -148,7 +151,8 @@ class PollingArrivalTest {
 
         final MessagePass.Report report =
                 new MessagePass(
-                                new ProcessCommandRunner(),
+                                TransportTestRunner.processes(
+                                        new ProcessCommandRunner(), dir.resolve("fence-tools")),
                                 null,
                                 new TransportDirectory(List.of(transports)))
                         .run(
