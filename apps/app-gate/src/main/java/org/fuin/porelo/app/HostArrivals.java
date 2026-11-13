@@ -15,6 +15,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -775,7 +776,10 @@ final class HostArrivals {
         if (!found.successful()) {
             return List.of();
         }
-        return found.standardOutput().lines().filter(each -> !each.isEmpty()).toList();
+        // Git splits them at a line feed alone: a quoted principal may hold a carriage return.
+        return Arrays.stream(found.standardOutput().split("\n"))
+                .filter(each -> !each.isEmpty())
+                .toList();
     }
 
     /** Verifies the signature at the arrival, never at the time the commit names. */

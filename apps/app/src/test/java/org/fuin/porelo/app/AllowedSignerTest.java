@@ -98,6 +98,82 @@ class AllowedSignerTest {
                 .isEmpty();
     }
 
+    /**
+     * ssh-keygen ignores a key's trailing comment whatever it holds, a carriage return or a Unicode
+     * line separator too, so the line names its signer.
+     */
+    @Test
+    void reads_a_line_whose_comment_holds_a_line_end_as_ssh_keygen_does() throws Exception {
+        final String key = keygen("alice");
+        for (final String end : List.of("\r", "\u2028", "\u0085")) {
+            final Path signers = signers("alice " + key + " comment" + end + "continued\n");
+
+            assertThat(keygenVerifies(signers, "alice", "alice"))
+                    .as("ssh-keygen accepts a comment holding U+%04X", (int) end.charAt(0))
+                    .isTrue();
+            assertThat(read(signers))
+                    .as("the comment holding U+%04X is ignored", (int) end.charAt(0))
+                    .containsExactly(new AllowedSigner("alice", key, List.of()));
+        }
+    }
+
+    /**
+     * Only ssh-keygen's own refusal to parse a line skips it: a check killed, or answering in any
+     * other way, refuses the whole file, as skipping that line could drop a revocation git keeps.
+     */
+    @Test
+    void refuses_the_file_when_a_line_check_fails_other_than_by_a_parse_refusal() throws Exception {
+        final String key = keygen("alice");
+        final Path signers =
+                signers("!alice " + key + "\nbob " + key + "\nz bogus-option " + key + "\n");
+        final java.util.concurrent.atomic.AtomicInteger calls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        // The whole file is asked first, then its first line alone: that check is killed.
+        final org.fuin.porelo.core.process.CommandRunner killing =
+                command ->
+                        calls.incrementAndGet() == 2
+                                ? new CommandResult(command, 137, "", "")
+                                : runner.run(command);
+
+        assertThat(keygenFinds(signers, "alice"))
+                .as("git verifies by the first line, which it cannot verify")
+                .isEqualTo("!alice");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                AllowedSigner.read(
+                                        killing,
+                                        signers,
+                                        KEYGEN,
+                                        Files.createTempDirectory(dir, "scratch-")))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("could not be checked");
+    }
+
+    /** A check of the whole file that fails other than by a parse refusal refuses the file. */
+    @Test
+    void refuses_the_file_when_the_whole_check_fails_other_than_by_a_parse_refusal()
+            throws Exception {
+        final String key = keygen("alice");
+        final Path signers = signers("alice " + key + "\n");
+        final java.util.concurrent.atomic.AtomicInteger calls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final org.fuin.porelo.core.process.CommandRunner failing =
+                command ->
+                        calls.incrementAndGet() == 1
+                                ? new CommandResult(command, 255, "", "out of memory\n")
+                                : runner.run(command);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                AllowedSigner.read(
+                                        failing,
+                                        signers,
+                                        KEYGEN,
+                                        Files.createTempDirectory(dir, "scratch-")))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("could not be checked");
+    }
+
     private List<AllowedSigner> read(final Path signers) throws Exception {
         return AllowedSigner.read(
                 runner, signers, KEYGEN, Files.createTempDirectory(dir, "scratch-"));

@@ -566,7 +566,10 @@ class CommitVerifyCommandTest {
                 List.of(
                         "demo\r" + key,
                         "demo\ndemo bogus-option " + key + "\ndemo " + key,
-                        "\u2000#x " + key)) {
+                        "\u2000#x " + key,
+                        "\"de\rmo\" " + key,
+                        "demo " + key + " comment\rcontinued",
+                        "demo " + key + " comment\u2028continued")) {
             Files.writeString(signers, accepted + "\n");
 
             assertThat(gitVerifies(byPerson)).as("git accepts %s", accepted).isTrue();

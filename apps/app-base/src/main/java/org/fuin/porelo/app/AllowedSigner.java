@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandException;
+import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.jspecify.annotations.Nullable;
 
@@ -38,15 +40,24 @@ record AllowedSigner(String principal, String key, List<String> options) {
     private static final String OPTIONS =
             "(?:\\\\\"?+|[^ \\t\"\\\\]|\"(?:\\\\\"?+|[^\"\\\\])*+\")++";
 
+    /** A line, its key's comment ignored whatever it holds, a line end too, as ssh-keygen does. */
     private static final Pattern LINE =
             Pattern.compile(
                     "^"
                             + PRINCIPALS
                             + "(?:("
                             + OPTIONS
-                            + ")[ \\t]+)?((?:ssh-|ecdsa-|sk-)[^ \\t]+[ \\t]+[^ \\t]+)(?:[ \\t].*)?$");
+                            + ")[ \\t]+)?((?:ssh-|ecdsa-|sk-)[^ \\t]+[ \\t]+[^ \\t]+)(?:[ \\t].*)?$",
+                    Pattern.DOTALL);
 
     private static final String UNWRITTEN = "the scratch file ssh-keygen reads cannot be written";
+
+    private static final String UNCHECKED = "the signers file could not be checked";
+
+    /**
+     * ssh-keygen's exit code when it cannot parse a line, its {@code SSH_ERR_INVALID_FORMAT}, -4.
+     */
+    private static final int UNPARSED = 252;
 
     static @Nullable AllowedSigner parse(final String line) {
         final Matcher match = LINE.matcher(trimmed(line));
@@ -113,10 +124,10 @@ record AllowedSigner(String principal, String key, List<String> options) {
      * @param environment All ssh-keygen gets of the environment.
      * @param directory Where the scratch file ssh-keygen reads is written, and removed from.
      * @return The signers its lines name, in their order.
-     * @throws IOException If the file cannot be read, or holds a line ssh-keygen reads and Porelo
-     *     does not.
+     * @throws IOException If the file cannot be read, holds a line ssh-keygen reads and Porelo does
+     *     not, or cannot be checked: ssh-keygen not run, or answering other than by parsing a line
+     *     or refusing to parse it.
      * @throws java.io.UncheckedIOException If the scratch file cannot be written or removed.
-     * @throws org.fuin.porelo.core.process.CommandException If ssh-keygen cannot be run.
      */
     static List<AllowedSigner> read(
             final CommandRunner runner,
@@ -171,25 +182,47 @@ record AllowedSigner(String principal, String key, List<String> options) {
     /**
      * Whether ssh-keygen parses each of these lines: it stops at the first it cannot, so the lines
      * of a file are asked together and, when that fails, one by one.
+     *
+     * <p>Only its own refusal to parse a line answers no: it exits with {@value #UNPARSED} and
+     * names the file and the line before the reason. Any other answer, a check killed, timed out or
+     * not run at all, refuses the whole file, as skipping a line might drop one git reads.
+     *
+     * @throws IOException If ssh-keygen answers other than by parsing or refusing to parse.
      */
     private static boolean parsed(
             final CommandRunner runner,
             final Path check,
             final List<String> entries,
-            final java.util.Map<String, String> environment) {
+            final java.util.Map<String, String> environment)
+            throws IOException {
         write(check, entries);
-        final var result =
-                runner.run(
-                        Command.of(
-                                        "ssh-keygen",
-                                        "-Y",
-                                        "match-principals",
-                                        "-I",
-                                        "porelo",
-                                        "-f",
-                                        check.toString())
-                                .withChosenEnvironment(environment));
-        return result.successful() && result.standardError().isBlank();
+        final CommandResult result;
+        try {
+            result =
+                    runner.run(
+                            Command.of(
+                                            "ssh-keygen",
+                                            "-Y",
+                                            "match-principals",
+                                            "-I",
+                                            "porelo",
+                                            "-f",
+                                            check.toString())
+                                    .withChosenEnvironment(environment));
+        } catch (final CommandException ex) {
+            throw new IOException(UNCHECKED + ": ssh-keygen could not be run", ex);
+        }
+        if (result.successful() && result.standardError().isBlank()) {
+            return true;
+        }
+        if (result.exitCode() == UNPARSED
+                && Pattern.compile(
+                                "\\A" + Pattern.quote(check.toString()) + ":[1-9][0-9]*+: [^\\n]")
+                        .matcher(result.standardError())
+                        .lookingAt()) {
+            return false;
+        }
+        throw new IOException(UNCHECKED + ": ssh-keygen exited " + result.exitCode());
     }
 
     private static void write(final Path check, final List<String> entries) {
