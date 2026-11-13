@@ -3719,6 +3719,220 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartWhoseBrokerNeverGivesItsTokenFailsAndLeavesItNotRunning(@TempDir Path dir)
+            throws IOException {
+
+        // Taken for "nothing brokered", a broker that never wrote its token let the start go on and
+        // answer 0 for an agent with no credential, while the broker it started ran on.
+        final PoreloContext context = brokeredContext(dir);
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, broker(helpers, false, ownPorelo).toString());
+        try {
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--no-gate");
+
+            assertThat(started)
+                    .as("a broker that never came up fails the start: %s", err)
+                    .isEqualTo(70);
+            assertThat(err.toString()).contains("the credential proxy did not come up");
+            assertThat(HelperStandIn.started(helpers)).as("its broker was started").isEqualTo(1);
+            assertThat(HelperStandIn.anyRunning(helpers))
+                    .as("and is not left running: %s", out)
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            // What the start's opening cached, as the account's keyring would have kept it.
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
+    @Test
+    void aStartWhoseWatcherNeverListensFailsAndLeavesNoHelperRunning(@TempDir Path dir)
+            throws IOException {
+
+        // Only warned about, a watcher that never listened left the start answering 0 with no one
+        // to ask about a blocked connection, and the watcher running.
+        final PoreloContext context = countingContext(dir);
+        final Path directory = Files.createDirectories(dir.resolve("helpers"));
+        final Path helpers = directory.resolve("porelo");
+        // Every helper comes up, recording its pid; the watcher never makes its socket.
+        Files.writeString(
+                helpers,
+                "#!/bin/sh\n" + HelperStandIn.lines(HelperStandIn.registry(directory), true));
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("{{.State.Pid}}", "4242");
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
+        try {
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--clearance",
+                            "prompt");
+
+            assertThat(started)
+                    .as("a watcher that never listened fails the start: %s", err)
+                    .isEqualTo(70);
+            assertThat(err.toString()).contains("the clearance watcher");
+            assertThat(HelperStandIn.started(directory))
+                    .as("its helpers were started: %s", out)
+                    .isGreaterThanOrEqualTo(2);
+            assertThat(HelperStandIn.anyRunning(directory))
+                    .as("and nothing the start made is left running")
+                    .isFalse();
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(directory);
+        }
+    }
+
+    @Test
+    void aStartThatLosesTheNameEndsTheBrokerItStartedAndNoHelperOfTheOther(@TempDir Path dir)
+            throws Exception {
+
+        // Returned at once, the start that lost the name left the broker it had started before its
+        // create running; swept by the pid files instead, it would end the winner's helpers, which
+        // write theirs in the same directory.
+        final PoreloContext context = brokeredContext(dir);
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, broker(helpers, true, ownPorelo).toString());
+        final String other = "f".repeat(64);
+        final Process theirs = new ProcessBuilder("sleep", "60").start();
+        ((StoppingCommandRunner) runner)
+                .beforeCreate(
+                        command -> {
+                            final String container =
+                                    command.arguments()
+                                            .get(command.arguments().indexOf("--name") + 1);
+                            try {
+                                final Path state =
+                                        context.paths().tasks().containerState(container);
+                                org.fuin.porelo.wire.Sidecar.recordId(state, other);
+                                TaskIdentityFixture.record(
+                                        context.paths(), container, "uc", "shell", other);
+                                // The other start's gate, recorded where every start of the name
+                                // records its helpers.
+                                org.fuin.porelo.wire.HelperPid.record(
+                                        state.resolve("gate.pid"), theirs.toHandle());
+                            } catch (IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                            runner.answering(
+                                    "ps",
+                                    container
+                                            + "\tUp 1 second\t\t\tuc\tguarded\tuc\t\t"
+                                            + other
+                                            + "\tshell\n");
+                        });
+        runner.failing(
+                " create ",
+                125,
+                "Error: creating container storage: the container name is already in use");
+        try {
+            final int code =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--no-gate");
+
+            assertThat(code).as("the second start fails: %s", err).isNotZero();
+            assertThat(HelperStandIn.started(helpers))
+                    .as("it had started its broker: %s", err)
+                    .isEqualTo(1);
+            assertThat(HelperStandIn.anyRunning(helpers)).as("which it ends, as its own").isFalse();
+            assertThat(theirs.isAlive()).as("and the other start's gate runs on").isTrue();
+        } finally {
+            theirs.destroyForcibly();
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            // What the start's opening cached, as the account's keyring would have kept it.
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
+    /** A context whose preview agent is brokered, its credential in a vault the start opens. */
+    private PoreloContext brokeredContext(Path dir) throws IOException {
+        final PoreloContext context =
+                previewContext(dir, true).asking(shown -> "test-passphrase".toCharArray());
+        previewAgent(context, "preview");
+        Files.writeString(
+                context.paths().xdg().data().resolve("providers/preview.yaml"),
+                "token_env: { _default: PREVIEW_TOKEN }\n",
+                java.nio.file.StandardOpenOption.APPEND);
+        context.vault()
+                .write(
+                        java.util.Map.of(
+                                "preview",
+                                new org.fuin.porelo.vault.VaultEntry("test-key", "api-key")),
+                        "test-passphrase".toCharArray());
+        return context;
+    }
+
+    /**
+     * A porelo whose {@code vault serve} is a stand-in that binds its socket, records its pid and
+     * blocks, writing its token only when asked to; everything else is this build's.
+     */
+    private static Path broker(Path helpers, boolean givesToken, String ownPorelo)
+            throws IOException {
+        final Path program = helpers.resolve("brokering-porelo");
+        Files.writeString(
+                program,
+                """
+                #!/bin/sh
+                if [ "$1" = vault ] && [ "$2" = serve ]; then
+                  previous=
+                  for argument; do
+                    case "$previous" in
+                      --socket) : > "$argument" ;;
+                      --token-file) %s ;;
+                    esac
+                    previous=$argument
+                  done
+                %s
+                fi
+                exec %s "$@"
+                """
+                        .formatted(
+                                givesToken ? "echo stand-in-token > \"$argument\"" : ":",
+                                HelperStandIn.lines(HelperStandIn.registry(helpers), true),
+                                shellArgument(ownPorelo)));
+        Files.setPosixFilePermissions(
+                program, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        return program;
+    }
+
+    @Test
     void aHostStartRefusedForItsKeyIsRefusedAgainRatherThanResumed(@TempDir Path dir)
             throws Exception {
 
@@ -8457,10 +8671,8 @@ class TaskRunCommandTest {
                 "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + shellArgument(said.toString()) + "\n");
         Files.setPosixFilePermissions(
                 podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-        final Path helpers = dir.resolve("helpers-porelo");
-        Files.writeString(helpers, "#!/bin/sh\nexit 0\n");
-        Files.setPosixFilePermissions(
-                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        // A start waits for its gate: the stand-in records its pid as the gate does.
+        final Path helpers = HelperStandIn.write(dir.resolve("helpers"), true);
         final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
         final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
         System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
@@ -8472,6 +8684,7 @@ class TaskRunCommandTest {
         } finally {
             System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
             System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers.getParent());
         }
 
         assertThat(started).as("started: %s", err).isZero();

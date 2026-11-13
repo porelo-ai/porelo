@@ -115,7 +115,7 @@ final class ClearanceWiring {
         return java.util.List.copyOf(command);
     }
 
-    void startClearance(
+    boolean startClearance(
             TaskRunner runner,
             Project project,
             String container,
@@ -123,7 +123,7 @@ final class ClearanceWiring {
             PrintWriter err) {
 
         if ("off".equals(mode)) {
-            return;
+            return true;
         }
 
         // The watcher edits the container's live nftables set, which means entering its network
@@ -131,11 +131,13 @@ final class ClearanceWiring {
         // reaches a verdict and cannot act on it - which reads exactly like a working watcher.
         final java.util.Optional<Long> pid = runner.containerPid(container);
         if (pid.isEmpty()) {
+            // Said, not failed: a container that started has a process, and one without any is
+            // a start that fails where its container is asked for it, not here.
             err.println(
                     "porelo: the container reports no process, so no clearance watcher"
                             + " was started; blocked connections will stay blocked");
             err.flush();
-            return;
+            return true;
         }
 
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
@@ -165,18 +167,24 @@ final class ClearanceWiring {
             // connection the agent makes before then is dropped and never seen - measured, when the
             // watcher's start began to go through the user manager and took a round trip longer.
             if (!listening(state.resolve("clearance.sock"), WATCHER_PATIENCE, watcher::isAlive)) {
+                // Ended here, by its own handle, and the start fails: a watcher that never
+                // listened left the task with nobody to ask about a blocked connection, and ran on.
+                org.fuin.porelo.wire.HelperPid.end(watcher.toHandle(), GateWiring.HELPER_GRACE);
                 err.println(
-                        "porelo: the clearance watcher is not listening yet; see "
+                        "porelo: the clearance watcher did not come up; see "
                                 + state.resolve("clearance.log"));
                 err.flush();
+                return false;
             }
             out.println("clearance " + mode + ", log at " + state.resolve("clearance.log"));
             out.flush();
+            return true;
         } catch (java.io.IOException ex) {
-            // Losing the prompt costs recourse, not containment: the firewall keeps dropping either
-            // way. Saying so beats failing a task that may not need it.
+            // A helper the task was started with that is not there fails the start, as the gate
+            // and the broker do; '--clearance off' is the start that asks for none.
             err.println("porelo: could not start the clearance watcher: " + ex.getMessage());
             err.flush();
+            return false;
         }
     }
 

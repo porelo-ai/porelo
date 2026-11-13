@@ -89,6 +89,16 @@ public record Sidecar(
     public static final String RECORDED_ID = "container.id";
 
     /**
+     * Returns whether podman printed a container id, as {@link #recordId} takes it.
+     *
+     * @param id What {@code podman create} printed.
+     * @return Whether it is an id.
+     */
+    public static boolean isId(final String id) {
+        return id.strip().matches("[0-9a-f]{12,64}");
+    }
+
+    /**
      * Records the id podman gave back for a task Porelo created.
      *
      * @param state The task's state directory.
@@ -97,7 +107,7 @@ public record Sidecar(
      */
     public static void recordId(final java.nio.file.Path state, final String id)
             throws java.io.IOException {
-        if (!id.strip().matches("[0-9a-f]{12,64}")) {
+        if (!isId(id)) {
             throw new java.io.IOException("podman gave back no container id: '" + id.strip() + "'");
         }
         Directories.create(state);

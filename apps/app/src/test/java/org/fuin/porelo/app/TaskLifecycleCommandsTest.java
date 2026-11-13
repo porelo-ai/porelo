@@ -1412,11 +1412,60 @@ class TaskLifecycleCommandsTest {
                 .as("both were started")
                 .isEqualTo(2);
         assertThat(HelperStandIn.running(root.resolve("helpers")))
-                .as("and only the one that came up still runs")
-                .isEqualTo(1);
+                .as(
+                        "and a resume that failed leaves none of them running, the one that came up"
+                                + " either")
+                .isZero();
         assertThat(org.fuin.porelo.wire.HelperPid.verified(state.resolve("watcher.pid")))
-                .as("which is the watcher")
-                .isPresent();
+                .as("the watcher among them")
+                .isEmpty();
+        assertThat(runner.lines())
+                .as("and the container it started is stopped again: %s", runner.lines())
+                .anyMatch(line -> line.startsWith("podman stop"));
+    }
+
+    @Test
+    void aResumeWhoseSocketHelperNeverComesUpStartsNoContainer(@TempDir Path dir) throws Exception {
+
+        // The container was started whatever came of its broker, and a resume that answered 70
+        // left it running with no credential behind its socket.
+        final PoreloContext context = context(dir);
+        stoppedTask(context);
+        runner.answering("container inspect", "4711");
+        final Path state = stateOf("porelo-uc-shell-1");
+        final Path silent = HelperStandIn.write(root.resolve("helpers"), false);
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "gate",
+                                        comesUp(state, "gate"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.BEFORE),
+                                new TaskHelpers.Helper(
+                                        "vault",
+                                        java.util.List.of(
+                                                silent.toString(),
+                                                "--pid-file",
+                                                state.resolve("vault.pid").toString()),
+                                        java.util.Map.of(),
+                                        TaskHelpers.BEFORE),
+                                new TaskHelpers.Helper(
+                                        "watcher",
+                                        comesUp(state, "watcher", "--pid", "1"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
+                .writeTo(state);
+
+        assertThat(resume(context, "porelo-uc-shell-1"))
+                .as("a helper that did not come up fails the resume: %s", out)
+                .isEqualTo(70);
+        assertThat(err.toString()).as("and says which").contains("the vault did not come up");
+        assertThat(runner.lines())
+                .as("its container is not started without it: %s", runner.lines())
+                .noneMatch(line -> line.startsWith("podman start"));
+        assertThat(HelperStandIn.running(root.resolve("helpers")))
+                .as("and nothing the resume started still runs")
+                .isZero();
     }
 
     @Test

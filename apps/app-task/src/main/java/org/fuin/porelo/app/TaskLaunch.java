@@ -3078,6 +3078,7 @@ public final class TaskLaunch {
         handedOver = false;
         launching = true;
         createdId = null;
+        ownHelpers.clear();
 
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
 
@@ -3869,7 +3870,11 @@ public final class TaskLaunch {
 
             out.println();
 
-            clearance().startClearance(runner, project, container, out, err);
+            // A watcher that did not come up fails the start as any helper does: only warned
+            // about, the task ran with nobody to ask about a blocked connection.
+            if (!clearance().startClearance(runner, project, container, out, err)) {
+                return cleanUp(runner, container, 70, false, out, err);
+            }
             new BuildsWiring(context, this::recordHelper)
                     .start(
                             project,
@@ -3991,6 +3996,10 @@ public final class TaskLaunch {
         } catch (TaskCertificates.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
+            return cleanUp(runner, container, 70, handedOver && request.keep(), out, err);
+        } catch (CredentialWiring.BrokerDown ex) {
+            // Said where it happened; a start without the broker it asked for is no start.
+            steps.refusal(String.valueOf(ex.getMessage()));
             return cleanUp(runner, container, 70, handedOver && request.keep(), out, err);
         } catch (McpWiring.Refused ex) {
             steps.refusal(String.valueOf(ex.getMessage()));
@@ -5778,6 +5787,7 @@ public final class TaskLaunch {
                             request.task(),
                             request.tokenHours(),
                             request.upstream());
+            wiring.owned = ownHelpers::add;
         }
         return wiring;
     }
@@ -5945,6 +5955,12 @@ public final class TaskLaunch {
 
     /** What this run started on the host, written out so a later start can bring them back. */
     private final java.util.List<TaskHelpers.Helper> startedHelpers = new java.util.ArrayList<>();
+
+    /**
+     * The helpers this attempt started, by their own handles: what a start that lost its name ends,
+     * since the pid files in the name's directory are every start's of that name.
+     */
+    private final java.util.List<ProcessHandle> ownHelpers = new java.util.ArrayList<>();
 
     /**
      * Which credential this task uses, and what to say about it. Built on first use because it
@@ -6213,7 +6229,12 @@ public final class TaskLaunch {
                 && context.podman().stateOf(onDisk)
                         != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT) {
             // Another start's task holds the name: nothing of it is this start's to stop or
-            // forget, its helpers and its state least of all.
+            // forget, its helpers and its state least of all. What this start made before its
+            // create is still its own, a broker first: ended by the handles it holds, since the
+            // pid files in the name's directory may name the other start's helpers by now.
+            for (final ProcessHandle helper : ownHelpers) {
+                org.fuin.porelo.wire.HelperPid.end(helper, GateWiring.HELPER_GRACE);
+            }
             return code;
         }
         final boolean exists =

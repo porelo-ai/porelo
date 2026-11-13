@@ -120,6 +120,63 @@ class RecognizedTasksTest {
     }
 
     @Test
+    void aStartIsToldTheIdItCreatedEvenWhenItsRecordCannotBeWritten() throws IOException {
+
+        // Told only once both copies were written, a start whose durable record failed held no id
+        // of its own, took its own container for another start's and cleaned up nothing of it.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloPaths paths = new PoreloPaths(xdg, dir.resolve("bin"));
+        final Path durable = paths.tasks().taskRecord("porelo-p-full");
+        java.nio.file.Files.createDirectories(durable.getParent());
+        // Where the durable record's directory goes, a file: as a full filesystem, its write fails.
+        java.nio.file.Files.writeString(durable, "");
+        final TaskRunner tasks = new TaskRunner(runner, paths);
+        final java.util.concurrent.atomic.AtomicReference<String> told =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        tasks.onCreated(told::set);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> tasks.recordCreated("porelo-p-full", "a1b2c3d4e5f6"))
+                .as("the durable record cannot be written")
+                .isInstanceOf(IOException.class);
+        assertThat(told.get())
+                .as("and the start still holds the id it made")
+                .isEqualTo("a1b2c3d4e5f6");
+    }
+
+    @Test
+    void aStartIsToldNoIdPodmanNeverGaveBack() {
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final TaskRunner tasks =
+                new TaskRunner(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")));
+        final java.util.concurrent.atomic.AtomicReference<String> told =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        tasks.onCreated(told::set);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> tasks.recordCreated("porelo-p-none", "Error: no such image"))
+                .isInstanceOf(IOException.class);
+        assertThat(told.get()).as("what is no id is never taken for one").isNull();
+    }
+
+    @Test
     void aTaskARebootStoppedIsStillRecognizedByItsSavedRecord() throws IOException {
 
         // A reboot empties the runtime directory, where the id was first written: found by the

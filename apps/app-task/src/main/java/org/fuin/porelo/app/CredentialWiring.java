@@ -74,6 +74,28 @@ final class CredentialWiring {
         this.upstream = upstream;
     }
 
+    /**
+     * Told each helper this wiring started, by its own handle: a start that fails before it holds a
+     * container of its own ends them by these, never by the pid files every start of the name
+     * writes in one directory.
+     */
+    java.util.function.Consumer<ProcessHandle> owned = handle -> {};
+
+    /** A broker that was started and did not come up: the start fails with 70, never goes on. */
+    static final class BrokerDown extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Constructor with what was said.
+         *
+         * @param message What did not come up.
+         */
+        BrokerDown(final String message) {
+            super(message);
+        }
+    }
+
     /** Wraps a command so it runs in the task's network namespace; a test's runs where it is. */
     java.util.function.BiFunction<Long, java.util.List<String>, java.util.List<String>> namespace =
             org.fuin.porelo.shield.EgressPolicy::inNamespace;
@@ -272,17 +294,16 @@ final class CredentialWiring {
                             .redirectErrorStream(true)
                             .redirectOutput(state.resolve(helper + ".log").toFile())
                             .start();
+            owned.accept(started.toHandle());
             record(helper, command, java.util.Map.of(), TaskHelpers.AFTER);
             // Without its pid nothing that cleans up finds it, and the task has no endpoint.
             if (org.fuin.porelo.wire.HelperPid.await(
                             state.resolve(helper + ".pid"),
-                            java.time.Instant.now().plus(GateWiring.HELPER_PATIENCE))
+                            org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE))
                     .isEmpty()) {
-                org.fuin.porelo.wire.HelperPid.stop(started.toHandle());
-                // Signalled is not yet gone: the start answers once it no longer runs.
-                started.onExit()
-                        .completeOnTimeout(null, 5, java.util.concurrent.TimeUnit.SECONDS)
-                        .join();
+                // Signalled is not yet gone: the start answers once it no longer runs, killed
+                // when it did not go when asked.
+                org.fuin.porelo.wire.HelperPid.end(started.toHandle(), GateWiring.HELPER_GRACE);
                 err.println(
                         "porelo: the endpoint relay did not come up; see "
                                 + state.resolve(helper + ".log"));
@@ -470,6 +491,7 @@ final class CredentialWiring {
      * @param out Where progress is reported.
      * @param err Where problems are reported.
      * @return What the container is given, or {@code null} when nothing is brokered.
+     * @throws BrokerDown When a broker was asked for and did not come up; it is not left running.
      */
     @Nullable CredentialPlumbing startVault(
             org.fuin.porelo.agent.api.@Nullable InstalledAgent agent,
@@ -596,6 +618,7 @@ final class CredentialWiring {
                     });
         }
 
+        final Process broker;
         try {
             java.nio.file.Files.deleteIfExists(tokenFile);
             if (!routes.isEmpty()) {
@@ -604,26 +627,33 @@ final class CredentialWiring {
                         routeTokens,
                         java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
             }
-            new ProcessBuilder(
-                            org.fuin.porelo.core.process.Scope.around(
-                                    "porelo " + container + " vault", command))
-                    .redirectErrorStream(true)
-                    .redirectOutput(state.resolve("vault.log").toFile())
-                    .start();
+            broker =
+                    new ProcessBuilder(
+                                    org.fuin.porelo.core.process.Scope.around(
+                                            "porelo " + container + " vault", command))
+                            .redirectErrorStream(true)
+                            .redirectOutput(state.resolve("vault.log").toFile())
+                            .start();
+            owned.accept(broker.toHandle());
             record("vault", command, java.util.Map.of(), TaskHelpers.BEFORE);
         } catch (java.io.IOException ex) {
+            // Asked for and not there: taken for "nothing brokered", the start went on with an
+            // agent that cannot authenticate and answered 0.
             err.println("porelo: could not start the credential proxy: " + ex.getMessage());
             err.flush();
-            return null;
+            throw new BrokerDown("could not start the credential proxy");
         }
 
         final String token = awaitToken(socket, tokenFile);
         if (token == null) {
+            // Ended here, by its own handle: it may never have recorded its pid, and then nothing
+            // that cleans up by the pid files finds it.
+            org.fuin.porelo.wire.HelperPid.end(broker.toHandle(), GateWiring.HELPER_GRACE);
             err.println(
                     "porelo: the credential proxy did not come up, see "
                             + state.resolve("vault.log"));
             err.flush();
-            return null;
+            throw new BrokerDown("the credential proxy did not come up");
         }
 
         final java.util.Map<String, String> environment = new java.util.LinkedHashMap<>();

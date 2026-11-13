@@ -120,10 +120,10 @@ public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.Conte
                         out)) {
             return 0;
         }
-        // Its container is up in each of these, so it is back in its rooms too.
+        // Its container is up in each of these, so it is back in its rooms too; one whose helpers
+        // did not all come up was stopped again.
         if (result.outcome() == TaskControl.Outcome.RESUMED
-                || result.outcome() == TaskControl.Outcome.NO_HELPERS_RECORDED
-                || result.outcome() == TaskControl.Outcome.HELPERS_INCOMPLETE) {
+                || result.outcome() == TaskControl.Outcome.NO_HELPERS_RECORDED) {
             rejoin(context, container, err);
         }
         return render(result, container, out, err, suggests);
@@ -247,8 +247,29 @@ public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.Conte
                 err.flush();
                 return 69;
             }
+            case HELPERS_INCOMPLETE -> {
+                // Taken back whole: a task left up without its gate or its broker answered the next
+                // resume that it was running, and nothing ever started what was missing.
+                for (final String problem : result.problems()) {
+                    err.println("porelo: " + problem);
+                }
+                err.println(
+                        "porelo: "
+                                + container
+                                + " was not resumed: "
+                                + result.started()
+                                + " of "
+                                + result.recorded()
+                                + " helpers came up, so it was stopped again with nothing of it"
+                                + " left running");
+                if (result.state() != null) {
+                    err.println("       logs in " + result.state());
+                }
+                err.flush();
+                return 70;
+            }
             default -> {
-                // Resumed, or resumed with something missing.
+                // Resumed.
             }
         }
 

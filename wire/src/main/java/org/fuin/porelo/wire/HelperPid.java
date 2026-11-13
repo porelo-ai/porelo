@@ -84,20 +84,70 @@ public final class HelperPid {
     }
 
     /**
-     * Waits until a helper has recorded itself and still runs, or the deadline passes.
+     * Ends a helper and every process it started, as {@link #stop} does, and kills whatever of them
+     * still runs once the grace has passed.
+     *
+     * <p>Signalled is not yet gone: a helper that ignores {@code SIGTERM}, or is stuck before it
+     * handles it, ran on after a start that gave up on it answered, and one that never recorded its
+     * pid was then named by nothing that cleans up.
+     *
+     * @param helper The helper.
+     * @param grace How long it has to go once asked.
+     * @return Whether it and everything it started are gone.
+     */
+    public static boolean end(final ProcessHandle helper, final java.time.Duration grace) {
+        // Taken before anything is signalled: a child whose parent is gone is no longer its
+        // descendant, and could not be killed below.
+        final java.util.List<ProcessHandle> all =
+                new java.util.ArrayList<>(helper.descendants().toList());
+        all.add(helper);
+        all.forEach(ProcessHandle::destroy);
+        if (gone(all, grace)) {
+            return true;
+        }
+        all.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
+        return gone(all, KILLED);
+    }
+
+    /** How long a killed helper has to be gone; the kernel does not refuse a kill. */
+    private static final java.time.Duration KILLED = java.time.Duration.ofSeconds(2);
+
+    private static boolean gone(
+            final java.util.List<ProcessHandle> processes, final java.time.Duration within) {
+        final long until = System.nanoTime() + within.toNanos();
+        for (final ProcessHandle process : processes) {
+            final long left = until - System.nanoTime();
+            try {
+                process.onExit().get(Math.max(left, 0), java.util.concurrent.TimeUnit.NANOSECONDS);
+            } catch (java.util.concurrent.TimeoutException
+                    | java.util.concurrent.ExecutionException ex) {
+                // Still there, or not to be waited for: asked below.
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        return processes.stream().noneMatch(ProcessHandle::isAlive);
+    }
+
+    /**
+     * Waits until a helper has recorded itself and still runs, or the patience runs out.
      *
      * <p>A helper that was started is not yet one that came up: until its record is there, nothing
      * that cleans up can find it, and a start that went on without it answered success for a task
      * that had no gate.
      *
+     * <p>Measured on the monotonic clock: a wall clock set back while a helper starts made the wait
+     * as much longer.
+     *
      * @param file The record the helper writes.
-     * @param deadline When to give up.
+     * @param deadline When to give up, as {@link System#nanoTime} reads it.
      * @return The helper, or empty when it did not record itself in time, or is gone again.
      */
-    public static Optional<ProcessHandle> await(Path file, java.time.Instant deadline) {
+    public static Optional<ProcessHandle> await(Path file, long deadline) {
         while (true) {
             final Optional<ProcessHandle> found = verified(file);
-            if (found.isPresent() || !java.time.Instant.now().isBefore(deadline)) {
+            if (found.isPresent() || System.nanoTime() - deadline >= 0) {
                 return found;
             }
             try {
@@ -107,6 +157,16 @@ public final class HelperPid {
                 return verified(file);
             }
         }
+    }
+
+    /**
+     * Returns the deadline {@link #await} takes, a patience from now.
+     *
+     * @param patience How long to wait.
+     * @return The deadline, as {@link System#nanoTime} reads it.
+     */
+    public static long deadline(final java.time.Duration patience) {
+        return System.nanoTime() + patience.toNanos();
     }
 
     /**

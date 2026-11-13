@@ -1071,15 +1071,16 @@ public final class TaskControl {
         // the socket of the previous run, which the resumed proxy then replaces: measured, the
         // container held a deleted inode and every request through it went nowhere, while the same
         // request from the host was answered.
-        int started = start(recorded, TaskHelpers.BEFORE, 0, state, problems);
-
-        context.podman().start(container);
-        context.tasks().trustCertificates(container);
-        context.tasks().startScreenWriter(container);
-
-        final long pid = context.podman().pidOf(container).orElse(0L);
-        if (pid <= 0) {
-            problems.add("the container did not come up; see " + state);
+        final List<ProcessHandle> own = new ArrayList<>();
+        int started = start(recorded, TaskHelpers.BEFORE, 0, state, problems, own);
+        final long before =
+                recorded.helpers().stream()
+                        .filter(helper -> TaskHelpers.BEFORE.equals(helper.phase()))
+                        .count();
+        if (started < before) {
+            // Not started without them: a container whose broker never came up ran with nothing
+            // behind its socket, and the resume that answered 70 left it so.
+            unwind(container, state, own, false);
             return new Resumed(
                     Outcome.HELPERS_INCOMPLETE,
                     started,
@@ -1089,7 +1090,36 @@ public final class TaskControl {
                     List.copyOf(problems));
         }
 
-        started += start(recorded, TaskHelpers.AFTER, pid, state, problems);
+        context.podman().start(container);
+        context.tasks().trustCertificates(container);
+        context.tasks().startScreenWriter(container);
+
+        final long pid = context.podman().pidOf(container).orElse(0L);
+        if (pid <= 0) {
+            problems.add("the container did not come up; see " + state);
+            unwind(container, state, own, true);
+            return new Resumed(
+                    Outcome.HELPERS_INCOMPLETE,
+                    started,
+                    recorded.helpers().size(),
+                    drift,
+                    logs,
+                    List.copyOf(problems));
+        }
+
+        started += start(recorded, TaskHelpers.AFTER, pid, state, problems, own);
+        if (started < recorded.helpers().size()) {
+            // Left up, a task missing its gate or its watcher ran on, and the next resume answered
+            // that it was already running without ever starting what was missing.
+            unwind(container, state, own, true);
+            return new Resumed(
+                    Outcome.HELPERS_INCOMPLETE,
+                    started,
+                    recorded.helpers().size(),
+                    drift,
+                    logs,
+                    List.copyOf(problems));
+        }
         // What the source gained while the task was down reaches its gate now, and its agent hears
         // of it; before, only a new task's start brought it in.
         String brought = "";
@@ -1104,7 +1134,7 @@ public final class TaskControl {
             }
         }
         return new Resumed(
-                started == recorded.helpers().size() ? Outcome.RESUMED : Outcome.HELPERS_INCOMPLETE,
+                Outcome.RESUMED,
                 started,
                 recorded.helpers().size(),
                 drift,
@@ -1112,6 +1142,35 @@ public final class TaskControl {
                 List.copyOf(problems),
                 restored,
                 brought);
+    }
+
+    /**
+     * Takes back a resume that failed, so that nothing of the task runs: the helpers it started, by
+     * the handles it holds, its container when it started it, and whatever helper of the task's own
+     * state still runs.
+     *
+     * <p>Under the task's resume lock, and the state is the task's own: no other start of it writes
+     * there while this holds the lock.
+     *
+     * @param container The task.
+     * @param state Its state directory.
+     * @param own The helpers this resume started.
+     * @param containerStarted Whether this resume started the container.
+     */
+    private void unwind(
+            final String container,
+            final Path state,
+            final List<ProcessHandle> own,
+            final boolean containerStarted) {
+        for (final ProcessHandle helper : own) {
+            org.fuin.porelo.wire.HelperPid.end(helper, GateWiring.HELPER_GRACE);
+        }
+        if (containerStarted) {
+            context.podman().stop(container);
+        }
+        // One that was still running from before, which this resume counted and did not start.
+        TaskLifecycle.stopHelpers(state);
+        McpWiring.stop(context, container);
     }
 
     /** A stored token enables the reader a previous start could only defer. */
@@ -1216,10 +1275,16 @@ public final class TaskControl {
      * @param pid Container pid, for helpers that need it; ignored when zero.
      * @param state The task's state directory.
      * @param problems Collects what could not be started, for a caller with no terminal.
+     * @param own Collects the helpers this started that came up, for a resume that fails to end.
      * @return How many are up, each having recorded its pid; one that did not is stopped again.
      */
     private int start(
-            TaskHelpers recorded, String phase, long pid, Path state, List<String> problems) {
+            TaskHelpers recorded,
+            String phase,
+            long pid,
+            Path state,
+            List<String> problems,
+            List<ProcessHandle> own) {
 
         int started = 0;
         final List<java.util.Map.Entry<String, Process>> coming = new ArrayList<>();
@@ -1288,19 +1353,18 @@ public final class TaskControl {
         // Counted once each recorded its pid: a helper that was started and never came up left the
         // resume answering success for a task with no gate, and nothing that cleans up found it.
         // Before the container too, whose mount takes whatever is at the socket's path then.
-        final java.time.Instant deadline = java.time.Instant.now().plus(GateWiring.HELPER_PATIENCE);
+        final long deadline = org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
         for (final java.util.Map.Entry<String, Process> each : coming) {
             final String name = each.getKey();
             if (org.fuin.porelo.wire.HelperPid.await(state.resolve(name + ".pid"), deadline)
                     .isPresent()) {
                 started++;
+                own.add(each.getValue().toHandle());
             } else {
-                org.fuin.porelo.wire.HelperPid.stop(each.getValue().toHandle());
-                // Signalled is not yet gone: the start answers once it no longer runs.
-                each.getValue()
-                        .onExit()
-                        .completeOnTimeout(null, 5, java.util.concurrent.TimeUnit.SECONDS)
-                        .join();
+                // Signalled is not yet gone: the resume answers once it no longer runs, killed
+                // when it did not go when asked.
+                org.fuin.porelo.wire.HelperPid.end(
+                        each.getValue().toHandle(), GateWiring.HELPER_GRACE);
                 problems.add(
                         "the " + name + " did not come up; see " + state.resolve(name + ".log"));
             }

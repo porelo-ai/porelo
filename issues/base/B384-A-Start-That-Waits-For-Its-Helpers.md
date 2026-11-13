@@ -120,3 +120,14 @@ relay.
 
 To be checked: not touched. The signal and teardown path of an attached start is unchanged, so a resumed task ended by
 `SIGTERM` leaving its helpers dead stays open.
+
+## The reading's Reds, fixed (2026-11-13)
+
+- A start whose vault broker or clearance watcher never comes up ends with 70 and leaves nothing of it running.
+- A resume whose helper fails before the container starts never starts it. One that fails after is rolled back, and
+  answers 70 with "was not resumed".
+- A helper that ignores SIGTERM is killed, with its descendants, once its grace has passed (`HelperPid.end`).
+- The created container's id is handed to the start before any record is written (`TaskRunner.recordCreated`).
+- A start that loses the name to another ends the helpers it started itself, by their own handles.
+- The wait for a helper's pid runs on monotonic time.
+- Left as it was: a container that reports no pid still only warns about its watcher.

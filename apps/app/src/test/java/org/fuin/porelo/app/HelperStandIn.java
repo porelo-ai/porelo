@@ -37,7 +37,7 @@ final class HelperStandIn {
      *
      * @param registry Where every stand-in records itself.
      * @param recordsItsPid Whether it writes its {@code --pid-file}; one that does not never comes
-     *     up.
+     *     up, and ignores {@code SIGTERM} too, so only a kill ends it.
      * @return The lines, ending in an {@code exec}.
      */
     static String lines(final Path registry, final boolean recordsItsPid) {
@@ -60,7 +60,8 @@ final class HelperStandIn {
                         recordsItsPid
                                 ? "[ -n \"$pid_file\" ] && printf '%s %s' $$ \"$started\" >"
                                         + " \"$pid_file\""
-                                : ": never records its pid",
+                                // Nor goes when asked: the worst helper, which only a kill ends.
+                                : "trap '' TERM",
                         BLOCKS_SECONDS);
     }
 
@@ -152,7 +153,8 @@ final class HelperStandIn {
         }
         try (Stream<Path> recorded = Files.list(registry)) {
             for (final Path file : recorded.toList()) {
-                HelperPid.verified(file).ifPresent(HelperPid::stop);
+                // Killed: a stand-in that never comes up ignores the polite signal.
+                HelperPid.verified(file).ifPresent(ProcessHandle::destroyForcibly);
                 Files.deleteIfExists(file);
             }
         }

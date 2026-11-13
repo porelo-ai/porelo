@@ -92,7 +92,8 @@ public class TaskRunner {
      * Tells a start the id of the container it created, as podman gave it back: the one container a
      * start that fails may stop or remove, whatever a record on disk names for its name by then.
      *
-     * @param listener Told the id once both copies of it are recorded.
+     * @param listener Told the id as soon as podman gave it back, before either copy of it is
+     *     recorded.
      */
     public void onCreated(java.util.function.Consumer<String> listener) {
         created = listener;
@@ -963,6 +964,14 @@ public class TaskRunner {
      * @throws IOException If it printed no id, or the record cannot be written.
      */
     void recordCreated(final String container, final String id) throws IOException {
+        final String made = id.strip();
+        if (!Sidecar.isId(made)) {
+            throw new IOException("podman gave back no container id: '" + made + "'");
+        }
+        // Told before anything is written: the container is this start's once podman made it, and
+        // a start told only after both records held no id of its own when the second failed, took
+        // its own container for another start's and cleaned up nothing of it.
+        created.accept(made);
         Sidecar.recordId(paths.tasks().containerState(container), id);
         final Path durable = paths.tasks().taskRecord(container);
         if (!Files.isDirectory(durable)) {
@@ -971,7 +980,6 @@ public class TaskRunner {
                     durable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }
         Sidecar.recordId(durable, id);
-        created.accept(id);
         final TaskReservations.Lease held = reservation;
         if (held != null) held.created(id);
     }

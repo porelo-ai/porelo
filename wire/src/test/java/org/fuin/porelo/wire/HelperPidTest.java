@@ -77,7 +77,7 @@ class HelperPidTest {
                                     }
                                 });
 
-        assertThat(HelperPid.await(file, java.time.Instant.now().plusSeconds(20)))
+        assertThat(HelperPid.await(file, HelperPid.deadline(java.time.Duration.ofSeconds(20))))
                 .as("a record written while it waits is the helper")
                 .get()
                 .extracting(ProcessHandle::pid)
@@ -92,12 +92,35 @@ class HelperPidTest {
                 file, String.valueOf(ProcessHandle.current().pid()), StandardCharsets.UTF_8);
         final long before = System.nanoTime();
 
-        assertThat(HelperPid.await(file, java.time.Instant.now().plusMillis(400)))
+        assertThat(HelperPid.await(file, HelperPid.deadline(java.time.Duration.ofMillis(400))))
                 .as("a bare number names no helper that came up")
                 .isEmpty();
         assertThat(java.time.Duration.ofNanos(System.nanoTime() - before))
                 .as("it waited out its deadline, and not much more")
                 .isBetween(java.time.Duration.ofMillis(350), java.time.Duration.ofSeconds(10));
+    }
+
+    @Test
+    void aHelperThatIgnoresTheSignalIsKilledOnceItsGracePassed() throws Exception {
+
+        // Asked once and left, a helper that ignored SIGTERM ran on after the start that gave up
+        // on it answered, and nothing named it any more.
+        final Process stubborn =
+                new ProcessBuilder("/bin/sh", "-c", "trap '' TERM; sleep 60 & wait; sleep 60")
+                        .start();
+        try {
+            // Its child is up once the shell waits: the signal is ignored by both.
+            Thread.sleep(300);
+            final ProcessHandle child = stubborn.toHandle().children().findFirst().orElseThrow();
+
+            assertThat(HelperPid.end(stubborn.toHandle(), java.time.Duration.ofMillis(300)))
+                    .as("ended, if only by a kill")
+                    .isTrue();
+            assertThat(stubborn.isAlive()).as("the helper").isFalse();
+            assertThat(child.isAlive()).as("and what it started").isFalse();
+        } finally {
+            stubborn.destroyForcibly();
+        }
     }
 
     @Test
