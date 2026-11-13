@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B715",
   "title": "The Yellows Of The Night's Readings",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 69,
