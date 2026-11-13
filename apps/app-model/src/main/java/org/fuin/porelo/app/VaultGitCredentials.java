@@ -91,12 +91,21 @@ public final class VaultGitCredentials implements GitCredentials {
             @Override
             public org.fuin.porelo.gate.GateException failure(
                     org.fuin.porelo.core.process.CommandException failure) {
-                return push && GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY
-                        ? PushCredentialHelp.refused(
-                                context, url, declared, "PUSH_REFUSED", failure)
-                        : new org.fuin.porelo.gate.GateException(
-                                failure.getMessage() == null ? "git failed" : failure.getMessage(),
-                                failure);
+                if (push && GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY) {
+                    return PushCredentialHelp.refused(
+                            context, url, declared, "PUSH_REFUSED", failure);
+                }
+                if (push) {
+                    // Over https: a refused token is named with what to do, never in git's words.
+                    final PushRefused refused =
+                            PushCredentialHelp.refusedToken(context, url, declared, failure);
+                    if (refused != null) {
+                        return refused;
+                    }
+                }
+                return new org.fuin.porelo.gate.GateException(
+                        failure.getMessage() == null ? "git failed" : failure.getMessage(),
+                        failure);
             }
 
             @Override

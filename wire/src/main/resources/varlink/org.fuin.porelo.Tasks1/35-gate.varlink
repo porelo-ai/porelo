@@ -395,9 +395,12 @@ method CredentialTryPush(
   message: string
 )
 
-# Forwarding could not use the chosen SSH identity. No raw remote output is returned.
+# Forwarding could not use the chosen SSH identity, or the forge refused an https credential. No raw remote
+# output is returned.
 error PushRefused(
-  # NO_CREDENTIAL, KEY_UNAVAILABLE, or PUSH_REFUSED.
+  # NO_CREDENTIAL, KEY_UNAVAILABLE, or PUSH_REFUSED. Over https only PUSH_REFUSED: the forge refused the token or
+  # sign-in offered (source and id name it, "" when none was declared; fingerprint is ""), and message says what
+  # to do without repeating git or the server. Any other failed push is not this error.
   outcome: string,
   address: string,
   source: string,

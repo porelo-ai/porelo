@@ -96,3 +96,8 @@ This inventory is from reading code; no live credential or remedy was exercised.
 - The document-tagged reactor tests pass. Root validation passes the action-pin, shared-rules, citation, README and documentation-site checks.
 - The unrestricted unit build stops in unchanged `wire` socket tests: directory ownership checks see the sandbox's root as uid 65534.
   No ownership check was bypassed. The full unit suite, acceptance scenarios, window controls and real-machine remedies remain unverified.
+- The https push slice (2026-11-13): a refused https forward came back as git's raw line, with the command, the address and
+  what the server echoed. `PushCredentialHelp.refusedToken` now classifies the push's stderr through `UpstreamProbe.answer`
+  and answers `PushRefused` (`PUSH_REFUSED`) in owned prose with the declared source and the inspection or store command;
+  any other push failure keeps git's words. Red: two of three new `CredentialPushTest` tests on the box
+  (buildbox-porelo-744157715f4b-20261113T182226Z.log); green: 95 tests, 0 skipped (buildbox-porelo-6d356a78988e-20261113T182805Z.log).

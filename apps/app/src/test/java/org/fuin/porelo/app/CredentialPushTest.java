@@ -214,6 +214,113 @@ class CredentialPushTest {
     }
 
     @Test
+    void aTokenRefusedOnAPushSaysWhatToDoAndNeverEchoesGit(@TempDir Path dir) throws Exception {
+        // An https push the forge refused came back as git's own line - the command, the address
+        // and whatever the server echoed - with nothing to do about the token.
+        final java.nio.file.Path token = dir.resolve("token");
+        java.nio.file.Files.writeString(token, "not-a-real-token\n");
+        final PoreloContext context = isolated(dir, new FakeCommandRunner());
+        new CredentialDeclarations(context)
+                .declare(
+                        new org.fuin.porelo.core.credential.Credential(
+                                token.toString(),
+                                org.fuin.porelo.core.credential.Credential.Kind.TOKEN,
+                                "https://forge.example/team/repo.git",
+                                null,
+                                "git",
+                                org.fuin.porelo.core.credential.Credential.Source.FILE));
+
+        final RuntimeException refusal =
+                refusedPush(context, dir, "https://forge.example/team/repo.git");
+
+        assertThat(refusal).as("a client receives named details").isInstanceOf(PushRefused.class);
+        final java.util.Map<String, Object> details = ((PushRefused) refusal).details();
+        assertThat(details)
+                .containsEntry("outcome", "PUSH_REFUSED")
+                .containsEntry("source", "FILE")
+                .containsEntry("id", token.toString())
+                .containsEntry("fingerprint", "");
+        assertThat(details.get("command"))
+                .as("an action a person can take: the token is replaced where it is declared")
+                .isEqualTo(java.util.List.of("porelo", "credentials", "list"));
+        assertThat(refusal.getMessage())
+                .as("what may be wrong with a token, without claiming which")
+                .contains("expired, revoked or missing access", "porelo' 'credentials' 'list")
+                .doesNotContain(
+                        "echoed-private-value", "public half", "exit code", "git --git-dir");
+    }
+
+    @Test
+    void anHttpsPushWithNothingDeclaredSaysNoTokenWasOffered(@TempDir Path dir) throws Exception {
+        final PoreloContext context = isolated(dir, new FakeCommandRunner());
+
+        final RuntimeException refusal =
+                refusedPush(context, dir, "https://forge.example/team/repo.git");
+
+        assertThat(refusal).isInstanceOf(PushRefused.class);
+        assertThat(((PushRefused) refusal).details())
+                .containsEntry("outcome", "PUSH_REFUSED")
+                .containsEntry("source", "")
+                .containsEntry("id", "");
+        assertThat(refusal.getMessage())
+                .contains("no token was offered")
+                .doesNotContain("echoed-private-value", "exit code");
+    }
+
+    @Test
+    void anHttpsPushFailingForAnotherReasonIsNotCalledACredentialRefusal(@TempDir Path dir)
+            throws Exception {
+        // A rejected non-fast-forward is not a credential's failure: git's words stay what the
+        // person reads, and no token is blamed.
+        final PoreloContext context = isolated(dir, new FakeCommandRunner());
+        try (var lease =
+                new VaultGitCredentials(context, "test")
+                        .forPush("https://forge.example/team/repo.git")) {
+            final var command =
+                    org.fuin.porelo.core.process.Command.of(
+                            "git", "--git-dir", dir.toString(), "push", "origin", "HEAD:main");
+            final var refusal =
+                    lease.failure(
+                            new org.fuin.porelo.core.process.CommandException(
+                                    command,
+                                    new org.fuin.porelo.core.process.CommandResult(
+                                            command,
+                                            1,
+                                            "",
+                                            " ! [rejected] HEAD -> main (fetch first)")));
+            assertThat(refusal).isNotInstanceOf(PushRefused.class);
+            assertThat(refusal.getMessage()).contains("fetch first");
+        }
+    }
+
+    /** What a lease makes of a push the forge refused with an authentication failure. */
+    private static RuntimeException refusedPush(PoreloContext context, Path dir, String url)
+            throws Exception {
+        try (var lease = new VaultGitCredentials(context, "test").forPush(url)) {
+            final var command =
+                    org.fuin.porelo.core.process.Command.of(
+                            "git",
+                            "--git-dir",
+                            dir.toString(),
+                            "push",
+                            "--end-of-options",
+                            url,
+                            "HEAD:refs/heads/work");
+            return lease.failure(
+                    new org.fuin.porelo.core.process.CommandException(
+                            command,
+                            new org.fuin.porelo.core.process.CommandResult(
+                                    command,
+                                    128,
+                                    "",
+                                    "remote: Invalid username or password. echoed-private-value\n"
+                                            + "fatal: Authentication failed for '"
+                                            + url
+                                            + "/'")));
+        }
+    }
+
+    @Test
     void anUnavailableDeclaredKeyCannotFallBackToAnotherIdentity(@TempDir Path dir)
             throws Exception {
         // A missing chosen key must never publish through another key from the account.

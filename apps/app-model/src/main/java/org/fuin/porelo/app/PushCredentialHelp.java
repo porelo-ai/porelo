@@ -117,6 +117,59 @@ public final class PushCredentialHelp {
         return new PushRefused(explanation, details);
     }
 
+    /**
+     * Names a push over https that the forge refused for its credential: what was offered, that a
+     * token may be expired, revoked or without access to the repository - which of them cannot be
+     * told from the answer - and what to run. Nothing git or the server said is repeated.
+     *
+     * @param context The machine.
+     * @param url The https address pushed to.
+     * @param declared What is declared for it, or {@code null} when nothing is.
+     * @param failed The failed push.
+     * @return The refusal, or {@code null} when the failure is not a credential's: a rejected
+     *     non-fast-forward or a hook's answer stays in git's words.
+     */
+    static @org.jspecify.annotations.Nullable PushRefused refusedToken(
+            PoreloContext context,
+            String url,
+            @org.jspecify.annotations.Nullable Credential declared,
+            org.fuin.porelo.core.process.CommandException failed) {
+        final UpstreamProbe.Answer answer =
+                UpstreamProbe.answer(context, url, failed.standardError());
+        if (answer.cause() != UpstreamProbe.Cause.KEY_REFUSED
+                && answer.cause() != UpstreamProbe.Cause.NOT_FOUND) {
+            return null;
+        }
+        final String fix = answer.fix().isBlank() ? "porelo credentials list" : answer.fix();
+        final List<String> command = CredentialDeclarations.argumentsOf(fix);
+        final String explanation =
+                "The push was refused: "
+                        + answer.detail()
+                        + " Run: "
+                        + command.stream()
+                                .map(PushCredentialHelp::word)
+                                .collect(java.util.stream.Collectors.joining(" "));
+        final Map<String, Object> details =
+                Map.of(
+                        "outcome",
+                        "PUSH_REFUSED",
+                        "address",
+                        url,
+                        "source",
+                        declared == null ? "" : declared.source().name(),
+                        "id",
+                        declared == null ? "" : declared.id(),
+                        "fingerprint",
+                        "",
+                        "forge",
+                        "UNKNOWN",
+                        "command",
+                        List.copyOf(command),
+                        "message",
+                        explanation);
+        return new PushRefused(explanation, details);
+    }
+
     private static String word(String value) {
         return "'" + value.replace("'", "'\\''") + "'";
     }
