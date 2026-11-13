@@ -900,8 +900,10 @@ public final class AgentLogin {
 
     /**
      * The detach key a login's terminal carries: named, so no {@code containers.conf} changes it.
+     * One key, not the same key twice: podman misses a repeated key whose presses arrive in one
+     * read, and a person pressing it twice quickly could then not end the login at all.
      */
-    static final String DETACH_KEYS = "ctrl-],ctrl-]";
+    static final String DETACH_KEYS = "ctrl-]";
 
     /** Runs the login container from the image, holding the login's temporary directory. */
     private static Result runIn(
@@ -978,7 +980,7 @@ public final class AgentLogin {
                                 + " open prints the URL instead, marked with '=== Open this ... ==='."
                                 + " Open it on whatever machine you are sitting at.");
                 out.println(
-                        "  * Nothing is stored unless the login finishes. Ctrl-] twice ends the"
+                        "  * Nothing is stored unless the login finishes. Ctrl-] ends the"
                                 + " login from here, and the container is removed either way.");
                 hint(agent.definition().loginFlow(), hostname()).forEach(out::println);
                 out.println();

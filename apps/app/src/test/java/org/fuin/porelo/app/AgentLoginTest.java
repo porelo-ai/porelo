@@ -571,9 +571,11 @@ class AgentLoginTest {
                 .anyMatch(line -> line.startsWith("podman rm") && line.contains(container))
                 .as("nothing is copied out of it")
                 .noneMatch(line -> line.startsWith("podman cp"));
-        assertThat(String.join(" ", ran.get()))
+        // One key, not the same key twice: podman 5.7 misses 'ctrl-],ctrl-]' when both presses
+        // arrive in one read, and the login then never ends (the ubuntu leg, 2026-11-13).
+        assertThat(ran.get().get(ran.get().indexOf("--detach-keys") + 1))
                 .as("Porelo names its own way out, which no containers.conf changes")
-                .contains("--detach-keys ctrl-],ctrl-]");
+                .isEqualTo("ctrl-]");
     }
 
     @Test

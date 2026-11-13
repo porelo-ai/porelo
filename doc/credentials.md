@@ -290,7 +290,7 @@ in a throwaway container from the task image, which has none of a task's hooks a
 access for the seconds the login takes.
 What the login writes is copied out, stored in the vault and the copy deleted at once; for that moment it lies in
 plaintext on the way, an accepted risk ([the decision](decisions.md#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault)).
-Ctrl-] twice, Porelo's own detach key, ends the login from its terminal whatever the agent's login screen does
+Ctrl-], Porelo's own detach key, ends the login from its terminal whatever the agent's login screen does
 with Ctrl-C: its container is removed, nothing it wrote is stored, and `vault login` says `cancelled` and exits 130.
 
 Over SSH, the agent's declared sign-in flow determines what happens. For `paste-code`, open the sign-in page

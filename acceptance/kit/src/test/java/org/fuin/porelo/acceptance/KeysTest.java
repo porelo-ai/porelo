@@ -26,7 +26,7 @@ class KeysTest {
         assertThat(hex("Ctrl+Right")).isEqualTo("1b5b313b3543");
         assertThat(hex("Alt+x")).isEqualTo("1b78");
         assertThat(hex("Ctrl+C")).isEqualTo("03");
-        assertThat(hex("Ctrl+]")).as("Porelo's detach key, pressed twice").isEqualTo("1d");
+        assertThat(hex("Ctrl+]")).as("Porelo's detach key").isEqualTo("1d");
         assertThat(hex("focus in")).isEqualTo("1b5b49");
         assertThat(hex("focus out")).isEqualTo("1b5b4f");
     }

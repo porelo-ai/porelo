@@ -60,9 +60,10 @@ Feature: An agent's login is stored, through the same chain a real login takes
 
     # Measured with an agent's device-code page that ignored Ctrl-C: nothing in the terminal ended the login, and its
     # container stayed up until stopped from a second connection. The stub's waiting login ignores Ctrl-C the same way;
-    # Ctrl-] twice is Porelo's own way out. The exit's word is typed in two quoted halves, so the echoed line never
-    # matches it.
-    Scenario: a login whose screen ignores Ctrl-C is ended from its terminal with Ctrl-] twice and stores nothing
+    # Ctrl-] is Porelo's own way out. It is pressed twice here, as people do: podman missed a detach key of the same
+    # key twice when both presses arrived in one read, and the login never ended. The exit's word is typed in two
+    # quoted halves, so the echoed line never matches it.
+    Scenario: a login whose screen ignores Ctrl-C is ended from its terminal with Ctrl-], pressed twice, and stores nothing
         Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
         And a terminal on the machine
         When a script runs "touch ~/.porelo-login-began"
