@@ -768,6 +768,17 @@ public class VaultFile {
      * @throws VaultException If no slot takes it.
      */
     private Opened opened(Opener opener) {
+        // Before the master key or any entry is decrypted in this process: a crash after it would
+        // write them to a core file, and a debugger of the same account could attach and read
+        // them. Process-wide and kept for the process's life, as the brokers do; asked on every
+        // opening, which costs one system call.
+        try {
+            org.fuin.porelo.core.hardening.ProcessHardening.disableDumping();
+        } catch (org.fuin.porelo.core.hardening.HardeningException ex) {
+            throw new VaultException(
+                    "this process cannot be made undumpable, so the vault is not decrypted in it",
+                    ex);
+        }
         if (opener.keptShare != null) {
             final byte[] share = opener.keptShare.get();
             try {

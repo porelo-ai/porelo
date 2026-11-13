@@ -555,7 +555,6 @@ public record PoreloContext(
                             final var opened =
                                     org.fuin.porelo.vault.VaultFile.Opener.passphrase(answer);
                             if (vault().exists()) {
-                                beforeDecrypting();
                                 vault().read(opened);
                                 ASKED.put(
                                         paths().vault().vaultFile().toAbsolutePath(),
@@ -775,19 +774,6 @@ public record PoreloContext(
     }
 
     /**
-     * Makes this process undumpable before a vault entry is decrypted in it, as the brokers do.
-     *
-     * <p>A crash after the read would otherwise write every decrypted entry to a core file, and a
-     * debugger of the same account could attach and read them. Process-wide and kept for the
-     * process's life; asked again on every read, which costs one system call.
-     *
-     * @throws org.fuin.porelo.core.hardening.HardeningException If the flag is still set.
-     */
-    public static void beforeDecrypting() {
-        org.fuin.porelo.core.hardening.ProcessHardening.disableDumping();
-    }
-
-    /**
      * Returns the credentials the vault holds, or nothing when they cannot be read.
      *
      * <p>The distinction {@link #credentials()} cannot make. An empty map there means "there is no
@@ -814,7 +800,6 @@ public record PoreloContext(
         }
         try {
             // A task's own tokens are not credentials: no listing and no choice may see them.
-            beforeDecrypting();
             return java.util.Optional.of(VaultNames.credentialsOnly(vault.read(opener.get())));
         } catch (org.fuin.porelo.vault.VaultException ex) {
             // A wrong passphrase or a damaged file. Unreadable rather than empty: the operator has
@@ -845,7 +830,6 @@ public record PoreloContext(
         try {
             final java.util.Map<String, org.fuin.porelo.vault.VaultEntry> grants =
                     new java.util.LinkedHashMap<>();
-            beforeDecrypting();
             vault.read(opener.get())
                     .forEach(
                             (name, entry) -> {

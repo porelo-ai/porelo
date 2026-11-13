@@ -677,4 +677,21 @@ class VaultFileTest {
     private static byte[] nonceOf(Path file) throws Exception {
         return headerOf(file).contentNonce();
     }
+
+    @Test
+    void aProcessIsUndumpableOnceItDecryptsTheVault(@TempDir Path dir) {
+        // Any command that reads the vault, a task's start among them: a crash after the read
+        // wrote every decrypted entry to a core file, as the brokers' own reads never did.
+        final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
+        vault.write(ENTRIES, PASSPHRASE);
+        try {
+            org.fuin.porelo.core.hardening.ProcessHardening.setDumpable(1);
+
+            vault.read(PASSPHRASE);
+
+            assertThat(org.fuin.porelo.core.hardening.ProcessHardening.dumpable()).isZero();
+        } finally {
+            org.fuin.porelo.core.hardening.ProcessHardening.setDumpable(1);
+        }
+    }
 }

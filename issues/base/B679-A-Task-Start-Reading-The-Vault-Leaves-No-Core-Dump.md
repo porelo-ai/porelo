@@ -38,17 +38,22 @@ it.
 
 ## Done
 
-- **One place before every read.** `PoreloContext.beforeDecrypting()` calls `ProcessHardening.disableDumping()`, as
-  the brokers do. `PoreloContext` calls it before each of its three vault reads (the passphrase check in
-  `requireOpener`, `readableCredentials`, through which `credentials()` reads too, and `readableGrants`), and the
-  start's command mask before its own `vault.read`. So the start's credential check in `CredentialWiring` and
-  `StartCheck`, which read through `PoreloContext`, is undumpable from that read on, and so is every other command
-  that reads the vault through it. Asked on every read; it costs one system call and holds for the process's life.
-- **Red first.** `PoreloContextTest.aProcessThatDecryptsTheVaultIsUndumpableFromThatReadOn` reads the credentials
-  and the grants of a real vault through the kernel keyring and found the process still dumpable before.
+- **Where the vault is decrypted.** `VaultFile` calls `ProcessHardening.disableDumping()`, as the brokers do, before
+  it unwraps the master key with any opener. Every read and every change of a slot goes through that one place. So
+  a task's start is undumpable from its first vault read on, whichever reads it: the credential check through
+  `PoreloContext`, `TaskSecrets`, the stored authorization, the command mask. So is every other command that
+  decrypts the vault. Asked on every opening; it costs one system call and holds for the process's life.
+- **A process that cannot be made undumpable decrypts nothing.** The failure becomes a `VaultException` that says
+  so, which every reader already reports, instead of an unhandled error.
+- **Red first.** `VaultFileTest.aProcessIsUndumpableOnceItDecryptsTheVault` and
+  `PoreloContextTest.aProcessThatDecryptsTheVaultIsUndumpableFromThatReadOn` found the process still dumpable after
+  a read.
+- **A code reading found no Red.** Its first Yellow, reads in the start that bypass `PoreloContext`, led to the one
+  place in `VaultFile` instead of calls in `PoreloContext`; its second, an unhandled hardening error, is the
+  `VaultException` above.
 - **Kept.** No zero core limit: the brokers set none either. With the flag the kernel writes a core only where
-  `fs.suid_dumpable` is 2, and then readable by root alone, never by the account. Commands in `app-vault` that read through `VaultFile` directly, not through `PoreloContext`, are not in
-  this issue; the brokers among them already call `disableDumping`.
-- **Docs.** `doc/decisions.md` says every command process calls it before it decrypts the vault. Changelog under
+  `fs.suid_dumpable` is 2, and then readable by root alone, never by the account.
+- **Docs.** `doc/decisions.md` says every process decrypting the vault makes itself undumpable first. Changelog under
   *Fixed*.
-- **Locally.** apps/app (4726) passed whole, and so did the root's `validate` and `-Pdocuments test`.
+- **Locally.** vault (317), supervisor (320), organization/git-tree (371) and apps/app (4726) passed whole, one at a
+  time, and so did the root's `validate` and `-Pdocuments test`.

@@ -4830,7 +4830,6 @@ public final class TaskLaunch {
             return CommandMask.whole();
         }
         try {
-            PoreloContext.beforeDecrypting();
             vault.read(opener.get()).values().forEach(entry -> values.add(entry.value()));
         } catch (org.fuin.porelo.vault.VaultException ex) {
             return CommandMask.whole();
