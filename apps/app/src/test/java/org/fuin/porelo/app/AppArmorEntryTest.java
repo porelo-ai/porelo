@@ -15,8 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link AppArmorEntry}: a binary not under {@code /usr} enters {@code porelo} itself, by
- * asking for it on the next exec and re-executing itself with the same arguments.
+ * Tests for {@link AppArmorEntry}: self-entry supplies a label only where stacking is not enforced.
  */
 class AppArmorEntryTest {
 
@@ -49,8 +48,9 @@ class AppArmorEntryTest {
         final Path loaded = dir.resolve("sys/kernel/security/apparmor/policy/profiles/porelo.4");
         Files.createDirectories(loaded);
         Files.writeString(loaded.resolve("name"), "porelo\n");
-        Files.createDirectories(attribute("current").getParent());
-        Files.writeString(attribute("current"), "unconfined\n");
+        Files.createDirectories(proc().resolve("self/attr/apparmor"));
+        Files.writeString(proc().resolve("self/attr/apparmor/current"), "unconfined\n");
+        Files.createDirectories(attribute("exec").getParent());
         Files.createDirectories(binary().getParent());
         Files.writeString(binary(), "");
         Files.createDirectories(proc().resolve("self"));
@@ -70,10 +70,58 @@ class AppArmorEntryTest {
     }
 
     @Test
+    void doesNotEnterItselfWhereUnprivilegedEntryWouldStack() throws IOException {
+        final Path restriction =
+                proc().resolve("sys/kernel/apparmor_restrict_unprivileged_unconfined");
+        Files.createDirectories(restriction.getParent());
+        Files.writeString(restriction, "1\n");
+
+        AppArmorEntry.enter(profile(), proc(), executed::add);
+
+        assertThat(executed)
+                .as("self-entry would produce a stack refused by its own tasks")
+                .isEmpty();
+        assertThat(attribute("exec"))
+                .as("no profile request may reach the next child")
+                .doesNotExist();
+    }
+
+    @Test
+    void keepsSelfEntryForItsLabelWhereStackingIsDisabled() throws IOException {
+        final Path restriction =
+                proc().resolve("sys/kernel/apparmor_restrict_unprivileged_unconfined");
+        Files.createDirectories(restriction.getParent());
+        Files.writeString(restriction, "0\n");
+
+        AppArmorEntry.enter(profile(), proc(), executed::add);
+
+        assertThat(executed)
+                .as("legacy entry can still give the process its label")
+                .containsExactly(List.of(binary().toRealPath().toString(), "--serve", "a b"));
+        assertThat(Files.readString(attribute("exec")))
+                .as("entry is still per thread")
+                .isEqualTo("exec porelo");
+    }
+
+    @Test
+    void skipsSelfEntryWhenTheStackingRestrictionCannotBeRead() throws IOException {
+        final Path restriction =
+                proc().resolve("sys/kernel/apparmor_restrict_unprivileged_unconfined");
+        Files.createDirectories(restriction);
+
+        AppArmorEntry.enter(profile(), proc(), executed::add);
+
+        assertThat(executed).as("unknown stacking must not cause repeated execs").isEmpty();
+        assertThat(attribute("exec"))
+                .as("unknown stacking must not leave a profile request")
+                .doesNotExist();
+    }
+
+    @Test
     void doesNothingInAProcessAlreadyInTheProfile() throws IOException {
 
         // What keeps the re-executed binary from re-executing again.
-        Files.writeString(attribute("current"), "porelo (unconfined)\n");
+        Files.writeString(proc().resolve("self/attr/apparmor/current"), "porelo (unconfined)\n");
 
         AppArmorEntry.enter(profile(), proc(), executed::add);
 
@@ -95,9 +143,8 @@ class AppArmorEntryTest {
 
         // Under no_new_privs, say: a refused entry must not stop the binary, and doctor says it is
         // outside the profile.
-        Files.delete(attribute("current"));
-        Files.delete(attribute("current").getParent());
-        Files.writeString(attribute("current").getParent(), "not a directory");
+        Files.delete(attribute("exec").getParent());
+        Files.writeString(attribute("exec").getParent(), "not a directory");
 
         AppArmorEntry.enter(profile(), proc(), executed::add);
 

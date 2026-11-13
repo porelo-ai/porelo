@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B754",
   "title": "Doctor Says Where The AppArmor Lock Holds",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 53,
@@ -44,3 +44,24 @@ one under `/usr`, wears plain `porelo`.
 - `doctor` on an account install on Ubuntu 26.04, with the profiles loaded, says the lock is not held for it and why.
   Its tasks start and reach Porelo's sockets.
 - `doctor` on a machine-wide install says `installed` and its tasks run in `porelo-task`.
+
+## Built
+
+- **`AppArmorProfile` (wire):** reads the process's label from `/proc/self/attr/apparmor/current`, not the calling
+  thread's, through an injectable path. A stack such as `porelo//&unconfined` counts as outside `porelo`, and the
+  answer names every part of it. A stacked process is never asked to enter `porelo` again.
+- **`doctor`:** its `apparmor profile` line names plain `porelo`, the stacked label, no profile, or a label that
+  could not be read. The line keeps its first word and the `installed` prefix. On an account install it says the lock
+  is not held there, and why.
+- **`Podman.confining`:** wraps a task in `porelo-task` only where this process wears plain `porelo`.
+- **`AppArmorEntry`:** reads `apparmor_restrict_unprivileged_unconfined` under an injectable proc root. Where it is 1,
+  unreadable or invalid, Porelo does not enter its profile itself. Where it is 0 or absent, the entry stays for the
+  label it gives.
+- **`doc/security.md`:** its AppArmor bullet says that an account install has the 0700 directory and not the lock.
+
+Red on the base with only the tests changed: `AppArmorProfileTest` 7 failures in 19 and `PodmanTest` 1 failure in 76;
+apps/app does not compile, because its tests use the new label state. Green, run locally: 19, 76 and 32 tests, 0
+failures.
+
+Left for [B752](README.md#b752)'s answers: the paragraph before that bullet in `doc/security.md` still describes path
+sockets.

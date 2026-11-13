@@ -12,6 +12,7 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.wire.AppArmorProfile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1081,6 +1082,48 @@ class PodmanTest {
 
         assertThat(arguments.subList(arguments.indexOf("box") + 1, arguments.size()))
                 .isEqualTo(entering(List.of("claude", "-p")));
+    }
+
+    @Test
+    void wrapsOnlyForAProcessWearingPlainPorelo(@TempDir Path directory) throws Exception {
+        final Path proc = directory.resolve("proc");
+        final Path sys = directory.resolve("sys");
+        final Path enabled = sys.resolve("module/apparmor/parameters/enabled");
+        Files.createDirectories(enabled.getParent());
+        Files.writeString(enabled, "Y\n");
+        final Path loaded =
+                sys.resolve("kernel/security/apparmor/policy/profiles/porelo-task.8/name");
+        Files.createDirectories(loaded.getParent());
+        Files.writeString(loaded, "porelo-task\n");
+        final Path feature = sys.resolve("kernel/security/apparmor/features/network/af_unix");
+        Files.createDirectories(feature.getParent());
+        Files.writeString(feature, "yes\n");
+        final Path current = proc.resolve("self/attr/apparmor/current");
+        Files.createDirectories(current.getParent());
+        final Path thread = proc.resolve("thread-self/attr/apparmor/current");
+        Files.createDirectories(thread.getParent());
+        Files.writeString(thread, "porelo (unconfined)\n");
+        final AppArmorProfile profile = AppArmorProfile.at(proc, sys);
+
+        for (final String label : List.of("porelo//&unconfined", "unconfined")) {
+            Files.writeString(current, label + "\n");
+            final Podman outside = podman.confining(profile.taskProfile());
+
+            assertThat(outside.executeArguments("box", Map.of(), List.of("agent")))
+                    .as("%s must reach Porelo's own sockets without the wrapper", label)
+                    .isEqualTo(podman.executeArguments("box", Map.of(), List.of("agent")))
+                    .doesNotContain(Podman.ENTER);
+            assertThat(outside.attachArguments("box", List.of("/bin/bash"), List.of()))
+                    .as("an attached shell must follow the same confinement decision for %s", label)
+                    .isEqualTo(podman.attachArguments("box", List.of("/bin/bash"), List.of()));
+        }
+
+        Files.writeString(current, "porelo (unconfined)\n");
+        assertThat(
+                        podman.confining(profile.taskProfile())
+                                .executeArguments("box", Map.of(), List.of("agent")))
+                .as("plain porelo serves sockets that porelo-task permits")
+                .containsSubsequence("box", "sh", "-c", Podman.ENTER, "porelo-task", "agent");
     }
 
     @Test

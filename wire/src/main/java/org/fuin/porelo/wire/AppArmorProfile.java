@@ -159,15 +159,16 @@ public final class AppArmorProfile {
     }
 
     /**
-     * Returns the label the calling thread wears, without its mode.
+     * Returns the label this process wears, without its mode and retaining every part of a stack.
      *
      * <p>The kernel prints {@code porelo (unconfined)} for a profile flagged {@code unconfined},
-     * {@code porelo-task (enforce)} for an enforcing one, and {@code unconfined} for none.
+     * {@code porelo-task (enforce)} for an enforcing one, and {@code unconfined} for none. A stack
+     * such as {@code porelo//&unconfined} is a different label from plain {@code porelo}.
      *
      * @return The label, or an empty string where it cannot be read.
      */
     public String label() {
-        final String printed = read(proc.resolve("thread-self/attr/apparmor/current"));
+        final String printed = read(proc.resolve("self/attr/apparmor/current"));
         if (printed == null) {
             return "";
         }
@@ -210,13 +211,14 @@ public final class AppArmorProfile {
      * is loaded, and the process is not in it.
      *
      * <p>A binary under {@code /usr} wears the label by the profile's attachment; a developer's
-     * build and an account install wear it only this way. Once in it, this says {@code false}, so a
-     * re-executed binary does not re-execute again.
+     * build and an account install can gain a label this way where stacking is not enforced. A
+     * plain host label or a stack must not trigger another re-execution.
      *
      * @return {@code true} if the process should enter it and re-execute.
      */
     public boolean shouldEnter() {
-        return enabled() && loaded(HOST) && !HOST.equals(label());
+        final String current = label();
+        return enabled() && loaded(HOST) && !HOST.equals(current) && !current.contains("//&");
     }
 
     /**
@@ -261,8 +263,11 @@ public final class AppArmorProfile {
     }
 
     private static @Nullable String read(Path file) {
-        try {
-            return Files.readString(file, StandardCharsets.US_ASCII).replace("\0", "").strip();
+        // procfs reports size zero; a stream also reads it correctly in a native image.
+        try (var in = Files.newInputStream(file)) {
+            return new String(in.readAllBytes(), StandardCharsets.US_ASCII)
+                    .replace("\0", "")
+                    .strip();
         } catch (IOException ex) {
             return null;
         }

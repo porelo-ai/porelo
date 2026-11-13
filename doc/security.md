@@ -369,13 +369,18 @@ task sends. A second lock against that holds on SELinux machines only:
 - **SELinux machines:** the policy module lets a task connect only to a socket labelled `porelo_socket_t`. The module
   still lets any process of the operator's set that label, so on SELinux this lock is not yet the binary-only one it
   is meant to become.
-- **AppArmor machines:** no second lock holds. A task runs in the profile `porelo-task` and cannot leave it: `exec
-  porelo` and `changeprofile porelo` are refused inside it (measured on Ubuntu 26.04). Its rule that a `connect` reach
-  only a peer in `porelo` does not hold for Porelo's sockets, though. They are files in a directory, and AppArmor
-  judges a connect to such a socket by its file rules, not by the peer rule: "Unix domain sockets with file system
-  paths are mediated via file access rules" (`apparmor.d(5)`). Measured on Ubuntu 26.04, a task in `porelo-task`
-  connected to a socket an unconfined process bound. `porelo doctor`'s `apparmor profile installed` says the profiles
-  are loaded and Porelo runs in `porelo`, not that this lock holds.
+- **AppArmor machines:** the lock requires a machine-wide install whose binaries wear plain `porelo` by path
+  attachment, loaded profiles and a kernel that mediates unix sockets. For abstract sockets in the task's network
+  namespace, `porelo-task` permits a connect only to a peer in `porelo` or `porelo-task`; a task cannot leave its
+  profile. A path socket is judged by file rules instead, so the peer rule gives it no second lock.
+  `porelo doctor`'s `apparmor profile` line starts its detail with `installed` where this process wears plain
+  `porelo` and the lock holds. An account install or a developer's build has the `0700` directory, not this lock:
+  where unprivileged self-entry stacks profiles, it would produce `porelo//&unconfined`, which a task refuses as a
+  peer. Porelo skips self-entry there and leaves tasks outside `porelo-task`; doctor says the lock is not held and
+  names the stack or the absence of a profile. Where stacking is disabled, self-entry remains for the label it gives.
+  The machine-wide lock stops a process outside Porelo's binary. Since `porelo` is flagged `unconfined`, an account
+  process can still run `/usr/bin/porelod` with `LD_PRELOAD`, or trace one it started, and bind in its name. A
+  host-side client outside Porelo's code is not held by the task's profile.
 - **Everywhere else**, likewise none.
 
 **The bound:** where no second lock holds, the `0700` directory is the only one, and any process of the account can

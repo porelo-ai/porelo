@@ -516,7 +516,7 @@ class DoctorCommandTest {
 
     @Test
     void needsNoAppArmorProfileWhereAppArmorDoesNotRun() {
-        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.NOT_NEEDED);
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.NOT_NEEDED, "");
 
         assertThat(probe.name()).isEqualTo("apparmor profile");
         assertThat(probe.state()).isEqualTo(Probe.State.OK);
@@ -527,7 +527,7 @@ class DoctorCommandTest {
     void namesTheInstallLineWhereTheTaskProfileIsMissing() {
 
         // A task runs as before there, so the machine stays ready: the line says what is not held.
-        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.MISSING);
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.MISSING, "unconfined");
 
         assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
         assertThat(probe.detail()).contains("porelo-task").contains("not loaded");
@@ -539,7 +539,8 @@ class DoctorCommandTest {
     void saysTheLockIsAbsentOnAKernelThatDoesNotMediateUnixSockets() {
 
         // Seen to fail: 'installed' where the kernel would not hold the rule.
-        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.ABSENT_ON_KERNEL);
+        final Probe probe =
+                DoctorCommand.appArmor(AppArmorProfile.State.ABSENT_ON_KERNEL, "porelo");
 
         assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
         assertThat(probe.detail()).contains("absent on this kernel").doesNotContain("installed");
@@ -547,17 +548,58 @@ class DoctorCommandTest {
 
     @Test
     void saysSoWhenThisBinaryIsNotInTheHostProfile() {
-        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.OUTSIDE);
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.OUTSIDE, "unconfined");
 
         assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
-        assertThat(probe.detail()).contains("not in porelo");
+        assertThat(probe.detail())
+                .as("an account binary has no profile under enforced stacking")
+                .contains("no profile: unconfined", "lock is not held");
+    }
+
+    @Test
+    void saysTheLockIsNotHeldForAnAccountInstall() {
+        final Probe probe =
+                DoctorCommand.appArmor(AppArmorProfile.State.OUTSIDE, "porelo//&unconfined");
+
+        assertThat(probe.state())
+                .as("tasks still work without the second lock")
+                .isEqualTo(Probe.State.DEGRADED);
+        assertThat(probe.detail())
+                .as("the report must not promise socket protection here")
+                .startsWith("loaded")
+                .contains(
+                        "lock is not held",
+                        "account install",
+                        "developer's build",
+                        "porelo//&unconfined");
+        assertThat(probe.action())
+                .as("loading an already loaded profile cannot fix self-entry")
+                .contains("machine-wide");
+        assertThat(DoctorCommand.ready(java.util.List.of(probe)))
+                .as("lack of the optional lock must not prevent tasks")
+                .isTrue();
     }
 
     @Test
     void callsTheProfileInstalledOnlyWhenEverythingHolds() {
-        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.INSTALLED);
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.INSTALLED, "porelo");
 
         assertThat(probe.state()).isEqualTo(Probe.State.OK);
-        assertThat(probe.detail()).isEqualTo("installed");
+        assertThat(probe.detail())
+                .as("keep the status word while stating where the lock holds")
+                .startsWith("installed")
+                .contains("plain porelo", "lock holds here", "machine-wide")
+                .as("a plain label can also result from legacy account self-entry")
+                .doesNotContain("for the machine-wide install");
+    }
+
+    @Test
+    void doesNotMistakeAnUnreadableLabelForNoProfile() {
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.OUTSIDE, "");
+
+        assertThat(probe.detail())
+                .as("failure to read cannot prove an unconfined process")
+                .contains("label could not be read", "lock is not held")
+                .doesNotContain("no profile", "for this account install");
     }
 }

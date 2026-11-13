@@ -273,8 +273,9 @@ public class Podman {
      * tmux server runs the agent. Porelo's own short execs - {@code infocmp}, {@code tee}, {@code
      * mkdir}, {@code chmod}, what runs as root - stay as they are.
      *
-     * <p>Only where {@code AppArmorProfile} says the profile is installed and holds; given {@code
-     * null}, every start is left as it was.
+     * <p>Pass {@code AppArmorProfile.taskProfile()}: only a process wearing plain {@code porelo}
+     * can serve the wrapped task's sockets. A stack such as {@code porelo//&unconfined} yields
+     * {@code null}, leaving every start as it was.
      *
      * @param profile The profile, or {@code null} for none.
      * @return The runtime that puts the agent there.

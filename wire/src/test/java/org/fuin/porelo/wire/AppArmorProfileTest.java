@@ -60,9 +60,9 @@ class AppArmorProfileTest {
         Files.writeString(feature, "yes\n");
     }
 
-    /** This thread's label, as the kernel prints it: name, mode in brackets, a line end. */
+    /** This process's label, as the kernel prints it: name, mode in brackets, a line end. */
     private void current(String printed) throws IOException {
-        final Path attribute = proc().resolve("thread-self/attr/apparmor/current");
+        final Path attribute = proc().resolve("self/attr/apparmor/current");
         Files.createDirectories(attribute.getParent());
         Files.writeString(attribute, printed);
     }
@@ -138,6 +138,38 @@ class AppArmorProfileTest {
     }
 
     @Test
+    void keepsAStackOutsideTheHostProfileAndNamesEveryPart() throws IOException {
+        installed();
+        current("porelo//&unconfined (unconfined)\n");
+        final Path thread = proc().resolve("thread-self/attr/apparmor/current");
+        Files.createDirectories(thread.getParent());
+        Files.writeString(thread, "porelo (unconfined)\n");
+
+        assertThat(profile().state())
+                .as("a stacked process cannot serve sockets to a task in porelo-task")
+                .isEqualTo(AppArmorProfile.State.OUTSIDE);
+        assertThat(profile().label())
+                .as("the reason must retain the whole stack")
+                .isEqualTo("porelo//&unconfined");
+        assertThat(profile().taskProfile()).as("its own task would refuse its sockets").isNull();
+    }
+
+    @Test
+    void readsTheProcessLabelEvenWhenTheCallingThreadHasAnother() throws IOException {
+        installed();
+        final Path thread = proc().resolve("thread-self/attr/apparmor/current");
+        Files.createDirectories(thread.getParent());
+        Files.writeString(thread, "porelo//&unconfined (unconfined)\n");
+
+        assertThat(profile().state())
+                .as("the process wears plain porelo")
+                .isEqualTo(AppArmorProfile.State.INSTALLED);
+        assertThat(profile().taskProfile())
+                .as("plain porelo can serve confined tasks")
+                .isEqualTo("porelo-task");
+    }
+
+    @Test
     void readsTheLabelWithoutItsMode() throws IOException {
         current("porelo (unconfined)\n");
         assertThat(profile().label()).isEqualTo("porelo");
@@ -171,6 +203,16 @@ class AppArmorProfileTest {
         installed();
 
         assertThat(profile().shouldEnter()).isFalse();
+    }
+
+    @Test
+    void neverAsksAStackedProcessToReEnterTheHostProfile() throws IOException {
+        installed();
+        current("porelo//&unconfined (unconfined)\n");
+
+        assertThat(profile().shouldEnter())
+                .as("another entry would repeat the same stack")
+                .isFalse();
     }
 
     @Test
@@ -211,6 +253,8 @@ class AppArmorProfileTest {
 
         // The relay's connecting thread: the kernel then checks its connect as a task's.
         current("porelo (unconfined)\n");
+        final Path thread = proc().resolve("thread-self/attr/apparmor/current");
+        Files.createDirectories(thread.getParent());
 
         assertThat(profile().changeProfile("porelo-task")).isTrue();
         assertThat(
@@ -218,6 +262,9 @@ class AppArmorProfileTest {
                                 proc().resolve("thread-self/attr/apparmor/current"),
                                 StandardCharsets.US_ASCII))
                 .isEqualTo("changeprofile porelo-task");
+        assertThat(profile().label())
+                .as("changing the relay thread leaves the process label alone")
+                .isEqualTo("porelo");
     }
 
     @Test

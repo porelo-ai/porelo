@@ -3,6 +3,7 @@ package org.fuin.porelo.app;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,13 +14,13 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Puts {@code porelo} and {@code porelod} into the AppArmor profile {@code porelo} at start, where
- * AppArmor runs, the profile is loaded and they are not in it already.
+ * AppArmor runs, the profile is loaded, they are not in it already and self-entry does not stack.
  *
  * <p>A binary under {@code /usr} wears the label by the profile's attachment. One anywhere else - a
- * developer's build, the account install a leg uses - would bind its sockets unlabelled, and a task
- * in {@code porelo-task} would be refused them. So it asks the kernel for the profile on its next
- * {@code exec} and re-executes itself with the same arguments; the profile names no developer's
- * path. Any process of the account could do the same: the bound {@code chcon} gives on SELinux.
+ * developer's build or an account install - may enter by name only for the label it gives where
+ * stacking is disabled. Under enforced stacking it would gain {@code porelo//&unconfined}, whose
+ * sockets a task in {@code porelo-task} refuses. It stays outside there, and doctor says why the
+ * lock is not held. The machine-wide package gains plain {@code porelo} by path attachment.
  *
  * <p>Nothing here may stop the binary. A refused entry or a failed {@code exec} leaves it running
  * as it was, and {@code porelo doctor} says it is outside the profile.
@@ -46,7 +47,7 @@ public final class AppArmorEntry {
      * @param exec Replaces this process; returns only when that failed.
      */
     static void enter(AppArmorProfile profile, Path proc, Consumer<List<String>> exec) {
-        if (!profile.shouldEnter()) {
+        if (!profile.shouldEnter() || stackingEnforced(proc)) {
             return;
         }
         // Read before the profile is asked for: where there is nothing to re-execute, the thread
@@ -60,6 +61,20 @@ public final class AppArmorEntry {
         } catch (RuntimeException ex) {
             // Still this process, outside the profile; doctor says so. A child it starts on this
             // thread goes into the profile, which confines nothing.
+        }
+    }
+
+    private static boolean stackingEnforced(Path proc) {
+        final Path restriction =
+                proc.resolve("sys/kernel/apparmor_restrict_unprivileged_unconfined");
+        // procfs reports size zero, so read through a stream in the native binary too.
+        try (var in = Files.newInputStream(restriction)) {
+            return !"0".equals(new String(in.readAllBytes(), StandardCharsets.US_ASCII).strip());
+        } catch (NoSuchFileException ex) {
+            return false;
+        } catch (IOException ex) {
+            // An unknown restriction cannot justify a self-entry that may stack.
+            return true;
         }
     }
 

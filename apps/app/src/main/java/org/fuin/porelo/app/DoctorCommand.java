@@ -708,7 +708,9 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * @return A line describing the state.
      */
     private Probe appArmorProfile() {
-        return appArmor(org.fuin.porelo.wire.AppArmorProfile.real().state());
+        final org.fuin.porelo.wire.AppArmorProfile profile =
+                org.fuin.porelo.wire.AppArmorProfile.real();
+        return appArmor(profile.state(), profile.label());
     }
 
     /**
@@ -719,9 +721,11 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * a stand-in from posing as the broker does not hold, and what would make it hold.
      *
      * @param state What {@code AppArmorProfile} found.
+     * @param label The process's complete label, or empty where it could not be read.
      * @return The probe.
      */
-    static Probe appArmor(final org.fuin.porelo.wire.AppArmorProfile.State state) {
+    static Probe appArmor(
+            final org.fuin.porelo.wire.AppArmorProfile.State state, final String label) {
         final String name = "apparmor profile";
         return switch (state) {
             case NOT_NEEDED -> Probe.ok(name, "not needed - this machine does not run AppArmor");
@@ -742,11 +746,22 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
             case OUTSIDE ->
                     Probe.degraded(
                             name,
-                            "loaded, but this binary is not in porelo, so a task is not put into "
-                                    + org.fuin.porelo.wire.AppArmorProfile.TASK,
-                            "load the porelo profile and start porelo again: "
-                                    + org.fuin.porelo.wire.AppArmorProfile.INSTALL);
-            case INSTALLED -> Probe.ok(name, "installed");
+                            "loaded, but this binary is not in plain porelo ("
+                                    + (label.isEmpty()
+                                            ? "process label could not be read"
+                                            : "unconfined".equals(label)
+                                                    ? "no profile: unconfined"
+                                                    : "process label: " + label)
+                                    + "); the lock is not held here; an account install or"
+                                    + " developer's build cannot acquire plain porelo by name"
+                                    + " under enforced stacking; tasks run without porelo-task",
+                            "use the machine-wide package whose binaries wear plain porelo by"
+                                    + " path attachment to hold the lock");
+            case INSTALLED ->
+                    Probe.ok(
+                            name,
+                            "installed - this process wears plain porelo; the lock holds here"
+                                    + "; machine-wide installs attach this label by path");
         };
     }
 
