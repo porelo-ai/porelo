@@ -161,9 +161,10 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
         final Optional<TaskSecrets.Signing> held =
                 identity == null ? Optional.empty() : secrets.signing(identity);
         if (projectName == null || held.isEmpty()) {
+            // The task found, as every task command names it, by whichever name it was given.
             err.println(
                     "porelo: "
-                            + task
+                            + container
                             + " has no key of its own here to certify; it was started uncertified,"
                             + " or the vault is locked");
             err.flush();

@@ -25,6 +25,7 @@ import picocli.CommandLine.Spec;
  */
 @Command(
         name = "watch-builds",
+        hidden = true,
         mixinStandardHelpOptions = true,
         description =
                 "Runs beside a task: follows what it pushes and hands each build's verdict into"

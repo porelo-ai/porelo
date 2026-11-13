@@ -1,0 +1,2 @@
+title: "Every `porelo task` and `porelo talk` command that takes a task is checked by running it to find the task by its own name and by its container's name; `porelo task certify` names the task it found when it holds no key, as the other task commands do; `porelo task watch-builds`, run by a task's launch, is no longer offered in help or completion"
+type: changed
