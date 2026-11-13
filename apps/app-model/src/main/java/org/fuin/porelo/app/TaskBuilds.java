@@ -570,6 +570,48 @@ public final class TaskBuilds {
         return View.none();
     }
 
+    /**
+     * Returns the name a commit's build is handed in under, without its extension: the gate and the
+     * build watch hand in the same file, so a later verdict replaces an earlier one.
+     *
+     * @param commit The sha.
+     * @return {@code build-} and the commit's first 12 characters.
+     */
+    public static String fileName(final String commit) {
+        return "build-" + commit.substring(0, Math.min(12, commit.length()));
+    }
+
+    /**
+     * Returns what the task reads about one build, in {@code build-<commit>.txt}.
+     *
+     * @param seen The verdict.
+     * @return Lines of {@code key: value}.
+     */
+    public static String file(final Seen seen) {
+        final StringBuilder text = new StringBuilder();
+        text.append("commit: ").append(seen.commit()).append('\n');
+        text.append("verdict: ").append(seen.verdict()).append('\n');
+        for (final Run each : seen.runs()) {
+            text.append("run: ")
+                    .append(each.name())
+                    .append(" - ")
+                    .append(each.result())
+                    .append('\n');
+        }
+        for (final Job job : seen.jobs()) {
+            text.append("job: ").append(job.name()).append(" - ").append(job.result());
+            if (job.log() != null) {
+                text.append(" - /porelo/files/").append(job.log().name());
+            }
+            text.append('\n');
+        }
+        text.append("since: ").append(seen.since()).append('\n');
+        if (!seen.detail().isEmpty()) {
+            text.append("detail: ").append(seen.detail()).append('\n');
+        }
+        return text.toString();
+    }
+
     /** The record, in the state directory like the hand-ins', so it outlives the task. */
     private Path recordOf(final String container) {
         return paths.paths().xdg().state().resolve("builds").resolve(container + ".jsonl");

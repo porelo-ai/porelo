@@ -55,6 +55,8 @@ public class GitHttpServer implements AutoCloseable {
 
     private volatile @org.jspecify.annotations.Nullable Signer signer;
 
+    private volatile @org.jspecify.annotations.Nullable Taken taken;
+
     /** The tasks whose landed work this task was started to read. */
     private volatile List<String> reads = List.of();
 
@@ -126,6 +128,20 @@ public class GitHttpServer implements AutoCloseable {
          */
         @org.jspecify.annotations.Nullable
         String judge(String old, String commit) throws IOException;
+    }
+
+    /** Told of each commit the task's ref took, once the push is judged and passed on. */
+    @FunctionalInterface
+    public interface Taken {
+
+        /**
+         * Hears of a commit the task's ref now points at; called before the push is answered, so
+         * what it hands in is there when the agent's push returns. What it throws is said in the
+         * gate's log and never refuses the push.
+         *
+         * @param commit What the ref points at now.
+         */
+        void taken(String commit);
     }
 
     /** Runs a git subprocess for one request. */
@@ -249,6 +265,17 @@ public class GitHttpServer implements AutoCloseable {
      */
     public GitHttpServer judging(final Arrivals judge) {
         this.arrivals = judge;
+        return this;
+    }
+
+    /**
+     * Tells a listener of each commit a push to the task's ref brought, once it is taken.
+     *
+     * @param listener What is told.
+     * @return This server.
+     */
+    public GitHttpServer taking(final Taken listener) {
+        this.taken = listener;
         return this;
     }
 
@@ -512,6 +539,7 @@ public class GitHttpServer implements AutoCloseable {
                 }
             }
 
+            tellTaken(commands(request));
             exchange.getResponseHeaders()
                     .add("Content-Type", "application/x-" + service + "-result");
             exchange.getResponseHeaders().add("Cache-Control", "no-cache");
@@ -712,6 +740,34 @@ public class GitHttpServer implements AutoCloseable {
             return said;
         }
         return null;
+    }
+
+    /**
+     * Tells the listener of each commit the task's ref took; what it throws is said in the log,
+     * since the push itself landed.
+     *
+     * @param commands The push's {@code <old> <new> <ref>} commands.
+     */
+    private void tellTaken(final List<String[]> commands) {
+        final Taken listener = taken;
+        if (listener == null) {
+            return;
+        }
+        for (final String[] command : commands) {
+            // The rescue beside the task's ref is the person's; a deletion brings no commit.
+            if (!command[2].equals(ref) || ZERO.equals(command[1])) {
+                continue;
+            }
+            try {
+                listener.taken(command[1]);
+            } catch (RuntimeException ex) {
+                System.err.println(
+                        "could not tell the task of "
+                                + printable(command[1])
+                                + ": "
+                                + printable(String.valueOf(ex.getMessage())));
+            }
+        }
     }
 
     /** Puts the mirror's ref back to where a push found it. */

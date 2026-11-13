@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B710",
   "title": "No Agent Waits For A Build That Never Comes",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 64,

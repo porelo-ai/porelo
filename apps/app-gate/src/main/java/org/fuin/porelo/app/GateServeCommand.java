@@ -124,6 +124,14 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private @Nullable Path signers;
 
     @Option(
+            names = "--no-builds",
+            description =
+                    "The project follows no builds: a push passed on is told at once that no build"
+                            + " of it is reported. A push the gate holds for a person is told so"
+                            + " always.")
+    private boolean noBuilds;
+
+    @Option(
             names = "--seconds",
             paramLabel = "<n>",
             description = "Stop after this long. Zero means run until killed.")
@@ -169,6 +177,35 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
         final TaskSecrets secrets = new TaskSecrets(context);
         final TaskIdentity identity = TaskHistory.find(context, project, task);
         return () -> identity == null ? java.util.Optional.empty() : secrets.forgeToken(identity);
+    }
+
+    /**
+     * Answers a push that is not built while the task runs, with {@code build-<commit>.txt} handed
+     * into its container; the container is looked up at each push, as the signing key is.
+     */
+    static GitHttpServer.Taken unbuilt(
+            final PoreloContext context,
+            final String project,
+            final String task,
+            final String why) {
+        return commit -> {
+            final TaskIdentity identity = TaskHistory.find(context, project, task);
+            if (identity == null) {
+                throw new IllegalStateException(
+                        "no task " + task + " of " + project + " is recorded");
+            }
+            final String container = identity.container();
+            final HandIns handIns = HandIns.of(context);
+            new UnbuiltPush(
+                            (name, file) -> handIns.give(container, name, file, HandIns.PORELO),
+                            context.paths()
+                                    .tasks()
+                                    .containerState(container)
+                                    .resolve("gate-builds"),
+                            java.time.Clock.systemUTC(),
+                            why)
+                    .taken(commit);
+        };
     }
 
     private void writePidFile(PrintWriter err) {
@@ -318,6 +355,17 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                     // signature: a vault unlocked after the gate started is read then.
                     final String task = ref.substring(GitGate.INCOMING.length());
                     server.signing(signing(context, project.name(), task));
+                }
+                final String unbuilt = UnbuiltPush.why(through != null, !noBuilds);
+                if (ref != null && ref.startsWith(GitGate.INCOMING) && unbuilt != null) {
+                    // No build report comes while the task runs: said at the push, so the agent
+                    // does not wait for one.
+                    server.taking(
+                            unbuilt(
+                                    context,
+                                    project.name(),
+                                    ref.substring(GitGate.INCOMING.length()),
+                                    unbuilt));
                 }
                 if (ref != null && !reads.isEmpty()) {
                     server.reading(reads);

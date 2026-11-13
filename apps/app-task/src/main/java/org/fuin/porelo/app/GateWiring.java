@@ -40,6 +40,21 @@ final class GateWiring {
         return this;
     }
 
+    /** Whether a build watch reports on what this gate passes on. */
+    private boolean followsBuilds = true;
+
+    /**
+     * Says whether the builds of what this gate passes on are followed: where they are not, the
+     * gate tells the task at its push that no build report comes.
+     *
+     * @param follows Whether a build watch runs for the task.
+     * @return This wiring.
+     */
+    GateWiring followingBuilds(final boolean follows) {
+        this.followsBuilds = follows;
+        return this;
+    }
+
     /**
      * Constructor with what the run decided.
      *
@@ -192,6 +207,46 @@ final class GateWiring {
             final @Nullable String forgeBranch,
             final @Nullable Certified certified,
             final java.util.List<String> reads) {
+        return serving(
+                project,
+                bind,
+                port,
+                state,
+                taskName,
+                repository,
+                forgeBranch,
+                certified,
+                reads,
+                true);
+    }
+
+    /**
+     * Returns the command that serves a task's gate, telling it whether the builds of what it
+     * passes on are followed.
+     *
+     * @param project The task's project.
+     * @param bind Where the gate listens.
+     * @param port Its port.
+     * @param state The task's runtime state.
+     * @param taskName The task's own name.
+     * @param repository Which repository of the project, or {@code null} for its own.
+     * @param forgeBranch The task's branch at the forge, or {@code null} for {@code porelo/<task>}.
+     * @param certified What its arrivals are judged by, or {@code null}.
+     * @param reads The tasks whose landed work it reads; none for every other task.
+     * @param followsBuilds Whether a build watch reports on what it passes on.
+     * @return The command.
+     */
+    static java.util.List<String> serving(
+            final org.fuin.porelo.core.project.Project project,
+            final String bind,
+            final int port,
+            final java.nio.file.Path state,
+            final String taskName,
+            final @Nullable String repository,
+            final @Nullable String forgeBranch,
+            final @Nullable Certified certified,
+            final java.util.List<String> reads,
+            final boolean followsBuilds) {
         final java.util.List<String> command =
                 new java.util.ArrayList<>(
                         java.util.List.of(
@@ -226,6 +281,10 @@ final class GateWiring {
                 // On the recorded command line too, so a resumed task passes on where it did.
                 command.add("--branch");
                 command.add(forgeBranch);
+            }
+            if (!followsBuilds) {
+                // On the recorded command line too: a resumed task's pushes are answered as before.
+                command.add("--no-builds");
             }
         }
         if (certified != null) {
@@ -274,7 +333,8 @@ final class GateWiring {
                         repository,
                         forgeBranch,
                         certified,
-                        reads);
+                        reads,
+                        followsBuilds);
 
         try {
             final ProcessBuilder builder =

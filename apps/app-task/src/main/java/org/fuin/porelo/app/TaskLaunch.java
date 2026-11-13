@@ -3813,6 +3813,10 @@ public final class TaskLaunch {
 
             if (workspace != null) {
                 gate().reading(reads)
+                        .followingBuilds(
+                                BuildsWiring.follows(
+                                        project,
+                                        BuildsWiring.hostBuilds(project, host.present(), projects)))
                         .startGate(
                                 runner,
                                 workspace,

@@ -46,6 +46,55 @@ class GateServingTest {
     }
 
     @Test
+    void anOnlineTasksGateIsToldWhenNothingFollowsTheBuildsOfWhatItPassesOn() {
+
+        // On the recorded command line, so a resumed task's pushes are answered as its first.
+        final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
+
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                false))
+                .contains("--pass-on", "--no-builds");
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                true))
+                .as("the build watch reports on it")
+                .doesNotContain("--no-builds");
+        assertThat(
+                        GateWiring.serving(
+                                project("guarded"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                false))
+                .as("a held push is answered as held, whatever follows the builds")
+                .doesNotContain("--no-builds");
+    }
+
+    @Test
     void aCertifiedTasksGateJudgesItsArrivalsAndAnUncertifiedOnesIsNotToldTo() {
         final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
 

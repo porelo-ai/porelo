@@ -965,6 +965,36 @@ class BuildWatchTest {
         assertThat(builds.view(TASK).pullRequestProblem()).isEmpty();
     }
 
+    @Test
+    void aPushHeldAtTheGateAndPassedOnLaterHasItsUnknownReplacedByItsBuild() throws IOException {
+        final BuildWatch watch = watch().withoutPullRequests();
+        watch.round();
+        // The gate's answer at the push, through the same files as the watch's.
+        new UnbuiltPush(
+                        (name, file) -> files.put(name, Files.readString(file)),
+                        dir.resolve("gate"),
+                        clock(),
+                        UnbuiltPush.HELD)
+                .taken(FIRST);
+        watch.round();
+
+        assertThat(files.get("build-111111111111.txt"))
+                .as("while it waits for a person, the forge has nothing of it")
+                .contains("verdict: unknown")
+                .contains("detail: " + UnbuiltPush.HELD);
+
+        later(BuildWatch.GRACE);
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        watch.round();
+
+        assertThat(files.get("build-111111111111.txt"))
+                .as("passed on and built, the build replaces the gate's answer")
+                .contains("commit: " + FIRST)
+                .contains("verdict: success")
+                .doesNotContain(UnbuiltPush.HELD);
+    }
+
     private void later(final Duration duration) {
         now = now.plus(duration);
     }

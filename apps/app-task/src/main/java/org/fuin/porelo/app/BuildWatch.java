@@ -603,7 +603,7 @@ public final class BuildWatch {
         if (each.told == null || !each.told.verdict().equals(build.verdict())) {
             each.since = now;
         }
-        final String base = "build-" + commit.substring(0, Math.min(12, commit.length()));
+        final String base = TaskBuilds.fileName(commit);
         try {
             Directories.create(scratch);
             final List<TaskBuilds.Job> jobs = new java.util.ArrayList<>();
@@ -685,27 +685,6 @@ public final class BuildWatch {
      * @return Lines of {@code key: value}.
      */
     static String text(final TaskBuilds.Seen seen) {
-        final StringBuilder text = new StringBuilder();
-        text.append("commit: ").append(seen.commit()).append('\n');
-        text.append("verdict: ").append(seen.verdict()).append('\n');
-        for (final TaskBuilds.Run each : seen.runs()) {
-            text.append("run: ")
-                    .append(each.name())
-                    .append(" - ")
-                    .append(each.result())
-                    .append('\n');
-        }
-        for (final TaskBuilds.Job job : seen.jobs()) {
-            text.append("job: ").append(job.name()).append(" - ").append(job.result());
-            if (job.log() != null) {
-                text.append(" - /porelo/files/").append(job.log().name());
-            }
-            text.append('\n');
-        }
-        text.append("since: ").append(seen.since()).append('\n');
-        if (!seen.detail().isEmpty()) {
-            text.append("detail: ").append(seen.detail()).append('\n');
-        }
-        return text.toString();
+        return TaskBuilds.file(seen);
     }
 }

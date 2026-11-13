@@ -73,6 +73,22 @@ class TaskGuideTest {
     }
 
     @Test
+    void namesUnknownAsFinalSoAPushWithNothingToBuildIsDone() {
+
+        // An agent waited 30 minutes for a build of work held at the gate, since the guide had it
+        // read the file until its verdict was final and never said unknown was.
+        final String text = TaskGuideText.text(false).replaceAll("\\s+", " ");
+
+        assertThat(text)
+                .contains("The final verdicts are `success`, `failure`, `cancelled` and `unknown`.")
+                .contains(
+                        "With `unknown` no build comes while this task runs, and your work is done"
+                                + " once it is pushed")
+                .contains("held at the gate for a person")
+                .contains("follows no builds");
+    }
+
+    @Test
     void isTheSameForEveryTaskSoAProvidersCacheOfThePromptHolds() {
         assertThat(TaskGuideText.text(true))
                 .isEqualTo(TaskGuideText.text(true))

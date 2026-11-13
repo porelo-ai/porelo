@@ -101,9 +101,7 @@ final class BuildsWiring {
             final PrintWriter err) {
         final Builds own = project.builds();
         final Builds selected = own == null ? hostBuilds : own;
-        if (selected == null
-                || project.securityClass() == SecurityClass.OFFLINE
-                || own != null && project.securityClass() != SecurityClass.ONLINE) {
+        if (selected == null || !follows(project, hostBuilds)) {
             return;
         }
         // A guarded task gains only the failed logs it needs to repair its work.
@@ -190,6 +188,22 @@ final class BuildsWiring {
         }
         out.flush();
         err.flush();
+    }
+
+    /**
+     * Returns whether the task's builds are followed at all: a forge named by the project or its
+     * host, for a project whose class lets its work reach that forge.
+     *
+     * @param project The project.
+     * @param hostBuilds What this task's host names, or {@code null} off a host or without builds.
+     * @return Whether a build watch is started for its tasks.
+     */
+    static boolean follows(final Project project, final @Nullable Builds hostBuilds) {
+        final Builds own = project.builds();
+        final Builds selected = own == null ? hostBuilds : own;
+        return selected != null
+                && project.securityClass() != SecurityClass.OFFLINE
+                && (own == null || project.securityClass() == SecurityClass.ONLINE);
     }
 
     /** Only a host's current file adds builds when the project names none. */
