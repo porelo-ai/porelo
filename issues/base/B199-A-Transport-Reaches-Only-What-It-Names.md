@@ -10,8 +10,8 @@
   "priority": "Medium",
   "rank": 14,
   "blockedBy": [],
-  "covers": "A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. Recommended: the pages say what holds (XS); building the rule is L.",
-  "openQuestions": 1
+  "covers": "A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. The pages say what holds and the risk is accepted (XS); the rule itself is [B743](README.md#b743).",
+  "openQuestions": 0
 }
 ```
 
@@ -47,7 +47,7 @@ ignored by the user manager (measured on systemd 259: a scope with `IPAddressDen
 address, and the journal says "unit configures an IP firewall, but not running as root"). What is left is a user and
 network namespace per verb, joined to the outside through `pasta`, with a ruleset inside it.
 
-**Recommended: the pages say what holds (XS).**
+**The pages say what holds (XS), as the operator decided on 2026-11-13.**
 
 1. `doc/transports.md`, `reaches`: what the project's messages reach, which Porelo shows (`talk`, doctor) and checks
    for an offline project; the transport runs as the account's own program with the account's network, and Porelo
@@ -60,30 +60,19 @@ network namespace per verb, joined to the outside through `pasta`, with a rulese
 
 Red first: none in code; the shared docs check and a read of both pages against `TransportLifecycle`.
 
-**If the rule is built instead (L), split into three of M:** (a) a runner that starts one verb in `unshare --user
---net` joined by `pasta`, with an nftables ruleset in that namespace allowing `reaches` and loopback, red first a
-verb that connects to an address outside `reaches` and is refused; (b) every verb through it, with the account's own
-homeserver on the host's loopback mapped in, and `setup` (which runs before `reaches` is known) allowed only what the
-project's settings name; (c) names resolved into the allowed set as `DnsPolicy` does for a task, and the acceptance
-run on the VM. Even then the user bus and unix sockets stay open, so the rule fences a transport's mistakes, not a
-transport.
+Building the rule is filed apart as [B743](README.md#b743) (L, Medium).
 
 ## Acceptance
 
-- Recommended answer: neither page says Porelo lets a transport reach only `reaches`; both say what is checked (offline
+- Neither page says Porelo lets a transport reach only `reaches`; both say what is checked (offline
   loopback, `--loopback-only`) and what is not; the decisions' index has the accepted-risk row, linked.
-- Built answer: a transport verb connecting to a host outside `reaches` is seen failing on the VM, one inside it
-  passes, and an offline project's verb reaches loopback alone.
 
-## Open questions
+## Answered
 
-- Build the rule (L, three issues of M, a fence against a transport's mistakes but not against a transport), or change
-  the pages to say what holds and accept the risk (XS)? Recommended: change the pages; the transport is the person's
-  own program with the person's credentials and user bus, and a network rule on it buys little for its size.
+- The pages say what holds and the risk is accepted (XS) now; building the rule is filed as [B743](README.md#b743)
+  (the operator, 2026-11-13).
 
 ## To be checked
 
 - Whether `doc/how-it-works.md`, `doc/reach.md` or `doc/messages.md` repeat the promise in other words, to be corrected
   in the same change.
-- For a built rule only: whether `pasta` is present on every supported host, and how a verb's namespace reaches the
-  account's own homeserver on the host's loopback.

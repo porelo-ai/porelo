@@ -6,17 +6,17 @@
   "id": "B741",
   "title": "An Agent Never Replaces What Starts It",
   "state": "Analyzed",
-  "size": "M",
+  "size": "S",
   "priority": "High",
   "rank": 50,
   "blockedBy": [],
-  "covers": "Every agent's start runs a binary the agent cannot change: claude, omp, codex and agy, which today install it under /home/agent, as pi and stub already do under /usr/local/bin.",
-  "openQuestions": 1
+  "covers": "Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does.",
+  "openQuestions": 0
 }
 ```
 
-**Why this size.** M: a root step after the agent's layers, and the four adapters' layouts read and tested.
-Estimate: 63 minutes (Core's median for M), p80 229.
+**Why this size.** S, Porelo's part only: the binary's path fixed at build and checked at each start. The adapters'
+part is theirs. Estimate: 45 minutes (Core's median for S).
 
 **What must be true.** What an agent writes during a task never picks what Porelo starts as that agent next time.
 
@@ -37,21 +37,36 @@ path names it. `AgentDefinition.binary` is a bare name that each start looks up 
 
 ## Plan
 
-- After the agent's layers, a Porelo root step resolves `binary` once, at build time. It writes a root-owned
-  `/usr/local/lib/porelo/agents/<name>` that execs the resolved path, and every start runs that path. No change to
-  the definition or agents/api.
-- What the resolved path points at is made root-owned: chowned in place, or copied into a root-owned directory. This
-  includes claude's version directory and codex's sibling helper. How depends on the open question.
-- First red, in `runtime`: an image whose agent installs under `.local` in the agent's home; after the build, the file the
-  start runs and its target are owned by root and not writable by the agent.
+The operator decided on 2026-11-13: each adapter installs its agent's binary as root, as pi does, and Porelo does not
+chown an agent's install. What stays Porelo's:
+
+- **At build:** after the agent's layers, Porelo resolves `AgentDefinition.binary` on root's `PATH` once. It records
+  the absolute path and its resolved target in the image, as a label beside the recipe's.
+- **At each start, unattended or attached:** Porelo runs that absolute path, never a bare name. It refuses the start
+  when the path, its resolved target, or any directory above either can be written by the agent's user. The refusal
+  names the agent and the path, and says the adapter must install it as root.
+- First red, in `runtime` and `apps/app`: an image whose agent's binary resolves to `$XDG_BIN_HOME/<name>`
+  is refused at start, with that message. A root-owned `/usr/local/bin/pi` starts by its absolute path.
+
+**What each adapter must deliver** (Smith files these in the adapters' repositories):
+
+| Adapter | Today | Must deliver |
+|---|---|---|
+| claude-code | `$XDG_DATA_HOME/claude/versions/<v>`, linked from `$XDG_BIN_HOME/claude` | the version and its link under a root-owned prefix (e.g. `/usr/local/lib/claude`, `/usr/local/bin/claude`), written in `as_root`; self-update off or failing harmlessly |
+| omp | `$XDG_BIN_HOME/omp` | `omp` in `/usr/local/bin`, written in `as_root` |
+| codex | `$XDG_BIN_HOME/codex` and `codex-code-mode-host`, `install -D` in `as_agent` | both in `/usr/local/bin` (or one root-owned directory), installed in `as_root`; the helper found by codex there |
+| agy | `$XDG_BIN_HOME/antigravity` and an `agy` wrapper | both root-owned under `/usr/local`, written in `as_root` |
+
+Until an adapter delivers, its agent's start is refused with the message above, so the release that ships this waits
+for the four adapters or carries them.
 
 ## Acceptance
 
 - For each of the six agents, the file a start runs, and what it execs, cannot be changed by the agent's user.
+- A start whose agent binary the agent's user could change is refused, naming the path.
 - An agent that updates itself in a task fails to write over it, and the next start runs the built version.
 
-## Open questions
+## Answered
 
-- Take the four installs under root in place (chown the resolved target and its directory, so an agent's
-  self-update fails), or have each adapter install as root like pi? The first keeps adapters as they are; the second
-  is the adapters' change and needs their repositories.
+- Each adapter installs its agent's binary as root, as pi does; Porelo does not chown an agent's install. Porelo's
+  part is the absolute, root-owned path and the refusal (the operator, 2026-11-13).
