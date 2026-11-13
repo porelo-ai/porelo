@@ -286,6 +286,21 @@ class ContainerNameTest {
     }
 
     @Test
+    void projectPorelosTaskNameIsMeasuredByTheNameItsStartGives() {
+
+        // A window that measures 'porelo_<task>' let through a task its start then refused, when
+        // the refusal measured 'porelo-porelo-<task>'. 'porelo_' is 7 characters, so 57 make 64.
+        final String fits = "a".repeat(57);
+        assertThat(ContainerName.refusal("porelo", fits)).isEmpty();
+        assertThat(ContainerName.taskRoom("porelo")).isEqualTo(57);
+        assertThat(ContainerName.refusal("porelo", fits + "a"))
+                .get()
+                .asString()
+                .contains("'porelo_" + fits + "a'")
+                .contains("65 characters");
+    }
+
+    @Test
     void aTooLongTaskNameIsRefusedWithAShorterOneThatFits() {
 
         // A person told only the count retries blind; a name that fits ends the retries.

@@ -215,7 +215,8 @@ public final class ContainerName {
                             + PREFIX
                             + "' begins a container's name, never a task's");
         }
-        final String container = PREFIX + project + "-" + task;
+        // Measured as the start gives it: project porelo's tasks are 'porelo_<task>'.
+        final String container = encodedPrefix(project, null) + task;
         if (!project.isEmpty() && container.length() > MAX_LENGTH) {
             return java.util.Optional.of(
                     "'"
@@ -282,7 +283,7 @@ public final class ContainerName {
      * @return The room, zero or less when no task fits.
      */
     public static int taskRoom(String project) {
-        return MAX_LENGTH - PREFIX.length() - project.length() - 1;
+        return MAX_LENGTH - encodedPrefix(project, null).length();
     }
 
     /**
