@@ -11,6 +11,8 @@ class ParityTest {
     /** What the deb installs, measured from a build of 2026-09-28 and trimmed. */
     private static final List<String> DEB =
             List.of(
+                    "/etc/apparmor.d/porelo",
+                    "/etc/apparmor.d/porelo-task",
                     "/usr/bin/porelo",
                     "/usr/share/bash-completion/completions/porelo",
                     "/usr/share/doc/porelo/copyright",
@@ -133,6 +135,29 @@ class ParityTest {
         assertThat(out.text())
                 .contains("FAIL  the deb ships no bash completion")
                 .contains("FAIL  the rpm ships no bash completion");
+    }
+
+    @Test
+    void failsAnAppArmorProfileTheDebLacks() {
+
+        // The deb alone carries them, so the comparison of the two cannot see one go missing.
+        Parity.check(without(DEB, "/etc/apparmor.d/porelo-task"), RPM, out.report);
+
+        assertThat(out.text()).contains("FAIL  the deb ships no /etc/apparmor.d/porelo-task");
+        assertThat(out.report.failures()).isEqualTo(1);
+    }
+
+    @Test
+    void failsAnAppArmorProfileInTheRpm() {
+
+        // Fedora and RHEL do not run AppArmor.
+        Parity.check(DEB, with(RPM, "/etc/apparmor.d/porelo"), out.report);
+
+        assertThat(out.text())
+                .contains(
+                        "FAIL  the rpm ships /etc/apparmor.d/porelo, and Fedora and RHEL do not"
+                                + " run AppArmor");
+        assertThat(out.report.failures()).isEqualTo(1);
     }
 
     private static List<String> with(List<String> files, String file) {

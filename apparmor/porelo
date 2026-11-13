@@ -1,0 +1,42 @@
+# AppArmor profile 'porelo': the label Porelo's own binaries wear.
+#
+# It confines nothing. It exists to be named: a task runs in 'porelo-task' (the file beside this
+# one), which may connect to no unix socket whose peer is not 'porelo' or 'porelo-task'. So a
+# socket bound by any other process of the account - a stand-in for the broker or the vault - is
+# refused at the task's connect, the property the SELinux module in selinux/ buys by forbidding
+# the bind. AppArmor cannot forbid an unconfined process a bind, so the lock sits on the
+# connecting side.
+#
+# Attached by path to the packaged binaries. A binary anywhere else - a developer's build, an
+# account install in ~/.local/bin - enters this profile itself at start (porelo and porelod
+# write 'exec porelo' to their own attribute and re-execute), so no developer's path is named
+# here. Helpers and agents porelod starts inherit the label, since a child of a profile flagged
+# unconfined stays in it across exec when no other profile attaches.
+#
+# The bound, as on SELinux: any process of the account may enter this profile by name, as one
+# may 'chcon' a socket there. The lock stops a process that is not Porelo, not one that claims
+# to be it.
+#
+# Install:  sudo apparmor_parser -r -W /etc/apparmor.d/porelo /etc/apparmor.d/porelo-task
+# Remove:   sudo apparmor_parser -R /etc/apparmor.d/porelo-task /etc/apparmor.d/porelo
+
+# The rule set of AppArmor 4 (Ubuntu 24.04 and later, Debian 13): the one that knows 'userns'.
+abi <abi/4.0>,
+
+# The variables every profile is written with, such as @{PROC}.
+include <tunables/global>
+
+# /usr/bin/porelo and /usr/bin/porelod are the command line and the daemon; /usr/libexec/porelo
+# holds the hooks and every packaged agent, so an agent package is covered without a change in
+# its own repository.
+profile porelo /usr/{bin/porelo,bin/porelod,libexec/porelo/**} flags=(unconfined) {
+
+  # Creating a user namespace, which rootless podman does where no profile of its own attaches
+  # to it. Without this, apparmor_restrict_unprivileged_userns would leave a binary in this
+  # profile less able than the plain 'unconfined' it replaces: the label must never cost Porelo
+  # anything it could do before.
+  userns,
+
+  # An administrator's additions, kept across package updates, as every packaged profile has.
+  include if exists <local/porelo>
+}

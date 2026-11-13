@@ -1,0 +1,24 @@
+#!/bin/sh
+# Run by dpkg after the porelo package is removed or purged.
+#
+# Unloads Porelo's AppArmor profiles on remove and on purge, by name, through the kernel's own
+# interface: on purge dpkg has already deleted the files, so apparmor_parser could not name them.
+# The task's profile goes first, so nothing is left a task could be put into. A profile that is not
+# loaded is no failure. On purge the files and the parser's cache of them go as well.
+set -e
+
+case "$1" in
+remove | purge)
+    if [ -w /sys/kernel/security/apparmor/.remove ]; then
+        for profile in porelo-task porelo; do
+            printf '%s' "$profile" >/sys/kernel/security/apparmor/.remove 2>/dev/null || true
+        done
+    fi
+    if [ "$1" = purge ]; then
+        rm -f /etc/apparmor.d/porelo /etc/apparmor.d/porelo-task
+        rm -f /var/cache/apparmor/*/porelo /var/cache/apparmor/*/porelo-task
+    fi
+    ;;
+esac
+
+exit 0

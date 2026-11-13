@@ -1,0 +1,93 @@
+# AppArmor profile 'porelo-task': what a task's agent runs in.
+#
+# Enforcing, and otherwise allowing what a task does today: the container already bounds its
+# files, its network and its capabilities, and this profile is not a second container. It adds
+# one thing - a unix socket is connected to only where the peer wears 'porelo' (Porelo's own
+# binaries, the file beside this one) or 'porelo-task' (the task's own processes). A socket bound
+# by any other process of the operator's account is refused at the connect, so nothing that is
+# not Porelo can stand in for the vault proxy, the mailbox or the broker a task talks to.
+#
+# Held only where the kernel mediates unix sockets
+# (/sys/kernel/security/apparmor/features/network/af_unix); elsewhere the profile loads and the
+# peer rules are not enforced, and 'porelo doctor' says the lock is absent there. A task is put
+# into this profile only where doctor's probe answers 'installed'.
+#
+# Entered by name, never by path: Porelo starts the agent through
+#   sh -c 'printf "exec porelo-task" > /proc/self/attr/apparmor/exec && exec "$@"'
+# and every process the agent starts stays in it.
+#
+# There is no change_profile rule, on purpose: without one the kernel refuses a confined
+# process's 'exec <profile>' and 'changeprofile <profile>', so a task that is in this profile
+# cannot leave it. Nor is there a px or cx rule: a program the task runs stays here (ix).
+#
+# Install:  sudo apparmor_parser -r -W /etc/apparmor.d/porelo /etc/apparmor.d/porelo-task
+# Remove:   sudo apparmor_parser -R /etc/apparmor.d/porelo-task /etc/apparmor.d/porelo
+
+# The rule set of AppArmor 4 (Ubuntu 24.04 and later, Debian 13). Without an abi line the parser
+# compiles against an older feature set, which may drop the unix rules below altogether.
+abi <abi/4.0>,
+
+# The variables every profile is written with, such as @{PROC}.
+include <tunables/global>
+
+# No attachment path: nothing is put into this profile by being run from somewhere.
+# attach_disconnected: a container's paths lie outside the host's mount namespace, and without
+# the flag every one of them would be refused as disconnected. mediate_deleted: a file the task
+# deleted while it held it open is still the task's file.
+profile porelo-task flags=(attach_disconnected, mediate_deleted) {
+
+  # Every file the container lets the task reach, as before. 'ix': a program the task runs
+  # inherits this profile; there is no px or cx, so no exec leads into another profile. Writing
+  # /proc/self/attr/apparmor/exec is a file write and allowed here; the kernel still refuses the
+  # change itself, for want of a change_profile rule.
+  /{,**} rwlkmix,
+
+  # Capabilities inside the task's user namespace, which the container already limits.
+  capability,
+
+  # The task's network, which its own firewall governs. Listed by family, unix left out: a bare
+  # 'network,' grants unix sockets too and would undo the connect rule below.
+  network inet,
+  network inet6,
+  network netlink,
+
+  # Unix sockets of its own: created, bound, listened on, accepted on, and used once connected.
+  # 'accept', 'send' and 'receive' name no peer, because Porelo reaches into the task as well:
+  # 'tmux send-keys' and 'capture-pane' run outside this profile and connect to the session the
+  # agent runs in. An unconnected datagram is not restricted; Porelo's sockets are streams.
+  unix (create, bind, listen, accept, getattr, setattr, getopt, setopt, shutdown, read, write, send, receive),
+
+  # THE LOCK. A connect only to a socket one of Porelo's binaries bound: the vault proxy, the
+  # ssh agent, the mailbox, the daemon.
+  unix (connect) peer=(label=porelo),
+
+  # And to the task's own sockets: its tmux session, an agent's own helpers.
+  unix (connect) peer=(label=porelo-task),
+
+  # Signals, as before: the agent stops its own children, and podman stops the task.
+  signal,
+
+  # A debugger the task runs may trace the task's own processes, and nothing outside it.
+  ptrace (trace, read) peer=porelo-task,
+
+  # Porelo and podman may read and trace the task's processes, as before.
+  ptrace (tracedby, readby),
+
+  # A sandbox the task builds for itself - a nested podman, bwrap - needs a user namespace and
+  # mounts of its own.
+  userns,
+  mount,
+  umount,
+  remount,
+  pivot_root,
+
+  # POSIX message queues and io_uring, which AppArmor 4 mediates and a task used freely before.
+  mqueue,
+  io_uring,
+
+  # D-Bus, mediated by a bus that asks AppArmor; a task reaches no bus of the host's.
+  dbus,
+
+  # An administrator's additions, kept across package updates, as every packaged profile has.
+  include if exists <local/porelo-task>
+}

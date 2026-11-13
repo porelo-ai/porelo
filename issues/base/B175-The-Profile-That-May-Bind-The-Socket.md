@@ -110,6 +110,39 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
    kernel mediates unix sockets by the task's profile, nowhere else - and its bound; `doc/getting-started.md`, the
    Debian and Ubuntu section; `doc/decisions.md` an entry for the lock on the connecting side and for the self-entry.
 
+## Built (2026-11-13)
+
+- `AppArmorProfile` in `wire` answers `doctor`'s probe over `/proc` and `/sys`: not needed, missing, absent on this
+  kernel, outside (loaded, this process not in `porelo`), installed. `/sys/kernel/security/apparmor/policy/profiles`
+  is read without root (measured on Ubuntu 26.04). `doctor`'s `apparmor profile` line reports everything but
+  `installed` as `DEGRADED`, so a machine without the profiles stays ready.
+- `apparmor/porelo` (flagged `unconfined`, attached to `/usr/bin/porelo`, `/usr/bin/porelod`, `/usr/libexec/porelo/**`)
+  and `apparmor/porelo-task` (enforcing; unix `connect` only to a peer `porelo` or `porelo-task`; no `change_profile`,
+  `px` or `cx`), every rule commented.
+- `Podman.confining` puts the agent's unattended run, every attach and the session into `porelo-task` through
+  `sh -c 'printf "exec %s" "$0" > /proc/self/attr/apparmor/exec && exec "$@"'`, only where the probe says
+  `installed`; Porelo's own execs stay as they are.
+- `porelo` and `porelod` enter `porelo` themselves at start where AppArmor runs, the profile is loaded and they are
+  not in it, and re-execute their own binary with the same arguments (`AppArmorEntry`).
+- The relay does not read its peer's pid, which Java's `SO_PEERCRED` does not give without the channel's file
+  descriptor: every upstream connect is made on one platform thread that entered `porelo-task` first, so the kernel
+  holds the relay to the task's rule. A refused entry stops the relay.
+- The `.deb` ships both profiles as conffiles under `/etc/apparmor.d`; a new `postinst` loads them with
+  `apparmor_parser -r -W` where AppArmor runs, and a new `postrm` unloads them on remove and purge and deletes them
+  on purge. The SELinux part of [B135](README.md#b135) is still to be added to the same scripts.
+  `apparmor/install-apparmor-profile.sh` (with `--remove`) does the same for an account install. `Parity` treats the
+  profiles as `.deb`-only; `AppArmorProfiles` in `dist/package-check` holds the packaged profiles to the tree, a
+  comment over every rule, the scripts' load and unload and the conffiles. The ubuntu leg loads the profiles as root
+  after `ci/leg-install.sh`.
+- `doc/security.md`, `doc/getting-started.md` and `doc/decisions.md` say where the second lock holds and its bound.
+- Still to be run on the ubuntu leg, with the profiles loaded: the peer rule across the bind mount (unconfined peer
+  refused, `porelo` allowed) and the rule form under `abi <abi/4.0>`; self-entry from plain `unconfined`, under the
+  daemon unit and inside the relay's namespace wrapper; the relay's `changeprofile` and its refusal of a stand-in; a
+  task reaching the vault proxy, ssh agent and mailbox, tmux driven from outside, `/bin/sh` in every image, sockets
+  of unwrapped processes in the container; `exec porelo` refused inside a task; doctor's answers; `apt install`,
+  `remove` and `purge` on Ubuntu 26.04; the package check against the built packages; whether Debian 13's kernel has
+  `features/network/af_unix`. The acceptance scenario of step 2 is still to be written.
+
 ## Acceptance
 
 - On the ubuntu leg with the profiles loaded, a process of the operator's outside `porelo` binds the socket a task

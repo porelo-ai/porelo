@@ -1,0 +1,27 @@
+#!/bin/sh
+# Run by dpkg after the porelo package is unpacked.
+#
+# Loads Porelo's AppArmor profiles from /etc/apparmor.d, where this package puts them: 'porelo',
+# the label Porelo's binaries wear, and 'porelo-task', which a task's agent runs in and which may
+# connect to no unix socket whose peer is not one of Porelo's binaries. Where AppArmor does not
+# run, nothing happens. A failure to load says what failed and leaves the install standing:
+# refusing the install over a profile would leave a machine with nothing, and without the
+# profiles a task runs as before and 'porelo doctor' says so.
+set -e
+
+LOAD="sudo apparmor_parser -r -W /etc/apparmor.d/porelo /etc/apparmor.d/porelo-task"
+
+case "$1" in
+configure)
+    if [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null || true)" = "Y" ]; then
+        if ! command -v apparmor_parser >/dev/null 2>&1; then
+            echo "porelo: AppArmor runs and apparmor_parser is not installed, so the task profile is not loaded; install apparmor and run: $LOAD" >&2
+        # -r replaces the profiles an earlier version loaded; -W writes the cache the boot reads.
+        elif ! apparmor_parser -r -W /etc/apparmor.d/porelo /etc/apparmor.d/porelo-task; then
+            echo "porelo: loading the AppArmor profiles failed; run: $LOAD" >&2
+        fi
+    fi
+    ;;
+esac
+
+exit 0

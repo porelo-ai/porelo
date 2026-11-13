@@ -265,6 +265,34 @@
                                                 <group>root</group>
                                             </mapper>
                                         </data>
+                                        <!-- The AppArmor profiles, deb only: Fedora and RHEL do not run AppArmor.
+                                             Conffiles under /etc/apparmor.d, where the machine loads them at
+                                             boot and an administrator's change survives an update; postinst
+                                             loads them, postrm unloads them. -->
+                                        <data>
+                                            <src>${project.basedir}/../../apparmor/porelo</src>
+                                            <type>file</type>
+                                            <conffile>true</conffile>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>/etc/apparmor.d</prefix>
+                                                <filemode>644</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
+                                        <data>
+                                            <src>${project.basedir}/../../apparmor/porelo-task</src>
+                                            <type>file</type>
+                                            <conffile>true</conffile>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>/etc/apparmor.d</prefix>
+                                                <filemode>644</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
                                         <!-- The setup script, so a machine that added the repository by its pinned
                                              key gets it checked by apt, as it checks this package. -->
                                         <data>

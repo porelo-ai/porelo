@@ -323,6 +323,28 @@ of all tasks at once - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `po
 - **It outlives `porelo clear`** of the account: it is the account's history, not a project's, and the clearing
   says so.
 
+## Who may stand in for Porelo's sockets
+
+A task reaches the vault proxy, the ssh agent, its mailbox and the daemon through unix sockets in the account's
+runtime directory. The first lock, on every machine, is that directory: owner-only, so only the account itself can
+put a socket there. A process of the same account could still bind one in the place of Porelo's and collect what a
+task sends. The second lock, against that, holds on some machines only:
+
+- **AppArmor machines whose kernel mediates unix sockets:** a task runs in the profile `porelo-task`, which may
+  connect only to a socket whose peer wears the label `porelo`, which Porelo's own binaries wear. A socket bound by any
+  other process is refused at the task's `connect`. The relay that gives an agent a URL connects from inside the same
+  profile. `porelo doctor` says `apparmor profile installed` where this holds.
+- **SELinux machines:** the policy module lets a task connect only to a socket labelled `porelo_socket_t`. The module
+  still lets any process of the operator's set that label, so on SELinux this lock is not yet the binary-only one it
+  is meant to become.
+- **Nowhere else**, including an AppArmor machine whose kernel does not mediate unix sockets (`doctor` says the lock is
+  absent there) or one without the profiles loaded.
+
+**The bound:** any process of the account can enter the profile `porelo` by name, as one can label a socket on SELinux.
+The lock stops a process that is not Porelo, not one that claims to be it. A client on the host that is not Porelo's
+code is not held either: the lock is on the task's side
+([decision](decisions.md#under-apparmor-a-task-is-held-to-porelos-sockets-on-the-connecting-side)).
+
 ## What is accepted rather than solved
 
 **A unix socket can be taken from a live process, in a window.** Before binding, Porelo connects to

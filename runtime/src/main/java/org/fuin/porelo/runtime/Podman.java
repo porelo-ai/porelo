@@ -97,7 +97,7 @@ public class Podman {
             String executable,
             @Nullable Path networkConfiguration,
             java.util.function.UnaryOperator<String> environment) {
-        this(runner, executable, networkConfiguration, environment, null);
+        this(runner, executable, networkConfiguration, environment, null, null);
     }
 
     private Podman(
@@ -105,12 +105,14 @@ public class Podman {
             String executable,
             @Nullable Path networkConfiguration,
             java.util.function.UnaryOperator<String> environment,
-            java.util.function.@Nullable Function<String, @Nullable String> recorded) {
+            java.util.function.@Nullable Function<String, @Nullable String> recorded,
+            @Nullable String taskProfile) {
         this.runner = runner;
         this.executable = executable;
         this.networkConfiguration = networkConfiguration;
         this.environment = environment;
         this.recorded = recorded;
+        this.taskProfile = taskProfile;
     }
 
     /**
@@ -133,7 +135,55 @@ public class Podman {
      * @return The runtime that checks.
      */
     public Podman recognizing(java.util.function.Function<String, @Nullable String> records) {
-        return new Podman(runner, executable, networkConfiguration, environment, records);
+        return new Podman(
+                runner, executable, networkConfiguration, environment, records, taskProfile);
+    }
+
+    /**
+     * What an agent's start runs through where a task profile holds: the shell asks the kernel for
+     * the profile named in {@code $0} on its next {@code exec}, then becomes the command.
+     *
+     * <p>The profile is an argument and the command is {@code "$@"}, so neither is ever text this
+     * shell reads. The {@code &&} is the lock: where the kernel refuses the profile, the command
+     * does not run outside it. One {@code printf}, so the kernel reads the attribute as one write.
+     */
+    public static final String ENTER =
+            "printf 'exec %s' \"$0\" > /proc/self/attr/apparmor/exec && exec \"$@\"";
+
+    /**
+     * The AppArmor profile an agent's start is put into, or {@code null} to start it as it comes.
+     */
+    private final @Nullable String taskProfile;
+
+    /**
+     * Returns this runtime putting every start of the agent, or of what the agent controls, into an
+     * AppArmor profile: the agent's unattended run, an attached shell and the task's session, whose
+     * tmux server runs the agent. Porelo's own short execs - {@code infocmp}, {@code tee}, {@code
+     * mkdir}, {@code chmod}, what runs as root - stay as they are.
+     *
+     * <p>Only where {@code AppArmorProfile} says the profile is installed and holds; given {@code
+     * null}, every start is left as it was.
+     *
+     * @param profile The profile, or {@code null} for none.
+     * @return The runtime that puts the agent there.
+     */
+    public Podman confining(@Nullable String profile) {
+        return new Podman(runner, executable, networkConfiguration, environment, recorded, profile);
+    }
+
+    /**
+     * Returns a start of the agent as it is to be run in the container.
+     *
+     * @param command Program and arguments.
+     * @return The command, through {@link #ENTER} where a task profile holds.
+     */
+    private List<String> entering(List<String> command) {
+        if (taskProfile == null) {
+            return command;
+        }
+        final List<String> wrapped = new ArrayList<>(List.of("sh", "-c", ENTER, taskProfile));
+        wrapped.addAll(command);
+        return wrapped;
     }
 
     /**
@@ -1117,7 +1167,7 @@ public class Podman {
         arguments.addAll(ContainerSpec.passedThrough(environment.keySet()));
         arguments.addAll(NO_START_FILES);
         arguments.add(target(container));
-        arguments.addAll(command);
+        arguments.addAll(entering(command));
         return List.copyOf(arguments);
     }
 
@@ -1329,7 +1379,7 @@ public class Podman {
         arguments.addAll(environment);
         arguments.addAll(NO_START_FILES);
         arguments.add(target(container));
-        arguments.addAll(command);
+        arguments.addAll(entering(command));
         return List.copyOf(arguments);
     }
 

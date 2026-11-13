@@ -878,9 +878,14 @@ public record PoreloContext(
     public org.fuin.porelo.runtime.Podman podman() {
         // Only the tasks Porelo recorded, each by the id it recorded: a container named like a task
         // is not one.
+        // The agent's starts go into the AppArmor task profile where it holds.
         final org.fuin.porelo.runtime.Podman podman =
                 new org.fuin.porelo.runtime.Podman(
-                        runner, "podman", paths().egress().networkConfiguration(), environment);
+                                runner,
+                                "podman",
+                                paths().egress().networkConfiguration(),
+                                environment)
+                        .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile());
         return recognizesTasks ? podman.recognizing(this::recordedId) : podman;
     }
 

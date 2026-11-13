@@ -48,9 +48,16 @@ public class VaultRelayCommand implements Callable<Integer> {
     public Integer call() throws Exception {
 
         final java.io.PrintWriter out = spec.commandLine().getOut();
+        // Held to the task's profile where the task is: the relay connects on an agent's behalf.
+        final org.fuin.porelo.wire.AppArmorProfile apparmor =
+                org.fuin.porelo.wire.AppArmorProfile.real();
 
         try (SocketRelay relay =
-                new SocketRelay(new java.net.InetSocketAddress("127.0.0.1", listen), socket)) {
+                new SocketRelay(
+                        new java.net.InetSocketAddress("127.0.0.1", listen),
+                        socket,
+                        apparmor.taskProfile(),
+                        apparmor::changeProfile)) {
 
             if (pidFile != null) {
                 org.fuin.porelo.wire.HelperPid.record(pidFile);

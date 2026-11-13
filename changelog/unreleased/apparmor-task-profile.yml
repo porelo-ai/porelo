@@ -1,0 +1,2 @@
+title: On an AppArmor machine whose kernel mediates unix sockets, the .deb loads two profiles, and a task's agent then connects only to a socket one of Porelo's binaries bound; doctor reports it as apparmor profile
+type: security

@@ -208,6 +208,22 @@ public final class Main {
         sameScript("the deb", debFile(deb, SETUP_SCRIPT), source, report);
         sameScript("the rpm", rpmFile(rpm, SETUP_SCRIPT), source, report);
 
+        report.section("the AppArmor profiles");
+        final Map<String, String> profiles = new LinkedHashMap<>();
+        for (final String name : AppArmorProfiles.NAMES) {
+            final String path = AppArmorProfiles.INSTALLED + name;
+            final String held = debFile(deb, path);
+            if (held != null) {
+                profiles.put(path, held);
+            }
+        }
+        AppArmorProfiles.profiles(profiles, root, report);
+        AppArmorProfiles.scripts(
+                debControl(deb, "postinst"),
+                debControl(deb, "postrm"),
+                debControl(deb, "conffiles"),
+                report);
+
         report.section("versions");
         final String rpmVersion =
                 inFedora(rpm, "rpm", "-qp", "--qf", "%{VERSION}", "/pkg/" + rpm.getFileName())
@@ -319,6 +335,18 @@ public final class Main {
                                 List.of("dpkg-deb", "--fsys-tarfile", deb.toString()),
                                 List.of("tar", "-xO", "." + path)),
                         false);
+        return file.ok() ? file.output() : null;
+    }
+
+    /**
+     * Reads one of a deb's control files: a maintainer script or the conffiles list.
+     *
+     * @param deb the package
+     * @param name the control file's name
+     * @return its text, or {@code null} if the deb has none
+     */
+    private static @Nullable String debControl(Path deb, String name) {
+        final Commands.Result file = Commands.run(List.of("dpkg-deb", "-I", deb.toString(), name));
         return file.ok() ? file.output() : null;
     }
 

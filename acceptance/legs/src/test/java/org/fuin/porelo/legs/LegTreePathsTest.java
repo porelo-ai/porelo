@@ -120,6 +120,7 @@ class LegTreePathsTest {
         // cannot follow a move.
         assertThat(ROOT.resolve(Leg.BUILD_SCRIPT)).isRegularFile();
         assertThat(ROOT.resolve("selinux/install-selinux-policy.sh")).isRegularFile();
+        assertThat(ROOT.resolve("apparmor/install-apparmor-profile.sh")).isRegularFile();
         assertThat(ROOT.resolve("systemd/porelod.service")).isRegularFile();
     }
 

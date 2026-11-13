@@ -25,6 +25,9 @@ final class Parity {
     private static final Pattern ZSH =
             Pattern.compile("^/usr/share/zsh/(vendor-completions|site-functions)/");
 
+    /** Where the deb alone puts the AppArmor profiles: Fedora and RHEL do not run AppArmor. */
+    private static final String APPARMOR = AppArmorProfiles.INSTALLED;
+
     private static final String BASH_COMPLETION = "/usr/share/bash-completion/completions/porelo";
 
     private Parity() {
@@ -41,6 +44,7 @@ final class Parity {
     static void check(List<String> deb, List<String> rpm, Report report) {
         final List<String> debPayload = payload(deb, DEB_DOCS);
         final List<String> rpmPayload = payload(rpm, RPM_LICENSES);
+        // The deb-only files are held each on its own below: the comparison cannot see them.
         if (debPayload.equals(rpmPayload)) {
             report.pass("both packages install the same " + debPayload.size() + " payload file(s)");
         } else {
@@ -68,6 +72,21 @@ final class Parity {
                 "the rpm puts the zsh completion where Fedora's zsh looks",
                 "the rpm ships no /usr/share/zsh/site-functions/_porelo");
 
+        for (final String name : AppArmorProfiles.NAMES) {
+            report.check(
+                    deb.contains(APPARMOR + name),
+                    "the deb ships " + APPARMOR + name,
+                    "the deb ships no " + APPARMOR + name);
+        }
+        rpm.stream()
+                .filter(f -> f.startsWith(APPARMOR))
+                .forEach(
+                        f ->
+                                report.fail(
+                                        "the rpm ships "
+                                                + f
+                                                + ", and Fedora and RHEL do not run AppArmor"));
+
         report.check(
                 deb.contains(BASH_COMPLETION),
                 "the deb ships the bash completion",
@@ -79,7 +98,8 @@ final class Parity {
     }
 
     /**
-     * The files that must agree: the license place removed, the zsh completion normalized.
+     * The files that must agree: the license place and the deb-only AppArmor profiles removed, the
+     * zsh completion normalized.
      *
      * <p>The zsh one is normalized rather than removed, so the comparison still fails when one
      * package ships it and the other does not: removing it would make a forgotten file look like
@@ -92,6 +112,7 @@ final class Parity {
     static List<String> payload(List<String> files, String licensePlace) {
         return files.stream()
                 .filter(f -> !f.startsWith(licensePlace))
+                .filter(f -> !f.startsWith(APPARMOR))
                 .map(f -> ZSH.matcher(f).replaceFirst("/usr/share/zsh/<completions>/"))
                 .sorted()
                 .toList();

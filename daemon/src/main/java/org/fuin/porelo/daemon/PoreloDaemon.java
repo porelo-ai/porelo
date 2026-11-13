@@ -1342,6 +1342,9 @@ public final class PoreloDaemon {
     }
 
     public static void main(final String[] args) {
+        // First of all: where it applies, this process is replaced by itself in the AppArmor
+        // profile a task's socket peer must wear, and nothing done before would survive it.
+        org.fuin.porelo.app.AppArmorEntry.enter();
         // Before anything is written or started: the mirrors and everything else this writes are
         // this account's alone, whatever umask the service manager gave it.
         try {

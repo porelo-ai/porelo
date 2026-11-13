@@ -4,8 +4,8 @@ This page takes you from nothing to a first task and an approved change. At the 
 works inside a hardened container, your real credential stays on your machine, and the
 agent's work waits for your review before it goes anywhere.
 
-Debian, Ubuntu, Fedora and RHEL differ in two places only: how you install, and SELinux.
-Both are marked. Everything else is the same.
+Debian, Ubuntu, Fedora and RHEL differ in two places only: how you install, and SELinux or
+AppArmor. Both are marked. Everything else is the same.
 
 `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME` and `$XDG_STATE_HOME` in these pages are the XDG base directories, which Porelo
 follows; where one is not set, it is the XDG default in your home. For every command with a line each, see [commands](commands.md). For the whole setup as one
@@ -153,7 +153,19 @@ dnsmasq with nftset support (2.87 or later).
 
 ### Debian and Ubuntu
 
-Nothing more: `selinux policy` reads `not needed - this machine does not run SELinux`.
+`selinux policy` reads `not needed - this machine does not run SELinux`. Instead, the package loads two AppArmor
+profiles from `/etc/apparmor.d`: `porelo`, which Porelo's own binaries wear, and `porelo-task`, which a task runs in
+and which lets it connect only to a socket one of Porelo's binaries bound. `doctor` says whether that holds:
+
+```
+apparmor profile    installed
+```
+
+Where it reads `porelo-task is not loaded`, the package could not load the profiles, for instance because
+`apparmor_parser` was missing; the line names the command that loads them. A task runs as before until then, without
+that lock. `absent on this kernel` means the kernel does not mediate unix sockets, so no profile can hold a task to
+Porelo's sockets there; there is nothing to load. Installed into your account rather than from the package, load them
+with `sudo apparmor/install-apparmor-profile.sh` from Porelo's source tree.
 
 ### Fedora and RHEL
 

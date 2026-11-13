@@ -120,8 +120,10 @@ public class TaskRunner {
             CommandRunner runner,
             PoreloPaths paths,
             java.util.function.UnaryOperator<String> environment) {
+        // The agent's starts go into the AppArmor task profile where it holds.
         this.podman =
-                new Podman(runner, "podman", paths.egress().networkConfiguration(), environment);
+                new Podman(runner, "podman", paths.egress().networkConfiguration(), environment)
+                        .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile());
         this.paths = paths;
         this.commands = runner;
     }

@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import org.fuin.porelo.agent.api.AgentDirectory;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.wire.AppArmorProfile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -159,6 +160,7 @@ class DoctorCommandTest {
                         "nsenter",
                         "keyring",
                         "selinux policy",
+                        "apparmor profile",
                         "transports",
                         "message filter");
     }
@@ -510,5 +512,52 @@ class DoctorCommandTest {
         assertThat(report).contains("not used " + theirs);
         assertThat(report)
                 .contains("hidden by " + dir.resolve(".local/share/porelo/agents").resolve(AGENT));
+    }
+
+    @Test
+    void needsNoAppArmorProfileWhereAppArmorDoesNotRun() {
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.NOT_NEEDED);
+
+        assertThat(probe.name()).isEqualTo("apparmor profile");
+        assertThat(probe.state()).isEqualTo(Probe.State.OK);
+        assertThat(probe.detail()).contains("not needed").contains("AppArmor");
+    }
+
+    @Test
+    void namesTheInstallLineWhereTheTaskProfileIsMissing() {
+
+        // A task runs as before there, so the machine stays ready: the line says what is not held.
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.MISSING);
+
+        assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
+        assertThat(probe.detail()).contains("porelo-task").contains("not loaded");
+        assertThat(probe.action()).isEqualTo(AppArmorProfile.INSTALL);
+        assertThat(DoctorCommand.ready(java.util.List.of(probe))).isTrue();
+    }
+
+    @Test
+    void saysTheLockIsAbsentOnAKernelThatDoesNotMediateUnixSockets() {
+
+        // Seen to fail: 'installed' where the kernel would not hold the rule.
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.ABSENT_ON_KERNEL);
+
+        assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
+        assertThat(probe.detail()).contains("absent on this kernel").doesNotContain("installed");
+    }
+
+    @Test
+    void saysSoWhenThisBinaryIsNotInTheHostProfile() {
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.OUTSIDE);
+
+        assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
+        assertThat(probe.detail()).contains("not in porelo");
+    }
+
+    @Test
+    void callsTheProfileInstalledOnlyWhenEverythingHolds() {
+        final Probe probe = DoctorCommand.appArmor(AppArmorProfile.State.INSTALLED);
+
+        assertThat(probe.state()).isEqualTo(Probe.State.OK);
+        assertThat(probe.detail()).isEqualTo("installed");
     }
 }

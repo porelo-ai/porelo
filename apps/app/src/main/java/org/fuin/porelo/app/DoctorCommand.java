@@ -703,6 +703,54 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     }
 
     /**
+     * Reports whether a task is held to Porelo's own sockets on a machine that runs AppArmor.
+     *
+     * @return A line describing the state.
+     */
+    private Probe appArmorProfile() {
+        return appArmor(org.fuin.porelo.wire.AppArmorProfile.real().state());
+    }
+
+    /**
+     * Says what an AppArmor state means for a task.
+     *
+     * <p>Only {@code installed} puts a task into its profile. Everywhere else a task runs as it did
+     * before, so no answer here makes the machine unready: the line says where the lock that keeps
+     * a stand-in from posing as the broker does not hold, and what would make it hold.
+     *
+     * @param state What {@code AppArmorProfile} found.
+     * @return The probe.
+     */
+    static Probe appArmor(final org.fuin.porelo.wire.AppArmorProfile.State state) {
+        final String name = "apparmor profile";
+        return switch (state) {
+            case NOT_NEEDED -> Probe.ok(name, "not needed - this machine does not run AppArmor");
+            case MISSING ->
+                    Probe.degraded(
+                            name,
+                            org.fuin.porelo.wire.AppArmorProfile.TASK
+                                    + " is not loaded: a task connects to a socket any process of"
+                                    + " this account bound",
+                            org.fuin.porelo.wire.AppArmorProfile.INSTALL);
+            case ABSENT_ON_KERNEL ->
+                    Probe.degraded(
+                            name,
+                            "absent on this kernel - it does not mediate unix sockets, so no"
+                                    + " profile holds a task to Porelo's sockets",
+                            "nothing to load: a kernel that mediates unix sockets holds it, as"
+                                    + " Ubuntu 26.04's does");
+            case OUTSIDE ->
+                    Probe.degraded(
+                            name,
+                            "loaded, but this binary is not in porelo, so a task is not put into "
+                                    + org.fuin.porelo.wire.AppArmorProfile.TASK,
+                            "load the porelo profile and start porelo again: "
+                                    + org.fuin.porelo.wire.AppArmorProfile.INSTALL);
+            case INSTALLED -> Probe.ok(name, "installed");
+        };
+    }
+
+    /**
      * Returns the directories agents are scanned in, in order.
      *
      * @return Locations.
@@ -1013,6 +1061,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 keyring(),
                 vault(),
                 socketPolicy(),
+                appArmorProfile(),
                 daemon(
                         context.paths().daemonSocket(),
                         PoreloVersion.version(),

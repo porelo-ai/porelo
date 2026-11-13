@@ -32,5 +32,9 @@ Description: [[description]]
  the policy module in /usr/share/porelo/selinux is installed. "porelo doctor"
  reports whether it is.
  .
+ Where AppArmor runs, the package loads two profiles from /etc/apparmor.d: one
+ that Porelo's binaries wear, and one a task runs in, which lets the task
+ connect only to a socket one of Porelo's binaries bound.
+ .
  This package contains no agent. Agents ship separately as porelo-agent-*
  packages, which porelo discovers by scanning /usr/libexec/porelo/agents.

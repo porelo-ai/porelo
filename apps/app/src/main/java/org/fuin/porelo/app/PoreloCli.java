@@ -111,6 +111,9 @@ public class PoreloCli implements Callable<Integer> {
      * @param args Command line arguments.
      */
     public static void main(String[] args) {
+        // First of all: where it applies, this process is replaced by itself in the AppArmor
+        // profile its sockets must wear, and nothing done before would survive that.
+        AppArmorEntry.enter();
         // Before anything is written or started, and only here: a test calling the command line
         // runs in a process it shares with others.
         try {

@@ -1051,4 +1051,92 @@ class PodmanTest {
             System.clearProperty(Podman.NAMED);
         }
     }
+
+    /** What an agent's start is wrapped in where the task profile holds, after the container. */
+    private static List<String> entering(List<String> command) {
+        final List<String> wrapped =
+                new java.util.ArrayList<>(List.of("sh", "-c", Podman.ENTER, "porelo-task"));
+        wrapped.addAll(command);
+        return wrapped;
+    }
+
+    @Test
+    void putsAnAgentRunIntoTheTaskProfileWhereItHolds() {
+
+        // The task profile may connect only to a socket Porelo bound, and the agent must be in it
+        // before its first instruction runs.
+        final List<String> arguments =
+                podman.confining("porelo-task")
+                        .executeArguments(
+                                "box", Map.of("ANTHROPIC_API_KEY", "x"), List.of("claude", "-p"));
+
+        assertThat(arguments.subList(arguments.indexOf("box") + 1, arguments.size()))
+                .isEqualTo(entering(List.of("claude", "-p")));
+    }
+
+    @Test
+    void putsEveryAttachedStartIntoTheTaskProfileWhereItHolds() {
+
+        // The session's tmux server runs the agent, and a shell attached to a task runs among the
+        // agent's files: both are what the agent controls.
+        final Podman confined = podman.confining("porelo-task");
+        final List<List<String>> starts =
+                List.of(
+                        confined.sessionArguments("box", "agent-cli", List.of()),
+                        confined.attachArguments("box", List.of("/bin/bash"), List.of()),
+                        confined.attachArguments(
+                                "box", "/bin/bash", "agent-cli", "p/t", List.of()));
+
+        for (final List<String> start : starts) {
+            assertThat(start.subList(start.indexOf("box") + 1, start.indexOf("box") + 5))
+                    .as(String.join(" ", start))
+                    .containsExactly("sh", "-c", Podman.ENTER, "porelo-task");
+        }
+    }
+
+    @Test
+    void entersTheProfileByTheThreadsOwnAttributeAndThenRunsTheCommandUnchanged() {
+
+        // The profile is an argument, never text in the script; and the command is "$@", so a
+        // word in it is never read by this shell.
+        assertThat(Podman.ENTER)
+                .contains("> /proc/self/attr/apparmor/exec")
+                .contains("&& exec \"$@\"")
+                .doesNotContain("porelo-task");
+    }
+
+    @Test
+    void leavesEveryStartAsItWasWhereTheProfileDoesNotHold() {
+        final Podman unconfined = podman.confining(null);
+
+        assertThat(unconfined.executeArguments("box", Map.of(), List.of("claude", "-p")))
+                .isEqualTo(podman.executeArguments("box", Map.of(), List.of("claude", "-p")))
+                .doesNotContain(Podman.ENTER);
+        assertThat(unconfined.sessionArguments("box", "agent-cli", List.of()))
+                .isEqualTo(podman.sessionArguments("box", "agent-cli", List.of()));
+    }
+
+    @Test
+    void leavesPorelosOwnExecsAsTheyAre() {
+
+        // tee, mkdir and chmod are Porelo's, run for a moment and gone; the plan leaves them out.
+        final Podman confined = podman.confining("porelo-task");
+
+        assertThat(confined.writeFileArguments("box", "/a/b"))
+                .isEqualTo(podman.writeFileArguments("box", "/a/b"));
+        assertThat(confined.makeParentArguments("box", "/a/b"))
+                .isEqualTo(podman.makeParentArguments("box", "/a/b"));
+        assertThat(confined.setModeArguments("box", "/a/b", "0644"))
+                .isEqualTo(podman.setModeArguments("box", "/a/b", "0644"));
+        assertThat(confined.asRootArguments("box", List.of("chmod", "0644", "/a")))
+                .isEqualTo(podman.asRootArguments("box", List.of("chmod", "0644", "/a")));
+    }
+
+    @Test
+    void keepsTheTaskProfileWhenItLearnsTheRecordedTasks() {
+        final Podman confined = podman.confining("porelo-task").recognizing(name -> null);
+
+        assertThat(confined.executeArguments("box", Map.of(), List.of("agent")))
+                .containsSubsequence("box", "sh", "-c", Podman.ENTER, "porelo-task", "agent");
+    }
 }

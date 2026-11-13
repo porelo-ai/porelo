@@ -308,6 +308,24 @@ public final class Leg {
                 // ci/leg-binaries, which the tree's own build checks against its modules.
                 streamed(build, install(), "installing");
 
+                // Where the package would load them, as root, after the binaries are in place and
+                // before anything starts the daemon: from then on a task runs in porelo-task and
+                // may connect only to a socket one of Porelo's binaries bound, and every scenario
+                // that reaches the vault proxy or the relay says the profile lets Porelo through.
+                // The account install lives outside /usr, so porelo and porelod enter porelo
+                // themselves. Copied under /etc/apparmor.d, so a restart scenario's boot loads
+                // them again.
+                if ("ubuntu".equals(os)) {
+                    step("loading this tree's AppArmor profiles");
+                    run(
+                            lease.ssh(),
+                            "cd "
+                                    + REPO
+                                    + " && bash apparmor/install-apparmor-profile.sh"
+                                    + " && ls /sys/kernel/security/apparmor/policy/profiles"
+                                    + " | grep -q '^porelo-task\\.'");
+                }
+
                 step("what porelo thinks of this machine");
                 // The podman version too: it decides whether this leg is really covering podman 4
                 // or has quietly become a second Fedora. Not fatal - doctor reports, and stopping
