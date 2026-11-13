@@ -325,4 +325,36 @@ class MessageReleaseTest {
         assertThat(java.util.List.of(despite, released, none))
                 .allSatisfy(result -> assertThat(result.code()).isNull());
     }
+
+    // The codes are written twice, in the contract and here; a value added to one alone would be
+    // a code a client was never told of, or one it waits for in vain.
+    @Test
+    void the_codes_are_the_contracts_own() throws IOException {
+        final String contract;
+        try (java.io.InputStream in =
+                MessageReleaseTest.class
+                        .getClassLoader()
+                        .getResourceAsStream(
+                                "varlink/org.fuin.porelo.Tasks1/45-messaging.varlink")) {
+            assertThat(in).as("the messaging contract is on the class path").isNotNull();
+            contract = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        final java.util.regex.Matcher type =
+                java.util.regex.Pattern.compile("(?s)\ntype NotDeliverable \\((.*?)\\)")
+                        .matcher(contract);
+        assertThat(type.find()).as("the contract declares NotDeliverable").isTrue();
+        final java.util.List<String> declared =
+                type.group(1)
+                        .lines()
+                        .map(String::strip)
+                        .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                        .map(line -> line.replace(",", ""))
+                        .toList();
+
+        assertThat(declared)
+                .containsExactlyElementsOf(
+                        java.util.Arrays.stream(MessageRelease.NotDeliverable.values())
+                                .map(Enum::name)
+                                .toList());
+    }
 }

@@ -83,3 +83,7 @@ Built as planned.
   contract and varlink tests. So did the root's `validate` and `-Pdocuments test`. The whole `apps/app` and `daemon`
   run did not finish: it was stopped while the machine was low on memory, and the coordinator chose to commit on the
   targeted tests.
+- **The two lists tied.** The six names are written twice, in the contract's `NotDeliverable` and in the Java enum.
+  `MessageReleaseTest.the_codes_are_the_contracts_own` reads the contract from the class path and holds that both
+  name the same values in the same order. A seventh value added to the Java enum alone made it fail, and it passes
+  with the two as they are; all 16 of `MessageReleaseTest` pass.
