@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B720",
   "title": "A Repository With No Checkout Proposed From Its Mirror",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 6,
