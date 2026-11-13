@@ -39,6 +39,8 @@ would make two copies of it.
   same rule as `FollowCredential.credentialFor`, which is made reachable for a token without lending a socket. It
   answers only a `get` whose `protocol` and `host` (and port) are the address's own, compared exactly as the
   organization's forge is (ASCII, lowercased); a lookalike or another host gets nothing.
+  The request's path must equal the address's path or lie below it at a `/`; the port is the effective one (443
+  when none is named). The token never reaches stderr, a log or a file: it goes only to git on standard output.
 - An https address with a token only. An ssh address, or one whose credential is a key, is answered with nothing,
   because its key goes through the agent, not through this helper.
 - A shut vault ends the command with a line on stderr and git's own failure, never a prompt: the caller is not at a
@@ -53,3 +55,6 @@ would make two copies of it.
 - git run with `vault credential --for <url>` as its helper reads a private https repository whose token is in the
   account's vault, and the token never appears in the caller's environment, arguments or output.
 - A request for another host, an ssh address, or a shut vault gets no token; a test fails while one does.
+- A request for another port, or a path beside `--for`'s (`/acme/p2` for `/acme/p`), gets no token; the token is
+  in no stderr line of any of these runs.
+- Agreed with the planner for PL87 on 2026-11-13.
