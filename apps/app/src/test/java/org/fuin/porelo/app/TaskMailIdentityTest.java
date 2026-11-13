@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 /** Identity checks keep mail and transport credentials with their original owner. */
 class TaskMailIdentityTest {
     @TempDir Path dir;
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private PoreloContext context() {
         final var xdg =

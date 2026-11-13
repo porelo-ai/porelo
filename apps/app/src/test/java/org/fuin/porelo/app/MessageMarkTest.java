@@ -10,7 +10,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.project.Mail;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
@@ -142,7 +141,7 @@ class MessageMarkTest {
                 "{\"messageId\":\"out-1\",\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         new MessagePass(
-                        new FakeCommandRunner(),
+                        new TransportTestRunner(),
                         null,
                         new TransportDirectory(List.of(dir.resolve("none"))))
                 .run(

@@ -18,7 +18,7 @@ class AgentWakeTest {
 
     @TempDir private Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private PoreloContext context() {
         final XdgPaths xdg =

@@ -1,0 +1,2 @@
+title: "Every transport verb but setup runs fenced to what the transport reported it reaches, with its homeserver's loopback port mapped in"
+type: security

@@ -110,20 +110,31 @@ public record TransportDescription(
      * @param runner How commands are run.
      * @param adapter The transport's executable.
      * @return What it said, or {@link #UNKNOWN} when it could not be asked or did not answer with
-     *     an object. Refusing to guess: a transport whose description cannot be read is not polled
-     *     and attests nothing.
+     *     an object. An unreadable description grants no capabilities.
      */
     public static TransportDescription of(final CommandRunner runner, final Path adapter) {
+        try {
+            return required(runner, adapter);
+        } catch (final RuntimeException ex) {
+            return UNKNOWN;
+        }
+    }
+
+    /** Cleanup and live reads must distinguish execution failure from an unsupported verb. */
+    static TransportDescription required(final CommandRunner runner, final Path adapter) {
         final CommandResult result;
         try {
             result =
-                    runner.run(
-                            HelperEnvironment.chosen(Command.of(adapter.toString(), "describe")));
+                    TransportVerbs.of(runner)
+                            .reaching(List.of(), true)
+                            .run(Command.of(adapter.toString(), "describe"));
+        } catch (final org.fuin.porelo.core.process.CommandException ex) {
+            throw ex;
         } catch (final RuntimeException ex) {
             return UNKNOWN;
         }
         if (!result.successful()) {
-            return UNKNOWN;
+            throw new org.fuin.porelo.core.process.CommandException(result.command(), result);
         }
         try {
             if (Json.parse(result.standardOutput()) instanceof Map<?, ?> said) {

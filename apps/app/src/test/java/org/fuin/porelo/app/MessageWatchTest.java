@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
@@ -31,7 +30,9 @@ class MessageWatchTest {
                                 },
                         dir);
         return new PoreloContext(
-                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new TransportTestRunner(),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0);
     }
 
     @Test

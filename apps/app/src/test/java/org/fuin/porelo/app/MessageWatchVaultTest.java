@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,7 +27,7 @@ class MessageWatchVaultTest {
                         dir);
         final PoreloContext context =
                 new PoreloContext(
-                        new FakeCommandRunner(),
+                        new TransportTestRunner(),
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0);
         final boolean[] open = {false};
@@ -54,7 +53,7 @@ class MessageWatchVaultTest {
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
         final PoreloContext context =
                 new PoreloContext(
-                        new FakeCommandRunner(),
+                        new TransportTestRunner(),
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0);
         final boolean[] open = {true};

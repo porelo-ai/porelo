@@ -36,7 +36,7 @@ class TalkPassProjectTest {
      * as the real one does: it moves the message from its {@code incoming/} to {@code accepted/}.
      */
     private final FakeCommandRunner runner =
-            new FakeCommandRunner() {
+            new TransportTestRunner() {
                 @Override
                 public CommandResult run(final Command command) {
                     final List<String> arguments = command.arguments();

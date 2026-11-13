@@ -17,7 +17,7 @@ class ProjectFileCheckTest {
     @TempDir Path dir;
 
     private PoreloContext context() {
-        return context(new FakeCommandRunner());
+        return context(new TransportTestRunner());
     }
 
     private PoreloContext context(FakeCommandRunner runner) {
@@ -96,7 +96,7 @@ class ProjectFileCheckTest {
 
     @Test
     void aTransportJudgesItsOwnSectionWhenItOffersTo() throws java.io.IOException {
-        final FakeCommandRunner runner = new FakeCommandRunner();
+        final FakeCommandRunner runner = new TransportTestRunner();
         adapter(context(runner), "room");
         runner.answering(
                         "room describe",
@@ -128,7 +128,7 @@ class ProjectFileCheckTest {
 
     @Test
     void aTransportThatDoesNotOfferTheCheckLeavesItsSectionOpen() throws java.io.IOException {
-        final FakeCommandRunner runner = new FakeCommandRunner();
+        final FakeCommandRunner runner = new TransportTestRunner();
         adapter(context(runner), "room");
         runner.answering("room describe", "{\"scheme\":\"room\",\"lifecycle\":[\"setup\"]}");
 

@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class ClearingTest {
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private Path root;
 

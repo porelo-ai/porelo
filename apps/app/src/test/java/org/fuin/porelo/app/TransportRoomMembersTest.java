@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** The transport's room claims cross into Porelo only after they have been judged. */
 class TransportRoomMembersTest {
     @TempDir Path dir;
-    private FakeCommandRunner runner = new FakeCommandRunner();
+    private FakeCommandRunner runner = new TransportTestRunner();
     private String previousLogin;
     private static final String TASK = "porelo-p-api";
     private static final String SECRET = "transport-fixture-secret";
@@ -320,7 +320,7 @@ class TransportRoomMembersTest {
     void invocationAndOwnershipUseTheSameTransportDescription() throws Exception {
         // Changing capabilities between reads must not let another login masquerade as our task.
         runner =
-                new FakeCommandRunner() {
+                new TransportTestRunner() {
                     private int descriptions;
 
                     @Override

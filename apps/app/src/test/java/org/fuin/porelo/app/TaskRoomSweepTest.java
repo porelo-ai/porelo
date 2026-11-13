@@ -18,7 +18,7 @@ class TaskRoomSweepTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private final AtomicReference<Instant> now =
             new AtomicReference<>(Instant.parse("2026-11-13T09:00:00Z"));

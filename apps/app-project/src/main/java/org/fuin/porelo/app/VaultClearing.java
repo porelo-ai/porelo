@@ -143,6 +143,7 @@ public final class VaultClearing {
         boolean failed = false;
         final TransportLifecycle lifecycle =
                 new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        if (!dryRun) lifecycle.retainAccountReaches();
         for (final Elsewhere each : elsewhere(projects)) {
             final String what =
                     "the "
@@ -231,7 +232,7 @@ public final class VaultClearing {
         // own vault: a vault named by PORELO_VAULT clearing them left that one with accounts on a
         // server that was gone. Nothing is listed for them, so the clear still succeeds.
         if ((gone || dryRun) && ownVault(vault)) {
-            new Clearing(context).transports(dryRun, items);
+            new Clearing(context).transports(dryRun, items, lifecycle);
         }
         // Only a dry run reaches here refused: it lists on, and still says what would keep the
         // vault.

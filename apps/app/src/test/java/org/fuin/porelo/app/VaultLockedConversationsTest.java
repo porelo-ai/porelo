@@ -12,7 +12,6 @@ import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,7 +35,9 @@ class VaultLockedConversationsTest {
                                 },
                         dir);
         return new PoreloContext(
-                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new TransportTestRunner(),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0);
     }
 
     @Test

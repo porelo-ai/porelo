@@ -152,7 +152,9 @@ final class TransportLifecycle {
     /** Where a host's files are; another place only in a test. */
     private final Path hostFiles;
 
-    private final java.util.function.Function<String, Path> programs;
+    private final TransportVerbs verbs;
+
+    private final Map<String, TransportVerbs> retainedAccounts = new LinkedHashMap<>();
 
     /** From this length a value is withheld inside a word too. */
     private static final int WHOLE_ANYWHERE = 8;
@@ -182,7 +184,7 @@ final class TransportLifecycle {
      * @param hostFiles Where a host's files are.
      */
     TransportLifecycle(PoreloContext context, TransportDirectory transports, Path hostFiles) {
-        this(context, transports, hostFiles, org.fuin.porelo.wire.SystemProgram::find);
+        this(context, transports, hostFiles, TransportVerbs.programs(context.runner()));
     }
 
     /**
@@ -196,7 +198,7 @@ final class TransportLifecycle {
         this.context = context;
         this.transports = transports;
         this.hostFiles = hostFiles;
-        this.programs = programs;
+        this.verbs = new TransportVerbs(context.runner(), programs);
     }
 
     /**
@@ -391,8 +393,7 @@ final class TransportLifecycle {
         final Map<String, String> given = given(scheme, project);
         final Path adapter = transports.find(scheme);
         final boolean shows =
-                adapter != null
-                        && TransportDescription.of(context.runner(), adapter).takes(DISPLAY);
+                adapter != null && TransportDescription.of(verbs, adapter).takes(DISPLAY);
         final Path file = addressesFile(scheme, project);
         final Path shown = displaysFile(scheme, project);
         final Refused[] refused = new Refused[1];
@@ -749,7 +750,7 @@ final class TransportLifecycle {
         if (adapter == null) {
             return java.util.Set.of();
         }
-        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        final TransportDescription described = TransportDescription.of(verbs, adapter);
         if (!described.takes(TransportConversations.PERSONS)) {
             return java.util.Set.of();
         }
@@ -1160,7 +1161,26 @@ final class TransportLifecycle {
             throws Refused {
         final List<String> removed = new java.util.ArrayList<>();
         final Path adapter = transports.find(scheme);
-        if (adapter != null && TransportDescription.of(context.runner(), adapter).offers("clear")) {
+        final TransportDescription described;
+        try {
+            described =
+                    adapter == null
+                            ? TransportDescription.UNKNOWN
+                            : TransportDescription.required(verbs, adapter);
+        } catch (final org.fuin.porelo.core.process.CommandException ex) {
+            throw new Refused(
+                    "the "
+                            + scheme
+                            + " transport's description could not run fenced; "
+                            + "check pasta, nftables and the transport, then retry cleanup",
+                    77);
+        }
+        if (adapter != null && described == TransportDescription.UNKNOWN) {
+            throw new Refused(
+                    "the " + scheme + " transport's description could not be read; retry cleanup",
+                    77);
+        }
+        if (adapter != null && described.offers("clear")) {
             final Map<String, String> given = new LinkedHashMap<>(secrets(scheme, "account"));
             if (project != null) {
                 given.putAll(secrets(scheme, "project/" + project));
@@ -1232,6 +1252,13 @@ final class TransportLifecycle {
                     0);
         }
         return removed;
+    }
+
+    /** Holds setup-derived endpoints in memory while an account clear removes its projects. */
+    void retainAccountReaches() {
+        for (final String scheme : transports.byName().keySet()) {
+            retainedAccounts.put(scheme, verbs.account(context, scheme));
+        }
     }
 
     /**
@@ -1369,7 +1396,7 @@ final class TransportLifecycle {
         // Listed by a join before persons were checked, a name read as an option is one.
         login(person);
         final Path adapter = transports.find(scheme);
-        if (adapter == null || !TransportDescription.of(context.runner(), adapter).offers("part")) {
+        if (adapter == null || !TransportDescription.of(verbs, adapter).offers("part")) {
             throw new Refused("the " + scheme + " transport does not offer part", 0);
         }
         final Map<String, String> given = given(scheme, project);
@@ -1411,12 +1438,11 @@ final class TransportLifecycle {
         if (adapter == null) {
             throw new Refused("no transport for '" + scheme + "' is installed", 0);
         }
-        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        final TransportDescription described = TransportDescription.of(verbs, adapter);
         if (!described.offers("members") || !described.takes(TransportInput.INPUT)) {
             throw new Refused(
                     "the " + scheme + " transport must offer members with secrets on stdin", 78);
         }
-        final Conversation conversation = conversation(scheme, project);
         final Map<?, ?> said;
         try {
             said =
@@ -1426,11 +1452,7 @@ final class TransportLifecycle {
                             settings,
                             given(scheme, project),
                             loopbackOnly,
-                            new TransportFence(
-                                    context.runner(),
-                                    conversation == null ? List.of() : conversation.reaches(),
-                                    loopbackOnly,
-                                    programs),
+                            verbs.knownProject(context, scheme, project, loopbackOnly),
                             "members",
                             "--project",
                             project);
@@ -1652,8 +1674,7 @@ final class TransportLifecycle {
     @org.jspecify.annotations.Nullable
     SettingsCheck settings(String scheme, Map<String, Object> settings) throws Refused {
         final Path adapter = transports.find(scheme);
-        if (adapter == null
-                || !TransportDescription.of(context.runner(), adapter).offers("settings")) {
+        if (adapter == null || !TransportDescription.of(verbs, adapter).offers("settings")) {
             return null;
         }
         final Map<?, ?> said = run(scheme, settings, Map.of(), false, "settings");
@@ -1721,7 +1742,7 @@ final class TransportLifecycle {
         if (adapter == null) {
             throw new Refused("no transport for '" + scheme + "' is installed", 0);
         }
-        if (!TransportDescription.of(context.runner(), adapter).offers(verb)) {
+        if (!TransportDescription.of(verbs, adapter).offers(verb)) {
             throw new Refused("the " + scheme + " transport does not offer " + verb, 69);
         }
     }
@@ -1811,8 +1832,7 @@ final class TransportLifecycle {
         }
         final Path adapter = transports.find(scheme);
         if (adapter != null
-                && !borrows(scheme, TransportDescription.of(context.runner(), adapter), verb)
-                        .isEmpty()) {
+                && !borrows(scheme, TransportDescription.of(verbs, adapter), verb).isEmpty()) {
             throw shut(scheme, verb);
         }
     }
@@ -1900,7 +1920,7 @@ final class TransportLifecycle {
         }
         return run(
                 scheme,
-                TransportDescription.of(context.runner(), adapter),
+                TransportDescription.of(verbs, adapter),
                 settings,
                 kept,
                 loopbackOnly,
@@ -1916,17 +1936,17 @@ final class TransportLifecycle {
             boolean loopbackOnly,
             String... verb)
             throws Refused {
-        return run(scheme, described, settings, kept, loopbackOnly, context.runner(), verb);
+        return run(scheme, described, settings, kept, loopbackOnly, null, verb);
     }
 
-    /** Keeps rendering and secret handling identical for fenced and ordinary verbs. */
+    /** Retains an already-read project policy without changing how any verb is executed. */
     private Map<?, ?> run(
             final String scheme,
             final TransportDescription described,
             final Map<String, Object> settings,
             final Map<String, String> kept,
             final boolean loopbackOnly,
-            final org.fuin.porelo.core.process.CommandRunner runner,
+            final @Nullable TransportVerbs scoped,
             final String... verb)
             throws Refused {
         final Path adapter = transports.find(scheme);
@@ -1962,14 +1982,31 @@ final class TransportLifecycle {
         }
         final CommandResult result;
         try {
+            final @Nullable TransportVerbs retained =
+                    "clear".equals(verb[0]) && !List.of(verb).contains("--project")
+                            ? retainedAccounts.get(scheme)
+                            : null;
+            final TransportVerbs execution =
+                    scoped != null
+                            ? scoped
+                            : retained != null
+                                    ? retained
+                                    : verbs.forCommand(
+                                            context, scheme, List.of(verb), loopbackOnly);
             result =
-                    runner.run(
-                            HelperEnvironment.chosen(
-                                    TransportInput.handed(
-                                            Command.of(arguments), described, settings, secrets)),
+                    execution.run(
+                            TransportInput.handed(
+                                    Command.of(arguments), described, settings, secrets),
                             line -> say(scheme, line, secrets));
         } catch (org.fuin.porelo.core.process.CommandException ex) {
             throw ex.withStandardError(withheld(StartStep.cleanLines(ex.standardError()), secrets));
+        } catch (final IllegalArgumentException ex) {
+            throw new Refused(
+                    "the "
+                            + scheme
+                            + " transport could not run fenced: "
+                            + StartStep.cleanLines(String.valueOf(ex.getMessage())),
+                    77);
         }
         if (!result.successful()) {
             // What it printed before failing may hold secrets it made; they are withheld too.

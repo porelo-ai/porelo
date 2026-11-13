@@ -26,7 +26,7 @@ class MessagePassTest {
 
     private final SigningKey key = SigningKey.generate("host");
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private final Mail mail =
             new Mail(List.of(new Mail.Peer("reviewer", "local:/peer/inbound", "vouched")));

@@ -25,7 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class ProjectTasksArePeersTest {
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private PoreloContext context(final Path dir) {
         final XdgPaths xdg =

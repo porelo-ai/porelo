@@ -23,7 +23,7 @@ class DoctorMessagesTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private final List<String> asked = new ArrayList<>();
 

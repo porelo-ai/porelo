@@ -19,7 +19,7 @@ class TaskConversationsTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     @Test
     void aConversationForDefaultIsRefusedBeforeAnyTransportRuns() throws Exception {

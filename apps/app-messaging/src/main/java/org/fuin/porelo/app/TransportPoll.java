@@ -43,7 +43,7 @@ public final class TransportPoll {
      */
     public record Outcome(Map<String, String> arrivals, Map<String, String> failures) {}
 
-    private final CommandRunner runner;
+    private final TransportVerbs verbs;
 
     private final TransportDirectory transports;
 
@@ -54,7 +54,7 @@ public final class TransportPoll {
      * @param transports Where the adapters are.
      */
     public TransportPoll(final CommandRunner runner, final TransportDirectory transports) {
-        this.runner = runner;
+        this.verbs = TransportVerbs.of(runner);
         this.transports = transports;
     }
 
@@ -96,8 +96,13 @@ public final class TransportPoll {
             if (named != null && !named.contains(transport.getKey())) {
                 continue;
             }
-            final TransportDescription described =
-                    TransportDescription.of(runner, transport.getValue());
+            final TransportDescription described;
+            try {
+                described = TransportDescription.of(verbs, transport.getValue());
+            } catch (final RuntimeException ex) {
+                failures.put(transport.getKey(), String.valueOf(ex.getMessage()));
+                continue;
+            }
             if (!described.polls() || described.keepsConversation()) {
                 // A conversation is polled once per project beside the passes, with the project's
                 // secrets.
@@ -107,13 +112,12 @@ public final class TransportPoll {
             final CommandResult result;
             try {
                 result =
-                        runner.run(
-                                HelperEnvironment.chosen(
-                                        Command.of(
-                                                transport.getValue().toString(),
-                                                "poll",
-                                                "--into",
-                                                mailbox.inbound().toString())));
+                        verbs.run(
+                                Command.of(
+                                        transport.getValue().toString(),
+                                        "poll",
+                                        "--into",
+                                        mailbox.inbound().toString()));
             } catch (final RuntimeException ex) {
                 failures.put(transport.getKey(), String.valueOf(ex.getMessage()));
                 continue;

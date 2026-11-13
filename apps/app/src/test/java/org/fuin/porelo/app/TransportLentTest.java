@@ -65,7 +65,7 @@ class TransportLentTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner fake = new FakeCommandRunner();
+    private final FakeCommandRunner fake = new TransportTestRunner();
 
     @AfterEach
     void forgetTheAskedPassphrase() {
@@ -84,7 +84,10 @@ class TransportLentTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        return new PoreloContext(
+                TransportTestRunner.processes(runner, dir.resolve("namespace-tools")),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0);
     }
 
     /** A vault that holds these entries, opened by a passphrase asked for. */
@@ -356,7 +359,7 @@ class TransportLentTest {
                 .doesNotContainKey(NAME);
         PoreloContext.forgetAsked();
 
-        final FakeCommandRunner second = new FakeCommandRunner();
+        final FakeCommandRunner second = new TransportTestRunner();
         final PoreloContext socketsOnly = open(second, Map.of(PLAIN + "." + SOCKET, TOKEN));
         adapter(socketsOnly);
         second.answering(" describe", described(",\"lent\":[\"setup\"]"));

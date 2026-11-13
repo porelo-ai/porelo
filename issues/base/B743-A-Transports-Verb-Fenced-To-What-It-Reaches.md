@@ -56,7 +56,19 @@ nftables apply only inside a container's network namespace.
 - Box: green, 184 tests, 1 skipped (`TransportFenceMachineTest`, which runs real pasta only when its property and a
   listener are given), buildbox-porelo-3965ba3371bc-20261113T192726Z.log. The new class's own tests could not be red
   at runtime without it; the red run of the tests alone did not compile (buildbox-porelo-da4721be8baa-20261113T192318Z.log).
-- Parts (b) and (c) remain.
+- Part (b), 2026-11-13 (Codex CLI, gpt-6.1-sol; the lead ran the tests).
+  - `TransportVerbs` is the one place a transport's verbs run. Every verb goes through the fence, and so does any
+    verb added later.
+  - `setup` is the one exception and runs as before. A test pins that it stays the only one. Before its first run,
+    Porelo has no port to map for the account's own homeserver, because the transport picks that port inside `setup`.
+    How `setup` learns the port beforehand is a contract question put to the operator.
+  - Each loopback port comes from the `reaches` the last `setup` reported, mapped one by one with `pasta -T <port>`,
+    never `-T auto`. An offline project keeps those mappings and reaches nothing beyond loopback. Without a project
+    policy no external address is allowed.
+  - `Clearing` and `VaultClearing` keep the setup's reaches in memory until the project's records are removed.
+  - Red: the new tests use the new `TransportVerbs`, so on the base they do not compile. Green, run locally: 366 tests
+    in the transport, clearing and message classes and 210 in the other changed classes, 0 failures.
+- Part (c) remains, and so does the question about `setup`.
 
 ## Acceptance
 

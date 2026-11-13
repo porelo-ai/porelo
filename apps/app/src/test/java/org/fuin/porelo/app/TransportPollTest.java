@@ -35,7 +35,9 @@ class TransportPollTest {
 
     private TransportPoll poll(final Path transports) {
         return new TransportPoll(
-                new org.fuin.porelo.core.process.ProcessCommandRunner(),
+                TransportTestRunner.processes(
+                        new org.fuin.porelo.core.process.ProcessCommandRunner(),
+                        transports.resolveSibling("namespace-tools")),
                 new TransportDirectory(java.util.List.of(transports)));
     }
 

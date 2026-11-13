@@ -51,7 +51,7 @@ class TransportConversationsTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     @Test
     void aRemovedPersonIsPartedByTheTransportAndNoLongerListed() throws Exception {
@@ -69,7 +69,9 @@ class TransportConversationsTest {
                 .as("the removed account is identified")
                 .isEqualTo("removed   alice (@alice)\n");
         final var part = runner.only(" part ");
-        assertThat(part.arguments().subList(1, part.arguments().size()))
+        assertThat(
+                        part.arguments()
+                                .subList(part.arguments().indexOf("part"), part.arguments().size()))
                 .as(
                         "part receives only the project and person, even when the transport takes login")
                 .containsExactly("part", "--project", "p", "--person", "alice");
@@ -1275,11 +1277,17 @@ class TransportConversationsTest {
         final PoreloContext context =
                 context(
                                 command -> {
-                                    final List<String> arguments = command.arguments();
-                                    if (arguments.contains("send")) {
+                                    final List<String> wrapped = command.arguments();
+                                    final int boundary = wrapped.indexOf("--");
+                                    final List<String> arguments =
+                                            boundary < 0
+                                                    ? wrapped
+                                                    : wrapped.subList(boundary + 1, wrapped.size());
+                                    final int send = arguments.indexOf("send");
+                                    if (send >= 0) {
                                         try {
-                                            final Path message = Path.of(arguments.get(2));
-                                            final Path signature = Path.of(arguments.get(3));
+                                            final Path message = Path.of(arguments.get(send + 1));
+                                            final Path signature = Path.of(arguments.get(send + 2));
                                             final Path shownFile =
                                                     Path.of(
                                                             arguments.get(
@@ -1439,7 +1447,10 @@ class TransportConversationsTest {
         Files.writeString(adapter, "#!/bin/sh\n");
         adapter.toFile().setExecutable(true);
         final PoreloContext context =
-                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new PoreloContext(
+                        TransportTestRunner.fake(runner),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0);
         for (String container :
                 List.of(
                         "porelo-p-a",
@@ -1948,7 +1959,11 @@ class TransportConversationsTest {
                                             context,
                                             context.paths().messaging().transportDirectory())
                                     .acting("room", "p", "porelo-p-review"))
-                    .isEqualTo(new TransportSend.Acting(Map.of("TASK", "t-1"), "!room-p"));
+                    .extracting(
+                            TransportSend.Acting::environment,
+                            TransportSend.Acting::to,
+                            TransportSend.Acting::reaches)
+                    .containsExactly(Map.of("TASK", "t-1"), "!room-p", List.of("127.0.0.1:18008"));
         } finally {
             keyring.forget();
         }

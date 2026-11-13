@@ -77,6 +77,69 @@ class TransportFenceTest {
     }
 
     @Test
+    void onlyLoopbackPortsReportedBySetupReachTheHostsListeners() {
+        // Harm: automatic forwarding exposes unrelated services of the account.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(
+                        runner,
+                        List.of(
+                                "127.0.0.1:8008",
+                                "[::1]:8009",
+                                "localhost:8008",
+                                "192.0.2.10:8448"),
+                        false)
+                .run(Command.of("/transport", "send"));
+
+        assertThat(forwardedPorts(runner.invocations().getFirst()))
+                .as("each saved loopback port is mapped once, with no automatic forwarding")
+                .containsExactly("8008", "8009");
+    }
+
+    @Test
+    void anOfflineConversationCanReachItsOwnHomeserverButNoExternalAddress() {
+        // Harm: denying host loopback breaks offline messaging; allowing external reaches leaks it.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(runner, List.of("127.0.0.1:8008", "192.0.2.10:443", "server.example.org"), true)
+                .run(Command.of("/transport", "poll"));
+
+        final Command command = runner.invocations().getFirst();
+        assertThat(forwardedPorts(command))
+                .as("offline still needs the host's one homeserver listener")
+                .containsExactly("8008");
+        assertThat(
+                        scriptOf(command)
+                                .lines()
+                                .map(String::strip)
+                                .filter(line -> line.endsWith(" accept")))
+                .as("only loopback passes, even with stale external reaches")
+                .containsExactly("oifname \"lo\" accept");
+    }
+
+    @Test
+    void anOfflineConversationWithoutALoopbackPortMapsNothing() {
+        // Harm: an unspecified port is mistaken for permission to forward every host listener.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(runner, List.of("127.0.0.1", "[::1]", "localhost", "192.0.2.10:8008"), true)
+                .run(Command.of("/transport", "receipt"));
+
+        assertThat(forwardedPorts(runner.invocations().getFirst()))
+                .as("no explicit loopback port means no host mapping")
+                .containsExactly("none");
+    }
+
+    private static List<String> forwardedPorts(final Command command) {
+        final List<String> ports = new ArrayList<>();
+        final List<String> arguments = command.arguments();
+        for (int index = 0; index < arguments.indexOf("--"); index++) {
+            if ("-T".equals(arguments.get(index))) ports.add(arguments.get(index + 1));
+        }
+        return ports;
+    }
+
+    @Test
     void aDeclaredGatewayCannotBeTranslatedIntoTheHostsLoopback() {
         // Harm: allowing a gateway literal accidentally grants the account's local services.
         final FakeCommandRunner runner = new FakeCommandRunner();

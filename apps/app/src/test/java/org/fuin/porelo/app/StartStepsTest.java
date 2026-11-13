@@ -48,17 +48,21 @@ class StartStepsTest {
     void aConversationNamesItsWaitBeforeCallingTheTransportAndKeepsItsLastError() throws Exception {
         // A start that waits minutes and fails must say what it waited on and why it failed.
         final FakeCommandRunner machine =
-                new FakeCommandRunner().answering("podman version", "5.8.1");
+                new TransportTestRunner().answering("podman version", "5.8.1");
         final ProcessCommandRunner transport = new ProcessCommandRunner();
+        final var runner =
+                TransportTestRunner.processes(
+                        command ->
+                                command.arguments().stream()
+                                                .anyMatch(
+                                                        argument ->
+                                                                argument.contains(
+                                                                        TransportDirectory.PREFIX))
+                                        ? transport.run(command)
+                                        : machine.run(command),
+                        dir.resolve("transport-tools"));
         final PoreloContext context =
-                context(
-                                command ->
-                                        command.arguments()
-                                                        .getFirst()
-                                                        .contains(TransportDirectory.PREFIX)
-                                                ? transport.run(command)
-                                                : machine.run(command))
-                        .asking(shown -> "test passphrase".toCharArray());
+                context(runner).asking(shown -> "test passphrase".toCharArray());
         installHooks(context);
         Files.createDirectories(context.vault().path().getParent());
         context.vault().write(Map.of(), "test passphrase".toCharArray());
@@ -169,7 +173,7 @@ class StartStepsTest {
     void aFailedImageBuildKeepsItsLastErrorAndClearsThePublishedPhase() throws Exception {
         // A failed build must leave its cause, rather than a stale phase that looks stuck forever.
         final FakeCommandRunner machine =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering("podman version", "5.8.1")
                         .failing(
                                 " build ",
@@ -320,7 +324,7 @@ class StartStepsTest {
                         null,
                         1,
                         "p");
-        new TaskLaunch(context(new FakeCommandRunner()), request, steps)
+        new TaskLaunch(context(new TransportTestRunner()), request, steps)
                 .launch(out, new PrintWriter(new StringWriter()), running -> 0);
         assertThat(events)
                 .as("one launch must report source entry and its refusal to both consumers")

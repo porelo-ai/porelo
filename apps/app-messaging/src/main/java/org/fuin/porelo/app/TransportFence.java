@@ -23,6 +23,7 @@ final class TransportFence implements CommandRunner {
 
     private final CommandRunner runner;
     private final String rules;
+    private final Set<String> loopbackPorts;
     private final Function<String, Path> programs;
 
     /** Uses checked distribution programs, never infrastructure from the caller's PATH. */
@@ -38,6 +39,7 @@ final class TransportFence implements CommandRunner {
             final Function<String, Path> programs) {
         this.runner = runner;
         this.rules = rules(reaches, offline);
+        this.loopbackPorts = loopbackPorts(reaches, offline);
         this.programs = programs;
     }
 
@@ -59,15 +61,12 @@ final class TransportFence implements CommandRunner {
         try {
             arguments.add(programs.apply("pasta").toString());
             // Automatic port forwarding could make namespace loopback reach the host's services.
+            arguments.addAll(List.of("--config-net", "-t", "none", "-u", "none"));
+            for (final String port : loopbackPorts.isEmpty() ? Set.of("none") : loopbackPorts) {
+                arguments.addAll(List.of("-T", port));
+            }
             arguments.addAll(
                     List.of(
-                            "--config-net",
-                            "-t",
-                            "none",
-                            "-u",
-                            "none",
-                            "-T",
-                            "none",
                             "-U",
                             "none",
                             "--map-host-loopback",
@@ -157,6 +156,32 @@ final class TransportFence implements CommandRunner {
         for (final String rule : allowed) lines.add("        " + rule);
         lines.addAll(List.of("    }", "}"));
         return String.join("\n", lines) + "\n";
+    }
+
+    private static Set<String> loopbackPorts(final List<String> reaches, final boolean offline) {
+        final Set<String> ports = new LinkedHashSet<>();
+        for (final String reach : reaches) {
+            final String host = host(reach);
+            if (!"localhost".equals(host)) {
+                final InetAddress address;
+                try {
+                    address = InetAddress.ofLiteral(host);
+                } catch (final IllegalArgumentException ex) {
+                    if (offline) continue;
+                    throw ex;
+                }
+                if (!address.isLoopbackAddress()) continue;
+            }
+            final String suffix =
+                    reach.startsWith("[")
+                            ? reach.substring(reach.indexOf(']') + 1)
+                            : reach.indexOf(':') == reach.lastIndexOf(':') && reach.contains(":")
+                                    ? reach.substring(reach.indexOf(':'))
+                                    : "";
+            if (!suffix.isEmpty())
+                ports.add(Integer.toString(Integer.parseInt(suffix.substring(1))));
+        }
+        return ports;
     }
 
     /** Reaches name hosts, optionally with ports; nft receives only canonical literal addresses. */

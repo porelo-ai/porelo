@@ -109,14 +109,16 @@ class StartProgressReviewTest {
         final ProcessCommandRunner process = new ProcessCommandRunner(Duration.ofMillis(100));
         final PoreloContext context =
                 context(
-                                command -> {
-                                    // Only the verb under test meets the short deadline: a
-                                    // slow runner must not time out the steps before it.
-                                    if (command.arguments().contains(verb) && timeout) {
-                                        return process.run(command);
-                                    }
-                                    return new ProcessCommandRunner().run(command);
-                                })
+                                TransportTestRunner.processes(
+                                        command -> {
+                                            // Only the verb under test meets the short deadline: a
+                                            // slow runner must not time out the steps before it.
+                                            if (command.arguments().contains(verb) && timeout) {
+                                                return process.run(command);
+                                            }
+                                            return new ProcessCommandRunner().run(command);
+                                        },
+                                        dir.resolve("transport-tools")))
                         .asking(shown -> "test passphrase".toCharArray());
         final Map<String, String> secrets =
                 Map.of(
@@ -239,7 +241,7 @@ class StartProgressReviewTest {
     void aBrokenProgressFileCannotChangeTheLaunchOrSuppressItsSteps() throws Exception {
         // An optional progress record must not prevent the work or replace its real refusal.
         final FakeCommandRunner machine =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering("podman version", "5.8.1")
                         .failing(" build ", 125, "registry refused");
         final PoreloContext context = context(machine);
@@ -301,7 +303,7 @@ class StartProgressReviewTest {
             throws Exception {
         // Progress cleanup and inventory reads must not turn a healthy operation into a failure.
         final FakeCommandRunner machine =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering(
                                 "ps",
                                 "porelo-p-work\tUp 1 minute\t1788500000\t0\tp\tguarded\tp\t\n");
@@ -370,7 +372,7 @@ class StartProgressReviewTest {
     void staleOrCompletedProgressCannotClaimThatAStartIsStillActive(String owner) throws Exception {
         // A crashed launcher or a reused pid must not leave a task looking stuck forever.
         final FakeCommandRunner machine =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering(
                                 "ps",
                                 "porelo-p-work\tUp 1 minute\t1788500000\t0\tp\tguarded\tp\t\n");
@@ -424,7 +426,7 @@ class StartProgressReviewTest {
     void anActiveWaitingPhaseNamesTheExternalDependency() throws Exception {
         // A second window must say what holds up the start instead of showing only its stage.
         final FakeCommandRunner machine =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering(
                                 "ps",
                                 "porelo-p-work\tUp 1 minute\t1788500000\t0\tp\tguarded\tp\t\n");
@@ -438,7 +440,7 @@ class StartProgressReviewTest {
     }
 
     private FakeCommandRunner stoppedMachine() {
-        return new FakeCommandRunner()
+        return new TransportTestRunner()
                 .answering("podman version", "5.8.1")
                 .answering("{{.Id}}", "0123456789abcdef")
                 .answering(
@@ -551,7 +553,7 @@ class StartProgressReviewTest {
     void aStartWithoutAGateDoesNotClaimToPrepareAWorkspace() throws Exception {
         // Reporting work that never happens sends a stalled-start investigation to the wrong stage.
         final FakeCommandRunner machine =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering("podman version", "5.8.1")
                         .failing(" build ", 125, "registry refused");
         final PoreloContext context = context(machine);
@@ -577,7 +579,7 @@ class StartProgressReviewTest {
     void aContainerCreationFailureKeepsTheLastDependencyError() throws Exception {
         // A wrapped first line hides why the container was refused.
         final FakeCommandRunner machine =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering("podman version", "5.8.1")
                         .failing(
                                 " create ",

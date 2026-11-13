@@ -14,7 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 /** Test for {@link TransportSend}, whose whole contract is three exit codes. */
 class TransportSendTest {
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private TransportDirectory withAdapter(final Path dir) throws IOException {
         final Path transports = dir.resolve("transports");
@@ -43,7 +43,7 @@ class TransportSendTest {
         // try made the mailbox again, and the task's retired name stayed taken.
         final Mailbox mailbox = queued(dir);
         final FakeCommandRunner removing =
-                new FakeCommandRunner() {
+                new TransportTestRunner() {
                     @Override
                     public org.fuin.porelo.core.process.CommandResult run(
                             final org.fuin.porelo.core.process.Command command) {
@@ -101,7 +101,7 @@ class TransportSendTest {
         assertThat(mailbox.queueDeferred("local").resolve("m-1.json")).exists();
 
         // The next pass finds it again, and this time the far side is there.
-        final FakeCommandRunner later = new FakeCommandRunner().answering("send", "{}");
+        final FakeCommandRunner later = new TransportTestRunner().answering("send", "{}");
         final TransportSend.Result second =
                 new TransportSend(later, transports).send(mailbox, "local");
 
@@ -168,7 +168,7 @@ class TransportSendTest {
 
         final Mailbox other = queued(dir.resolve("other"));
         final FakeCommandRunner plain =
-                new FakeCommandRunner()
+                new TransportTestRunner()
                         .answering("describe", "{\"scheme\":\"local\"}")
                         .answering("send", "{}");
         new TransportSend(plain, withAdapter(dir.resolve("other"))).send(other, "local");

@@ -35,7 +35,7 @@ class SenderMarkWiringTest {
     private final List<String> shown = new ArrayList<>();
 
     private final FakeCommandRunner runner =
-            new FakeCommandRunner() {
+            new TransportTestRunner() {
                 @Override
                 public CommandResult run(final Command command) {
                     final int at = command.arguments().indexOf("--" + TransportSend.SHOWN);

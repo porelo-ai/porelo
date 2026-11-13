@@ -19,17 +19,17 @@ final class HelperAnswer {
     private static final String LINE =
             "This is Porelo's technical account; it passes your messages on to the tasks and does not answer itself. Mention a task to reach it.";
 
-    private final PoreloContext context;
+    private final TransportVerbs verbs;
     private final Path adapter;
     private final Map<String, String> secrets;
     private final TransportLifecycle.@Nullable Conversation conversation;
 
     HelperAnswer(
-            final PoreloContext context,
             final Path adapter,
             final Map<String, String> secrets,
-            final TransportLifecycle.@Nullable Conversation conversation) {
-        this.context = context;
+            final TransportLifecycle.@Nullable Conversation conversation,
+            final TransportVerbs verbs) {
+        this.verbs = verbs;
         this.adapter = adapter;
         this.secrets = secrets;
         this.conversation = conversation;
@@ -60,27 +60,24 @@ final class HelperAnswer {
                             bytes,
                             MessageIntake.NAMESPACE),
                     StandardCharsets.UTF_8);
-            final TransportDescription described =
-                    TransportDescription.of(context.runner(), adapter);
+            final TransportDescription described = TransportDescription.of(verbs, adapter);
             if (described.takes(TransportSend.SHOWN)) {
                 Files.writeString(shown, LINE, StandardCharsets.UTF_8);
             }
             final CommandResult result =
-                    context.runner()
-                            .run(
-                                    HelperEnvironment.chosen(
-                                            TransportInput.handed(
-                                                    TransportSend.command(
-                                                            adapter,
-                                                            message,
-                                                            signature,
-                                                            conversation.conversation(),
-                                                            described,
-                                                            shown,
-                                                            person),
-                                                    described,
-                                                    null,
-                                                    secrets)));
+                    verbs.run(
+                            TransportInput.handed(
+                                    TransportSend.command(
+                                            adapter,
+                                            message,
+                                            signature,
+                                            conversation.conversation(),
+                                            described,
+                                            shown,
+                                            person),
+                                    described,
+                                    null,
+                                    secrets));
             // A transport's output may echo its credential, so only its exit status is reported.
             return result.successful()
                     ? null

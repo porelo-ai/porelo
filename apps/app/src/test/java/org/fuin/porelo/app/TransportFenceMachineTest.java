@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -27,14 +28,50 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 class TransportFenceMachineTest {
 
     @Test
+    void aMappedHomeserverIsReachableWhileAnotherHostLoopbackListenerIsRefused()
+            throws IOException {
+        // Harm: mapping a homeserver either fails offline messaging or exposes other host services.
+        requirePasta();
+        final InetAddress loopback = InetAddress.ofLiteral("127.0.0.1");
+        try (final ServerSocket homeserver = new ServerSocket(0, 8, loopback);
+                final ServerSocket other = new ServerSocket(0, 8, loopback)) {
+            final ProcessCommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(20));
+            for (final ServerSocket listener : List.of(homeserver, other)) {
+                final CommandResult baseline =
+                        runner.run(probe("127.0.0.1", listener.getLocalPort()));
+                assertThat(baseline.exitCode())
+                        .as("both host listeners work before fencing: %s", baseline.standardError())
+                        .isZero();
+                assertThat(baseline.standardOutput())
+                        .as("the baseline really connected")
+                        .isEqualTo("connected\n");
+            }
+            final TransportFence fence =
+                    new TransportFence(
+                            runner, List.of("127.0.0.1:" + homeserver.getLocalPort()), true);
+
+            final CommandResult reached = fence.run(probe("127.0.0.1", homeserver.getLocalPort()));
+            final CommandResult refused = fence.run(probe("127.0.0.1", other.getLocalPort()));
+
+            assertThat(reached.exitCode())
+                    .as("the mapped homeserver works: %s", reached.standardError())
+                    .isZero();
+            assertThat(reached.standardOutput())
+                    .as("the verb connected through the mapped port")
+                    .isEqualTo("connected\n");
+            assertThat(refused.exitCode())
+                    .as("the other listener stays outside the mapping: %s", refused.standardError())
+                    .isEqualTo(23);
+            assertThat(refused.standardOutput())
+                    .as("the fenced verb observed the refusal")
+                    .isEqualTo("refused\n");
+        }
+    }
+
+    @Test
     void aVerbCannotConnectOutsideReachesEvenThoughTheAccountCan() {
         // Harm: a rendered fence looks restrictive but a real verb still reaches another host.
-        try {
-            SystemProgram.find("pasta");
-        } catch (final UncheckedIOException ex) {
-            if (!(ex.getCause() instanceof SystemProgram.Missing)) throw ex;
-            assumeTrue(false, "pasta is not installed: " + ex.getMessage());
-        }
+        requirePasta();
         final String target = System.getProperty("porelo.test.transport.fence.address", "");
         assertThat(target).as("supply an external listener's literal address").isNotEmpty();
         final InetAddress address = InetAddress.ofLiteral(target);
@@ -42,18 +79,7 @@ class TransportFenceMachineTest {
                 .as("the listener must be outside the namespace and host loopback")
                 .isFalse();
         final String port = System.getProperty("porelo.test.transport.fence.port", "443");
-        final String classpath =
-                System.getProperty(
-                        "surefire.test.class.path", System.getProperty("java.class.path"));
-        final Command probe =
-                Command.of(
-                                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                                "-cp",
-                                classpath,
-                                Connect.class.getName(),
-                                target,
-                                port)
-                        .withTimeout(Duration.ofSeconds(15));
+        final Command probe = probe(target, Integer.parseInt(port));
         final ProcessCommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(20));
 
         final CommandResult baseline = runner.run(probe);
@@ -93,6 +119,29 @@ class TransportFenceMachineTest {
         assertThat(offline.standardOutput())
                 .as("the offline verb ran behind its fence")
                 .isEqualTo("refused\n");
+    }
+
+    private static void requirePasta() {
+        try {
+            SystemProgram.find("pasta");
+        } catch (final UncheckedIOException ex) {
+            if (!(ex.getCause() instanceof SystemProgram.Missing)) throw ex;
+            assumeTrue(false, "pasta is not installed: " + ex.getMessage());
+        }
+    }
+
+    private static Command probe(final String address, final int port) {
+        final String classpath =
+                System.getProperty(
+                        "surefire.test.class.path", System.getProperty("java.class.path"));
+        return Command.of(
+                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        "-cp",
+                        classpath,
+                        Connect.class.getName(),
+                        address,
+                        Integer.toString(port))
+                .withTimeout(Duration.ofSeconds(15));
     }
 
     /** A fresh JVM is the verb, so the connection is made in pasta's namespace. */

@@ -316,6 +316,9 @@ public final class Clearing {
         String signer = "";
         boolean refused = false;
         final java.util.Set<String> names = new java.util.TreeSet<>();
+        final TransportLifecycle transports =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        if (!dryRun) transports.retainAccountReaches();
         new ProjectInventory(context).projects().forEach(summary -> names.add(summary.name()));
         names.remove(DefaultProject.NAME);
         for (final String name : names) {
@@ -353,7 +356,7 @@ public final class Clearing {
                             Status.NOT_REMOVED,
                             "a project or task removal failed; kept so surviving tasks can be found and talk"));
         } else {
-            transports(dryRun, items);
+            transports(dryRun, items, transports);
         }
         return new Result(List.copyOf(items), List.copyOf(keys), signer, refused);
     }
@@ -364,6 +367,15 @@ public final class Clearing {
      * was said to have nothing to clear.
      */
     void transports(final boolean dryRun, final List<Item> items) {
+        transports(
+                dryRun,
+                items,
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory()));
+    }
+
+    /** Uses endpoints captured before project cleanup removes their saved conversations. */
+    void transports(
+            final boolean dryRun, final List<Item> items, final TransportLifecycle lifecycle) {
         final java.nio.file.Path kept = context.paths().xdg().state().resolve("transport");
         final java.util.Set<String> schemes =
                 new java.util.TreeSet<>(
@@ -381,8 +393,6 @@ public final class Clearing {
                                 String.valueOf(ex.getMessage())));
             }
         }
-        final TransportLifecycle lifecycle =
-                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
         for (final String scheme : schemes) {
             final java.nio.file.Path files = kept.resolve(scheme);
             final boolean installed =

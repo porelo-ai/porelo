@@ -72,7 +72,7 @@ public record RoomMembers(String room, List<Member> members) {
 
     /** Reads the live room without setting it up or changing membership. */
     public static RoomMembers read(PoreloContext context, Project project) throws Refused {
-        return read(context, project, org.fuin.porelo.wire.SystemProgram::find);
+        return read(context, project, TransportVerbs.programs(context.runner()));
     }
 
     /** Replaces only program resolution for tests whose runner never starts namespace tools. */
@@ -99,15 +99,17 @@ public record RoomMembers(String room, List<Member> members) {
         }
         final TransportDirectory transports = context.paths().messaging().transportDirectory();
         final java.nio.file.Path adapter = transports.find(scheme);
-        if (adapter == null
-                || !TransportDescription.of(context.runner(), adapter).offers("members")) {
-            throw new Refused(
-                    Failure.NO_TRANSPORT,
-                    scheme,
-                    "no installed " + scheme + " transport offers members",
-                    0);
-        }
         try {
+            if (adapter == null
+                    || !TransportDescription.required(
+                                    new TransportVerbs(context.runner(), programs), adapter)
+                            .offers("members")) {
+                throw new Refused(
+                        Failure.NO_TRANSPORT,
+                        scheme,
+                        "no installed " + scheme + " transport offers members",
+                        0);
+            }
             final RoomMembers result =
                     new TransportLifecycle(
                                     context, transports, OrganizationProjects.HOST_FILES, programs)
@@ -120,6 +122,13 @@ public record RoomMembers(String room, List<Member> members) {
                 throw new Refused(Failure.NO_ROOM, scheme, "the project has no room yet", 0);
             }
             return result;
+        } catch (final org.fuin.porelo.core.process.CommandException ex) {
+            throw new Refused(
+                    Failure.REFUSED,
+                    scheme,
+                    "the transport could not run fenced: "
+                            + StartStep.cleanLines(String.valueOf(ex.getMessage())),
+                    77);
         } catch (TransportLifecycle.Refused ex) {
             throw new Refused(
                     ex.code() == 75 ? Failure.UNREACHABLE : Failure.REFUSED,

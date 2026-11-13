@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -27,7 +26,9 @@ class MessageWatchNoticeTest {
                                 },
                         dir);
         return new PoreloContext(
-                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new TransportTestRunner(),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0);
     }
 
     /**

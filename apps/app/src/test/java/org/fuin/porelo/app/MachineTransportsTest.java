@@ -62,7 +62,7 @@ class MachineTransportsTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private final StringWriter out = new StringWriter();
 
@@ -215,7 +215,11 @@ class MachineTransportsTest {
                 .as("even describe and setup must wait until admission")
                 .noneMatch(
                         command ->
-                                command.arguments().getFirst().contains(TransportDirectory.PREFIX));
+                                command.arguments().stream()
+                                        .anyMatch(
+                                                argument ->
+                                                        argument.contains(
+                                                                TransportDirectory.PREFIX)));
     }
 
     // Harm guarded: a later verb's words reported under a start that has moved on.
@@ -306,7 +310,11 @@ class MachineTransportsTest {
                 .as("a saved join cannot trigger transport calls")
                 .noneMatch(
                         command ->
-                                command.arguments().getFirst().contains(TransportDirectory.PREFIX));
+                                command.arguments().stream()
+                                        .anyMatch(
+                                                argument ->
+                                                        argument.contains(
+                                                                TransportDirectory.PREFIX)));
     }
 
     // Harm guarded: read-receipt polling must not contact a denied person's account.

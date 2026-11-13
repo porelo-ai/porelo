@@ -47,7 +47,7 @@ class MessageWatchLoopsTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final FakeCommandRunner runner = new TransportTestRunner();
 
     private PoreloContext context;
 

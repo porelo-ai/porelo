@@ -109,6 +109,8 @@ final class TransportConversations {
 
     private final TransportLifecycle lifecycle;
 
+    private final TransportVerbs verbs;
+
     /**
      * Constructor.
      *
@@ -128,9 +130,19 @@ final class TransportConversations {
      */
     TransportConversations(
             PoreloContext context, TransportDirectory transports, java.nio.file.Path hostFiles) {
+        this(context, transports, hostFiles, TransportVerbs.programs(context.runner()));
+    }
+
+    /** Replaces tool resolution independently of command execution in unit tests. */
+    TransportConversations(
+            final PoreloContext context,
+            final TransportDirectory transports,
+            final Path hostFiles,
+            final java.util.function.Function<String, Path> programs) {
         this.context = context;
         this.transports = transports;
-        this.lifecycle = new TransportLifecycle(context, transports, hostFiles);
+        this.lifecycle = new TransportLifecycle(context, transports, hostFiles, programs);
+        this.verbs = new TransportVerbs(context.runner(), programs);
     }
 
     /**
@@ -185,7 +197,12 @@ final class TransportConversations {
                         aliases.putIfAbsent(logical, account);
                     }
                 });
-        return new TransportSend.Acting(secrets, conversation.conversation(), aliases);
+        return new TransportSend.Acting(
+                secrets,
+                conversation.conversation(),
+                aliases,
+                conversation.reaches(),
+                TransportVerbs.offline(context, project));
     }
 
     /**
@@ -228,8 +245,7 @@ final class TransportConversations {
                                 .resolve("inbound")
                                 .resolve(project);
                 Directories.create(inbound);
-                final TransportDescription described =
-                        TransportDescription.of(context.runner(), adapter);
+                final TransportDescription described = TransportDescription.of(verbs, adapter);
                 // Where a waiting poll runs for this conversation, it fetches; here only what it
                 // left is handed out.
                 if (!WAITING.contains(key(scheme, project))) {
@@ -250,7 +266,11 @@ final class TransportConversations {
                                 (person, user) -> lifecycle.remember(scheme, project, person, user),
                                 handed,
                                 failures,
-                                new HelperAnswer(context, adapter, secrets, conversation));
+                                new HelperAnswer(
+                                        adapter,
+                                        secrets,
+                                        conversation,
+                                        verbs.project(context, scheme, project, false)));
                 if (described.takes(DIRECT)) {
                     for (final Member member : group) {
                         if (!WAITING.contains(key(member.scheme(), member.container()))) {
@@ -258,7 +278,7 @@ final class TransportConversations {
                         }
                     }
                 }
-                if ("read".equals(TransportDescription.of(context.runner(), adapter).confirms())) {
+                if ("read".equals(TransportDescription.of(verbs, adapter).confirms())) {
                     for (final Member member : group) {
                         try {
                             marked.addAll(markRead(adapter, member, failures));
@@ -291,10 +311,7 @@ final class TransportConversations {
         for (final Member member : members) {
             final Path adapter = transports.find(member.scheme());
             if (adapter == null
-                    || !"read"
-                            .equals(
-                                    TransportDescription.of(context.runner(), adapter)
-                                            .confirms())) {
+                    || !"read".equals(TransportDescription.of(verbs, adapter).confirms())) {
                 continue;
             }
             try {
@@ -367,11 +384,8 @@ final class TransportConversations {
             poll.addAll(List.of("--wait", String.valueOf(wait)));
         }
         final CommandResult polled =
-                context.runner()
-                        .run(
-                                HelperEnvironment.chosen(
-                                        TransportInput.handed(
-                                                Command.of(poll), described, null, secrets)));
+                verbs.project(context, scheme, project, false)
+                        .run(TransportInput.handed(Command.of(poll), described, null, secrets));
         said(polled, "what arrived for " + project, scheme, failures);
     }
 
@@ -426,8 +440,7 @@ final class TransportConversations {
         int dropped = 0;
         if (adapter != null && !secrets.isEmpty()) {
             try {
-                final TransportDescription described =
-                        TransportDescription.of(context.runner(), adapter);
+                final TransportDescription described = TransportDescription.of(verbs, adapter);
                 final Path inbound =
                         context.paths()
                                 .xdg()
@@ -453,7 +466,11 @@ final class TransportConversations {
                                 (person, user) -> lifecycle.remember(scheme, project, person, user),
                                 handed,
                                 failures,
-                                new HelperAnswer(context, adapter, secrets, conversation));
+                                new HelperAnswer(
+                                        adapter,
+                                        secrets,
+                                        conversation,
+                                        verbs.project(context, scheme, project, false)));
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
             }
@@ -526,14 +543,13 @@ final class TransportConversations {
             poll.addAll(List.of("--wait", String.valueOf(wait)));
         }
         final CommandResult polled =
-                context.runner()
+                verbs.project(context, member.scheme(), member.project(), false)
                         .run(
-                                HelperEnvironment.chosen(
-                                        TransportInput.handed(
-                                                Command.of(poll),
-                                                TransportDescription.of(context.runner(), adapter),
-                                                null,
-                                                secrets)));
+                                TransportInput.handed(
+                                        Command.of(poll),
+                                        TransportDescription.of(verbs, adapter),
+                                        null,
+                                        secrets));
         said(
                 polled,
                 "what was said to " + member.container() + " directly",
@@ -557,10 +573,10 @@ final class TransportConversations {
                 handed,
                 failures,
                 new HelperAnswer(
-                        context,
                         adapter,
                         lifecycle.secrets(member.scheme(), "project/" + member.project()),
-                        conversation));
+                        conversation,
+                        verbs.project(context, member.scheme(), member.project(), false)));
     }
 
     /**
@@ -839,20 +855,16 @@ final class TransportConversations {
             return List.of();
         }
         final List<String> marked = new ArrayList<>();
-        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        final TransportDescription described = TransportDescription.of(verbs, adapter);
         for (final String name : taken) {
             final CommandResult result =
-                    context.runner()
+                    verbs.project(context, member.scheme(), member.project(), false)
                             .run(
-                                    HelperEnvironment.chosen(
-                                            TransportInput.handed(
-                                                    Command.of(
-                                                            adapter.toString(),
-                                                            "read",
-                                                            reference(name)),
-                                                    described,
-                                                    null,
-                                                    secrets)));
+                                    TransportInput.handed(
+                                            Command.of(adapter.toString(), "read", reference(name)),
+                                            described,
+                                            null,
+                                            secrets));
             if (result.successful()) {
                 Files.writeString(
                         member.mailbox().record().resolve(MARKED),
@@ -917,7 +929,7 @@ final class TransportConversations {
                             .sorted()
                             .toList();
         }
-        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        final TransportDescription described = TransportDescription.of(verbs, adapter);
         for (final Path receipt : receipts) {
             final String name = receipt.getFileName().toString().replace(".receipt.json", "");
             final Path message = sent.resolve(name);
@@ -934,19 +946,18 @@ final class TransportConversations {
                 continue;
             }
             final CommandResult result =
-                    context.runner()
+                    verbs.project(context, member.scheme(), member.project(), false)
                             .run(
-                                    HelperEnvironment.chosen(
-                                            TransportInput.handed(
-                                                    Command.of(
-                                                            adapter.toString(),
-                                                            "receipt",
-                                                            reference,
-                                                            "--by",
-                                                            address),
-                                                    described,
-                                                    null,
-                                                    secrets)));
+                                    TransportInput.handed(
+                                            Command.of(
+                                                    adapter.toString(),
+                                                    "receipt",
+                                                    reference,
+                                                    "--by",
+                                                    address),
+                                            described,
+                                            null,
+                                            secrets));
             if (!result.successful()) {
                 if (result.exitCode() != TransportSend.TEMPORARY) {
                     failures.add(

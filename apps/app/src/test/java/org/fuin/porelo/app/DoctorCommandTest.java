@@ -34,7 +34,7 @@ class DoctorCommandTest {
     private PoreloContext context(Path dir, Path hooks, Path packagedHooks, Path packagedAgents) {
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
         return new PoreloContext(
-                new FakeCommandRunner(),
+                new TransportTestRunner(),
                 new PoreloPaths(xdg, hooks, packagedHooks, packagedAgents),
                 arguments -> 0);
     }
@@ -183,7 +183,7 @@ class DoctorCommandTest {
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(
                 new PoreloContext(
-                        new FakeCommandRunner(),
+                        new TransportTestRunner(),
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0));
 
@@ -216,7 +216,7 @@ class DoctorCommandTest {
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(
                 new PoreloContext(
-                        new FakeCommandRunner(),
+                        new TransportTestRunner(),
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0));
 
@@ -257,7 +257,7 @@ class DoctorCommandTest {
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(
                 new PoreloContext(
-                        new FakeCommandRunner().failing("describe", 3, "no"),
+                        new TransportTestRunner().failing("describe", 3, "no"),
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0));
 
@@ -298,7 +298,7 @@ class DoctorCommandTest {
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(
                 new PoreloContext(
-                        new FakeCommandRunner()
+                        new TransportTestRunner()
                                 .answering(
                                         "local describe",
                                         "{\"scheme\":\"local\",\"lifecycle\":[\"setup\"]}")
@@ -352,7 +352,7 @@ class DoctorCommandTest {
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(
                 new PoreloContext(
-                        new FakeCommandRunner()
+                        new TransportTestRunner()
                                 .answering(
                                         "local describe",
                                         "{\"scheme\":\"local\",\"lifecycle\":[\"setup\"]}")
@@ -396,7 +396,7 @@ class DoctorCommandTest {
                                     default -> null;
                                 },
                         dir);
-        final FakeCommandRunner runner = new FakeCommandRunner();
+        final FakeCommandRunner runner = new TransportTestRunner();
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(
                 new PoreloContext(
@@ -426,7 +426,7 @@ class DoctorCommandTest {
         // It works, and the git gate ends up on the operator's network with only its per-task token
         // in front of it. Degraded rather than missing: the machine runs tasks.
         final FakeCommandRunner runner =
-                new FakeCommandRunner().answering("RootlessNetworkCmd", "slirp4netns\n");
+                new TransportTestRunner().answering("RootlessNetworkCmd", "slirp4netns\n");
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(

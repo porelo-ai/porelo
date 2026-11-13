@@ -39,7 +39,7 @@ public final class TransportSend {
     public record Result(
             List<String> sent, List<String> deferred, List<MessageDelivery.Held> refused) {}
 
-    private final CommandRunner runner;
+    private final TransportVerbs verbs;
 
     private final TransportDirectory transports;
 
@@ -82,7 +82,7 @@ public final class TransportSend {
             final TransportDirectory transports,
             final Access access,
             final Marks marks) {
-        this.runner = runner;
+        this.verbs = TransportVerbs.of(runner);
         this.transports = transports;
         this.access = access;
         this.marks = marks;
@@ -108,11 +108,24 @@ public final class TransportSend {
      * @param environment Variables for the transport.
      * @param to The destination to hand the transport instead of the peer's, or {@code null} for
      *     the peer's.
+     * @param accounts The project's task aliases and their transport addresses.
+     * @param reaches The hosts and loopback ports reported by the last setup.
+     * @param loopbackOnly Whether this project is offline.
      */
     public record Acting(
             java.util.Map<String, String> environment,
             @org.jspecify.annotations.Nullable String to,
-            java.util.Map<String, String> accounts) {
+            java.util.Map<String, String> accounts,
+            List<String> reaches,
+            boolean loopbackOnly) {
+        /** Constructs access with no saved network allowance. */
+        public Acting(
+                final java.util.Map<String, String> environment,
+                final @org.jspecify.annotations.Nullable String to,
+                final java.util.Map<String, String> accounts) {
+            this(environment, to, accounts, List.of(), false);
+        }
+
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
@@ -192,7 +205,7 @@ public final class TransportSend {
             }
             return new Result(sent, deferred, refused);
         }
-        final TransportDescription described = TransportDescription.of(runner, adapter);
+        final TransportDescription described = TransportDescription.of(verbs, adapter);
         final boolean shows = described.takes(SHOWN);
         final boolean mentions = described.takes(MENTION);
         // What was deferred is tried first, so a queue drains in the order it filled.
@@ -254,7 +267,11 @@ public final class TransportSend {
             }
             final CommandResult result;
             try {
-                result = runner.run(HelperEnvironment.chosen(command));
+                result =
+                        (acting == null
+                                        ? verbs
+                                        : verbs.reaching(acting.reaches(), acting.loopbackOnly()))
+                                .run(command);
             } finally {
                 Files.deleteIfExists(line);
             }
