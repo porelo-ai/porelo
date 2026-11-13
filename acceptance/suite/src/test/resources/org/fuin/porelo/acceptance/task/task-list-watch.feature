@@ -14,7 +14,7 @@ Feature: The task list that stays open
         And a vault of this scenario's own, unlocked with the passphrase "acceptance"
         And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
         And a project called "watched" with a file in it
-        When a script runs "porelo task start shell --project watched --repository watched --agent stub --clearance deny"
+        When a script runs "timeout 600 porelo task start shell --project watched --repository watched --agent stub --clearance deny --detach"
         Then it exits zero
         Given a terminal on the machine
         When I run "stty -a > stty-before-watch; porelo task list --watch --project watched"
