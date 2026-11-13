@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B695",
   "title": "A Varlink Call Bounded From Send To Answer",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 49,
