@@ -307,12 +307,14 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     }
 
     /**
-     * Says what is wrong with a name no provider is declared under.
+     * Says what a name nothing asks for yet is: an agent's name stored by mistake, or a name that
+     * waits for whatever will ask for it.
      *
      * @param name The name given.
      * @param providers The providers declared here.
      * @param agents The agents installed here.
-     * @return One sentence, without the "porelo: " prefix.
+     * @return One sentence: the warning for an agent's name, without the "porelo: " prefix; what
+     *     may ask for any other name, to follow "used for ".
      */
     static String unknownName(
             String name, java.util.Set<String> providers, java.util.Set<String> agents) {
@@ -334,12 +336,13 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                     + name
                     + "'";
         }
-        return "no provider '"
-                + name
-                + "' is declared (declared: "
+        // Not a mistake: a credential is commonly stored before the project or the provider that
+        // asks for it. Said once, so a typo is findable among the providers named.
+        return "nothing yet - a provider of that name (declared: "
                 + declared
-                + "); a task will"
-                + " only find this credential if something asks for it by that name";
+                + "), a project's builds.credential or credentials, or a declaration with --vault "
+                + name
+                + " may ask for it";
     }
 
     /**
@@ -363,6 +366,25 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             final String name,
             final @Nullable String type,
             final java.util.Collection<org.fuin.porelo.core.credential.Credential> declared) {
+        return useOf(name, type, declared, java.util.Map.of());
+    }
+
+    /**
+     * Finds the declarations and the projects that read a vault entry, and whether what was stored
+     * fits the declarations.
+     *
+     * @param name The entry.
+     * @param type What was stored - {@code ssh-key} for a private key - or {@code null} when not
+     *     stated.
+     * @param declared Every declaration on this machine.
+     * @param asked What the projects here ask for, by entry, as {@link #askedByProjects} says it.
+     * @return The destinations, the declarations' first, empty when none reads it.
+     */
+    static Use useOf(
+            final String name,
+            final @Nullable String type,
+            final java.util.Collection<org.fuin.porelo.core.credential.Credential> declared,
+            final java.util.Map<String, java.util.List<String>> asked) {
         final java.util.List<String> matches = new java.util.ArrayList<>();
         String misfit = null;
         for (final org.fuin.porelo.core.credential.Credential credential : declared) {
@@ -394,16 +416,76 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                                 + " - a start will refuse it";
             }
         }
+        matches.addAll(asked.getOrDefault(name, java.util.List.of()));
         return new Use(java.util.List.copyOf(matches), misfit);
     }
 
     /**
-     * Says so when nothing will look this credential up, or when its kind cannot be brokered.
+     * Returns the vault entries the projects on this machine ask for, with what each is for: a
+     * project's {@code builds.credential}, as its file or its host names it, and the entries under
+     * its {@code credentials:}.
+     *
+     * <p>A credential is commonly stored for a placed project's build reader, which no provider and
+     * no declaration names: without these, storing it was told nothing would find it (found on
+     * 2026-11-04 with {@code builds.credential: github-actions}).
+     *
+     * @param context The machine.
+     * @return By entry name, what reads it, such as {@code sluice-dry's build reader}.
+     */
+    static java.util.Map<String, java.util.List<String>> askedByProjects(
+            final PoreloContext context) {
+        final java.util.Map<String, java.util.List<String>> asked = new java.util.LinkedHashMap<>();
+        final OrganizationProjects organization = OrganizationProjects.of(context);
+        for (final String project : ProjectSource.names(context)) {
+            if (DefaultProject.is(project)) {
+                // Generated from the repositories added to it: it names no credential of its own.
+                continue;
+            }
+            org.fuin.porelo.core.project.Builds builds = null;
+            try {
+                final OrganizationProjects.Placed placed = organization.find(project);
+                if (placed != null) {
+                    builds = placed.builds();
+                }
+            } catch (final IOException ex) {
+                // A record that does not read is the start's to report; here nothing is known.
+            }
+            try {
+                final java.nio.file.Path file = ProjectSource.resolve(context, project).file();
+                if (file != null) {
+                    final org.fuin.porelo.core.project.Project read =
+                            org.fuin.porelo.core.project.ProjectReader.read(file);
+                    read.credentials()
+                            .forEach(
+                                    (entry, destination) ->
+                                            asked.computeIfAbsent(
+                                                            entry,
+                                                            any -> new java.util.ArrayList<>())
+                                                    .add(project + "'s " + destination));
+                    // The project's own builds win over its host's, as a task wires them.
+                    if (read.builds() != null) {
+                        builds = read.builds();
+                    }
+                }
+            } catch (final RuntimeException ex) {
+                // A file that does not read is the start's to report, as above.
+            }
+            if (builds != null) {
+                asked.computeIfAbsent(builds.credential(), any -> new java.util.ArrayList<>())
+                        .add(project + "'s build reader");
+            }
+        }
+        return asked;
+    }
+
+    /**
+     * Says what reads this credential, or what may ask for it while nothing does yet; warns of an
+     * agent's name stored for a provider's, and of a kind that cannot be brokered.
      *
      * <p>Checked here as well as at task start, because storing is where the choice is made and a
-     * task may not be run for days. A name nobody knows is worth saying whether or not a kind was
-     * given: the commonest way to get this wrong is to type the agent's name instead of the
-     * provider's.
+     * task may not be run for days. A name nobody asks for yet is said whether or not a kind was
+     * given, so a typo is findable; only an agent's name is warned of, the commonest way to get
+     * this wrong.
      *
      * @param out Where the destinations it is used for are said.
      * @param err Where to report.
@@ -420,7 +502,14 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             // is known to use it.
             declared = java.util.List.of();
         }
-        final Use use = useOf(name, type, declared);
+        java.util.Map<String, java.util.List<String>> asked;
+        try {
+            asked = askedByProjects(context);
+        } catch (RuntimeException ex) {
+            // As with the registry: what cannot be read here only means nothing is known to ask.
+            asked = java.util.Map.of();
+        }
+        final Use use = useOf(name, type, declared, asked);
         if (!use.matches().isEmpty()) {
             out.println("used for  " + String.join(", ", use.matches()));
             out.flush();
@@ -459,8 +548,14 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             } catch (RuntimeException ex) {
                 agents = java.util.Set.of();
             }
-            err.println("porelo: " + unknownName(name, context.providers().keySet(), agents));
-            err.flush();
+            if (agents.contains(name)) {
+                err.println("porelo: " + unknownName(name, context.providers().keySet(), agents));
+                err.flush();
+            } else {
+                // Not a warning: nothing is wrong with a name nothing asks for yet.
+                out.println("used for  " + unknownName(name, context.providers().keySet(), agents));
+                out.flush();
+            }
             return;
         }
         if (type == null) {

@@ -194,7 +194,7 @@ class VaultPutCommandTest {
                         "antropic", java.util.Set.of("anthropic"), java.util.Set.of("claude"));
 
         assertThat(said)
-                .contains("no provider 'antropic' is declared")
+                .startsWith("nothing yet")
                 .contains("declared: anthropic")
                 .doesNotContain("agent's name");
     }
@@ -374,6 +374,131 @@ class VaultPutCommandTest {
                 .contains("declared to take a token")
                 .contains("an ssh key");
         assertThat(VaultPutCommand.useOf("forge-work", null, forToken).misfit()).isNull();
+    }
+
+    private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
+
+    private final java.io.StringWriter out = new java.io.StringWriter();
+
+    private final java.io.StringWriter err = new java.io.StringWriter();
+
+    /** A machine of the test's own with a vault, its passphrase known to this JVM. */
+    private static PoreloContext machine(final java.nio.file.Path dir) {
+        final PoreloContext context =
+                new PoreloContext(
+                                new org.fuin.porelo.testing.FakeCommandRunner(),
+                                new PoreloPaths(
+                                        org.fuin.porelo.core.config.XdgPaths.of(name -> null, dir),
+                                        dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(prompt -> PASSPHRASE.clone());
+        context.vault().write(java.util.Map.of(), PASSPHRASE);
+        context.requireOpener();
+        return context;
+    }
+
+    /** Runs 'vault put' with a token piped in, as a script does. */
+    private int put(final PoreloContext context, final String name) {
+        final picocli.CommandLine command =
+                PoreloCli.commandLine(
+                        context.reading(
+                                new StandardInput(
+                                        new java.io.ByteArrayInputStream(
+                                                "a-token-for-the-unit-test-run"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8)),
+                                        false)));
+        command.setOut(new java.io.PrintWriter(out));
+        command.setErr(new java.io.PrintWriter(err));
+        return command.execute("vault", "put", name, "--type", "token");
+    }
+
+    @Test
+    void anEntryAPlacedProjectsBuildsReadIsSaidToBeUsedThere(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws IOException {
+
+        // 'vault put github-actions' warned that nothing would find it, although the placed
+        // project's builds name exactly that entry: a person told so removes it, and the task's
+        // build reader fails later.
+        final PoreloContext context = machine(dir);
+        try {
+            OrganizationProjects.of(context)
+                    .write(
+                            new OrganizationProjects.Placed(
+                                    "sluice-dry",
+                                    "0123456789abcdef0123456789abcdef01234567",
+                                    "https://forge.example.org/acme/sluice-dry.git",
+                                    null,
+                                    java.util.List.of(),
+                                    null,
+                                    null,
+                                    null,
+                                    java.util.List.of(),
+                                    new org.fuin.porelo.core.project.Builds(
+                                            "github",
+                                            "github-actions",
+                                            "",
+                                            org.fuin.porelo.core.project.Builds.FAILURE)));
+
+            assertThat(put(context, "github-actions")).as(err.toString()).isZero();
+
+            assertThat(out.toString()).contains("used for  sluice-dry's build reader");
+            assertThat(err.toString()).doesNotContain("porelo:");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void anEntryAProjectsCredentialsNameIsSaidToBeUsedThere(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws IOException {
+
+        final PoreloContext context = machine(dir);
+        try {
+            final java.nio.file.Path file = context.paths().projects().defaultProjectFile("shop");
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(
+                    file,
+                    """
+                    project:
+                      name: shop
+                      security_class: online
+                      central: git@github.com:you/shop.git
+                    image:
+                      from: ubuntu:24.04
+                    credentials:
+                      search-key: brave-search
+                    """);
+
+            assertThat(put(context, "search-key")).as(err.toString()).isZero();
+
+            assertThat(out.toString()).contains("used for  shop's brave-search");
+            assertThat(err.toString()).doesNotContain("porelo:");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void anEntryNothingAsksForYetIsSaidWhatMayAskWithoutAWarning(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+
+        // Stored before the project that needs it is placed, which is common: no mistake to warn
+        // of, only what may ask for it.
+        final PoreloContext context = machine(dir);
+        try {
+            assertThat(put(context, "github-actions")).as(err.toString()).isZero();
+
+            assertThat(out.toString())
+                    .contains(
+                            "used for  nothing yet - a provider of that name (declared: none), a"
+                                    + " project's builds.credential or credentials, or a"
+                                    + " declaration with --vault github-actions may ask for it");
+            assertThat(err.toString()).doesNotContain("porelo:");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
     }
 
     @Test

@@ -305,7 +305,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
 | <a id="b622"></a>[B622](B622-A-Tasks-Own-Record-Answers-What-Planning-Measures.md) | M | - | porelod keeps one record per task, kept past its removal, with its project, issue and phase, its start and end, its agent, model and effort, and the tokens counted per request, and one entry per tool call in a format porelod defines and each provider adapter maps its stream into; Tasks1 `Records` and `porelo task records --json` answer a project's records since a time. |
-| <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings |
 
 ## Review
 
@@ -412,6 +411,7 @@ from its side, as *blocked by*.
 | <a id="b533"></a>[B533](B533-A-Default-Model-Per-Provider.md) | M | - | The project file names a default model per provider, a start takes it unless another is chosen, and the task row says which model and from where. | - |
 | <a id="b530"></a>[B530](B530-One-Sign-In-Per-Agent-That-Starts-Wait-On.md) | L | - | One sign-in per agent and machine, signed in over the daemon as a detached login, never a task; a second sign-in answers the running one and the sweep spares it. | - |
 | <a id="b528"></a>[B528](B528-A-Persons-Line-To-All-Agents-Wakes-Every-Task.md) | S | - | A person's line headed "All agents:" reaches and wakes every task; a task's cannot. | - |
+| <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings | - |
 | <a id="b525"></a>[B525](B525-Each-Workflow-Run-Of-A-Build-By-Name.md) | M | - | A build names each workflow run of the commit with its own state, also while it runs. | - |
 | <a id="b219"></a>[B219](B219-A-Private-Package-Repository-Through-The-Broker.md) | L | - | A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task. | - |
 | <a id="b526"></a>[B526](B526-A-Task-Is-Shown-By-Its-Agent-Name.md) | S | - | A task is enrolled into its room under "Agent <Name>" where the transport takes `--display`. | - |

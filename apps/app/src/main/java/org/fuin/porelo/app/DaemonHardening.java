@@ -90,7 +90,11 @@ record DaemonHardening(@Nullable Long pid, State state) {
      */
     String said() {
         return switch (state) {
-            case NOT_DUMPABLE -> "no - pid " + pid + ", its /proc entries belong to root";
+            case NOT_DUMPABLE ->
+                    "no, as it should be - pid "
+                            + pid
+                            + "; its /proc entries belong to root, so no core dump or ptrace of it"
+                            + " reads the vault's secrets";
             case DUMPABLE ->
                     "yes - pid "
                             + pid

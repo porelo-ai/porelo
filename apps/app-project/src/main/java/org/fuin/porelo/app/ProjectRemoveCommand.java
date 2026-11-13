@@ -89,7 +89,8 @@ public class ProjectRemoveCommand
         }
 
         if (!dryRun && ProjectSource.names(context).contains(name)) {
-            err.println("porelo: removing " + name + ", its transports in their turn");
+            // Progress, not a warning: nothing is wrong.
+            err.println("removing  " + name + ", its transports in their turn");
             err.flush();
         }
         ProjectDeletion.Result deleted = new ProjectDeletion(context).delete(name, dryRun, force);

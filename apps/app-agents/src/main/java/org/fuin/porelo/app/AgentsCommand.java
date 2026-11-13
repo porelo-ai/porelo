@@ -200,7 +200,7 @@ public class AgentsCommand implements Callable<Integer>, PoreloFactory.ContextAw
                         out.println(
                                 "             ready:   "
                                         + (ready == null
-                                                ? "not declared - whether it reached work cannot be told"
+                                                ? "not declared in the agent's package, so Porelo does not tell when it reached work"
                                                 : "\""
                                                         + ready.text()
                                                         + "\""
@@ -217,7 +217,7 @@ public class AgentsCommand implements Callable<Integer>, PoreloFactory.ContextAw
                         out.println(
                                 "             waiting: "
                                         + (waiting == null
-                                                ? "not declared - whether it waits for a person cannot be told"
+                                                ? "not declared in the agent's package, so Porelo does not tell when it waits for a person"
                                                 : waiting.screen().size()
                                                         + " screen rule(s)"
                                                         + (waiting.lastMessage() == null

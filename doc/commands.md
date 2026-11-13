@@ -588,7 +588,7 @@ Credentials, and the broker that lets a task use one without holding it. See
 | `porelo vault login [AGENT]` | Runs the agent's own login in a throwaway container and stores the result. An agent whose `login.flow` is `loopback` is refused over SSH, before anything is built or the vault asked, since the redirect would land on this machine; a refusal elsewhere never names this login for it. |
 | `porelo vault renew NAME` | Marks a sign-in due; the next task's first request renews it on the host. A running task keeps its token until it ends. |
 | `porelo vault import [AGENT] [--provider NAME]` | Copies a credential the agent already holds on this host, with `--provider` the sign-in for that provider, stored under its name. |
-| `porelo vault put NAME` | Stores a value from standard input under the provider's name. |
+| `porelo vault put NAME` | Stores a value from standard input under the provider's name, and says what reads it: a declaration, or a project's `builds.credential` or `credentials:`; for a name nothing asks for yet, what may. |
 | `porelo vault authorize NAME` | Grants an OAuth authorization once in any browser and keeps it. |
 | `porelo vault list` | Lists the names held. Never the values. |
 | `porelo vault remove NAME [--without-revoking]` | Removes an entry, revoking a granted authorization first. If revoking fails, the entry is kept unless `--without-revoking`. |

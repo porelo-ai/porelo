@@ -1,0 +1,2 @@
+title: "'porelo vault put' says a placed project's builds.credential or credentials: entry is used there, a name nothing asks for yet is no longer a warning, and a few progress and settled states are no longer printed as findings"
+type: changed

@@ -596,7 +596,7 @@ final class HostGatherFlow {
                                 try {
                                     remove();
                                 } catch (IOException ex) {
-                                    err.println("porelo: left " + path + " behind");
+                                    err.println("porelo: left " + path + " behind; remove it");
                                     err.flush();
                                 }
                             },

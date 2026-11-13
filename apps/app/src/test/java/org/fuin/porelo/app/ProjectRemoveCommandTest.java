@@ -189,7 +189,7 @@ class ProjectRemoveCommandTest {
         final Run removed = run(context, "mine", "--force");
 
         assertThat(removed.code()).as(removed.err()).isZero();
-        assertThat(removed.err()).contains("porelo: removing mine");
+        assertThat(removed.err()).contains("removing  mine");
         assertThat(place).doesNotExist();
         assertThat(java.nio.file.Files.isSymbolicLink(place)).isFalse();
         assertThat(checkout.resolve("project.yml")).exists();
