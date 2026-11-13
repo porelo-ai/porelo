@@ -102,7 +102,8 @@ class ReachDocumentTest {
                 .contains("one line of at most " + TaskIdeas.MOST_TITLE + " characters")
                 .contains("at most " + TaskIdeas.MOST_WHAT_MUST_BE_TRUE + " characters")
                 .contains("Only the task bound to that socket, for itself")
-                .contains("until the task is removed")
+                .contains("until the person takes them with `TakeIdea`")
+                .contains("which no task endpoint carries, or the task is removed")
                 .contains("receive `ideas: []`")
                 .contains(
                         "at most "

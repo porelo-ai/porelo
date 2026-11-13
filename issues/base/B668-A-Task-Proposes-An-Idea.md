@@ -87,3 +87,17 @@ directory (`TaskDone`, `paths.tasks().taskRecord`), which outlives the runtime d
   4 MiB. Each row says in `ideasHeldBack` how many of its task's ideas it left out, so a client keeps the task until
   that is 0.
 - `doc/reach.md` and `Reach` name the idea channel: its allowance, its bounds, who may write and who sees it.
+
+## The second reading's Reds, fixed (2026-11-13)
+
+- A task socket's Watch is sent a reply only when what that socket may see changed: the comparison is of the cut
+  rows, so a sibling without `Logs` or `Tail` is not told, by a notification alone, that another task proposed.
+- A person takes an idea with `Tasks1.TakeIdea(task, id) -> (taken)`, kept or declined, on the person's socket alone
+  (`McpMethods.JUDGEMENT`; no task endpoint carries it). The daemon forgets it, so the next reply carries the ideas
+  held back behind it, and `ideasHeldBack` falls as ideas are taken. The record counts every idea proposed
+  (`proposed`), so a taken one frees no room under `limits.ideas` and its id is not given again.
+- The 1 MiB counts each row's `ideas` array as written: brackets and the commas between ideas.
+- Red first: `TaskIdeaMethodsTest` (a sibling's Watch, the drain over several replies, a taken idea's room and
+  number, no task endpoint for `TakeIdea`), `TaskIdeasTest` (taking, an older record, the array's brackets) and the
+  `InterfaceDescriptionTest` pin. The race, redaction and listing tests were each shown to fail against a broken copy
+  of the code they guard.

@@ -730,7 +730,9 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
     /**
      * Returns replies that keep, of a list of tasks, those of one project alone, and without what a
-     * run said where the section allows no reading of it.
+     * run said where the section allows no reading of it. A Watch reply the cut leaves as the last
+     * one sent is not sent again: a change the caller may not see, another project's or what
+     * another task wrote, would otherwise reach it as a notification, which counts them.
      *
      * @param project The caller's project.
      * @param readsTheRun Whether the section allows Logs or Tail.
@@ -743,9 +745,18 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             final boolean readsTheRun,
             final VarlinkServer.Replies replies) {
         return new VarlinkServer.Replies() {
+            private @Nullable String sent;
+
             @Override
             public void more(final Map<String, Object> parameters) throws IOException {
-                replies.more(cut(parameters));
+                final Map<String, Object> answer = cut(parameters);
+                // Compared as the daemon's Watch compares, without what changes on its own.
+                final String settled = settled(answer);
+                if (settled.equals(sent)) {
+                    return;
+                }
+                sent = settled;
+                replies.more(answer);
             }
 
             @Override
@@ -788,6 +799,28 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                 return answer;
             }
         };
+    }
+
+    /** Returns a reply of tasks as Watch compares it, without what changes on its own. */
+    private static String settled(final Map<String, Object> answer) {
+        final Map<String, Object> settled = new LinkedHashMap<>(answer);
+        if (answer.get("tasks") instanceof List<?> tasks) {
+            settled.put(
+                    "tasks",
+                    tasks.stream()
+                            .map(
+                                    task -> {
+                                        final Map<String, Object> row = new LinkedHashMap<>();
+                                        if (task instanceof Map<?, ?> fields) {
+                                            fields.forEach(
+                                                    (key, value) ->
+                                                            row.put(String.valueOf(key), value));
+                                        }
+                                        return PoreloDaemon.withoutAge(row);
+                                    })
+                            .toList());
+        }
+        return org.fuin.porelo.wire.Json.write(settled);
     }
 
     /**

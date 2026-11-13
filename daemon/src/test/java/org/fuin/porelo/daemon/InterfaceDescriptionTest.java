@@ -199,6 +199,9 @@ class InterfaceDescriptionTest {
                                 + " -> (id: string)",
                         "error NotAllowed(message: string)",
                         "error NotItsOwn(task: string, parent: string)");
+        assertThat(description)
+                .as("the person takes an idea, so the next reply carries the ones behind it")
+                .contains("method TakeIdea(task: string, id: string) -> (taken: bool)");
         final Matcher idea =
                 Pattern.compile("(?ms)^type TaskIdea \\(\\n(.*?)^\\)").matcher(description);
         assertThat(idea.find()).as("the contract declares TaskIdea").isTrue();

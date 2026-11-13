@@ -394,8 +394,8 @@ token; a start whose key cannot be kept takes none and is refused with exit code
 `limits.ideas` is how many ideas one task may propose for itself with `ProposeIdea` over its
 [MCP endpoint](#a-tasks-mcp-endpoint), whose `mcp.methods` must name `ProposeIdea` too: 0, the default, for none, and
 at most 100. An idea is a new issue the task found while working, a one-line title and what must be true; Porelo keeps
-it with the task, and List and Watch show it on the task's row (`ideas`) until the task is removed, for a person's
-client to hand on. The bound is read at each proposal, not fixed at the start, so a lowered bound holds for the next
+it with the task, and List and Watch show it on the task's row (`ideas`) for a person's client to hand on, until the
+person takes it (`TakeIdea`) or the task is removed. The bound counts every idea the task proposed, taken ones too. The bound is read at each proposal, not fixed at the start, so a lowered bound holds for the next
 one; a proposal where it is 0, or past it, is refused with `NotAllowed`, naming the bound. A number below 0, over 100
 or not whole is refused when the file is read.
 

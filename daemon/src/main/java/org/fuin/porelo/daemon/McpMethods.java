@@ -138,7 +138,9 @@ final class McpMethods {
                     "Authorize",
                     "EnrollDevice",
                     "UnlockWithShare",
-                    "Release");
+                    "Release",
+                    // Keeping or declining a task's idea, which then leaves its row.
+                    "TakeIdea");
 
     private McpMethods() {}
 

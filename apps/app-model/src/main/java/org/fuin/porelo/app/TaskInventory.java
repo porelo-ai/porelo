@@ -1529,14 +1529,16 @@ public final class TaskInventory {
 
     /**
      * Takes the ideas a reply carries: each task's oldest first, one of each task in turn, while
-     * they fit in {@link #MOST_REPLY_IDEAS}. A task's ideas past it are left for a later reply,
-     * never one skipped, so a client handing each id on once misses none.
+     * the rows' {@code ideas} arrays, written as sent, fit in {@link #MOST_REPLY_IDEAS}. A task's
+     * ideas past it are left for a later reply, never one skipped, so a client handing each id on
+     * once misses none; a reply carries the next ones once a person took these.
      */
     static List<List<Map<String, Object>>> carried(final List<List<TaskIdeas.Idea>> ideas) {
         final List<List<Map<String, Object>>> carried = new java.util.ArrayList<>();
         final boolean[] full = new boolean[ideas.size()];
         ideas.forEach(each -> carried.add(new java.util.ArrayList<>()));
-        long bytes = 0;
+        // Each row's brackets, written also where it carries none.
+        long bytes = 2L * ideas.size();
         boolean more = true;
         for (int number = 0; more; number++) {
             more = false;
@@ -1545,12 +1547,12 @@ public final class TaskInventory {
                     continue;
                 }
                 final Map<String, Object> idea = ideas.get(task).get(number).asMap();
-                // With the comma between two.
+                // With the comma before it, where the row carries one already.
                 final long size =
                         org.fuin.porelo.wire.Json.write(idea)
                                         .getBytes(java.nio.charset.StandardCharsets.UTF_8)
                                         .length
-                                + 1L;
+                                + (carried.get(task).isEmpty() ? 0L : 1L);
                 if (bytes + size > MOST_REPLY_IDEAS) {
                     full[task] = true;
                     continue;

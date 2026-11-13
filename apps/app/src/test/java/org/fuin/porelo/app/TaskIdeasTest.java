@@ -107,6 +107,90 @@ class TaskIdeasTest {
     }
 
     @Test
+    void aTakenIdeaIsForgottenAndItsNumberNotGivenAgain() throws Exception {
+        // The bound counts what the task proposed: taking must not let it propose without end.
+        final TaskIdeas ideas = ideas();
+        ideas.propose(TASK, "First", "One.", 2);
+        ideas.propose(TASK, "Second", "Two.", 2);
+        assertThat(ideas.take(TASK, "idea-1")).as("the person took it").isTrue();
+        assertThat(ideas.take(TASK, "idea-1")).as("taken once").isFalse();
+        assertThat(ideas.take(TASK, "idea-9")).as("never proposed").isFalse();
+        assertThat(ideas.read(TASK)).extracting(TaskIdeas.Idea::id).containsExactly("idea-2");
+        assertThatThrownBy(() -> ideas.propose(TASK, "Third", "Three.", 2))
+                .as("a taken idea frees no room")
+                .isInstanceOf(TaskIdeas.BoundReached.class);
+        assertThat(ideas.take(TASK, "idea-2")).isTrue();
+        assertThat(ideas.propose(TASK, "Third", "Three.", 3).id())
+                .as("numbered past every idea taken")
+                .isEqualTo("idea-3");
+        assertThat(ideas.take("porelo-uc-none", "idea-1"))
+                .as("a task without a record holds none, and none is made")
+                .isFalse();
+        assertThat(ideas.paths().tasks().taskRecord("porelo-uc-none")).doesNotExist();
+    }
+
+    @Test
+    void aRecordFromBeforeIdeasWereTakenCountsByItsNewest() throws Exception {
+        final TaskIdeas ideas = ideas();
+        ideas.propose(TASK, "Kept", "It is.", 5);
+        final Path record = ideas.paths().tasks().taskRecord(TASK).resolve("ideas.json");
+        Files.writeString(
+                record,
+                "{\"ideas\":[{\"id\":\"idea-2\",\"title\":\"Old\",\"whatMustBeTrue\":\"It"
+                        + " is.\",\"at\":\"2026-11-13T00:00:00Z\"}]}");
+        assertThat(ideas.propose(TASK, "Next", "It is.", 5).id()).isEqualTo("idea-3");
+        Files.writeString(
+                record,
+                "{\"proposed\":1,\"ideas\":[{\"id\":\"idea-2\",\"title\":\"Old\","
+                        + "\"whatMustBeTrue\":\"It is.\",\"at\":\"2026-11-13T00:00:00Z\"}]}");
+        assertThat(ideas.read(TASK))
+                .as("a count below an id it holds is no record of the host's")
+                .isEmpty();
+    }
+
+    private static TaskIdeas.Idea sized(final int number, final long bytes) {
+        final String id = "idea-" + number;
+        final long base = written(new TaskIdeas.Idea(id, "T", "x", "2026-11-13T00:00:00Z")) - 1;
+        return new TaskIdeas.Idea(
+                id, "T", "x".repeat(Math.toIntExact(bytes - base)), "2026-11-13T00:00:00Z");
+    }
+
+    private static long written(final TaskIdeas.Idea idea) {
+        return written((Object) idea.asMap());
+    }
+
+    private static long written(final Object value) {
+        return org.fuin.porelo.wire.Json.write(value)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                .length;
+    }
+
+    @Test
+    void aReplysIdeasAreCountedWithTheirArraysBrackets() {
+        // Ideas whose array, written, is one byte past the allowance: counted without its brackets
+        // they fitted exactly.
+        final long most = TaskInventory.MOST_REPLY_IDEAS;
+        final List<TaskIdeas.Idea> ideas = new ArrayList<>();
+        // The array so far, "[]" and the commas between its ideas.
+        long array = 2;
+        while (most + 1 - array > 2 * 1000) {
+            final TaskIdeas.Idea idea = sized(ideas.size() + 1, 1000);
+            array += written(idea) + (ideas.isEmpty() ? 0 : 1);
+            ideas.add(idea);
+        }
+        final long left = most + 1 - array - 2;
+        ideas.add(sized(ideas.size() + 1, left / 2));
+        ideas.add(sized(ideas.size() + 1, left - left / 2));
+        assertThat(written(ideas.stream().map(TaskIdeas.Idea::asMap).toList()))
+                .as("the whole array is one byte past the allowance")
+                .isEqualTo(most + 1);
+        final List<java.util.Map<String, Object>> carried =
+                TaskInventory.carried(List.of(ideas)).getFirst();
+        assertThat(written(carried)).as("what a reply carries").isLessThanOrEqualTo(most);
+        assertThat(carried).as("only the newest is left out").hasSize(ideas.size() - 1);
+    }
+
+    @Test
     void theTitleIsOneBoundedLineAndTheStatementBoundedText() {
         assertThat(TaskIdeas.validTitle("A title")).isTrue();
         assertThat(TaskIdeas.validTitle("x".repeat(120))).isTrue();

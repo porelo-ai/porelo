@@ -107,18 +107,20 @@ final class TaskMethods {
     static Map<String, Object> proposeIdea(
             final PoreloContext context, final Map<String, Object> parameters)
             throws java.io.IOException {
-        return proposeIdea(context, parameters, () -> {});
+        return proposeIdea(context, parameters, () -> {}, () -> {});
     }
 
     /**
      * Keeps an idea as {@link #proposeIdea(PoreloContext, Map)} does, running {@code checked} after
      * the task is found its own and before the idea is kept: where a removal or a replacement of
-     * the task may come between.
+     * the task may come between; and {@code looked} under the lock, after the last lookup found the
+     * task the same and before the idea is kept: where a removal must wait.
      */
     static Map<String, Object> proposeIdea(
             final PoreloContext context,
             final Map<String, Object> parameters,
-            final Runnable checked)
+            final Runnable checked,
+            final Runnable looked)
             throws java.io.IOException {
         final String task = text(parameters, "task");
         // For itself alone, as Done: an idea under a child's or a sibling's name is words put in
@@ -190,6 +192,7 @@ final class TaskMethods {
                                             context.paths(), now.identity())) {
                                 return Boolean.FALSE;
                             }
+                            looked.run();
                             try {
                                 return new org.fuin.porelo.app.TaskIdeas(context.paths())
                                         .propose(task, title, whatMustBeTrue, most);
@@ -213,6 +216,40 @@ final class TaskMethods {
         }
         // Removed, or its name started again, since the check: the socket's task is gone.
         throw new VarlinkException(INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
+    }
+
+    /**
+     * Forgets one of a task's ideas a person took, kept or declined, so the next reply carries the
+     * task's next ones. A task's socket never carries it: taking is the person's.
+     */
+    static Map<String, Object> takeIdea(
+            final PoreloContext context, final Map<String, Object> parameters)
+            throws java.io.IOException {
+        for (final String parameter : new java.util.TreeSet<>(parameters.keySet())) {
+            if (!java.util.Set.of("task", "id").contains(parameter)) {
+                throw new VarlinkException(
+                        "org.varlink.service.InvalidParameter", Map.of("parameter", parameter));
+            }
+        }
+        if (!(parameters.get("task") instanceof String task)
+                || !ContainerName.isTask(task)
+                || !task.matches("porelo-[a-z0-9_-]+")) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "task"));
+        }
+        if (!(parameters.get("id") instanceof String id)
+                || !org.fuin.porelo.app.TaskIdeas.validId(id)) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "id"));
+        }
+        // Under the lock a removal takes: a record it deleted is not made again.
+        final boolean taken =
+                new org.fuin.porelo.app.TaskReservations(context)
+                        .locked(
+                                () ->
+                                        new org.fuin.porelo.app.TaskIdeas(context.paths())
+                                                .take(task, id));
+        return Map.of("taken", taken);
     }
 
     /** Answers the file a task handed back, or why there is none; from the host's files alone. */
@@ -386,6 +423,12 @@ final class TaskMethods {
                 "ProposeIdea",
                 (parameters, replies) -> {
                     replies.last(proposeIdea(context, parameters));
+                });
+
+        server.method(
+                "TakeIdea",
+                (parameters, replies) -> {
+                    replies.last(takeIdea(context, parameters));
                 });
 
         server.method(

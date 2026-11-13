@@ -21,11 +21,14 @@ import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.JsonException;
 
 /**
- * The ideas a task proposed for itself, kept by the host until the task is removed.
+ * The ideas a task proposed for itself, kept by the host until a person takes them or the task is
+ * removed.
  *
  * <p>Beside the task's {@code done} record, in its durable record directory, outside every
  * directory mounted into the task: the task proposes over its socket, and only the host writes or
- * numbers what it proposed. A later start keeps them; the task's removal deletes the directory.
+ * numbers what it proposed. The record counts every idea the task proposed, the taken ones too, so
+ * a taken idea's number is not given again and frees no room under the bound. A later start keeps
+ * them; the task's removal deletes the directory.
  */
 public record TaskIdeas(PoreloPaths paths) {
 
@@ -44,8 +47,14 @@ public record TaskIdeas(PoreloPaths paths) {
      */
     private static final int MOST_RECORD = 4 * 1024 * 1024;
 
+    /** The largest counter an id can carry. */
+    private static final long MOST_PROPOSED = 999_999_999L;
+
     private static final java.util.regex.Pattern ID =
             java.util.regex.Pattern.compile("idea-[1-9][0-9]{0,8}");
+
+    /** The ideas a record holds, and how many the task proposed in all, the taken ones too. */
+    private record Kept(long proposed, List<Idea> ideas) {}
 
     /** One idea, as the task proposed it and the host numbered it. */
     public record Idea(String id, String title, String whatMustBeTrue, String at) {
@@ -102,6 +111,16 @@ public record TaskIdeas(PoreloPaths paths) {
     }
 
     /**
+     * Returns whether an id is one the host gives: {@code idea-} and the task's counter.
+     *
+     * @param id What a client gave.
+     * @return Whether an idea can carry it.
+     */
+    public static boolean validId(final String id) {
+        return ID.matcher(id).matches();
+    }
+
+    /**
      * Returns whether a title can be kept: one line of at most {@link #MOST_TITLE} characters,
      * neither blank nor holding a control character, refused rather than trimmed or cut.
      *
@@ -150,7 +169,7 @@ public record TaskIdeas(PoreloPaths paths) {
      */
     public List<Idea> read(final String container) {
         try {
-            return load(record(container));
+            return load(record(container)).ideas();
         } catch (IOException ex) {
             return List.of();
         }
@@ -179,30 +198,62 @@ public record TaskIdeas(PoreloPaths paths) {
                 FileLocks.holding(
                         directory.resolve("ideas.lock"),
                         () -> {
-                            final List<Idea> ideas = new ArrayList<>(load(file));
-                            if (ideas.size() >= most) {
+                            final Kept record = load(file);
+                            // Of every idea it proposed: one taken frees no room.
+                            if (record.proposed() >= most) {
                                 return java.util.Optional.<Idea>empty();
                             }
+                            final List<Idea> ideas = new ArrayList<>(record.ideas());
                             final Idea idea =
                                     new Idea(
-                                            "idea-" + (ideas.size() + 1),
+                                            "idea-" + (record.proposed() + 1),
                                             title,
                                             whatMustBeTrue,
                                             Instant.now().toString());
                             ideas.add(idea);
-                            write(directory, file, ideas);
+                            write(directory, file, new Kept(record.proposed() + 1, ideas));
                             return java.util.Optional.of(idea);
                         });
         return kept.orElseThrow(() -> new BoundReached(most));
+    }
+
+    /**
+     * Forgets one of the task's ideas a person took, kept or declined, so a reply carries its next
+     * ones. The caller holds the lock a removal takes: a record the removal deleted is not made
+     * again.
+     *
+     * @param container The task.
+     * @param id The idea's id.
+     * @return Whether the task held it: not when taken before, never proposed, or the task is
+     *     removed.
+     * @throws IOException If the record cannot be read or written.
+     */
+    public boolean take(final String container, final String id) throws IOException {
+        final Path directory = paths.tasks().taskRecord(container);
+        final Path file = record(container);
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        return FileLocks.holding(
+                directory.resolve("ideas.lock"),
+                () -> {
+                    final Kept kept = load(file);
+                    final List<Idea> ideas = new ArrayList<>(kept.ideas());
+                    if (!ideas.removeIf(idea -> idea.id().equals(id))) {
+                        return false;
+                    }
+                    write(directory, file, new Kept(kept.proposed(), ideas));
+                    return true;
+                });
     }
 
     private Path record(final String container) {
         return paths.tasks().taskRecord(container).resolve(FILE);
     }
 
-    private static List<Idea> load(final Path file) throws IOException {
+    private static Kept load(final Path file) throws IOException {
         if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-            return List.of();
+            return new Kept(0, List.of());
         }
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException(file + " is not a file the host wrote");
@@ -217,11 +268,12 @@ public record TaskIdeas(PoreloPaths paths) {
         try {
             final String text =
                     StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
-            if (!(Json.parse(text) instanceof Map<?, ?> fields
+            if (!(Json.parseExact(text) instanceof Map<?, ?> fields
                     && fields.get("ideas") instanceof List<?> listed)) {
                 throw new IOException(file + " holds no ideas");
             }
             final List<Idea> ideas = new ArrayList<>();
+            long numbered = 0;
             for (final Object each : listed) {
                 if (!(each instanceof Map<?, ?> idea
                         && idea.get("id") instanceof String id
@@ -230,9 +282,21 @@ public record TaskIdeas(PoreloPaths paths) {
                         && idea.get("at") instanceof String at)) {
                     throw new IOException(file + " holds something that is no idea");
                 }
-                ideas.add(new Idea(id, title, what, at));
+                final Idea read = new Idea(id, title, what, at);
+                final long number = Long.parseLong(id.substring("idea-".length()));
+                if (number <= numbered) {
+                    throw new IOException(file + " holds its ideas out of order");
+                }
+                numbered = number;
+                ideas.add(read);
             }
-            return List.copyOf(ideas);
+            // A record from before ideas were taken counts by its newest.
+            final Object proposed =
+                    fields.containsKey("proposed") ? fields.get("proposed") : numbered;
+            if (!(proposed instanceof Long count) || count < numbered || count > MOST_PROPOSED) {
+                throw new IOException(file + " counts its ideas wrongly");
+            }
+            return new Kept(count, List.copyOf(ideas));
         } catch (CharacterCodingException
                 | JsonException
                 | IllegalArgumentException
@@ -241,9 +305,12 @@ public record TaskIdeas(PoreloPaths paths) {
         }
     }
 
-    private static void write(final Path directory, final Path file, final List<Idea> ideas)
+    private static void write(final Path directory, final Path file, final Kept kept)
             throws IOException {
-        final String value = Json.write(Map.of("ideas", ideas.stream().map(Idea::asMap).toList()));
+        final Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("proposed", kept.proposed());
+        fields.put("ideas", kept.ideas().stream().map(Idea::asMap).toList());
+        final String value = Json.write(fields);
         final Path staged = directory.resolve("ideas.new");
         try {
             Files.writeString(
