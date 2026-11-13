@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B271",
   "title": "A Login Is Cancelled From Its Own Terminal",
-  "state": "Analyzed",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 12,
