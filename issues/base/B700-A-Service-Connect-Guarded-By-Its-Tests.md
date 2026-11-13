@@ -18,7 +18,7 @@
 **Why this size.** Test fixtures that report real owners and namespaces, a handful of tests, and one ordering in the
 relay.
 
-Filed 2026-11-13 from a reading of `porelo service connect` (B677, on its branch) and its follow-up:
+Filed 2026-11-13 from a reading of `porelo service connect`, on its own branch, and its follow-up:
 
 - Every successful connection in `ServiceConnectCommandTest` injects uid 0 and a replacement attribute reader, so
   removing the `uid_map` check or `NOFOLLOW_LINKS` leaves the tests green.
