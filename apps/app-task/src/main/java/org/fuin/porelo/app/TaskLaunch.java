@@ -3218,6 +3218,16 @@ public final class TaskLaunch {
                 }
                 declaredOrAdded.put(added.getKey(), added.getValue());
             }
+            // Here the project is the one this start reads, a repository's own settings merged in.
+            final String names =
+                    StartCheck.namesRefused(
+                            project.credentials().keySet(), request.credentials().keySet());
+            if (names != null) {
+                err.println("porelo: " + names.substring(names.indexOf('\n') + 1));
+                err.println("porelo: nothing was created");
+                err.flush();
+                return 2;
+            }
             // A shut vault is opened here, at a terminal, as 'porelo vault unlock' would: the
             // broker spends its tokens for the task's life. Only where this start reads it; without
             // a terminal the refusals below stay as they were.

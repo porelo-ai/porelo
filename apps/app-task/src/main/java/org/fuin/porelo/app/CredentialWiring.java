@@ -783,7 +783,7 @@ final class CredentialWiring {
     }
 
     static String variableSuffix(String name) {
-        return name.toUpperCase(java.util.Locale.ROOT).replace('-', '_');
+        return org.fuin.porelo.core.project.CredentialName.variable(name);
     }
 
     /** The agent's own credential, where it goes and which variable carries its token. */

@@ -1180,7 +1180,7 @@ public final class ProjectFileCheck {
             final @Nullable SecurityClass securityClass) {
         credentials.forEach(
                 (entry, destination) -> {
-                    if (!entry.matches("[a-z0-9][a-z0-9_-]{0,30}")
+                    if (!org.fuin.porelo.core.project.CredentialName.allowed(entry)
                             || !destination.matches("[a-z0-9][a-z0-9-]{0,30}")) {
                         fault(
                                 Binding.join("credentials", entry),
@@ -1192,6 +1192,18 @@ public final class ProjectFileCheck {
                                         + " hyphens");
                     }
                 });
+        for (final List<String> pair :
+                org.fuin.porelo.core.project.CredentialName.clashes(credentials.keySet())) {
+            fault(
+                    Binding.join("credentials", pair.get(1)),
+                    "'credentials."
+                            + shown(pair.get(0))
+                            + "' and 'credentials."
+                            + shown(pair.get(1))
+                            + "' become one variable in a task, PORELO_TOKEN_"
+                            + org.fuin.porelo.core.project.CredentialName.variable(pair.get(0))
+                            + "; rename one of them, in the vault too");
+        }
         if (securityClass == SecurityClass.OFFLINE && !credentials.isEmpty()) {
             // The broker would reach the destination for the task, and offline reaches nothing.
             fault(

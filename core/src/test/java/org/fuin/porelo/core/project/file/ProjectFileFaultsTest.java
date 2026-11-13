@@ -449,6 +449,12 @@ class ProjectFileFaultsTest {
                         7,
                         "credentials.Search",
                         "both are names"),
+                // Both would reach the task as PORELO_TOKEN_A_B, one token under the other's name.
+                refused(
+                        BASE + "credentials:\n  a-b: brave\n  a_b: brave\n",
+                        8,
+                        "credentials.a_b",
+                        "become one variable"),
                 refused(
                         BASE + "build:\n  package_sources: []\n",
                         7,

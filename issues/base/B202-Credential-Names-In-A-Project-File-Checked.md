@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B202",
   "title": "Credential Names In A Project File Checked",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 12,
@@ -71,3 +71,21 @@ Read in the code at 177f3cae2:
   created; no file is written outside the route tokens' directory.
 - A project file with `a-b` and `a_b`, and a run adding `a_b` to a project's `a-b`, are each refused naming both.
 - Every name the documents and tests use still reads and starts as before.
+
+## As built
+
+- **`CredentialName`** in `core` holds the pattern, the variable a name becomes and the pairs that become one;
+  `ProjectFileCheck`, `Project`, `CredentialWiring.variableSuffix` and `vault serve` use it.
+- **The start checks the names it serves**, where the project is read with a repository's own settings merged in:
+  a run's name that is no credential name, and two names - the project's, the run's or the task's own `porelo-mcp`
+  route - that become one variable, are refused before anything is created. `StartCheck.undeclared`, which `CanStart`
+  and the daemon's `Start` share, says the same; a refusal there keeps the outcome `UNKNOWN_DESTINATION` with its own
+  detail, so no contract changes.
+- **`vault serve` refuses a route name that is no credential name**, since the name becomes its token file under
+  `--route-tokens`.
+- **The reading** (another model) found three reds - a repository's merged credentials and the MCP route outside the
+  clash check, and `vault serve` taking any route name - each fixed with a test seen red first. Left, for this
+  repository's owner to place: a task started before this change with two names that clash keeps them when it resumes,
+  since a resume replays its saved helper; the daemon's `Start` answers such a refusal as `NoSuchDestination` with the
+  name alone; and the start's refusal is shown by a unit test of the check, not by a start that then creates nothing.
+

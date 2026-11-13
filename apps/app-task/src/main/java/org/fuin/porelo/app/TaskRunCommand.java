@@ -113,7 +113,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             description =
                     "Another credential this task holds, beyond the agent's own and the project's: a vault"
                             + " entry and the destination or provider it is for. Repeatable. It reaches the task as"
-                            + " PORELO_TOKEN_<ENTRY> and PORELO_URL_<ENTRY>, a token worthless anywhere else.")
+                            + " PORELO_TOKEN_<ENTRY> and PORELO_URL_<ENTRY>, a token worthless anywhere else. An entry is"
+                            + " lower-case letters, digits, '_' and '-'.")
     private java.util.Map<String, String> credentials = new java.util.LinkedHashMap<>();
 
     @Option(

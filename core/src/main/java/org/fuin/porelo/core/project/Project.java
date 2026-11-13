@@ -1116,7 +1116,7 @@ public record Project(
         credentials =
                 java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(credentials));
         for (final java.util.Map.Entry<String, String> credential : credentials.entrySet()) {
-            if (!credential.getKey().matches("[a-z0-9][a-z0-9_-]{0,30}")
+            if (!CredentialName.allowed(credential.getKey())
                     || !credential.getValue().matches("[a-z0-9][a-z0-9-]{0,30}")) {
                 throw new ProjectException(
                         "Project '"
@@ -1127,6 +1127,16 @@ public record Project(
                                 + credential.getValue()
                                 + "' - both are names: lower-case letters, digits and hyphens");
             }
+        }
+        for (final java.util.List<String> pair : CredentialName.clashes(credentials.keySet())) {
+            throw new ProjectException(
+                    "Project '"
+                            + name
+                            + "': credentials '"
+                            + pair.get(0)
+                            + "' and '"
+                            + pair.get(1)
+                            + "' become one variable in a task; rename one of them");
         }
         if (securityClass == SecurityClass.OFFLINE && !credentials.isEmpty()) {
             // The broker would reach the destination for the task, and an offline project reaches

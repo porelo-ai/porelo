@@ -1296,6 +1296,65 @@ public final class StartCheck {
      * @return The credential's name, a newline, and the reason; or {@code null} when every one
      *     resolves.
      */
+    /**
+     * Returns why the credential names a task would hold cannot all become its token files and
+     * variables: a run's name that is no credential name, or two names - the project's, the run's
+     * or the task's own porelo-mcp route - that become one variable.
+     *
+     * @param declared The names the project, as the start reads it, declares.
+     * @param run The names the run adds.
+     * @return The offending name, a newline and why; {@code null} when every name has its own.
+     */
+    static @Nullable String namesRefused(
+            java.util.Collection<String> declared, java.util.Collection<String> run) {
+        for (final String name : run) {
+            if (!org.fuin.porelo.core.project.CredentialName.allowed(name)) {
+                return name.replace('\n', ' ')
+                        + "\nthe run names '"
+                        + printable(name)
+                        + "', which is no credential name: lower-case letters, digits, '_' and '-',"
+                        + " a letter or digit first, at most 31";
+            }
+        }
+        // The task's MCP route is served beside them, under its destination's name.
+        final java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        names.add(McpWiring.DESTINATION);
+        names.addAll(declared);
+        names.addAll(run);
+        for (final java.util.List<String> pair :
+                org.fuin.porelo.core.project.CredentialName.clashes(names)) {
+            return pair.get(1)
+                    + "\ncredentials '"
+                    + pair.get(0)
+                    + "' and '"
+                    + pair.get(1)
+                    + "' become one variable in a task, PORELO_TOKEN_"
+                    + org.fuin.porelo.core.project.CredentialName.variable(pair.get(0))
+                    + "; name only one of them";
+        }
+        if (declared.contains(McpWiring.DESTINATION) || run.contains(McpWiring.DESTINATION)) {
+            return McpWiring.DESTINATION
+                    + "\n'"
+                    + McpWiring.DESTINATION
+                    + "' is the task's own MCP route; a credential cannot take its name";
+        }
+        return null;
+    }
+
+    private static String printable(final String name) {
+        final StringBuilder shown = new StringBuilder();
+        name.codePoints()
+                .forEach(
+                        c -> {
+                            if (c < 0x20 || c == 0x7f) {
+                                shown.append(String.format("\\u%04x", c));
+                            } else {
+                                shown.appendCodePoint(c);
+                            }
+                        });
+        return shown.toString();
+    }
+
     public static @Nullable String undeclared(
             PoreloContext context, @Nullable Path projectFile, Map<String, String> run) {
         Map<String, String> declared = Map.of();
@@ -1306,6 +1365,10 @@ public final class StartCheck {
             } catch (RuntimeException ex) {
                 declared = Map.of();
             }
+        }
+        final String names = namesRefused(declared.keySet(), run.keySet());
+        if (names != null) {
+            return names;
         }
         for (final Map.Entry<String, String> added : run.entrySet()) {
             final String already = declared.get(added.getKey());

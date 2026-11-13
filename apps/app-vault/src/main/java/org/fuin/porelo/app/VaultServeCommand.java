@@ -242,6 +242,12 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
             }
             routeSpecs.forEach(
                     (name, spec) -> {
+                        // The name becomes its token file under --route-tokens.
+                        if (!org.fuin.porelo.core.project.CredentialName.allowed(name)) {
+                            throw new IllegalArgumentException(
+                                    "the route name is no credential name: lower-case letters,"
+                                            + " digits, '_' and '-'");
+                        }
                         final VaultProxy.Route destination = route(name, spec, runtime);
                         final String provider = providers.get(name);
                         routes.put(

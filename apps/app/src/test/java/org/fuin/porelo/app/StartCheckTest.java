@@ -565,6 +565,61 @@ class StartCheckTest {
                 .startsWith("the project names credential 'search' for 'nowhere'");
     }
 
+    /** Harm prevented: a run's entry names a token file outside the route tokens' directory. */
+    @Test
+    void aRunsCredentialThatIsNoNameIsRefusedNamingIt(@TempDir Path dir) throws Exception {
+        final StartCheck.Result result =
+                StartCheck.withCredentials(
+                        context(dir),
+                        READY,
+                        threeRepositories(dir),
+                        java.util.Map.of("../x", "nowhere"));
+
+        assertThat(result.credential()).as("names the entry").isEqualTo("../x");
+        assertThat(result.detail())
+                .as("refused for its name, before its destination is looked for")
+                .contains("is no credential name");
+    }
+
+    /** Harm prevented: one token reaches the task under another credential's variable. */
+    @Test
+    void aRunsCredentialBecomingAProjectsVariableIsRefusedNamingBoth(@TempDir Path dir)
+            throws Exception {
+        final StartCheck.Result result =
+                StartCheck.withCredentials(
+                        context(dir), READY, credentialed(dir), java.util.Map.of("SEARCH", "x"));
+        final StartCheck.Result clash =
+                StartCheck.withCredentials(
+                        context(dir),
+                        READY,
+                        threeRepositories(dir),
+                        new java.util.LinkedHashMap<>(
+                                java.util.Map.of("a-b", "nowhere", "a_b", "nowhere")));
+
+        assertThat(result.detail()).as("upper case is no name").contains("is no credential name");
+        assertThat(clash.detail())
+                .as("both named")
+                .contains("'a-b'")
+                .contains("'a_b'")
+                .contains("become one variable");
+    }
+
+    /** Harm prevented: a run's credential takes the task's own MCP route's variable or route. */
+    @Test
+    void aRunsCredentialCannotTakeTheMcpRoutesVariable(@TempDir Path dir) throws Exception {
+        for (final String name : java.util.List.of("porelo_mcp", "porelo-mcp")) {
+            final StartCheck.Result result =
+                    StartCheck.withCredentials(
+                            context(dir),
+                            READY,
+                            threeRepositories(dir),
+                            java.util.Map.of(name, "nowhere"));
+
+            assertThat(result.credential()).as("names %s", name).isEqualTo(name);
+            assertThat(result.detail()).as("why, for %s", name).contains("porelo-mcp");
+        }
+    }
+
     @Test
     void aRunPointingAProjectsCredentialElsewhereIsRefused(@TempDir Path dir) throws Exception {
         final StartCheck.Result result =

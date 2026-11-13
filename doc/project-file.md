@@ -679,8 +679,10 @@ is `from`, `snippet` is `run`, `snippet_file` is `run_file`), `image.package_sou
 and an entry under `repositories` holds no `image`, `egress` or `limits` any more; each such key is refused at its
 line with what to write instead.
 
-Porelo does not check the names under `credentials` and `repositories`, or what a transport takes under
-`mail.transports.<scheme>` (the transport checks that).
+A name under `credentials` is lower-case letters, digits, `_` and `-`, a letter or digit first, at most 31, and its
+destination lower-case letters, digits and `-`; two names that become one variable in a task (`a-b` and `a_b`) are
+refused, both named. Porelo does not check what a transport takes under `mail.transports.<scheme>` (the transport
+checks that).
 
 ## Reaching a private repository
 

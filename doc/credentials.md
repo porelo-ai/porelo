@@ -461,7 +461,9 @@ Each works like the agent's: the container gets a token worthless anywhere else.
    remove or redirect the project's. **Anyone who can start a task in the project can use its
    credentials.** An offline project names none.
 
-Inside the task each appears as `PORELO_TOKEN_<NAME>` and `PORELO_URL_<NAME>`:
+Inside the task each appears as `PORELO_TOKEN_<NAME>` and `PORELO_URL_<NAME>`, the name in upper case with `-` as
+`_`. So a name is lower-case letters, digits, `_` and `-`, a letter or digit first, at most 31, and two names that
+become one variable, such as `a-b` and `a_b`, are refused, in a project file and in a run alike:
 
 ```
 curl -H "X-Subscription-Token: $PORELO_TOKEN_SEARCH" "$PORELO_URL_SEARCH/res/v1/web/search?q=porelo"
