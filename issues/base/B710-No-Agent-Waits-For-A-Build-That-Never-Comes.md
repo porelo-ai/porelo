@@ -35,14 +35,15 @@ task runs. The guide says that it may then call the work done.
 ## Plan
 
 - At a push that will not be built while the task runs (held at the gate for a person, or a project that follows no
-  builds), hand in `build-<commit>.txt` at once with `verdict: unknown` and a `detail` that says why, for example
+  builds), hand in `build-<commit>.txt` at once with `verdict: none` and a `detail` that says why, for example
   "held at the gate for a person; nothing is built until it is passed on".
-- The guide: `unknown` is final. With it, the work is done once it is pushed. The shared text stays the same for
+- The guide: `none` is final, and `unknown`, which the watch writes while a build may still come, is not. With `none`, the work is done once it is pushed. The shared text stays the same for
   every task, so it says this as a rule and does not depend on the project.
 - If a held push is passed on later and built, the file is replaced as before.
+- Only a ref receive-pack reported `ok` gets a file; a push git refused hands in nothing.
 
 ## Acceptance
 
-- A unit test: a push held at the gate hands in `unknown` with its reason, at once.
-- A unit test: the guide names `unknown` as final, and a push with nothing to build as done.
+- A unit test: a push held at the gate hands in `none` with its reason, at once.
+- A unit test: the guide names `none` as final and `unknown` as not, and a push with nothing to build as done.
 - The interface story's walk with a builder task ends finished.

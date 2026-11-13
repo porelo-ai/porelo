@@ -296,7 +296,7 @@ builds:
 - **Only in `online`**: in `guarded` the forge builds nothing until a person approves the work at the gate, and in
   `offline` there is no build. A project of either class with a `builds` section is refused when it is read.
 - **What arrives in `/porelo/files`**, with `by` "porelo": `build-<first 12 of commit>.txt`, the verdict - one of
-  `queued`, `running`, `success`, `failure`, `cancelled`, `unknown` - one line per workflow run with its state, and,
+  `queued`, `running`, `success`, `failure`, `cancelled`, `unknown`, or the gate's `none` - one line per workflow run with its state, and,
   once it is `failure` or final, one line per job with its result and its log's file; and `build-<first 12 of commit>-<n>.log`, the last 64 KiB of a job's log
   as text - less when more than 32 logs share 2 MiB - for each failed job, or for every job with `logs: all`. `<n>` is
   the job's place in that list, so the failed job's log is the file its `job:` line names, not `-1.log`. The file is
