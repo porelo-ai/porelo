@@ -3132,6 +3132,15 @@ public final class TaskLaunch {
 
         final TaskRunner runner = context.tasks();
         final String container = startContainer(project);
+        final TaskReservations.Lease claimed = reservation;
+        if (claimed != null && claimed.made()) {
+            // Another start made the task after this one found nothing to bring back, and its
+            // finished attempt is the name's: going on, this start wrote its broker's token, pid
+            // and socket over that start's, in the state directory both name, before its own
+            // create failed on the taken name. Refused before anything of the task is touched.
+            throw new TaskReservations.ContainerNameTaken(
+                    container, project.name(), request.task(), project.name(), request.task());
+        }
         runner.reserving(reservation);
         runner.onCreated(id -> createdId = id);
         // Until the task is handed on, a failure is a start that failed, which leaves nothing

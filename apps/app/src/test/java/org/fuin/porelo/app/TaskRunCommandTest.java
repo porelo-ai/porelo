@@ -4773,6 +4773,106 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartThatLosesTheNameToAMadeTaskTakesNoneOfItsBrokerFiles(@TempDir Path dir)
+            throws Exception {
+
+        // Found nothing to bring back while the other start was still making the task, a start
+        // took that start's finished claim as its own attempt and went on to its broker: it
+        // deleted the other's token and started a broker over its pid file and its socket, in the
+        // other's state directory, before its own create failed on the taken name.
+        final PoreloContext context = brokeredContext(dir);
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, broker(helpers, true, ownPorelo).toString());
+        projectFile(dir, MINIMAL);
+        final Path projectFile = dir.resolve("project.yml");
+        final Process theirs = new ProcessBuilder("sleep", "60").start();
+        try {
+            assertThat(context.openerAsking(false, new PrintWriter(err)))
+                    .as("the fixture opens only its own vault")
+                    .isPresent();
+            final TaskLaunch losing =
+                    new TaskLaunch(
+                            context,
+                            new TaskLaunch.Request(
+                                    "shell",
+                                    projectFile,
+                                    "preview",
+                                    null,
+                                    null,
+                                    8,
+                                    null,
+                                    true,
+                                    false,
+                                    "deny",
+                                    false,
+                                    org.fuin.porelo.wire.TaskMode.AGENT,
+                                    null,
+                                    null,
+                                    null,
+                                    60,
+                                    "uc"));
+            assertThat(losing.startExisting(new PrintWriter(out, true), new PrintWriter(err, true)))
+                    .as("nothing to bring back yet: %s", err)
+                    .isNull();
+
+            // The other start, finished meanwhile: its claim made, its container up, its broker's
+            // files where every start of the name writes them.
+            final String container =
+                    context.tasks()
+                            .containerName(
+                                    org.fuin.porelo.core.project.ProjectReader.read(projectFile),
+                                    "shell");
+            final String other = "f".repeat(64);
+            try (var made = new TaskReservations(context).start("uc", "shell", container)) {
+                TaskIdentityFixture.running(context.paths(), container, "uc", "shell", other);
+                made.created(other);
+            }
+            final Path state = context.paths().tasks().containerState(container);
+            org.fuin.porelo.wire.HelperPid.record(state.resolve("vault.pid"), theirs.toHandle());
+            Files.writeString(state.resolve("vault.token"), "theirs\n");
+            Files.writeString(state.resolve("vault.sock"), "theirs\n");
+            final java.util.Map<String, String> written = new java.util.TreeMap<>();
+            for (String file : List.of("vault.pid", "vault.token", "vault.sock")) {
+                written.put(file, Files.readString(state.resolve(file)));
+            }
+            runner.answering(
+                    "ps",
+                    container + "\tUp 1 second\t\t\tuc\tguarded\tuc\t\t" + other + "\tshell\n");
+
+            final int code =
+                    losing.launch(
+                            new PrintWriter(out, true), new PrintWriter(err, true), running -> 0);
+
+            assertThat(code).as("the losing start fails: %s", err).isNotZero();
+            final java.util.Map<String, String> after = new java.util.TreeMap<>();
+            for (String file : written.keySet()) {
+                after.put(
+                        file,
+                        Files.exists(state.resolve(file))
+                                ? Files.readString(state.resolve(file))
+                                : "(gone)");
+            }
+            assertThat(after)
+                    .as("the other start's broker files stay as it wrote them: %s", out)
+                    .isEqualTo(written);
+            assertThat(HelperStandIn.started(helpers))
+                    .as("and the losing start started no broker of its own there")
+                    .isZero();
+            assertThat(theirs.isAlive()).as("the other start's broker runs on").isTrue();
+        } finally {
+            theirs.destroyForcibly();
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
+    @Test
     void aStartThatFailsAfterItsBrokerCameUpKillsABrokerThatIgnoresTheSignal(@TempDir Path dir)
             throws Exception {
 

@@ -134,16 +134,35 @@ public final class TaskReservations {
     public final class Lease implements AutoCloseable {
         private final String container;
         private final String attempt;
+        private final boolean made;
         private boolean closed;
 
         private Lease(Claim claim) {
+            this(claim, false);
+        }
+
+        private Lease(Claim claim, boolean made) {
             container = claim.container();
             attempt = claim.attempt();
+            this.made = made;
             OWNED.get().put(claimKey(container), attempt);
         }
 
         public String attempt() {
             return attempt;
+        }
+
+        /**
+         * Says whether the name's container was there, made and recorded, when this lease was
+         * taken: a lease a start that brings the task back holds, and one a start that makes the
+         * task must not go on with. Such a start lost the name to the start that made it, whose
+         * finished attempt it was handed, and everything in the name's state directory is that
+         * start's.
+         *
+         * @return Whether the container exists under its recorded id.
+         */
+        public boolean made() {
+            return made;
         }
 
         /** Called only after both copies of podman's id have been recorded. */
@@ -290,7 +309,8 @@ public final class TaskReservations {
                             ProcessHandle.current().pid(),
                             processStart());
             write(next, true);
-            return new Lease(next);
+            // A recorded id survived reconcile only with its container listed under it.
+            return new Lease(next, recorded != null);
         }
         for (String other : protectedNames()) {
             final Claim owner = known(other);
@@ -299,12 +319,14 @@ public final class TaskReservations {
         }
         final List<ContainerSummary> candidates = context.podman().taskCandidates();
         TaskIdentity verified = null;
+        boolean listed = false;
         for (ContainerSummary candidate : candidates) {
             final TaskIdentities.Result result = new TaskIdentities(context).read(candidate);
             if (candidate.name().equals(container)) {
                 if (!(result instanceof TaskIdentities.Found found))
                     throw taken(project, task, container, null);
                 verified = found.identity();
+                listed = true;
                 if (!verified.project().equals(project) || !verified.task().equals(task)) {
                     throw new ContainerNameTaken(
                             container, project, task, verified.project(), verified.task());
@@ -378,7 +400,7 @@ public final class TaskReservations {
         } else {
             publish(fresh);
         }
-        return new Lease(fresh);
+        return new Lease(fresh, listed);
     }
 
     /** Verifies every id independently; an unrecorded container is never adopted. */
