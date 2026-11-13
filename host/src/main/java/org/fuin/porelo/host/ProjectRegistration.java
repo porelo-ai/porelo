@@ -420,13 +420,15 @@ final class ProjectRegistration {
         }
         final Path arrivals = files.at("/var/lib/porelo-host/arrivals/" + project);
         final List<Path> recorded = new ArrayList<>();
-        if (files.exists(ProjectFiles.parent(arrivals))) {
-            files.directory(arrivals, true, true);
-            if (files.exists(arrivals)) {
-                for (Path path : files.list(arrivals)) {
-                    files.trusted(path, true);
-                    recorded.add(path);
-                }
+        // Decided once, by looks that follow no link: the removal below takes what this found and
+        // never looks again.
+        final boolean arrived =
+                files.exists(ProjectFiles.parent(arrivals))
+                        && files.directory(arrivals, true, true);
+        if (arrived) {
+            for (Path path : files.list(arrivals)) {
+                files.trusted(path, true);
+                recorded.add(path);
             }
         }
         keys.paths(project);
@@ -474,7 +476,7 @@ final class ProjectRegistration {
             for (Path path : recorded) {
                 files.delete(path);
             }
-            if (files.exists(arrivals)) {
+            if (arrived) {
                 files.delete(arrivals);
             }
             keys.drop(project);

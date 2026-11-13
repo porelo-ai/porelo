@@ -138,6 +138,8 @@ final class PushJudgement {
                 final var signer = object(item.get("signer"));
                 if (!"accepted".equals(item.get("verdict"))
                         || !string(item.get("commit")).matches(HostRecords.COMMIT)
+                        // Git's null object name, a deletion's new side, is no commit that arrived.
+                        || string(item.get("commit")).chars().allMatch(digit -> digit == '0')
                         || !seen.add(string(item.get("commit")))
                         || !refs.contains(string(item.get("ref")))
                         || !signer.keySet().equals(SIGNER_KEYS)

@@ -85,8 +85,10 @@ final class ProjectArrivals {
 
     static void removeProject(ProjectFiles files, String project) throws IOException {
         final Path directory = files.etc.resolve("organization/arrivals/" + project);
-        if (!files.exists(directory)) return;
-        files.directory(directory, false, false);
+        // One look decides whether there is anything to remove: a link there is refused, and no
+        // later look can find a directory the first did not.
+        if (!files.exists(ProjectFiles.parent(directory))
+                || !files.directory(directory, false, true)) return;
         for (Path path : files.list(directory)) {
             files.trusted(path, false);
             files.delete(path);

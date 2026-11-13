@@ -1,0 +1,2 @@
+title: "Arming the push judge on a host stops at a linked forge directory, repository, hook or judge and leaves no link behind, and removing a project's arrivals never follows a link"
+type: fixed

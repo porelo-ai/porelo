@@ -98,7 +98,12 @@ final class ProjectFiles {
         return Files.exists(path, LinkOption.NOFOLLOW_LINKS);
     }
 
-    void directory(Path path, boolean privateDirectory, boolean missing) throws IOException {
+    /**
+     * Checks that a directory is root's alone, by one look that does not follow a link.
+     *
+     * @return Whether it is there; {@code false} only when {@code missing} allows that.
+     */
+    boolean directory(Path path, boolean privateDirectory, boolean missing) throws IOException {
         requireInside(path);
         if (!path.equals(root)) {
             directory(parent(path), false, false);
@@ -108,7 +113,7 @@ final class ProjectFiles {
             attributes = this.attributes.read(path);
         } catch (NoSuchFileException ex) {
             if (missing) {
-                return;
+                return false;
             }
             throw new HostRefusal(69, path + " is missing; run up first");
         }
@@ -128,6 +133,7 @@ final class ProjectFiles {
         if (privateDirectory && (mode & 07777) != 0700) {
             throw new HostRefusal(69, path + " must have mode 0700");
         }
+        return true;
     }
 
     void trusted(Path path, boolean privateFile) throws IOException {

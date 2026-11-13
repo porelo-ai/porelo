@@ -491,4 +491,25 @@ class PushJudgementTest {
                 .as("a host failure must not look like a judged signature refusal")
                 .isEqualTo(new PushJudgement.Answer(code < 69 ? 403 : 500, "porelo: reason\n"));
     }
+
+    @Test
+    void aVerdictNamingGitsNullObjectRecordsNothing() {
+        // A push that deletes one branch and updates another: the deletion's new name is forty
+        // zeros, which is no commit, and a verdict that records it would claim one arrived.
+        final var row = new java.util.LinkedHashMap<>(commit());
+        row.put("commit", "0".repeat(40));
+        final var answer =
+                verified(
+                        result(
+                                Map.of(
+                                        "accepted",
+                                        true,
+                                        "checked_at",
+                                        "2026-10-30T12:00:00Z",
+                                        "commits",
+                                        List.of(commit(), row))));
+
+        assertThat(answer.status()).isEqualTo(500);
+        assertThat(answer.entries()).isEmpty();
+    }
 }

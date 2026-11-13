@@ -20,7 +20,58 @@ final class FollowPushes {
     }
 
     private static final String SCRIPT =
-            "[ -e /var/lib/gitea/git/repositories ] || [ -L /var/lib/gitea/git/repositories ] || exit 0\n[ -d /var/lib/gitea/git/repositories ] && [ ! -L /var/lib/gitea/git/repositories ] || exit 6\norganization=\"/var/lib/gitea/git/repositories/$1\"\n[ -e \"$organization\" ] || [ -L \"$organization\" ] || exit 0\n[ -d \"$organization\" ] && [ ! -L \"$organization\" ] && cd \"$organization\" || exit 6\nhooks=\"$(git config --file /var/lib/gitea/home/.gitconfig core.hooksPath)\" && [ -n \"$hooks\" ] || exit 4\n[ -f \"$hooks/pre-receive\" ] && [ -x \"$hooks/pre-receive\" ] || exit 4\ngrep -qxF 'custom_hooks_dir=\"./hooks/${hookname}.d\"' \"$hooks/pre-receive\" || exit 4\nshift\nfor repository in *.git .*.git; do\n  [ -d \"$repository\" ] && [ ! -L \"$repository\" ] || continue\n  [ ! -L \"$repository/hooks\" ] && [ ! -L \"$repository/hooks/pre-receive.d\" ] || exit 5\n  git config --file \"$repository/config\" --get core.hooksPath > /dev/null; [ \"$?\" -eq 1 ] || exit 4\n  hook=\"$repository/hooks/pre-receive.d/porelo\"\n  if [ ! -e \"$hook\" ] && [ ! -L \"$hook\" ]; then\n    mkdir -p \"$repository/hooks/pre-receive.d\" || exit 5\n    ln -s /usr/local/libexec/porelo/pre-receive \"$hook\" || exit 5\n  fi\n  [ -L \"$hook\" ] && [ \"$(readlink \"$hook\")\" = /usr/local/libexec/porelo/pre-receive ] && [ -x \"$hook\" ] || exit 5\n  name=\"${repository%.git}\"\n  for known in \"$@\"; do [ \"$known\" = \"$name\" ] && continue 2; done\n  printf \"repository %s\\n\" \"$name\"\n  git --git-dir=\"$repository\" rev-list --all || exit 3\ndone\n";
+            script("/var/lib/gitea", "/usr/local/libexec/porelo/pre-receive");
+
+    /**
+     * The arming as the forge's account runs it: it links the judge into each repository of the
+     * project and lists the history of each it was not armed for yet.
+     *
+     * <p>It never passes over a link: a linked {@code git} directory, organization or repository
+     * stops it, and so does a forge hook or a judge that is a link rather than a plain executable
+     * file. A link it made is removed when it stops, so a stop leaves the repositories as they
+     * were.
+     *
+     * @param gitea The forge's own directory.
+     * @param judge The judge each repository's hook links to.
+     * @return The script.
+     */
+    static String script(final String gitea, final String judge) {
+        return """
+                made=""
+                stop() { for link in $made; do rm -f "$link"; done; exit "$1"; }
+                [ ! -L GITEA/git ] || exit 6
+                [ -e GITEA/git/repositories ] || [ -L GITEA/git/repositories ] || exit 0
+                [ -d GITEA/git/repositories ] && [ ! -L GITEA/git/repositories ] || exit 6
+                organization="GITEA/git/repositories/$1"
+                [ -e "$organization" ] || [ -L "$organization" ] || exit 0
+                [ -d "$organization" ] && [ ! -L "$organization" ] && cd "$organization" || exit 6
+                hooks="$(git config --file GITEA/home/.gitconfig core.hooksPath)" && [ -n "$hooks" ] || exit 4
+                [ -f "$hooks/pre-receive" ] && [ ! -L "$hooks/pre-receive" ] && [ -x "$hooks/pre-receive" ] || exit 4
+                grep -qxF 'custom_hooks_dir="./hooks/${hookname}.d"' "$hooks/pre-receive" || exit 4
+                [ -f JUDGE ] && [ ! -L JUDGE ] && [ -x JUDGE ] || exit 5
+                shift
+                for repository in *.git .*.git; do
+                  [ -e "$repository" ] || [ -L "$repository" ] || continue
+                  [ -d "$repository" ] && [ ! -L "$repository" ] || stop 5
+                  case "$repository" in *[!a-z0-9._-]*) stop 5 ;; esac
+                  [ ! -L "$repository/hooks" ] && [ ! -L "$repository/hooks/pre-receive.d" ] || stop 5
+                  git config --file "$repository/config" --get core.hooksPath > /dev/null; [ "$?" -eq 1 ] || stop 4
+                  hook="$repository/hooks/pre-receive.d/porelo"
+                  if [ ! -e "$hook" ] && [ ! -L "$hook" ]; then
+                    mkdir -p "$repository/hooks/pre-receive.d" || stop 5
+                    ln -s JUDGE "$hook" || stop 5
+                    made="$made $hook"
+                  fi
+                  [ -L "$hook" ] && [ "$(readlink "$hook")" = JUDGE ] || stop 5
+                  name="${repository%.git}"
+                  for known in "$@"; do [ "$known" = "$name" ] && continue 2; done
+                  printf "repository %s\\n" "$name"
+                  git --git-dir="$repository" rev-list --all || stop 3
+                done
+                """
+                .replace("GITEA", gitea)
+                .replace("JUDGE", judge);
+    }
 
     void arm(String project, String account) throws IOException {
         final Path directory = c.path("/var/lib/porelo-host/arrivals/" + project);
