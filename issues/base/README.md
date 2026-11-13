@@ -302,7 +302,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
-| <a id="b672"></a>[B672](B672-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The daily Shared rules check runs porelo-release's `issues check issues`, so an issue head that breaks the issue format is found within a day. |
 
 ## Review
 
@@ -491,6 +490,7 @@ from its side, as *blocked by*.
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | M | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault | - |
 | <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start | - |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | - |
+| <a id="b672"></a>[B672](B672-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The daily Shared rules check runs porelo-release's `issues check issues`, so an issue head that breaks the issue format is found within a day. | - |
 
 ## Finished
 

@@ -35,6 +35,11 @@ jobs:
             - name: The documents
               run: ./mvnw -B -U -T 1C -s settings.xml -Pdocuments test
 
+            # Every issue head held to the issue format, with the same porelo-release, so a head a push of issues
+            # alone broke is found within a day; the Build never starts for such a push.
+            - name: The issue heads
+              run: ./mvnw -B -s settings.xml -N exec:exec@release -Drelease.args="issues check issues"
+
             # A pull request's own commits held to the shared rule on commit messages. One from outside - from another
             # repository, or opened by someone not a member - also carries its author's Signed-off-by: on each commit,
             # the Developer Certificate of Origin; Dependabot's and GitHub's own commits are exempt by the author and

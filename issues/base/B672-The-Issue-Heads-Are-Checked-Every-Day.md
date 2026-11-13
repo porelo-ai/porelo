@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B672",
   "title": "The Issue Heads Are Checked Every Day",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "Low",
   "rank": 53,
@@ -32,3 +32,11 @@ to its own Shared rules check.
 
 - A dispatched run of Shared rules check shows the step and passes on today's issues; a head with an unknown state,
   tried locally, makes the same command fail.
+
+## Done
+
+- `.github/workflows/shared-rules.yml` runs *The issue heads* after *The documents*: `exec:exec@release` with
+  `issues check issues`, the porelo-release the workflow's other checks use, on every trigger of the workflow.
+- Locally on this commit: the command passes on today's issues ("OK issue heads in issues ..."), and with one head's
+  state changed to an unknown one it exits 1. The root's `validate`, `-pl core -am test` (537) and `-Pdocuments
+  test` are green. The dispatched run follows the push.
