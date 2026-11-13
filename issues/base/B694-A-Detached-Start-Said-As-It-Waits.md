@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B694",
   "title": "A Detached Start Said As It Waits",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "Low",
   "rank": 48,
@@ -31,3 +31,15 @@ of the start says.
 ## Acceptance
 
 - The sentence matches the detached path; `CommandsDocumentedTest` stays green.
+
+## Built
+
+Read in `TaskRunCommand` first. A new task's detached start returns from the launch's `after.started` (`TaskLaunch`,
+`:4066`), which is reached only once the image is built, the container made and started and its helpers up. A stopped
+task brought back with `--detach` returns once `startExisting` has resumed it, helpers included. Neither opens a
+session.
+
+- `doc/commands.md`, the `task start` entry: "`--detach` returns once the task runs, its image built and its container
+  and helpers up, and opens no session", in place of "`--detach` hands over nothing".
+- No new test: the sentence only read wrong. `CommandsDocumentedTest` passes on the build box
+  (`buildbox-porelo-a944a6e2c453-20261113T182807Z.log`, 1 test, 0 skipped).

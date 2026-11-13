@@ -233,7 +233,8 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`). A name too
   long for the container name's 64 characters is cut back to its last whole word that fits.
 - By default you get the agent's session. `--attach shell` gives a shell, `-P`/`--prompt` runs the
-  agent unattended, `--detach` hands over nothing.
+  agent unattended. `--detach` returns once the task runs, its image built and its container and helpers up, and
+  opens no session.
 - `--rm` removes the container when you leave. By default it is kept. A start that fails leaves nothing running
   either way: a container it made stays stopped for a look, starting it again brings back the helpers it had, and
   `porelo task remove` ends it without `--force`. A container of the task's name that the start did not make is left
