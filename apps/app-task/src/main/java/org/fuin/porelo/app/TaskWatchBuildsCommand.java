@@ -79,6 +79,13 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
     private boolean buildsOnly;
 
     @Option(
+            names = "--from-host",
+            description =
+                    "The builds come from the host's file: a missing entry is stored with the host's"
+                            + " own command.")
+    private boolean fromHost;
+
+    @Option(
             names = "--credential",
             paramLabel = "<entry>",
             required = true,
@@ -254,6 +261,6 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
      *     is told as it is.
      */
     private Target target() {
-        return BuildTarget.of(context, upstream, api, credential);
+        return BuildTarget.of(context, upstream, api, credential, fromHost);
     }
 }

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B650",
   "title": "A Start's Smaller Refusals And Leftovers",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 43,
@@ -48,3 +48,24 @@ Split out of the gathering issue for small edge cases on 2026-11-12 (ST56), by t
 ## Acceptance
 
 - Each point above has its case seen red first.
+
+## Built
+
+- A failed id record after `podman create`: already true at this stack; `TaskRunner.recordCreated` hands the id on
+  before either record is written and `TaskLaunch.removeUnrecorded` removes the container by it. Its test was seen
+  red with that order reversed.
+- `UnhandedWork.CENSUS` reads a workspace with no `.git` in a container with no `PORELO_REMOTE_URL` (a `--no-gate`
+  task) as holding nothing to hand on, so a stopped one is removed without `--force`. A gated task whose checkout is
+  gone still reads as unknown.
+- `project init --project` refuses, exit 64, a project name that leaves a task too little room for `work-2`, naming
+  the room and the longest name that fits. The start already refused with the sentence naming the project's name;
+  a test now pins it.
+- `ContainerName.refusal` suggests a name only when every rule takes it: lowercased, cut to the room beside the
+  project, not reserved. Digits only, `people`, a `porelo-` name or one with no room get no suggestion.
+- A `--set` or `--set-file` value the project cannot take exits 64, as an unknown `-r` does, so a start wrong twice
+  gets one code whichever check comes first; a project file that cannot be read keeps 2. Both refuse before
+  anything is made.
+- A host start whose builds come from the host's file hands its builds helper `--from-host`; with the entry missing
+  once the vault opens, the helper says to store it with `porelo host forge-token`, not `porelo vault put`.
+- Red first for each in `UnhandedWorkTest`, `ProjectInitCommandTest`, `ContainerNameTest`, `TaskRunCommandTest` and
+  `BuildTargetTest`.

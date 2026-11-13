@@ -61,6 +61,10 @@ public class ProjectInitCommand extends OrgReading {
     @Override
     Map<String, @Nullable Object> answer(PoreloContext machine) throws IOException {
         if (yes && project == null) throw new Refused(Refused.USAGE, "--yes needs --project", null);
+        if (project != null) {
+            final String cramped = ProjectProposal.crampedProject(project);
+            if (cramped != null) throw new Refused(Refused.USAGE, cramped, null);
+        }
         checkout = checkout.toAbsolutePath().normalize();
         if (!Files.isDirectory(checkout))
             throw new Refused(Refused.USAGE, "CHECKOUT must be a directory", null);

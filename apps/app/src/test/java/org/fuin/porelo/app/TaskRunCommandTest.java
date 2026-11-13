@@ -1161,7 +1161,10 @@ class TaskRunCommandTest {
                 .containsSequence("--branch", "porelo/shell")
                 .containsSequence("--upstream", "file://" + dir.resolve("upstream.git"))
                 .containsSequence("--logs", "failure")
-                .contains("--builds-only");
+                .contains("--builds-only")
+                .as(
+                        "told its builds come from the host's file, so a missing entry names its command")
+                .contains("--from-host");
     }
 
     @ParameterizedTest
@@ -1223,7 +1226,7 @@ class TaskRunCommandTest {
                 .containsSequence("--credential", "project-builds")
                 .containsSequence("--api", "https://forge.example/api")
                 .containsSequence("--logs", "all")
-                .doesNotContain("host-forge", "host-builds", "--builds-only");
+                .doesNotContain("host-forge", "host-builds", "--builds-only", "--from-host");
     }
 
     @Test
@@ -4013,6 +4016,73 @@ class TaskRunCommandTest {
                         .forget();
             }
         }
+    }
+
+    @Test
+    void anUnnamedStartBesideAProjectNameThatLeavesNoRoomSaysTheProjectsNameIsTooLong(
+            @TempDir Path dir) throws Exception {
+
+        // Written by hand, a project's name of 56 characters leaves no task any room: even the
+        // default name does not fit, and the start says what has to change instead of choosing.
+        final String long56 = "p".repeat(56);
+        final String project =
+                projectFile(dir, MINIMAL.replace("name: \"uc\"", "name: \"" + long56 + "\""));
+
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "-r",
+                        long56,
+                        "--dry-run");
+
+        assertThat(code).as("%s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the project's name is what must change")
+                .contains("the project's name leaves no room for any task")
+                .contains("project.yml");
+        assertThat(runner.invocations())
+                .as("nothing made")
+                .noneMatch(command -> command.arguments().contains("create"));
+    }
+
+    @Test
+    void aStartWrongTwiceAnswersOneCodeWhicheverCheckComesFirst(@TempDir Path dir)
+            throws Exception {
+
+        // An unknown -r exited 64 and a --set the project cannot read exited 2, so a start wrong
+        // in both was answered by whichever check came first. Both are what was typed.
+        final String project = projectFile(dir, WITH_PARAMETERS);
+
+        final int setAlone =
+                execute(context(dir, true), "task", "start", "-p", project, "--set", "nope");
+        final String setSaid = err.toString();
+        err.getBuffer().setLength(0);
+        final int repositoryAlone =
+                execute(context(dir, true), "task", "start", "-p", project, "-r", "absent");
+        err.getBuffer().setLength(0);
+        final int both =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "-r",
+                        "absent",
+                        "--set",
+                        "nope");
+
+        assertThat(setSaid).contains("--set nope");
+        assertThat(List.of(setAlone, repositoryAlone, both))
+                .as("one code for what was typed wrong: %s", setSaid)
+                .containsOnly(64);
+        assertThat(runner.invocations())
+                .as("both refuse before anything is made")
+                .noneMatch(command -> command.arguments().contains("create"));
     }
 
     @Test

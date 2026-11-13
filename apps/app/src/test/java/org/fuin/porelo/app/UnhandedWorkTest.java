@@ -33,20 +33,71 @@ class UnhandedWorkTest {
 
     /** Asks a workspace on this machine as a running task's is asked: the census, run by sh. */
     private static UnhandedWork.Held asked(Path workspace) {
+        return asked(workspace, java.util.Map.of());
+    }
+
+    /**
+     * Asks a workspace as a task's is asked, with the environment the task's container has: a
+     * gate's address only where it was given one, whatever the environment these tests run in has.
+     */
+    private static UnhandedWork.Held asked(Path workspace, java.util.Map<String, String> task) {
         final org.fuin.porelo.core.process.CommandRunner here =
                 command -> {
                     final String script = command.arguments().getLast();
+                    final java.util.Map<String, String> environment = new java.util.HashMap<>(GIT);
+                    environment.putAll(task);
                     return new org.fuin.porelo.core.process.ProcessCommandRunner()
                             .run(
                                     org.fuin.porelo.core.process.Command.of(
+                                                    "env",
+                                                    "-u",
+                                                    "PORELO_REMOTE_URL",
                                                     "sh",
                                                     "-c",
-                                                    script.replace(
-                                                            UnhandedWork.WORKSPACE,
-                                                            workspace.toString()))
-                                            .withEnvironment(GIT));
+                                                    (task.containsKey("PORELO_REMOTE_URL")
+                                                                    ? "export PORELO_REMOTE_URL='"
+                                                                            + task.get(
+                                                                                    "PORELO_REMOTE_URL")
+                                                                            + "'; "
+                                                                    : "")
+                                                            + script.replace(
+                                                                    UnhandedWork.WORKSPACE,
+                                                                    workspace.toString()))
+                                            .withEnvironment(environment));
                 };
         return UnhandedWork.ask(new org.fuin.porelo.runtime.Podman(here), "porelo-p-t");
+    }
+
+    @Test
+    void aNoGateTasksWorkspaceIsNoCheckoutAndHoldsNothingItCouldHandOn(@TempDir Path workspace)
+            throws IOException {
+
+        // With --no-gate, /workspace is the image's own directory and never a git checkout: git
+        // failed there, the task read as unknown, and a stopped one was removed only with --force.
+        Files.writeString(workspace.resolve("scratch.md"), "nothing a gate could take\n");
+
+        assertThat(asked(workspace))
+                .as("no checkout, so nothing that could reach a gate")
+                .isEqualTo(new UnhandedWork.Held(true, 0, 0, null));
+    }
+
+    @Test
+    void aGatedTasksWorkspaceWithoutItsCheckoutIsStillNobodyCouldLook(@TempDir Path workspace)
+            throws IOException {
+
+        // A task given a gate has its checkout at /workspace; one gone is no answer that it holds
+        // nothing, so removing it still asks.
+        Files.writeString(workspace.resolve("report.md"), "unpushed\n");
+
+        assertThat(
+                        asked(
+                                        workspace,
+                                        java.util.Map.of(
+                                                "PORELO_REMOTE_URL",
+                                                "http://169.254.1.2:9418/uc.git"))
+                                .readable())
+                .as("nobody could look")
+                .isFalse();
     }
 
     @Test

@@ -178,18 +178,13 @@ public final class ContainerName {
      */
     public static java.util.Optional<String> refusal(String project, String task) {
         if (!TASK.matcher(task).matches()) {
-            final String suggested =
-                    task.toLowerCase(java.util.Locale.ROOT)
-                            .replaceAll("[^a-z0-9]+", "-")
-                            .replaceAll("^-+|-+$", "");
+            final String suggested = suggestion(project, task);
             return java.util.Optional.of(
                     "'"
                             + task
                             + "' is not a task name: use lowercase"
                             + " letters, digits and hyphens, starting and ending with a letter or digit"
-                            + (TASK.matcher(suggested).matches()
-                                    ? " - '" + suggested + "' would do"
-                                    : ""));
+                            + (suggested == null ? "" : " - '" + suggested + "' would do"));
         }
         if (task.chars().allMatch(Character::isDigit)) {
             return java.util.Optional.of(
@@ -234,6 +229,30 @@ public final class ContainerName {
                             + wayOut(project, task));
         }
         return java.util.Optional.empty();
+    }
+
+    /**
+     * Returns the name suggested for one with characters no task may have: lowercased, cut to the
+     * room beside the project, and only when every rule takes it - a name of only digits, the
+     * room's people, a container's beginning or one too long would be refused in turn.
+     *
+     * @param project The project's name, or {@code ""} when it is not known.
+     * @param task The name given.
+     * @return The suggestion, or {@code null} when no fitting one exists.
+     */
+    private static @Nullable String suggestion(String project, String task) {
+        String suggested =
+                task.toLowerCase(java.util.Locale.ROOT)
+                        .replaceAll("[^a-z0-9]+", "-")
+                        .replaceAll("^-+|-+$", "");
+        if (!project.isEmpty() && suggested.length() > taskRoom(project)) {
+            suggested = shortened(suggested, taskRoom(project));
+        }
+        return TASK.matcher(suggested).matches()
+                        && refusal(project, suggested).isEmpty()
+                        && !reserved(project, suggested)
+                ? suggested
+                : null;
     }
 
     /**

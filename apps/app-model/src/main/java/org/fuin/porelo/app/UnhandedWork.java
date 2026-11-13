@@ -130,12 +130,19 @@ public final class UnhandedWork {
      * <p>A workspace nothing can write holds nothing, and is said to: a task that reads its whole
      * project has its repositories mounted read only there, no repository at its top, and nothing
      * it could hand on.
+     *
+     * <p>Nor does a workspace that is no checkout, of a task given no gate: with {@code --no-gate}
+     * {@code /workspace} is the image's own directory, git fails there, and a stopped task read as
+     * unknown was removed only with {@code --force}. A task given a gate has its address in its
+     * environment, and its checkout gone is still nobody could look.
      */
     static final String CENSUS =
             "cd "
                     + WORKSPACE
                     + " 2>/dev/null || exit 0;"
                     + " [ -w . ] || { printf '0 0'; exit 0; };"
+                    + " [ -e .git ] || [ -n \"${PORELO_REMOTE_URL:-}\" ]"
+                    + " || { printf '0 0'; exit 0; };"
                     + " changed=$(git status --porcelain 2>/dev/null) || exit 3;"
                     + " commits=$(git log --oneline --branches --not --remotes 2>/dev/null)"
                     + " || exit 3;"

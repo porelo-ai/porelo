@@ -145,6 +145,46 @@ class ProjectInitCommandTest {
     }
 
     @Test
+    void aProjectWhoseNameLeavesATaskNoRoomIsRefusedWithTheRoomNamed() throws Exception {
+
+        // 'porelo-' + 51 + '-' leaves a task 5 characters of a container name's 64: not even
+        // 'work-2', the name a second unnamed task gets, fits beside it.
+        final Path checkout = checkout("https://example.org/sample.git");
+        final var line = PoreloCli.commandLine(context());
+        final var err = new StringWriter();
+        line.setOut(new PrintWriter(new StringWriter()));
+        line.setErr(new PrintWriter(err));
+
+        assertThat(
+                        line.execute(
+                                "project",
+                                "init",
+                                checkout.toString(),
+                                "--project",
+                                "p".repeat(51)))
+                .as("a usage error: %s", err)
+                .isEqualTo(64);
+        assertThat(err.toString())
+                .as("the room left, and how long a name may be")
+                .contains("5 characters")
+                .contains("at most 50");
+
+        final var fits = PoreloCli.commandLine(context());
+        fits.setOut(new PrintWriter(new StringWriter()));
+        fits.setErr(new PrintWriter(new StringWriter()));
+        assertThat(
+                        fits.execute(
+                                "project",
+                                "init",
+                                checkout.toString(),
+                                "--project",
+                                "p".repeat(50),
+                                "--json"))
+                .as("a name that leaves 'work-2' its room is taken")
+                .isZero();
+    }
+
+    @Test
     void filingIntoAProjectsFileIsRefusedWithTheEntry() throws Exception {
         final Path checkout = checkout("https://example.org/sample.git");
         final var line = PoreloCli.commandLine(context());

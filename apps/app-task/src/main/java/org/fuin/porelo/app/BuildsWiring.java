@@ -126,6 +126,11 @@ final class BuildsWiring {
         if (project.securityClass() == SecurityClass.GUARDED) {
             command.add("--builds-only");
         }
+        if (own == null) {
+            // A start with the vault shut cannot see the entry is missing: the helper, once the
+            // vault opens without it, names the host's command and not 'porelo vault put'.
+            command.add("--from-host");
+        }
         // Said only where a token would help: a task without a branch is told no builds anyway.
         final MissingCredential missing =
                 own == null ? missing(context, selected, "restart") : null;

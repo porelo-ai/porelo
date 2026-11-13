@@ -115,6 +115,34 @@ final class ProjectProposal {
                 : atWord;
     }
 
+    /** The name a second unnamed task gets, the least a project's name must leave room for. */
+    static final String SECOND_UNNAMED = "work-2";
+
+    /**
+     * Says why a project's name leaves a task too little room, or {@code null} when it leaves
+     * enough: written by hand, a long one left even 'work-2' no room, and every start refused.
+     *
+     * @param project The project's name.
+     * @return The refusal, naming the room, or {@code null}.
+     */
+    static @Nullable String crampedProject(final String project) {
+        final int room = org.fuin.porelo.runtime.ContainerName.taskRoom(project);
+        if (room >= SECOND_UNNAMED.length()) {
+            return null;
+        }
+        return "'"
+                + project
+                + "' leaves a task "
+                + Math.max(0, room)
+                + " characters of a container name's "
+                + org.fuin.porelo.runtime.ContainerName.MAX_LENGTH
+                + ", too few for '"
+                + SECOND_UNNAMED
+                + "': give the project a name of at most "
+                + (project.length() + room - SECOND_UNNAMED.length())
+                + " characters";
+    }
+
     ProjectProposal(
             String repository,
             @Nullable String upstream,

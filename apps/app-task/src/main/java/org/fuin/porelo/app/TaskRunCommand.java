@@ -926,9 +926,25 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         // start itself, as a daemon's start is.
         final java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> given;
         final TaskBase base;
+        final org.fuin.porelo.core.project.Project read;
         try {
-            final var project = ProjectReader.read(projectFile);
-            given = given(project.parameters());
+            read = ProjectReader.read(projectFile);
+        } catch (final ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 2;
+        }
+        try {
+            given = given(read.parameters());
+        } catch (final ProjectException ex) {
+            // What was typed, as an unknown -r is, and as the launch and the daemon's Start
+            // refuse a value: one code whichever of them a start wrong twice hears first.
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 64;
+        }
+        try {
+            final var project = read;
             base =
                     from != null
                             ? TaskBase.named(from)

@@ -274,6 +274,47 @@ class ContainerNameTest {
     }
 
     @Test
+    void aNameWithCharactersNoTaskMayHaveSuggestsOnlyANameEveryRuleTakes() {
+
+        // The lowercased suggestion was checked against the pattern alone, so it could be a name
+        // the next rule refuses.
+        assertThat(ContainerName.refusal("uc", "123 "))
+                .get()
+                .asString()
+                .as("digits only mark a login container")
+                .doesNotContain("would do");
+        assertThat(ContainerName.refusal("uc", "People"))
+                .get()
+                .asString()
+                .as("the room's people")
+                .doesNotContain("would do");
+        assertThat(ContainerName.refusal("uc", "Porelo-Fix"))
+                .get()
+                .asString()
+                .as("a container's beginning")
+                .doesNotContain("would do");
+        assertThat(ContainerName.refusal("p".repeat(56), "Fix"))
+                .get()
+                .asString()
+                .as("no room beside the project for any task")
+                .doesNotContain("would do");
+
+        // Too long for the project: cut to the room, as a name that is too long is.
+        final String project = "p".repeat(40);
+        final String refusal = ContainerName.refusal(project, "Fix the " + "x".repeat(20)).get();
+        assertThat(refusal).as("cut at a word to the room").contains("'fix-the' would do");
+        assertThat(ContainerName.refusal(project, "fix-the"))
+                .as("the suggested name is one the same check takes")
+                .isEmpty();
+
+        assertThat(ContainerName.refusal("uc", "My Task"))
+                .get()
+                .asString()
+                .as("a fitting one is still suggested")
+                .contains("'my-task' would do");
+    }
+
+    @Test
     void aNameIsShortenedAtAWordWhereItCanAndNeverEndsInAHyphen() {
         assertThat(ContainerName.shortened("example-shop-api-templates", 22))
                 .as("cut back to the last whole word")

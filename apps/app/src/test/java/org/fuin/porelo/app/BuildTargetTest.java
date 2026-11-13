@@ -60,17 +60,20 @@ class BuildTargetTest {
         PoreloContext.forgetAsked();
     }
 
-    private Target watchTarget() throws Throwable {
+    private Target watchTarget(String... more) throws Throwable {
         final TaskWatchBuildsCommand watch = new TaskWatchBuildsCommand();
         watch.setContext(context);
-        new CommandLine(watch)
-                .parseArgs(
-                        "task",
-                        "--branch=main",
-                        "--upstream=" + UPSTREAM,
-                        "--api=" + API,
-                        "--forge=test-forge",
-                        "--credential=selected");
+        final java.util.List<String> arguments =
+                new java.util.ArrayList<>(
+                        java.util.List.of(
+                                "task",
+                                "--branch=main",
+                                "--upstream=" + UPSTREAM,
+                                "--api=" + API,
+                                "--forge=test-forge",
+                                "--credential=selected"));
+        arguments.addAll(java.util.List.of(more));
+        new CommandLine(watch).parseArgs(arguments.toArray(String[]::new));
         final var method = TaskWatchBuildsCommand.class.getDeclaredMethod("target");
         method.setAccessible(true);
         try {
@@ -130,6 +133,28 @@ class BuildTargetTest {
                     .as("the watch names the entry to store")
                     .isInstanceOf(BuildWatch.NotNow.class)
                     .hasMessageContaining("porelo vault put selected");
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
+    }
+
+    @Test
+    void aMissingEntryTheHostsFileNamesIsStoredWithTheHostsCommand() {
+        // A start with the vault shut could not see the entry was missing, so the helper started;
+        // once the vault opened without it, it said to store it with 'porelo vault put', which
+        // stores no token the host's forge gives.
+        try {
+            context.openIfShut(true, true, new PrintWriter(new StringWriter()));
+            context.vault()
+                    .write(
+                            Map.of("other", VaultEntry.of("wrong-entry")),
+                            "test passphrase".toCharArray());
+            assertThatThrownBy(() -> watchTarget("--from-host"))
+                    .as("the watch names the host's command")
+                    .isInstanceOf(BuildWatch.NotNow.class)
+                    .hasMessageContaining("'selected'")
+                    .hasMessageContaining("porelo host forge-token")
+                    .hasMessageNotContaining("porelo vault put");
         } finally {
             new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
         }
