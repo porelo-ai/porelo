@@ -87,6 +87,11 @@ tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
     SELinux module (types, no names), helper ids (`porelo-<uuid>`), and the person-card login checks.
   - The transport's contract name stays `porelo-<project>-<task>` (`ContainerName.contract`), as decided.
   Red: a `porelo_pi` container is listed, attached, stopped, cleaned up and given its MCP socket.
+- A guard test keeps it so (the operator, 2026-11-13): it reads the main sources of every module and the acceptance
+  kit, and fails on a container-name pattern beginning `porelo-` or `porelo[`, or a `startsWith` on
+  `"porelo-"` or `ContainerName.PREFIX`, anywhere outside `ContainerName`. The names that are no container's (a
+  forge identity `porelo-<login>`, a helper id, a package file name) are listed in the test by file and reason, so
+  a new one is a decision, not a habit.
 - The host: a task's record and forge token kept by project and task is built by [B735](README.md#b735). Records
   and tokens under the old key are left to end with their tasks, and new tasks use the new key (the operator,
   2026-11-13). Nothing is moved.
@@ -101,6 +106,8 @@ tests in each. Estimate: 63 minutes (Core's median for M), p80 229.
   outside a checkout.
 - A new task of project `porelo` is `porelo_<task>`; every other new task's name is `porelo-<project or short>_<task>`.
 - No code path takes a task container to begin with `porelo-` alone; `porelo_pi` is a task everywhere one is.
+- One function in `ContainerName` decides whether a name is Porelo's and a task's; the guard test fails on any
+  container-name pattern or prefix check outside it.
 
 ## Answered
 
