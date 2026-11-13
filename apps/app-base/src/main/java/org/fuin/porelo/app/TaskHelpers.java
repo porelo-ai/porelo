@@ -31,7 +31,7 @@ record TaskHelpers(List<Helper> helpers) {
     /** Name of the file in a task's state directory. */
     static final String FILE = "resume.json";
 
-    /** A helper whose socket the container mounts, so it has to exist before the container. */
+    /** A helper that must be up before the container, such as the broker its relay reaches. */
     static final String BEFORE = "before";
 
     /** A helper that needs the running container, such as anything given its pid. */

@@ -4861,6 +4861,61 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aSocketAgentsTaskIsCreatedWithNoSocketMountedFromTheHost(@TempDir Path dir)
+            throws Exception {
+
+        // A socket file bind-mounted from the host is one any process of the account can replace
+        // before the task starts, and the agent then sends its requests to whatever bound it.
+        final PoreloContext context = brokeredContext(dir);
+        final Path definition = context.paths().xdg().data().resolve("agents/preview.yaml");
+        Files.writeString(
+                definition,
+                Files.readString(definition)
+                        .replace(
+                                "endpoint: url\n",
+                                "endpoint: socket\n  socket_env: PREVIEW_SOCKET\n"));
+        final Path helpers = Files.createDirectories(dir.resolve("helpers"));
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, broker(helpers, true, ownPorelo).toString());
+        try {
+            execute(
+                    context,
+                    "task",
+                    "start",
+                    "-p",
+                    projectFile(dir, MINIMAL),
+                    "--agent",
+                    "preview",
+                    "--no-gate");
+
+            assertThat(out.toString()).as("the agent's credential was brokered").contains("vault ");
+            final String create =
+                    runner.lines().stream()
+                            .filter(line -> line.contains("podman create"))
+                            .findFirst()
+                            .orElseThrow(() -> new AssertionError("no create: " + err));
+            final List<String> mounted =
+                    java.util.regex.Pattern.compile("--volume ([^ ]+)")
+                            .matcher(create)
+                            .results()
+                            .map(found -> found.group(1))
+                            .toList();
+            assertThat(mounted).as("the mounts this reads: %s", create).isNotEmpty();
+            assertThat(mounted)
+                    .as("no socket is mounted into the task")
+                    .noneMatch(volume -> volume.contains(".sock"));
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers);
+            PoreloContext.forgetAsked();
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                        .forget();
+            }
+        }
+    }
+
+    @Test
     void aStartThatLosesTheNameToAMadeTaskTakesNoneOfItsBrokerFiles(@TempDir Path dir)
             throws Exception {
 

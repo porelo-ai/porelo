@@ -3661,11 +3661,10 @@ public final class TaskLaunch {
             mailbox.create();
             informed(project, container, true);
 
-            TaskWiring wiring =
+            final TaskWiring wiring =
                     new TaskWiring(
                             workspace == null ? null : gate().gateAddress(project, err),
                             workspace == null ? 0 : workspace.port(),
-                            null,
                             mailbox.box());
 
             java.util.Map<String, String> environmentCache = new java.util.LinkedHashMap<>();
@@ -3769,7 +3768,6 @@ public final class TaskLaunch {
                             || plumbing != null && plumbing.servesOthers();
             if (plumbing != null) {
                 environmentCache.putAll(plumbing.environment());
-                wiring = wiring.withVaultSocket(plumbing.socket());
                 // Left reachable. Withholding it stopped every agent that checks the provider is up
                 // before it starts, and what it kept in was the phantom token: random, task-scoped,
                 // and worth nothing to the provider. The real credential is what must not get out,
@@ -3905,9 +3903,18 @@ public final class TaskLaunch {
             steps.started(StartStep.Step.HELPERS);
             // A helper that did not come up fails the start: answered with 0, the task ran with
             // no endpoint or no gate, and nothing said so but a line in its log.
-            if (needsRelay
-                    && plumbing != null
-                    && !wiring().startRelay(runner, container, plumbing.socket(), out, err)) {
+            // A socket agent's socket, too, is the relay's, bound inside the task once it runs:
+            // a file mounted from the host is one the account could have replaced.
+            if (plumbing != null
+                    && (needsRelay || plumbing.socketInTask())
+                    && !wiring().startRelay(
+                                    runner,
+                                    container,
+                                    plumbing.socket(),
+                                    needsRelay,
+                                    plumbing.socketInTask(),
+                                    out,
+                                    err)) {
                 return cleanUp(runner, container, 70, false, out, err);
             }
             if (repositories != null

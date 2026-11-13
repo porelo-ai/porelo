@@ -1,0 +1,2 @@
+title: "A socket agent's vault socket is no longer mounted from the host: Porelo's relay binds it inside the task, at `/run/porelo-vault/vault.sock` in a directory only the task's root writes, so the agent can reach it but cannot replace it, and a process of the account on the host has to join the task to put another socket in its place; the SELinux module (1.2) lets that relay bind the labelled socket, and a task still only connects"
+type: security

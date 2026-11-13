@@ -6,30 +6,28 @@ import org.jspecify.annotations.Nullable;
 /**
  * The host-side endpoints one task container is wired to.
  *
- * <p>Grouped rather than passed as four more arguments, because they share a property that is easy
- * to lose track of: each is decided <em>before</em> the container is created, since the firewall
- * ruleset has to name the gate's port and the socket has to exist before it can be mounted.
+ * <p>Grouped rather than passed as more arguments, because they share a property that is easy to
+ * lose track of: each is decided <em>before</em> the container is created, since the firewall
+ * ruleset has to name the gate's port and the mailbox has to exist before it can be mounted.
  *
  * @param gateAddress Address the git gate listens on, or {@code null} when the task has no
  *     workspace.
  * @param gatePort Port the git gate listens on, or zero.
- * @param vaultSocket Host path of the credential proxy's socket, or {@code null} when the task
- *     brokers no credential.
  * @param mailbox Host path of the half of the task's mailbox that is mounted, or {@code null} when
  *     the task exchanges no messages. Never the mailbox's root: what the host keeps - the refused
  *     originals above all - stays outside the mount.
  */
-public record TaskWiring(
-        @Nullable String gateAddress,
-        int gatePort,
-        @Nullable Path vaultSocket,
-        @Nullable Path mailbox) {
-
-    /** Where the vault socket is mounted inside the container. */
-    public static final String VAULT_MOUNT = "/run/porelo/vault.sock";
+public record TaskWiring(@Nullable String gateAddress, int gatePort, @Nullable Path mailbox) {
 
     /**
-     * Base URL handed to an agent alongside {@link #VAULT_MOUNT}.
+     * Where the vault socket is inside the container: bound there by the task's relay, never
+     * mounted from the host, whose account could replace a mounted file. A directory of its own,
+     * the task's root's alone, so the agent reaches the socket and cannot replace it.
+     */
+    public static final String VAULT_SOCKET = "/run/porelo-vault/vault.sock";
+
+    /**
+     * Base URL handed to an agent alongside {@link #VAULT_SOCKET}.
      *
      * <p>The socket carries the traffic, so the host and port here are never dialled - but the
      * variable still has to be set. Measured: with only the socket variable set, Claude Code falls
@@ -78,17 +76,7 @@ public record TaskWiring(
      * @return Empty wiring.
      */
     public static TaskWiring none() {
-        return new TaskWiring(null, 0, null, null);
-    }
-
-    /**
-     * Returns a copy with the vault socket set.
-     *
-     * @param socket Host path of the socket.
-     * @return New wiring.
-     */
-    public TaskWiring withVaultSocket(Path socket) {
-        return new TaskWiring(gateAddress, gatePort, socket, mailbox);
+        return new TaskWiring(null, 0, null);
     }
 
     /**
@@ -98,6 +86,6 @@ public record TaskWiring(
      * @return New wiring.
      */
     public TaskWiring withMailbox(Path box) {
-        return new TaskWiring(gateAddress, gatePort, vaultSocket, box);
+        return new TaskWiring(gateAddress, gatePort, box);
     }
 }

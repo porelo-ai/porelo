@@ -72,15 +72,50 @@ public final class SocketRelay implements Runnable, AutoCloseable {
             Path socket,
             @Nullable String profile,
             java.util.function.Predicate<String> enter) {
+        this(listening(address), socket, profile, enter);
+    }
+
+    /**
+     * Constructor with a listener already bound, such as a socket file inside the task ({@link
+     * TaskSocket}), held to the task's profile at its connect as the port's relay is.
+     *
+     * @param server The bound listener, which the relay closes.
+     * @param socket Broker socket on the host to forward to.
+     * @param profile The AppArmor task profile to connect from, or {@code null} where none holds.
+     * @param enter Puts the calling thread into a profile; {@code false} when the kernel refused.
+     * @throws SupervisorException If the kernel refused the profile: unconfined, the relay would
+     *     connect to whatever bound the socket.
+     */
+    public SocketRelay(
+            ServerSocketChannel server,
+            Path socket,
+            @Nullable String profile,
+            java.util.function.Predicate<String> enter) {
         this.socket = socket;
-        this.connector = profile == null ? null : confined(profile, enter);
+        this.server = server;
         try {
-            server = ServerSocketChannel.open();
-            server.bind(address);
-        } catch (IOException ex) {
-            if (connector != null) {
-                connector.shutdownNow();
+            this.connector = profile == null ? null : confined(profile, enter);
+        } catch (SupervisorException ex) {
+            try {
+                server.close();
+            } catch (IOException closing) {
+                ex.addSuppressed(closing);
             }
+            throw ex;
+        }
+    }
+
+    private static ServerSocketChannel listening(InetSocketAddress address) {
+        try {
+            final ServerSocketChannel server = ServerSocketChannel.open();
+            try {
+                server.bind(address);
+                return server;
+            } catch (IOException ex) {
+                server.close();
+                throw ex;
+            }
+        } catch (IOException ex) {
             throw new SupervisorException("Could not bind the relay to " + address, ex);
         }
     }
@@ -120,7 +155,7 @@ public final class SocketRelay implements Runnable, AutoCloseable {
     }
 
     /**
-     * Returns where the relay listens.
+     * Returns where a relay on a port listens.
      *
      * @return The bound address, with the port chosen when port 0 was asked for.
      */

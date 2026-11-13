@@ -13,8 +13,8 @@ decides the rest: nothing on the daemon's socket ever carries a credential value
 ![the container holds a phantom token and presents it to a proxy on a unix socket; the proxy reads the real credential from the vault, drops every credential header the agent sent, adds the real one and reissues the request over TLS; a dashed path shows a direct attempt denied by the ruleset](images/auth-broker.svg)
 
 The agent gets a **phantom token**: random, scoped to its one task, and accepted for a bounded time
-(`--token-hours`, eight by default). It presents that to a proxy on a unix socket bind-mounted into
-the container. Per request, the proxy reads the real credential, drops every credential header the
+(`--token-hours`, eight by default). It presents that to a proxy on a unix socket inside the
+container, bound there by Porelo's relay, which forwards to the proxy on the host. Per request, the proxy reads the real credential, drops every credential header the
 agent sent (`authorization`, `x-api-key`, `private-token`, `proxy-authorization`), adds the right
 one, and sends the request upstream over TLS. A leaked phantom token stops working when the task
 ends. The proxy also finds the token in the header the provider or destination declares

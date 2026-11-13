@@ -32,7 +32,7 @@ class CredentialResultTextTest {
     void aCredentialsPlumbingDoesNotPrintItsEnvironment() {
         final CredentialWiring.CredentialPlumbing plumbing =
                 new CredentialWiring.CredentialPlumbing(
-                        Path.of("/run/s"), "api.example", Map.of("KEY", SECRET), false);
+                        Path.of("/run/s"), "api.example", Map.of("KEY", SECRET), false, false);
 
         assertThat(plumbing.toString()).contains("api.example").doesNotContain(SECRET);
     }

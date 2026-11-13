@@ -361,10 +361,13 @@ of all tasks at once - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `po
 
 ## Who may stand in for Porelo's sockets
 
-A task reaches the vault proxy, the ssh agent, its mailbox and the daemon through unix sockets in the account's
-runtime directory. The first lock, on every machine, is that directory: owner-only, so only the account itself can
-put a socket there. A process of the same account could still bind one in the place of Porelo's and collect what a
-task sends. A second lock against that holds on SELinux machines only:
+A task's agent reaches the vault proxy through one unix socket, `/run/porelo-vault/vault.sock`. Porelo's relay binds
+it inside the task's own mount namespace, through the container's root, in a directory only the task's root writes;
+it is not mounted from the host. The agent can connect to it and cannot remove or replace it, and a process of the
+account on the host has to join the task to put another socket in its place. The relay forwards to the broker's
+socket in the account's runtime directory, which is owner-only, so only the account itself can put a socket there. A
+process of the same account could still bind one in the place of Porelo's and collect what a task sends. A second
+lock against that holds on SELinux machines only:
 
 - **SELinux machines:** the policy module lets a task connect only to a socket labelled `porelo_socket_t`. The module
   still lets any process of the operator's set that label, so on SELinux this lock is not yet the binary-only one it
@@ -372,7 +375,11 @@ task sends. A second lock against that holds on SELinux machines only:
 - **AppArmor machines:** the lock requires a machine-wide install whose binaries wear plain `porelo` by path
   attachment, loaded profiles and a kernel that mediates unix sockets. For abstract sockets in the task's network
   namespace, `porelo-task` permits a connect only to a peer in `porelo` or `porelo-task`; a task cannot leave its
-  profile. A path socket is judged by file rules instead, so the peer rule gives it no second lock.
+  profile. A path socket is judged by file rules instead, so the peer rule gives it no second lock. The vault
+  socket is a path socket until no shipped agent's client needs one: the client that reads it today does not take an
+  abstract address, and binding the vault socket as an abstract name is a planned change. Until then the task's own
+  mount namespace is what protects the socket file, and on AppArmor the peer rule protects no shipped socket
+  agent.
   `porelo doctor`'s `apparmor profile` line starts its detail with `installed` where this process wears plain
   `porelo` and the lock holds. An account install or a developer's build has the `0700` directory, not this lock:
   where unprivileged self-entry stacks profiles, it would produce `porelo//&unconfined`, which a task refuses as a

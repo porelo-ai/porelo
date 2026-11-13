@@ -83,9 +83,9 @@ public final class TaskControl {
          * The task was started before this machine restarted, so it cannot be started again.
          *
          * <p>Its state directory is under {@code $XDG_RUNTIME_DIR}, which the system clears when
-         * the user's last session ends - and the container bind-mounts the broker socket from
-         * inside it. podman refuses to start a container whose mount source is gone, with a message
-         * about {@code crun} and a path, which says nothing about what happened or what to do. The
+         * the user's last session ends - and the container bind-mounts its screen file from inside
+         * it. podman refuses to start a container whose mount source is gone, with a message about
+         * {@code crun} and a path, which says nothing about what happened or what to do. The
          * workspace is still in the container and can be copied out.
          */
         PREDATES_RESTART,
@@ -1238,11 +1238,8 @@ public final class TaskControl {
 
         final String drift = imageDrift(container);
 
-        // The proxy's socket is mounted into the container, and a mount is bound to the file that
-        // existed when the container started. Starting the container first therefore binds it to
-        // the socket of the previous run, which the resumed proxy then replaces: measured, the
-        // container held a deleted inode and every request through it went nowhere, while the same
-        // request from the host was answered.
+        // The helpers the container or its relay need come first, as at the first start; the relay,
+        // which binds the agent's socket inside the task, follows the container it binds in.
         final List<ProcessHandle> own = new ArrayList<>();
         int started = start(recorded, TaskHelpers.BEFORE, 0, state, problems, own);
         final long before =
@@ -1464,8 +1461,8 @@ public final class TaskControl {
      * Replaces the container pid a helper was started with, which belongs to the previous run.
      *
      * <p>The watcher takes it as {@code --pid}; the relay enters the container's network namespace
-     * with {@code nsenter --target}. A relay resumed with the old pid entered a namespace that no
-     * longer existed.
+     * with {@code nsenter --target}, and binds a socket agent's socket through its root with {@code
+     * --bind-in}. A relay resumed with the old pid entered a namespace that no longer existed.
      *
      * @param command The recorded command.
      * @param option The option the pid follows.
@@ -1554,6 +1551,8 @@ public final class TaskControl {
                             || CredentialWiring.REPOSITORY_RELAY.equals(helper.name()))
                     && pid > 0) {
                 command = withPid(command, "--target", pid);
+                // Its socket in the task is bound through the root of the container's new process.
+                command = withPid(command, "--bind-in", pid);
             }
             if ("vault".equals(helper.name())) {
                 command = reusingToken(command);

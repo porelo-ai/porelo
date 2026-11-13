@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Turns a phantom token into a real credential, on the way out.
  *
- * <p>One proxy per task container, listening on a unix socket the container has bind-mounted. The
+ * <p>One proxy per task container, listening on a unix socket the task's relay forwards to. The
  * agent presents the phantom token it was given; the proxy checks it, <strong>removes every
  * credential header the agent sent</strong>, adds the real one, and reissues the request upstream
  * over TLS. The real credential is read per request and never handed to the container, so an agent

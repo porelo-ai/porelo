@@ -13,8 +13,8 @@ import org.jspecify.annotations.Nullable;
  * ever hands over what it holds.
  *
  * <p>Each one it starts is recorded, because a task that is stopped and resumed has to bring the
- * same processes back in the same order - the socket a container has mounted is bound to the file
- * that existed when it started.
+ * same processes back in the same order: the broker before the container, and the relay, which
+ * binds inside it, once it runs.
  */
 final class CredentialWiring {
 
@@ -109,11 +109,14 @@ final class CredentialWiring {
     }
 
     /**
-     * Starts the relay that gives a URL agent something to dial inside its own namespace.
+     * Starts the relay that gives the agent its way to the broker inside its own task: a port in
+     * its network namespace for a URL, and a socket file in its own filesystem for a socket agent.
      *
      * @param runner Runs containers.
      * @param container Container name.
      * @param socket Broker socket to forward to.
+     * @param port Whether it listens on {@link TaskWiring#VAULT_PORT}.
+     * @param inTask Whether it binds {@link TaskWiring#VAULT_SOCKET} inside the task.
      * @param out Where progress is reported.
      * @param err Where failures are reported.
      * @return Whether the relay came up and recorded its pid; one that did not is stopped again.
@@ -122,9 +125,19 @@ final class CredentialWiring {
             TaskRunner runner,
             String container,
             java.nio.file.Path socket,
+            boolean port,
+            boolean inTask,
             PrintWriter out,
             PrintWriter err) {
-        return relay(runner, container, socket, TaskWiring.VAULT_PORT, "relay", out, err);
+        return relay(
+                runner,
+                container,
+                socket,
+                port ? TaskWiring.VAULT_PORT : 0,
+                inTask ? TaskWiring.VAULT_SOCKET : null,
+                "relay",
+                out,
+                err);
     }
 
     /** The helper that serves the task's package repositories, as it is recorded. */
@@ -260,7 +273,14 @@ final class CredentialWiring {
             PrintWriter out,
             PrintWriter err) {
         return relay(
-                runner, container, socket, TaskWiring.REPOSITORY_PORT, REPOSITORY_RELAY, out, err);
+                runner,
+                container,
+                socket,
+                TaskWiring.REPOSITORY_PORT,
+                null,
+                REPOSITORY_RELAY,
+                out,
+                err);
     }
 
     /**
@@ -270,6 +290,8 @@ final class CredentialWiring {
      * the credential. Binding the broker itself in the namespace was tried and fails - it reads the
      * host's {@code /etc/resolv.conf} and then cannot resolve anything at all.
      *
+     * @param port The port it listens on in the task's namespace, or zero for none.
+     * @param inTask The socket it binds inside the task, or {@code null} for none.
      * @return Whether the relay came up and recorded its pid; one that did not is stopped again.
      */
     private boolean relay(
@@ -277,6 +299,7 @@ final class CredentialWiring {
             String container,
             java.nio.file.Path socket,
             int port,
+            @Nullable String inTask,
             String helper,
             PrintWriter out,
             PrintWriter err) {
@@ -284,26 +307,29 @@ final class CredentialWiring {
         final java.util.Optional<Long> pid = runner.containerPid(container);
         if (pid.isEmpty()) {
             err.println(
-                    "porelo: the container reports no process, so nothing can listen in its"
-                            + " namespace and the task has no endpoint on port "
-                            + port);
+                    "porelo: the container reports no process, so nothing can listen in it and"
+                            + " the task has no way to its broker");
             err.flush();
             return false;
         }
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
-        final java.util.List<String> command =
-                namespace.apply(
-                        pid.get(),
-                        java.util.List.of(
-                                PoreloBinary.path(),
-                                "vault",
-                                "relay",
-                                "--listen",
-                                String.valueOf(port),
-                                "--socket",
-                                socket.toString(),
-                                "--pid-file",
-                                state.resolve(helper + ".pid").toString()));
+        final java.util.List<String> relay =
+                new java.util.ArrayList<>(java.util.List.of(PoreloBinary.path(), "vault", "relay"));
+        if (port > 0) {
+            relay.addAll(java.util.List.of("--listen", String.valueOf(port)));
+        }
+        if (inTask != null) {
+            // Through the container's root, so the socket lies in the task's own filesystem and
+            // the relay still reaches the broker's socket on the host.
+            relay.addAll(java.util.List.of("--bind-in", String.valueOf(pid.get()), "--at", inTask));
+        }
+        relay.addAll(
+                java.util.List.of(
+                        "--socket",
+                        socket.toString(),
+                        "--pid-file",
+                        state.resolve(helper + ".pid").toString()));
+        final java.util.List<String> command = namespace.apply(pid.get(), relay);
         try {
             final Process started =
                     new ProcessBuilder(
@@ -328,7 +354,12 @@ final class CredentialWiring {
                 err.flush();
                 return false;
             }
-            out.println("endpoint  http://127.0.0.1:" + port + " in the task's namespace");
+            if (port > 0) {
+                out.println("endpoint  http://127.0.0.1:" + port + " in the task's namespace");
+            }
+            if (inTask != null) {
+                out.println("socket    " + inTask + " in the task");
+            }
             out.flush();
             return true;
         } catch (java.io.IOException ex) {
@@ -405,18 +436,21 @@ final class CredentialWiring {
     /**
      * What the credential proxy set up for this task.
      *
-     * @param socket Host path of the socket the container mounts.
+     * @param socket Host path of the broker's socket, which the task's relay forwards to.
      * @param upstreamHost Provider host to withhold from the firewall.
      * @param environment Variables the container needs to use the proxy.
      * @param servesOthers Whether it serves credentials beyond the agent's, which are reached over
      *     its URL in the task's namespace and so need the relay whatever the agent's own endpoint
      *     is.
+     * @param socketInTask Whether the agent was given {@link TaskWiring#VAULT_SOCKET}, which the
+     *     relay binds inside the task.
      */
     record CredentialPlumbing(
             java.nio.file.Path socket,
             String upstreamHost,
             java.util.Map<String, String> environment,
-            boolean servesOthers) {
+            boolean servesOthers,
+            boolean socketInTask) {
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
@@ -724,7 +758,8 @@ final class CredentialWiring {
                 socket,
                 own != null ? own.route().upstreamHost() : where(primary),
                 environment,
-                !served.isEmpty());
+                !served.isEmpty(),
+                own != null && own.route().socketEnvironment() != null);
     }
 
     /**
@@ -744,7 +779,7 @@ final class CredentialWiring {
         final java.util.Map<String, String> environment = new java.util.LinkedHashMap<>();
         environment.put(variable, token);
         if (route.socketEnvironment() != null) {
-            environment.put(route.socketEnvironment(), TaskWiring.VAULT_MOUNT);
+            environment.put(route.socketEnvironment(), TaskWiring.VAULT_SOCKET);
         }
         final org.fuin.porelo.agent.api.AgentProvider provider =
                 agent == null ? null : agent.provider();

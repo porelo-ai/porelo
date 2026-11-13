@@ -336,6 +336,8 @@ class CredentialWiringTest {
                             new TaskRunner(runner, paths),
                             container,
                             state.resolve("vault.sock"),
+                            true,
+                            false,
                             new java.io.PrintWriter(new java.io.StringWriter()),
                             new java.io.PrintWriter(err, true));
 

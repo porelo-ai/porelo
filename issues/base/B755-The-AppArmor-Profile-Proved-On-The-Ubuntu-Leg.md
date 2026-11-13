@@ -36,7 +36,7 @@ path socket, so this scenario proves no lock against a stand-in; that proof move
     `abi <abi/5.0>` from the package's `postinst`, and `apparmor_parser -Q` compiles it;
   - `doctor`'s `apparmor profile` line says `installed` for the machine-wide install, and for an account install says
     the lock is not held there and why;
-  - a task starts, and its agent reaches the vault proxy through `/run/porelo/vault.sock`.
+  - a task starts, and its agent reaches the vault proxy through `/run/porelo-vault/vault.sock`.
 - The steps go into the acceptance kit, with `--agent stub` as every scenario has.
 - Red first: `doctor`'s line of an account install, run before [B754](README.md#b754), says `installed`.
 

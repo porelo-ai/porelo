@@ -61,7 +61,7 @@ class HostServiceWiringTest {
                         ImageLayers.none(),
                         Map.of(),
                         List.of("external.example"),
-                        new TaskWiring(address, 9418, null, null),
+                        new TaskWiring(address, 9418, null),
                         new PrintWriter(said, true));
         return paths.tasks().containerState("porelo-local-service");
     }

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B752",
   "title": "The Vault Socket Bound In The Task's Mount Namespace",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 51,
@@ -62,14 +62,17 @@ Read at the start of this issue:
 
 ## Plan
 
-- **The relay binds in the task.** `porelo vault relay` (`VaultRelayCommand`, `SocketRelay` in `supervisor`) gains
-  `--bind-in <pid>`, beside `--listen <port>`. It binds `TaskWiring.VAULT_MOUNT` through
-  `/proc/<pid>/root/run/porelo/vault.sock`, with `/run/porelo` made root-owned `0755` and the socket `0666`. It is
+- **The relay binds in the task.** `porelo vault relay` (`VaultRelayCommand`, `SocketRelay` and the new `TaskSocket`
+  in `supervisor`) gains `--bind-in <pid> --at <path>`, beside `--listen <port>`. It binds `TaskWiring.VAULT_SOCKET`,
+  `/run/porelo-vault/vault.sock`, through `/proc/<pid>/root`, in a directory of its own made root-owned `0755`, the
+  socket `0666`. Not under `/run/porelo`, which a task keeps root-only `0700`, so the agent could not reach a socket
+  there. No part of the path below the root may be a link or writable by others, since the relay is the host's
+  account and a link inside the container's root resolves against the host's. It is
   still started by `CredentialWiring.relay` under `podman unshare` after the container exists, and still forwards to
   the host's `<state>/vault.sock`. Measured on Ubuntu 26.04 with a rootless container: bound so under `podman
   unshare`, the agent user (1001) reached it with curl (`204`), and could not remove it.
 - **The task's side.** `TaskRunner` (`app-base`) no longer bind-mounts `vault.sock` at `TaskWiring.VAULT_MOUNT`.
-  The socket variable keeps `/run/porelo/vault.sock`. `TaskLaunch` starts the relay for a socket agent too, before
+  The socket variable names `/run/porelo-vault/vault.sock`. `TaskLaunch` starts the relay for a socket agent too, before
   the agent runs, and a resumed task starts it again with the container's new pid, as `TaskControl` does for the URL
   relay.
 - **The broker stays on the host**, bound at `<state>/vault.sock` in the owner-only state directory, reached only by
@@ -88,9 +91,36 @@ Read at the start of this issue:
 
 ## Acceptance
 
-- In a running task no socket Porelo serves is bind-mounted from the host. `/run/porelo/vault.sock` is a socket of
+- In a running task no socket Porelo serves is bind-mounted from the host. `/run/porelo-vault/vault.sock` is a socket of
   the task's root, and the agent reaches the vault proxy through it. Seen to fail: today's bind mount of the host's
   `vault.sock`.
 - A process on the host in the same account, not joined to the task, cannot replace the task's socket file. Seen to
   fail: today's bind-mounted file, which the host's account can replace.
 - `doc/security.md` says where the peer rule holds and what protects the socket file until then.
+
+## Built
+
+- `TaskSocket` binds the socket through the container's root, refusing a link or a directory others may write
+  anywhere on the path; `porelo vault relay --bind-in <pid> --at <path>` serves it beside or instead of `--listen`.
+- `TaskRunner` mounts no socket; `TaskLaunch` starts the relay for a socket agent after the container runs, and a
+  resume starts it again with the container's new pid (`--bind-in` follows `--target`).
+- `doc/security.md` and `doc/credentials.md` say where the socket is and what protects it.
+- Seen red, then green: `TaskSocketTest` (a link where the directory goes or above it, a directory others may write)
+  with the checks taken out; `TaskRunCommandTest`'s socket agent created with no socket mounted from the host, with a
+  socket mount put back.
+- Against a real rootless container (opt-in `-Dporelo.test.vault.socket=true`, podman 5.7): the agent's account
+  reached the broker through the socket, and could neither remove nor replace it, nor add a file beside it.
+
+- The reading by another model: a directory above the socket's that is not the task root's, or that its group may
+  write, and a `..` in the path are refused now (seen red, then green). Left, with the reason: a mount an image's own
+  links redirect onto the socket's directory is the image's, and so its builder's risk; a failure only under
+  `OutOfMemoryError`, and a cast in `SocketRelay.address()` that no unix relay calls. A relay missing or stale on
+  resume, and a relay that lives on with one endpoint, are [B758](README.md#b758).
+- The SELinux module is 1.2: `container_runtime_t`, the relay under `podman unshare`, may bind the labelled socket,
+  as `unconfined_t` of the same account may. Measured on Fedora 44 under 1.1: labelled, the relay was refused the
+  socket; unlabelled, the task was refused the connect.
+
+## To be checked
+
+- On Fedora with SELinux enforcing and module 1.2 loaded, a task's agent connects to the socket the relay binds as
+  `container_runtime_t`: the CI's Fedora leg, which loads its own tree's module.

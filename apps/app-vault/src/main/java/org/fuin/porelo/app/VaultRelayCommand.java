@@ -3,6 +3,7 @@ package org.fuin.porelo.app;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.supervisor.SocketRelay;
+import org.fuin.porelo.supervisor.TaskSocket;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -10,24 +11,39 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 /**
- * Listens inside a task's network namespace and forwards to the broker's socket on the host.
+ * Listens inside a task and forwards to the broker's socket on the host.
  *
- * <p>Started with the namespace-entering wrapper the ruleset and the resolver already use, for an
- * agent that can only be given a URL. It carries bytes and nothing else: no credential passes
- * through it that the broker has not already checked, and it resolves no names.
+ * <p>Started with the namespace-entering wrapper the ruleset and the resolver already use: on a
+ * port in the task's network namespace for an agent that can only be given a URL, and on a socket
+ * file in the task's own filesystem for an agent given a socket. It carries bytes and nothing else:
+ * no credential passes through it that the broker has not already checked, and it resolves no
+ * names.
  */
 @Command(
         name = "relay",
         mixinStandardHelpOptions = true,
-        description = "Forwards a port in a task's namespace to the broker socket.")
+        description = "Forwards a port or a socket in a task to the broker socket.")
 public class VaultRelayCommand implements Callable<Integer> {
 
     @Option(
             names = "--listen",
             paramLabel = "<port>",
-            required = true,
             description = "Loopback port to bind inside the task's network namespace.")
-    private int listen;
+    private @Nullable Integer listen;
+
+    @Option(
+            names = "--bind-in",
+            paramLabel = "<pid>",
+            description =
+                    "Container process whose root the socket of --at is bound in, reached through"
+                            + " /proc/<pid>/root.")
+    private @Nullable Long bindIn;
+
+    @Option(
+            names = "--at",
+            paramLabel = "<path>",
+            description = "Absolute path of the socket inside the task, with --bind-in.")
+    private @Nullable String at;
 
     @Option(
             names = "--socket",
@@ -48,23 +64,48 @@ public class VaultRelayCommand implements Callable<Integer> {
     public Integer call() throws Exception {
 
         final java.io.PrintWriter out = spec.commandLine().getOut();
+        if (listen == null && bindIn == null || (bindIn == null) != (at == null)) {
+            spec.commandLine()
+                    .getErr()
+                    .println("porelo: give --listen, or --bind-in with --at, or both");
+            return 64;
+        }
         // Held to the task's profile where the task is: the relay connects on an agent's behalf.
         final org.fuin.porelo.wire.AppArmorProfile apparmor =
                 org.fuin.porelo.wire.AppArmorProfile.real();
-
-        try (SocketRelay relay =
-                new SocketRelay(
-                        new java.net.InetSocketAddress("127.0.0.1", listen),
-                        socket,
-                        apparmor.taskProfile(),
-                        apparmor::changeProfile)) {
-
+        final java.util.List<SocketRelay> relays = new java.util.ArrayList<>();
+        try {
+            if (listen != null) {
+                relays.add(
+                        new SocketRelay(
+                                new java.net.InetSocketAddress("127.0.0.1", listen),
+                                socket,
+                                apparmor.taskProfile(),
+                                apparmor::changeProfile));
+                out.println("relaying  127.0.0.1:" + listen + " -> " + socket);
+            }
+            if (bindIn != null && at != null) {
+                relays.add(
+                        new SocketRelay(
+                                TaskSocket.bind(Path.of("/proc", bindIn.toString(), "root"), at),
+                                socket,
+                                apparmor.taskProfile(),
+                                apparmor::changeProfile));
+                out.println("relaying  " + at + " in the task -> " + socket);
+            }
             if (pidFile != null) {
                 org.fuin.porelo.wire.HelperPid.record(pidFile);
             }
-            out.println("relaying  127.0.0.1:" + listen + " -> " + socket);
             out.flush();
-            relay.run();
+            final java.util.List<Thread> serving = new java.util.ArrayList<>();
+            for (final SocketRelay relay : relays) {
+                serving.add(Thread.ofPlatform().name("porelo-relay").start(relay));
+            }
+            for (final Thread each : serving) {
+                each.join();
+            }
+        } finally {
+            relays.forEach(SocketRelay::close);
         }
         return 0;
     }

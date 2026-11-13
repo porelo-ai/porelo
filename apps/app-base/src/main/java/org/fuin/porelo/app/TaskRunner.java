@@ -515,12 +515,6 @@ public class TaskRunner {
                     .volumeReadOnly(authority, TaskCertificates.MOUNT)
                     .environment("NODE_EXTRA_CA_CERTS", TaskCertificates.MOUNT);
         }
-        if (wiring.vaultSocket() != null) {
-            // The credential proxy. Mounted rather than reached over the network on purpose: it
-            // needs no firewall rule, and the provider's own host is withheld from the ruleset so
-            // this is the only route to a working credential.
-            specification.volume(wiring.vaultSocket(), TaskWiring.VAULT_MOUNT);
-        }
         if (wiring.mailbox() != null) {
             // The agent's own inbox and outbox, and nothing else of the mailbox: what the host
             // keeps on the other side of this mount includes the originals of refused messages,

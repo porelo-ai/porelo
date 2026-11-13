@@ -18,7 +18,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 /**
- * Serves the vault proxy for one task, on a unix socket the container reaches by bind mount.
+ * Serves the vault proxy for one task, on a unix socket the task's relay forwards to.
  *
  * <p><strong>This process mints the phantom token, not the caller.</strong> The token and the real
  * credential then live in the same place, which is what lets the credential be read per request and

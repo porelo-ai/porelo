@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b758"></a>[B758](B758-A-Resumed-Task-Brings-Back-Every-Relay-It-Needs.md) | - | - | A resume never answers success for a task whose relay is missing or belongs to the run before, and a relay serving two endpoints ends when one of them ends. | - |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. | - |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. | - |
 | <a id="b516"></a>[B516](B516-Task-Records-Exported-Over-OTLP.md) | M | [B514](README.md#b514) | [B514](#b514)'s records exported as OpenTelemetry logs to a collector the organization names, off by default, chosen per kind, by the CLI only. | - |
@@ -268,12 +269,12 @@ from its side, as *blocked by*.
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. | - |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines. | 0 |
 | <a id="b743"></a>[B743](B743-A-Transports-Verb-Fenced-To-What-It-Reaches.md) | L | - | Every verb of a transport runs in a network namespace of its own whose ruleset lets it reach only what its `reaches` names and loopback, so a transport's mistake cannot reach another host. | 0 |
-| <a id="b752"></a>[B752](B752-The-Vault-Socket-Bound-In-The-Tasks-Mount-Namespace.md) | S | - | The vault socket a task's agent reaches is a socket file Porelo's relay binds in the task's own mount namespace, through the container's root, never a file bind-mounted from the host. | 0 |
 
 ## Review
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b752"></a>[B752](B752-The-Vault-Socket-Bound-In-The-Tasks-Mount-Namespace.md) | S | - | The vault socket a task's agent reaches is a socket file Porelo's relay binds in the task's own mount namespace, through the container's root, never a file bind-mounted from the host. | 0 |
 | <a id="b625"></a>[B625](B625-A-Unit-Test-Never-Reads-The-Machines-Host-Helper.md) | S | - | No unit test's task start asks the real machine whether it is a host: on a machine with the host package installed, `apps/app`'s start tests are as green as on one without. | - |
 | <a id="b628"></a>[B628](B628-A-Removed-Task-Leaves-No-Direct-Chats.md) | XS | - | Retiring a task from a conversation removes what its direct chats were polled into, `transport/<scheme>/direct/<container>`, so a removed task leaves nothing of itself in the machine's state. | - |
 | <a id="b631"></a>[B631](B631-A-Task-That-Read-Its-Project-Ends-Without-Failing.md) | XS | - | A prompted task that reads every repository of its project is removed at its run's end without the clean-up asking podman about it by name, so a run that went well answers its own exit code, never 70 "no task Porelo made". | - |
