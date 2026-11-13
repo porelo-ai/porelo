@@ -120,14 +120,46 @@ public final class MessageRelease {
     }
 
     /**
+     * Why a message cannot be sent, for {@link Outcome#NOT_DELIVERABLE}: a client says what to do
+     * for each without reading the sentence, which is no contract.
+     */
+    public enum NotDeliverable {
+
+        /** It was held from a task outside the transport's conversation; start the task again. */
+        NOT_IN_CONVERSATION,
+
+        /** A person refused it for good, and the sender was told. */
+        REFUSED_BEFORE,
+
+        /** The filter could not check it at all. */
+        UNCHECKED,
+
+        /** The filter refused it, and it addresses nobody this host can send to. */
+        NO_ADDRESSEE,
+
+        /** The filter refused it, and the project may not address its peer. */
+        PEER_NOT_ALLOWED,
+
+        /** The filter refused it, and the host's signature from its intake is not beside it. */
+        SIGNATURE_MISSING
+    }
+
+    /**
      * What one decision did.
      *
      * @param outcome What happened.
      * @param message The file it acted on, or "".
      * @param id The message id, or "" when the file could not be read.
-     * @param detail Why, for {@link Outcome#NOT_DELIVERABLE}; "" otherwise.
+     * @param detail Why, for {@link Outcome#NOT_DELIVERABLE}, and for a message released to this
+     *     task that was held on its way in; "" otherwise.
+     * @param code Which case, for {@link Outcome#NOT_DELIVERABLE} only; {@code null} otherwise.
      */
-    public record Result(Outcome outcome, String message, String id, String detail) {
+    public record Result(
+            Outcome outcome,
+            String message,
+            String id,
+            String detail,
+            @org.jspecify.annotations.Nullable NotDeliverable code) {
 
         /**
          * Constructor for an outcome that needs no why.
@@ -137,7 +169,20 @@ public final class MessageRelease {
          * @param id The message id.
          */
         public Result(final Outcome outcome, final String message, final String id) {
-            this(outcome, message, id, "");
+            this(outcome, message, id, "", null);
+        }
+
+        /**
+         * Constructor for an outcome that says why, and no case.
+         *
+         * @param outcome What happened.
+         * @param message The file.
+         * @param id The message id.
+         * @param detail Why.
+         */
+        public Result(
+                final Outcome outcome, final String message, final String id, final String detail) {
+            this(outcome, message, id, detail, null);
         }
     }
 
@@ -204,7 +249,11 @@ public final class MessageRelease {
                 yield outside == null
                         ? held(mailbox, one.file(), refuse)
                         : new Result(
-                                Outcome.NOT_DELIVERABLE, file, MessageFile.id(one.file()), outside);
+                                Outcome.NOT_DELIVERABLE,
+                                file,
+                                MessageFile.id(one.file()),
+                                outside,
+                                NotDeliverable.NOT_IN_CONVERSATION);
             }
             case REFUSED_BY_FILTER ->
                     refuse ? refusedAgain(mailbox, one.file()) : despite(mailbox, one.file(), mail);
@@ -213,13 +262,15 @@ public final class MessageRelease {
                             Outcome.NOT_DELIVERABLE,
                             file,
                             MessageFile.id(one.file()),
-                            "a person refused it for good, and the sender was told");
+                            "a person refused it for good, and the sender was told",
+                            NotDeliverable.REFUSED_BEFORE);
             case UNCHECKED ->
                     new Result(
                             Outcome.NOT_DELIVERABLE,
                             file,
                             "",
-                            "the filter could not check it at all, so nothing here can say what a peer would read");
+                            "the filter could not check it at all, so nothing here can say what a peer would read",
+                            NotDeliverable.UNCHECKED);
         };
     }
 
@@ -252,20 +303,32 @@ public final class MessageRelease {
         final String id = MessageFile.id(refused);
         final String to = addressee(refused);
         final org.fuin.porelo.core.project.Mail.Peer peer = to.isEmpty() ? null : mail.peer(to);
+        if (to.isEmpty()) {
+            return new Result(
+                    Outcome.NOT_DELIVERABLE,
+                    name,
+                    id,
+                    "it addresses nobody this host can send to",
+                    NotDeliverable.NO_ADDRESSEE);
+        }
         if (peer == null) {
             return new Result(
                     Outcome.NOT_DELIVERABLE,
                     name,
                     id,
-                    to.isEmpty()
-                            ? "it addresses nobody this host can send to"
-                            : "this project may not address '" + to + "'");
+                    "this project may not address '" + to + "'",
+                    NotDeliverable.PEER_NOT_ALLOWED);
         }
         final Path signature = mailbox.rejected().resolve(name + ".sig");
         if (!Files.isRegularFile(signature)) {
             // Not signed again here: the host's signature is over the bytes it took in, and signing
             // now would put its name on a decision a person made.
-            return new Result(Outcome.NOT_DELIVERABLE, name, id, "its signature is not beside it");
+            return new Result(
+                    Outcome.NOT_DELIVERABLE,
+                    name,
+                    id,
+                    "its signature is not beside it",
+                    NotDeliverable.SIGNATURE_MISSING);
         }
         final Path active = mailbox.queueActive(peer.transport());
         Directories.create(active);

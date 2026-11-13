@@ -296,14 +296,13 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
-| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. | - |
-| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. | - |
-| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. | - |
-| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. | - |
-| <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. |
+| <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. |
+| <a id="b682"></a>[B682](B682-Work-Without-A-Project-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST30 at the command line on the test VM as a person would: a task starts in a checkout in `default`; a followed project naming the repository is offered to take it; a repository with no commit, an unreadable upstream and a failed fetch are each named as what they are, with the next step. |
+| <a id="b683"></a>[B683](B683-A-Start-That-Waits-For-Its-Helpers-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST53 at the command line on the test VM as a person would: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. |
+| <a id="b685"></a>[B685](B685-The-Gathered-Findings-Are-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST56 at the command line on the test VM as a person would: the gathered findings' points, porelo's, HO86's and F288's, each hold nothing open; a point that proved larger is an issue of its own. |
 
 ## Review
 
@@ -405,6 +404,7 @@ from its side, as *blocked by*.
 | <a id="b547"></a>[B547](B547-Task-Accounts-And-Lent-Tokens-Through-The-Host-Tool.md) | L | [B541](README.md#b541) | `porelo-host task start \| end`, `forge issue-token \| lend-token`, for `SUDO_USER` alone; porelo's callers switched. | - |
 | <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
 | <a id="b546"></a>[B546](B546-The-Host-Tool-Measures-Copies-And-Advances-A-Project.md) | L | [B545](README.md#b545) | `porelo-host project measure-central \| copy \| advance \| check-central`. | - |
+| <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b542"></a>[B542](B542-The-Host-Tool-Sweeps-Ended-Task-Tokens.md) | S | [B541](README.md#b541) | `porelo-host task sweep`, the timer's verb. | - |
 | <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | - | The `.deb` and `.rpm` provide `porelo-agent-protocol` at version `<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
 | <a id="b540"></a>[B540](B540-The-Host-Tool-As-A-Module-Of-Porelo.md) | M | - | `host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only). | - |

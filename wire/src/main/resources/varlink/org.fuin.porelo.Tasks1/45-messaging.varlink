@@ -215,8 +215,34 @@ method Release(
   message: string,
   # The message id, or "".
   id: string,
-  # Why, for NOT_DELIVERABLE. "" otherwise.
-  detail: string
+  # Why, in a sentence a person reads: for NOT_DELIVERABLE, and for a message held on its way in
+  # that RELEASED gave to this task. "" otherwise. Not a contract; code is.
+  detail: string,
+  # Which case, for NOT_DELIVERABLE only; absent for every other outcome.
+  code: ?NotDeliverable
+)
+
+# Why a release cannot go, beside Release's detail sentence, so a client says what to do for each
+# case without matching on the sentence. A client MUST render a value it does not know rather than
+# failing on it; this enumeration may gain entries.
+type NotDeliverable (
+  # Held from a task outside the project's conversation on its transport. Starting the task again
+  # enrols it; then the release goes.
+  NOT_IN_CONVERSATION,
+  # A person refused it for good, and the sender was told. Nothing sends it; the task writes anew.
+  REFUSED_BEFORE,
+  # The filter could not check it at all, so nobody here can say what a peer would read. Nothing
+  # sends it; the task writes anew.
+  UNCHECKED,
+  # The filter refused it, and it addresses nobody this host can send to. The task writes it anew
+  # to a peer.
+  NO_ADDRESSEE,
+  # The filter refused it, and the project may not address its peer. The project file names the
+  # peers a task may address.
+  PEER_NOT_ALLOWED,
+  # The filter refused it, and the signature the host made when it took the message in is not
+  # beside it, so it is not sent. The task writes it anew.
+  SIGNATURE_MISSING
 )
 
 # Holds a peer or releases it, for the whole project: every task of it, including tasks started later.

@@ -206,6 +206,7 @@ class MessageReleaseTest {
                         .decide(mailbox, "m-1", false, mail);
 
         assertThat(result.outcome()).isEqualTo(MessageRelease.Outcome.NOT_DELIVERABLE);
+        assertThat(result.code()).isEqualTo(MessageRelease.NotDeliverable.NOT_IN_CONVERSATION);
         assertThat(result.detail())
                 .contains("not in the project's matrix conversation")
                 .contains("start it again");
@@ -217,5 +218,111 @@ class MessageReleaseTest {
                                 .decide(mailbox, "m-1", false, mail)
                                 .outcome())
                 .isEqualTo(MessageRelease.Outcome.RELEASED);
+    }
+
+    // A client said what to do by matching the English sentence, which is no contract: each case
+    // where a release cannot go carries a code of its own.
+
+    private static final org.fuin.porelo.core.project.Mail REVIEWER =
+            new org.fuin.porelo.core.project.Mail(
+                    java.util.List.of(
+                            new org.fuin.porelo.core.project.Mail.Peer(
+                                    "reviewer", "local:reviewer-box", "vouched")));
+
+    private Mailbox refused(final Path dir, final String json, final boolean signed)
+            throws IOException {
+        final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
+        mailbox.create();
+        Files.createDirectories(mailbox.rejected());
+        Files.writeString(mailbox.rejected().resolve("m-1.json"), json);
+        if (signed) {
+            Files.writeString(
+                    mailbox.rejected().resolve("m-1.json.sig"), "-----BEGIN SSH SIGNATURE-----");
+        }
+        return mailbox;
+    }
+
+    @Test
+    void a_message_a_person_refused_for_good_says_so_by_its_code(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = held(dir, "m-1.json", "{\"messageId\":\"m-1\"}");
+        assertThat(release.decide(mailbox, "m-1", true).code())
+                .as("a refusal carries none")
+                .isNull();
+
+        final MessageRelease.Result result = release.decide(mailbox, "m-1", false, REVIEWER);
+
+        assertThat(result.outcome()).isEqualTo(MessageRelease.Outcome.NOT_DELIVERABLE);
+        assertThat(result.code()).isEqualTo(MessageRelease.NotDeliverable.REFUSED_BEFORE);
+    }
+
+    @Test
+    void a_message_the_filter_could_not_check_says_so_by_its_code(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
+        mailbox.create();
+        Files.createDirectories(mailbox.error());
+        Files.write(mailbox.error().resolve("broken.json"), new byte[] {(byte) 0xff, 'x'});
+
+        final MessageRelease.Result result =
+                release.decide(mailbox, "broken.json", false, REVIEWER);
+
+        assertThat(result.outcome()).isEqualTo(MessageRelease.Outcome.NOT_DELIVERABLE);
+        assertThat(result.code()).isEqualTo(MessageRelease.NotDeliverable.UNCHECKED);
+    }
+
+    @Test
+    void a_refused_message_that_addresses_nobody_says_so_by_its_code(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = refused(dir, "{\"messageId\":\"m-1\"}", true);
+
+        final MessageRelease.Result result = release.decide(mailbox, "m-1", false, REVIEWER);
+
+        assertThat(result.outcome()).isEqualTo(MessageRelease.Outcome.NOT_DELIVERABLE);
+        assertThat(result.code()).isEqualTo(MessageRelease.NotDeliverable.NO_ADDRESSEE);
+        assertThat(result.detail()).isEqualTo("it addresses nobody this host can send to");
+    }
+
+    @Test
+    void a_refused_message_to_a_peer_the_project_may_not_address_says_so_by_its_code(
+            @TempDir final Path dir) throws IOException {
+        final Mailbox mailbox =
+                refused(dir, "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"mallory\"}}", true);
+
+        final MessageRelease.Result result = release.decide(mailbox, "m-1", false, REVIEWER);
+
+        assertThat(result.outcome()).isEqualTo(MessageRelease.Outcome.NOT_DELIVERABLE);
+        assertThat(result.code()).isEqualTo(MessageRelease.NotDeliverable.PEER_NOT_ALLOWED);
+        assertThat(result.detail()).isEqualTo("this project may not address 'mallory'");
+        assertThat(mailbox.rejected().resolve("m-1.json")).as("still refused").exists();
+    }
+
+    @Test
+    void a_refused_message_without_its_signature_says_so_by_its_code(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox =
+                refused(dir, "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}", false);
+
+        final MessageRelease.Result result = release.decide(mailbox, "m-1", false, REVIEWER);
+
+        assertThat(result.outcome()).isEqualTo(MessageRelease.Outcome.NOT_DELIVERABLE);
+        assertThat(result.code()).isEqualTo(MessageRelease.NotDeliverable.SIGNATURE_MISSING);
+    }
+
+    @Test
+    void no_outcome_but_not_deliverable_carries_a_code(@TempDir final Path dir) throws IOException {
+        final Mailbox mailbox =
+                refused(dir, "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}", true);
+        Files.writeString(mailbox.hold().resolve("m-2.json"), "{\"messageId\":\"m-2\"}");
+
+        final MessageRelease.Result despite = release.decide(mailbox, "m-1", false, REVIEWER);
+        final MessageRelease.Result released = release.decide(mailbox, "m-2", false);
+        final MessageRelease.Result none = release.decide(mailbox, "m-9", false);
+
+        assertThat(despite.outcome()).isEqualTo(MessageRelease.Outcome.DELIVERED_DESPITE_FILTER);
+        assertThat(released.outcome()).isEqualTo(MessageRelease.Outcome.RELEASED);
+        assertThat(none.outcome()).isEqualTo(MessageRelease.Outcome.NO_SUCH_MESSAGE);
+        assertThat(java.util.List.of(despite, released, none))
+                .allSatisfy(result -> assertThat(result.code()).isNull());
     }
 }

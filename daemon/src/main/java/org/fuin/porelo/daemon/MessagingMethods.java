@@ -292,16 +292,17 @@ final class MessagingMethods {
                                             flag(parameters, "refuse"),
                                             org.fuin.porelo.app.MessageRelease.peersOf(
                                                     context, text(parameters, "task")));
-                    replies.last(
-                            Map.of(
-                                    "outcome",
-                                    result.outcome().name(),
-                                    "message",
-                                    result.message(),
-                                    "id",
-                                    result.id(),
-                                    "detail",
-                                    result.detail()));
+                    final Map<String, Object> reply = new java.util.LinkedHashMap<>();
+                    reply.put("outcome", result.outcome().name());
+                    reply.put("message", result.message());
+                    reply.put("id", result.id());
+                    reply.put("detail", result.detail());
+                    final org.fuin.porelo.app.MessageRelease.NotDeliverable code = result.code();
+                    if (code != null) {
+                        // Absent otherwise: a client that does not read it sees no change.
+                        reply.put("code", code.name());
+                    }
+                    replies.last(reply);
                 });
 
         // A person grants an authorization once, in a browser somewhere else. The stream says

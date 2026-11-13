@@ -2016,6 +2016,49 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aReleaseThatCannotGoSaysWhichCaseByItsCodeAndNoOtherCarriesOne(@TempDir Path dir)
+            throws Exception {
+
+        // A client said what to do by matching the English sentence, which is no contract.
+        final PoreloContext context = context(dir);
+        final org.fuin.porelo.app.Mailbox mailbox =
+                new org.fuin.porelo.app.Mailbox(
+                        context.paths().messaging().mailbox("porelo-uc-shell-1"));
+        mailbox.create();
+        Files.createDirectories(mailbox.error());
+        Files.write(mailbox.error().resolve("broken.json"), new byte[] {(byte) 0xff, 'x'});
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> unchecked =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Release",
+                                        Map.of("task", "porelo-uc-shell-1", "id", "broken.json"));
+
+                        assertThat(unchecked.keySet())
+                                .containsExactlyInAnyOrder(
+                                        "outcome", "message", "id", "detail", "code");
+                        assertThat(unchecked)
+                                .containsEntry("outcome", "NOT_DELIVERABLE")
+                                .containsEntry("code", "UNCHECKED");
+
+                        final Map<String, Object> none =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Release",
+                                        Map.of("task", "porelo-uc-shell-1", "id", "m-9"));
+
+                        assertThat(none.keySet())
+                                .as("a client that does not read the code sees the reply as before")
+                                .containsExactlyInAnyOrder("outcome", "message", "id", "detail");
+                        assertThat(none).containsEntry("outcome", "NO_SUCH_MESSAGE");
+                    }
+                });
+    }
+
+    @Test
     void aMessageToATaskThatIsNoneIsRefusedAndWritesNothing(@TempDir Path dir) throws Exception {
 
         // '' and '..' resolved to the mail root and the state directory, which exist, and a maildir
