@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B722",
   "title": "A Named Credential Offered Into The Vault",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 6,
