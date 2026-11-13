@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B323",
   "title": "Source Levels And Risk Classes Derived And Shown",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "-",
   "priority": "Medium",
   "rank": 51,

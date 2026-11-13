@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B745",
   "title": "A Waiting Push's Review Summary Served",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 50,

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B291",
   "title": "One SARIF Profile For Every Review",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "-",
   "priority": "Medium",
   "rank": 60,
