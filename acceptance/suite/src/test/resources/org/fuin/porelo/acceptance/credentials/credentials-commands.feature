@@ -102,7 +102,8 @@ Feature: The credentials commands
         Then it exits zero
         And its output contains "first: used for  https://forge.invalid/declared/"
         And its output does not contain "first: porelo: no provider 'forge-declared'"
-        And its output contains "again: used for  nothing yet"
+        And its output contains "again: unused    until something asks for it"
+        And its output does not contain "again: used for"
         And its output does not contain "again: porelo:"
 
     Scenario: a credential declared against the vault is ready, and forgetting it leaves the value

@@ -176,11 +176,56 @@ class TaskReservationsTest {
         }
     }
 
+    @Test
+    void aRemovalWhoseGuideCannotBeWalkedStillRetiresTheNameAndSaysSo() throws Exception {
+        // A walk that meets an unreadable directory throws unchecked: caught as an IOException
+        // only, it skipped the retire, the claim stayed created, and the project was busy.
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final String id = "a".repeat(64);
+        final TaskReservations reservations = new TaskReservations(context);
+        try (var claim = reservations.reserve("web", "x", container, "first")) {
+            record(context, container, id);
+        }
+        runner.answering("ps", container + "\tExited (0)\t\t\tweb\tguarded\tr\t\t" + id + "\n");
+        final Path stuck = unwalkable(context.paths().tasks().guide(container));
+        try {
+            assertThatThrownBy(() -> new TaskControl(context).remove(container, false, true))
+                    .as("what stayed is still said")
+                    .hasRootCauseInstanceOf(java.nio.file.AccessDeniedException.class);
+            assertThat(reservations.locked(() -> reservations.projectBusy("web")))
+                    .as("the removed task's name is no unfinished start of its project")
+                    .isNull();
+            assertThat(reservations.protectedNames()).doesNotContain(container);
+        } finally {
+            Files.setPosixFilePermissions(
+                    stuck, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    /**
+     * Makes a directory whose walk throws {@link java.io.UncheckedIOException}: a directory in it
+     * that cannot be read. Root reads it all the same.
+     */
+    private static Path unwalkable(Path directory) throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                "root".equals(System.getProperty("user.name")),
+                "root reads an unreadable directory, so the walk cannot be made to fail");
+        final Path closed = Files.createDirectories(directory.resolve("closed"));
+        Files.setPosixFilePermissions(
+                closed, java.nio.file.attribute.PosixFilePermissions.fromString("---------"));
+        return closed;
+    }
+
     /**
      * Makes a mailbox whose delete fails: one of its directories holds a file and is read-only. Not
-     * its record, which the removal copies under a lock it takes inside it.
+     * its record, which the removal copies under a lock it takes inside it. Root deletes it all the
+     * same.
      */
     private static Path undeletable(PoreloContext context, String container) throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                "root".equals(System.getProperty("user.name")),
+                "root deletes from a read-only directory, so the delete cannot be made to fail");
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
         mailbox.create();
         Files.writeString(mailbox.accepted().resolve("entry"), "kept");

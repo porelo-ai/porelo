@@ -194,7 +194,7 @@ class VaultPutCommandTest {
                         "antropic", java.util.Set.of("anthropic"), java.util.Set.of("claude"));
 
         assertThat(said)
-                .startsWith("nothing yet")
+                .startsWith("until something asks for it")
                 .contains("declared: anthropic")
                 .doesNotContain("agent's name");
     }
@@ -399,6 +399,11 @@ class VaultPutCommandTest {
 
     /** Runs 'vault put' with a token piped in, as a script does. */
     private int put(final PoreloContext context, final String name) {
+        return put(context, name, "token");
+    }
+
+    /** Runs 'vault put' with a value piped in, stated as the kind given. */
+    private int put(final PoreloContext context, final String name, final String type) {
         final picocli.CommandLine command =
                 PoreloCli.commandLine(
                         context.reading(
@@ -411,7 +416,7 @@ class VaultPutCommandTest {
                                         false)));
         command.setOut(new java.io.PrintWriter(out));
         command.setErr(new java.io.PrintWriter(err));
-        return command.execute("vault", "put", name, "--type", "token");
+        return command.execute("vault", "put", name, "--type", type);
     }
 
     @Test
@@ -492,10 +497,174 @@ class VaultPutCommandTest {
 
             assertThat(out.toString())
                     .contains(
-                            "used for  nothing yet - a provider of that name (declared: none), a"
-                                    + " project's builds.credential or credentials, or a"
-                                    + " declaration with --vault github-actions may ask for it");
+                            "unused    until something asks for it: a provider of that name"
+                                    + " (declared: none), a project's builds.credential or"
+                                    + " credentials, or a declaration with --vault github-actions")
+                    .as("said under a word of its own, never as a use")
+                    .doesNotContain("used for");
             assertThat(err.toString()).doesNotContain("porelo:");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    /** Places sluice-dry, its host naming {@code credential} for its build reader. */
+    private static void placed(final PoreloContext context, final String credential)
+            throws IOException {
+        OrganizationProjects.of(context)
+                .write(
+                        new OrganizationProjects.Placed(
+                                "sluice-dry",
+                                "0123456789abcdef0123456789abcdef01234567",
+                                "https://forge.example.org/acme/sluice-dry.git",
+                                null,
+                                java.util.List.of(),
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                new org.fuin.porelo.core.project.Builds(
+                                        "github",
+                                        credential,
+                                        "",
+                                        org.fuin.porelo.core.project.Builds.FAILURE)));
+    }
+
+    @Test
+    void anSshKeyStoredForABuildReaderIsSaidNotToFit(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws IOException {
+
+        // Called used by the build reader and nothing more, an ssh key there fails only when the
+        // task's builds are read, days later.
+        final PoreloContext context = machine(dir);
+        try {
+            placed(context, "github-actions");
+
+            assertThat(put(context, "github-actions", "ssh-key")).as(err.toString()).isZero();
+
+            assertThat(out.toString()).contains("used for  sluice-dry's build reader");
+            assertThat(err.toString())
+                    .contains("porelo: sluice-dry's build reader")
+                    .contains("an ssh key");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void whatAProjectAsksForTakesNoSshKeyAndAnyOtherKind() {
+
+        final var asked =
+                java.util.Map.of(
+                        "search-key", java.util.List.of("shop's brave-search"),
+                        "github-actions", java.util.List.of("sluice-dry's build reader"));
+
+        assertThat(
+                        VaultPutCommand.useOf("search-key", "ssh-key", java.util.List.of(), asked)
+                                .misfit())
+                .contains("shop's brave-search")
+                .contains("an ssh key");
+        assertThat(
+                        VaultPutCommand.useOf("github-actions", "token", java.util.List.of(), asked)
+                                .misfit())
+                .isNull();
+        assertThat(
+                        VaultPutCommand.useOf("github-actions", null, java.util.List.of(), asked)
+                                .misfit())
+                .as("a token is not recognised, so no kind stated is no sign of a misfit")
+                .isNull();
+    }
+
+    @Test
+    void aProjectsOwnBuildsAreAskedForOverItsHosts(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws IOException {
+
+        // As a task wires them: the host's builds.credential is not read where the project's own
+        // file names another.
+        final PoreloContext context = machine(dir);
+        try {
+            placed(context, "host-reader");
+            final java.nio.file.Path file =
+                    context.paths()
+                            .projects()
+                            .organizationClone("sluice-dry")
+                            .resolve("project.yml");
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(
+                    file,
+                    """
+                    project:
+                      name: sluice-dry
+                      security_class: online
+                      central: git@github.com:acme/sluice-dry.git
+                    image:
+                      from: ubuntu:24.04
+                    builds:
+                      forge: github
+                      credential: own-reader
+                    """);
+
+            assertThat(VaultPutCommand.askedByProjects(context))
+                    .containsEntry("own-reader", java.util.List.of("sluice-dry's build reader"))
+                    .doesNotContainKey("host-reader");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void theDefaultProjectIsNotReadForWhatItAsks(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+
+        // Generated from the repositories added to it, it names no credential of its own; read,
+        // it would be written anew on every 'vault put' for nothing.
+        final PoreloContext context = machine(dir);
+        try {
+            assertThat(VaultPutCommand.askedByProjects(context)).isEmpty();
+            assertThat(
+                            context.paths()
+                                    .xdg()
+                                    .state()
+                                    .resolve(DefaultProject.NAME)
+                                    .resolve("project.yml"))
+                    .as("the built-in project's file, which reading it writes")
+                    .doesNotExist();
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void aProjectFileThatDoesNotReadHidesOnlyItself(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws IOException {
+
+        // A file that does not read is the start's to report: storing says nothing of it, and
+        // what the other projects ask for is still found.
+        final PoreloContext context = machine(dir);
+        try {
+            final java.nio.file.Path broken =
+                    context.paths().projects().defaultProjectFile("broken");
+            java.nio.file.Files.createDirectories(broken.getParent());
+            java.nio.file.Files.writeString(broken, "project: [ not, a, project\n");
+            final java.nio.file.Path shop = context.paths().projects().defaultProjectFile("shop");
+            java.nio.file.Files.createDirectories(shop.getParent());
+            java.nio.file.Files.writeString(
+                    shop,
+                    """
+                    project:
+                      name: shop
+                      security_class: online
+                      central: git@github.com:you/shop.git
+                    image:
+                      from: ubuntu:24.04
+                    credentials:
+                      search-key: brave-search
+                    """);
+
+            assertThat(put(context, "search-key")).as(err.toString()).isZero();
+
+            assertThat(out.toString()).contains("used for  shop's brave-search");
+            assertThat(err.toString()).as("nothing said of the file").isEmpty();
         } finally {
             PoreloContext.forgetAsked();
         }

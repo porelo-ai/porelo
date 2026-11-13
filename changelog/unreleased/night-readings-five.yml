@@ -1,0 +1,2 @@
+title: "A task's removal retires its name whatever fails while its files are deleted, and vault put says when an ssh key is stored under a name a project sends as a token"
+type: fixed

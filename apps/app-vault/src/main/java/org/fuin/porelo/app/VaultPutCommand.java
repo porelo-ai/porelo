@@ -314,7 +314,8 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * @param providers The providers declared here.
      * @param agents The agents installed here.
      * @return One sentence: the warning for an agent's name, without the "porelo: " prefix; what
-     *     may ask for any other name, to follow "used for ".
+     *     may ask for any other name, to follow "unused ", never "used for ", which a reader takes
+     *     for a use.
      */
     static String unknownName(
             String name, java.util.Set<String> providers, java.util.Set<String> agents) {
@@ -338,11 +339,10 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         }
         // Not a mistake: a credential is commonly stored before the project or the provider that
         // asks for it. Said once, so a typo is findable among the providers named.
-        return "nothing yet - a provider of that name (declared: "
+        return "until something asks for it: a provider of that name (declared: "
                 + declared
                 + "), a project's builds.credential or credentials, or a declaration with --vault "
-                + name
-                + " may ask for it";
+                + name;
     }
 
     /**
@@ -371,7 +371,7 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
     /**
      * Finds the declarations and the projects that read a vault entry, and whether what was stored
-     * fits the declarations.
+     * fits them.
      *
      * @param name The entry.
      * @param type What was stored - {@code ssh-key} for a private key - or {@code null} when not
@@ -416,7 +416,16 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                                 + " - a start will refuse it";
             }
         }
-        matches.addAll(asked.getOrDefault(name, java.util.List.of()));
+        final java.util.List<String> askedFor = asked.getOrDefault(name, java.util.List.of());
+        // What a project asks for is sent in a request, a build reader's to its forge and a
+        // credentials: entry's to its destination: never an ssh key.
+        if (misfit == null && !askedFor.isEmpty() && "ssh-key".equals(type)) {
+            misfit =
+                    askedFor.getFirst()
+                            + " sends it as a token, and what was stored is an ssh key - it cannot"
+                            + " use one";
+        }
+        matches.addAll(askedFor);
         return new Use(java.util.List.copyOf(matches), misfit);
     }
 
@@ -553,7 +562,7 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 err.flush();
             } else {
                 // Not a warning: nothing is wrong with a name nothing asks for yet.
-                out.println("used for  " + unknownName(name, context.providers().keySet(), agents));
+                out.println("unused    " + unknownName(name, context.providers().keySet(), agents));
                 out.flush();
             }
             return;

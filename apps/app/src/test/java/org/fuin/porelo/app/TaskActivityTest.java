@@ -693,7 +693,7 @@ class TaskActivityTest {
                 .isEqualTo("reads as waiting for you - the folder");
         assertThat(task.activity())
                 .as("a question on its screen is neither rest nor work")
-                .isNotIn(TaskInventory.Activity.AT_REST, TaskInventory.Activity.WORKING);
+                .isEqualTo(TaskInventory.Activity.UNKNOWN);
     }
 
     @Test
@@ -779,7 +779,7 @@ class TaskActivityTest {
                 .containsEntry("waitingFor", "");
         assertThat(own.activity())
                 .as("not the clearance watcher's waiting")
-                .isNotEqualTo(TaskInventory.Activity.WAITING);
+                .isEqualTo(TaskInventory.Activity.UNKNOWN);
 
         new Waiting(state).asking("api.example.test:443");
         final TaskInventory.Task both = inventory.tasks().getFirst();

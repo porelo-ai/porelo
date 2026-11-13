@@ -414,7 +414,10 @@ public final class TaskControl {
      * @param more What else goes before the name is retired.
      */
     private void retireDeleting(String container, Deletion more) {
-        java.io.IOException failed = null;
+        // Any failure, not only a checked one: a walk throws an unchecked one, and a delete that
+        // threw past the retire left the claim an unfinished start that refused its project's
+        // removal.
+        Exception failed = null;
         for (final Deletion deletion :
                 List.<Deletion>of(
                         () -> new Mailbox(context.paths().messaging().mailbox(container)).delete(),
@@ -423,14 +426,23 @@ public final class TaskControl {
                         more)) {
             try {
                 deletion.run();
-            } catch (final java.io.IOException ex) {
+            } catch (final java.io.IOException | RuntimeException ex) {
+                final Exception cause =
+                        ex instanceof java.io.UncheckedIOException unchecked
+                                ? unchecked.getCause()
+                                : ex;
                 if (failed == null) {
-                    failed = ex;
+                    failed = cause;
                 } else {
-                    failed.addSuppressed(ex);
+                    failed.addSuppressed(cause);
                 }
             }
         }
+        // Retired last, after every delete, and kept so in a reorder: a retired name is free for a
+        // new start of its owner, which only the old container, mailbox, state or record refuses
+        // (TaskReservations.reserveLocked), so a delete after the retire could take the new task's
+        // guide, repositories or handed-back file. A failed delete does not stop the retire, or the
+        // claim stays an unfinished start; only the retire's own failure throws here.
         try {
             new TaskReservations(context).retire(container);
         } catch (final java.io.IOException ex) {
@@ -439,9 +451,12 @@ public final class TaskControl {
             }
             throw new java.io.UncheckedIOException("Cannot retire task identity", ex);
         }
-        if (failed != null) {
+        if (failed instanceof RuntimeException runtime) {
+            throw runtime;
+        }
+        if (failed instanceof java.io.IOException io) {
             throw new java.io.UncheckedIOException(
-                    "Removed the task but could not delete its mailbox: " + container, failed);
+                    "Removed the task but could not delete its mailbox: " + container, io);
         }
     }
 

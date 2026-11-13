@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B708",
   "title": "Five Readings Of The Night's Work",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 62,
@@ -45,3 +45,30 @@ Filed 2026-11-13 from the reviewer readings of [B674](README.md#b674), [B506](RE
 ## Acceptance
 
 - Each point has its test, seen failing first.
+
+## Built
+
+- **A removal retires its name whatever fails before it.** `TaskControl.retireDeleting` catches
+  `IOException | RuntimeException` and keeps the first failure, with the later ones suppressed. The name is retired
+  after every delete has been tried. An IO failure then throws as before ("Removed the task but could not delete its
+  mailbox"); any other is rethrown as itself. A comment says why the retire comes last: a retired name is free, and a
+  delete after it could take a new task's files.
+- **An undeletable mailbox holds as root too.** The tests' `undeletable()` and the new `unwalkable()` helper skip
+  themselves when run as root.
+- **The agent's own question pins its activity.** The two `TaskActivityTest` cases now assert `UNKNOWN`, no longer
+  only what it is not.
+- **`vault put` says a name nothing asks for under its own word.** It reads `unused    until something asks for it: …`,
+  no longer beginning "used for". `credentials-commands.feature` follows it.
+- **The misfit check for asked names.** An entry stored with `--type ssh-key` under a name a project asks for, as a
+  build reader's or as a `credentials:` entry, is told on standard error that its use sends it as a token and cannot
+  use an ssh key. Both send the entry as a token, which is why `credentials:` entries are checked too.
+- **Left to [B693](README.md#b693):** `StubAgentTest` still reads the stub's question out of its script. Running the
+  script needs B693's change to the stub's definition.
+- **Tests:**
+  - New: `TaskReservationsTest.aRemovalWhoseGuideCannotBeWalkedStillRetiresTheNameAndSaysSo`, two ssh-key cases in
+    `VaultPutCommandTest`, and three for cases the readings found untested (a project's own builds over the host's,
+    the default project not read, an unreadable project file hiding only itself).
+  - They failed on the build box before the change (`buildbox-porelo-a26884b9eef7-20261113T173928Z.log`), or under
+    a mutant where the code already held (`buildbox-porelo-1cdfdc0335cd-20261113T174207Z.log`).
+  - They pass after it (`buildbox-porelo-ee45e9898883-20261113T174419Z.log`): 602 tests, 0 skipped. The feature file's
+    scenario is not run here.
