@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B730",
   "title": "An Unfinished Start Is Named As Task Remove Takes It",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 57,
