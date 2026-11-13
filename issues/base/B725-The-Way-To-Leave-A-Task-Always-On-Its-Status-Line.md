@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B725",
   "title": "The Way To Leave A Task Always On Its Status Line",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 6,
