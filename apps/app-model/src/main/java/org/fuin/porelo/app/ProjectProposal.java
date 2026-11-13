@@ -69,6 +69,10 @@ final class ProjectProposal {
     private final Map<Key, List<Map<String, Object>>> groups = new LinkedHashMap<>();
     private final List<Map<String, Object>> unplaced = new ArrayList<>();
     private final Map<String, Object> credentials = new LinkedHashMap<>();
+
+    /** The adapters that named each credential, so a credential goes to its own adapter's. */
+    private final Map<String, java.util.Set<String>> credentialPlugins = new LinkedHashMap<>();
+
     private final List<Map<String, Object>> extensionValues = new ArrayList<>();
     private List<ToolRepositoryEntry> toolRepositories = List.of();
     private Map<String, Object> extensions = Map.of();
@@ -147,6 +151,9 @@ final class ProjectProposal {
                 if (!id.matches("[A-Za-z0-9][A-Za-z0-9_./-]*"))
                     throw new IllegalArgumentException("a credential needs a plain id");
                 credentials.put(id, Map.of("id", id, "command", "porelo vault put " + id));
+                credentialPlugins
+                        .computeIfAbsent(id, unused -> new java.util.LinkedHashSet<>())
+                        .add(plugin);
                 continue;
             }
             final Map<String, Object> value = new LinkedHashMap<>();
@@ -365,6 +372,7 @@ final class ProjectProposal {
         final StringBuilder packages = new StringBuilder();
         final Map<String, Map<String, Object>> runs = new TreeMap<>();
         final Map<String, Map<String, Object>> variables = new TreeMap<>();
+        final List<String> unbound = new ArrayList<>();
         for (var group : groups.entrySet()) {
             final var known =
                     group.getValue().stream()
@@ -423,12 +431,27 @@ final class ProjectProposal {
                 // A repository the person's settings hold a credential for is read through the
                 // task's broker, which adds it from the vault: the task gets the broker's address
                 // and never the password. Without one it is reached at its own address.
-                final String credential =
-                        credentials.containsKey(name)
-                                        && name.matches(ToolRepository.CREDENTIAL_PATTERN)
-                                        && ToolRepository.isPrefix(value)
-                                ? name
-                                : null;
+                //
+                // Only where the person's own files point that name at this address: a checkout
+                // naming a repository like one of theirs would otherwise send their secret to an
+                // address of its choosing. And only the same adapter's credential.
+                final boolean theirs =
+                        credentialPlugins.getOrDefault(name, java.util.Set.of()).contains(plugin)
+                                && known.stream()
+                                        .anyMatch(each -> !"CHECKOUT".equals(each.get("origin")));
+                final boolean servable =
+                        name.matches(ToolRepository.CREDENTIAL_PATTERN)
+                                && ToolRepository.isPrefix(value);
+                if (theirs && !servable) {
+                    unbound.add(
+                            plugin
+                                    + ": the repository '"
+                                    + name
+                                    + "' is reached at its own address without its credential:"
+                                    + " the broker serves only a lower-case vault name and an https"
+                                    + " address without a query");
+                }
+                final String credential = theirs && servable ? name : null;
                 repositories.add(new ToolRepositoryEntry(plugin, name, value, credential));
                 if (!ToolRepository.isLoopback(host) && !domains.contains(host)) {
                     domains.add(host);
@@ -456,7 +479,7 @@ final class ProjectProposal {
                 notPlaced.addAll(known);
             }
         }
-        final List<String> refused = new ArrayList<>();
+        final List<String> refused = new ArrayList<>(unbound);
         final List<Placed> lines = new ArrayList<>();
         final StringBuilder fetched = new StringBuilder();
         runs.forEach(

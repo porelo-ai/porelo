@@ -515,4 +515,101 @@ class ProjectProposalTest {
                 .as("neither is left for a person to place")
                 .doesNotContain("repository.corp", "extension.mirrorOf");
     }
+
+    private static Finding found(
+            final String key, final String value, final Finding.Origin origin) {
+        return new Finding(Finding.Part.RULES, key, value, "settings.xml", 1, origin, false, "");
+    }
+
+    private static List<org.fuin.porelo.core.project.ToolRepository> repositories(
+            final ProjectProposal proposal) {
+        return ProjectReader.read(
+                        new StringReader(String.valueOf(proposal.answer().get("draft"))), "draft")
+                .toolRepositories();
+    }
+
+    @Test
+    void aRepositoryThePersonHoldsACredentialForNamesItAndIsReadThroughTheBroker() {
+        final var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                found(
+                                        "repository.inhouse",
+                                        "https://repo.example.org/maven/",
+                                        Finding.Origin.YOURS),
+                                found("credential.inhouse", "inhouse", Finding.Origin.YOURS)),
+                        List.of()));
+
+        assertThat(repositories(proposal))
+                .singleElement()
+                .satisfies(each -> assertThat(each.credential()).isEqualTo("inhouse"));
+    }
+
+    @Test
+    void aRepositoryOnlyTheCheckoutNamesNeverTakesThePersonsCredential() {
+        // A checkout naming a repository like one the person holds a credential for would send
+        // their secret, through the broker, to an address of the checkout's choosing.
+        final var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                found(
+                                        "repository.inhouse",
+                                        "https://elsewhere.example/maven/",
+                                        Finding.Origin.CHECKOUT),
+                                found("credential.inhouse", "inhouse", Finding.Origin.YOURS)),
+                        List.of()));
+
+        assertThat(repositories(proposal))
+                .singleElement()
+                .satisfies(each -> assertThat(each.credential()).isNull());
+    }
+
+    @Test
+    void anotherAdaptersCredentialOfTheSameNameIsNotTaken() {
+        final var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                found(
+                                        "repository.inhouse",
+                                        "https://repo.example.org/maven/",
+                                        Finding.Origin.YOURS)),
+                        List.of()));
+        proposal.add(
+                "npm",
+                new Detection(
+                        List.of(found("credential.inhouse", "inhouse", Finding.Origin.YOURS)),
+                        List.of()));
+
+        assertThat(repositories(proposal))
+                .singleElement()
+                .satisfies(each -> assertThat(each.credential()).isNull());
+    }
+
+    @Test
+    void aCredentialTheBrokerCannotServeIsSaidAndTheRepositoryKeepsItsAddress() {
+        final var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                found(
+                                        "repository.Inhouse",
+                                        "https://repo.example.org/maven/",
+                                        Finding.Origin.YOURS),
+                                found("credential.Inhouse", "Inhouse", Finding.Origin.YOURS)),
+                        List.of()));
+
+        assertThat(repositories(proposal))
+                .singleElement()
+                .satisfies(each -> assertThat(each.credential()).isNull());
+        assertThat(proposal.refusals())
+                .anySatisfy(
+                        each -> assertThat(each).contains("'Inhouse'", "without its credential"));
+    }
 }

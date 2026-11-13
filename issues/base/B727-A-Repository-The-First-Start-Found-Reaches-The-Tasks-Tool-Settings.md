@@ -40,7 +40,7 @@ Found on snapshot.512 in the project `default`: the host of a private repository
   `extensions`. It now writes both. A repository's `porelo.yml` may carry them: `RepositorySettings` merges them onto
   the project, and the start's own settings in `default` hand that project to `ToolSettings.ask`, which asks the
   adapter's `Configure` and writes what it answers into the task.
-- **Line 2, as Core and Ecosystems answered it.** A `repository.<name>` for which `Detect` also found
+- **Through the broker or not.** A `repository.<name>` for which `Detect` also found
   `credential.<name>` names that credential in the draft, when the name is a vault entry's and the URL one the broker
   can hold. `ToolSettings.ask` then gives `Configure` the broker's address, and the broker adds the credential from
   the vault. A repository without one keeps its own URL. Neither file holds a password.
@@ -53,4 +53,15 @@ Found on snapshot.512 in the project `default`: the host of a private repository
 - **Docs.** `doc/ecosystem-adapters.md` says when a draft's repository names its credential and that a start asks
   `Configure` for it once the draft is taken. Changelog under *Fixed*.
 - A draft without `tool_repositories` starts as before: `FirstStartTest`'s other 91 cases are unchanged and pass.
-- **Locally on this commit.** apps/app (4728) passed whole, and so did the root's `validate` and `-Pdocuments test`.
+- **A credential only where the person's files bind it.** A credential is bound only when a finding outside the
+  checkout names the repository at that address, and only when the same adapter found the credential. A checkout
+  naming a repository like one the person holds a credential for would otherwise send their secret, through the
+  broker, to an address of its choosing. A credential the broker cannot serve, such as an upper-case name or an
+  address with a query, is said in the question, and the repository keeps its own address.
+  `aRepositoryOnlyTheCheckoutNamesNeverTakesThePersonsCredential`, `anotherAdaptersCredentialOfTheSameNameIsNotTaken`
+  and `aCredentialTheBrokerCannotServeIsSaidAndTheRepositoryKeepsItsAddress` in `ProjectProposalTest` failed before.
+- **Kept.** The repository's host stays in the draft's `egress`, as `Detect` names it with its own `host.` finding
+  too. The task can reach it there, but without the credential: the broker adds nothing the task could not already
+  ask for.
+- **Locally.** apps/app (4728 on the first commit, 4732 with the binding narrowed) passed whole, and so did the
+  root's `validate` and `-Pdocuments test`.
