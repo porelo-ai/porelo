@@ -19,6 +19,11 @@
 token, and is found first in the host's journal; then the fix, its tests, and the window's answer. Estimate: 63
 minutes (Core's median for M), p80 229.
 
+**Not a bug on the host (2026-11-14).** Read again with the host's data: the host carried the project from the
+follow after the hand-over on, and its publication said so; the running window kept the old "waits for your token"
+state until it restarted. The window's half is Agent Frontend's F570 "A Token Wait Gives Way To A Carried Answer".
+Left in Backlog for the operator to decide.
+
 **What must be true.** Once the window has handed the token to the host, a project that waited for it is carried
 before the hand-over answers. If that cannot be, the answer says the token was taken and when the projects follow,
 and the window does not offer "Give token" again meanwhile.
