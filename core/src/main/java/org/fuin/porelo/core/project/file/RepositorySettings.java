@@ -132,8 +132,11 @@ public final class RepositorySettings {
             } else if ("project".equals(key)
                     && tuple.getValueNode() instanceof MappingNode section) {
                 for (final NodeTuple inner : section.getValue()) {
-                    if ("name".equals(text(inner.getKeyNode()))) {
-                        faults.add(theProjects(source, inner.getKeyNode(), "project.name"));
+                    final String name = text(inner.getKeyNode());
+                    // Whether a credential in the workspace ends a start is not for the
+                    // repository the agent pushes to.
+                    if ("name".equals(name) || "secrets".equals(name)) {
+                        faults.add(theProjects(source, inner.getKeyNode(), "project." + name));
                     }
                 }
             }

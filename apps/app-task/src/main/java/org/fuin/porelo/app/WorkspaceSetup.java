@@ -278,7 +278,11 @@ final class WorkspaceSetup {
      * @return The repositories written, by name, in the project's order.
      */
     java.util.List<String> readAll(
-            Project project, java.nio.file.Path into, PrintWriter out, PrintWriter err) {
+            Project project,
+            java.nio.file.Path into,
+            SecretCheck secrets,
+            PrintWriter out,
+            PrintWriter err) {
         // Whatever an earlier start of this name left is no reading of today's mains; the name is
         // free by now, so nothing of it is in use.
         removePartial(into, err);
@@ -326,6 +330,10 @@ final class WorkspaceSetup {
                                 + "/"
                                 + each.name());
                 read.add(each.name());
+                if (!secrets.check(each.name(), gate.mirror(), commit)) {
+                    // The project refuses: the rest is not read, the start ends.
+                    break;
+                }
             } catch (RuntimeException ex) {
                 err.println(
                         "porelo: repository '"

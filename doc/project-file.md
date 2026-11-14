@@ -66,6 +66,12 @@ project:
   # one it goes by "Agent Myproject".
   nickname: "Planner"
 
+  # Optional. What a start does about a line of the tree the task checks out that looks like a
+  # credential: warn, the default, names it and goes on; refuse ends the start with exit 65.
+  # Only the project's file says it, never a repository's own. A false finding is acknowledged
+  # on the machine with 'porelo project secret-known'.
+  secrets: "warn"
+
 # Optional. The repositories this project's agents change.
 # A task works on exactly one, chosen with 'porelo task start --repository <name>' or by the
 # checkout it is started in; there is no default. Each has its own mirror, gate and review branch.

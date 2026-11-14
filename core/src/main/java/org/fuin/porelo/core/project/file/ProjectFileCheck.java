@@ -619,6 +619,12 @@ public final class ProjectFileCheck {
                             + "' is online, so it needs its central address in 'project.central'");
         }
         review(info.review(), "project.review");
+        if (info.secrets() != null
+                && !org.fuin.porelo.core.project.Project.SECRETS.contains(info.secrets())) {
+            fault(
+                    "project.secrets",
+                    "'project.secrets' is warn or refuse, not '" + shown(info.secrets()) + "'");
+        }
         nickname(info.nickname(), "project.nickname");
         org.fuin.porelo.core.project.ShortName.refusal(info.shortName())
                 .ifPresent(reason -> fault("project.short", "project.short: " + reason));

@@ -45,6 +45,8 @@ package org.fuin.porelo.core.project;
  * @param readingsDirectory Where a reading of an issue writes its findings, relative to the
  *     repository's root: a repository's own file's, else the project's, else {@value
  *     #READINGS_DEFAULT}.
+ * @param secrets What a start does about a credential found in the workspace: {@value
+ *     #SECRETS_WARN}, the default, says it and goes on; {@value #SECRETS_REFUSE} ends the start.
  */
 public record Project(
         String name,
@@ -71,10 +73,114 @@ public record Project(
         @org.jspecify.annotations.Nullable String shortName,
         java.util.List<ToolRepository> toolRepositories,
         java.util.Map<String, java.util.Map<String, Object>> extensions,
-        String readingsDirectory) {
+        String readingsDirectory,
+        String secrets) {
 
     /** Where a reading writes its findings when no file names a directory. */
     public static final String READINGS_DEFAULT = "readings";
+
+    /** A credential found in the workspace is said, and the start goes on. */
+    public static final String SECRETS_WARN = "warn";
+
+    /** A credential found in the workspace ends the start. */
+    public static final String SECRETS_REFUSE = "refuse";
+
+    /** What {@code secrets} may say. */
+    public static final java.util.List<String> SECRETS =
+            java.util.List.of(SECRETS_WARN, SECRETS_REFUSE);
+
+    /**
+     * Constructor for a project that leaves a credential in the workspace to a warning.
+     *
+     * @param name Name.
+     * @param description Description.
+     * @param securityClass Security class.
+     * @param baseImage Base image.
+     * @param imageSnippet Image snippet.
+     * @param upstream Upstream.
+     * @param limits Limits.
+     * @param egress Egress.
+     * @param packageSources Package sources.
+     * @param mail Mail.
+     * @param repositories Repositories.
+     * @param credentials Credentials.
+     * @param builds Builds.
+     * @param imageVariant Image variant.
+     * @param parameters Parameters.
+     * @param nickname Nickname.
+     * @param branch Branch scheme.
+     * @param review Review.
+     * @param imageEnv Image environment.
+     * @param baseBranch Starting branch.
+     * @param providers Providers.
+     * @param shortName Short name.
+     * @param toolRepositories Tool repositories.
+     * @param extensions Extensions.
+     * @param readingsDirectory Readings directory.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname,
+            @org.jspecify.annotations.Nullable BranchScheme branch,
+            String review,
+            java.util.Map<String, String> imageEnv,
+            @org.jspecify.annotations.Nullable String baseBranch,
+            java.util.Map<String, ModelDefault> providers,
+            @org.jspecify.annotations.Nullable String shortName,
+            java.util.List<ToolRepository> toolRepositories,
+            java.util.Map<String, java.util.Map<String, Object>> extensions,
+            String readingsDirectory) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                providers,
+                shortName,
+                toolRepositories,
+                extensions,
+                readingsDirectory,
+                SECRETS_WARN);
+    }
+
+    /**
+     * Says whether a credential found in the workspace ends the start.
+     *
+     * @return {@code true} under {@value #SECRETS_REFUSE}.
+     */
+    public boolean refusesSecrets() {
+        return SECRETS_REFUSE.equals(secrets);
+    }
 
     /**
      * Constructor for a project whose tools reach no repository of their own.
@@ -1081,6 +1187,13 @@ public record Project(
                         reason -> {
                             throw new ProjectException("project.short: " + reason);
                         });
+        secrets = secrets == null ? SECRETS_WARN : secrets;
+        if (!SECRETS.contains(secrets)) {
+            throw new ProjectException(
+                    "'project.secrets' is warn or refuse, not '"
+                            + secrets.replaceAll("\\p{Cntrl}", "?")
+                            + "'");
+        }
         parameters = parameters == null ? Parameters.none() : parameters;
         providers =
                 providers == null
@@ -1312,7 +1425,8 @@ public record Project(
                 shortName,
                 toolRepositories,
                 extensions,
-                readingsDirectory);
+                readingsDirectory,
+                secrets);
     }
 
     /**
@@ -1347,7 +1461,8 @@ public record Project(
                 shortName,
                 toolRepositories,
                 extensions,
-                readingsDirectory);
+                readingsDirectory,
+                secrets);
     }
 
     /**
@@ -1382,7 +1497,8 @@ public record Project(
                 shortName,
                 toolRepositories,
                 extensions,
-                directory);
+                directory,
+                secrets);
     }
 
     /**
@@ -1530,6 +1646,7 @@ public record Project(
                 shortName,
                 toolRepositories,
                 extensions,
-                readingsDirectory);
+                readingsDirectory,
+                secrets);
     }
 }

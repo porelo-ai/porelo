@@ -160,7 +160,8 @@ final class FileBinder {
                         b.text(s.get("upstream"), "project.upstream")),
                 b.text(s.get("review"), "project.review"),
                 b.word(s.get("nickname"), "project.nickname"),
-                b.word(s.get("short"), "project.short"));
+                b.word(s.get("short"), "project.short"),
+                b.word(s.get("secrets"), "project.secrets"));
     }
 
     private static @Nullable String named(

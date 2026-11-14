@@ -985,6 +985,7 @@ porelo project show PROJECT [--json]
 porelo project remove NAME [--dry-run] [--force] [--json]
 porelo project clear NAME [--yes] [--dry-run] [--force]
 porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
+porelo project secret-known PROJECT PATH:LINE [--repository NAME]
 ```
 
 - **`list`** lists the organization's projects you are in, then those of this machine alone, then `default`.
@@ -1085,6 +1086,11 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a
   key without a passphrase works. Trust an ssh host first with `porelo credentials trust-host`; until then the
   task does not start.
+- **`secret-known`** acknowledges a line that `task start` named as looking like a credential as none, on this machine.
+  It searches the repository's mirror again at the branch a task starts from and takes only a place the search finds,
+  else 65. It keeps the place and a digest of the line, owner-only under `$XDG_STATE_HOME/porelo/secrets-known/`,
+  never the line; a start says the place again once its line changes. `--repository` names a repository other than
+  the project's own. Nothing in the repository acknowledges a finding.
 
 ## providers
 

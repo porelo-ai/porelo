@@ -92,7 +92,8 @@ final class Sections {
                         "upstream",
                         "review",
                         "nickname",
-                        "short"));
+                        "short",
+                        "secrets"));
         keys.put(
                 "repositories.<name>",
                 List.of(

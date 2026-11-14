@@ -140,6 +140,11 @@ class WorkspaceSetupTest {
                         .readAll(
                                 project,
                                 into,
+                                new SecretCheck(
+                                        context,
+                                        project,
+                                        new PrintWriter(new StringWriter()),
+                                        new PrintWriter(new StringWriter())),
                                 new PrintWriter(new StringWriter()),
                                 new PrintWriter(err));
 
@@ -190,6 +195,11 @@ class WorkspaceSetupTest {
                         .readAll(
                                 project,
                                 into,
+                                new SecretCheck(
+                                        context,
+                                        project,
+                                        new PrintWriter(new StringWriter()),
+                                        new PrintWriter(new StringWriter())),
                                 new PrintWriter(new StringWriter()),
                                 new PrintWriter(err));
 
@@ -215,6 +225,11 @@ class WorkspaceSetupTest {
                         .readAll(
                                 project,
                                 into,
+                                new SecretCheck(
+                                        context,
+                                        project,
+                                        new PrintWriter(new StringWriter()),
+                                        new PrintWriter(new StringWriter())),
                                 new PrintWriter(new StringWriter()),
                                 new PrintWriter(err));
 
@@ -243,6 +258,11 @@ class WorkspaceSetupTest {
                         .readAll(
                                 project,
                                 into,
+                                new SecretCheck(
+                                        context,
+                                        project,
+                                        new PrintWriter(new StringWriter()),
+                                        new PrintWriter(new StringWriter())),
                                 new PrintWriter(new StringWriter()),
                                 new PrintWriter(new StringWriter()));
 

@@ -277,6 +277,14 @@ ever edited. `porelo talk` shows and moves them; see [commands](commands.md#talk
   credential for your code-hosting account, not because that host is unreachable. A usable token
   left in your work tree could push, whatever the class says. Keep credentials out of the
   repository.
+- **The secret scan at start is a net, not a proof.** Before the container is made, Porelo searches the tree the
+  task will check out, in the gate's mirror, for the credential forms it knows: forge, provider, cloud, chat,
+  registry, Porelo and web tokens, and a private key's header line. Each finding is said with its file, line and
+  kind, never its text, as `secret  deploy/key:1  looks like a private key; the agent can read it`. The project's
+  `secrets` decides whether the start goes on (`warn`, the default) or ends with exit 65 (`refuse`). Only that one
+  tree is read: a credential removed in an earlier commit is still in the history the task receives, and a form
+  Porelo does not know is not found. A false finding is acknowledged on this machine with
+  [`porelo project secret-known`](commands.md#project), never in the repository.
 - **Declaring a code-hosting set makes that host reachable.** That is legitimate, agents clone
   dependencies, but it removes one of the two reasons the gate holds. Porelo says so at task start.
 - **The image build is not behind the firewall.** The firewall governs the running task; the build

@@ -69,6 +69,16 @@ Without `nftset` support, a declared domain resolves, but nothing can connect to
 connection fails. If `porelo doctor` shows anything other than `yes`, install `dnsmasq` 2.87 or later with `nftset`
 support before starting your first task.
 
+## What if my repository holds a token or a key?
+
+The agent can read it. With a usable forge token it could push past the gate, and it sends what it reads to the
+provider. When a task starts, Porelo searches the tree it will check out for the credential forms it knows and names
+each finding with its file and line, never its text. The project's `secrets: refuse` ends such a start with exit 65;
+the default, `warn`, says it and goes on. Only that one tree is searched: a token removed in an earlier commit is still
+in the history the task gets, so revoke it rather than delete it. A line that only looks like a credential is
+acknowledged on your machine with `porelo project secret-known PROJECT PATH:LINE`, and is said again once that line
+changes. See [what Porelo does not do](how-it-works.md#what-porelo-does-not-do).
+
 ## How do I work on several repositories at once in one task?
 
 A task works on one repository only. To let one agent work across another repository, bring it in as an ordinary

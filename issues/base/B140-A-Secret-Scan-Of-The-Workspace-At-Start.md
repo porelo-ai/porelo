@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B140",
   "title": "A Secret Scan Of The Workspace At Start",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 8,
@@ -63,6 +63,37 @@ Nothing scans the tree today; `CredentialScan` in `supervisor/` watches provider
 5. **Docs:** `doc/how-it-works.md` and `doc/faq.md` (the token in the work tree, and that the history is not
    scanned), `doc/project-file.md` (`secrets:`), `doc/commands.md` (`project secret-known`).
 
+## Built
+
+- `wire/.../CredentialShapes`: the shapes `CommandMask` kept, each with a kind (forge token, provider key, cloud key,
+  chat token, registry token, Porelo token, web token) and a private key's header, as plain POSIX ERE that Java reads
+  alike. `CommandMask` takes its token expression from there; `CommandMaskTest` (29) and `ToolCallsTest` (13) green.
+  Kinds are generic, so no provider's name is said.
+- `gate/.../SecretScan`: `git grep -z -n -I -E` over the commit's tree in the bare mirror, one `-e` per shape. It keeps
+  `Finding(path, line, kind, digest)`, the digest a SHA-256 of the line; the line is dropped where it is read. An empty
+  mirror has no finding; a git that fails throws.
+- At the start (`TaskLaunch`): right after `TaskBase.select`, `SecretCheck` scans `refs/heads/<base>` of the task's
+  mirror and says each finding not acknowledged as `secret         <path>:<line>  looks like a <kind>; the agent can
+  read it`, followed by the `porelo project secret-known` command for it. Under `refuse` the start ends with 65 before
+  anything exists. A task with `--all-repositories` has each repository scanned after it is read
+  (`WorkspaceSetup.readAll`); a refusal there is cleaned up as every refused start, with 65. A scan that cannot run is
+  said, and ends the start only under `refuse`.
+- `project.secrets: warn | refuse` (`Project.secrets`, `ProjectInfo`, the binder, writer, schema and file check).
+  `warn` by default. A repository's own `porelo.yml` may not say it (`RepositorySettings.theProjects`): the repository
+  is what the agent pushes to.
+- `SecretsKnown` (`$XDG_STATE_HOME/porelo/secrets-known/<project>.json`, `ProjectPaths.secretsKnown`, written
+  owner-only through a staged file): per repository, a place and its line's digest. `porelo project secret-known
+  PROJECT PATH:LINE [--repository NAME]` scans the mirror at the base again and keeps only a place it finds, else 65.
+  The project command group takes its project as an argument, as `clear` and `remove` do, rather than the plan's `-p`.
+- Docs: `how-it-works.md` (what Porelo does not do), `faq.md` (a token or key in the repository), `project-file.md`
+  (`secrets`), `commands.md` (`project secret-known`). Changelog `secret-scan-at-start.yml`.
+- Red first: `SecretScanTest` did not compile without `SecretScan`. The start tests in `TaskRunCommandTest`
+  (`aProjectThatRefusesSecretsCreatesNoContainerForAWorkspaceHoldingOne`, `aProjectThatWarnsSaysTheFindingAndStarts`)
+  failed with the call in `TaskLaunch` switched off, in the same reactor, and pass with it.
+- Green, targeted: `CredentialShapesTest` 9, `SecretScanTest` 5, `SecretsKnownTest` 2, `SecretsSettingTest` 4, the three
+  start tests, `WorkspaceSetupTest` 6, `CommandMaskTest` 29, `ToolCallsTest` 13, `ProjectReaderTest` 66,
+  `ProjectFileFaultsTest` 112, `ReadingsDirectoryTest` 10, `RepositorySettingsTest` 4, `PoreloCliTest` 4.
+
 ## Red-first test
 
 A new `SecretScanTest` in `gate` makes a bare repository whose commit holds a private key header in `deploy/key`.
@@ -99,3 +130,5 @@ None.
 ## To be checked
 
 - How long the scan takes on a large repository's mirror, measured on the test VM.
+- On the VM: a start of a guarded project whose tree holds a private key says the line, and under `refuse` makes no
+  container.

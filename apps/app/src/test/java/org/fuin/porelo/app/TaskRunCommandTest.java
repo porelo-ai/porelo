@@ -10465,4 +10465,115 @@ class TaskRunCommandTest {
                 .as("nor is its conversation enrolled")
                 .doesNotExist();
     }
+
+    /** A private key's header, built here so this file is no finding of any scanner. */
+    private static final String KEY_HEADER = "-----BEGIN " + "OPENSSH PRIVATE KEY-----";
+
+    /**
+     * Starts the shell of a project whose mirror's tree holds a private key at deploy/key:1, under
+     * the project's {@code secrets}.
+     */
+    private int startWithAKeyInTheTree(Path dir, String secrets, boolean acknowledged)
+            throws IOException {
+        final String file =
+                changedRepositoryImage(
+                        dir,
+                        "image:\n  from: ubuntu:24.04\n",
+                        "image:\n  from: ubuntu:24.04\n  run: RUN true\n");
+        final PoreloContext context = repositoryImageContext(dir);
+        final Path projectFile = ProjectSource.resolve(context, file).file();
+        Files.writeString(
+                projectFile,
+                Files.readString(projectFile)
+                        .replace(
+                                "  security_class: \"guarded\"",
+                                "  security_class: \"guarded\"\n  secrets: \"" + secrets + "\""));
+        // Committed at the upstream: the start's fetch brings it into the mirror the task reads.
+        final Path upstream = dir.resolve("upstream");
+        Files.createDirectories(upstream.resolve("deploy"));
+        Files.writeString(upstream.resolve("deploy/key"), KEY_HEADER + "\nb3BlbnNzaC1rZXkt\n");
+        git(upstream, "add", "deploy/key");
+        git(upstream, "commit", "-q", "-m", "a key");
+        if (acknowledged) {
+            SecretsKnown.of(context, "uc")
+                    .add(
+                            "uc",
+                            new org.fuin.porelo.gate.SecretScan.Finding(
+                                    "deploy/key",
+                                    1,
+                                    "private key",
+                                    org.fuin.porelo.gate.SecretScan.digest(KEY_HEADER)));
+        }
+        return execute(context, "task", "start", "--attach", "shell", "--detach", "-p", file);
+    }
+
+    @Test
+    void aProjectThatRefusesSecretsCreatesNoContainerForAWorkspaceHoldingOne(@TempDir Path dir)
+            throws Exception {
+        final int code = startWithAKeyInTheTree(dir, "refuse", false);
+
+        assertThat(code).as("refused: %s", err).isEqualTo(65);
+        assertThat(out.toString())
+                .contains("secret         deploy/key:1  looks like a private key")
+                .contains("porelo project secret-known uc deploy/key:1")
+                .doesNotContain("PRIVATE KEY");
+        assertThat(err.toString()).contains("(secrets: refuse)").doesNotContain("PRIVATE KEY");
+        assertThat(runner.lines())
+                .as("no container for a refused workspace")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aProjectThatWarnsSaysTheFindingAndStarts(@TempDir Path dir) throws Exception {
+        final int code = startWithAKeyInTheTree(dir, "warn", false);
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(out.toString())
+                .contains("secret         deploy/key:1  looks like a private key")
+                .doesNotContain("PRIVATE KEY");
+        assertThat(runner.lines()).anyMatch(line -> line.contains("podman create"));
+
+        // The command the line named takes the place the scan finds, and no other.
+        out.getBuffer().setLength(0);
+        assertThat(
+                        execute(
+                                repositoryImageContext(dir),
+                                "project",
+                                "secret-known",
+                                "uc",
+                                "deploy/key:2"))
+                .as("nothing there: %s", err)
+                .isEqualTo(65);
+        assertThat(
+                        execute(
+                                repositoryImageContext(dir),
+                                "project",
+                                "secret-known",
+                                "uc",
+                                "deploy/key:1"))
+                .as("acknowledged: %s", err)
+                .isZero();
+        assertThat(out.toString()).contains("known     uc deploy/key:1 (private key)");
+        assertThat(
+                        SecretsKnown.of(repositoryImageContext(dir), "uc")
+                                .unknown(
+                                        "uc",
+                                        List.of(
+                                                new org.fuin.porelo.gate.SecretScan.Finding(
+                                                        "deploy/key",
+                                                        1,
+                                                        "private key",
+                                                        org.fuin.porelo.gate.SecretScan.digest(
+                                                                KEY_HEADER)))))
+                .isEmpty();
+    }
+
+    @Test
+    void aFindingAcknowledgedOnTheHostIsNotSaidAndDoesNotRefuse(@TempDir Path dir)
+            throws Exception {
+        final int code = startWithAKeyInTheTree(dir, "refuse", true);
+
+        assertThat(code).as("acknowledged: %s", err).isZero();
+        assertThat(out.toString()).doesNotContain("deploy/key");
+    }
 }

@@ -182,6 +182,17 @@ final class ProjectSchema {
                             List.of(Builds.FAILURE, Builds.ALL),
                             Builds.FAILURE,
                             false),
+                    new ProjectKey(
+                            "project",
+                            "secrets",
+                            "What a start does about a line of the workspace that looks like a"
+                                    + " credential: warn says it and goes on, refuse ends the"
+                                    + " start with exit 65. A false finding is acknowledged on the"
+                                    + " machine with 'porelo project secret-known'.",
+                            "string",
+                            List.of(Project.SECRETS_WARN, Project.SECRETS_REFUSE),
+                            Project.SECRETS_WARN,
+                            false),
                     key(
                             "project",
                             "short",

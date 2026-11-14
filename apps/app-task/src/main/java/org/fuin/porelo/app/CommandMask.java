@@ -40,24 +40,7 @@ public final class CommandMask {
      * lines are masked, never the stream's other text.
      */
     private static final Pattern SHAPED =
-            Pattern.compile(
-                    "(?:"
-                            + String.join(
-                                    "|",
-                                    "gh[pousr]_[A-Za-z0-9]{30,}",
-                                    "github_pat_[A-Za-z0-9_]{20,}",
-                                    "glpat-[A-Za-z0-9_-]{20,}",
-                                    "sk-ant-[A-Za-z0-9_-]{20,}",
-                                    "sk-(?:proj-)?[A-Za-z0-9_-]{20,}",
-                                    "(?:AKIA|ASIA)[0-9A-Z]{16}",
-                                    "AIza[0-9A-Za-z_-]{35}",
-                                    "xox[abposr]-[A-Za-z0-9-]{10,}",
-                                    "npm_[A-Za-z0-9]{36}",
-                                    "pypi-[A-Za-z0-9_-]{50,}",
-                                    "hf_[A-Za-z0-9]{30,}",
-                                    "porelo_[a-z]{2}_[A-Za-z0-9_-]{16,}",
-                                    "eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}")
-                            + ")");
+            Pattern.compile(org.fuin.porelo.wire.CredentialShapes.anyToken());
 
     private static final Pattern URL_USER =
             Pattern.compile("(\\b[A-Za-z][A-Za-z0-9+.-]*://)[^/\\s@'\"]+@");

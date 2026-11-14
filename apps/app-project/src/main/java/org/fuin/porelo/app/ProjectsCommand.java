@@ -29,7 +29,8 @@ import picocli.CommandLine.Spec;
         subcommands = {
             ProjectRemoveCommand.class,
             ProjectClearCommand.class,
-            ProjectDefaultCommand.class
+            ProjectDefaultCommand.class,
+            ProjectSecretKnownCommand.class
         },
         description =
                 "Lists, opens and removes the projects of this machine and of the organization.")

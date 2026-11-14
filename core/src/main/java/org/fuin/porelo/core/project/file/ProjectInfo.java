@@ -13,6 +13,8 @@ import org.jspecify.annotations.Nullable;
  * @param review {@code required} or {@code optional} ({@code review}).
  * @param shortName Optional container spelling ({@code short}).
  * @param nickname The name the agent of its own repository goes by ({@code nickname}).
+ * @param secrets What a start does about a credential in the workspace: {@code warn} or {@code
+ *     refuse} ({@code secrets}).
  */
 public record ProjectInfo(
         @Nullable String name,
@@ -21,7 +23,31 @@ public record ProjectInfo(
         @Nullable String upstream,
         @Nullable String review,
         @Nullable String nickname,
-        @Nullable String shortName) {
+        @Nullable String shortName,
+        @Nullable String secrets) {
+
+    /**
+     * Constructor for a file that says nothing about a credential in the workspace.
+     *
+     * @param name The project's name.
+     * @param description For people.
+     * @param securityClass The security class.
+     * @param upstream The central address.
+     * @param review The review.
+     * @param nickname The nickname.
+     * @param shortName The short spelling.
+     */
+    public ProjectInfo(
+            @Nullable String name,
+            @Nullable String description,
+            @Nullable String securityClass,
+            @Nullable String upstream,
+            @Nullable String review,
+            @Nullable String nickname,
+            @Nullable String shortName) {
+        this(name, description, securityClass, upstream, review, nickname, shortName, null);
+    }
+
     /** Constructor for a file without a short spelling. */
     public ProjectInfo(
             @Nullable String name,
@@ -30,6 +56,6 @@ public record ProjectInfo(
             @Nullable String upstream,
             @Nullable String review,
             @Nullable String nickname) {
-        this(name, description, securityClass, upstream, review, nickname, null);
+        this(name, description, securityClass, upstream, review, nickname, null, null);
     }
 }

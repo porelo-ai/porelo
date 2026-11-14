@@ -284,7 +284,10 @@ public final class ProjectReader {
                 info.shortName(),
                 toolRepositories(file),
                 extensions(file),
-                readingsDirectory(file));
+                readingsDirectory(file),
+                info.secrets() == null
+                        ? Project.SECRETS_WARN
+                        : Objects.requireNonNull(info.secrets()));
     }
 
     private static List<ToolRepository> toolRepositories(final ProjectFile file) {

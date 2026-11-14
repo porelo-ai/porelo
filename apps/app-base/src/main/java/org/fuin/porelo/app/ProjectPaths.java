@@ -66,6 +66,17 @@ public record ProjectPaths(PoreloPaths paths) {
         return paths.xdg().config().resolve("revoked.krl");
     }
 
+    /**
+     * Returns where this machine keeps the findings of a workspace's secret scan a person called
+     * false: on the host, beside nothing a task can write, so no agent adds to it.
+     *
+     * @param project The project's name.
+     * @return The file, which need not exist.
+     */
+    public Path secretsKnown(String project) {
+        return paths.xdg().state().resolve("secrets-known").resolve(project + ".json");
+    }
+
     public Path projectRegistry() {
         return paths.xdg().data().resolve("projects");
     }

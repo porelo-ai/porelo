@@ -60,6 +60,7 @@ final class FileYaml {
             put(project, "review", info.review());
             put(project, "nickname", info.nickname());
             put(project, "short", info.shortName());
+            put(project, "secrets", info.secrets());
             top.put("project", project);
         }
         final Map<String, Object> repositories = new LinkedHashMap<>();

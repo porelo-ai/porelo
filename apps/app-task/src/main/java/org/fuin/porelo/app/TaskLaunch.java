@@ -3512,6 +3512,16 @@ public final class TaskLaunch {
                     err.flush();
                     return 64;
                 }
+                // The tree the agent gets, read here before it can: a resume does not come this
+                // way, its tree is in the agent's hands already.
+                if (startingBranch != null
+                        && !new SecretCheck(context, settled, out, err)
+                                .check(
+                                        repository.name(),
+                                        workspace.gate().mirror(),
+                                        "refs/heads/" + startingBranch.branch())) {
+                    return 65;
+                }
             }
             // Only the fetched file can settle a refused preview.
             if (workspace != null) {
@@ -3642,7 +3652,13 @@ public final class TaskLaunch {
                 // enrolled, so a start refused here is ended as every other refused start is.
                 steps.started(StartStep.Step.WORKSPACE);
                 final TaskRepositories reading = new TaskRepositories(context.paths(), container);
-                if (workspace().readAll(project, reading.directory(), out, err).isEmpty()) {
+                final SecretCheck secrets = new SecretCheck(context, project, out, err);
+                final java.util.List<String> readable =
+                        workspace().readAll(project, reading.directory(), secrets, out, err);
+                if (secrets.refused()) {
+                    return cleanUp(runner, container, 65, false, out, err);
+                }
+                if (readable.isEmpty()) {
                     err.println(
                             "porelo: no repository of '"
                                     + project.name()
