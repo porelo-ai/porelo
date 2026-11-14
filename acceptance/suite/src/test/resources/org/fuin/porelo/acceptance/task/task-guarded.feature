@@ -241,3 +241,24 @@ Feature: A task in a guarded project, from its image to what it hands back
         When a script runs "porelo task clearance {task} deny" about the task
         Then it exits zero
         And its output contains "clearance already deny, unchanged"
+
+    Scenario: the resolver is the system's dnsmasq, whatever PATH finds first
+        # A stand-in first on this account's PATH: it says it has no nftset, and as a resolver it only
+        # sleeps. Before the hooks took dnsmasq by its fixed path, nsenter looked the bare name up.
+        When a script runs:
+            """
+            mkdir -p "$HOME/.local/bin"
+            printf '#!/bin/sh\n[ "$1" = --version ] && { echo "Dnsmasq version stand-in"; echo "Compile time options: no-nftset"; exit 0; }\nexec sleep 600\n' > "$HOME/.local/bin/dnsmasq"
+            chmod 0755 "$HOME/.local/bin/dnsmasq"
+            command -v dnsmasq | sed 's/^/PATH finds: /'
+            """
+        Then its output contains "PATH finds: /home/"
+        When a task called "fixedpath" is started in "guarded" for the "stub" agent and left running
+        And a script runs about the task:
+            """
+            readlink "/proc/$(cut -d' ' -f1 {state}/dnsmasq.pid)/exe" | sed 's/^/resolver: /'
+            porelo doctor 2>/dev/null | grep 'dnsmasq nftset' | sed 's/  */ /g'
+            rm -f "$HOME/.local/bin/dnsmasq"
+            """
+        Then its output contains "resolver: /usr/sbin/dnsmasq"
+        And its output contains "dnsmasq nftset yes"

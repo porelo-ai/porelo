@@ -281,8 +281,8 @@ upstream on port 53 are dropped like any other. So a name the agent wants answer
 Porelo's resolver, which answers only what the project declared, and logs what it was asked.
 
 **The resolver is the system's `dnsmasq`, by its fixed path.** The hook that starts it, `porelo shield dns`
-and `porelo doctor` take `dnsmasq`, as they take `nsenter` and `nft`, from the system's root-owned directories
-(`/usr/sbin`, `/usr/bin`, `/sbin`, `/bin`), never from `PATH`: a `dnsmasq` placed earlier there would decide what a
+and `porelo doctor` take `dnsmasq` from the system's root-owned directories (`/usr/sbin`, `/usr/bin`, `/sbin`,
+`/bin`), never from `PATH`, as the hooks take `nsenter` and `nft`: a `dnsmasq` placed earlier there would decide what a
 task's names resolve to and which addresses its firewall opens. A `dnsmasq` only elsewhere, such as under
 `/usr/local/sbin`, is not used; the task then starts without a resolver, its hook log says why, and `porelo doctor`
 says so. `podman` is still taken from `PATH`: Porelo runs every task through the same `podman`, with the

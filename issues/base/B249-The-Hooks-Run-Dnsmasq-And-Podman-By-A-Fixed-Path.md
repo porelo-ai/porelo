@@ -102,7 +102,7 @@ comes from `PATH`. Size S.
 
 ## To be checked
 
-- On the test VM: that the hook finds `/usr/sbin/dnsmasq` under rootless podman's user namespace, and that a
+- Answered on the VM (see Built): the hook finds `/usr/sbin/dnsmasq` under rootless podman's user namespace, and a
   stand-in first in `PATH` is not run.
 
 ## Built
@@ -112,13 +112,26 @@ comes from `PATH`. Size S.
   starts; the hook is soft-fail, so the container starts without a resolver and the hook's log names the path and
   the reason.
 - `DnsPolicy.command` takes `dnsmasq` through its `programs` function, as it takes `nsenter`.
-- `DnsmasqProbe.versionCommand()` gives the fixed path. `porelo doctor`'s `dnsmasq nftset` line says, when there
-  is none, that no `dnsmasq` the hooks may run was found, with the reason, and runs nothing from `PATH`.
+- `DnsmasqProbe.versionCommand()` gives the fixed path, and `porelo doctor` runs nothing from `PATH`. Its
+  `dnsmasq nftset` line tells three things apart: none in the fixed directories (install one), one the hooks refuse
+  (with the reason; make it root's own), and one found that could not be started (unknown, naming its path).
 - `podman` stays called by name, as decided. `SystemProgram.find`'s comment says a dangling link is refused.
 - `doc/security.md`, under "A resolver of the agent's own": the resolver is the system's `dnsmasq` by its fixed
   path, one only under another directory is not used, and `podman` comes from `PATH`.
 - Red first: `DnsPolicyTest.runsInsideTheContainersNamespace` (expects `/usr/sbin/dnsmasq`),
   `DnsmasqProbeTest.asksDnsmasqRatherThanGuessingFromAVersionNumber` (the fixed path), and the new
   `SupervisorHookTest` (the command, and a refused `dnsmasq` in the log); the build of the tests was red, then green.
-- Green, targeted: `SupervisorHookTest` 2, `NftHookTest` 8, `DnsPolicyTest` 17, `DnsmasqProbeTest` 5,
-  `EgressPolicyTest` 11, the doctor tests (44).
+- After the agy reading (gemini-4-argon-high): the doctor reported a found `dnsmasq` that could not start as not
+  installed, and a refused one as missing with the install remedy. Now told apart, pinned by
+  `DoctorCommandTest.theNftsetLineSaysWhetherTheHooksDnsmasqIsMissingRefusedOrUnableToRun`, and
+  `DnsmasqProbeTest` asks the lookup the doctor uses. The paragraph in `doc/security.md` no longer says the doctor
+  takes `nsenter` and `nft` by a fixed path; the hooks do, the doctor still asks those two by name.
+- Noted, not changed: `dist/dist-setup/porelo-setup.sh` checks `dnsmasq --version` by name, as root, before any
+  task. It starts nothing for a task and is no hook; `SetupScriptChannelTest` gives it a stand-in on `PATH`.
+- Green, targeted: `SupervisorHookTest` 2, `NftHookTest` 8, `DnsPolicyTest` 17, `DnsmasqProbeTest` 6,
+  `EgressPolicyTest` 11, `SystemProgramTest` 35, `SetupScriptChannelTest` 17, the doctor tests (45).
+- VM, ubuntu26.04 as `core`: the new scenario "the resolver is the system's dnsmasq, whatever PATH finds first"
+  (`task-guarded.feature`) puts a stand-in `dnsmasq` first on the account's `PATH`. Red on snapshot.761 (before):
+  the task's resolver was the stand-in (`/proc/<pid>/exe` a `sleep`), and the doctor judged the stand-in and said
+  `MISSING`. Green on snapshot.249 (this branch): the resolver is `/usr/sbin/dnsmasq` under rootless podman, and
+  the doctor says `yes`. The stand-in and the task are gone afterwards.

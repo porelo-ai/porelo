@@ -108,21 +108,38 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * @return The probe.
      */
     private Probe nftSetSupport() {
+        return nftSetSupport(DnsmasqProbe::versionCommand);
+    }
+
+    /**
+     * Reports whether the dnsmasq the hooks run can populate the firewall's allow set.
+     *
+     * @param versionCommand The command that asks it, by its fixed path.
+     * @return The probe.
+     */
+    Probe nftSetSupport(final java.util.function.Supplier<java.util.List<String>> versionCommand) {
         final String name = "dnsmasq nftset";
         final String install =
                 "install a dnsmasq built with nftset support"
                         + " (Fedora and Debian both ship one)";
         final java.util.List<String> version;
         try {
-            version = DnsmasqProbe.versionCommand();
+            version = versionCommand.get();
         } catch (java.io.UncheckedIOException ex) {
             // The hooks run only a root-owned dnsmasq in the fixed directories; judging one from
             // PATH said yes about a program no task would use.
+            if (ex.getCause() instanceof org.fuin.porelo.wire.SystemProgram.Missing) {
+                return Probe.missing(
+                        name,
+                        "no dnsmasq in /usr/sbin, /usr/bin, /sbin or /bin, the only places the"
+                                + " hooks take it from, so no declared domain resolves",
+                        install);
+            }
             return Probe.missing(
                     name,
-                    "no dnsmasq the hooks may run, so no declared domain resolves: "
+                    "the hooks refuse this dnsmasq, so no declared domain resolves: "
                             + ex.getMessage(),
-                    install);
+                    "make dnsmasq root's own and writable by root alone, as its package installs it");
         }
         try {
             final CommandResult result =
@@ -130,7 +147,8 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
             if (!result.successful()) {
                 return Probe.unknown(
                         name,
-                        "dnsmasq did not run, so declared domains may not be" + " reachable",
+                        version.getFirst()
+                                + " did not run, so declared domains may not be reachable",
                         install);
             }
             return DnsmasqProbe.supportsNftSet(result.standardOutput())
@@ -140,8 +158,13 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                             "this dnsmasq cannot open the firewall for declared domains",
                             install);
         } catch (RuntimeException ex) {
-            return Probe.missing(
-                    name, "dnsmasq is not installed, so no declared domain resolves", install);
+            // Found and checked, so installed: it could not be started.
+            return Probe.unknown(
+                    name,
+                    version.getFirst()
+                            + " could not be started, so declared domains may not be reachable: "
+                            + ex.getMessage(),
+                    install);
         }
     }
 

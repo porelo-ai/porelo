@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.fuin.porelo.agent.api.AgentDirectory;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
@@ -133,6 +134,52 @@ class DoctorCommandTest {
         assertThatThrownBy(() -> new Probe("nft", Probe.State.MISSING, "not installed", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("names no next action");
+    }
+
+    @Test
+    void theNftsetLineSaysWhetherTheHooksDnsmasqIsMissingRefusedOrUnableToRun(@TempDir Path dir) {
+
+        // The hooks take dnsmasq only from the fixed directories: the doctor judges that one, and
+        // says which of three things is wrong, each with its own remedy.
+        final FakeCommandRunner runner = new TransportTestRunner();
+        final DoctorCommand doctor = new DoctorCommand();
+        doctor.setContext(
+                new PoreloContext(
+                        runner,
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        arguments -> 0));
+        final java.util.function.Function<
+                        java.io.IOException, java.util.function.Supplier<List<String>>>
+                refusing =
+                        cause ->
+                                () -> {
+                                    throw new java.io.UncheckedIOException(
+                                            cause.getMessage(), cause);
+                                };
+
+        final Probe missing =
+                doctor.nftSetSupport(
+                        refusing.apply(
+                                new org.fuin.porelo.wire.SystemProgram.Missing(
+                                        "dnsmasq", List.of(Path.of("/usr/sbin")))));
+        final Probe refused =
+                doctor.nftSetSupport(
+                        refusing.apply(
+                                new java.io.IOException(
+                                        "Refusing /usr/sbin/dnsmasq: writable by group or others")));
+        runner.answering("/usr/sbin/dnsmasq --version", "Compile time options: IPv6 nftset\n");
+        final Probe found = doctor.nftSetSupport(() -> List.of("/usr/sbin/dnsmasq", "--version"));
+
+        assertThat(missing.detail()).as("missing").contains("no dnsmasq in /usr/sbin");
+        assertThat(missing.action()).contains("install a dnsmasq");
+        assertThat(refused.detail())
+                .as("refused, not reported as missing")
+                .contains("the hooks refuse this dnsmasq")
+                .contains("writable by group or others");
+        assertThat(refused.action()).contains("root's own");
+        assertThat(found.state()).as("the fixed path is the one asked").isEqualTo(Probe.State.OK);
+        assertThat(runner.invocations())
+                .anyMatch(command -> command.describe().startsWith("/usr/sbin/dnsmasq --version"));
     }
 
     @Test

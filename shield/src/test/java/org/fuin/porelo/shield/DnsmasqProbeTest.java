@@ -63,4 +63,17 @@ class DnsmasqProbeTest {
                 .as("the dnsmasq the hook runs, not one PATH finds first")
                 .containsExactly("/usr/sbin/dnsmasq", "--version");
     }
+
+    @Test
+    void theCommandADoctorRunsIsTheFixedOneOrNone() {
+        // Without a lookup: on a machine with dnsmasq it is an absolute path, without one a refusal
+        // that names it - never the bare name.
+        try {
+            assertThat(DnsmasqProbe.versionCommand().getFirst())
+                    .startsWith("/")
+                    .endsWith("/dnsmasq");
+        } catch (java.io.UncheckedIOException ex) {
+            assertThat(ex.getMessage()).contains("dnsmasq");
+        }
+    }
 }
