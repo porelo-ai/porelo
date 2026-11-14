@@ -279,10 +279,9 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker | - |
-| <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
 
 ## Review
 
@@ -362,6 +361,7 @@ from its side, as *blocked by*.
 | <a id="b582"></a>[B582](B582-A-Task-Is-Shown-In-Its-Room-By-Its-Own-Name.md) | S | - | A task is shown in its room as "Agent" and its own name ("Agent Pi"), the agent's name only to tell two apart. | - |
 | <a id="b577"></a>[B577](B577-An-Online-Tasks-Pushed-Commit-Waits-On-Nobody.md) | M | - | An online task whose push passed the gate is never shown as waiting on the person; its push appears as the task's. | - |
 | <a id="b543"></a>[B543](B543-The-Persons-Host-Commands-In-Porelo.md) | L | [B540](README.md#b540) | `porelo host forge-token \| central-state \| stop-secrets`, and porelod reading the central state as a checked file. | - |
+| <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. | 0 |
 | <a id="b621"></a>[B621](B621-The-Native-Image-Checks-Live-With-Porelo.md) | M | - | porelo-ffm-check and porelo-cpu-check are built, tested and published from this repository; porelo-buildtools no longer holds them, and porelo-planner takes porelo-cpu-check from here. | - |
 | <a id="b681"></a>[B681](B681-A-Failed-Delivery-Is-Played-Through-As-A-Person-Would.md) | S | - | A script plays ST39 at the command line on the test VM as a person would: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. | - |
 | <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. | - |

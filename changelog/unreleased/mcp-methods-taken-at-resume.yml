@@ -1,0 +1,2 @@
+title: "A task's MCP endpoint takes the methods and limits its project file names at the task's next start or resume, and goes when the file's `mcp` section is gone, while the mounted socket stays the same"
+type: fixed

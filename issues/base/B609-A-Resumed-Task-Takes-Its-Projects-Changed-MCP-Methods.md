@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B609",
   "title": "A Resumed Task Takes Its Project's Changed MCP Methods",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 30,
@@ -52,6 +52,26 @@ running task keeps what it was started with, as its guide does.
    `org.varlink.service.MethodNotFound` with `{method}`, the error an unregistered method answers. `start`,
    `readsTheRun` and the `Logs`/`Tail` cut read the current endpoint at the call, not the one the socket was made with.
 4. The class comment's "Only what the file allows" says the methods are those of the file at the task's last start.
+
+## Built
+
+As planned, in `McpTaskSockets` (daemon):
+
+- `open` reads and checks the project's `mcp` section on every open, before it looks for a served socket. No section:
+  the task's socket is closed and the open answers empty. A refused method list throws before anything changes.
+- `TaskSocket` keeps the endpoint in a volatile field; `allow(McpEndpoint)` swaps it and cuts the description anew, on
+  a first open and on each repeated one, so the served socket and its inode stay.
+- Every method `PoreloDaemon.register` offers is registered; one check in front of each answers
+  `org.varlink.service.MethodNotFound` `{method}` for a name the current endpoint does not carry. The call reads the
+  endpoint once and binds it as a scoped value (`ALLOWED`), which `start` and the `Logs`/`Tail` cut read, so a call
+  that runs while an open swaps the endpoint keeps the one it began with.
+- `doc/project-file.md` says a change takes effect at the task's next start or resume; changelog
+  `mcp-methods-taken-at-resume.yml`.
+
+Tests (`McpTaskSocketsTest`): a method taken from the file answers `MethodNotFound` and leaves the description after
+the next open, with the inode unchanged; a method added answers; a section gone takes the socket away; a refused
+section leaves the served socket as it was; and every method of the description the file does not name answers
+`MethodNotFound`. Seen failing first: four of them, before the change.
 
 ## Red-first test
 

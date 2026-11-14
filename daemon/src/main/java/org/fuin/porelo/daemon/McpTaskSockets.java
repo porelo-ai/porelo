@@ -40,7 +40,8 @@ import org.jspecify.annotations.Nullable;
  * asks it to say, names no other task.
  *
  * <p><strong>Only what the file allows.</strong> A socket carries the methods the file's {@code
- * mcp.methods} names and no other, so a method not named answers {@code MethodNotFound}; its
+ * mcp.methods} names at the task's last start or resume and no other, so a method not named answers
+ * {@code MethodNotFound}; each open reads the file again and the served socket takes it; its
  * interface description is Tasks1 with every other method dropped, every type and error kept. A
  * {@code Start} on it is held to the file's limits and records the caller as the started task's
  * parent; a {@code Stop} on it takes only the caller's own, and any other call naming a task only
@@ -56,6 +57,9 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
     /** The task a call came in on, bound for the call's length on a task's socket alone. */
     private static final ScopedValue<String> CALLER = ScopedValue.newInstance();
+
+    /** What the file allowed when a call came in, read once and kept for the call's length. */
+    private static final ScopedValue<McpEndpoint> ALLOWED = ScopedValue.newInstance();
 
     /** What a task is called: a container name, which becomes a file name here. */
     private static final java.util.regex.Pattern TASK =
@@ -107,7 +111,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     private static final Set<String> WRITING = Set.of("Start", "Stop", "Done", "ProposeIdea");
 
     /** One socket, and the thread serving it. */
-    private record Served(VarlinkServer server, Thread thread) {}
+    private record Served(TaskSocket server, Thread thread) {}
 
     /**
      * Constructor.
@@ -216,9 +220,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             throw new IOException(
                     "The identity of " + task + " does not belong to project " + project);
         }
-        if (open.containsKey(task)) {
-            return Optional.of(socketOf(task));
-        }
+        // Read on every open, the first and each repeated one: a resumed task takes the methods
+        // its file allows now. The served socket stays, so a running task's mount keeps its inode.
         final McpEndpoint endpoint;
         try {
             final Optional<McpEndpoint> allowed =
@@ -234,8 +237,14 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         }
         final List<String> refused = refusals(endpoint.methods());
         if (!refused.isEmpty()) {
+            // Refused before anything changes: a served socket keeps what it allowed.
             throw new IOException(
                     "project '" + project + "' cannot give a task an endpoint: " + refused);
+        }
+        final Served served = open.get(task);
+        if (served != null) {
+            served.server().allow(endpoint);
+            return Optional.of(socketOf(task));
         }
         final Path socket = socketOf(task);
         final TaskSocket server;
@@ -246,8 +255,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         }
         final Thread thread;
         try {
-            server.describedBy(cut(PoreloDaemon.description(), new HashSet<>(endpoint.methods())))
-                    .reporting(org.fuin.porelo.app.PoreloVersion.version());
+            server.allow(endpoint);
+            server.reporting(org.fuin.porelo.app.PoreloVersion.version());
             PoreloDaemon.register(server, context, inventory, control, signIns);
             thread = Thread.ofPlatform().daemon().name("porelod-mcp-" + task).start(server);
         } catch (RuntimeException ex) {
@@ -1179,7 +1188,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
         private final String task;
         private final String project;
-        private final McpEndpoint endpoint;
+
+        /** What the file allowed at the socket's last open; each call reads it once, as ALLOWED. */
+        private volatile McpEndpoint endpoint;
+
         private final Set<String> takingATask;
         private final Set<String> takingAProject = takingAProject();
 
@@ -1196,6 +1208,17 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             this.takingATask = Set.copyOf(takingATask);
         }
 
+        /**
+         * Takes what the file allows now: the methods answered, the description, and what a start
+         * is held to. A call already running keeps the endpoint it read.
+         *
+         * @param now The file's section as it reads now.
+         */
+        void allow(final McpEndpoint now) {
+            endpoint = now;
+            describedBy(cut(PoreloDaemon.description(), new HashSet<>(now.methods())));
+        }
+
         /** Refuses a call that names a project other than the caller's own, or none. */
         private void refuseAnotherProject(final Map<String, Object> parameters) {
             final String asked = PoreloDaemon.text(parameters, "project");
@@ -1207,14 +1230,13 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
         @Override
         public VarlinkServer method(final String name, final VarlinkServer.Method method) {
-            if (!endpoint.methods().contains(name)) {
-                return this;
-            }
+            // Every method is registered and the file is asked at the call, so a later open can
+            // allow a method or take it away; one not allowed answers as an unregistered one does.
             final VarlinkServer.Method held;
             if ("Start".equals(name)) {
                 held =
                         (parameters, replies) ->
-                                start(task, project, endpoint, parameters, replies, method);
+                                start(task, project, ALLOWED.get(), parameters, replies, method);
             } else if ("Stop".equals(name) || takingATask.contains(name)) {
                 // A stop takes its children alone; any other call naming a task, the caller too.
                 final boolean itself = !"Stop".equals(name);
@@ -1279,19 +1301,30 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                                 method.call(
                                         parameters,
                                         ownProject(
-                                                context, project, readsTheRun(endpoint), replies));
+                                                context,
+                                                project,
+                                                readsTheRun(ALLOWED.get()),
+                                                replies));
             } else {
                 held = method;
             }
             return super.method(
                     name,
-                    (parameters, replies) ->
-                            ScopedValue.where(CALLER, task)
-                                    .call(
-                                            () -> {
-                                                held.call(parameters, replies);
-                                                return null;
-                                            }));
+                    (parameters, replies) -> {
+                        final McpEndpoint allowed = endpoint;
+                        if (!allowed.methods().contains(name)) {
+                            throw new VarlinkException(
+                                    "org.varlink.service.MethodNotFound",
+                                    Map.of("method", INTERFACE + "." + name));
+                        }
+                        ScopedValue.where(CALLER, task)
+                                .where(ALLOWED, allowed)
+                                .call(
+                                        () -> {
+                                            held.call(parameters, replies);
+                                            return null;
+                                        });
+                    });
         }
     }
 

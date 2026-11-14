@@ -395,6 +395,100 @@ class McpTaskSocketsTest {
         assertThat(record.startsWith(context.paths().messaging().mailbox(LEAD))).isFalse();
     }
 
+    /** Writes the project's file anew, as a person editing it between two starts of a task. */
+    private void rewrite(final String file) throws IOException {
+        Files.writeString(dir.resolve("project.yml"), file);
+    }
+
+    /** Returns the method names a socket's description offers. */
+    private static Set<String> offered(final Path socket) throws IOException {
+        try (VarlinkClient client = new VarlinkClient(socket)) {
+            return names(
+                    "method",
+                    String.valueOf(
+                            client.call(
+                                            "org.varlink.service.GetInterfaceDescription",
+                                            Map.of("interface", PoreloDaemon.INTERFACE))
+                                    .get("description")));
+        }
+    }
+
+    @Test
+    void aMethodTakenFromTheFileIsNotFoundAfterTheNextOpenOnTheSameSocket() throws Exception {
+        // A resumed task kept the methods its file allowed when its socket was first opened.
+        final Path socket = opened(HEAD + SECTION);
+        final Object inode = Files.getAttribute(socket, "unix:ino");
+        rewrite(HEAD + SECTION.replace("\"Start\", ", ""));
+
+        assertThat(sockets.open(LEAD, "uc")).contains(socket);
+
+        refused(
+                socket,
+                "Start",
+                Map.of(),
+                "org.varlink.service.MethodNotFound",
+                Map.of("method", PoreloDaemon.INTERFACE + ".Start"));
+        assertThat(offered(socket)).containsExactly("ProjectFileSchema", "Stop");
+        assertThat(Files.getAttribute(socket, "unix:ino"))
+                .as("the mounted socket keeps its inode")
+                .isEqualTo(inode);
+    }
+
+    @Test
+    void aMethodAddedToTheFileAnswersAfterTheNextOpen() throws Exception {
+        final Path socket = opened(HEAD + SECTION.replace("\"ProjectFileSchema\", ", ""));
+        refused(
+                socket,
+                "ProjectFileSchema",
+                Map.of(),
+                "org.varlink.service.MethodNotFound",
+                Map.of("method", PoreloDaemon.INTERFACE + ".ProjectFileSchema"));
+        rewrite(HEAD + SECTION);
+
+        sockets.open(LEAD, "uc");
+
+        assertThat(call(socket, "ProjectFileSchema", Map.of())).containsKey("sections");
+        assertThat(offered(socket)).contains("ProjectFileSchema");
+    }
+
+    @Test
+    void everyMethodTheFileDoesNotNameAnswersNotFound() throws Exception {
+        // Each method is registered and refused at the call: one the check missed would answer.
+        final Path socket = opened(HEAD + SECTION);
+        final Set<String> allowed = Set.of("ProjectFileSchema", "Start", "Stop");
+
+        for (final String method : names("method", PoreloDaemon.description())) {
+            if (!allowed.contains(method)) {
+                refused(
+                        socket,
+                        method,
+                        Map.of(),
+                        "org.varlink.service.MethodNotFound",
+                        Map.of("method", PoreloDaemon.INTERFACE + "." + method));
+            }
+        }
+    }
+
+    @Test
+    void aFileWhoseSectionIsGoneTakesTheSocketAwayAtTheNextOpen() throws Exception {
+        final Path socket = opened(HEAD + SECTION);
+        rewrite(HEAD);
+
+        assertThat(sockets.open(LEAD, "uc")).isEmpty();
+        assertThat(socket).doesNotExist();
+    }
+
+    @Test
+    void aSectionRefusedOnTheNextOpenLeavesTheServedSocketAsItWas() throws Exception {
+        final Path socket = opened(HEAD + SECTION);
+        rewrite(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"Panic\"]"));
+
+        assertThatThrownBy(() -> sockets.open(LEAD, "uc")).isInstanceOf(IOException.class);
+
+        assertThat(call(socket, "ProjectFileSchema", Map.of())).containsKey("sections");
+        assertThat(offered(socket)).containsExactly("ProjectFileSchema", "Start", "Stop");
+    }
+
     @Test
     void aProjectWhoseFileHasNoSectionGetsNoSocket() throws IOException {
         context(HEAD);

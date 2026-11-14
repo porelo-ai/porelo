@@ -455,7 +455,9 @@ provider this machine knows.
 The `mcp` section lets a task of the project reach Porelo itself, through an MCP endpoint `porelod` serves it: the
 task starts tasks, lists them, reads their state and stops the ones it started, without a person's word, within the
 limits written here. A file without the section gives no task an endpoint. It is signed with the file, so a change is
-an administrator's commit like every other setting, and a repository's own `porelo.yml` cannot set it.
+an administrator's commit like every other setting, and a repository's own `porelo.yml` cannot set it. A change takes
+effect at the task's next start or resume: its endpoint then carries the methods and limits the file names, and goes
+when the section is gone; a running task keeps what it was started with.
 
 - **`methods` is required**: the daemon's methods the endpoint carries, by name without the interface, such as
   `Start`. The endpoint carries those alone, and its interface description is the daemon's cut down to them, so the
