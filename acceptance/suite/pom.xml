@@ -73,6 +73,9 @@
                     <!-- Skipped unless a host is named. A suite that fails because nobody gave it
                          a machine is noise in every other build. -->
                     <skipITs>${porelo.acceptance.skip}</skipITs>
+                    <!-- The heap limit every test fork on a shared host takes; surefire's argLine
+                         carries it in the parent, and this fork had none. -->
+                    <argLine>${porelo.test.jvm.args}</argLine>
                     <systemPropertyVariables>
                         <porelo.acceptance.host>${porelo.acceptance.host}</porelo.acceptance.host>
                         <porelo.acceptance.user>${porelo.acceptance.user}</porelo.acceptance.user>
