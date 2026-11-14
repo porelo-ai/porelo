@@ -46,6 +46,21 @@ access:
 
 On a host a person's login is the name of a Linux account, so a card's login is a lower-case letter, then up to 31 lower-case letters, digits or dashes. A host also refuses `root`, `porelo` and any `porelo-...`. GitHub allows more: a login with a capital is the same login in lower case, and one past 32 characters cannot have a card.
 
+## A credential carried to a host
+
+A host's vault starts empty. A person who keeps a provider's key in their own machine's vault copies it to their
+vault on a host from the window, without typing it again, in three calls on the two daemons:
+
+1. The host's daemon makes a key for this one copy, `CredentialReceiver`. Its private half stays in that daemon's
+   memory until an entry opens with it or five minutes have passed; a few live at once. A shut vault makes none.
+2. This machine's daemon seals the entry to that key, `SealCredential`, and answers ciphertext bound to the entry's
+   name and kind.
+3. The host's daemon opens it with the key, which then ends, and stores the entry under the same name,
+   `ReceiveCredential`. An entry of that name already there is kept unless the person asks to replace it.
+
+The window carries the sealed entry from one daemon to the other at once and keeps nothing. A sealed entry opens
+nowhere else, under no other name or kind, and not twice. How it is sealed is in [Security](security.md#a-credential-carried-to-a-host).
+
 ## Root's person maintenance
 
 The host package provides `/usr/sbin/porelo-host person purge <login>` and `person restore-runtime`.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B774",
   "title": "A Vault Entry Carried Sealed to a Host",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 131,
@@ -51,6 +51,39 @@ The window carries a sealed blob between the two daemons; only they ever hold th
    contract comments say the blob is sealed to the receiver and the window must not keep it.
 5. `doc/hosts.md`: a section "A credential carried to a host"; `doc/security.md`: the sealing and why the window
    never holds the value. Changelog entry.
+
+## Built
+
+- `vault`: `CredentialSeal` - X25519 (the JDK's), HKDF-SHA256, AES-256-GCM; associated data
+  `porelo credential\0<name>\0<kind>`; the blob is a version byte, the sender's 32-byte public half, a 12-byte nonce
+  and the ciphertext, at most 1 MiB. A low-order key that agrees on zero is refused.
+- `daemon`: `CredentialCarrying` - `seal` on the person's machine, and `Receiving` on the host: receiving keys in
+  memory, five minutes each, at most 4 (a newer one ends the oldest). Registered in `VaultMethods` as
+  `CredentialReceiver`, `SealCredential`, `ReceiveCredential`; all three in `McpMethods.NEVER`.
+- Wire, as posted to the room and wider than the plan: `CredentialReceiver() -> (outcome, key, until)` with `READY`
+  or `VAULT_LOCKED`; `SealCredential(key, name) -> (outcome, sealed, name, kind, detail)` with `SEALED`,
+  `NO_SUCH_ENTRY`, `VAULT_LOCKED`, `BAD_KEY`, `TOO_LARGE`; `ReceiveCredential(sealed, name, kind, replace) -> (outcome, detail)`.
+  [B775](README.md#b775) adds its parameters and outcomes to `SealCredential`.
+- Unlike the plan's "whatever the outcome": a blob carries no key's id, so the host tries each live key, and only the
+  one that opens it ends. A blob that opens with none answers `REFUSED` and ends no key, so a stray call cannot end a
+  copy in flight. The same blob a second time answers `NO_RECEIVER` (or `REFUSED` while another key lives).
+- No log line in either method; the answers carry name, kind and outcome, never the value.
+- Docs: `doc/hosts.md` "A credential carried to a host", `doc/security.md` the same; contract comments in
+  `30-vault.varlink`. Changelog `credential-carried-sealed-to-a-host.yml`.
+- Red first: `CredentialSealTest` and `CredentialCarryingTest` were written before their classes (compile red).
+
+### Reading (Codex gpt-6.1-sol, one reading)
+
+- Red, fixed: name and kind were bound joined by NUL, so ("a\0b", "") opened as ("a", "b\0"); each part is
+  length-prefixed now. `aNameAndKindCannotTradeANulBetweenThem`, seen failing first.
+- Red, fixed: an entry sealed to more than 1 MiB, which no receiver opens; it is refused at the seal now
+  (`TOO_LARGE`), and a sealed form longer than that is refused before it is decoded.
+  `anEntryTooLargeToOpenIsNotSealed`, seen failing first.
+- Red, fixed: a key still opened at exactly five minutes. `aReceivingKeyAtItsFiveMinutesIsGone`, seen failing first.
+- Yellow, fixed: the shut-vault socket test had no vault at all; it writes one now. Added a low-order key and a
+  changed byte or version, which held already. The contract and docs say an ended key is dropped at the next call,
+  and that the window keeping nothing is its own promise.
+- Yellow, left: no RFC 7748 test vectors; the round trips and the low-order refusal stand for them.
 
 ## Red-first test
 

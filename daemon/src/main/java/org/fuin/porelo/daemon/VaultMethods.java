@@ -253,6 +253,22 @@ final class VaultMethods {
                                     result.detail()));
                 });
 
+        // A vault entry carried to a host's daemon sealed to a key that daemon made for one copy:
+        // the window between the two carries ciphertext only. One set of receiving keys per
+        // daemon, in memory.
+        final CredentialCarrying.Receiving receiving =
+                new CredentialCarrying.Receiving(java.time.Clock::systemUTC);
+        server.method(
+                "CredentialReceiver",
+                (parameters, replies) -> replies.last(receiving.receiver(context)));
+        server.method(
+                "SealCredential",
+                (parameters, replies) ->
+                        replies.last(CredentialCarrying.seal(context, parameters)));
+        server.method(
+                "ReceiveCredential",
+                (parameters, replies) -> replies.last(receiving.receive(context, parameters)));
+
         server.method(
                 "Credentials",
                 (parameters, replies) -> {

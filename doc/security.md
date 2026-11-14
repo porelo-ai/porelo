@@ -447,6 +447,21 @@ lock against that holds on SELinux machines only:
 stand in for Porelo's sockets, as before
 ([decision](decisions.md#under-apparmor-a-task-is-held-to-porelos-sockets-on-the-connecting-side)).
 
+## A credential carried to a host
+
+A vault entry copied from a person's machine to their vault on a host, as [Hosts](hosts.md#a-credential-carried-to-a-host)
+says, crosses the window that talks to both daemons as ciphertext only. The host's daemon makes an X25519 key pair
+for one copy and hands out the public half. The person's daemon makes a key pair of its own for that seal, agrees a
+secret with the host's half, derives an AES-256-GCM key from it with HKDF-SHA256, and encrypts the entry's value and
+settings, its name and kind bound as associated data, each length-prefixed. Only the host's daemon holds the private
+half, in memory, until one entry opens with it or five minutes have passed; an ended key opens nothing and is dropped
+at the daemon's next carrying call. Neither daemon logs the value or the sealed form. That the window keeps nothing is
+the window's promise, not something the daemons can check.
+
+So the window, its memory and anything that reads the calls between it and the daemons see an entry's name, kind
+and ciphertext, never its value. What is trusted is that the key comes from the person's own host: the window
+reaches it over the pinned connection it trusts for everything else on that host.
+
 ## What is accepted rather than solved
 
 **A unix socket can be taken from a live process, in a window.** Before binding, Porelo connects to

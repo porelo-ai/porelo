@@ -309,6 +309,66 @@ method ImportCredential(
   detail: string
 )
 
+# ---------------------------------------------------------------------------- carrying to a host
+
+# Makes a key for one vault entry carried to this machine, sealed: the first of three calls that
+# copy an entry from the person's machine to a host's vault without the value crossing the window
+# between them.
+#
+# The private half stays in this daemon's memory until one entry opens with it or five minutes have
+# passed; an ended key opens nothing and is dropped at the next call. A few live at once, a newer
+# one ending the oldest. Nothing is written.
+method CredentialReceiver() -> (
+  # READY, or VAULT_LOCKED: no key is made for a vault that could not store what it receives.
+  outcome: string,
+  # The public half, 32 bytes base64. "" unless READY.
+  key: string,
+  # When the key ends, an instant. "" unless READY.
+  until: string
+)
+
+# Seals one entry of this machine's vault to a key CredentialReceiver made on another machine.
+#
+# The answer holds ciphertext only that machine's daemon opens, and only under this name and kind:
+# a window carries it from one daemon to the other at once and must not keep or log it.
+method SealCredential(
+  # The receiving key, as CredentialReceiver answered it.
+  key: string,
+  # The vault entry to seal, by name.
+  name: string
+) -> (
+  # SEALED, NO_SUCH_ENTRY, VAULT_LOCKED, BAD_KEY (not a 32-byte X25519 public key) or TOO_LARGE
+  # (sealed, more than 1 MiB, which no receiver opens).
+  outcome: string,
+  # The sealed entry, base64. "" unless SEALED.
+  sealed: string,
+  # The entry's name, as it is to be stored there.
+  name: string,
+  # The entry's kind, "" for none; ReceiveCredential needs it back unchanged.
+  kind: string,
+  # Why it was not sealed. "" when sealed. Never the value.
+  detail: string
+)
+
+# Opens an entry SealCredential sealed to one of this daemon's live keys and stores it in this
+# machine's vault. The key it opened with ends.
+method ReceiveCredential(
+  # As SealCredential answered it.
+  sealed: string,
+  # The name to store it under, as SealCredential answered it; another name does not open.
+  name: string,
+  # The kind, as SealCredential answered it; another kind does not open.
+  kind: string,
+  # Whether an entry of that name already here is replaced.
+  replace: bool
+) -> (
+  # STORED, EXISTS (kept, as replace was false), VAULT_LOCKED, NO_RECEIVER (no live key: used or
+  # past five minutes) or REFUSED (sealed to another key, or for another name or kind).
+  outcome: string,
+  # Why it was not stored. "" when stored. Never the value.
+  detail: string
+)
+
 # ---------------------------------------------------------------------------- keyslots
 
 # What can open this machine's vault.

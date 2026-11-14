@@ -120,6 +120,11 @@ final class McpMethods {
                     "CredentialReplace",
                     "RevokeKeyslot",
                     "ReadHostVaultShare",
+                    // A vault entry carried to a host: sealed for the host's daemon alone, and
+                    // stored there, but still the person's to send, never a task's.
+                    "CredentialReceiver",
+                    "SealCredential",
+                    "ReceiveCredential",
                     "AgentSignInStart",
                     "AgentSignInWait",
                     // The window's offer to take a repository out of 'default', on the person's

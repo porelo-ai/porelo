@@ -211,4 +211,16 @@ class VaultEntryMethodsTest {
                 .as("the task's own token stays")
                 .containsKey("task/porelo-uc-shell-1/route/a");
     }
+
+    @Test
+    void aShutVaultMakesNoReceivingKeyOverTheSocket() throws Exception {
+        // A vault that is there but not opened: shut, not missing.
+        context = context(false);
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(Map.of(), PASSPHRASE);
+
+        assertThat(call("CredentialReceiver", Map.of()))
+                .containsEntry("outcome", "VAULT_LOCKED")
+                .containsEntry("key", "");
+    }
 }
