@@ -263,6 +263,14 @@ Feature: A task in a guarded project, from its image to what it hands back
         # /usr/sbin on Debian and Ubuntu; Fedora's /usr/sbin is a link to /usr/bin, which the kernel names.
         Then its output has a line matching "resolver: /usr/s?bin/dnsmasq"
         And its output contains "dnsmasq nftset yes"
+        # A passing scenario's task is its own to remove: left running, the next run in this account
+        # could not start its own "fixedpath" (2026-11-14).
+        When a script runs about the task:
+            """
+            porelo task remove {task} --force >/dev/null 2>&1
+            podman container exists {task} || echo "the task is gone"
+            """
+        Then its output contains "the task is gone"
 
     Scenario: a start whose tree holds a private key is refused before any container, where the project says refuse
         # The key's header is put together here, so this file is no finding of any scanner.
@@ -272,22 +280,15 @@ Feature: A task in a guarded project, from its image to what it hands back
             sed -i 's/^  security_class: "guarded"$/&\n  secrets: "refuse"/' project.yml
             mkdir -p deploy && printf '%s\n' "-----BEGIN OPENSSH ""PRIVATE KEY-----" "b3BlbnNzaC1rZXkt" > deploy/key
             git add -A && git commit -q -m "a key"
-            # Diagnostics while CI alone misses the finding (2026-11-14): which tree the start scans.
-            mirror="${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/guarded.git"
-            # A project with no upstream has its mirror seeded once from the checkout, never
-            # followed; an earlier scenario's "guarded" left one without the key, and the start
-            # scanned that, the tree the task would get (CI, 2026-11-14). Seeded afresh here.
-            rm -rf -- "$mirror"
-            echo "diagnostic account $(id -un), checkout $(git -C ~/guarded log --oneline -1 main)"
-            echo "diagnostic project file: $(grep -c '^  secrets: "refuse"$' project.yml) secrets line"
-            echo "diagnostic mirror before: $(git --git-dir "$mirror" log --oneline -1 main 2>&1 | head -1), origin $(git --git-dir "$mirror" config --get remote.origin.url 2>&1)"
+            # Every scenario makes "guarded" afresh, a history of its own, and its mirror outlives
+            # the scenario: the start follows a checkout only forward and keeps a mirror that went
+            # another way (2026-11-14), so an earlier scenario's would be scanned. Seeded afresh here.
+            rm -rf -- "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/guarded.git"
             timeout 600 porelo task start keyed --project guarded --repository guarded --agent stub --detach --clearance deny 2>&1
             echo "start exit $?"
-            echo "diagnostic mirror after: $(git --git-dir "$mirror" log --oneline -1 main 2>&1 | head -1)"
-            git --git-dir "$mirror" grep -c -I -E -e '-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----' main -- 2>&1 | sed 's/^/diagnostic header in mirror: /'
-            git --git-dir "$mirror" grep -c -I -E -e '(^|[^A-Za-z0-9_-])(gh[pousr]_[A-Za-z0-9]{30,})' -e '-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----' main -- 2>&1 | sed 's/^/diagnostic two shapes in mirror: /'
-            echo "diagnostic git $(git --version)"
             podman ps -a --format '{{.Names}}' | grep -c 'keyed' | sed 's/^/containers: /'
+            # The refused start is left unfinished, and that holds the project against its removal.
+            porelo task remove porelo-guarded_keyed --force >/dev/null 2>&1
             """
         Then its output contains "secret         deploy/key:1  looks like a private key; the agent can read it"
         And its output contains "(secrets: refuse)"
