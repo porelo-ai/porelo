@@ -32,7 +32,7 @@ Read in the code: [B550](README.md#b550)'s `org refresh` is built in `host/` (`P
 [HO156](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho156) installs `porelo-host` on a host would
 break the refresh there, hence the blocker.
 
-- Run `/usr/sbin/porelo-host org refresh` by its absolute path; keep the exit-code mapping (Java's frame answers 77
+- The absolute path `/usr/sbin/porelo-host` comes with [B764](README.md#b764). Keep the exit-code mapping (Java's frame answers 77
   for a non-root caller where Python answered 69: map both to the same refusal).
 - The words at :219, `doc/commands.md`'s row, and the remaining mentions of `porelo-host-person` in `apps/` and
   `host/` messages (`CommitVerifyCommand`, `HostArrivals`, `FollowRooms`, `PoreloHost`, `FollowContext`'s staging
