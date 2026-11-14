@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B459",
   "title": "Every Credential's Failure Says What To Do",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "L",
   "priority": "Medium",
   "rank": 8,
@@ -22,6 +22,11 @@ terminal. Nothing shows a tool's raw line alone.
 The operator's word, 2026-11-05: a rule beyond [B458](README.md#b458). Nothing is built before the test.
 
 ## Plan
+
+- **How far it got (back to Backlog, 2026-11-14).** On main: the failure inventory, source-aware unlock and storage
+  actions, agent readiness (`b55da5d89`) and the https push slice (`0ed9c2680`). Left: provider failures in a running
+  task, the frontend's agreement on `fix` and `storeCommand`, the window's controls, each remedy seen to work on a real
+  machine, and the acceptance scenarios. No started work lies on a branch.
 
 1. List the ways a credential fails today, by kind and place: a key refused or locked, a token expired or without the right, a vault locked, an agent
    with no keys, a host key unknown. Each with what a person now reads.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B743",
   "title": "A Transport's Verb Fenced To What It Reaches",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "L",
   "priority": "Medium",
   "rank": 50,
@@ -36,6 +36,9 @@ nftables apply only inside a container's network namespace.
 
 ## Plan
 
+- **How far it got (back to Backlog, 2026-11-14).** On main: parts (a), (b) and (c) with their reading's fixes
+  (`484445545`, `0b8f080f9`, `06164ef1d`). Left: the acceptance run on the VM. The branches `core-b743b` and `core-b743n`
+  hold only earlier versions of those commits.
 - **(a) A fenced runner.** One verb started in `unshare --user --net`, joined to the outside by `pasta`, with an
   nftables ruleset in that namespace allowing `reaches` and loopback. Red first: a verb connecting to an address
   outside `reaches` is refused.

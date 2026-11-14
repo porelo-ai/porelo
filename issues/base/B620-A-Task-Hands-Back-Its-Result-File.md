@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B620",
   "title": "A Task Hands Back Its Result File",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 2,
@@ -36,6 +36,9 @@ How it is today, read in the code:
 
 ## Plan
 
+- **How far it got (back to Backlog, 2026-11-14).** On main: everything under *As built* (`fd07b3f48`, `7a3619d52`).
+  Left: the acceptance run on a rented host, a discussion task writing `idea.json` that the window reads from the
+  person's computer. No started work lies on a branch.
 - A start field `result` (a file name, no directory part), on the wire, in `TaskLaunch.Request` and as
   `porelo task start --result <name>`; the task gets `/run/porelo/result/` mounted writable and the name in its brief.
 - At the end, before the container goes, the host takes `<name>` from that host directory: a regular file, no link,
