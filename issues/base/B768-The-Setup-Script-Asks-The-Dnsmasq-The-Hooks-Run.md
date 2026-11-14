@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B768",
   "title": "The Setup Script Asks the dnsmasq the Hooks Run",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 77,
@@ -37,6 +37,17 @@ fails silently if it is missing", still runs `dnsmasq --version` by name. With a
   with the install hint). The `--show` line names the path it would run.
 - `SetupScriptChannelTest`: its stand-in `dnsmasq` sits on `PATH` today. The script's fixed directories are replaced
   in the test as `/etc/subuid` and the others already are, so the stand-in is found where the script now looks.
+
+## Built
+
+- `porelo-setup.sh` takes the first executable `dnsmasq` in `DNSMASQ_DIRS` (`/usr/sbin /usr/bin /sbin /bin`, the
+  order `SystemProgram.find` searches) and asks that one; none found is the missing case it already said (exit 5).
+  It names the path it asked (`/usr/sbin/dnsmasq has nftset support`), and `--show` names the path it would run.
+  Ownership stays the doctor's to say, as the plan's risk decided.
+- `SetupScriptChannelTest`: the copy's `DNSMASQ_DIRS` points at a directory of the test's own, as the other fixed
+  paths do, and the stand-in sits there. `aDnsmasqOnlyOnThePathIsNotTheOneTheHooksRun` (a stand-in on `PATH` only:
+  exit 5) and `theDnsmasqTheHooksRunIsAskedAndNamed` were red on the script before, and are green. `SetupScriptChannelTest`
+  19, `SetupCommandTest` 10, `SetupCheckoutsTest` 3 are green.
 
 ## Red-first test
 

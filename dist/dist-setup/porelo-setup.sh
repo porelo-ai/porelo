@@ -609,10 +609,19 @@ fi
 # ---------------------------------------------------------------- what would fail silently
 
 say "the one thing that fails silently if it is missing"
+# The dnsmasq the hooks run: the first in these directories, never one PATH finds first.
+DNSMASQ_DIRS="/usr/sbin /usr/bin /sbin /bin"
+DNSMASQ=
+for dir in $DNSMASQ_DIRS; do
+    if [ -x "$dir/dnsmasq" ]; then
+        DNSMASQ="$dir/dnsmasq"
+        break
+    fi
+done
 if [ "$SHOW" = yes ]; then
-    printf '   $ %s\n' "dnsmasq --version | grep -q nftset"
-elif dnsmasq --version 2>/dev/null | grep -q nftset; then
-    note "dnsmasq has nftset support"
+    printf '   $ %s\n' "${DNSMASQ:-/usr/sbin/dnsmasq} --version | grep -q nftset"
+elif [ -n "$DNSMASQ" ] && "$DNSMASQ" --version 2>/dev/null | grep -q nftset; then
+    note "$DNSMASQ has nftset support"
 else
     # A dnsmasq without it accepts the configuration and opens nothing: names resolve, nothing
     # connects, and there is no error to read. Refused here rather than met as a broken task.

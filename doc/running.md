@@ -42,7 +42,8 @@ sh porelo-setup-latest.sh [--user agents] [--distribution releases] [--with <pac
   its user services survive a logout, and with **subuid and subgid ranges**, without which rootless podman
   cannot map a container's users. These are where a hand-made account usually goes wrong.
 - **Checks what no package can promise**: that the repository really offers Porelo (an already installed
-  package would hide a broken source), and that dnsmasq can fill the firewall's allow set.
+  package would hide a broken source), and that dnsmasq can fill the firewall's allow set. It asks the dnsmasq the
+  hooks run, the first in `/usr/sbin`, `/usr/bin`, `/sbin` or `/bin`, never one found first on `PATH`.
 - **`--show` prints every command and runs none of them**, so you see what root will do before you give it
   root.
 

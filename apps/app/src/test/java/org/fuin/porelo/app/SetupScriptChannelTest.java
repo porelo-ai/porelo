@@ -171,6 +171,28 @@ class SetupScriptChannelTest {
     }
 
     @Test
+    void aDnsmasqOnlyOnThePathIsNotTheOneTheHooksRun() throws Exception {
+        // The hooks take dnsmasq from the system's directories alone; one found first on PATH
+        // said "nftset support" about a program no task would run.
+        show = false;
+        systemDnsmasq = false;
+        expectedExit = 5;
+
+        final String said = prepared("ubuntu", true, false);
+
+        assertThat(said).contains("has no nftset support").doesNotContain("has nftset support");
+    }
+
+    @Test
+    void theDnsmasqTheHooksRunIsAskedAndNamed() throws Exception {
+        show = false;
+
+        final String said = prepared("ubuntu", true, false);
+
+        assertThat(said).contains("/system/dnsmasq has nftset support");
+    }
+
+    @Test
     void aRealSecondRunSaysNothingChanged() throws Exception {
         show = false;
 
@@ -187,6 +209,10 @@ class SetupScriptChannelTest {
     private boolean show = true;
 
     private boolean comesWithPorelo;
+
+    private boolean systemDnsmasq = true;
+
+    private int expectedExit;
 
     private String standardOutput = "";
 
@@ -240,15 +266,22 @@ class SetupScriptChannelTest {
                         .replace("/etc/yum.repos.d/porelo.repo", repo.toString())
                         .replace("/etc/subuid", subuid.toString())
                         .replace("/etc/subgid", subgid.toString())
-                        .replace("/var/spool/porelo", root.resolve("spool").toString()));
+                        .replace("/var/spool/porelo", root.resolve("spool").toString())
+                        .replace(
+                                "DNSMASQ_DIRS=\"/usr/sbin /usr/bin /sbin /bin\"",
+                                "DNSMASQ_DIRS=\"" + root.resolve("system") + "\""));
         final Path stand = Files.createDirectories(dir.resolve("standing"));
+        final Path system = Files.createDirectories(root.resolve("system"));
         final Path installed = root.resolve("installed");
         Files.deleteIfExists(installed);
         standIn(stand.resolve("id"), ready ? "echo " + (show ? "1000" : "0") + "\n" : "exit 1\n");
         standIn(
                 stand.resolve("apt-get"),
                 "case \"$*\" in *install*) : > '" + installed + "' ;; esac\n");
-        standIn(stand.resolve("dnsmasq"), "echo nftset\n");
+        // Where the hooks take it from, or only on PATH, where they never look.
+        Files.deleteIfExists(system.resolve("dnsmasq"));
+        Files.deleteIfExists(stand.resolve("dnsmasq"));
+        standIn((systemDnsmasq ? system : stand).resolve("dnsmasq"), "echo nftset\n");
         standIn(stand.resolve("porelo"), "echo porelo 1.0\n");
         standIn(stand.resolve("setfacl"), "exit 0\n");
         standIn(stand.resolve("getent"), "exit 1\n");
@@ -303,7 +336,7 @@ class SetupScriptChannelTest {
         builder.redirectOutput(out.toFile());
         builder.redirectError(err.toFile());
         final Process process = builder.start();
-        assertThat(process.waitFor()).as(Files.readString(err)).isZero();
+        assertThat(process.waitFor()).as(Files.readString(err)).isEqualTo(expectedExit);
         standardOutput = Files.readString(out);
         return standardOutput + Files.readString(err);
     }
