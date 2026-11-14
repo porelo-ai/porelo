@@ -149,7 +149,7 @@ public class WaitingSteps {
         Instant since = null;
         while (Instant.now().isBefore(deadline)) {
             status = status(project, task);
-            listed = listed(task);
+            listed = listed(project, task);
             if (activity.equals(activity(status)) && listed.contains(" " + activity + " ")) {
                 since = since == null ? Instant.now() : since;
                 if (!Instant.now().isBefore(since.plus(HOLDS_FOR))) {
@@ -318,12 +318,26 @@ public class WaitingSteps {
         return output.out();
     }
 
-    private String listed(String task) throws IOException {
+    private String listed(String project, String task) throws IOException {
         final Ssh.Output output = world.run("porelo task list");
         assertThat(output.status()).as("'porelo task list' failed:%n%s", output.all()).isZero();
+        return row(output.out(), task, project);
+    }
+
+    /**
+     * Finds a task's row in what {@code porelo task list} printed, by its name and its project: a
+     * task of the same name in another project - one a failed scenario left dead - is not this one.
+     *
+     * @param list What the list printed.
+     * @param task The task's name.
+     * @param project The task's project.
+     * @return The row, or an empty text if none is listed.
+     */
+    static String row(String list, String task, String project) {
         final String name = TaskSteps.aName(task);
-        for (final String line : output.out().split("\n")) {
-            if (line.startsWith(name + " ")) {
+        for (final String line : list.split("\n")) {
+            final String[] columns = line.trim().split("\\s+");
+            if (columns.length > 1 && columns[0].equals(name) && columns[1].equals(project)) {
                 return line;
             }
         }

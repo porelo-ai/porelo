@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for what {@link TerminalSteps} checks before it touches a machine. */
 class TerminalStepsTest {
@@ -112,5 +115,29 @@ class TerminalStepsTest {
         assertThat(TerminalSteps.leftAsFound("ready$ "))
                 .as("nothing that took the screen proves nothing")
                 .isPresent();
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "porelo task start attended --project waits --repository waits --agent stub|porelo-waits_attended",
+                "porelo task start shell --project accept|porelo-accept_shell",
+                "porelo task start keys --agent stub --project keys --clearance deny|porelo-keys_keys"
+            })
+    void aTypedStartNamesTheContainerAFailedScenarioRemoves(String command, String container) {
+        assertThat(TerminalSteps.startedContainer(command)).as(command).contains(container);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "porelo task start attended",
+                "porelo task stop porelo-waits_attended",
+                "porelo task list",
+                "echo porelo task start x --project y"
+            })
+    void aCommandThatStartsNoTaskOfANamedProjectNamesNone(String command) {
+        assertThat(TerminalSteps.startedContainer(command)).as(command).isEmpty();
     }
 }

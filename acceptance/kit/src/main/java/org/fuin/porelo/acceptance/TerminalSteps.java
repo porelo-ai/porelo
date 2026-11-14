@@ -10,6 +10,11 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.fuin.porelo.machines.Ssh;
 import org.opentest4j.TestAbortedException;
 
@@ -27,7 +32,13 @@ import org.opentest4j.TestAbortedException;
  */
 public class TerminalSteps {
 
+    private static final Pattern TASK_START =
+            Pattern.compile(
+                    "^porelo task start ([A-Za-z0-9._-]+)\\s(?:.*\\s)?--project ([A-Za-z0-9._-]+)(?:\\s|$)");
+
     private final World world;
+
+    private final List<String> typedStarts = new ArrayList<>();
 
     /**
      * Constructor with the scenario's state.
@@ -46,6 +57,44 @@ public class TerminalSteps {
     @After
     public void closeTheTerminal() throws IOException {
         world.close();
+    }
+
+    /**
+     * Removes every task a failed scenario started in its terminal.
+     *
+     * <p>A failing step skips the scenario's own removal, and the task stays on the account. On a
+     * leg one attended task that died stayed listed, and the two scenarios after it, which start a
+     * task of the same name, failed on it too (2026-11-14). As for the tasks {@link LiveTaskSteps}
+     * starts: only a failed scenario's, best effort, so a removal that fails does not hide why the
+     * scenario did.
+     *
+     * @param scenario The scenario that ended.
+     */
+    @After
+    public void removeTheTypedStartsOfAFailedScenario(Scenario scenario) {
+        if (!scenario.isFailed()) {
+            return;
+        }
+        for (final String container : typedStarts) {
+            try {
+                world.machine().run("porelo task remove " + Shell.quote(container) + " --force");
+            } catch (final IOException | RuntimeException ex) {
+                scenario.log("could not remove " + container + ": " + ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Reads the container a typed {@code porelo task start NAME --project PROJECT} makes.
+     *
+     * @param command The command as the scenario types it.
+     * @return The container's name, or empty if the command starts no task of a named project.
+     */
+    static Optional<String> startedContainer(String command) {
+        final Matcher start = TASK_START.matcher(command);
+        return start.find()
+                ? Optional.of("porelo-" + start.group(2) + "_" + start.group(1))
+                : Optional.empty();
     }
 
     /**
@@ -211,6 +260,7 @@ public class TerminalSteps {
      */
     @When("I run {string}")
     public void iRun(String command) throws IOException {
+        startedContainer(command).ifPresent(typedStarts::add);
         world.terminal().type(World.expand(command));
         // Not "wait for the prompt": a command that asks a question never reaches one, and waiting
         // for it would hang on exactly the scenarios this module exists for.

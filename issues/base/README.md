@@ -266,12 +266,6 @@ from its side, as *blocked by*.
 | <a id="b751"></a>[B751](B751-Small-Faults-Found-Playing-Stories-On-A-Test-VM.md) | S | - | A forge's refusal reaches the agent without Porelo's internal git command line, an upstream that cannot be reached is said with one full stop, and an unknown option of `task start` answers 64 as other commands do. | 0 |
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b765"></a>[B765](B765-One-Dead-Attended-Task-Fails-Its-Neighbours.md) | S | - | A failed scenario of agent-waiting.feature leaves no task behind, and `WaitingSteps` reads the `task list` row of its own project, so one failure stays one red | 0 |
-
 ## Review
 
 | # | Size | Blocked by | What it covers | Open questions |
@@ -279,6 +273,7 @@ from its side, as *blocked by*.
 | <a id="b625"></a>[B625](B625-A-Unit-Test-Never-Reads-The-Machines-Host-Helper.md) | S | - | No unit test's task start asks the real machine whether it is a host: on a machine with the host package installed, `apps/app`'s start tests are as green as on one without. | - |
 | <a id="b640"></a>[B640](B640-An-Answer-Read-From-A-Message-Of-Parts.md) | S | - | An agent's last_message can name a field holding a list of parts and the parts that are text, so a run whose last message is thinking and text answers its text in the ended record, List and RunResult. | - |
 | <a id="b764"></a>[B764](B764-A-Refresh-On-A-Host-Without-Porelo-Host-Says-So.md) | XS | - | `porelo org host refresh` runs `/usr/sbin/porelo-host` by its absolute path, and a host where it is missing (env's 127) or not executable (126) is refused with 69 in porelo's words, naming the program and the package to install | 0 |
+| <a id="b765"></a>[B765](B765-One-Dead-Attended-Task-Fails-Its-Neighbours.md) | S | - | A failed scenario of agent-waiting.feature leaves no task behind, and `WaitingSteps` reads the `task list` row of its own project, so one failure stays one red | 0 |
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide tells the agent to check the owner. | - |
 | <a id="b539"></a>[B539](B539-A-Missing-Host-Forge-Token-Answered-On-The-Wire.md) | S | - | A host vault lacking the forge builds' credential is an answer on the wire (CanStart, the task's builds) naming the key and `porelo-host-forge-token`, for the window's forge token on a host. High priority. | - |
 | <a id="b632"></a>[B632](B632-An-Attended-Task-Takes-Its-Prompt-As-Its-First-Turn.md) | S | - | A Tasks1 Start with mode AGENT and a prompt answers once the task stands, and the agent's attended session, when it first starts, takes the prompt as its first turn and then waits for the person; an agent that cannot take one is refused with 64. | - |

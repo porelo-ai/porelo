@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B765",
   "title": "One Dead Attended Task Fails Its Neighbours",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 1,
@@ -43,6 +43,20 @@ Seen on Build 43583612326, Leg fedora, on main 93ee09f90 (green one commit befor
   through `I run "porelo task start attended ..."` and also runs after a failed step.
 - Red first: a unit test of `listed` over a `task list` text with a dead row of another project before the scenario's
   own row. It is red today, since the dead row is taken.
+
+## Built
+
+- `WaitingSteps.row(list, task, project)` takes the `task list` row whose first two columns are the task's name and
+  its project. A dead task of the same name in another project is no longer read.
+- `TerminalSteps` keeps the container of each `porelo task start NAME ... --project PROJECT` the scenario typed. Its
+  `@After` removes them when the scenario failed, best effort and logged, as `LiveTaskSteps` does for the tasks it
+  starts.
+- The feature's own last removal steps stay. A hook on every scenario would change the end of 23 typed starts in ten
+  features that this fix's targeted run does not cover. Run only after a failure, it touches no passing scenario.
+- Red first: `WaitingStepsTest` - a dead `waits` row above the `rests` row, in the layout the leg printed, was taken
+  (red), then green. `TerminalStepsTest` names the container for three start forms and none for four other commands.
+- Green: the unit tests of `acceptance/kit` and `acceptance/suite` (`-Pwhole`), 0 skipped there. The feature itself
+  runs on the legs of this commit's Build.
 
 ## To be checked
 
