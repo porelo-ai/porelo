@@ -237,7 +237,6 @@ from its side, as *blocked by*.
 | <a id="b700"></a>[B700](B700-A-Service-Connect-Guarded-By-Its-Tests.md) | S | - | Each of `service connect`'s path and namespace guards has a test that fails without it, its relay is tested with a large binary stream and a service that stays open, and a request cut short is a failure even when the service closes first. | 0 |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | M | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own | - |
 | <a id="b701"></a>[B701](B701-A-Terminal-Wait-Reads-Cursor-Moves-As-Spaces.md) | S | - | The acceptance kit's `Terminal.await` matches a phrase on a screen that draws the spaces between words as cursor-forward moves, as the kit's own dump of the terminal shows it. | 0 |
-| <a id="b763"></a>[B763](B763-No-Token-Lent-To-A-Hosts-Gate.md) | S | - | A transport is lent no registration token for a homeserver that is a host's gate - a `unix:` socket or an https name under `.localhost` - since the Matrix transport drops it there; a person's own loopback homeserver and an https server keep theirs | 0 |
 | <a id="b759"></a>[B759](B759-A-Transport-Refusal-Leaves-The-Other-Projects-Pass-Running.md) | S | - | A fence that cannot be built for one project's verb (a name that does not resolve, an unreadable resolver file, a missing pasta) defers that project's messages and lets the pass go on for the others | 0 |
 | <a id="b704"></a>[B704](B704-A-Run-Follower-Test-That-Waits-For-What-It-Reads.md) | XS | - | `RunFollowerTest.noThreadIsInterruptedSoNeitherTheAgentsNorTheCallersSocketIsClosed` does not depend on a 50 ms sleep to place its line between two reads. | 0 |
 | <a id="b705"></a>[B705](B705-A-Screens-Rest-Read-Without-Holding-The-List.md) | M | [B118](README.md#b118) | Reading whether an attached agent is at rest costs a listing no second-look pause per task, its per-task state is pruned with the task, and the stub's wake and the guards each have a test. | 0 |
@@ -266,6 +265,12 @@ from its side, as *blocked by*.
 | <a id="b749"></a>[B749](B749-Removing-An-Unknown-Default-Repository-Is-Wrong-Use.md) | XS | - | `porelo project default remove NAME` for a name 'default' does not hold answers 64, wrong use, and names what 'default' holds; never 70, which says Porelo failed. | 0 |
 | <a id="b751"></a>[B751](B751-Small-Faults-Found-Playing-Stories-On-A-Test-VM.md) | S | - | A forge's refusal reaches the agent without Porelo's internal git command line, an upstream that cannot be reached is said with one full stop, and an unknown option of `task start` answers 64 as other commands do. | 0 |
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b763"></a>[B763](B763-No-Token-Lent-To-A-Hosts-Gate.md) | S | - | A transport is lent no registration token for a homeserver that is a host's gate - a `unix:` socket or an https name under `.localhost` - since the Matrix transport drops it there; a person's own loopback homeserver and an https server keep theirs | 0 |
 
 ## Review
 
