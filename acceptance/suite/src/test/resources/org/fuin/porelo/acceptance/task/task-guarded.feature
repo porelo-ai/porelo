@@ -260,5 +260,6 @@ Feature: A task in a guarded project, from its image to what it hands back
             porelo doctor 2>/dev/null | grep 'dnsmasq nftset' | sed 's/  */ /g'
             rm -f "$HOME/.local/bin/dnsmasq"
             """
-        Then its output contains "resolver: /usr/sbin/dnsmasq"
+        # /usr/sbin on Debian and Ubuntu; Fedora's /usr/sbin is a link to /usr/bin, which the kernel names.
+        Then its output has a line matching "resolver: /usr/s?bin/dnsmasq"
         And its output contains "dnsmasq nftset yes"
