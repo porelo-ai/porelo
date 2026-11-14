@@ -959,4 +959,88 @@ class VaultPutCommandTest {
                 .as("echo held off across the reads and given back after the refusal")
                 .containsExactly("save", "echo off", "prompt", "line", "line", "restore");
     }
+
+    /** Runs 'vault put' of a key with the extra arguments given. */
+    private int putWith(final PoreloContext context, final String... more) {
+        final picocli.CommandLine command =
+                PoreloCli.commandLine(
+                        context.reading(
+                                new StandardInput(
+                                        new java.io.ByteArrayInputStream(
+                                                "a-key-for-the-unit-test-run"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8)),
+                                        false)));
+        command.setOut(new java.io.PrintWriter(out));
+        command.setErr(new java.io.PrintWriter(err));
+        final java.util.List<String> all =
+                new java.util.ArrayList<>(java.util.List.of("vault", "put", "search-key"));
+        all.addAll(java.util.List.of(more));
+        return command.execute(all.toArray(String[]::new));
+    }
+
+    @Test
+    void aKeyWithNoEndIsStoredAndSaidToHaveNone(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+        final PoreloContext context = machine(dir);
+        try {
+            assertThat(putWith(context)).as(err.toString()).isZero();
+
+            assertThat(out.toString())
+                    .contains("stored    search-key")
+                    .contains("expires   never - nothing ends this credential")
+                    .contains("--setting expires_at=<instant>");
+
+            // And the list marks it, until something records its end.
+            out.getBuffer().setLength(0);
+            final picocli.CommandLine list = PoreloCli.commandLine(context);
+            list.setOut(new java.io.PrintWriter(out));
+            list.setErr(new java.io.PrintWriter(err));
+            assertThat(list.execute("vault", "list")).isZero();
+            assertThat(out.toString()).containsPattern("search-key .* characters  no expiry");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void aKeyStoredWithItsEndIsNotSaidToHaveNone(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+        final PoreloContext context = machine(dir);
+        try {
+            assertThat(putWith(context, "--setting", "expires_at=2027-01-31T00:00:00Z"))
+                    .as(err.toString())
+                    .isZero();
+
+            assertThat(out.toString())
+                    .contains("stored    search-key")
+                    .doesNotContain("expires   never");
+
+            out.getBuffer().setLength(0);
+            final picocli.CommandLine list = PoreloCli.commandLine(context);
+            list.setOut(new java.io.PrintWriter(out));
+            list.setErr(new java.io.PrintWriter(err));
+            assertThat(list.execute("vault", "list")).isZero();
+            assertThat(out.toString()).contains("search-key").doesNotContain("no expiry");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void anEndThatIsNoInstantIsRefusedAndNothingIsStored(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+        // A typo would count as an end it is not, and the key would never be named as endless.
+        final PoreloContext context = machine(dir);
+        try {
+            assertThat(putWith(context, "--setting", "expires_at=next week")).isEqualTo(2);
+
+            assertThat(err.toString()).contains("not an ISO-8601 instant");
+            assertThat(context.vault().read(context.requireOpener()))
+                    .doesNotContainKey("search-key");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
 }

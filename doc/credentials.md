@@ -415,6 +415,22 @@ auth_prefix: "Bearer "
 A task then names it as `--credential github-copilot=github-mcp` and reaches the server at
 `$PORELO_URL_GITHUB_COPILOT/mcp/`.
 
+## A credential nothing ends
+
+Some providers issue only a key that never ends. Porelo stores it, and says so when it does:
+`vault put` prints `expires   never - nothing ends this credential; ...` after `stored`, and
+`vault login` and `vault import` say the same sentence after what they stored. The exit code stays 0.
+
+**`vault list` marks each such entry with `no expiry`**, and `Credentials()` answers `noExpiry: true`
+for it, so the one long-lived secret left stays in sight of whoever can replace it with one that ends.
+The mark covers every entry without an end: a provider key, a forge token, an ssh key, and a grant
+held as an access token that never expires. A renewable sign-in, an entry whose `expires_at` names
+an end, and a grant renewed by a refresh token are never marked, nor is a grant nobody has granted yet.
+
+If the provider told you when a key ends, record it: `porelo vault put <name> --setting
+expires_at=<instant>`, with an ISO-8601 instant such as `2027-01-01T00:00:00Z`. A value that is no
+such instant is refused (exit 2) and nothing is stored, since a typo would otherwise count as an end.
+
 ## A sign-in that ends, renewed on the host
 
 A subscription sign-in leaves an access token that ends within hours and a refresh token that

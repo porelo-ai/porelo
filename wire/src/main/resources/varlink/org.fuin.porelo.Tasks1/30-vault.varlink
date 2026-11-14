@@ -9,6 +9,11 @@ type Credential (
   # What goes with the secret and is not secret - a client id, a token URL, scopes - by name.
   # Configuration, shown whole; never a secret.
   settings: [string]string,
+  # True when nothing Porelo holds ends the secret it attaches, so a leak of it does not decay: an
+  # entry with no expires_at setting, or a grant held as an access token that never expires. Never
+  # for a renewable sign-in, an entry with expires_at, or a grant renewed by a refresh token, nor
+  # for a grant nobody has granted yet.
+  noExpiry: bool,
   # For an entry a person grants (oauth-device, oauth-code): who granted it and when, or absent while
   # nobody has. The grant itself is never shown.
   grant: ?Authorization

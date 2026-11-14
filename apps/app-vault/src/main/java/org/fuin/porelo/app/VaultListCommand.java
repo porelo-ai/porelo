@@ -35,18 +35,23 @@ public class VaultListCommand implements Callable<Integer>, PoreloFactory.Contex
                 out.flush();
                 return 0;
             }
-            final var entries =
-                    TaskSecrets.credentialsOnly(context.vault().read(context.requireOpener()));
+            final var all = context.vault().read(context.requireOpener());
+            final var entries = TaskSecrets.credentialsOnly(all);
             if (entries.isEmpty()) {
                 out.println("the vault is empty");
             } else {
                 entries.forEach(
                         (name, entry) -> {
+                            // A secret nothing ends is marked: a leak of it does not decay.
                             out.printf(
-                                    "%-20s %-10s %d characters%n",
+                                    "%-20s %-10s %d characters%s%n",
                                     name,
                                     entry.type() == null ? "-" : entry.type(),
-                                    entry.value().length());
+                                    entry.value().length(),
+                                    CredentialLifetime.endless(
+                                                    entry, all.get(VaultNames.GRANT_PREFIX + name))
+                                            ? "  no expiry"
+                                            : "");
                             // Configuration, so shown whole: a token URL or a client id is not a
                             // secret.
                             entry.settings()

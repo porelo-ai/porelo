@@ -2915,6 +2915,61 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void eachCredentialSaysWhetherNothingEndsIt(@TempDir Path dir) throws Exception {
+
+        // The one long-lived secret left has to stay visible to whoever can replace it.
+        final PoreloContext context = context(dir);
+        final org.fuin.porelo.vault.KernelKeyring keyring =
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            final Map<String, org.fuin.porelo.vault.VaultEntry> entries =
+                    new java.util.LinkedHashMap<>();
+            entries.put("plain", org.fuin.porelo.vault.VaultEntry.of("a-plain-key-value"));
+            entries.put(
+                    "ending",
+                    new org.fuin.porelo.vault.VaultEntry(
+                            "an-ending-key", null, Map.of("expires_at", "2027-01-31T00:00:00Z")));
+            entries.put(
+                    "held", new org.fuin.porelo.vault.VaultEntry("x", "oauth-device", Map.of()));
+            entries.put(
+                    "grant/held",
+                    new org.fuin.porelo.vault.VaultEntry("a-held-token", "access-token", Map.of()));
+            entries.put(
+                    "renewed", new org.fuin.porelo.vault.VaultEntry("x", "oauth-device", Map.of()));
+            entries.put(
+                    "grant/renewed",
+                    new org.fuin.porelo.vault.VaultEntry("a-refresh", "refresh-token", Map.of()));
+            context.vault().write(entries, VAULT_PASSPHRASE);
+            keyring.store(VAULT_PASSPHRASE);
+
+            servingContext(
+                    context,
+                    dir,
+                    socket -> {
+                        try (VarlinkClient client = new VarlinkClient(socket)) {
+                            final Map<String, Object> reply =
+                                    client.call(PoreloDaemon.INTERFACE + ".Credentials", Map.of());
+                            final Map<String, Object> marked = new java.util.TreeMap<>();
+                            for (final Object row : (List<?>) reply.get("credentials")) {
+                                final Map<?, ?> each = (Map<?, ?>) row;
+                                marked.put(String.valueOf(each.get("name")), each.get("noExpiry"));
+                            }
+                            assertThat(marked)
+                                    .containsExactlyInAnyOrderEntriesOf(
+                                            Map.of(
+                                                    "plain", true,
+                                                    "ending", false,
+                                                    "held", true,
+                                                    "renewed", false));
+                        }
+                    });
+        } finally {
+            keyring.forget();
+        }
+    }
+
+    @Test
     void aLockedVaultIsReportedAsUnreadable(@TempDir Path dir) throws Exception {
 
         // The other half of the same distinction: nothing is in the keyring, so the daemon cannot

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B178",
   "title": "A Credential With No Expiry Said So",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 15,
@@ -62,6 +62,32 @@ name, type, length and settings; `VaultMethods` answers `Credential` with the sa
    what a grant nobody has granted yet answers.
 4. **Docs:** `doc/credentials.md` says which entries are marked, what the line at storing says, and that
    `--setting expires_at=<instant>` records an end a provider gave a key; the contract's comment.
+
+## Built
+
+As planned, in four steps:
+
+- `CredentialLifetime` (`app-model`): `endless(entry, grant)` is the one rule; `HELD` and `EXPIRES_AT` live there,
+  and `VaultAuthorizeCommand.HELD` and `LoginCredentials.EXPIRES_AT` refer to them. `malformedEnd(settings)` names an
+  `expires_at` that is no ISO-8601 instant.
+- `VaultPutCommand` prints the `expires   never - ...` line after `stored`, and refuses a malformed `expires_at`
+  with exit 2 before anything is written. `AgentLogin` (both ways of keeping a sign-in) and `CredentialImport` put
+  the same sentence into `detail`; `VaultLoginCommand` prints it after "Signed in".
+- `VaultListCommand` appends `  no expiry`; `VaultMethods.credentials` answers `noExpiry`, declared in
+  `30-vault.varlink` with its comment.
+- `doc/credentials.md` gains "A credential nothing ends"; a changelog entry.
+
+Tests: `VaultPutCommandTest` 3 new (red first: no line, and a malformed end stored), `CredentialLifetimeTest` 7 (the
+five cases, a renewable sign-in that names no end yet, and the malformed end), `PoreloDaemonTest.eachCredentialSaysWhetherNothingEndsIt`,
+`InterfaceDescriptionTest.aCredentialSaysWhetherNothingEndsIt`, `AgentLoginTest.aSignInWithNoEndSaysSoAndOneWithAnEndDoesNot`,
+and `CredentialImportTest` asserting the sentence on an import. In `vault-commands.feature`, "a key stored with no
+end says so, and the list marks it".
+
+A reading by a second model found one gap, fixed: a renewable sign-in whose agent named no end (renewed on first
+use, `LoginRenewal.goodUntil`) was marked; `endless` now leaves every renewable sign-in unmarked, seen red first.
+It confirmed that every writer of `expires_at` (`LoginCredentials.put`, `LoginRenewal`, `VaultRenewCommand`) writes
+an ISO-8601 instant, so `vault put`'s refusal never meets one, and that no client reads `Credential` into a typed
+record.
 
 ## Red-first test
 

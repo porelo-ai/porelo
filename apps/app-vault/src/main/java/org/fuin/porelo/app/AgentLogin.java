@@ -268,12 +268,14 @@ public final class AgentLogin {
             return failed(Outcome.FAILED, ex.getMessage() + " - nothing was kept");
         }
         final boolean[] renewable = {false};
+        final boolean[] endless = {false};
         vault.update(
                 way,
                 entries -> {
                     LoginCredentials.put(entries, key, value, true, kept);
                     final org.fuin.porelo.vault.VaultEntry stored = entries.get(key);
                     renewable[0] = stored != null && LoginCredentials.renewable(stored);
+                    endless[0] = stored != null && CredentialLifetime.endless(stored, null);
                     return entries;
                 });
         // Said as kept, not assumed: a sign-in without a refresh token or a client is kept as it
@@ -283,9 +285,16 @@ public final class AgentLogin {
                 key,
                 value.type(),
                 value.secret().length(),
-                renewable[0]
-                        ? ""
-                        : "not renewable: it names no refresh token, client or token endpoint");
+                String.join(
+                        "; ",
+                        java.util.stream.Stream.of(
+                                        renewable[0]
+                                                ? ""
+                                                : "not renewable: it names no refresh token,"
+                                                        + " client or token endpoint",
+                                        endless[0] ? CredentialLifetime.DETAIL : "")
+                                .filter(each -> !each.isEmpty())
+                                .toList()));
     }
 
     /**
@@ -1412,6 +1421,7 @@ public final class AgentLogin {
         }
         final SelectedProvider selection = chosen.selection();
         final String key = selection == null ? agent.name() : selection.name();
+        final boolean[] endless = {false};
         try {
             context.vault()
                     .update(
@@ -1423,6 +1433,9 @@ public final class AgentLogin {
                                         value,
                                         true,
                                         LoginCredentials.kept(selection));
+                                final org.fuin.porelo.vault.VaultEntry stored = entries.get(key);
+                                endless[0] =
+                                        stored != null && CredentialLifetime.endless(stored, null);
                                 return entries;
                             });
         } catch (final org.fuin.porelo.vault.VaultException ex) {
@@ -1439,7 +1452,12 @@ public final class AgentLogin {
         // A sign-in is a grant: an interface still showing the question would send the person to
         // authorize what they just did.
         AuthorizationsNeeded.clear(context, key);
-        return new Result(Outcome.STORED, key, value.type(), value.secret().length(), "");
+        return new Result(
+                Outcome.STORED,
+                key,
+                value.type(),
+                value.secret().length(),
+                endless[0] ? CredentialLifetime.DETAIL : "");
     }
 
     /**

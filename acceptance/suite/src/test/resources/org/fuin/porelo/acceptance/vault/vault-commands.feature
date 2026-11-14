@@ -117,6 +117,19 @@ Feature: The vault commands
         Then it exits non-zero
         And its output contains "is called 'no-such-slot'"
 
+    Scenario: a key stored with no end says so, and the list marks it
+        Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
+        When a script runs:
+            """
+            printf 'not-a-real-token' | porelo vault put acceptance.endless --type token
+            printf 'not-a-real-token' | porelo vault put acceptance.ending --type token --setting expires_at=2099-01-01T00:00:00Z
+            porelo vault list
+            """
+        Then it exits zero
+        And its output contains "expires   never - nothing ends this credential"
+        And its output has a line matching "acceptance\.endless .* characters  no expiry"
+        And its output has a line matching "acceptance\.ending .* characters"
+
     Scenario: a credential is removed by name, and removing it again says there was nothing
         Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
         When a script runs:

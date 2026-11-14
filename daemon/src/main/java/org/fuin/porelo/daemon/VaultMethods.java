@@ -319,6 +319,15 @@ final class VaultMethods {
                                                 // Configuration, never a secret: a client id, a
                                                 // token URL, scopes.
                                                 row.put("settings", entry.getValue().settings());
+                                                // Nothing Porelo holds ends it: a leak of it does
+                                                // not decay.
+                                                row.put(
+                                                        "noExpiry",
+                                                        org.fuin.porelo.app.CredentialLifetime
+                                                                .endless(
+                                                                        entry.getValue(),
+                                                                        grants.get(
+                                                                                entry.getKey())));
                                                 // Who granted it and when, for an entry a person
                                                 // grants; the grant itself never.
                                                 final org.fuin.porelo.vault.VaultEntry grant =

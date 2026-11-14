@@ -101,6 +101,17 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void aCredentialSaysWhetherNothingEndsIt() {
+        final Matcher credential =
+                Pattern.compile("(?ms)^type Credential \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(credential.find()).as("the credential type is declared").isTrue();
+        assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), credential.group(1)))
+                .contains("noExpiry");
+        assertThat(credential.group(1)).contains("noExpiry: bool");
+    }
+
+    @Test
     void missingBuildsCredentialsAreDeclaredForTheStartAndTask() {
         // Clients must learn the remedy and restart requirement from typed fields, never prose.
         final String description = PoreloDaemon.description();

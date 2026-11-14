@@ -232,6 +232,40 @@ class AgentLoginTest {
     }
 
     @Test
+    void aSignInWithNoEndSaysSoAndOneWithAnEndDoesNot(@TempDir Path dir) {
+        final PoreloContext context = context(dir);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+
+        final AgentLogin.Result endless =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-no-end")));
+        final AgentLogin.Result ending =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                definition(dir, "paste-code"),
+                                new org.fuin.porelo.agent.api.Credential(
+                                        "oauth",
+                                        "at-that-ends",
+                                        java.util.Map.of(
+                                                org.fuin.porelo.agent.api.Credential.EXPIRES_AT,
+                                                String.valueOf(
+                                                        java.time.Instant.now()
+                                                                .plusSeconds(3600)
+                                                                .toEpochMilli())))));
+
+        assertThat(endless.outcome()).isEqualTo(AgentLogin.Outcome.STORED);
+        assertThat(endless.detail()).contains(CredentialLifetime.SAID);
+        assertThat(ending.outcome()).isEqualTo(AgentLogin.Outcome.STORED);
+        assertThat(ending.detail()).doesNotContain(CredentialLifetime.SAID);
+    }
+
+    @Test
     void aSignInIsStoredWithTheOpenerTakenBeforeItThoughTheVaultWasLockedMeanwhile(
             @TempDir Path dir) {
 

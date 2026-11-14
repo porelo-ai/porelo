@@ -324,6 +324,9 @@ class CredentialImportTest {
 
         assertThat(result.outcome()).isEqualTo(CredentialImport.Outcome.IMPORTED);
         assertThat(result.name()).isEqualTo("beta");
+        assertThat(result.detail())
+                .as("a key with no end, said so")
+                .contains(CredentialLifetime.SAID);
         assertThat(vault().get("beta").value())
                 .as("the sign-in asked for, under its own name")
                 .isEqualTo(BETA_VALUE);

@@ -418,6 +418,7 @@ public final class CredentialImport {
             }
 
             final boolean[] guarded = {false};
+            final boolean[] endless = {false};
             context.vault()
                     .update(
                             way.get(),
@@ -434,6 +435,9 @@ public final class CredentialImport {
                                         value,
                                         false,
                                         LoginCredentials.kept(selection));
+                                final VaultEntry stored = entries.get(key);
+                                endless[0] =
+                                        stored != null && CredentialLifetime.endless(stored, null);
                                 return entries;
                             });
 
@@ -448,13 +452,21 @@ public final class CredentialImport {
                                 + " to replace it");
             }
 
+            final String said = reading.note();
+            final String note =
+                    !endless[0]
+                            ? said
+                            : said.isEmpty()
+                                    ? CredentialLifetime.DETAIL
+                                    : said + "; " + CredentialLifetime.DETAIL;
+
             return new Result(
                     Outcome.IMPORTED,
                     key,
                     value.type(),
                     value.secret().length(),
                     reading.source(),
-                    reading.note());
+                    note);
 
         } catch (VaultException ex) {
             return failed(Outcome.FAILED, CliErrors.reason(ex));

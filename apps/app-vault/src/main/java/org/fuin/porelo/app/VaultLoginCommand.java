@@ -168,6 +168,9 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
                             + ", "
                             + result.length()
                             + " characters). Nothing more to do here.");
+            if (!result.detail().isEmpty()) {
+                out.println(result.detail());
+            }
             VaultEntryUse.report(context, result.name(), result.type(), out, err);
             out.flush();
             return 0;

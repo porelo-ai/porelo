@@ -603,6 +603,12 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             return 2;
         }
         final String stored = value;
+        final String malformedEnd = CredentialLifetime.malformedEnd(settings);
+        if (malformedEnd != null) {
+            err.println("porelo: " + malformedEnd + "; nothing was stored");
+            err.flush();
+            return 2;
+        }
         final org.fuin.porelo.vault.VaultEntry entry;
         try {
             entry = new org.fuin.porelo.vault.VaultEntry(stored, type, settings);
@@ -663,6 +669,11 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                             + " characters)");
             entry.settings()
                     .forEach((setting, text) -> out.println("setting   " + setting + " = " + text));
+            // Stored all the same - some providers issue nothing else - but said, so the one
+            // long-lived secret left is known to whoever can replace it.
+            if (CredentialLifetime.endless(entry, null)) {
+                out.println("expires   " + CredentialLifetime.SAID);
+            }
         } else {
             // Nothing written and nothing of the value said: only that the entry holds it already.
             out.println("unchanged " + name);

@@ -31,7 +31,7 @@ import org.fuin.porelo.vault.VaultEntry;
 final class LoginCredentials {
 
     /** The setting saying when the access token ends, as an instant. */
-    static final String EXPIRES_AT = "expires_at";
+    static final String EXPIRES_AT = CredentialLifetime.EXPIRES_AT;
 
     /** The setting naming the service's token endpoint. */
     static final String TOKEN_URL = "token_url";

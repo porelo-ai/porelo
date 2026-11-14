@@ -439,7 +439,7 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
      * refresh token: the broker attaches it as it is, and nothing here can revoke it at the
      * service.
      */
-    public static final String HELD = "access-token";
+    public static final String HELD = CredentialLifetime.HELD;
 
     /**
      * Keeps a grant in the account's vault, hidden, with who granted it and when.
