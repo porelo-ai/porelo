@@ -58,6 +58,15 @@ porelo builds was measured there too and works under uutils: `env -C / NAME=valu
 - Red first: `OrgHostRefreshCommandTest.aHostWithoutPoreloHostIsNamedAsSuch` (127, 126) and the argv in
   `sendsTheTokenOnlyToPinnedSshStandardInput`, three failures, then 25 tests green, 0 skipped.
 
+- The reading (agy, gemini-4-argon-high, 09:20:42-09:27:02Z), each finding checked in the code, fixed after the push
+  in one commit on top:
+  - Yellow, fixed: 126 means env found the file but could not run it, yet the words said "not installed". They say
+    "not executable" for 126 now, red first.
+  - Yellow, fixed: the test's `/usr/sbin/porelo-host` also matched env's echoed line, so it did not prove porelo's
+    own words. It now asserts porelo's whole line, env's line once, and `handedOver` false with no answer.
+  - Yellow, fixed: the changelog said "not with env's own lines"; env's lines still show, above porelo's.
+  - The token stays out of every output on the new branch, and the borrowed input is still cleared.
+
 ## Acceptance
 
 - The tests above, seen red, then green.

@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /** Guards the central token's only exit: stdin of SSH pinned to the accepted host card. */
@@ -200,7 +199,7 @@ class OrgHostRefreshCommandTest {
                 .doesNotContain(TOKEN, token, echo);
         assertThat(exit).as("progress does not change a successful handover").isZero();
         if (json) {
-            assertThat((Map<?, ?>) Json.parse(out.toString()))
+            assertThat((Map<Object, Object>) Json.parse(out.toString()))
                     .as("stdout remains the single JSON handover answer")
                     .isEqualTo(Map.of("handedOver", true, "answer", Json.parse(STATUS)));
         }
@@ -249,7 +248,7 @@ class OrgHostRefreshCommandTest {
         assertThat(ssh.toString()).as("no value in command diagnostics").doesNotContain(TOKEN);
         assertThat(ssh.binaryInput()).as("borrowed bytes cleared").containsOnly((byte) 0);
         assertThat(out + err.toString()).as("no value in either answer").doesNotContain(TOKEN);
-        assertThat((Map<?, ?>) Json.parse(out.toString()))
+        assertThat((Map<Object, Object>) Json.parse(out.toString()))
                 .as("only handover and host answer")
                 .isEqualTo(Map.of("handedOver", true, "answer", Json.parse(STATUS)));
         final String pin =
@@ -373,21 +372,27 @@ class OrgHostRefreshCommandTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {127, 126})
-    void aHostWithoutPoreloHostIsNamedAsSuch(int remote) {
+    @CsvSource({
+        "127,No such file or directory,porelo-host is not installed at /usr/sbin/porelo-host on build",
+        "126,Permission denied,porelo-host is not executable at /usr/sbin/porelo-host on build"
+    })
+    void aHostWithoutARunnablePoreloHostIsNamedAsSuch(int remote, String cause, String words) {
         // env's lines alone, and 70, read as porelo failing, not as a host without its package.
-        runner.failing(
-                "porelo-host org refresh",
-                remote,
-                "env: '/usr/sbin/porelo-host': No such file or directory");
+        runner.failing("porelo-host org refresh", remote, "env: '/usr/sbin/porelo-host': " + cause);
 
         assertThat(run("--json")).as("remote exit %s", remote).isEqualTo(69);
+        assertThat((Map<Object, Object>) Json.parse(out.toString()))
+                .as("no success claim and no answer")
+                .containsEntry("handedOver", false)
+                .containsEntry("answer", null);
         assertThat(err.toString())
-                .as("what is missing, where, and what to do")
+                .as("porelo's own words: what, where, and what to do")
                 .contains(
-                        "/usr/sbin/porelo-host",
-                        "on build",
-                        "porelo-host collection 0.5.13 or later");
+                        "porelo: "
+                                + words
+                                + "; converge the host with porelo-host collection 0.5.13 or later")
+                .as("env's line, shown once")
+                .containsOnlyOnce(cause);
     }
 
     @Test

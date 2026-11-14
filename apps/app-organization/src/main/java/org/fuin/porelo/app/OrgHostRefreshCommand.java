@@ -210,7 +210,9 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                 // answers so.
                 return report(
                         69,
-                        "porelo-host is not installed at "
+                        "porelo-host is "
+                                + (result.exitCode() == 126 ? "not executable" : "not installed")
+                                + " at "
                                 + HOST_PROGRAM
                                 + " on "
                                 + host
