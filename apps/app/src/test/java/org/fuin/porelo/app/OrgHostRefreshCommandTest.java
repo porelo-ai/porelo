@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /** Guards the central token's only exit: stdin of SSH pinned to the accepted host card. */
@@ -235,7 +236,7 @@ class OrgHostRefreshCommandTest {
                         "-i",
                         "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
                         "LANG=C.UTF-8",
-                        "porelo-host",
+                        "/usr/sbin/porelo-host",
                         "org",
                         "refresh");
         assertThat(known.get())
@@ -369,6 +370,24 @@ class OrgHostRefreshCommandTest {
         assertThat(err.toString())
                 .as("a failed refresh reports the safe host diagnostic only once")
                 .containsOnlyOnce("setting is missing");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {127, 126})
+    void aHostWithoutPoreloHostIsNamedAsSuch(int remote) {
+        // env's lines alone, and 70, read as porelo failing, not as a host without its package.
+        runner.failing(
+                "porelo-host org refresh",
+                remote,
+                "env: '/usr/sbin/porelo-host': No such file or directory");
+
+        assertThat(run("--json")).as("remote exit %s", remote).isEqualTo(69);
+        assertThat(err.toString())
+                .as("what is missing, where, and what to do")
+                .contains(
+                        "/usr/sbin/porelo-host",
+                        "on build",
+                        "porelo-host collection 0.5.13 or later");
     }
 
     @Test

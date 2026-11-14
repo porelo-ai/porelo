@@ -1,2 +1,2 @@
-title: "`porelo org host refresh` runs `porelo-host org refresh` on the host, which the porelo-host package installs, where it ran the retired `porelo-host-person` and failed"
+title: "`porelo org host refresh` runs `/usr/sbin/porelo-host org refresh` on the host, which the porelo-host package installs, where it ran the retired `porelo-host-person` and failed; a host without that program is refused with 69 in words naming it and the collection that installs it, not with env's own lines"
 type: fixed

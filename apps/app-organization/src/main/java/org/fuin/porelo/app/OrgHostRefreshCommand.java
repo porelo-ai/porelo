@@ -32,6 +32,9 @@ import picocli.CommandLine.Spec;
         exitCodeOnInvalidInput = 64,
         description = "Hands the organization's forge token to a host over pinned SSH.")
 public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.ContextAware {
+    /** Where the host's porelo-host package installs its program; env looks no further. */
+    private static final String HOST_PROGRAM = "/usr/sbin/porelo-host";
+
     private static final Set<String> STATUS_FIELDS =
             Set.of("host", "organization", "refused", "commit", "pinned", "persons", "projects");
 
@@ -193,7 +196,7 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                                                     "-i",
                                                     "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
                                                     "LANG=C.UTF-8",
-                                                    "porelo-host",
+                                                    HOST_PROGRAM,
                                                     "org",
                                                     "refresh"),
                                             input,
@@ -202,6 +205,18 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                                         err.println(host + ": " + safe(line, token));
                                         err.flush();
                                     });
+            if (result.exitCode() == 127 || result.exitCode() == 126) {
+                // env's own lines name no package; a host whose collection predates the program
+                // answers so.
+                return report(
+                        69,
+                        "porelo-host is not installed at "
+                                + HOST_PROGRAM
+                                + " on "
+                                + host
+                                + "; converge the host with porelo-host collection 0.5.13 or later, which installs it, then retry",
+                        null);
+            }
             if (result.exitCode() != 0) {
                 final int exit =
                         switch (result.exitCode()) {
