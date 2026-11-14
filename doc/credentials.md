@@ -297,7 +297,9 @@ agent's default.
 in a throwaway container from the task image, which has none of a task's hooks and ordinary network
 access for the seconds the login takes.
 What the login writes is copied out, stored in the vault and the copy deleted at once; for that moment it lies in
-plaintext on the way, an accepted risk ([the decision](decisions.md#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault)).
+plaintext on the way, in memory: the agent's config directory is a `tmpfs` of the login container, and the copy lies
+under `$XDG_RUNTIME_DIR/porelo/login`. Swap can still reach both, so only an encrypted swap, or none, keeps it off
+every disk, an accepted risk ([the decision](decisions.md#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault)).
 Ctrl-], Porelo's own detach key, ends the login from its terminal whatever the agent's login screen does
 with Ctrl-C: its container is removed, nothing it wrote is stored, and `vault login` says `cancelled` and exits 130.
 Press it once: two presses that the connection hands over together reach the login instead, and a further single
@@ -326,9 +328,10 @@ the sign-in ends `VAULT_LOCKED`, saying the vault was locked during the sign-in:
 sign-in, else the agent's default; a sign-in for a provider this machine cannot keep it under stores nothing and
 says so. Storing it closes an open question to authorize that credential.
 
-**From a window, the login runs detached** through the daemon: `AgentSignInStart` runs the agent's login as the
-container's first process, with no shell, and answers the command that attaches to it; the container is removed when
-the login ends, or after 30 minutes when nobody finished it. It is no task: `List`, `Watch` and `Screen` never see it. `AgentSignInWait` returns when the agent's
+**From a window, the login runs detached** through the daemon: `AgentSignInStart` runs the agent's login in the
+foreground of the container's terminal, under a holding process that keeps the container a moment after the login
+ends, until what it wrote has been collected, and offers no shell; it answers the command that attaches to it. The
+container is removed once the login's sign-in is collected, or after 30 minutes when nobody finished it. It is no task: `List`, `Watch` and `Screen` never see it. `AgentSignInWait` returns when the agent's
 sign-in ends, from a window or a terminal, at most after 30 minutes, and says whether the vault holds the credential
 then, never judging by how the login exited; `AgentSignIns` gives each agent's state. A batch start asks
 `AgentSignIns` once and signs in each missing agent in turn before it starts its tasks. Neither starting nor waiting

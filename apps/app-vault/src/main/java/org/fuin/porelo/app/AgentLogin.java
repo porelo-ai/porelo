@@ -420,8 +420,9 @@ public final class AgentLogin {
      * Signs an agent in with its login running detached, for a window to attach to, and returns
      * once the login has ended and what it made is stored.
      *
-     * <p>The login is the container's first process, with no shell around it, and the container is
-     * removed when that process ends. It is no task: it runs on the machine's own network, with the
+     * <p>The login runs in the foreground of the container's terminal under {@link #holding}, which
+     * keeps the container until what the login wrote is collected and offers no shell; the
+     * container is removed then. It is no task: it runs on the machine's own network, with the
      * credential being made inside it, so nothing that lists, watches or attaches to tasks may see
      * it.
      *
@@ -724,6 +725,11 @@ public final class AgentLogin {
                     "an earlier sign-in's container name could not be removed: " + ex.getMessage());
         }
         sweepLeftoverLogins(context, agent, out);
+        final Path inMemory = copiesBase(context);
+        if (Files.isDirectory(inMemory)) {
+            sweepLeftoverCopies(inMemory, out);
+        }
+        // Where a binary before this one made them.
         sweepLeftoverCopies(Path.of(System.getProperty("java.io.tmpdir")), out);
 
         // Asked once, before the login and under its lock, and kept to store with: a person who
@@ -878,7 +884,11 @@ public final class AgentLogin {
         // sweep tells what a killed login left from what a running one uses by that lock alone.
         final Path copies;
         try {
-            copies = Files.createTempDirectory(COPIES + "-");
+            // In $XDG_RUNTIME_DIR, a tmpfs: the copies hold the sign-in in plaintext for their
+            // moment, and the system's temporary directory may be on a disk.
+            final Path base = copiesBase(context);
+            org.fuin.porelo.wire.Directories.create(base);
+            copies = Files.createTempDirectory(base, COPIES + "-");
         } catch (java.io.IOException ex) {
             return failed(
                     Outcome.FAILED,
@@ -970,8 +980,11 @@ public final class AgentLogin {
                             AGENT_LABEL + "=" + agent.name(),
                             "--name",
                             container,
+                            // The sign-in is written to memory, not to the container's layer.
+                            "--mount",
+                            inMemory(configDirectory),
                             image));
-            arguments.addAll(command);
+            arguments.addAll(holding(command));
             if (detached == null) {
                 out.println();
                 out.println(
@@ -1005,6 +1018,8 @@ public final class AgentLogin {
                     new java.util.concurrent.atomic.AtomicReference<>();
             final Ending ending = new Ending();
             final Path into = watched;
+            final java.util.concurrent.atomic.AtomicReference<Integer> exited =
+                    new java.util.concurrent.atomic.AtomicReference<>();
             watcher =
                     Thread.ofVirtual()
                             .start(
@@ -1020,12 +1035,14 @@ public final class AgentLogin {
                                                     storedEarly,
                                                     ended,
                                                     ending,
-                                                    opener));
+                                                    opener,
+                                                    copies.resolve("exit"),
+                                                    exited));
 
-            final int code;
+            final int ran;
             boolean abandoned = false;
             if (detached == null) {
-                code = context.exec().applyAsInt(podman.arguments(arguments));
+                ran = context.exec().applyAsInt(podman.arguments(arguments));
             } else {
                 final int up = context.exec().applyAsInt(podman.arguments(arguments));
                 if (up != 0) {
@@ -1037,15 +1054,26 @@ public final class AgentLogin {
                 Files.writeString(named, container);
                 detached.started().accept(container);
                 abandoned = !waited(context, podman, container, detached.limit());
-                code = 0;
+                ran = 0;
             }
             // A login still running when 'podman run' returned was left with the detach key. Seen
             // and recorded here, before the watch is told to stop: from this moment the watch takes
             // nothing it finds, so a look it began before the detach stores nothing behind it. A
             // watch that took the credential first stopped the container itself, and 'podman run'
             // returned for that.
+            // A login that has exited is held for its last look, and a detach key pressed in that
+            // moment is a person leaving a finished login: the look below takes what it wrote.
+            final @Nullable Integer finished =
+                    detached == null
+                            ? exitOf(podman, container, copies.resolve("exit-seen"))
+                            : null;
+            if (finished != null) {
+                exited.compareAndSet(null, finished);
+            }
             final boolean cancelled =
-                    detached == null && ending.detach(() -> podman.pidOf(container).isPresent());
+                    detached == null
+                            && finished == null
+                            && ending.detach(() -> podman.pidOf(container).isPresent());
 
             // Let the watch finish before looking ourselves: a watch still asking the agent for the
             // credential while this asks it too made the second call fail now and then ("Call to
@@ -1053,6 +1081,9 @@ public final class AgentLogin {
             // moment late is a login stored all the same.
             ended.set(true);
             settle(watcher);
+            // The login's own exit, as the holding process recorded it: 'podman run' ends with
+            // the stop that followed.
+            final int code = exited.get() != null ? exited.get() : ran;
 
             // What the agent wrote is not copied out - the person ended the login. The terminal is
             // given back first: a full-screen login page detached from leaves its own screen on,
@@ -1088,8 +1119,16 @@ public final class AgentLogin {
                     out.flush();
                 }
             } else {
-                podman.copyOut(container, contentsOf(configDirectory), collected);
-                credential = agent.extractor().apply(collected);
+                // The watch's last look came before the stop; a container that ended otherwise
+                // took its tmpfs with it, and a copy now finds what is still there, or nothing.
+                java.util.Optional<Credential> left;
+                try {
+                    podman.copyOut(container, contentsOf(configDirectory), collected);
+                    left = agent.extractor().apply(collected);
+                } catch (final RuntimeException ex) {
+                    left = java.util.Optional.empty();
+                }
+                credential = left;
             }
             if (credential.isEmpty() && abandoned) {
                 return failed(
@@ -1237,6 +1276,64 @@ public final class AgentLogin {
 
     /** The file in a login's temporary directory whose lock that login holds while it runs. */
     static final String HELD = ".held";
+
+    /**
+     * Where a login makes its copies: under {@code $XDG_RUNTIME_DIR}, which is memory, never the
+     * system's temporary directory, which may be a disk.
+     *
+     * @param context The machine.
+     * @return The directory, made by the login that needs it.
+     */
+    static Path copiesBase(final PoreloContext context) {
+        return context.paths().xdg().runtime().resolve("login");
+    }
+
+    /**
+     * Where the login container's holding process says how the login exited: not a secret, so in
+     * the container's own layer.
+     */
+    static final String EXIT_MARKER = "/tmp/porelo-login-exit";
+
+    /**
+     * How long a login container holds its memory after the login ended, should nothing collect it:
+     * the watch stops it at once, and a watch that failed must not keep it for ever.
+     */
+    static final java.time.Duration HOLDING = java.time.Duration.ofMinutes(5);
+
+    /**
+     * Runs the login and keeps the container, and the tmpfs its sign-in lies in, until it is
+     * collected: a tmpfs is gone with its container, so the last look must come before the stop.
+     * The login stays the foreground of the terminal; its exit code goes to {@link #EXIT_MARKER}. A
+     * stop after the login ended ends the wait at once.
+     *
+     * @param command The login.
+     * @return The container's command.
+     */
+    static List<String> holding(final List<String> command) {
+        final List<String> wrapped = new ArrayList<>();
+        wrapped.add("/bin/sh");
+        wrapped.add("-c");
+        wrapped.add(
+                "\"$@\"; code=$?; printf '%s\\n' \"$code\" > "
+                        + EXIT_MARKER
+                        + "; trap 'exit 0' TERM; sleep "
+                        + HOLDING.toSeconds()
+                        + " & wait");
+        wrapped.add("porelo-login");
+        wrapped.addAll(command);
+        return wrapped;
+    }
+
+    /**
+     * The tmpfs a login's config directory is: owner-only, owned by the agent's user, with what the
+     * image put there copied in.
+     *
+     * @param configDirectory As the agent declares it.
+     * @return The {@code --mount} value.
+     */
+    static String inMemory(final String configDirectory) {
+        return "type=tmpfs,destination=" + inContainer(configDirectory) + ",tmpfs-mode=0700,chown";
+    }
 
     /** The prefix of a login's temporary directory. */
     private static final String COPIES = "porelo-login";
@@ -1495,7 +1592,9 @@ public final class AgentLogin {
             java.util.concurrent.atomic.AtomicReference<Result> stored,
             java.util.concurrent.atomic.AtomicBoolean ended,
             Ending ending,
-            org.fuin.porelo.vault.VaultFile.Opener opener) {
+            org.fuin.porelo.vault.VaultFile.Opener opener,
+            java.nio.file.Path marker,
+            java.util.concurrent.atomic.AtomicReference<Integer> exited) {
         while (!ended.get() && !Thread.currentThread().isInterrupted()) {
             try {
                 Thread.sleep(java.time.Duration.ofSeconds(2));
@@ -1507,10 +1606,17 @@ public final class AgentLogin {
                 // Ended while it slept: a look now would store behind a login that was ended.
                 return;
             }
+            // Asked BEFORE the look: a login that has exited wrote everything it will write, so a
+            // look after the mark is the last one, and it is taken while the tmpfs still exists.
+            final @Nullable Integer exit = exitOf(podman, container, marker);
             try {
                 podman.copyOut(container, contentsOf(configDirectory), into);
                 final java.util.Optional<Credential> credential = agent.extractor().apply(into);
                 if (credential.isEmpty()) {
+                    if (exit != null) {
+                        lastLook(podman, container, exit, exited);
+                        return;
+                    }
                     continue;
                 }
                 // Taken only while no detach is recorded, and in one piece with it: a look begun
@@ -1541,8 +1647,44 @@ public final class AgentLogin {
             } catch (final RuntimeException ex) {
                 // The container may not be up yet, or the directory may not exist until the login
                 // writes it. Neither is worth reporting: this is a watch, not a check.
+                if (exit != null) {
+                    lastLook(podman, container, exit, exited);
+                    return;
+                }
                 continue;
             }
+        }
+    }
+
+    /**
+     * Ends a login whose agent exited and left nothing to collect: recorded, then stopped, which
+     * ends the {@code podman run} or {@code podman wait} it was held for.
+     */
+    private static void lastLook(
+            final org.fuin.porelo.runtime.Podman podman,
+            final String container,
+            final int exit,
+            final java.util.concurrent.atomic.AtomicReference<Integer> exited) {
+        exited.set(exit);
+        podman.stop(container);
+    }
+
+    /**
+     * Returns how the login exited, once its holding process recorded it.
+     *
+     * @return The exit code, or {@code null} while the login runs.
+     */
+    private static @Nullable Integer exitOf(
+            final org.fuin.porelo.runtime.Podman podman,
+            final String container,
+            final java.nio.file.Path marker) {
+        try {
+            Files.deleteIfExists(marker);
+            podman.copyOut(container, EXIT_MARKER, marker);
+            return Integer.valueOf(Files.readString(marker).strip());
+        } catch (final RuntimeException | java.io.IOException ex) {
+            // Not written yet: the login runs.
+            return null;
         }
     }
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.fuin.porelo.agent.api.LoginFlow;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -47,6 +49,199 @@ class AgentLoginTest {
                                 },
                         dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
+    }
+
+    /**
+     * A login container as the machine holds it: {@code podman run} returns only once the container
+     * is stopped, as its holding process keeps it, and what the login wrote lies in its memory only
+     * until then.
+     */
+    private final class HeldLogin implements org.fuin.porelo.core.process.CommandRunner {
+
+        private final java.util.concurrent.CountDownLatch stopped =
+                new java.util.concurrent.CountDownLatch(1);
+
+        /** What happened to the container, in order: each copy out of it, and its stop. */
+        private final List<String> events =
+                java.util.Collections.synchronizedList(new ArrayList<>());
+
+        /** What ran on the terminal. */
+        private final List<List<String>> executed =
+                java.util.Collections.synchronizedList(new ArrayList<>());
+
+        /** What the login wrote to its config directory, or {@code null} for nothing. */
+        private final @Nullable String written;
+
+        /** How the login exited, the moment it started: it is quick. */
+        private final int exit;
+
+        /** Whether the person pressed the detach key the moment the login had exited. */
+        private final boolean detachedAfterExit;
+
+        HeldLogin(final @Nullable String written, final int exit) {
+            this(written, exit, false);
+        }
+
+        HeldLogin(final @Nullable String written, final int exit, final boolean detachedAfterExit) {
+            this.written = written;
+            this.exit = exit;
+            this.detachedAfterExit = detachedAfterExit;
+        }
+
+        @Override
+        public org.fuin.porelo.core.process.CommandResult run(
+                final org.fuin.porelo.core.process.Command command) {
+            final List<String> arguments = command.arguments();
+            if (arguments.contains("cp")) {
+                final String from = arguments.get(arguments.size() - 2);
+                final Path to = Path.of(arguments.getLast());
+                events.add("cp " + from);
+                if (stopped.getCount() == 0) {
+                    // A tmpfs is gone with its container.
+                    return new org.fuin.porelo.core.process.CommandResult(
+                            command, 125, "", "no such file or directory");
+                }
+                try {
+                    if (from.endsWith(":/tmp/porelo-login-exit")) {
+                        Files.writeString(to, exit + "\n");
+                    } else {
+                        Files.createDirectories(to);
+                        if (written != null) {
+                            Files.writeString(to.resolve("token"), written);
+                        }
+                    }
+                } catch (java.io.IOException ex) {
+                    throw new java.io.UncheckedIOException(ex);
+                }
+                runner.run(command);
+                return new org.fuin.porelo.core.process.CommandResult(command, 0, "", "");
+            }
+            if (arguments.contains("stop")) {
+                events.add("stop");
+                stopped.countDown();
+            }
+            if (arguments.contains("{{.State.Pid}}")) {
+                // Running until stopped.
+                return new org.fuin.porelo.core.process.CommandResult(
+                        command, 0, stopped.getCount() == 0 ? "0\n" : "4242\n", "");
+            }
+            return runner.run(command);
+        }
+
+        int exec(final List<String> command) {
+            executed.add(List.copyOf(command));
+            if (!command.contains("run")) {
+                return 0;
+            }
+            if (detachedAfterExit) {
+                // The detach key ends 'podman run' and leaves the container running.
+                return 0;
+            }
+            try {
+                // Held as the holding process holds it; a stop ends it.
+                return stopped.await(20, java.util.concurrent.TimeUnit.SECONDS) ? 143 : -1;
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return -1;
+            }
+        }
+
+        /** Whether the config directory was looked at before the container stopped. */
+        boolean lookedBeforeTheStop() {
+            final int stop = events.indexOf("stop");
+            for (int i = 0; i < stop; i++) {
+                if (events.get(i).startsWith("cp ") && !events.get(i).endsWith("-exit")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        List<String> run() {
+            return executed.stream().filter(each -> each.contains("run")).findFirst().orElseThrow();
+        }
+
+        AgentLogin.Result signIn(final Path dir) {
+            final PoreloContext context = new PoreloContext(this, context(dir).paths(), this::exec);
+            context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+            return AgentLogin.run(
+                    context,
+                    new AgentLogin.Signing(
+                            "example",
+                            definition(dir, "paste-code"),
+                            directory -> {
+                                try {
+                                    final Path token = directory.resolve("token");
+                                    return Files.exists(token)
+                                            ? java.util.Optional.of(
+                                                    org.fuin.porelo.agent.api.Credential.of(
+                                                            "oauth", Files.readString(token)))
+                                            : java.util.Optional.empty();
+                                } catch (java.io.IOException ex) {
+                                    throw new java.io.UncheckedIOException(ex);
+                                }
+                            }),
+                    List.of("example-cli", "auth", "login"),
+                    dir.toString(),
+                    org.fuin.porelo.vault.VaultFile.Opener.passphrase(PASSPHRASE.clone()),
+                    null,
+                    new PrintWriter(out, true));
+        }
+    }
+
+    @Test
+    void aSignInLiesInMemoryOnItsWayToTheVault(@TempDir Path dir) {
+        // Written to the container's layer and copied to the system's temporary directory, the
+        // plaintext sign-in lay on a disk on its way to the vault.
+        final HeldLogin login = new HeldLogin("at-in-memory", 0);
+
+        final AgentLogin.Result result = login.signIn(dir);
+
+        assertThat(result.outcome()).as(result.detail()).isEqualTo(AgentLogin.Outcome.STORED);
+        assertThat(login.run())
+                .as("the config directory is a tmpfs of the container")
+                .containsSubsequence(
+                        "--mount", "type=tmpfs,destination=" + dir + ",tmpfs-mode=0700,chown");
+        final Path inMemory = context(dir).paths().xdg().runtime().resolve("login");
+        assertThat(runner.lines())
+                .filteredOn(line -> line.startsWith("podman cp"))
+                .as("every copy lies under $XDG_RUNTIME_DIR")
+                .isNotEmpty()
+                .allMatch(line -> line.contains(" " + inMemory + "/"));
+        assertThat(login.lookedBeforeTheStop())
+                .as("collected before the container, and its memory, is gone: " + login.events)
+                .isTrue();
+    }
+
+    @Test
+    void theDetachKeyPressedAfterTheLoginExitedEndsNothingTheLoginFinished(@TempDir Path dir) {
+        // Held after it exited, a finished login waits a moment for its last look; a detach key
+        // pressed then is a person leaving, not a login cancelled.
+        final HeldLogin login = new HeldLogin("at-written-before-exit", 0, true);
+
+        final AgentLogin.Result result = login.signIn(dir);
+
+        assertThat(result.outcome()).as(result.detail()).isEqualTo(AgentLogin.Outcome.STORED);
+    }
+
+    @Test
+    void aLoginThatExitsLeavingNothingIsLookedAtOnceMoreBeforeItsContainerStops(@TempDir Path dir) {
+        // A tmpfs is gone with its container: the last look must come before the stop, and the
+        // login's own exit is what the holding process recorded, not the stop's.
+        final HeldLogin login = new HeldLogin(null, 3);
+
+        final AgentLogin.Result result = login.signIn(dir);
+
+        assertThat(result.outcome())
+                .as(result.detail())
+                .isEqualTo(AgentLogin.Outcome.NOTHING_TO_COLLECT);
+        assertThat(result.detail()).contains("the login exited with 3");
+        assertThat(login.run())
+                .as("the login runs under the holding process")
+                .containsSequence("example-cli", "auth", "login");
+        assertThat(login.lookedBeforeTheStop())
+                .as("stopped only after a look at the config directory: " + login.events)
+                .isTrue();
     }
 
     @Test
@@ -603,8 +798,12 @@ class AgentLoginTest {
                 .as("its container is stopped and removed")
                 .anyMatch(line -> line.startsWith("podman stop") && line.contains(container))
                 .anyMatch(line -> line.startsWith("podman rm") && line.contains(container))
-                .as("nothing is copied out of it")
-                .noneMatch(line -> line.startsWith("podman cp"));
+                // Asking whether the login had exited copies its exit code, no secret.
+                .as("nothing of what the login wrote is copied out of it")
+                .noneMatch(
+                        line ->
+                                line.startsWith("podman cp")
+                                        && !line.contains(":" + AgentLogin.EXIT_MARKER + " "));
         // One key, not the same key twice: podman 5.7 misses 'ctrl-],ctrl-]' when both presses
         // arrive in one read, and the login then never ends (the ubuntu leg, 2026-11-13).
         assertThat(ran.get().get(ran.get().indexOf("--detach-keys") + 1))

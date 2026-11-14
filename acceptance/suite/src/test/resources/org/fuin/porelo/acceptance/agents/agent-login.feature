@@ -49,14 +49,17 @@ Feature: An agent's login is stored, through the same chain a real login takes
         And its output contains "token_url = https://example.com/porelo-stub/token"
         And its output contains "client_id = porelo-stub"
         And its output does not contain "porelo-stub-fixture-refresh"
-        # Each copy the login made of the agent's config directory, its credential among them, is gone with it.
+        # Each copy the login made of the agent's config directory, its credential among them, is gone with it. Made in
+        # memory, under $XDG_RUNTIME_DIR, and never in the system's temporary directory, which may be a disk.
         When a script runs:
             """
             sleep 2
-            echo "copies left behind: $(find /tmp -maxdepth 1 -name 'porelo-login*' -user "$(id -un)" -newer ~/.porelo-login-began | wc -l)"
+            echo "copies left behind: $(find "$XDG_RUNTIME_DIR/porelo/login" -mindepth 1 -maxdepth 1 -name 'porelo-login*' 2>/dev/null | wc -l)"
+            echo "copies on disk: $(find /tmp -maxdepth 1 -name 'porelo-login*' -user "$(id -un)" -newer ~/.porelo-login-began | wc -l)"
             rm -f ~/.porelo-login-began
             """
         Then its output contains "copies left behind: 0"
+        And its output contains "copies on disk: 0"
 
     # Measured with an agent's device-code page that ignored Ctrl-C: nothing in the terminal ended the login, and its
     # container stayed up until stopped from a second connection. The stub's waiting login ignores Ctrl-C the same way;
@@ -81,12 +84,14 @@ Feature: An agent's login is stored, through the same chain a real login takes
             """
             sleep 2
             echo "login containers: $(podman ps --all --format '{{.Names}}' | grep -c '^porelo-login-')"
-            echo "copies left behind: $(find /tmp -maxdepth 1 -name 'porelo-login*' -user "$(id -un)" -newer ~/.porelo-login-began | wc -l)"
+            echo "copies left behind: $(find "$XDG_RUNTIME_DIR/porelo/login" -mindepth 1 -maxdepth 1 -name 'porelo-login*' 2>/dev/null | wc -l)"
+            echo "copies on disk: $(find /tmp -maxdepth 1 -name 'porelo-login*' -user "$(id -un)" -newer ~/.porelo-login-began | wc -l)"
             rm -f ~/.porelo-login-began
             porelo vault list
             """
         Then its output contains "login containers: 0"
         And its output contains "copies left behind: 0"
+        And its output contains "copies on disk: 0"
         And its output does not contain "porelo-stub/token"
 
     # Asked before the login, so a wrong passphrase stops it before anything ran - not after a login nobody can store.

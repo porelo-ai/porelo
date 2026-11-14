@@ -1,0 +1,2 @@
+title: "A sign-in made with `vault login` no longer lies on a disk on its way to the vault: the agent's config directory is a `tmpfs` of the login container, held until it is collected, and the host's copies lie under `$XDG_RUNTIME_DIR/porelo/login`"
+type: changed

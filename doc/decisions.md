@@ -76,7 +76,7 @@ would change the answer.
 | A package repository's binary answer passes unread | accepted: a jar or a tarball is streamed as it comes; text is scanned for the credential and cut off before it, and the declared prefix bounds what is read | [entry](#a-package-repositorys-binary-answer-passes-unread) |
 | A subscription's own backend is served as a provider | accepted: `chatgpt` reaches an undocumented route that can change; a request carries the account beside the token, from the stored sign-in | [entry](#a-subscriptions-own-backend-is-served-as-a-provider) |
 | A Google sign-in is served from the sign-in's own backend | accepted: `google-sign-in` reaches an undocumented route, and Google's terms call third-party use of the sign-in a breach that may suspend the account; the client's secret is read from the installed CLI, never published | [entry](#a-google-sign-in-is-served-from-the-sign-ins-own-backend) |
-| A sign-in passes through plaintext on its way to the vault | accepted: the login container's layer and the host's copy may reach disk or swap, for the moment of a login; tasks stay phantom-only | [entry](#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault) |
+| A sign-in passes through plaintext on its way to the vault | accepted: for the moment of a login it lies in memory, the login's config directory a `tmpfs` and the host's copy in `$XDG_RUNTIME_DIR`, which swap may still reach; tasks stay phantom-only | [entry](#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault) |
 | One credential type reaches one variable | `token_env` maps a type to one variable; changed in the reader when an agent needs two | [entry](#one-credential-type-reaches-one-variable) |
 | A bought token is per task and kept in memory | never on disk, never shared; costs one exchange per task per hour | [entry](#a-bought-token-is-per-task-and-kept-in-memory) |
 | A purchase that fails at start is a missing key | unattended and agent runs are refused before a container exists; a shell warns | [entry](#a-purchase-that-fails-at-start-is-a-missing-key) |
@@ -505,13 +505,15 @@ change of the route, or a refusal by the provider.
 ## A sign-in passes through plaintext on its way to the vault
 
 A sign-in made with `vault login` is written by the agent to its own files in a throwaway login container, copied
-out into an owner-only temporary directory of the host, read there by the agent's extractor, stored in the vault
-encrypted, and the copy deleted at once. Only the vault keeps it. **The exposure:** for the moment of a login the
-plaintext lies in the container's writable layer and in the host's copy, and both may reach disk or swap. **Why it
-stays:** it is the one way every agent's login takes, it lasts only that moment, and no task ever holds the real
-sign-in; a task gets a phantom token. **What narrows it, not yet built:** the login's directory a `tmpfs` of the
-container and the copy in `$XDG_RUNTIME_DIR`, both in memory, though a `tmpfs` can still be swapped out. **What would
-change the answer:** an agent whose sign-in cannot be written to a file at all, or a machine where that moment is not
+out into an owner-only directory of the host, read there by the agent's extractor, stored in the vault encrypted, and
+the copy deleted at once. Only the vault keeps it. The agent's config directory is a `tmpfs` of the login container,
+owner-only, and the container is held after the login exits until that directory has been looked at once more, so the
+sign-in is never written to the container's layer. The host's copies lie under `$XDG_RUNTIME_DIR/porelo/login`, also
+memory. **The exposure:** for the moment of a login the plaintext lies in memory, and a `tmpfs` can be swapped out;
+only an encrypted swap, or none, keeps a sign-in off every disk. A login that writes its sign-in outside its declared
+config directory writes it to the layer as before. **Why it stays:** it is the one way every agent's login takes, it
+lasts only that moment, and no task ever holds the real sign-in; a task gets a phantom token. **What would change the
+answer:** an agent whose sign-in cannot be written to a file at all, or a machine where that moment is not
 acceptable.
 
 ## A Google sign-in is served from the sign-in's own backend

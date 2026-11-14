@@ -282,8 +282,9 @@ method AgentSignIns() -> (signIns: []AgentSignIn)
 # Starts an agent's own login on this machine, at most one per agent: one already running - started
 # here or by 'porelo vault login' in a terminal - is answered instead, with started false.
 #
-# The login is no task. It runs detached, the agent's login as the container's first process and no
-# shell around it, on the machine's own network and with the credential being made inside it, so
+# The login is no task. It runs detached, the agent's login in the foreground of the container's
+# terminal under a holding process that offers no shell and keeps the container until what the login
+# wrote is collected, on the machine's own network and with the credential being made inside it, so
 # List, Watch and Screen never see it. A window attaches to it with 'attach', run ON THAT MACHINE in a
 # terminal; closing that terminal ends only the watching, never the sign-in, which ends with the login or
 # at its 30-minute limit. The container is removed when the login ends. What the login makes is stored with
