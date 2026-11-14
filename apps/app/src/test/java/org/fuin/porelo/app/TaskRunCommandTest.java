@@ -3912,6 +3912,81 @@ class TaskRunCommandTest {
                 .satisfies(row -> assertThat(row).containsEntry("callerKey", "offer-17"));
     }
 
+    @ParameterizedTest(name = "reads its project {0}, its run ends {1}")
+    @org.junit.jupiter.params.provider.CsvSource({"false, 0", "true, 3", "true, 0"})
+    void aTaskPastItsHandOverCarriesTheCallersKeyAfterAReboot(
+            boolean reading, int exit, @TempDir Path dir) throws IOException {
+
+        // Past the hand-over, its cleanUp saves nothing: a run that ends leaves its task up, and a
+        // task that read is stopped and kept, whose stop saves again. The task left up has only the
+        // save before the hand-over to carry its caller's key past a reboot.
+        final PoreloContext context = modelContext(dir, false);
+        final String project = projectFile(dir, MINIMAL);
+        ownMain(context, dir);
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\nexit " + exit + "\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        final List<String> arguments = new ArrayList<>(List.of("task", "start"));
+        if (reading) {
+            arguments.add("--all-repositories");
+        }
+        arguments.addAll(
+                List.of(
+                        "--agent",
+                        "preview",
+                        "--prompt",
+                        "work",
+                        "--caller-key",
+                        "offer-17",
+                        "-p",
+                        project));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int code;
+        try {
+            code = execute(context, arguments.toArray(String[]::new));
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(code).as("the run's own verdict: %s", err).isEqualTo(exit == 0 ? 0 : 70);
+        if (reading) {
+            assertThat(out.toString()).as("kept: %s", out).contains("kept      ");
+        } else {
+            assertThat(out.toString())
+                    .as("handed over, and left up after its run: %s", out)
+                    .doesNotContain("kept      ");
+        }
+        final String container;
+        try (java.util.stream.Stream<Path> records =
+                Files.list(context.paths().tasks().taskRecord("x").getParent())) {
+            container =
+                    records.map(path -> path.getFileName().toString())
+                            .filter(name -> name.startsWith("porelo-"))
+                            .findFirst()
+                            .orElseThrow();
+        }
+        // The reboot empties the runtime directory.
+        final Path runtime = context.paths().tasks().containerState(container);
+        if (Files.exists(runtime)) {
+            try (java.util.stream.Stream<Path> paths = Files.walk(runtime)) {
+                for (final Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    Files.delete(path);
+                }
+            }
+        }
+        runner.answering(
+                "ps",
+                container + "\tExited (0) 1 minute ago\t1788500000\t0\tuc\tguarded\tuc\t\t\n");
+        final TaskInventory inventory = new TaskInventory(context, null);
+        assertThat(inventory.rows(inventory.tasks()))
+                .singleElement()
+                .satisfies(row -> assertThat(row).containsEntry("callerKey", "offer-17"));
+    }
+
     @ParameterizedTest(name = "{0} characters")
     @ValueSource(ints = {201, 3})
     void aCallerKeyTooLongOrWithAControlCharacterIsRefusedBeforeAnythingIsMade(

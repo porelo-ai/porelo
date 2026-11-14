@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B762",
   "title": "A Failed Start's Caller Key Outlasts A Reboot",
-  "state": "Backlog",
+  "state": "Review",
   "priority": "High",
   "size": "S",
   "rank": 8,
@@ -45,3 +45,21 @@ Tasks1 promises for every task whose container was made.
 
 - Each path's test, emptied runtime directory included, shows `callerKey` "offer-17"; a path that was red is seen
   red first, then green.
+
+## Built
+
+- Read first: a task kept after its hand-over has its record saved by `TaskState.save` before the hand-over in
+  `TaskLaunch`, and again by the stop that ends a running task (`TaskControl`). A start that fails before the
+  hand-over saves in `cleanUp`'s failed branch, or removes a task that only read. So no path was left open.
+- `TaskRunCommandTest.aTaskPastItsHandOverCarriesTheCallersKeyAfterAReboot`, three cases, each started with
+  `--caller-key offer-17`, its runtime directory then emptied as a reboot empties it, and its row read: a run that ends
+  and leaves its task up (only the save before the hand-over carries the key); a task that reads its project whose run
+  fails, stopped and kept; and one whose run ends well, stopped and kept. Each row carries `callerKey` "offer-17".
+- Red without the save before the hand-over: the case left up fails, and passes with it. The two kept cases are also
+  saved by the stop; with that save taken out as well, they go red too.
+- The agy reading (gemini-4-argon-high) found no open path, and one fault in the first test: its non-reading case failed
+  before the hand-over (in the workspace's preparation), so it repeated the existing test of a start that failed early.
+  It was replaced by the case left up.
+- The existing tests of a start that failed before its hand-over, and of a container that never ran, stay green beside
+  it (7 in all).
+- No production code changes.
