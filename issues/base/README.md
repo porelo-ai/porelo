@@ -204,6 +204,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b767"></a>[B767](B767-The-Docs-Say-What-The-Code-Does.md) | S | - | Every sentence of porelo's user-facing docs (README.md, doc/ but decisions.md, the changelog) that the code on main does not bear out is corrected, or filed as a bug where the code is wrong | 0 |
 | <a id="b140"></a>[B140](B140-A-Secret-Scan-Of-The-Workspace-At-Start.md) | M | - | A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write. | 0 |
 | <a id="b761"></a>[B761](B761-A-Runs-Time-Limit-Outlasts-A-Daemon-Restart.md) | M | - | An unattended run's `minutes` is kept as a deadline in its task's state, and porelod, on its start and while it runs, stops a run whose deadline passed and that no process is waiting on, as the run itself would have | 0 |
 | <a id="b762"></a>[B762](B762-A-Failed-Starts-Caller-Key-Outlasts-A-Reboot.md) | S | - | Every start that keeps its task after a failure - kept by default, one that only read, one handed over - leaves the caller's key where a reboot does not reach, so List gives it back after a machine restart | 0 |
