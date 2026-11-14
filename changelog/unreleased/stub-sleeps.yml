@@ -1,0 +1,2 @@
+title: "The stub agent sleeps the given seconds for the prompt `stub sleeps <seconds>`, for a run that outlasts its time limit"
+type: added

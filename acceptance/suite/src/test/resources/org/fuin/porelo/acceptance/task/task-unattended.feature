@@ -98,3 +98,35 @@ Feature: An unattended run, started at the terminal and through the daemon
         And its output contains "sums hold"
         And its output contains "again exit 70"
         And its output contains "agent output when asked: 1"
+
+    Scenario: a run's time limit ends it though the daemon that waited on it was lost
+        Given a daemon of this scenario's own
+        When a script runs:
+            """
+            # Asked in the background: the run waits in the daemon, and its connection ends with it.
+            (printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.Start","parameters":{"task":"limited","project":"unattended","agent":"stub","repository":"unattended","prompt":"stub sleeps 600","minutes":1,"clearance":"deny","keep":true}}' \
+                | timeout 600 porelo daemon connect >/dev/null 2>&1 &)
+            c=porelo-unattended_limited; state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$c"
+            for i in $(seq 300); do grep -q '"until"' "$state/run-limit.json" 2>/dev/null && podman top "$c" args 2>/dev/null | grep -q 'sleep 600' && break; sleep 1; done
+            grep -q '"until"' "$state/run-limit.json" && echo "the deadline is kept"
+            podman top "$c" args | grep -q 'sleep 600' && echo "the run is under way"
+            """
+        Then its output contains "the deadline is kept"
+        And its output contains "the run is under way"
+        When the daemon crashes and systemd restarts it
+        And a script runs:
+            """
+            c=porelo-unattended_limited; state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$c"
+            podman top "$c" args 2>/dev/null | grep -q 'sleep 600' && echo "the agent outlived the daemon"
+            # The deadline is a minute after the start, and the daemon looks once a minute.
+            for i in $(seq 240); do podman ps --filter "name=^$c\$" --format '{{.Status}}' | grep -q '^Up' || break; sleep 1; done
+            podman ps -a --filter "name=^$c\$" --format '{{.Status}}' | sed 's/^/container: /'
+            test -s "$state/ended-by-limit.json" && echo "ended by its limit"
+            porelo task status "$c" 2>/dev/null | grep -o 'its time limit of 1 minutes passed'
+            porelo task remove "$c" --force >/dev/null 2>&1
+            true
+            """
+        Then its output contains "the agent outlived the daemon"
+        And its output contains "container: Exited"
+        And its output contains "ended by its limit"
+        And its output contains "its time limit of 1 minutes passed"

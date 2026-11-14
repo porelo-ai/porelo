@@ -86,7 +86,13 @@ wait ended.
 - Green, targeted: `RunLimitWatchTest` 9, `TaskRunLimitTest` 9, `TaskDoneTest` 20, `TaskRunCommandTest` 310, the
   daemon tests (360 in all), and the wire, daemon and app tests named for
   the run limit, the task list, the agent's end, the daemon and the interfaces (48, 330, 177), 0 skipped.
-- The VM acceptance below is not run yet: the VM queue holds other walks.
+- The VM acceptance, on ubuntu26.04 as `core` with porelo 0.5.1~snapshot.761 built from this branch: the new scenario
+  "a run's time limit ends it though the daemon that waited on it was lost" (`task-unattended.feature`) is green
+  (111 s). A run started through the scenario's daemon with `minutes` 1 and the stub's new prompt `stub sleeps 600`
+  keeps its deadline; the daemon is killed and systemd starts it again; the agent's `sleep 600` is still running in
+  the container. Within the next pass the task is `Exited`, `ended-by-limit.json` is written, and `porelo task status`
+  says "its time limit of 1 minutes passed". The stub's prompt is one line in `agents/stub`'s `stub.yaml` (its 22 tests
+  green), with a changelog entry.
 
 ## Acceptance
 
@@ -96,6 +102,7 @@ wait ended.
 
 ## To be checked
 
-- Whether the agent's process in the container survives a porelod restart at all (the `podman exec` client dies
-  with the daemon's cgroup); measured on the VM before the pass is built. If it does not, the run ends anyway and the
-  pass only writes the limit's end and stops the task.
+- Answered: measured on this machine before the pass was built (an exec'd process survives the SIGKILL of its client),
+  and on the VM in the scenario. Was: whether the agent's process in the container survives a porelod restart at all
+  (the `podman exec` client dies with the daemon's cgroup); measured on the VM before the pass is built. If it does not,
+  the run ends anyway and the pass only writes the limit's end and stops the task.
