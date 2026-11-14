@@ -9,6 +9,7 @@ import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.SecretScan;
+import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -56,7 +57,7 @@ public class ProjectSecretKnownCommand
             names = "--repository",
             paramLabel = "<name>",
             description = "The repository it is in; the project's own when not given.")
-    private String repository;
+    private @Nullable String repository;
 
     @Option(
             names = "--from",
@@ -64,7 +65,7 @@ public class ProjectSecretKnownCommand
             description =
                     "The branch the start was from, as its line names it; the one a task starts"
                             + " from by default when not given.")
-    private String from;
+    private @Nullable String from;
 
     @Spec private CommandSpec spec;
 

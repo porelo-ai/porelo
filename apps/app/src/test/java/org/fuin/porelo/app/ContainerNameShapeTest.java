@@ -73,8 +73,8 @@ class ContainerNameShapeTest {
                             "acceptance/legs/src/main/java/org/fuin/porelo/legs/Leg.java",
                             "the AppArmor profile 'porelo-task' the leg checks is loaded"),
                     Map.entry(
-                            "apps/app-task/src/main/java/org/fuin/porelo/app/CommandMask.java",
-                            "a token Porelo issues, 'porelo_<kind>_<value>', masked in a command"));
+                            "wire/src/main/java/org/fuin/porelo/wire/CredentialShapes.java",
+                            "a token Porelo issues, 'porelo_<kind>_<value>', masked in a command and looked for in a task's tree"));
 
     /** A string literal, its escapes kept. */
     private static final Pattern LITERAL = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"");
