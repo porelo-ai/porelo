@@ -263,3 +263,21 @@ Feature: A task in a guarded project, from its image to what it hands back
         # /usr/sbin on Debian and Ubuntu; Fedora's /usr/sbin is a link to /usr/bin, which the kernel names.
         Then its output has a line matching "resolver: /usr/s?bin/dnsmasq"
         And its output contains "dnsmasq nftset yes"
+
+    Scenario: a start whose tree holds a private key is refused before any container, where the project says refuse
+        # The key's header is put together here, so this file is no finding of any scanner.
+        When a script runs:
+            """
+            cd ~/guarded
+            sed -i 's/^  security_class: "guarded"$/&\n  secrets: "refuse"/' project.yml
+            mkdir -p deploy && printf '%s\n' "-----BEGIN OPENSSH ""PRIVATE KEY-----" "b3BlbnNzaC1rZXkt" > deploy/key
+            git add -A && git commit -q -m "a key"
+            timeout 600 porelo task start keyed --project guarded --repository guarded --agent stub --detach --clearance deny 2>&1
+            echo "start exit $?"
+            podman ps -a --format '{{.Names}}' | grep -c 'keyed' | sed 's/^/containers: /'
+            """
+        Then its output contains "secret         deploy/key:1  looks like a private key; the agent can read it"
+        And its output contains "(secrets: refuse)"
+        And its output contains "start exit 65"
+        And its output contains "containers: 0"
+        And its output does not contain "b3BlbnNzaC1rZXkt"
