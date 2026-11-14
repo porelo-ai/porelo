@@ -21,6 +21,10 @@ import org.jspecify.annotations.Nullable;
  * caller of {@code org status} reads.
  */
 final class HostStatusView {
+
+    /** How the host helper's own lines begin; a program's name, never a task container's. */
+    private static final String SAYS = "porelo-host:";
+
     /** Where each follow writes the view, whole, for the admins' group to read. */
     static final String PATH = "/run/porelo-host/status.json";
 
@@ -199,8 +203,7 @@ final class HostStatusView {
                     java.util.Objects.requireNonNull(
                             ex.getMessage(), "HostRefusal always has a safe diagnostic");
             throw new HostRefusal(
-                    ex.exitCode(),
-                    message.startsWith("porelo-host:") ? message : "porelo-host: " + message);
+                    ex.exitCode(), message.startsWith(SAYS) ? message : SAYS + " " + message);
         }
     }
 
