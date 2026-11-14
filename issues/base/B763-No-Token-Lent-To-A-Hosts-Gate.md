@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B763",
   "title": "No Token Lent To A Host's Gate",
-  "state": "Idea",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
   "rank": 56,
