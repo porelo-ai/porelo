@@ -61,6 +61,15 @@ vault on a host from the window, without typing it again, in three calls on the 
 The window carries the sealed entry from one daemon to the other at once and keeps nothing. A sealed entry opens
 nowhere else, under no other name or kind, and not twice. How it is sealed is in [Security](security.md#a-credential-carried-to-a-host).
 
+An agent's sign-in on this machine is carried the same way, so a person signed in here need not sign the agent in
+again on the host. The window lists what can be carried, `ImportableCredentials`: each installed agent and provider
+whose sign-in the agent's own file holds, with its kind, never a value. It then asks `SealCredential` for an agent and
+provider instead of a vault entry's name. This machine's daemon reads the sign-in as `ImportCredential` does and
+seals it under the name and kind that import would store it under, so the host keeps it where its tasks look; this
+machine's vault is neither opened nor written. What is carried is what an import stores - the sign-in and its
+kind, without a refresh token kept beside it - so a sign-in that expires is signed in again on the host. A failure
+to read it is said without the agent's own words.
+
 ## Root's person maintenance
 
 The host package provides `/usr/sbin/porelo-host person purge <login>` and `person restore-runtime`.

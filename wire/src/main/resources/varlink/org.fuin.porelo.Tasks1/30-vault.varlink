@@ -327,28 +327,64 @@ method CredentialReceiver() -> (
   until: string
 )
 
-# Seals one entry of this machine's vault to a key CredentialReceiver made on another machine.
+# Seals one entry of this machine's vault, or a sign-in an agent holds on this machine, to a key
+# CredentialReceiver made on another machine.
 #
 # The answer holds ciphertext only that machine's daemon opens, and only under this name and kind:
 # a window carries it from one daemon to the other at once and must not keep or log it.
+#
+# Give either name or agent and provider. An agent's sign-in is read from the agent's own file as
+# ImportCredential reads it and sealed under the name and kind that import would store it under, so
+# the host keeps it where its tasks look; this machine's vault is neither opened nor written, and a
+# shut one does not matter.
 method SealCredential(
   # The receiving key, as CredentialReceiver answered it.
   key: string,
-  # The vault entry to seal, by name.
-  name: string
+  # The vault entry to seal, by name. Omit to seal an agent's sign-in.
+  name: ?string,
+  # The agent whose sign-in to seal, as ImportCredential takes it. Omit when only one is installed
+  # and a provider is given.
+  agent: ?string,
+  # The provider whose sign-in to seal, as ImportCredential takes it. Omit for the one the agent
+  # answers.
+  provider: ?string,
+  # Where the agent keeps its sign-in. Omit for what the agent declares.
+  configDirectory: ?string
 ) -> (
   # SEALED, NO_SUCH_ENTRY, VAULT_LOCKED, BAD_KEY (not a 32-byte X25519 public key) or TOO_LARGE
-  # (sealed, more than 1 MiB, which no receiver opens).
+  # (sealed, more than 1 MiB, which no receiver opens). For an agent's sign-in also, as
+  # ImportCredential answers them: NO_SUCH_AGENT, NO_CONFIG_DIRECTORY, NOTHING_TO_IMPORT (the agent
+  # holds no sign-in here; the ordinary case, not a fault), WRONG_PROVIDER or FAILED; FAILED too
+  # when both name and agent or provider are given. Never VAULT_LOCKED for a sign-in.
   outcome: string,
   # The sealed entry, base64. "" unless SEALED.
   sealed: string,
-  # The entry's name, as it is to be stored there.
+  # The entry's name, as it is to be stored there: for a sign-in the vault key ImportCredential
+  # would store it under. "" for a sign-in that was not read; once read, named even when the seal
+  # then fails (BAD_KEY, TOO_LARGE).
   name: string,
   # The entry's kind, "" for none; ReceiveCredential needs it back unchanged.
   kind: string,
   # Why it was not sealed. "" when sealed. Never the value.
   detail: string
 )
+
+# One sign-in an installed agent holds on this machine, by name only.
+type ImportableCredential (
+  # The agent, as Agents names it.
+  agent: string,
+  # The provider it is for, as Providers names it; "" for an agent that is not brokered.
+  provider: string,
+  # Its kind, "" for none.
+  kind: string
+)
+
+# The sign-ins the installed agents hold on this machine, which ImportCredential would store and
+# SealCredential would carry: for each agent, each provider it can drive whose sign-in its own file
+# holds, or the one it answers when it is not brokered. Read from the agents' files, so a shut vault
+# does not matter; names only, never a value. Each agent is asked once per provider, so this is not
+# cheap.
+method ImportableCredentials() -> (rows: []ImportableCredential)
 
 # Opens an entry SealCredential sealed to one of this daemon's live keys and stores it in this
 # machine's vault. The key it opened with ends.

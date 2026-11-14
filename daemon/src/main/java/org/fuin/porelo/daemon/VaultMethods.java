@@ -268,6 +268,25 @@ final class VaultMethods {
         server.method(
                 "ReceiveCredential",
                 (parameters, replies) -> replies.last(receiving.receive(context, parameters)));
+        server.method(
+                "ImportableCredentials",
+                (parameters, replies) -> {
+                    // What the window offers to carry: agent, provider and kind, never a value.
+                    // Read from the agents' own files, so a shut vault here does not matter.
+                    final List<Map<String, Object>> rows =
+                            org.fuin.porelo.app.CredentialImport.importable(context).stream()
+                                    .map(
+                                            each -> {
+                                                final Map<String, Object> row =
+                                                        new LinkedHashMap<>();
+                                                row.put("agent", each.agent());
+                                                row.put("provider", each.provider());
+                                                row.put("kind", each.kind());
+                                                return row;
+                                            })
+                                    .toList();
+                    replies.last(Map.of("rows", rows));
+                });
 
         server.method(
                 "Credentials",

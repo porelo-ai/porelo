@@ -1,0 +1,2 @@
+title: "An agent's sign-in on this machine is carried to a host's vault sealed, as a vault entry is: `SealCredential` takes an agent and provider and seals what `ImportCredential` would store, under the same name and kind, writing no vault here; `ImportableCredentials` lists what can be carried, by name"
+type: added

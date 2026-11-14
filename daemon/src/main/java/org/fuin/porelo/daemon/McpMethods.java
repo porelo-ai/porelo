@@ -125,6 +125,7 @@ final class McpMethods {
                     "CredentialReceiver",
                     "SealCredential",
                     "ReceiveCredential",
+                    "ImportableCredentials",
                     "AgentSignInStart",
                     "AgentSignInWait",
                     // The window's offer to take a repository out of 'default', on the person's

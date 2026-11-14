@@ -6,16 +6,27 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.Optional;
+import org.fuin.porelo.agent.api.Agent;
+import org.fuin.porelo.agent.api.AgentDefinition;
+import org.fuin.porelo.agent.api.AgentDefinitionReader;
+import org.fuin.porelo.agent.api.AgentDirectory;
+import org.fuin.porelo.agent.api.AgentServer;
+import org.fuin.porelo.agent.api.Credential;
+import org.fuin.porelo.agent.api.CredentialExtractor;
+import org.fuin.porelo.app.CredentialImport;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -56,11 +67,27 @@ class CredentialCarryingTest {
                                     default -> null;
                                 },
                         home);
+        // The shorter way to the agents' sockets, so they fit the Unix limit wherever the
+        // checkout lies.
+        final XdgPaths shortSockets =
+                new XdgPaths(
+                        xdg.config(), xdg.data(), xdg.state(), shortest(xdg.runtime()), xdg.home());
         return new PoreloContext(
                         new FakeCommandRunner(),
-                        new PoreloPaths(xdg, home.resolve("bin")),
+                        new PoreloPaths(shortSockets, home.resolve("bin")),
                         arguments -> 0)
                 .asking(prompt -> PASSPHRASE.clone());
+    }
+
+    private static Path shortest(final Path directory) {
+        Path from = Path.of("").toAbsolutePath();
+        try {
+            from = from.toRealPath();
+        } catch (final java.io.IOException ex) {
+            // Taken as written.
+        }
+        final Path relative = from.relativize(directory);
+        return relative.toString().length() < directory.toString().length() ? relative : directory;
     }
 
     /** A vault holding the entries, opened the way a person at the machine opened it. */
@@ -265,5 +292,286 @@ class CredentialCarryingTest {
                                         "name",
                                         "anthropic")))
                 .containsEntry("outcome", "VAULT_LOCKED");
+    }
+
+    private static final String SIGN_IN = "fixture-sign-in-5d2a";
+
+    /** A test agent whose own file holds a sign-in for alpha, or none, as a file beside it says. */
+    public static final class SignedIn {
+
+        /**
+         * Serves the agent.
+         *
+         * @param args Definition file, serve verb and socket path.
+         * @throws java.io.IOException If a file cannot be read.
+         */
+        public static void main(final String[] args) throws java.io.IOException {
+            final AgentDefinition definition =
+                    AgentDefinitionReader.read(
+                            new java.io.StringReader(Files.readString(Path.of(args[0]))), args[0]);
+            final String behavior = Files.readString(Path.of(args[0] + ".behavior")).strip();
+            final boolean holds = behavior.equals("holds");
+            final CredentialExtractor extractor =
+                    new CredentialExtractor() {
+                        @Override
+                        public Optional<Credential> extract(final Path directory) {
+                            return extract(directory, null);
+                        }
+
+                        @Override
+                        public Optional<Credential> extract(
+                                final Path directory, final @Nullable String provider) {
+                            if (behavior.equals("throws")) {
+                                // An agent whose failure quotes what it read.
+                                throw new IllegalArgumentException("unreadable: " + SIGN_IN);
+                            }
+                            return holds && (provider == null || provider.equals("alpha"))
+                                    ? Optional.of(
+                                            Credential.of("api-key", SIGN_IN).forProvider("alpha"))
+                                    : Optional.empty();
+                        }
+                    };
+            try (AgentServer server =
+                    new AgentServer(
+                            new Agent() {
+                                @Override
+                                public AgentDefinition definition() {
+                                    return definition;
+                                }
+
+                                @Override
+                                public CredentialExtractor credentialExtractor() {
+                                    return extractor;
+                                }
+                            },
+                            Path.of(args[2]))) {
+                System.out.println("ready " + args[2]);
+                System.out.flush();
+                server.serve();
+            }
+        }
+    }
+
+    /** Installs the test agent and the provider alpha on a machine. */
+    private void installed(final PoreloContext machine, final String behavior) throws Exception {
+        final Path providers =
+                Files.createDirectories(machine.paths().xdg().data().resolve("providers"));
+        Files.writeString(
+                providers.resolve("alpha.yaml"),
+                """
+                name: alpha
+                upstream: https://alpha.example.com
+                dialects: { preview: "" }
+                auth_header: { _default: Authorization }
+                auth_prefix: { _default: "Bearer " }
+                """);
+        final Path agents = Files.createDirectories(machine.paths().xdg().data().resolve("agents"));
+        final Path definition = agents.resolve("holder.yaml");
+        Files.writeString(
+                definition,
+                """
+                name: holder
+                binary: holder
+                git_identity: { name: Holder, email: holder@example.com }
+                headless: { prompt_flag: "-p" }
+                allowed_domains: [agent.example.com]
+                provider:
+                  dialect: preview
+                  default: alpha
+                  endpoint: url
+                  base_url_env: HOLDER_BASE_URL
+                """);
+        Files.writeString(Path.of(definition + ".behavior"), behavior);
+        final Path executable = agents.resolve(AgentDirectory.PREFIX + "holder");
+        Files.writeString(
+                executable,
+                "#!/bin/sh\nexec '"
+                        + Path.of(System.getProperty("java.home"), "bin", "java")
+                        + "' -cp '"
+                        + System.getProperty("java.class.path")
+                        + "' '"
+                        + SignedIn.class.getName()
+                        + "' '"
+                        + definition
+                        + "' \"$@\"\n");
+        Files.setPosixFilePermissions(executable, PosixFilePermissions.fromString("rwx------"));
+    }
+
+    private Map<String, Object> sealSignIn(final Object key, final String behavior)
+            throws Exception {
+        installed(here, behavior);
+        return CredentialCarrying.seal(
+                here,
+                Map.of(
+                        "key",
+                        key,
+                        "agent",
+                        "holder",
+                        "provider",
+                        "alpha",
+                        "configDirectory",
+                        dir.resolve("agent-config").toString()));
+    }
+
+    @Test
+    void anAgentsSignInIsReceivedOnTheHostUnderTheKeyAnImportUsesAndNothingIsWrittenHere()
+            throws Exception {
+        here = unlocked("here", Map.of("other", ENTRY));
+        host = unlocked("host", Map.of());
+        final byte[] before = Files.readAllBytes(here.vault().path());
+        final CredentialCarrying.Receiving receiving = receiving();
+
+        final Map<String, Object> sealed = sealSignIn(receiving.receiver(host).get("key"), "holds");
+        final Map<String, Object> received =
+                receiving.receive(
+                        host,
+                        Map.of(
+                                "sealed", sealed.get("sealed"),
+                                "name", sealed.get("name"),
+                                "kind", sealed.get("kind"),
+                                "replace", false));
+
+        assertThat(sealed)
+                .containsEntry("outcome", "SEALED")
+                .containsEntry("kind", "api-key")
+                .containsEntry("detail", "");
+        assertThat(sealed.toString()).doesNotContain(SIGN_IN);
+        assertThat(received).containsEntry("outcome", "STORED");
+        assertThat(Files.readAllBytes(here.vault().path()))
+                .as("this machine's vault is neither written nor rewritten")
+                .isEqualTo(before);
+
+        // What an import here stores, and under which key, is what the host received.
+        final CredentialImport.Result imported =
+                CredentialImport.run(
+                        here,
+                        "holder",
+                        dir.resolve("agent-config").toString(),
+                        "alpha",
+                        here::opener);
+        assertThat(imported.outcome()).isEqualTo(CredentialImport.Outcome.IMPORTED);
+        assertThat(sealed).containsEntry("name", imported.name());
+        final VaultEntry stored = host.vault().read(PASSPHRASE).get(imported.name());
+        assertThat(stored).isNotNull();
+        assertThat(stored.value()).isEqualTo(SIGN_IN);
+        assertThat(stored).isEqualTo(here.vault().read(PASSPHRASE).get(imported.name()));
+    }
+
+    @Test
+    void anAgentsSignInIsSealedWhileThisMachinesVaultIsShut() throws Exception {
+        // The sign-in is read from the agent's own file; the vault here is never opened.
+        here = context("here");
+        Files.createDirectories(here.vault().path().getParent());
+        here.vault().write(Map.of("other", ENTRY), PASSPHRASE);
+        host = unlocked("host", Map.of());
+
+        assertThat(sealSignIn(receiving().receiver(host).get("key"), "holds"))
+                .containsEntry("outcome", "SEALED")
+                .containsEntry("name", "alpha");
+    }
+
+    @Test
+    void anAgentWithNoSignInAnswersNothingToImportAndNoBlob() throws Exception {
+        here = unlocked("here", Map.of());
+        host = unlocked("host", Map.of());
+
+        final Map<String, Object> sealed =
+                sealSignIn(receiving().receiver(host).get("key"), "none");
+
+        assertThat(sealed)
+                .containsEntry("outcome", "NOTHING_TO_IMPORT")
+                .containsEntry("sealed", "");
+        assertThat(sealed.get("detail")).asString().isNotBlank();
+    }
+
+    @Test
+    void aBlankProviderBesideAnAgentSealsNothing() throws Exception {
+        // Read as none, it would seal whatever the agent answers; ImportCredential refuses it too.
+        here = unlocked("here", Map.of());
+        host = unlocked("host", Map.of());
+        final Object key = receiving().receiver(host).get("key");
+        installed(here, "holds");
+
+        final Map<String, Object> sealed =
+                CredentialCarrying.seal(
+                        here,
+                        Map.of(
+                                "key",
+                                key,
+                                "agent",
+                                "holder",
+                                "provider",
+                                "",
+                                "configDirectory",
+                                dir.resolve("agent-config").toString()));
+
+        assertThat(sealed).containsEntry("outcome", "WRONG_PROVIDER").containsEntry("sealed", "");
+    }
+
+    @Test
+    void aBlankProviderAloneAsksForASignInAndIsRefused() throws Exception {
+        here = unlocked("here", Map.of("alpha", ENTRY));
+        host = unlocked("host", Map.of());
+        final Object key = receiving().receiver(host).get("key");
+        installed(here, "holds");
+
+        assertThat(
+                        CredentialCarrying.seal(
+                                here,
+                                Map.of(
+                                        "key",
+                                        key,
+                                        "provider",
+                                        "",
+                                        "configDirectory",
+                                        dir.resolve("agent-config").toString())))
+                .containsEntry("outcome", "WRONG_PROVIDER")
+                .containsEntry("sealed", "");
+        assertThat(
+                        CredentialCarrying.seal(
+                                here, Map.of("key", key, "name", "alpha", "provider", "")))
+                .containsEntry("outcome", "FAILED")
+                .containsEntry("sealed", "");
+    }
+
+    @Test
+    void anAgentsFailureIsSaidWithoutItsWords() throws Exception {
+        here = unlocked("here", Map.of());
+        host = unlocked("host", Map.of());
+
+        final Map<String, Object> sealed =
+                sealSignIn(receiving().receiver(host).get("key"), "throws");
+
+        assertThat(sealed).containsEntry("outcome", "FAILED").containsEntry("sealed", "");
+        assertThat(sealed.toString()).doesNotContain(SIGN_IN);
+    }
+
+    @Test
+    void aNameAndAnAgentTogetherAreRefusedAndSealNothing() throws Exception {
+        here = unlocked("here", Map.of("anthropic", ENTRY));
+        host = unlocked("host", Map.of());
+        final Object key = receiving().receiver(host).get("key");
+
+        final Map<String, Object> sealed =
+                CredentialCarrying.seal(
+                        here, Map.of("key", key, "name", "anthropic", "agent", "holder"));
+
+        assertThat(sealed).containsEntry("outcome", "FAILED").containsEntry("sealed", "");
+        assertThat(sealed.get("detail")).asString().contains("not both");
+    }
+
+    @Test
+    void theImportableSignInsAreListedByNameOnly() throws Exception {
+        here = context("here");
+        installed(here, "holds");
+        Files.writeString(
+                here.paths().xdg().data().resolve("agents/holder.yaml"),
+                Files.readString(here.paths().xdg().data().resolve("agents/holder.yaml"))
+                        + "config_dir: "
+                        + dir.resolve("agent-config")
+                        + "\n");
+
+        assertThat(CredentialImport.importable(here))
+                .containsExactly(new CredentialImport.Importable("holder", "alpha", "api-key"));
     }
 }
