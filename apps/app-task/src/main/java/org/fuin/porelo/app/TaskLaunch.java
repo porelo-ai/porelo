@@ -4217,20 +4217,37 @@ public final class TaskLaunch {
      * @param container The task.
      * @param minutes The limit that passed.
      * @param err Where a failure is said, and what the stop left running.
+     * @return Whether the stop went through: a task stopped, with nothing of it left running.
      */
-    static void endAtLimit(PoreloContext context, String container, int minutes, PrintWriter err) {
+    static boolean endAtLimit(
+            PoreloContext context, String container, int minutes, PrintWriter err) {
         try {
             final TaskControl.Stopped stopped =
                     new TaskControl(context)
                             .stopRunning(
                                     container,
                                     () -> recordEndAtLimit(context, container, minutes, err));
-            reportStop(stopped, err);
+            return reportStop(stopped, err) && stopped.outcome() == TaskControl.Outcome.STOPPED;
         } catch (RuntimeException ex) {
             err.println(
                     "porelo: the task could not be stopped at its time limit, and its agent may"
                             + " still run: "
                             + ex.getMessage());
+            err.flush();
+            return false;
+        }
+    }
+
+    private void settleLimit(String container, boolean settled, PrintWriter err) {
+        final java.nio.file.Path state = context.paths().tasks().containerState(container);
+        if (!settled) {
+            RunLimit.released(state);
+            return;
+        }
+        try {
+            RunLimit.closed(state);
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not close this run's time limit: " + ex.getMessage());
             err.flush();
         }
     }
@@ -4364,6 +4381,10 @@ public final class TaskLaunch {
         try {
             int code;
             org.fuin.porelo.runtime.ContainerException killed = null;
+            // Closed at the run's end however it ended, but where the agent may still run: a wait
+            // that was interrupted, and a stop at the limit that did not go through. Those are
+            // left to what ends a run nothing waits on.
+            boolean settled = true;
             try {
                 code =
                         runner.runAgent(
@@ -4377,10 +4398,13 @@ public final class TaskLaunch {
             } catch (org.fuin.porelo.runtime.RunTimedOut ex) {
                 killed = ex;
                 code = TIMED_OUT;
+                // A stop that went through closed the limit itself.
+                settled = false;
                 endAtLimit(context, container, request.minutes(), err);
             } catch (org.fuin.porelo.runtime.ContainerException ex) {
                 killed = ex;
                 code = TIMED_OUT;
+                settled = !(ex.getCause() instanceof InterruptedException);
             } finally {
                 // Before anything else is written to the caller: while it runs, the follower is
                 // the only one writing there.
@@ -4388,12 +4412,7 @@ public final class TaskLaunch {
                 if (following != null) {
                     runLinesDropped = follower.dropped();
                 }
-            }
-            try {
-                RunLimit.closed(context.paths().tasks().containerState(container));
-            } catch (java.io.IOException ex) {
-                err.println("porelo: could not close this run's time limit: " + ex.getMessage());
-                err.flush();
+                settleLimit(container, settled, err);
             }
             try {
                 records.runEnded(container, calls, code);

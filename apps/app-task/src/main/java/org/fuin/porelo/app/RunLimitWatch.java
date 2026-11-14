@@ -21,6 +21,10 @@ import org.fuin.porelo.runtime.ContainerSummary;
  * reads them, at the daemon's start and once a minute: a run whose deadline passed, that is not
  * closed and whose waiter is gone is ended as its own wait would have ended it. A run whose waiter
  * still runs is left to it, so a limit is never ended twice.
+ *
+ * <p>Only the confirmed stop closes the run ({@link TaskControl} closes it as it stops a running
+ * task): one closed before it, whose stop then failed, was never tried again and ran on unbounded.
+ * A stop that fails is tried again at the next pass, and said once.
  */
 public final class RunLimitWatch implements AutoCloseable {
 
@@ -35,8 +39,9 @@ public final class RunLimitWatch implements AutoCloseable {
          *
          * @param container The task.
          * @param minutes The limit that passed.
+         * @return Whether the stop went through.
          */
-        void end(String container, int minutes);
+        boolean end(String container, int minutes);
     }
 
     private final PoreloContext context;
@@ -52,6 +57,9 @@ public final class RunLimitWatch implements AutoCloseable {
     private final Ending ending;
 
     private volatile boolean running = true;
+
+    /** The tasks whose stop failed, said once until it goes through. */
+    private final java.util.Set<String> failing = new java.util.HashSet<>();
 
     /**
      * Constructor.
@@ -102,29 +110,43 @@ public final class RunLimitWatch implements AutoCloseable {
             if (minutes == null) {
                 continue;
             }
+            boolean stopped;
+            String why = "its stop did not go through";
             try {
-                // Closed first: a stop that fails is said, and not tried again at every pass.
-                RunLimit.closed(state);
-                ending.end(container, minutes);
+                stopped = ending.end(container, minutes);
+            } catch (RuntimeException ex) {
+                stopped = false;
+                why = String.valueOf(ex.getMessage());
+            }
+            if (stopped) {
+                failing.remove(container);
                 log.accept(
                         container
                                 + ": ended at its time limit of "
                                 + minutes
                                 + " minutes, which nothing waited on any more");
                 ended.add(container);
-            } catch (java.io.IOException | RuntimeException ex) {
-                log.accept(container + ": could not end at its time limit: " + ex.getMessage());
+            } else if (failing.add(container)) {
+                log.accept(
+                        container
+                                + ": could not end at its time limit, tried again each pass: "
+                                + why);
             }
         }
         return ended;
     }
 
-    private void endAtLimit(final String container, final int minutes) {
+    private boolean endAtLimit(final String container, final int minutes) {
         final StringWriter said = new StringWriter();
+        final boolean stopped;
         try (PrintWriter err = new PrintWriter(said)) {
-            TaskLaunch.endAtLimit(context, container, minutes, err);
+            stopped = TaskLaunch.endAtLimit(context, container, minutes, err);
         }
-        said.toString().lines().forEach(line -> log.accept(container + ": " + line));
+        if (stopped || !failing.contains(container)) {
+            // A stop that fails again says nothing new.
+            said.toString().lines().forEach(line -> log.accept(container + ": " + line));
+        }
+        return stopped;
     }
 
     /** Starts looking, on a thread of its own: at once, then every interval. */

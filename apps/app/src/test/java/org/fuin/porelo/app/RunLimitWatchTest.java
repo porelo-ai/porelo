@@ -28,6 +28,10 @@ class RunLimitWatchTest {
 
     private final List<String> said = new ArrayList<>();
 
+    private final List<RunLimit.Waiter> asked = new ArrayList<>();
+
+    private boolean stops = true;
+
     private PoreloContext context() {
         return new PoreloContext(
                 runner,
@@ -65,8 +69,22 @@ class RunLimitWatchTest {
                 Duration.ofMinutes(1),
                 said::add,
                 () -> now,
-                waiter -> waiterAlive,
-                (container, minutes) -> ended.add(container + " " + minutes));
+                waiter -> {
+                    asked.add(waiter);
+                    return waiterAlive;
+                },
+                (container, minutes) -> {
+                    ended.add(container + " " + minutes);
+                    if (stops) {
+                        // As the confirmed stop does.
+                        try {
+                            RunLimit.closed(state());
+                        } catch (java.io.IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    }
+                    return stops;
+                });
     }
 
     @Test
@@ -77,6 +95,7 @@ class RunLimitWatchTest {
         final RunLimitWatch watch = watch(START.plusSeconds(61), false);
 
         assertThat(watch.passOnce()).as("the run it ended").containsExactly(TASK);
+        assertThat(asked).as("the waiter the run recorded").containsExactly(GONE);
         assertThat(ended).as("ended as its own wait would").containsExactly(TASK + " 1");
         assertThat(watch.passOnce()).as("once, not at every pass").isEmpty();
         assertThat(ended).hasSize(1);
@@ -115,6 +134,54 @@ class RunLimitWatchTest {
 
         assertThat(watch(START.plusSeconds(3600), false).passOnce()).isEmpty();
         assertThat(ended).isEmpty();
+    }
+
+    @Test
+    void aRunWhoseStopFailedIsTriedAgainAtTheNextPassAndSaidOnce() throws Exception {
+        // Closed before its stop, a run whose stop failed was never tried again and ran on.
+        RunLimit.started(state(), 1, START, GONE);
+        stops = false;
+        final RunLimitWatch watch = watch(START.plusSeconds(61), false);
+
+        assertThat(watch.passOnce()).as("not ended").isEmpty();
+        assertThat(watch.passOnce()).isEmpty();
+        assertThat(ended).as("tried at each pass").hasSize(2);
+        assertThat(said).as("said once").hasSize(1);
+        assertThat(said.getFirst()).contains("could not end at its time limit");
+
+        stops = true;
+        assertThat(watch.passOnce()).as("ended once its stop goes through").containsExactly(TASK);
+        assertThat(watch.passOnce()).isEmpty();
+    }
+
+    @Test
+    void aRunThisProcessStillWaitsOnIsLeftAndOneItLetGoIsDue() throws Exception {
+        // The waiter is a process, and the daemon outlives each run it waited on.
+        RunLimit.started(state(), 1);
+        final java.time.Instant later = Instant.now().plusSeconds(61);
+
+        assertThat(RunLimit.due(state(), later, waiter -> true))
+                .as("waited on in this process")
+                .isNull();
+        RunLimit.released(state());
+        assertThat(RunLimit.due(state(), later, waiter -> true))
+                .as("this process waits on it no more, whatever its pid says")
+                .isEqualTo(1);
+    }
+
+    @Test
+    void closingTheRunOfARemovedTaskMakesNoStateAgain() throws Exception {
+        // Made again, a removed task's state refused every later start of its name.
+        RunLimit.started(state(), 1, START, GONE);
+        try (java.util.stream.Stream<Path> paths = java.nio.file.Files.walk(state())) {
+            for (final Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                java.nio.file.Files.delete(path);
+            }
+        }
+
+        RunLimit.closed(state());
+
+        assertThat(state()).doesNotExist();
     }
 
     @Test

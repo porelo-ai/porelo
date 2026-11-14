@@ -663,6 +663,17 @@ public final class TaskControl {
             } else if (running) {
                 if (held.readable()) UnhandedWork.note(state, held);
                 else forgetNote(state);
+                // Whatever stopped it ended its run: left open, its deadline ended the task again
+                // once somebody brought it back after the deadline.
+                try {
+                    RunLimit.closed(state);
+                } catch (java.io.IOException ex) {
+                    System.err.println(
+                            "porelo: "
+                                    + container
+                                    + "'s time limit was not closed: "
+                                    + ex.getMessage());
+                }
                 new TaskState(context).save(container);
                 try {
                     new TaskWorkRecords(context).stopped(container);
@@ -1223,6 +1234,13 @@ public final class TaskControl {
         new TaskDone(context.paths()).clear(container);
         new TaskResult(context.paths()).clear(container);
         final List<String> problems = new java.util.ArrayList<>();
+        try {
+            // Brought back, it runs nothing until a run gives it a limit of its own: an earlier
+            // run's deadline ended it soon after.
+            RunLimit.closed(state);
+        } catch (IOException ex) {
+            problems.add("could not close the time limit of its last run: " + ex.getMessage());
+        }
         try {
             recorded = deferredBuilds(recorded, container);
         } catch (IOException ex) {

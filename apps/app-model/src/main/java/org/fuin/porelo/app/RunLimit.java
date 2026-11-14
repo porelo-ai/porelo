@@ -29,6 +29,15 @@ public final class RunLimit {
      */
     public record Ended(int minutes, String at) {}
 
+    /**
+     * The runs this process waits on, by their state directory. The waiter is a process, and a
+     * daemon outlives each run it waited on: by its pid alone, a run whose wait ended without
+     * closing its limit - a stop at the limit that failed - looked waited on until the daemon
+     * restarted.
+     */
+    private static final java.util.Set<Path> WAITING =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /** The longest limit a run may be given: the largest number the command line takes. */
     public static final int MOST = Integer.MAX_VALUE;
 
@@ -78,7 +87,22 @@ public final class RunLimit {
      * @throws IOException If it cannot be written.
      */
     public static void started(Path state, int minutes) throws IOException {
+        WAITING.add(key(state));
         started(state, minutes, Instant.now(), Waiter.current());
+    }
+
+    /**
+     * Records that this process no longer waits on the run, leaving its limit open: what ends the
+     * runs nothing waits on ends it at its deadline.
+     *
+     * @param state The task's state directory.
+     */
+    public static void released(Path state) {
+        WAITING.remove(key(state));
+    }
+
+    private static Path key(Path state) {
+        return state.toAbsolutePath().normalize();
     }
 
     /**
@@ -104,24 +128,35 @@ public final class RunLimit {
     }
 
     /**
-     * Records that the run ended, whatever ended it, so that its deadline ends nothing more.
+     * Records that the run ended, whatever ended it, so that its deadline ends nothing more, and
+     * that this process no longer waits on it.
+     *
+     * <p>Only into a record that is there: a task removed meanwhile has no state directory, and one
+     * made again by this write was a removed task's left behind, which refused every later start of
+     * its name.
      *
      * @param state The task's state directory.
      * @throws IOException If it cannot be written.
      */
     public static void closed(Path state) throws IOException {
+        released(state);
         if (!(read(state.resolve(GIVEN)) instanceof Map<?, ?> map)) {
             return;
         }
         final Map<String, Object> record = new java.util.LinkedHashMap<>();
         map.forEach((key, value) -> record.put(String.valueOf(key), value));
         record.put("closed", true);
-        write(state.resolve(GIVEN), record);
+        try {
+            replace(state.resolve(GIVEN), record);
+        } catch (java.nio.file.NoSuchFileException ex) {
+            // Removed between the read and the write: nothing is left to close.
+        }
     }
 
     /**
-     * Returns the limit of a run whose deadline passed while nothing waits on it: not closed, not
-     * already ended by its limit, and its waiter gone.
+     * Returns the limit of a run whose deadline passed while nothing waits on it: not closed, and
+     * its waiter gone. A run ended by its limit whose stop did not go through is still due: only
+     * the confirmed stop closes it.
      *
      * @param state The task's state directory.
      * @param now The moment to read the deadline against.
@@ -131,8 +166,7 @@ public final class RunLimit {
      */
     public static @Nullable Integer due(
             Path state, Instant now, java.util.function.Predicate<Waiter> alive) {
-        if (endedBy(state) != null
-                || !(read(state.resolve(GIVEN)) instanceof Map<?, ?> map)
+        if (!(read(state.resolve(GIVEN)) instanceof Map<?, ?> map)
                 || Boolean.TRUE.equals(map.get("closed"))
                 || !(map.get("minutes") instanceof Number minutes)
                 || !(map.get("until") instanceof String until)
@@ -152,7 +186,10 @@ public final class RunLimit {
                 new Waiter(
                         pid.longValue(),
                         map.get("waiterStarted") instanceof String started ? started : null);
-        return alive.test(waiter) ? null : Integer.valueOf(minutes.intValue());
+        // This process knows which runs it still waits on; any other is asked whether it runs.
+        final boolean waited =
+                waiter.equals(Waiter.current()) ? WAITING.contains(key(state)) : alive.test(waiter);
+        return waited ? null : Integer.valueOf(minutes.intValue());
     }
 
     /**
@@ -240,6 +277,10 @@ public final class RunLimit {
 
     private static void write(Path file, Map<String, Object> record) throws IOException {
         Files.createDirectories(file.getParent());
+        replace(file, record);
+    }
+
+    private static void replace(Path file, Map<String, Object> record) throws IOException {
         final Path written = file.resolveSibling(file.getFileName() + ".new");
         Files.writeString(written, Json.write(record), StandardCharsets.UTF_8);
         Files.move(

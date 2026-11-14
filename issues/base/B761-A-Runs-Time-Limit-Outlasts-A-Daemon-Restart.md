@@ -52,20 +52,39 @@ wait ended.
 - Measured first, on this machine's podman: a process started by `podman exec` keeps running when the `podman exec`
   client is killed (SIGKILL). An agent therefore outlives a restart of porelod, and nothing else ends it.
 - `RunLimit.started` writes `until` (start plus minutes) beside `minutes`, and the waiting process (`waiterPid`, and
-  `waiterStarted` when the system says so). `RunLimit.closed` marks the run's end, written in `TaskLaunch` before the
-  work record's end, whatever the exit. `RunLimit.due` answers the minutes of a run whose `until` passed, that is not
-  closed, not already ended by its limit, and whose waiter is gone. A record without `until` is never due. A waiter
+  `waiterStarted` when the system says so). `RunLimit.closed` marks the run's end. `RunLimit.due` answers the minutes of a run whose `until` passed, that is not
+  closed, and whose waiter is gone. A record without `until` is never due. A waiter
   is alive only when its pid runs and, where both say so, started at the recorded time, so a pid used again is not
   taken for it.
 - `RunLimitWatch` (app-task), started by `PoreloDaemon` beside the room sweep, looks at its start and once a minute.
-  For each running task whose run is due, it closes the run first, so a failed stop is not retried at every pass. It
-  then calls `TaskLaunch.endAtLimit`, the same end the wait uses, and says each one in porelod's log.
+  For each running task whose run is due, it calls `TaskLaunch.endAtLimit`, the same end the wait uses, and says each
+  one in porelod's log.
+- After the agy reading (gemini-4-argon-high, four faults, all taken):
+  - Only a stop that went through closes a run: `TaskControl` closes it as it stops a running task, whoever stops
+    it, and `endAtLimit` answers whether the stop went through. The watch no longer closes first: a stop that
+    failed is tried at the next pass and said once. `due` no longer skips a run ended by its limit, since the end is
+    recorded before the stop that may not go through.
+  - A task brought back (`TaskControl` resume) closes its last run's limit, and so does any stop of a running task:
+    stopped before its deadline and brought back after it, it was ended by a run it no longer had.
+  - `TaskLaunch` settles the limit in a `finally` around the run: closed however it ended, an unchecked exception
+    before the exec included, but left open where the agent may still run: a wait that was interrupted, and a stop
+    at the limit that did not go through.
+  - The waiter is a process, and porelod outlives each run it waited on. This process keeps the runs it still waits
+    on in memory, so a run it let go is due at once in the same daemon, not after its restart.
+  - `closed` writes only into a record that is there: a task removed meanwhile is not given its state directory
+    back, which refused every later start of its name.
+  - Left: a new run that starts in the same moment the watch judges the old one due may be stopped by it. That needs
+    an orphaned, overdue run and a new one started on its running container within the pass.
 - Start's `minutes` in `15-task.varlink` says the limit holds across a restart of porelod. One changelog entry.
 - Not told apart: an agent that ended on its own while no process waited, in a container still running. Its run is
   ended at its deadline and read as ended by its limit, since nothing recorded its own end.
 - Red first: `RunLimitWatchTest.aRunPastItsDeadlineThatNothingWaitsOnIsEndedAtItsLimit` (red), then green. Beside it
   as guards: a live waiter, before the deadline, a closed run, a record without `until`, and the waiter's liveness.
-- Green, targeted: `RunLimitWatchTest` 6, `TaskRunCommandTest` 310, and the wire, daemon and app tests named for
+- The reading's guards: a stop that fails is tried again and said once, a run this process let go is due, closing a
+  removed task's run makes no state, the waiter passed on is the one recorded, `endAtLimit`'s verdict and its close,
+  and a task brought back closes its last run's limit. The last two are red without the close in `TaskControl`.
+- Green, targeted: `RunLimitWatchTest` 9, `TaskRunLimitTest` 9, `TaskDoneTest` 20, `TaskRunCommandTest` 310, the
+  daemon tests (360 in all), and the wire, daemon and app tests named for
   the run limit, the task list, the agent's end, the daemon and the interfaces (48, 330, 177), 0 skipped.
 - The VM acceptance below is not run yet: the VM queue holds other walks.
 

@@ -51,8 +51,13 @@ class TaskRunLimitTest {
                 "ps", TASK + "\tUp 4 minutes\t1700000000\t0\tuc\tguarded\t\t\t" + ID + "\tall\n");
         final StringWriter said = new StringWriter();
 
-        TaskLaunch.endAtLimit(context, TASK, 1, new PrintWriter(said, true));
+        final boolean stopped =
+                TaskLaunch.endAtLimit(context, TASK, 1, new PrintWriter(said, true));
 
+        assertThat(stopped).as("its stop went through").isTrue();
+        assertThat(Files.readString(state.resolve(RunLimit.GIVEN)))
+                .as("closed by the stop that went through, so its deadline ends nothing more")
+                .contains("\"closed\":true");
         assertThat(runner.invocations())
                 .as("its container is stopped, which ends the agent inside it")
                 .anyMatch(command -> command.describe().startsWith("podman stop "));
@@ -73,17 +78,47 @@ class TaskRunLimitTest {
             throws IOException {
         final PoreloContext context = context(dir);
         TaskIdentityFixture.record(context.paths(), TASK, "uc", "all", ID);
-        RunLimit.started(context.paths().tasks().containerState(TASK), 1);
+        final Path state = context.paths().tasks().containerState(TASK);
+        RunLimit.started(state, 1);
         runner.answering(
                 "ps", TASK + "\tUp 4 minutes\t1700000000\t0\tuc\tguarded\t\t\t" + ID + "\tall\n");
         runner.afterStop("running");
         final StringWriter said = new StringWriter();
 
-        TaskLaunch.endAtLimit(context, TASK, 1, new PrintWriter(said, true));
+        final boolean stopped =
+                TaskLaunch.endAtLimit(context, TASK, 1, new PrintWriter(said, true));
 
+        assertThat(stopped).as("its stop did not go through").isFalse();
+        assertThat(Files.readString(state.resolve(RunLimit.GIVEN)))
+                .as("left open, so the stop is tried again")
+                .doesNotContain("closed");
         assertThat(said.toString())
                 .as("what the stop could not end is named, as 'porelo task stop' names it")
                 .contains("porelo: still running: container " + TASK + " stop unconfirmed");
+    }
+
+    @Test
+    void aTaskBroughtBackClosesItsLastRunsTimeLimit(@TempDir final Path dir) throws IOException {
+        // Stopped before its deadline while nothing waited on it, and brought back after: the
+        // deadline of a run it no longer had ended it again.
+        final PoreloContext context = context(dir).recognizingTasks();
+        runner.answering(
+                "ps",
+                TASK
+                        + "\tExited (0) 1 minute ago\t1788500000\t1788509999\tuc\tguarded\t\t\t"
+                        + ID
+                        + "\n");
+        runner.answering("{{.Id}}", ID);
+        final Path state = Files.createDirectories(context.paths().tasks().containerState(TASK));
+        org.fuin.porelo.wire.Sidecar.recordId(state, ID);
+        final java.time.Instant start = java.time.Instant.parse("2026-11-14T09:00:00Z");
+        RunLimit.started(state, 1, start, new RunLimit.Waiter(4242, "2026-11-14T08:59:00Z"));
+
+        new TaskControl(context).resume(TASK);
+
+        assertThat(RunLimit.due(state, start.plusSeconds(3600), waiter -> false))
+                .as("no run of it is due")
+                .isNull();
     }
 
     @Test
