@@ -274,6 +274,10 @@ Feature: A task in a guarded project, from its image to what it hands back
             git add -A && git commit -q -m "a key"
             # Diagnostics while CI alone misses the finding (2026-11-14): which tree the start scans.
             mirror="${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/guarded.git"
+            # A project with no upstream has its mirror seeded once from the checkout, never
+            # followed; an earlier scenario's "guarded" left one without the key, and the start
+            # scanned that, the tree the task would get (CI, 2026-11-14). Seeded afresh here.
+            rm -rf -- "$mirror"
             echo "diagnostic account $(id -un), checkout $(git -C ~/guarded log --oneline -1 main)"
             echo "diagnostic project file: $(grep -c '^  secrets: "refuse"$' project.yml) secrets line"
             echo "diagnostic mirror before: $(git --git-dir "$mirror" log --oneline -1 main 2>&1 | head -1), origin $(git --git-dir "$mirror" config --get remote.origin.url 2>&1)"
