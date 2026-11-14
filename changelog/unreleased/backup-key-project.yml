@@ -1,2 +1,0 @@
-title: "`porelo identity backup-key --project P` files an offline backup key for a project's one signer among its signers and with `--use` replaces the key it backs; the follow takes a commit signed by a backup key only for that replacement, a backup key certifies no task, and `project verify` and `identity show` name a single signer without a backup key"
-type: added

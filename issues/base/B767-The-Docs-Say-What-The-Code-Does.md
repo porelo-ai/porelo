@@ -54,8 +54,12 @@ passage. None was a fault of the code, so no bug is filed.
   a repository its own settings in `default`, where the page said "follow an unsigned project".
 - `README.md`, `doc/pitch.md`: every capability is dropped except the two Porelo's own session needs
   (`ContainerSpec`: `--cap-add SETUID,SETGID`), and the agent holds none.
-- Not changed, put to the coordinator: 11 groups of unreleased changelog entries (17 files) name commands added and
-  then removed before any release (`project follow`, `unfollow`, `inventory`, `access`, `registry joinable`,
-  `talk room`, `org projects`, `identity backup-key --project`, `forge-token --lend`). They describe changes that
-  did happen; whether they leave the coming release notes is a decision, not a correction.
+- The changelog, by the operator's decision of 2026-11-14: every unreleased entry for a command added since v0.5.0
+  and removed again, or for one removed since, leaves the coming release notes. Eleven files are deleted
+  (`project follow --access-repository`, `unfollow`, `inventory`, `access`, `identity backup-key --project`, and the
+  follow's pins). Six keep only what still holds: `task status --json`; `identity` without `project access replace`;
+  the credential-free addresses without `registry joinable` and the access file's `source`; `forge lend-token` for
+  porelo-host's `forge-token --lend`; the room's persons without `talk room`; the organization's commands without
+  `org projects`. That following by hand is gone is said by the entry already there,
+  `start-reads-the-organization.yml`.
 - The tests tagged `documents` are green.
