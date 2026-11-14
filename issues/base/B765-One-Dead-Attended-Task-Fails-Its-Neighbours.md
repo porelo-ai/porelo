@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "B765",
   "title": "One Dead Attended Task Fails Its Neighbours",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
-  "priority": "High",
-  "rank": 9,
+  "priority": "Highest",
+  "rank": 1,
   "blockedBy": [],
   "covers": "A failed scenario of agent-waiting.feature leaves no task behind, and `WaitingSteps` reads the `task list` row of its own project, so one failure stays one red",
   "openQuestions": 0
