@@ -15,7 +15,7 @@
 ```
 
 **Why this size.** for the build, split below: shared identity lookup, creation, credentials and messaging, daemon access,
-and the window's validation cross module and repository boundaries. This work is the plan only; the build is [B596](README.md#b596) to [B602](README.md#b602).
+and the window's validation cross module and repository boundaries. This work is the plan only; the build is its slices, built as issues of their own.
 
 Implementing since 2026-11-10 (`porelo-project` ST307; plan first). Filed 2026-11-09 from move 3's findings 10/19 and [B532](README.md#b532), as the operator decided
 it (the operator's decision of 2026-11-09 on the open points of wave 2, point 6: keep the name now, plan the change).
@@ -292,5 +292,5 @@ machine test is part of this plan-only run.
 
 ## Built as
 
-The operator approved the plan on 2026-11-10 and had it split: [B596](README.md#b596), [B597](README.md#b597), [B598](README.md#b598), [B599](README.md#b599), [B600](README.md#b600), [B601](README.md#b601), [B602](README.md#b602) (the
-slices 1, 1b, 2, 3, 4, 5 and 7, in that order). Slice 6, the window's part, is porelo-frontend's.
+The operator approved the plan on 2026-11-10 and had it split into issues of their own for the
+slices 1, 1b, 2, 3, 4, 5 and 7, all built. Slice 6, the window's part, is porelo-frontend's.

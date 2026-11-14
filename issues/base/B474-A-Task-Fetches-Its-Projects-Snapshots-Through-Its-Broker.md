@@ -32,7 +32,7 @@ task token it issues gains `read:package`, with its Molecule check.
   silence: it says the token still stands and until when, and the next removal or start on that machine tells the host
   again until it answers that the task ended.
 - **Which snapshot a build resolves, and which coordinates go to the host's registry at all** (the newest-snapshot rule
-  and the private-coordinate filter), follow the registry design [B306](README.md#b306)'s builds use, unchanged; a task
+  and the private-coordinate filter), follow the registry design porelo's own Build uses, unchanged; a task
   adds no rule of its own.
 
 ## Found
@@ -66,7 +66,7 @@ Read in the code on 2026-11-06 (a Codex reading, checked line by line):
    it.
 4. **The settings:** the repository's `porelo.yml` names the tool repository and its credential by name and kind
    ([B470](README.md#b470), [B467](README.md#b467)); Configure writes Maven's settings with the broker's address and a phantom token. A checkout that runs
-   with `-s settings.xml` reads the same variable as porelo's own ([B306](README.md#b306)).
+   with `-s settings.xml` reads the same variable as porelo's own `settings.xml`.
 - **Red tests:** a package request outside the organization's maven path is refused before upstream; a jar and a POM
   round-trip unchanged; the real token is in neither the container, its environment nor its settings; a failed start
   ends it.

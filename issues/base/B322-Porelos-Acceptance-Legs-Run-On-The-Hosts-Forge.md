@@ -27,7 +27,7 @@ commit with no edit between them. Only GitHub publishes.
 ## What it switches on again
 
 - **The job:** `build.yml`'s `legs` job, *Leg - fedora* and *Leg - ubuntu*, each with its *Delete what this run
-  created*. [B306](README.md#b306) lets it run only where `github.server_url` is GitHub's; this issue drops that
+  created*. It runs today only where `github.server_url` is GitHub's; this issue drops that
   condition.
 - **Publish:** stays on GitHub alone. On the host's forge the legs prove the commit, and `deploy` does not run.
 

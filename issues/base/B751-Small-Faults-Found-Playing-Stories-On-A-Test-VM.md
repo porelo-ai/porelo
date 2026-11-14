@@ -43,13 +43,20 @@ Found on a test VM while playing [B681](README.md#b681) and [B682](README.md#b68
    `exitCodeOnInvalidInput = 64`, and `doc/commands.md` documents 64 as invalid options. `TaskRunCommand`
    (`apps/app-task`) sets none. Set 64 on the root command so every subcommand inherits it, or on each command that
    lacks it.
+4. **The legs' deploy refuses a build's own run stamp.** A native build made with
+   `-Dporelo.snapshot.run=20261114T044528` names its package `~snapshot.20261114T044528+local...`, and
+   `deploy --skip-build --run 20261114T044528` then stopped with `porelo: For input string: "20261114T044528"`.
+   `Deploy.RUN` (`acceptance/legs`) reads only the digits before the `T`, and `compareDotted` parses the whole `--run`
+   value as dotted numbers. Read a run the way the build writes it, so the stamp a package was built with is accepted
+   for it.
 
 First red, in each module's tests: `GitGateTest` refuses a push with a hook and expects the hook's words without
 `--git-dir`; `StartCheckTest` expects no `..`; `CliErrorsTest` or `TaskRunCommandTest` expects 64 for an unknown
-option.
+option; `DeployTest` deploys a package named with a stamp, given that stamp as `--run`.
 
 ## Acceptance
 
 - A refusal by the forge reaches the agent and `gate.log` with the forge's own words and no Porelo command line.
 - No refusal of a start ends with two full stops.
 - `porelo task start` with an unknown option answers 64, as the other commands do.
+- The legs' `deploy --skip-build --run <stamp>` installs a package built with that stamp.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B755",
   "title": "The AppArmor Profile Proved On The Ubuntu Leg",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 54,
@@ -59,7 +59,15 @@ path socket, so this scenario proves no lock against a stand-in; that proof move
 - Two kit steps in `PackageSteps`: the machine runs AppArmor (skips otherwise), and Porelo is installed machine-wide
   by its package; the second's decision is unit-tested, seen red then green. Every step is defined (a Cucumber dry
   run). The legs leave `@machine-package` out in both passes, seen red then green in `HostServicesTest`.
-- Not yet run: the scenario itself, on the VM deployed machine-wide.
+- Run on the Ubuntu VM deployed machine-wide from the package of the native build of the tested commit, the
+  account's own copy set aside: the five scenarios, with the reboot, passed but the fifth. That one failed first on
+  its own race - a start typed into the terminal is not waited for - and then reached a tmux server on a path
+  socket from inside `porelo-task (enforce)`: the peer rule judges abstract names only, and the file rules let the
+  task reach every file of its container, so the scenario asked for what the profile does not promise. It now waits
+  for the start and serves an abstract name, `@porelo-foreign`, from a plain exec of the agent's user: that exec
+  reaches it, the task's session in `porelo-task (enforce)` is refused, and the scenario passed on its rerun.
+- Not seen red: the fifth scenario against a profile weakened to a bare `unix` rule, which needs the profile
+  reloaded as root on the machine.
 - The reading (agy, gemini-4-argon-high) found two grave gaps, checked in the code, and both are closed:
   - The label check read a task started with `--detach`, which runs no agent: that start returns before any
     session. Now the scenario attaches in a terminal, where the stub, asked nothing, waits as a running agent, and

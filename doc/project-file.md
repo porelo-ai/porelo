@@ -650,6 +650,13 @@ line. A token, or a key in the vault or a file, works for both.
 | goes no further | 65 | `refused-state` | what was read is refused: `words` names the commit and why |
 | goes no further | 66 | `not-opened` | the organization files no repository for the project yet |
 
+**A project's repository on the organization's own forge is reached as the organization is.** When `organization.yml`
+names the organization over ssh, as `git@<forge>:...` or `ssh://git@<forge>[:port]/...`, a project repository filed as
+`https://<forge>/<path>` on the same host is read and written over ssh in that form, so a start, `project show`,
+`project sign`, `project sign-repository-file` and `project create-repository` need no forge token where the
+organization needs none. A repository on another host, an https address with a port of its own, and every address of
+an organization named over https are used as filed.
+
 **A project of the organization without a homeserver starts with no conversation.** Where a room peer is named, or
 `mail.transports.matrix` is given, and neither the file nor this host says where its homeserver is, the task starts all
 the same: the start says once that it has no conversation, that its agents cannot talk to each other, and the step that

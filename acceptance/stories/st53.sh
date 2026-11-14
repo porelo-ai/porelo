@@ -10,7 +10,7 @@
 #   6. removes everything it made and lists what held and what did not.
 #
 # A gate or relay "does not come up" here because its pid file is taken: a directory stands where the
-# helper writes its pid, so the helper never records it - what the start waits on once B384 is built.
+# helper writes its pid, so the helper never records it - which the start waits on.
 #
 # Run it as the test account on the test machine, never as a person's own account:
 #     bash -l st53.sh --test-account [--expect-fail ISSUES]
@@ -258,7 +258,7 @@ read_ "the state directory holds: $(ls "$state" 2>/dev/null | tr '\n' ' ')"
 read_ "gate.pid $([ "$gate" = 0 ] && echo 'names a running gate' || echo 'names no running gate')"
 read_ "relay.pid $([ "$relay" = 0 ] && echo 'names a running relay' || echo 'names no running relay')"
 point "$code" "" "a start of a task with a gate and a credential answers 0"
-point "$((gate == 0 && relay == 0 && code == 0 ? 0 : 1))" B384 \
+point "$((gate == 0 && relay == 0 && code == 0 ? 0 : 1))" "" \
     "a start that answers 0 has its gate and its relay up when it returns"
 timeout 300 porelo task remove "$container" --force --no-input >/dev/null 2>&1
 read_ "task $container removed again"
@@ -298,11 +298,11 @@ for helper in gate relay; do
         read_ "the $helper's pid file is not the directory this run put there: the obstruction missed"
         point 1 "" "the $helper was kept from coming up (script: the state directory moved)"
     fi
-    point "$((code == 70 ? 0 : 1))" B384 "a start whose $helper does not come up ends with code 70"
+    point "$((code == 70 ? 0 : 1))" "" "a start whose $helper does not come up ends with code 70"
     sleep 2
     left=$(helpers_left "$container")
     read_ "$left process(es) still name the task's state directory"
-    point "$((code != 0 && left == 0 ? 0 : 1))" B384 \
+    point "$((code != 0 && left == 0 ? 0 : 1))" "" \
         "a start whose $helper does not come up leaves none of its helpers running"
     timeout 300 porelo task remove "$container" --force --no-input >/dev/null 2>&1
     rm -rf -- "${RUNTIME:?}/porelo-${PROJECT}_$task"
@@ -332,7 +332,7 @@ gate=1
 alive "$RUNTIME/$container/gate.pid" && gate=0
 read_ "its gate $([ "$gate" = 0 ] && echo 'runs' || echo 'does not run')"
 point "$((code1 == 0 || code2 == 0 ? 0 : 1))" "" "one of two starts of one name starts the task"
-point "$([ "$running" = true ] && [ "$gate" = 0 ] && echo 0 || echo 1)" B384 \
+point "$([ "$running" = true ] && [ "$gate" = 0 ] && echo 0 || echo 1)" "" \
     "two starts of one name never stop each other's task: it still runs with its gate"
 
 finish

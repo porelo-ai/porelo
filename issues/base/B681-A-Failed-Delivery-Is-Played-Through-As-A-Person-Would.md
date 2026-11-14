@@ -20,7 +20,7 @@ Filed 2026-11-12 for ST347 (every story played through once, as a user would), f
 porelo-project's stories.
 
 **What must be true.** The story's test is played once on the test VM by a script that does what a person would at
-the command line: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. Its issues here: [B179](README.md#b179), [B197](README.md#b197); the frontend's F117 is not played here.
+the command line: the forge stops answering and other delivery refusals are triggered; each answer ends within the configured bound with its own reason, the failure stays visible in `task list`/`task status`, the card names its repository, and a project push the person makes is picked up. What it plays is built; the frontend's F117 is not played here.
 
 ## Plan
 
@@ -41,7 +41,7 @@ stopping it needs root and would stop it for every account, so the script stands
 3. Three refusals, each timed against the bound: the forge refusing (a `pre-receive` hook, whose words must reach the
    agent), the gate refusing a push to `main`, and the gate refusing a tag.
 4. The forge stops answering: its server stopped and a listener in its place on the same port that takes the
-   connection and never answers, as [B197](README.md#b197)'s test does. A push from the task must end within the
+   connection and never answers, as the unit test of a push's bound does. A push from the task must end within the
    bound - `limits.pass_on`, two minutes unless `--pass-on` sets it - saying the forge did not answer and that
    nothing was passed on, not that it refused. The reasons of steps 3 and 4 must each be their own.
 5. The failure afterwards: the task's `gate.log` keeps what the forge did, `task status` shows the work not delivered
@@ -50,24 +50,21 @@ stopping it needs root and would stop it for every account, so the script stands
    picks it up, and a push from the task goes through again.
 7. A message to nobody, held; `porelo talk release` of it, `--refuse`, then `release` again, refused as refused for
    good; the same release asked of the daemon (`Release` through `porelo daemon connect`) answers `NOT_DELIVERABLE`
-   with the code `REFUSED_BEFORE` ([B179](README.md#b179)).
+   with the code `REFUSED_BEFORE`.
 
 Each step says what it does and what it read; the run ends with what held, what did not hold as expected, and what
 did not hold, and exits 1 when anything failed unexpectedly. A trap removes the task, the project, its image, the
 forge and the vault, also when the run stops part-way. The card of the interface (F117) is not played here.
 
-**Expected failures:** [B197](README.md#b197) for the bound and the silence's words, [B179](README.md#b179) for the
-code; `--expect-fail` changes the list (`none` when both are in Review). Until [B197](README.md#b197) is built the
-task's push to the silent forge is cut at the bound plus a minute, and the gate's own push ends when the silent
-listener is stopped.
+**Expected failures:** none, since what it plays is built; `--expect-fail` changes the list. The task's push to the
+silent forge is cut at the bound plus a minute, and the gate's own push ends when the silent listener is stopped.
 
 **How it is run** (through the coordinator, on the laptop, from this repository's root):
 
     scp acceptance/stories/st39.sh <account>@<test-vm>:
     ssh <account>@<test-vm> 'bash -l st39.sh --test-account' 2>&1 | tee st39.log
 
-- `--pass-on 30s` writes `limits.pass_on` into the project file and takes it as the bound; only once
-  [B197](README.md#b197) is built does the project file take the key, so until then the run uses the default.
+- `--pass-on 30s` writes `limits.pass_on` into the project file and takes it as the bound.
 
 ## Rules for a story test (operator, 2026-11-12)
 
@@ -100,8 +97,8 @@ listener is stopped.
     list` still lists the task, and `task status --json` names its repository.
   - The task's next `git fetch porelo main` picks up the person's push, and a push from the task goes through again.
   - A message to nobody is held; a release after `--refuse` is refused, saying so. The daemon's `Release` answers
-    `NOT_DELIVERABLE` with the code `REFUSED_BEFORE` ([B179](README.md#b179)).
-- **Did not hold, both [B197](README.md#b197)'s, recorded in its "Found in play-through":**
+    `NOT_DELIVERABLE` with the code `REFUSED_BEFORE`.
+- **Did not hold, both about the bound of a push to a forge that does not answer:**
   - The push to the silent forge ended after 151 s, against the bound of 120 s: the gate asks after the push for up
     to 30 s more.
   - Its refusal says "whether it took the push is not known", not "nothing was passed on".

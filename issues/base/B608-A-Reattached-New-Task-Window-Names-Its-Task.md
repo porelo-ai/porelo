@@ -16,7 +16,7 @@
 
 **Why this size.** one label taken from the task's identity instead of its container name; one test.
 
-Filed 2026-11-11 from Core's fix of main's red legs after [B601](README.md#b601) (the restarted tasks, on the
+Filed 2026-11-11 from Core's fix of main's red legs after new tasks got the short container name (the restarted tasks, on the
 coordinator's order of 00:58Z to file it with the next issues commit).
 
 **What must be true.** When `task start` goes back into an existing task, the window label it gives the attach names

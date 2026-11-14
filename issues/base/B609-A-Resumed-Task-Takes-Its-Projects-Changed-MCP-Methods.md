@@ -22,9 +22,9 @@ Estimate: 45 minutes (Core's median for S). The analysis below was read again in
 Medium, not High: the story's own test starts, reads and stops a task and never resumes one; this closes a gap a
 resumed task leaves.
 
-Filed 2026-11-11 from [B600](README.md#b600)'s As built, which left it for a later issue.
+Filed 2026-11-11 from the As built of finding a task's mail and sockets by its identity, which left it for a later issue.
 
-**What must be true.** Since [B600](README.md#b600), a repeated open keeps the served socket, so a running task's
+**What must be true.** A repeated open keeps the served socket, so a running task's
 mount keeps its inode. The cost is that a resumed task keeps the MCP methods its project file allowed when its socket
 was first opened, until the daemon restarts. A changed `mcp.methods` should take effect on the next start of the
 task (or at once), while the served socket and its inode stay as they are.
@@ -66,8 +66,7 @@ repeated open empty and the socket gone.
   check. A method missed by that check would answer. The third acceptance line holds it for every method.
 - An open that swaps the endpoint while a call runs: the call keeps the endpoint it read at its start (a volatile
   read once per call), so no call sees half of each.
-- [B600](README.md#b600), which keeps the served socket, is built; this builds on it and does
-  not wait for it.
+- Keeping the served socket is built; this builds on it and waits for nothing.
 
 ## Blockers
 

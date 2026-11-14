@@ -62,7 +62,7 @@ names no `builds:`. `project.yml` stays the same on every machine; nothing host-
   so, names `porelo-host-forge-token`, starts the task, and starts no helper.
 - **A guarded task's helper runs with `--builds-only`** and opens no pull request; the gate's approval does that.
 
-## Left by the reading, gathered in [B650](README.md#b650)
+## Left by the reading
 
 - **A start with a locked vault is not told the host's command at once.** When nothing else in the start opens the
   vault, the start cannot see whether it holds the entry, so the helper starts and waits for the vault; if the entry

@@ -293,6 +293,13 @@ Appending a line and signaling the process makes the name resolve at once, with 
 window in which nothing resolves. The `nftset=` lines cannot go in that file, which is why the
 firewall half goes through the clearance watcher.
 
+The watcher maps a dropped address back to the name the task asked for, also when the answer came
+through a CNAME: the chain is followed within one query, by the serial the resolver writes on each
+line, so an address never takes a grant from a name it did not answer. The first connection to a
+name granted live is still dropped, and the agent's retry goes through. A live grant settles a
+verdict nobody gave - a question that ran out, one past the limit, or one still on screen - and
+gives way to a person's answer.
+
 ### What happens when it cannot be started
 
 **The container starts anyway, degraded.** This is the opposite of the firewall's rule, on purpose:

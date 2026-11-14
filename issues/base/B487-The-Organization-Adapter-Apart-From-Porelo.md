@@ -145,7 +145,7 @@ Read in their code; the coordinator asks their agents.
   [B465](README.md#b465), [B475](README.md#b475) and [B476](README.md#b476).
 - [B198](README.md#b198): settings inherited down the organization's tree are the adapter's answer in the settings
   type, no longer read by `ProjectTaking`.
-- [B437](README.md#b437): its fast answer becomes the adapter's, and a start, a gate and a listing read `porelo`'s
+- The fast display answer from the kept state becomes the adapter's, and a start, a gate and a listing read `porelo`'s
   cache; much of it is this issue's cache.
 - None is made needless by reading.
 

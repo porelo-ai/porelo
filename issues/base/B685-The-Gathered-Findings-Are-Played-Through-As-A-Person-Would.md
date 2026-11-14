@@ -20,7 +20,7 @@ Filed 2026-11-12 for ST347 (every story played through once, as a user would), f
 porelo-project's stories.
 
 **What must be true.** The story's test is played once on the test VM by a script that does what a person would at
-the command line: [B380](README.md#b380)'s, HO86's and F288's points each hold nothing open; a point that proved larger is an issue of its own. Its issues here: [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203), [B666](README.md#b666); HO86 and F288 are other repositories'.
+the command line: [B380](README.md#b380)'s, HO86's and F288's points each hold nothing open; a point that proved larger is an issue of its own. Its issues here: signers files read as git reads them, a start's smaller refusals and leftovers, tests under any login and umask, task names checked by what the commands do, the push judge's arming stopping on a link; HO86 and F288 are other repositories'.
 
 ## Plan
 
@@ -35,25 +35,25 @@ the command line: [B380](README.md#b380)'s, HO86's and F288's points each hold n
 
 1. The issue indexes of porelo, porelo-host and porelo-frontend, read from GitHub's main branches or from a directory
    given with `--issues`: [B380](README.md#b380) and porelo-host's HO86 are closed and name where their points went
-   ([B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), the points not worth it; [B666](README.md#b666)); F288 is filed; [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203) and [B666](README.md#b666) are filed, and
+   (signers files read as git reads them, a start's smaller refusals and leftovers, tests under any login and umask, the points not worth it; the push judge's arming stopping on a link); F288 is filed; signers files read as git reads them, a start's smaller refusals and leftovers, tests under any login and umask, task names checked by what the commands do and the push judge's arming stopping on a link are filed, and
    each is checked to be in Review or Finished.
-2. [B649](README.md#b649): a commit signed with an SSH key, new to a bare repository as a push brings it, judged by
+2. Signers files read as git reads them: a commit signed with an SSH key, new to a bare repository as a push brings it, judged by
    `porelo commit verify` with an allowed-signers file of the signer's line alone, then beside a line holding a lone
    CR, a line ssh-keygen cannot parse, and a line beginning with U+2000 before `#`, with `git verify-commit`'s verdict
    on the same file read beside it.
-3. [B650](README.md#b650): a stopped `--no-gate` task removed without `--force`; the suggestions for the names `123 `,
+3. A start's smaller refusals and leftovers: a stopped `--no-gate` task removed without `--force`; the suggestions for the names `123 `,
    `People` and `Porelo-x` (not `123`, `people`, `porelo-x`); an unknown `-r` alone and beside a refused name
    answering one code; `porelo project init --project` with a 62-character name refused, naming the room (`--name` names the
    repository, not the project).
-4. [B203](README.md#b203): `porelo task files` and `porelo task status` answering by the task's name and by its
+4. Task names checked by what the commands do: `porelo task files` and `porelo task status` answering by the task's name and by its
    container's name.
 
-[B651](README.md#b651) (tests only), [B666](README.md#b666) (a host's push judge) and F288 (the desktop interface)
+Tests under any login and umask (tests only), the push judge's arming stopping on a link (a host's push judge) and F288 (the desktop interface)
 show nothing at this command line and are checked as filed. A trap removes the tasks, the project, its image, the
 checkout and the vault.
 
-**Expected failures:** none, since [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651),
-[B203](README.md#b203), [B666](README.md#b666) and F288 are in Review; `--expect-fail` changes the list.
+**Expected failures:** none, since signers files read as git reads them, a start's smaller refusals and leftovers, tests under any login and umask,
+task names checked by what the commands do, the push judge's arming stopping on a link and F288 are built; `--expect-fail` changes the list.
 
 **How it is run** (through the coordinator, on the laptop, from this repository's root; the `--issues` directory
 only while the indexes on GitHub are older than the local ones):
@@ -85,16 +85,16 @@ only while the indexes on GitHub are older than the local ones):
   `st56.log`; the first, before the script fix, is `st56.first.log`.
 - **Held, all 32 points:**
   - [B380](README.md#b380) and HO86 are closed and name where their points went. F288 is in Review.
-    [B649](README.md#b649), [B650](README.md#b650), [B651](README.md#b651), [B203](README.md#b203) and
-    [B666](README.md#b666) are filed and in Review.
-  - [B649](README.md#b649): `porelo commit verify` accepts the signed commit with a plain signers file, and beside a
+    Signers files read as git reads them, a start's smaller refusals and leftovers, tests under any login and umask, task names checked by what the commands do and
+    the push judge's arming stopping on a link are filed and in Review.
+  - Signers files read as git reads them: `porelo commit verify` accepts the signed commit with a plain signers file, and beside a
     lone CR, a line ssh-keygen cannot parse and a U+2000 before `#`, as `git verify-commit` does.
-  - [B650](README.md#b650):
+  - A start's smaller refusals and leftovers:
     - a stopped `--no-gate` task is removed without `--force`;
     - `123 `, `People` and `Porelo-x` are refused with no suggestion that another rule refuses;
     - an unknown `-r`, alone and beside a refused name, answers 64 both times;
     - `project init --project` with 62 characters is refused with 64, naming the room.
-  - [B203](README.md#b203): `task files` and `task status` answer by the task's name and by its container's name.
+  - Task names checked by what the commands do: `task files` and `task status` answer by the task's name and by its container's name.
 - **Did not hold:** nothing.
 - **Script fixes:**
   - The container is named `porelo-<project>_<task>`.

@@ -486,6 +486,12 @@ a newer one included, since Porelo calls only methods it knows.
 say", never "nothing found". Any other error is an error, not an old agent. A
 renamed, removed or reinterpreted method or field raises `LOWEST`.
 
+**How long Porelo waits for an answer** is counted from a call's first byte
+sent: 120 s for `ContainerSetup` and for `Format`, which is asked for a batch of
+lines, 10 s for `Describe` and `Find`, and 30 s for any other call answered
+once. A call past its bound fails and its connection is closed; an agent
+declares no bound of its own.
+
 **What an agent's package depends on.** Porelo's `.deb` and `.rpm` provide
 `porelo-agent-protocol` at one version, its `LOWEST`: `Provides: porelo-agent-protocol
 (= 3)` on Debian, `porelo-agent-protocol = 3` on Fedora. An agent's package requires

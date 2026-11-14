@@ -58,7 +58,7 @@ whether or not the host runs a forge of its own.
 - The default project now writes each row's `central` equal to its `upstream` (`DefaultProject.fileHeld`), so a
   default-project task on a host is no longer refused at its start but pointed at the host's forge, which holds no copy
   of it.
-- What a host carries is known since [B479](README.md#b479): `OrganizationProjects.Placed.repositories`, from the host's
+- What a host carries is known: `OrganizationProjects.Placed.repositories`, from the host's
   own file (`[]` is the whole project); `placed` does not ask it.
 
 ## Open questions

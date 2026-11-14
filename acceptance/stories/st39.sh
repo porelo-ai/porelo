@@ -9,21 +9,21 @@
 #      and a tag, and reads each answer's words and how long it took;
 #   4. makes the forge stop answering - its server stopped and a listener in its place that takes the
 #      connection and never answers - pushes again, and reads whether the push ends within the bound
-#      (limits.pass_on, two minutes unless set) and says the forge did not answer (B197);
+#      (limits.pass_on, two minutes unless set) and says the forge did not answer;
 #   5. reads the failure afterwards in 'task logs', 'task status' and 'task list', and that the task's
 #      status names its repository;
 #   6. brings the forge back, pushes as the person to the project's repository, and reads whether the
 #      task's next fetch picks it up, and whether a push from the task goes through again;
 #   7. holds a message, refuses it for good and releases it, reading the release's words and the code the
-#      daemon answers beside them (B179);
+#      daemon answers beside them;
 #   8. removes everything it made and lists what held and what did not.
 #
 # Run it as the test account on the test machine, never as a person's own account:
 #     bash -l st39.sh --test-account [--expect-fail ISSUES] [--pass-on DURATION]
 # --expect-fail names the issues not yet in Review, comma-separated ('none' for none); default none.
 # --pass-on writes limits.pass_on into the project file, such as 30s, and takes it as the bound; without
-# it the file sets none and the bound is the default, two minutes. Only once B197 is built does the
-# project file take the key. Exit 0 when nothing failed unexpectedly, 1 otherwise, 64 for wrong use.
+# it the file sets none and the bound is the default, two minutes. Exit 0 when nothing failed
+# unexpectedly, 1 otherwise, 64 for wrong use.
 
 # The scripts sent into the task are single-quoted on purpose: they expand there, not here.
 # shellcheck disable=SC2016
@@ -480,11 +480,11 @@ read_ "$(grep -c . "$WORK/silent.log" 2>/dev/null || echo 0) connection(s) the s
 reason "$WORDS" >>"$REASONS"
 ended=1
 [ "$TOOK" -le "$((BOUND + 15))" ] && [ "$DELIVERED" != 124 ] && ended=0
-point "$ended" B197 "a push to a forge that does not answer ends within the bound ($BOUND s)"
+point "$ended" "" "a push to a forge that does not answer ends within the bound ($BOUND s)"
 point "$(yes_if test "$DELIVERED" != 0)" "" "a push to a forge that does not answer fails rather than passing"
-point "$(yes_if grep -q -i 'did not answer' "$WORDS")" B197 "its refusal says the forge did not answer"
-point "$(yes_if grep -q -i 'nothing was passed on' "$WORDS")" B197 "its refusal says nothing was passed on"
-point "$(yes_if test "$(grep -c -i 'upstream refused' "$WORDS")" = 0)" B197 \
+point "$(yes_if grep -q -i 'did not answer' "$WORDS")" "" "its refusal says the forge did not answer"
+point "$(yes_if grep -q -i 'nothing was passed on' "$WORDS")" "" "its refusal says nothing was passed on"
+point "$(yes_if test "$(grep -c -i 'upstream refused' "$WORDS")" = 0)" "" \
     "a silence is not called a refusal"
 
 step "Read that each refusal named its own reason: the forge's, the gate's and the silence's"
@@ -495,7 +495,7 @@ distinct=$(grep . "$REASONS" | sort -u | grep -c .)
 read_ "$lines reason(s), $distinct distinct"
 point "$(yes_if test "$lines" -ge 2 -a "$lines" = "$distinct")" "" \
     "the forge's refusal, the gate's refusal and the silence each say a reason of their own"
-point "$(yes_if test "$lines" -ge 3 -a "$lines" = "$distinct")" B197 "the silence's reason is among them, its own"
+point "$(yes_if test "$lines" -ge 3 -a "$lines" = "$distinct")" "" "the silence's reason is among them, its own"
 
 # The gate's own push to the silent forge may still wait; the listener's end closes it.
 serve forge "$PORT" || {
@@ -545,7 +545,7 @@ in_task_head=$(podman exec "$CONTAINER" git -C /workspace rev-parse HEAD 2>/dev/
 point "$(yes_if test "$DELIVERED" = 0 -a -n "$at_forge" -a "$at_forge" = "$in_task_head")" "" \
     "a push after the failure goes through once the forge answers"
 
-# ---------------------------------------------------------------- a message not delivered (B179)
+# ---------------------------------------------------------------- a message not delivered
 
 # ask <method> <parameters as JSON>: the daemon's answer, one line, as an interface gets it.
 ask() {
@@ -597,7 +597,7 @@ if [ -n "$MESSAGE" ]; then
     detail=$(field "$answer" detail)
     read_ "outcome '${outcome:-none}', code '${code:-none}', detail '${detail:-none}'"
     point "$(yes_if test "$outcome" = NOT_DELIVERABLE)" "" "the daemon answers NOT_DELIVERABLE"
-    point "$(yes_if test "$code" = REFUSED_BEFORE)" B179 \
+    point "$(yes_if test "$code" = REFUSED_BEFORE)" "" \
         "a release not deliverable carries its code beside the sentence: REFUSED_BEFORE"
 fi
 

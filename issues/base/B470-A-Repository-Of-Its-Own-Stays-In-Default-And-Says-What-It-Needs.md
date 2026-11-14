@@ -47,7 +47,7 @@ default.
   ([B449](README.md#b449)); in another project it reads the mirror's default branch, unasked after the project's
   approval.
 - A first start with a plugin writes a `project.yml` into the checkout and approves it as a project of this machine
-  alone (`FirstStart`, `ProjectApprovals`); [B469](README.md#b469) taught every task command to find such a checkout.
+  alone (`FirstStart`, `ProjectApprovals`); every task command finds such a checkout.
 - An organization's `project.yml` is judged at each start by its newest change: signed by a project admin's key valid
   at that commit's date. `porelo.yml` in a repository is read from reviewed work and ranked dangerous by the review, but
   no signature is asked of it.

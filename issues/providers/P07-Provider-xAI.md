@@ -38,7 +38,7 @@ The agents that can reach it are listed in
 
 1. **Red first:** a test in `apps/app/.../SelectedProviderTest.java` that `xai` is shipped, serves `openai` under
    `/v1`, and puts the key in `Authorization: Bearer`.
-2. **`providers/xai.yaml`:** named `xai`, the name the provider-agnostic agents register it under ([P09](README.md#p09));
+2. **`providers/xai.yaml`:** named `xai`, the name the provider-agnostic agents register it under;
    `dialects: { openai: "/v1" }`; `Authorization` / `Bearer `; `token_env: { _default: XAI_API_KEY }`;
    `unbrokerable: { oauth: ... }` until the subscription account is measured.
 3. **`doc/credentials.md`:** a row in "The providers Porelo ships".

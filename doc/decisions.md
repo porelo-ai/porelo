@@ -83,6 +83,7 @@ would change the answer.
 | An authorization a person grants is kept in the vault and spent by the broker | granted once on the host (`oauth-device` or `oauth-code`), registered once where offered, spent per task in memory, recorded in `grants.log`, and revoked at the service before removal | [entry](#an-authorization-a-person-grants-is-kept-in-the-vault-and-spent-by-the-broker) |
 | Porelo does not replace a stored key at its provider | no `vault rotate`; per-provider code is what the split between agents and providers avoids | [entry](#porelo-does-not-replace-a-stored-key-at-its-provider) |
 | A task's own tokens are kept in the vault | gate and phantom token under `task/<container>/`; a start after a reboot needs the vault | [entry](#a-tasks-own-tokens-are-kept-in-the-vault) |
+| A credential's length is shown to its owner alone | `vault put`, `list`, `import`, `login`, a prompt's stars and the daemon's `length` and `characters` say it to the account that holds it; no task reaches the daemon's socket, and no record or log line says it | [entry](#a-credentials-length-is-shown-to-its-owner-alone) |
 | Clearing the vault is `clear`, not `delete` | `vault clear` lists, then acts on `--yes`, like the other clears; `remove` is for one entry | [entry](#clearing-the-vault-is-clear-not-delete) |
 | A vault `PORELO_VAULT` names clears only itself | its clear leaves the account's transport state and own homeserver, and lists nothing for them | [entry](#a-vault-porelo_vault-names-clears-only-itself) |
 | A cached passphrase is reported gone only when it is gone | `vault lock` answers cleared, nothing cached or unknown, and exits non-zero on unknown | [entry](#a-cached-passphrase-is-reported-gone-only-when-it-is-gone) |
@@ -109,6 +110,7 @@ would change the answer.
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock, each the organization admin's once the roles stand; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
 | Every organization store passes one set of checks | `organization/contract` holds what any store must guarantee, and each adapter runs it against itself through a fixture; `organization/git` keeps its own offline answer and does not run them | [entry](#every-organization-store-passes-one-set-of-checks) |
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
+| A display of the organization answers from the kept state | `org` and `project show` answer the checked state kept here, marked stale with its age, and refresh after; every decision still fetches, and no security check rests on a kept answer | [entry](#a-display-of-the-organization-answers-from-the-kept-state) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
 | A host carries a project whole or by some of its repositories | a repository is on one host at most, and a project carried whole keeps its repositories off every other host; each read key is deleted by whoever made it | [entry](#a-host-carries-a-project-whole-or-by-some-of-its-repositories) |
@@ -144,6 +146,7 @@ would change the answer.
 | A loopback homeserver's registration token is lent under its host and port | `<entry>.http:<host>:<port>` for plain http on `127.0.0.0/8`, `localhost` or `[::1]`; any other http lends nothing; accepted: a port proves nothing about who listens | [entry](#a-loopback-homeservers-registration-token-is-lent-under-its-host-and-port) |
 | The keys of a project's store lie on the host for its life | accepted, a deliberate exception to no token on a server: root-only until `down`, limited to the store's bucket | [entry](#the-keys-of-a-projects-store-lie-on-the-host-for-its-life) |
 | The signed project file names a shared server | homeserver, room, CA and token file come from the project file every machine follows; a machine sets none of them | [entry](#the-signed-project-file-names-a-shared-server) |
+| A start is never refused for a missing homeserver | a project of the organization that names none, by its file or its host's, starts with no conversation; no homeserver of the account's own takes its place | [entry](#a-start-is-never-refused-for-a-missing-homeserver) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
 | **The build and packages** | | |
 | Porelo is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#porelo-is-split-into-modules-by-area-not-into-repositories) |
@@ -572,6 +575,15 @@ A task's gate token and its phantom provider token are kept in the vault, hidden
 of tasks that no longer exist are pruned whenever the vault is next opened for a task. The cost is that the first
 start after a reboot needs the vault unlocked even for a task with no credential of its own.
 
+## A credential's length is shown to its owner alone
+
+A length is no secret from the person who holds the credential, and to anyone else it narrows a guess. So `vault put`,
+`vault list`, `vault import`, `vault login`, the star per character of a prompt and the daemon's `length` and
+`characters` say it, each read only by the account that holds the vault: the daemon's socket and its directory are
+owner-only, and no task's container mounts it or a directory above it. A credential's and a vault entry's `toString`
+say nothing of it, and no log line carries one. A phantom token has the same length whatever it stands for, so what
+an agent holds says nothing of the real one.
+
 ## Clearing the vault is `clear`, not `delete`
 
 The vault is removed by `porelo vault clear`, in the same shape as `porelo clear` and `porelo project clear`. Without
@@ -911,6 +923,15 @@ limited to the store's bucket. **What would change it:** a copy that needs no ke
 A project's conversation on a shared server is named in its signed `project.yml`: the homeserver, the room and the CA's
 text as `ca_certificate`, and every machine that starts the project reaches that name. A machine sets none of it for itself.
 
+## A start is never refused for a missing homeserver
+
+A project of the organization whose file names a conversation, while neither its file nor this host says where its
+homeserver is, starts its task all the same, with no conversation: its agents cannot talk to each other, and that is
+all. The start says so once, with the step that ends it, and no homeserver of the account's own is started in its
+place. A project admin restores the room by naming the homeserver, and a room if it wants one, in `project.yml` and
+signing that change. A refusal would stop every start of such a project over a conversation its task may not need;
+the project `default` never has one.
+
 ## Only a transport a peer names is polled
 
 A daemon polls a transport only if a peer of one of the account's projects names its scheme, and says a
@@ -1102,7 +1123,12 @@ nothing from that moment, since the signer writes a commit's date, and every new
 `porelo project sign`, which shows them the file and signs only the revision they name. A machine keeps the date of the newest change it accepted, and refuses an older one, since anyone
 with write access could otherwise bring back an older signed file, with no force push. A machine new to the project has
 no such date. This is simpler than judging every commit that ever changed the file, and it is the operator's choice.
-
+The date is kept per repository under one form of its address, whatever spelling it is read by: https, http or ssh, or
+the scp form, no user, a default port taken as none, host (A to Z alone) and path in lower case, a trailing `/` or
+`.git` dropped; another port stays, so two servers of one host never share it. Its check and its write are one step
+under a lock, so two reads at once cannot both accept a file older than one of them accepted. A date an older Porelo
+kept under a host spelled in another case than the organization's is not found from the ssh address, nor one kept
+through `ssh://host:port/...` by a later https read of the same project.
 A file `project.yml` names, such as `image.run_file`, may change with no admin's signature. Nothing checks it.
 
 **The exposure:** a developer's unsigned commit can change a run file, and it runs while the image is built, with the
@@ -1147,7 +1173,7 @@ person working alone is not slowed down.
 An unattended run ends at its project's limit; a start may shorten that limit, never lengthen it. A person attached to
 the task holds the stop back: at the limit they are warned, and the run is stopped once they detach. A person at the
 session is the oversight the limit stands in for. **Not yet built:** `project.yml` has no time limit yet, and an
-unattended run kills the agent process when `--minutes` expires without checking whether a person is attached.
+unattended run stops the task when `--minutes` expires without checking whether a person is attached.
 
 ## Account-wide settings live in one file
 
@@ -1258,15 +1284,16 @@ signed commit is the proof, and it is made where the key is.
 ## A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it
 
 `--keepassxc` makes a person's new key in memory and hands it to `keepassxc-cli` over a pipe, so no key file is
-written anywhere; a key held only by the agent is not enough, since it is lost at restart. `keepassxc-cli` reads the
-master password on the person's terminal; Porelo never sees it. KeePassXC 2.7.10 does not serve an entry added while
+written anywhere; a key held only by the agent is not enough, since it is lost at restart. The shell Porelo starts for
+it reads the master password on the person's terminal with its echo off and gives it to each `keepassxc-cli` on a pipe;
+the Porelo process never holds it. KeePassXC 2.7.10 does not serve an entry added while
 its database is open, not even after its D-Bus `openDatabase` of that database; it serves it once the database is
 locked and unlocked again, or when KeePassXC starts anew. So when the agent has not served the key after 3 seconds,
 Porelo runs `keepassxc --lock`, asks KeePassXC to show the database, and the person unlocks it in KeePassXC's own
 window. **The exposure:** `keepassxc --lock` locks every database the running KeePassXC has open, not only this one;
 the others stay locked until the person unlocks them. **Why it stays:** unlocking through D-Bus
 `openDatabase(file, password, keyfile)` would serve the key with no step by the person, but it needs the master
-password in Porelo, which only `keepassxc-cli` reads. **What would change the answer:** a KeePassXC that serves an
+password in the Porelo process, which never holds it. **What would change the answer:** a KeePassXC that serves an
 entry added to an open database.
 
 ## An organization's trust record is checked, not hardened against whoever writes the state directory
@@ -1414,6 +1441,18 @@ machine the old key's past commits stay refused if the forge no longer lists it.
 adds the project's admins again, and they add the rest. An address the old key filed comes back the same way, with
 `project address` by an admin; an address written over a refused commit carries a comment naming its change, so that the
 same address is still a change for a reader to judge.
+
+## A display of the organization answers from the kept state
+
+A whole fetch of the organization's repository, its walk and the forge's lists made a page that only shows the
+organization or a project wait on its content. So `porelo org` and `porelo project show` answer from the checked state
+kept on this machine, marked `stale` with when it was checked, and a process of their own refreshes it after the
+answer; `--refresh` waits for a fresh answer instead.
+
+**No decision rests on the kept state.** A change to the organization or a project, a start, a host's grants and
+withdrawals and `TakeProject` read fresh, as before. A kept answer judges no newly fetched project content with an old
+signing key, so a stale `project show` answers its repositories `cannot-say`. A window shows the kept value as stale
+until the refresh arrives, since a role just withdrawn may still stand in it.
 
 ## What a build runs beside its secrets is fixed by its content
 
@@ -1652,6 +1691,9 @@ hosts by its repositories. Whether a named repository exists is not knowable fro
 project's repositories are in its own `project.yml`: the host's follow refuses an unknown one. Each read key at the
 central forge is deleted by whoever made it, by the id it kept: the host its per-repository keys, Porelo the
 organization's (`org remove-read-key`).
+What `porelo org fetch` answers a host names, for each project its card carries by some repositories, those names in
+`repositories`, and leaves the field out for a project carried whole, which the host's follow reads as every
+repository.
 
 ## Accept a proposed card by fast-forwarding the person's own commit
 

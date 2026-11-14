@@ -148,6 +148,11 @@ containers to confirm the dependencies resolve and `porelo setup` finds the
 packaged hooks. It also fails if a package is older than the binary it carries,
 which is the `package`-instead-of-`verify` mistake above.
 
+With `PORELO_PACKAGE_CHECK_CACHE` naming a directory, the check keeps there, per image, the package lists of the last
+update that worked and the packages its last install fetched. An `apt-get update` that fails, or a dnf install that
+cannot fetch, then installs from what is kept and says so on a `CACHED:` line; with nothing kept it fails as before.
+CI keeps that directory in the Actions cache, one entry a day.
+
 ### Installing on a machine that stays
 
 ```

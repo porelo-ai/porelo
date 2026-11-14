@@ -319,6 +319,9 @@ builds:
   as text - less when more than 32 logs share 2 MiB - for each failed job, or for every job with `logs: all`. `<n>` is
   the job's place in that list, so the failed job's log is the file its `job:` line names, not `-1.log`. The file is
   replaced as the verdict changes.
+- **The gate's `none` is said at the push**, at once, when no build of that push is reported while the task runs: the
+  push waits at the gate for a person, the project follows no builds, or the watch that reports the task's builds did
+  not start or is no longer running. `detail` says which.
 - **A verdict is final only when every workflow is**: one that finishes first, a Shared rules check, is not the
   Build. A final commit is still asked every two minutes, so a workflow started later, by hand too, is followed and
   replaces `build-<commit>.txt`. A run's change of state alone does not replace the file, so it does not wake the

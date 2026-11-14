@@ -14,9 +14,9 @@
 }
 ```
 
-**Why this size.** the save [B648](README.md#b648) added on the failing path, on three more paths, and their tests.
+**Why this size.** the save a start carrying the caller's own key makes on the failing path, on three more paths, and their tests.
 
-Filed 2026-11-12 from the third reading of [B648](README.md#b648), straight into the backlog as the bug rule says.
+Filed 2026-11-12 from the third reading of a start carrying the caller's own key, straight into the backlog as the bug rule says.
 
 **What was seen.** Read in the code, not run. `TaskLaunch` saves the task's state before it stops a failed start's
 container, so a reboot keeps the caller's key. A failed start under `--keep`, a reading task and a handed-over task

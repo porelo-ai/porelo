@@ -86,6 +86,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   (`ContainerSpec.toArguments()` and `environment()`), tested at both places.
 - **A line holds no character of a token**: a start names its variable, and `PhantomToken.toString` and
   `TaskToken.toString` say what it is for. A prefix is part of a secret.
+- **A record that holds a secret overrides `toString` to name what it is for**, never what it holds: `CommandResult`
+  prints its exit code alone, as a program's output may hold anything, and an address prints without its user
+  (`Grants.printable`).
 - **The real credential never enters a task container**: the agent holds a phantom token that the broker swaps on the
   way out, and the provider's own host stays reachable, since the token is worthless there.
 - **Fail closed on the start path**: the nft hook refuses to start a container whose ruleset does not load.
@@ -106,6 +109,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 ## Tests
 
 - **A unit test cannot reach the account it runs under.** The build sets `porelo.test.real.account.refused` for surefire, and `PoreloContext.real()`, `XdgPaths.current()` and a `~` then refuse with an `Error`; `PORELO_VAULT`, `SSH_AUTH_SOCK` and `DBUS_SESSION_BUS_ADDRESS` are kept from the test JVM. A refusal is the test's fault or the code's: give it the test's context, and take a home from `context.paths().xdg().home()`.
+- **A test's result does not depend on the login or the umask of whoever runs it.** A test of code that reads the
+  login runs under `TransportLogin` (`apps/app`), a login every transport takes, and one about a file's mode sets the
+  umask itself with `Umask.under` (`wire`) and is `@Isolated`, since the umask is the process's.
 - **Selecting features with `-Dcucumber.features` also requires
   `-Dcucumber.glue=org.fuin.porelo.acceptance`.** An undefined step (`■`) fails the run even when
   Maven reports no failures.
@@ -263,6 +269,10 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   narrows back to `refresh_token`.
 - **`TokenPurchase` is synchronized, which is the single flight**, and its failure messages never echo what the
   authorization server sent back, which may carry the secret.
+- **Text Porelo did not write reaches a line only where it is known to hold no secret**: a service's error is repeated
+  only as a code OAuth defines (`Grants.named`), a failing passphrase command by its exit code, and every value handed
+  to a transport is withheld from its standard error, in its failure and its streamed lines alike. `porelo vault
+  credential` answers a pipe, a socket, a file or `/dev/null`, never a terminal.
 
 ### Tasks and their helpers
 
@@ -402,6 +412,10 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **Eight artifacts reach Central: `porelo-agent-api`, `porelo-wire`, `porelo-acceptance-kit`, `porelo-bom`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-ffm-check` and `porelo-cpu-check`**, the `wire` and `ecosystems/api` ones under Apache-2.0 and the others under GPL-3.0-or-later; the
   packages and the agents' go to Artifactory, `porelo-dist-deb` and `porelo-dist-rpm`.
 - **Under `-Pcentral-sonatype-release` only `skipPublishing` counts**, default-deny in the root and off in those eight.
+- **A snapshot publishes six of them, unsigned and without sources or javadoc jars**: on the `snapshots` channel
+  Publish adds `-Dgpg.skip=true -Dmaven.source.skip=true -Dmaven.javadoc.skip=true -DskipInternalPublishing=true`,
+  which `porelo-ffm-check` and `porelo-cpu-check` read as `skipPublishing`, since no repository resolves their snapshot
+  and Central validates no snapshot. A release on a `v*` tag publishes all eight, signed, with both jars.
 - **Artifactory is spoken to with curl, through `.github/scripts/artifactory.sh`**: no client is downloaded into a job
   holding the token. A Debian upload needs `deb.distribution`, `deb.component` and `deb.architecture` (Annotate
   permission), or it is stored and never indexed; build-info is not published.
@@ -410,6 +424,13 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **The bill a package installs is its own** (`dist-deb`'s `makeBom`, its subject `porelo-dist-deb`).
 - **The published binary is the one the Ubuntu leg tested**, fetched back with a manifest, since a hosted runner has
   no musl and a native image built on Ubuntu runs on Fedora too.
+- **One commit runs green on the central forge and on a host's Forgejo, switched by forge variables, never by a branch
+  in a workflow.** The legs, `proven` and the cancel of a failed commit's legs run only where `github.server_url` is
+  GitHub's; `sweep.yml`, `artifactory-smoke.yml` and `delete-runs.yml` only where `PORELO_PUBLISH` is not `false`.
+  Where it is `false`, `deploy` runs after a passed Build alone, for `main` and version tags, deploys the jars with the
+  profile `PORELO_DEPLOY_PROFILE` names (refused when empty) to the registry `settings.xml` calls `porelo-forge`, and
+  runs no package step; unset on the central forge, the profile stays `central-sonatype-release`.
+  `PublishWorkflowTest` holds each condition.
 - **Every agent repository carries the three-job build**: build and unit tests on `ubuntu-24.04`, publish with an
   index check, and acceptance on rented `ubuntu` and `fedora` from the package repository (`agents/README.md`).
 

@@ -5,11 +5,11 @@
   "$schema": "issue-1.json",
   "id": "B175",
   "title": "The Profile That May Bind The Socket",
-  "state": "Implementing",
+  "state": "Review",
   "size": "L",
   "priority": "Medium",
   "rank": 13,
-  "blockedBy": ["B135"],
+  "blockedBy": [],
   "covers": "On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines.",
   "openQuestions": 0
 }
@@ -202,10 +202,18 @@ into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/le
   binder that entered `porelo` by name (the stack) and a plain `unconfined` one are refused; the kernel recorded three
   denied connects with `peer="unconfined"`. 9 expectations held, none failed. This decides step 9.
 
+- Closed on the Ubuntu VM deployed machine-wide from the package (2026-11-14), with [B752](README.md#b752) to
+  [B755](README.md#b755) in Review: [B755](README.md#b755)'s five scenarios passed - the profiles loaded under
+  abi 5.0 and again after a reboot, `doctor` for the machine-wide install and an account's copy, a task's agent in
+  `porelo-task` reaching the vault proxy, and an abstract name served outside `porelo-task` refused to the task's
+  session. `dpkg --purge --force-depends porelo` left neither profile on disk nor loaded, and `dpkg -i` of the same
+  package loaded both again, with `dpkg --audit` empty after it. The SELinux half of the package's scripts is
+  [B135](README.md#b135)'s, which this issue does not wait on.
+
 ## Acceptance
 
-- On the ubuntu leg with the profiles loaded, a process of the operator's outside `porelo` binds the socket a task
-  connects to, and the task's agent is refused. Seen to fail: the agent's request reaches that process.
+- A stand-in bound outside `porelo` is refused at the task's connect for an abstract name; for the vault socket this
+  is [B757](README.md#b757)'s, once a client takes an abstract name.
 - A task served by Porelo reaches the vault proxy and the relay as today, on the leg, installed in the account. Seen
   to fail: a `connect` of the task or the relay to Porelo's own socket is refused.
 - The agent in a task cannot leave `porelo-task`. Seen to fail: a process in the task writes `exec porelo` to its

@@ -17,7 +17,7 @@
 
 **Why this size.** One cut in the socket's dispatch for two methods, a review of the other account-wide reading methods' handlers, and tests. Estimate: 45 minutes (Core's median for S).
 
-Found while building [B573](README.md#b573): `McpMethods.READING` grants `Projects` and `WatchProjects` over a task's socket. Both take no project and list every project of the person, so a task granted them reads every project's names and settings, past [B573](README.md#b573)'s hold on project reads. The other reading methods without a project parameter (`Credentials`, `SshKeys`, `Keyslots`, `Authorizations`, `Destinations`, `Prompts`, `Usage`, `HostKeys`) are account-wide by their signatures; their handlers are not read yet.
+Found while building the hold of a task's project reads to its own project: `McpMethods.READING` grants `Projects` and `WatchProjects` over a task's socket. Both take no project and list every project of the person, so a task granted them reads every project's names and settings, past that hold on project reads. The other reading methods without a project parameter (`Credentials`, `SshKeys`, `Keyslots`, `Authorizations`, `Destinations`, `Prompts`, `Usage`, `HostKeys`) are account-wide by their signatures; their handlers are not read yet.
 
 ## Plan
 

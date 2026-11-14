@@ -9,9 +9,7 @@
   "size": "XS",
   "priority": "Medium",
   "rank": 23,
-  "blockedBy": [
-    "B668"
-  ],
+  "blockedBy": [],
   "covers": "A task is no longer given PORELO_ISSUE_PREFIXES; the shared rule in each AGENTS.md says how issues are named instead.",
   "openQuestions": 0
 }
@@ -20,7 +18,7 @@
 Filed 2026-11-12 under ST313, part 3 of [PJ108](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj108). Analyzed by Agent Core.
 
 **What must be true.** A task is no longer given `PORELO_ISSUE_PREFIXES`. It lands only after the shared rule of PJ108
-is in every repository's AGENTS.md. That waits on [B668](README.md#b668) and on Frontend's part 5 (ideas to the
+is in every repository's AGENTS.md. That waits on Frontend's part 5 (ideas to the
 planner), and the coordinator puts the rule in place.
 
 **Size.** XS: one variable less, its test and its line in the docs.

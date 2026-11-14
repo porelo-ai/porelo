@@ -10,8 +10,8 @@ A provider is **data**: an upstream, a header, a prefix and a path, found by sca
 That is why there is no code to write for most of these, and why adding one is a file rather than
 a release.
 
-Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. [P09](README.md#p09) concerns
-providers as a class, the others one provider each.
+Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. An issue concerns
+one provider, or providers as a class.
 
 ## Estimated
 
@@ -24,18 +24,13 @@ providers as a class, the others one provider each.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | [P09](README.md#p09) | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider. | 0 |
-
-## Review
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="p09"></a>[P09](P09-A-Native-Agent-And-A-Provider-It-Does-Not-Know.md) | M | - | A native agent is paired with every provider today and fails inside the task: `provider.knows` in the agent API and an `UNKNOWN_TO_AGENT` refusal. |
+| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | - | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts the refusal of a provider it does not know for such a provider. | 0 |
 
 ## Finished
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="p09"></a>P09 | A Native Agent And A Provider It Does Not Know | An agent speaking `native` lists the providers it recognizes under `provider.knows`, is paired only with those in `agents --verbose`, `providers` and the start, and a start with any other provider is refused with `UNKNOWN_TO_AGENT` before anything is made, naming the agent, the provider and the providers it knows; a definition listing none keeps every provider. |
 | <a id="p12"></a>P12 | The Google Sign-In As A Provider | `providers/google-sign-in.yaml` serves `https://daily-cloudcode-pa.googleapis.com` with `cloud-code` and the Google sign-in as `Authorization: Bearer`; an agent may speak a second dialect under its own variable; the sign-in is renewed on the host with the client's own secret, kept hidden, and the login picks that client among those the agent's CLI holds by asking the service once per pair; an API key is refused before the start, naming `google`. Walked live: a task's Antigravity CLI answered, the container held only a phantom token, the sign-in was renewed with the picked client, the three hosts outside the model route refused. |
 | <a id="p11"></a>P11 | Provider ChatGPT Sign-In | `providers/chatgpt.yaml` serves `https://chatgpt.com` with `openai` under `/backend-api/codex` and the ChatGPT sign-in as `Authorization: Bearer`, its account as `ChatGPT-Account-Id` filled by the provider key `credential_headers`; renewed on the host; an API key is refused before the start, naming `openai`. Walked live: a task's Codex CLI answered, the container held only a phantom token, the sign-in was renewed, `ab.chatgpt.com` refused. |
 | <a id="p05"></a>P05 | Provider OpenAI | `providers/openai.yaml` serves `https://api.openai.com` with `openai` under `/v1` and the API key in `Authorization: Bearer`, refusing a ChatGPT sign-in before the start and naming `chatgpt`; proved through the broker in `porelo-codex`. |

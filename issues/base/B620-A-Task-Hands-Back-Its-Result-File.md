@@ -49,7 +49,7 @@ How it is today, read in the code:
 ## Acceptance
 
 - The tests above, seen red first.
-- With [B619](README.md#b619), a discussion task on a rented host writes `idea.json`, ends, and the window reads its
+- A discussion task, reading every repository of its project, on a rented host writes `idea.json`, ends, and the window reads its
   content from the person's computer.
 
 ## As built

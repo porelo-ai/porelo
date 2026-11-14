@@ -9,7 +9,7 @@
   "size": "S",
   "priority": "Low",
   "rank": 65,
-  "blockedBy": ["B649"],
+  "blockedBy": [],
   "covers": "An allowed-signers file that is not valid UTF-8 is read line by line as ssh-keygen reads its bytes, and is not refused whole.",
   "openQuestions": 0
 }
@@ -17,7 +17,7 @@
 
 **Why this size.** One reader and its test.
 
-Filed 2026-11-13 from building [B649](README.md#b649). Porelo now reads a signers file as git and ssh-keygen read it,
+Filed 2026-11-13 from building the reading of signers files as git reads them. Porelo now reads a signers file as git and ssh-keygen read it,
 line by line, but it still decodes the whole file as UTF-8 first. One line with a byte that is not UTF-8 refuses the
 whole file, while ssh-keygen reads the raw bytes, skips or reads that line, and verifies by the others. A commit that
 git accepts is refused here. Failing closed is safe, but it is wrong.

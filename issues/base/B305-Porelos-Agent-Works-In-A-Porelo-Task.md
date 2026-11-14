@@ -35,7 +35,8 @@ and takes this issue to Review inside the task with the host's Forgejo build gre
   - The package check runs `podman run` against several distributions' images, and the acceptance suite needs
     podman and a machine of its own: both run on the forge's legs, never in the task.
   - The vault's tests use the kernel keyring, whose system calls the task's seccomp refuses.
-- **Forgejo's build:** `build.yml` rents legs today; it runs on the local forge only after [B306](README.md#b306).
+- **Forgejo's build:** `build.yml` runs on the local forge without its legs, which rent machines only where
+  `github.server_url` is GitHub's.
 - **The way back:** the task's open work is fetched from the host's forge into this machine's checkout, the
   repository's upstream switches back in `project.yml`, and the local session resumes with its watcher, as the project's procedure for an
   agent's move lays out.

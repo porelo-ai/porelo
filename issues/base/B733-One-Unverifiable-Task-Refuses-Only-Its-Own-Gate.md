@@ -23,7 +23,7 @@ Read at the stack's head: `TaskHistory.find(paths, project, task)` walks every r
 
 A second shape, with no task left running: a removed task's identity record said `RETIRED`, and its task-record
 folder had been made again a few minutes after the removal, holding only an empty `.wake.lock`. A late wake made it,
-and from then on `TaskHistory.find` refused every gate. [B610](README.md#b610)'s follow-up stops that wake: no lock and
+and from then on `TaskHistory.find` refused every gate. A removed task's kept mail record freeing its name stops that wake: no lock and
 no late wake makes a removed task's folders again. This issue keeps the gates of other tasks open whatever name is
 left.
 

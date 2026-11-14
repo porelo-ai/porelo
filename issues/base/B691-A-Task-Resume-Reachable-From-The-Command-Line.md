@@ -17,7 +17,7 @@
 
 **Why this size.** One hint, one sentence of a page and one test.
 
-Filed 2026-11-13 from [B203](README.md#b203): walking the command tree for every task command showed `TaskResumeCommand`
+Filed 2026-11-13 from checking task names by what the commands do: walking the command tree for every task command showed `TaskResumeCommand`
 in no group. `task attach` calls its `resume` directly, but no command line reaches it.
 
 **What must be true.** The hint in `task list` for a task from before a restart names a command that runs:

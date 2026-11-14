@@ -20,7 +20,7 @@ Filed 2026-11-12 for ST347 (every story played through once, as a user would), f
 porelo-project's stories.
 
 **What must be true.** The story's test is played once on the test VM by a script that does what a person would at
-the command line: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. Its issues here: [B384](README.md#b384).
+the command line: a start waits until its gate and relay are both up; a start whose gate or relay does not come up ends with its code; two starts of one name never stop each other's task. What it plays is built.
 
 ## Plan
 
@@ -45,8 +45,7 @@ Each step says what it does and what it read; the run ends with what held, what 
 did not hold, and exits 1 when anything failed unexpectedly. A trap removes the tasks, the project, its image, the
 state directories it made and the vault, also when the run stops part-way.
 
-**Expected failures:** [B384](README.md#b384) for every point of steps 1 to 4 except that a start answers 0 and that
-one of the two starts starts the task; `--expect-fail` changes the list (`none` when [B384](README.md#b384) is in Review).
+**Expected failures:** none, since what it plays is built; `--expect-fail` changes the list.
 
 **How it is run** (through the coordinator, on the laptop, from this repository's root):
 

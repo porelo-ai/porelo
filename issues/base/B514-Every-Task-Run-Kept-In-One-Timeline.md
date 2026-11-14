@@ -56,12 +56,12 @@ change.
 - `events.jsonl` is already append-only and hash-chained, `events --verify` already checks it, and `Events`
   (`55-events.varlink`) already reads it with filters.
 - A second chain would be a second thing to verify and a second timeline to merge.
-- Within Tasks1 only the comment on `kind` grows, as [B507](README.md#b507)'s `started` did. `started` becomes one of
+- Within Tasks1 only the comment on `kind` grows, as the MCP endpoint's `started` did. `started` becomes one of
   the `task-*` kinds.
 
 **Who did it** is known where the call comes in, never from a field:
 - the person's socket means the person (CLI or GUI);
-- a task's MCP socket means that task, from [B507](README.md#b507)'s `CALLER`. The MCP client's name and session are known only to
+- a task's MCP socket means that task, from the MCP endpoint's `CALLER`. The MCP client's name and session are known only to
   porelo-mcp, and they need a field in the binding with Agent MCP, marked as the client's word, not proven;
 - porelod's own acts (expiry, prune, a failed start, a reboot found at start) name porelod.
 

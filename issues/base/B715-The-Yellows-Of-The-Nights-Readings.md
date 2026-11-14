@@ -9,7 +9,7 @@
   "size": "M",
   "priority": "Medium",
   "rank": 69,
-  "blockedBy": ["P09", "B622"],
+  "blockedBy": ["B622"],
   "covers": "An agent's default provider is one it knows, the start check's refusal of an unknown provider is tested and names where the provider came from, `porelo keep` never leaves an older work record than the one it was given, and a task that wrote no result costs a listing nothing.",
   "openQuestions": 0
 }
@@ -21,7 +21,7 @@ Filed 2026-11-13 from the Sonnet readings of the night's work, where nothing was
 changes read are not on main yet: a result taken only from a task that ran, and Agent Smith's tests under any login
 and umask. Smith files the latter's points himself.
 
-- **[P09](../providers/README.md#p09).**
+- **A native agent and a provider it does not know.**
   - Nothing checks that `provider.default` is among `knows`, so an agent definition can refuse its own default on
     every start. Refuse such a definition when it is read.
   - The new `StartCheck` arm for `UNKNOWN_TO_AGENT` has no test of its wire value and exit code.
@@ -55,7 +55,7 @@ and umask. Smith files the latter's points himself.
   `CredentialChoice` marked the choice resolved. The actual-start assertion is expected to fail without this fix;
   mapping the `StartCheck` arm to `WRONG_DIALECT` also makes the outcome and wire assertions fail.
 - **Provider provenance: no change.** This checkout has no project provider-selection setting; its `providers` map
-  selects models. With [P09](../providers/README.md#p09)'s default-provider validation built above, the refused
+  selects models. With the default-provider validation built above, the refused
   selection comes from `--provider`, so the existing diagnostic names the available source correctly.
 - `TaskWorkRecords` writes an `updatedAt` instant on every original record write, including starting, ending,
   resuming, stopping and removal. Keep and restore preserve that instant and select the later update of the same

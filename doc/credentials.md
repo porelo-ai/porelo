@@ -281,6 +281,12 @@ seed. A key with a passphrase, or of an algorithm Porelo does not sign with, is 
 part of it, and a private key whole. A value the entry already holds, with the same kind and settings, is not written
 again: `vault put` says `unchanged NAME` and exits 0, and `--json` answers `{"name", "stored"}` for a program.
 
+**Every command that stores an entry says what reads it**: `vault put`, `vault import`, `vault login`,
+`vault authorize`, `host stop-secrets` and `talk join --into-vault` answer `used for` and the declarations and
+projects that ask for the entry by that name, a project's `builds.credential` or `credentials:` among them. A name
+nothing asks for yet is `unused`, with what may ask for it; an agent's name stored where a provider's belongs is a
+warning.
+
 **`vault import`** saves retyping, and with it the commonest mistake, storing the guide's
 placeholder instead of the key. An agent can hold sign-ins for several providers: `--provider NAME` imports that
 one and stores it under that name, and an answer for another provider, or an agent that cannot say which it answered, stores
@@ -584,6 +590,15 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
   a config and no value is on a command line.
 - **A token is lent to the scheme, host and port of the address git fetches, over `https://` only**, so a forge on
   its own port gets it and another port of that host does not; the entry's name names the host alone (`git.token.<host>`).
+- **The forge's API is asked with the token declared for the organization's `https://` address**, however its
+  repositories are cloned, from the vault, a file or a variable; with none declared, `git.token.<host>`, and for an
+  address on its own port only a token declared for that port. Telling who owns a GitHub organization takes a token
+  that sees its memberships: an organization admin's, or a GitHub App's installation token for that organization,
+  whose App has Members: read. Such a token lives an hour, so it is declared with `--env` rather than put in the vault:
+
+  ```
+  porelo credentials declare https://github.com/acme/ --kind=token --env GITHUB_APP_TOKEN
+  ```
 - **An `oauth` record is not renewed.** An expired one is refused by name, with what to run.
 
 ### A program reading a private repository

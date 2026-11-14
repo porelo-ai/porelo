@@ -9,7 +9,7 @@
   "size": "S",
   "priority": "Medium",
   "rank": 44,
-  "blockedBy": ["B674"],
+  "blockedBy": [],
   "covers": "A start of a task name whose removal could not delete its mailbox begins with an empty mailbox, never the removed task's conversation and refused originals.",
   "openQuestions": 0
 }
@@ -17,12 +17,12 @@
 
 **Why this size.** one check where a start makes its mailbox, its refusal or clean-up, and tests.
 
-Filed 2026-11-13 from building [B674](README.md#b674), straight into the backlog as the bug rule says.
+Filed 2026-11-13 from building the removal that retires its name whatever its deletes do, straight into the backlog as the bug rule says.
 
-**What was seen.** Read in the code, not run. Since [B674](README.md#b674), a removal whose mailbox delete fails still
+**What was seen.** Read in the code, not run. A removal whose mailbox delete fails still
 retires the name, so the same owner can start that name again. `TaskLaunch` makes the mailbox with `Mailbox.create()`,
 which keeps what is already there: the new task would find the removed task's conversation and the refused originals
-under `filter/rejected`. Before [B674](README.md#b674) the name stayed blocked, so this could not happen.
+under `filter/rejected`. While such a removal left the name blocked, this could not happen.
 
 **What must be true.** A new task starts with an empty mailbox. What a removed task of the same name left behind is
 deleted before the start, or the start is refused, naming the leftover and how to clear it (`porelo prune`).

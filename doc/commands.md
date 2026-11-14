@@ -190,7 +190,6 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   daemon, Start's `work: (issue, phase)`, which `CanStart` takes too and answers `WORK_REFUSED` for.
 - `--short NAME`: records an optional container spelling for the task: `[a-z][a-z0-9-]*`, at most 16 characters,
   no underscore and no `porelo-` prefix. It stays fixed with the project's short spelling when the task is created.
-  Container creation currently keeps the legacy name.
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
 - With no project named, at a terminal, a checkout with no project is asked about: what the adapters found, each host
   it would open, and anything they could not read, such as a JDK a parent POM sets that is not there yet, which a yes
@@ -348,6 +347,9 @@ A task's MCP start cannot request the wait.
 | `AGENT` | Running the agent, when a prompt is given |
 
 HELPERS ends DONE even when a helper printed a warning; the warning remains in the lines.
+A helper that has not come up within 20 seconds fails HELPERS: the start exits 70 and leaves nothing of the task
+running. A resume whose helpers do not all come up stops the task again, says how many came up and exits 70; when it
+cannot stop it, it names what may still run.
 
 | State | What it says |
 |---|---|
@@ -362,6 +364,9 @@ contents are unknown. A task never removes itself when it ends. At a terminal it
 running task first; to push the work it holds to the gate, discard it, or keep the task; to start a stopped task
 so its work can be pushed; and to discard unseen what nobody recorded - no by default, and never with `--yes`,
 which otherwise stops or starts the task as removing it needs. `--no-input` asks nothing.
+A start refused before its container was made leaves an unfinished start, which `project clear` and `project remove`
+refuse for, naming `porelo task remove <container>`; `task remove` takes it by that name or by the task's own name, and
+a task name whose unfinished starts are in several projects is refused, exit 64, listing them.
 
 **Elsewhere, what a refusal would send you to type is asked at a terminal**, by the same rules: `prune` and `clear`
 list what would go and then ask whether to remove it, no by default, where they said to run them again with `--yes`;
@@ -519,6 +524,10 @@ unsigned, and `certified` is `false` in `task list --json`; on a host whose pers
 task's forge token, and pushes its branch, `porelo/<task>`, itself; the container holds no token.
 Porelo runs the helper by its path through `sudo -n`, as
 [the host's contract](hosts.md#a-task-certificate-judged-for-the-host) says.
+A start there that nothing could certify is refused before its broker holds a credential or its image is built, and the
+refusal names the line to run at your own computer, where your agent holds your card's key: `porelo task start TASK
+--host LOGIN@HOST --project PROJECT --repository REPOSITORY`; an agent on the host holding that key does as well. When
+the project's access file names no key that may certify it, the refusal says that instead.
 
 **The mark.** No option or setting turns every check off: `--insecure` and an `insecure` key in `project.yml` are
 refused as unknown, and each check that may be relaxed has its own flag. What already runs without a check is named
@@ -729,6 +738,9 @@ Nothing an agent pushes reaches a real upstream without passing here.
 
 All but `pending`, `protect` and `check` take `-p PROJECT` and `-r REPOSITORY`.
 
+`gate review` and `gate pending` show each waiting commit by its full id, which is what `gate approve --commit` takes;
+a shortened id is refused, since another commit could be made to share it.
+
 A review the daemon sends (Tasks1 `Review`) is one message of at most 4 MiB. When the whole patch does not
 fit, its `diff` ends at a file boundary, never inside a file, and its `cut` says so: how many files' patches
 are shown and omitted, the omitted paths, and the `porelo gate review` command that prints the whole review
@@ -736,6 +748,10 @@ on this machine. The file list, each file's rank and the log stay whole, and the
 whole change before anything was cut. When even the review without its patch does not fit, the answer is
 the error `ReviewTooLarge`, with its size and the same command, never a shortened file list.
 `porelo gate pending --project default` lists waiting work of every repository in `default`.
+
+Looking at a gate only reads: for a repository this machine holds no mirror of, `gate pending` and the daemon's
+`Pending` answer that nothing waits and reach no network, and `review`, `approve` and `reject` are refused, since only
+a task's start makes the mirror.
 
 On the host's own forge, an amended approval may replace the task's branch only while its head is the last
 commit this gate forwarded for the same task, using `--force-with-lease` on that commit, and the same pull
@@ -905,6 +921,10 @@ Admin's work. A person holding more than one role may exercise each of them.
 | `porelo project create-repository PROJECT [--review required\|optional]` | A Project Admin creates the project's repository on the organization's forge, private and empty, with your token, signs its first `project.yml` and files its address, all in this one command. The Organization Admin role grants no right here. A run stopped anywhere is answered again under the same `--id`. The answer adds `address`. Without `--review`, the first file says `review: optional` with at most one unlocked Project Admin; with two or more it keeps the default `required`. An explicit `--review` is written as given. On creation with `required` and fewer than two unlocked admins, the answer adds `note` and the text explains that a merge waits for a second admin's approval; `porelo project review PROJECT optional` shows the entry an admin writes and commits signed. A partial retry keeps the first commit's review choice even if membership changes; a completed retry answers its receipt without inferring review from ignored options. Use `project show` for current review. 77 when the vault is shut and may hold the token. |
 | `porelo project address PROJECT ADDRESS` | A Project Admin changes the address of a project that is opened, or files again one a lost key filed, which a new reader refuses; `not-opened` otherwise. The Organization Admin role grants no right here. |
 | `porelo project show PROJECT [--json] [--refresh]` | Answers a project for its members, `not-allowed` for anyone else, or one registered on this machine alone or `default`, from Porelo's settings, its organization fields `null`. A filed project's `repositories` are not read yet: `state` is `not-opened` or `cannot-say`, with `names` empty. Opened, `repositories` adds `file_signer`, the login of the admin whose signature makes the file read, `null` while it stands refused: an interface warns before removing, locking or demoting that person, as the file then stands refused until another admin runs `project sign`. `repositories.review` and each of `repositories.names[].review` say what the file sets, `required` or `optional`. For an organization project with fewer than two unlocked admins, each `required` review gains `review_waits: "no second admin"` beside it, and the text names the repositories whose merges wait for a second admin's approval. Optional reviews and projects known only to this machine carry no such warning. |
+
+`porelo org host refresh` first says on standard error that it asks the host to follow the organization, then shows
+each line the host writes there as it comes, after the host's name; a line holding the token is replaced by a
+sentence saying it was withheld. Standard output stays the one answer, with `--json` too.
 
 ## commit
 
@@ -1140,6 +1160,12 @@ not used /usr/libexec/porelo/agents/porelo-agent-<name>
 
 An agent's description in `agents.d/` hidden by the account's own is said the same way, and one that names no
 usable executable as `not taken <file>` with the reason.
+
+The `messages` line says whether this machine can carry its projects' messages. For each project that names a
+transport, the transport must be installed and answer `describe`, and where every address its messages reach is on
+loopback, something must take a connection there within a second; a server elsewhere is not asked. Any of these
+failing is `DEGRADED`, a project file that does not read `UNKNOWN`, and a machine whose projects name no transport
+`OK`, needing none.
 
 `daemon dumpable` is about the daemon, the process that holds the vault's secrets, not about `doctor` itself: `no`
 when its entries under `/proc` belong to root, which is how the kernel shows a process that cannot be core-dumped or
