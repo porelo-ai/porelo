@@ -150,4 +150,45 @@ class SecretScanTest {
 
         assertThat(SecretScan.scan(runner, mirror, "main")).isEmpty();
     }
+
+    @Test
+    void severalMatchesOnOneLineAreOneFinding(@TempDir Path root) throws Exception {
+        final Path mirror =
+                mirror(
+                        root,
+                        Map.of("bundle.js", "var a=\"" + TOKEN + "\",b=\"" + TOKEN + "x\";\n"));
+
+        assertThat(SecretScan.scan(runner, mirror, "main"))
+                .singleElement()
+                .extracting(SecretScan.Finding::place)
+                .isEqualTo("bundle.js:1");
+    }
+
+    @Test
+    void aGitThatTimesOutIsNoCleanTree(@TempDir Path root) {
+        final org.fuin.porelo.testing.FakeCommandRunner timing =
+                new org.fuin.porelo.testing.FakeCommandRunner()
+                        .answering("rev-parse", "0123abcd\n")
+                        .timingOut("grep --no-color");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> SecretScan.scan(timing, root.resolve("m.git"), "main"))
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("could not be scanned");
+    }
+
+    @Test
+    void anAnswerTheRunnerCutIsNoCleanTree(@TempDir Path root) {
+        final org.fuin.porelo.testing.FakeCommandRunner cut =
+                new org.fuin.porelo.testing.FakeCommandRunner()
+                        .answering("rev-parse", "0123abcd\n")
+                        .answering(
+                                "grep --no-color",
+                                "[12345 bytes cut before this]\n0123abcd:a\u00001\u0000x\n");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> SecretScan.scan(cut, root.resolve("m.git"), "main"))
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("more than can be read at once");
+    }
 }

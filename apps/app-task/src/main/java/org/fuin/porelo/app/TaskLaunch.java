@@ -3519,7 +3519,8 @@ public final class TaskLaunch {
                                 .check(
                                         repository.name(),
                                         workspace.gate().mirror(),
-                                        "refs/heads/" + startingBranch.branch())) {
+                                        "refs/heads/" + startingBranch.branch(),
+                                        startingBranch.branch())) {
                     return 65;
                 }
             }

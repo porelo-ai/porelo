@@ -10469,6 +10469,12 @@ class TaskRunCommandTest {
     /** A private key's header, built here so this file is no finding of any scanner. */
     private static final String KEY_HEADER = "-----BEGIN " + "OPENSSH PRIVATE KEY-----";
 
+    /** The digest the scan keeps for the key at deploy/key:1: its file's blob and the match. */
+    private static String keyDigest(Path dir) throws IOException {
+        final String blob = git(dir.resolve("upstream"), "rev-parse", "HEAD:deploy/key").strip();
+        return org.fuin.porelo.gate.SecretScan.digest(blob + "\0" + KEY_HEADER);
+    }
+
     /**
      * Starts the shell of a project whose mirror's tree holds a private key at deploy/key:1, under
      * the project's {@code secrets}.
@@ -10499,10 +10505,7 @@ class TaskRunCommandTest {
                     .add(
                             "uc",
                             new org.fuin.porelo.gate.SecretScan.Finding(
-                                    "deploy/key",
-                                    1,
-                                    "private key",
-                                    org.fuin.porelo.gate.SecretScan.digest(KEY_HEADER)));
+                                    "deploy/key", 1, "private key", keyDigest(dir)));
         }
         return execute(context, "task", "start", "--attach", "shell", "--detach", "-p", file);
     }
@@ -10563,8 +10566,7 @@ class TaskRunCommandTest {
                                                         "deploy/key",
                                                         1,
                                                         "private key",
-                                                        org.fuin.porelo.gate.SecretScan.digest(
-                                                                KEY_HEADER)))))
+                                                        keyDigest(dir)))))
                 .isEmpty();
     }
 

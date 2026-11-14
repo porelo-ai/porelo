@@ -6,8 +6,8 @@ import java.nio.file.Path;
 import java.util.List;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Project;
-import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.SecretScan;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The secret scan of a start: each tree a task will read is scanned in its mirror before the
@@ -61,15 +61,18 @@ final class SecretCheck {
      * @param repository The repository's name.
      * @param mirror Its bare mirror.
      * @param revision What the task checks out.
+     * @param branch The branch it starts from, named in the command a finding is acknowledged with;
+     *     {@code null} for the one a task starts from by default.
      * @return {@code false} when the start must end here.
      */
-    boolean check(String repository, Path mirror, String revision) {
+    boolean check(String repository, Path mirror, String revision, @Nullable String branch) {
         final List<SecretScan.Finding> found;
         try {
             found = SecretScan.scan(runner, mirror, revision);
-        } catch (GateException ex) {
+        } catch (RuntimeException ex) {
+            // A timeout or a git that could not start is no clean tree either.
             err.println("porelo: " + ex.getMessage());
-            return settle(true);
+            return settle(true, "could not be scanned for credentials");
         }
         List<SecretScan.Finding> unknown;
         try {
@@ -89,19 +92,21 @@ final class SecretCheck {
                             + project.name()
                             + " "
                             + finding.place()
-                            + (own ? "" : " --repository " + repository));
+                            + (own ? "" : " --repository " + repository)
+                            + (branch == null ? "" : " --from " + branch));
         }
         out.flush();
-        return settle(!unknown.isEmpty());
+        return settle(!unknown.isEmpty(), "holds what looks like a credential");
     }
 
-    private boolean settle(boolean anything) {
+    private boolean settle(boolean anything, String why) {
         if (anything && project.refusesSecrets()) {
             refused = true;
             err.println(
                     "porelo: nothing was created: project '"
                             + project.name()
-                            + "' refuses a start whose workspace holds what looks like a credential"
+                            + "' refuses a start whose workspace "
+                            + why
                             + " (secrets: refuse)");
             err.flush();
             return false;

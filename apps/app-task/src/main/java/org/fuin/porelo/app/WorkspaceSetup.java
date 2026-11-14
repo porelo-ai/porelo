@@ -330,7 +330,7 @@ final class WorkspaceSetup {
                                 + "/"
                                 + each.name());
                 read.add(each.name());
-                if (!secrets.check(each.name(), gate.mirror(), commit)) {
+                if (!secrets.check(each.name(), gate.mirror(), commit, null)) {
                     // The project refuses: the rest is not read, the start ends.
                     break;
                 }

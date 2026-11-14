@@ -58,6 +58,14 @@ public class ProjectSecretKnownCommand
             description = "The repository it is in; the project's own when not given.")
     private String repository;
 
+    @Option(
+            names = "--from",
+            paramLabel = "<branch>",
+            description =
+                    "The branch the start was from, as its line names it; the one a task starts"
+                            + " from by default when not given.")
+    private String from;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -92,7 +100,7 @@ public class ProjectSecretKnownCommand
         final java.nio.file.Path mirror = GateSupport.mirror(context, project, chosen);
         final List<SecretScan.Finding> found;
         try {
-            final TaskBase base = TaskBase.select(context, project, mirror, null);
+            final TaskBase base = TaskBase.select(context, project, mirror, TaskBase.named(from));
             found =
                     base == null
                             ? List.of()

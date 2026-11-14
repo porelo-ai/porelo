@@ -985,7 +985,7 @@ porelo project show PROJECT [--json]
 porelo project remove NAME [--dry-run] [--force] [--json]
 porelo project clear NAME [--yes] [--dry-run] [--force]
 porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
-porelo project secret-known PROJECT PATH:LINE [--repository NAME]
+porelo project secret-known PROJECT PATH:LINE [--repository NAME] [--from BRANCH]
 ```
 
 - **`list`** lists the organization's projects you are in, then those of this machine alone, then `default`.
@@ -1086,11 +1086,12 @@ porelo project secret-known PROJECT PATH:LINE [--repository NAME]
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a
   key without a passphrase works. Trust an ssh host first with `porelo credentials trust-host`; until then the
   task does not start.
-- **`secret-known`** acknowledges a line that `task start` named as looking like a credential as none, on this machine.
-  It searches the repository's mirror again at the branch a task starts from and takes only a place the search finds,
-  else 65. It keeps the place and a digest of the line, owner-only under `$XDG_STATE_HOME/porelo/secrets-known/`,
-  never the line; a start says the place again once its line changes. `--repository` names a repository other than
-  the project's own. Nothing in the repository acknowledges a finding.
+- **`secret-known`** acknowledges a place that `task start` named as looking like a credential as none, on this
+  machine. It searches the repository's mirror again, at the branch a task starts from by default or at `--from`, and
+  takes only a place the search finds, else 65. It keeps the place and a digest of the file and the match,
+  owner-only under `$XDG_STATE_HOME/porelo/secrets-known/`, never the match; a start says the place again once that
+  file changes. `--repository` names a repository other than the project's own. The start's line names the command
+  with what it needs. Nothing in the repository acknowledges a finding.
 
 ## providers
 

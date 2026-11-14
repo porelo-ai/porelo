@@ -76,7 +76,7 @@ provider. When a task starts, Porelo searches the tree it will check out for the
 each finding with its file and line, never its text. The project's `secrets: refuse` ends such a start with exit 65;
 the default, `warn`, says it and goes on. Only that one tree is searched: a token removed in an earlier commit is still
 in the history the task gets, so revoke it rather than delete it. A line that only looks like a credential is
-acknowledged on your machine with `porelo project secret-known PROJECT PATH:LINE`, and is said again once that line
+acknowledged on your machine with `porelo project secret-known PROJECT PATH:LINE`, and is said again once that file
 changes. See [what Porelo does not do](how-it-works.md#what-porelo-does-not-do).
 
 ## How do I work on several repositories at once in one task?

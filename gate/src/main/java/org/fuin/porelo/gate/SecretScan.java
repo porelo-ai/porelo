@@ -16,10 +16,12 @@ import org.fuin.porelo.wire.CredentialShapes;
  * Looks for credentials in the tree a task will check out, in the gate's bare mirror, before the
  * agent can read it.
  *
- * <p>{@code git grep} over one commit's tree, with the shapes of {@link CredentialShapes}: binary
- * files are skipped, and the history is not read, so a credential removed in an earlier commit is
- * not found though the task receives that history. Of each hit only the path, the line number, the
- * kind and a digest of the line are kept; the matched text is dropped where it is read.
+ * <p>{@code git grep -o} over one commit's tree, with the shapes of {@link CredentialShapes}:
+ * binary files are skipped, and the history is not read, so a credential removed in an earlier
+ * commit is not found though the task receives that history. Only the matched text is printed, so a
+ * long minified line costs no more than its match. Of each place only the path, the line number,
+ * the kind and a digest of the match with its file's blob are kept; the match is dropped where it
+ * is read.
  */
 public final class SecretScan {
 
@@ -29,7 +31,8 @@ public final class SecretScan {
      * @param path The file, relative to the tree's root.
      * @param line The line, from 1.
      * @param kind What it looks like, as {@link CredentialShapes} names it.
-     * @param digest SHA-256 of the line, hex: an acknowledgement holds while the line stays.
+     * @param digest SHA-256 of the file's blob and the match, hex: an acknowledgement holds while
+     *     the file stays as it is.
      */
     public record Finding(String path, int line, String kind, String digest) {
 
@@ -70,6 +73,17 @@ public final class SecretScan {
      */
     public static List<Finding> scan(
             final CommandRunner runner, final Path mirror, final String revision) {
+        try {
+            return scanned(runner, mirror, revision);
+        } catch (org.fuin.porelo.core.process.CommandException ex) {
+            // A git that timed out or could not start found nothing: that is no clean tree.
+            throw new GateException(
+                    "The workspace could not be scanned for credentials: " + ex.getMessage());
+        }
+    }
+
+    private static List<Finding> scanned(
+            final CommandRunner runner, final Path mirror, final String revision) {
         final CommandResult commit =
                 runner.run(
                         Command.of(
@@ -95,6 +109,7 @@ public final class SecretScan {
                                 "--no-color",
                                 "-z",
                                 "-n",
+                                "-o",
                                 "-I",
                                 "-E"));
         for (final CredentialShapes.Shape shape : CredentialShapes.ALL) {
@@ -113,18 +128,49 @@ public final class SecretScan {
                     "The workspace could not be scanned for credentials: "
                             + result.standardError().strip());
         }
-        return findings(result.standardOutput(), id + ":");
+        final String output = result.standardOutput();
+        if (output.startsWith("[") && output.lines().findFirst().orElse("").contains("bytes cut")) {
+            // The runner keeps the end of a very long answer: what it cut is not a clean tree.
+            throw new GateException(
+                    "The workspace could not be scanned for credentials: git found more than"
+                            + " can be read at once");
+        }
+        final java.util.Map<String, String> blobs = new java.util.HashMap<>();
+        return findings(
+                output,
+                id + ":",
+                path ->
+                        blobs.computeIfAbsent(
+                                path,
+                                each ->
+                                        runner.run(
+                                                        Command.of(
+                                                                "git",
+                                                                "--git-dir",
+                                                                mirror.toString(),
+                                                                "rev-parse",
+                                                                "--verify",
+                                                                "--quiet",
+                                                                id + ":" + each))
+                                                .standardOutput()
+                                                .strip()));
     }
 
     /**
-     * Reads {@code git grep -z -n} output: {@code <rev>:<path> NUL <line> NUL <text>} per line.
+     * Reads {@code git grep -z -n -o} output: {@code <rev>:<path> NUL <line> NUL <match>} per
+     * match, one finding per place.
      *
      * @param output What git printed, used here and not kept.
      * @param prefix The revision's prefix before each path.
+     * @param blob The blob id of a path, part of each digest.
      * @return The findings.
      */
-    static List<Finding> findings(final String output, final String prefix) {
+    static List<Finding> findings(
+            final String output,
+            final String prefix,
+            final java.util.function.UnaryOperator<String> blob) {
         final List<Finding> found = new ArrayList<>();
+        final java.util.Set<String> places = new java.util.HashSet<>();
         for (final String hit : output.split("\n")) {
             final int first = hit.indexOf('\0');
             final int second = first < 0 ? -1 : hit.indexOf('\0', first + 1);
@@ -141,9 +187,12 @@ public final class SecretScan {
             } catch (NumberFormatException ex) {
                 continue;
             }
+            if (!places.add(path + ":" + line)) {
+                continue;
+            }
             final String text = hit.substring(second + 1);
             final String kind = CredentialShapes.kindOf(text).orElse("credential");
-            found.add(new Finding(path, line, kind, digest(text)));
+            found.add(new Finding(path, line, kind, digest(blob.apply(path) + "\0" + text)));
         }
         return List.copyOf(found);
     }

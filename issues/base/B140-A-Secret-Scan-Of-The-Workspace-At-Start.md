@@ -69,9 +69,11 @@ Nothing scans the tree today; `CredentialScan` in `supervisor/` watches provider
   chat token, registry token, Porelo token, web token) and a private key's header, as plain POSIX ERE that Java reads
   alike. `CommandMask` takes its token expression from there; `CommandMaskTest` (29) and `ToolCallsTest` (13) green.
   Kinds are generic, so no provider's name is said.
-- `gate/.../SecretScan`: `git grep -z -n -I -E` over the commit's tree in the bare mirror, one `-e` per shape. It keeps
-  `Finding(path, line, kind, digest)`, the digest a SHA-256 of the line; the line is dropped where it is read. An empty
-  mirror has no finding; a git that fails throws.
+- `gate/.../SecretScan`: `git grep -z -n -o -I -E` over the commit's tree in the bare mirror, one `-e` per shape. It
+  keeps `Finding(path, line, kind, digest)`, one per place, the digest a SHA-256 of the file's blob id and the match;
+  the match is dropped where it is read. An empty mirror has no finding; a git that fails, times out or answers more
+  than the runner keeps throws, and is no clean tree. The plan's "hash of the matched text" became the file and the
+  match: a private key's match is only its header line, the same in every key.
 - At the start (`TaskLaunch`): right after `TaskBase.select`, `SecretCheck` scans `refs/heads/<base>` of the task's
   mirror and says each finding not acknowledged as `secret         <path>:<line>  looks like a <kind>; the agent can
   read it`, followed by the `porelo project secret-known` command for it. Under `refuse` the start ends with 65 before
@@ -87,10 +89,17 @@ Nothing scans the tree today; `CredentialScan` in `supervisor/` watches provider
   The project command group takes its project as an argument, as `clear` and `remove` do, rather than the plan's `-p`.
 - Docs: `how-it-works.md` (what Porelo does not do), `faq.md` (a token or key in the repository), `project-file.md`
   (`secrets`), `commands.md` (`project secret-known`). Changelog `secret-scan-at-start.yml`.
+- After the agy reading (gemini-4-argon-high), fixed: a `CommandException` (timeout, no git) passed `SecretCheck`, and
+  under `--all-repositories` left an unscanned tree mounted; the runner's cut of an answer over 16 MiB dropped
+  findings silently (now `-o`, and the cut is a failure); `secret-known` searched only the default branch while a
+  start `--from` another searched that one (now `--from`, and the start's line names it); a scan that could not run
+  was said under `refuse` as a workspace holding a credential; the page's example line had other spacing. Not
+  changed: the landed work a `--reads` task fetches is not scanned, it is another task's work that came through the
+  gate; a path holding a newline is named by its last part.
 - Red first: `SecretScanTest` did not compile without `SecretScan`. The start tests in `TaskRunCommandTest`
   (`aProjectThatRefusesSecretsCreatesNoContainerForAWorkspaceHoldingOne`, `aProjectThatWarnsSaysTheFindingAndStarts`)
   failed with the call in `TaskLaunch` switched off, in the same reactor, and pass with it.
-- Green, targeted: `CredentialShapesTest` 9, `SecretScanTest` 5, `SecretsKnownTest` 2, `SecretsSettingTest` 4, the three
+- Green, targeted: `CredentialShapesTest` 9, `SecretScanTest` 8, `SecretsKnownTest` 2, `SecretsSettingTest` 4, the three
   start tests, `WorkspaceSetupTest` 6, `CommandMaskTest` 29, `ToolCallsTest` 13, `ProjectReaderTest` 66,
   `ProjectFileFaultsTest` 112, `ReadingsDirectoryTest` 10, `RepositorySettingsTest` 4, `PoreloCliTest` 4.
 
