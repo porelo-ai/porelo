@@ -8,10 +8,10 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * The server a homeserver's address lends for, over loopback http. Harm guarded: a person's own
- * homeserver on this machine that cannot be named for a project at all; and a token stored for it
- * that reaches a homeserver elsewhere over plain http, one of the same host over https, or another
- * port of the same host.
+ * The server a homeserver's address lends for. Harm guarded: a person's own homeserver on this
+ * machine that cannot be named for a project at all; a token stored for it that reaches a
+ * homeserver elsewhere over plain http, one of the same host over https, or another port of the
+ * same host; and a token lent to a host's gate, which registers without one.
  */
 class LentEntryTest {
 
@@ -71,6 +71,35 @@ class LentEntryTest {
             })
     void anyOtherHttpAddressStillLendsNothing(final String address) {
         assertThat(LentEntry.name("t", address)).as(address).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "unix:/run/porelo/room.sock",
+                "unix:/run/user/1000/porelo-matrix/client.sock",
+                "https://gate.host.localhost",
+                "https://Gate.HOST.LocalHost:8448/_matrix",
+                "https://localhost.localhost",
+                "https://gate.host.localhost.",
+                "https://gate.host.localhost.:8448",
+            })
+    void aHostsGateLendsNothing(final String address) {
+        // The transport registers there without a token and drops one it is lent: named, the
+        // person stored a token for a listener that proves nothing about who it is.
+        assertThat(LentEntry.name("t", address)).as(address).isNull();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "https://localhost:8448, t.localhost",
+        "https://localhost.example.org, t.localhost.example.org",
+        "https://localhost-gate.example.org, t.localhost-gate.example.org",
+        "https://example.localhost.org, t.example.localhost.org",
+    })
+    void anHttpsServerThatIsNoHostsGateStillLendsForItsHost(
+            final String address, final String entry) {
+        assertThat(LentEntry.name("t", address)).as(address).isEqualTo(entry);
     }
 
     @Test

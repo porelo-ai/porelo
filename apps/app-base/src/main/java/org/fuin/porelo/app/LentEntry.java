@@ -9,8 +9,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * The name of a vault entry a transport is lent for a server. One rule, for the lending and for
  * whoever must say the name beforehand: read one way here and another by the client that connects,
- * it would hand one server's token to the other, so only a plain https address, a homeserver's Unix
- * socket and a plain http address on this machine's loopback lend anything.
+ * it would hand one server's token to the other, so only a plain https address and a plain http
+ * address on this machine's loopback lend anything. A host's gate - a Unix socket or a name under
+ * {@code .localhost} - lends nothing: the transport registers there without a token and drops one
+ * it is lent.
  */
 public final class LentEntry {
 
@@ -35,6 +37,9 @@ public final class LentEntry {
                             + "(?::([0-9]{0,5}))?"
                             + "(?:/[^?#\\s\\p{Z}\\p{C}]*)?");
 
+    /** What a host's gate is named under, as the transport tells it apart. */
+    private static final String GATE_SUFFIX = ".localhost";
+
     /** The port plain http goes to when the address names none. */
     private static final int HTTP_PORT = 80;
 
@@ -46,17 +51,14 @@ public final class LentEntry {
      * Returns the server an address lends for.
      *
      * @param address What the settings name, of whatever type.
-     * @return The host, in lower case; a socket's address whole, since a path is one file and its
-     *     case counts; for loopback http {@code http:<host>:<port>}, the host in lower case and the
-     *     port always given, which no https host can be read as, since a host holds no colon
-     *     outside brackets; or {@code null} when it lends nothing there.
+     * @return The host, in lower case; for loopback http {@code http:<host>:<port>}, the host in
+     *     lower case and the port always given, which no https host can be read as, since a host
+     *     holds no colon outside brackets; or {@code null} when it lends nothing there, a host's
+     *     gate among them.
      */
     public static @Nullable String server(final @Nullable Object address) {
         if (!(address instanceof String named)) {
             return null;
-        }
-        if (AddressForm.isUnixSocket(named)) {
-            return named;
         }
         final Matcher loopback = LOOPBACK_HTTP.matcher(named);
         if (loopback.matches()) {
@@ -66,7 +68,12 @@ public final class LentEntry {
             return null;
         }
         final String host = GitCredentialNames.hostOf(named);
-        return host == null ? null : host.toLowerCase(Locale.ROOT);
+        if (host == null) {
+            return null;
+        }
+        final String server = host.toLowerCase(Locale.ROOT);
+        // A name ending in a dot is the same name to the resolver, so it is the gate too.
+        return server.endsWith(GATE_SUFFIX) || server.endsWith(GATE_SUFFIX + ".") ? null : server;
     }
 
     /**

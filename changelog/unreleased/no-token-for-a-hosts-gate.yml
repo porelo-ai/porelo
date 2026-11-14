@@ -1,0 +1,2 @@
+title: "A homeserver that is a host's gate - a Unix socket or a name under .localhost - is lent no registration token, since the Matrix transport registers there without one"
+type: changed

@@ -142,7 +142,7 @@ would change the answer.
 | A machine on a shared server is admitted by a person | a person lets it in, from their client or with `talk admit` on the serving machine; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
 | An admitted machine's token may lie in a file | accepted: `talk admit --into` writes it in the clear to a new owner-only file; the interface keeps it in its secrets file instead | [entry](#an-admitted-machines-token-may-lie-in-a-file) |
 | A homeserver's registration token lies on the host that needs it | accepted, a deliberate exception to no token on a server: from the person's vault or asked once, kept in the host's vault | [entry](#a-homeservers-registration-token-lies-on-the-host-that-needs-it) |
-| A socket's registration token is lent under the socket's path | `<entry>.unix:<path>`, derived and named by nobody; accepted: a path proves nothing about who listens | [entry](#a-sockets-registration-token-is-lent-under-the-sockets-path) |
+| A host's gate is lent no registration token | a `unix:` homeserver or an https name under `.localhost` lends nothing; the transport registers there without a token | [entry](#a-hosts-gate-is-lent-no-registration-token) |
 | A loopback homeserver's registration token is lent under its host and port | `<entry>.http:<host>:<port>` for plain http on `127.0.0.0/8`, `localhost` or `[::1]`; any other http lends nothing; accepted: a port proves nothing about who listens | [entry](#a-loopback-homeservers-registration-token-is-lent-under-its-host-and-port) |
 | The keys of a project's store lie on the host for its life | accepted, a deliberate exception to no token on a server: root-only until `down`, limited to the store's bucket | [entry](#the-keys-of-a-projects-store-lie-on-the-host-for-its-life) |
 | The signed project file names a shared server | homeserver, room, CA and token file come from the project file every machine follows; a machine sets none of them | [entry](#the-signed-project-file-names-a-shared-server) |
@@ -888,20 +888,17 @@ comes along with `porelo host unlock`, from the person's vault or asked once, an
 until the token changes. **Why it stays:** a deliberate exception to no token on a server, since a task enrolls with nobody
 there to ask. **What would change it:** a homeserver that admits a host without a token.
 
-## A socket's registration token is lent under the socket's path
+## A host's gate is lent no registration token
 
-A host reaches a homeserver elsewhere over a tunnel bound to one socket, and that homeserver registers only with a token,
-so a `unix:` homeserver must be lent one. Its entry is `<entry>.unix:<path>`, derived from the address as a server's is
-from its host, so one server's token never reaches another. Not the room's server, which is a claim in the file and says
-nothing of where the socket leads, and not a name in the project file, which would let the file choose the token.
-**The exposure:** `https` proves the server and a path proves nothing, so whoever can bind that path receives the token.
-**Why it stays:** the person stores it for that path alone, and the tunnel's socket lies where only they can bind. **What
-would change it:** a transport that can tell who listens before it sends the token.
+A homeserver on a Unix socket, or one named under `.localhost`, is a host's gate: the Matrix transport registers there
+by the dummy stage and drops a registration token it is lent, and no tunnel stands for a homeserver elsewhere. So
+`LentEntry` names no entry for it, and no person is asked to store a token for a listener that proves nothing about who
+it is. A person's own homeserver at `localhost`, `127.0.0.0/8` or `[::1]` is no gate and keeps its entry.
 
 ## A loopback homeserver's registration token is lent under its host and port
 
 A person's own homeserver on this machine listens on plain http, `http://127.0.0.1:<port>` or `http://localhost:<port>`,
-and a project naming it must be lent its registration token as an https or socket one is. Its entry is
+and a project naming it must be lent its registration token as an https one is. Its entry is
 `<entry>.http:<host>:<port>`, derived from the address: loopback in one spelling (`127.0.0.0/8` in dotted decimal,
 `localhost`, `[::1]`), the host in lower case, the port always given, `80` when the address names none. The port stays
 in the name, since another port is another listener, and `http:` keeps it apart from an https server on the same host,

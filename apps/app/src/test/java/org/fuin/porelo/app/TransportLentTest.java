@@ -26,6 +26,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -54,7 +55,7 @@ class TransportLentTest {
     private static final Map<String, Object> SETTINGS =
             Map.of("homeserver", "https://chat.example:8448/base");
 
-    /** A homeserver on a socket, as a tunnel to it is bound on a host. */
+    /** A homeserver on a socket, as a host's gate is reached. */
     private static final String SOCKET = "unix:/run/porelo/room.sock";
 
     /** A person's own homeserver on this machine's loopback, over plain http. */
@@ -284,58 +285,18 @@ class TransportLentTest {
                 .doesNotContainKey(NAME);
     }
 
-    @Test
-    void aTokenStoredForOneSocketReachesThatSocket() throws Exception {
-        final PoreloContext context = open(fake, Map.of(PLAIN + "." + SOCKET, TOKEN));
-        transport(context, described(",\"lent\":[\"setup\"]"));
-
-        lifecycle(context).setup("matrix", "p", Map.of("homeserver", SOCKET));
-
-        assertThat(secretsOf(" setup "))
-                .as("the socket it was stored for")
-                .containsEntry(NAME, TOKEN);
-    }
-
     @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "unix:/run/porelo/other.sock",
-                "unix:/run/porelo/room.sock.other",
-                "unix:/run/porelo/ROOM.sock",
-                "unix:/run/porelo/./room.sock",
-                "unix:/run/porelo/../porelo/room.sock",
-                "unix:/run/porelo//room.sock",
-                "unix:///run/porelo/room.sock",
-                "unix:run/porelo/room.sock",
-            })
-    void aTokenForOneSocketDoesNotReachAnotherOrThatSocketSpelledAnotherWay(final String homeserver)
-            throws Exception {
-        // A project's file names the socket: whoever listens on another path would hold the
-        // person's registration token.
-        final PoreloContext context = open(fake, Map.of(PLAIN + "." + SOCKET, TOKEN));
-        transport(context, described(",\"lent\":[\"setup\"]"));
-
-        lifecycle(context).setup("matrix", "p", Map.of("homeserver", homeserver));
-
-        assertThat(secretsOf(" setup ")).as(homeserver).doesNotContainKey(NAME);
-    }
-
-    @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "unix:/run/porelo/./room.sock",
-                "unix:/run/porelo/../porelo/room.sock",
-                "unix:/run/porelo//room.sock",
-                "unix:///run/porelo/room.sock",
-                "unix:run/porelo/room.sock",
-                "unix:/run/porelo/room.sock/",
-                "unix:/run/porelo/room%2Esock",
-            })
-    void anAddressNotPlainlyOneFileLendsNothingEvenUnderItsOwnName(final String homeserver)
-            throws Exception {
-        // A person told such a name could store it, and a client could read the address as a
-        // different file than the one it names.
-        final PoreloContext context = open(fake, Map.of(PLAIN + "." + homeserver, TOKEN));
+    @CsvSource({
+        "unix:/run/porelo/room.sock, matrix-registration-token.unix:/run/porelo/room.sock",
+        "https://gate.host.localhost, matrix-registration-token.gate.host.localhost",
+        "https://Gate.HOST.LocalHost:8448/, matrix-registration-token.gate.host.localhost",
+        "https://localhost.localhost, matrix-registration-token.localhost.localhost",
+    })
+    void aHostsGateIsLentNoTokenEvenOneStoredUnderItsOwnName(
+            final String homeserver, final String stored) throws Exception {
+        // A host's gate registers without a token and the transport drops one it is lent: lent
+        // anyway, the token reached whoever listens on that socket or that loopback name.
+        final PoreloContext context = open(fake, Map.of(stored, TOKEN));
         transport(context, described(",\"lent\":[\"setup\"]"));
 
         lifecycle(context).setup("matrix", "p", Map.of("homeserver", homeserver));
@@ -368,28 +329,6 @@ class TransportLentTest {
         assertThat(second.only(" setup ").input())
                 .as("a socket's token, asked by a server")
                 .doesNotContain(TOKEN);
-    }
-
-    @Test
-    void anEntryPutWithTheCommandUnderTheSocketsNameIsLent() throws Exception {
-        // The name holds a colon and slashes: refused or hidden by the vault, a person could not
-        // lend a token over a socket at all.
-        final PoreloContext context = open(fake, Map.of());
-        transport(context, described(",\"lent\":[\"setup\"]"));
-        final Path value = dir.resolve("value");
-        Files.writeString(value, TOKEN, StandardCharsets.UTF_8);
-        final picocli.CommandLine put =
-                new picocli.CommandLine(VaultPutCommand.class, new PoreloFactory(context));
-        final StringWriter printed = new StringWriter();
-        put.setOut(new PrintWriter(printed));
-        put.setErr(new PrintWriter(printed));
-
-        final int code = put.execute(PLAIN + "." + SOCKET, "--from-file", value.toString());
-        lifecycle(context).setup("matrix", "p", Map.of("homeserver", SOCKET));
-
-        assertThat(code).as("porelo vault put: %s", printed).isZero();
-        assertThat(printed.toString()).as("printed").doesNotContain(TOKEN);
-        assertThat(secretsOf(" setup ")).as("what setup read").containsEntry(NAME, TOKEN);
     }
 
     @ParameterizedTest
@@ -829,10 +768,11 @@ class TransportLentTest {
         assertThat(secretsOf(" setup ")).containsEntry(NAME, TOKEN);
     }
 
-    @Test
-    void theEntryAProjectShowsForASocketIsTheEntryItIsLent() throws Exception {
-        // Shown one way and looked for another, a person holds the token under the name they were
-        // told, and the transport goes without it.
+    @ParameterizedTest
+    @ValueSource(strings = {SOCKET, "https://gate.host.localhost"})
+    void aProjectWhoseHomeserverIsAHostsGateNamesNoEntryToStore(final String homeserver)
+            throws Exception {
+        // Named, a person stored a token for a listener the transport never sends it to.
         final org.fuin.porelo.core.project.Project read =
                 org.fuin.porelo.core.project.ProjectReader.read(
                         new java.io.StringReader(
@@ -847,16 +787,12 @@ class TransportLentTest {
                             matrix:
                               homeserver: "%s"
                         """
-                                        .formatted(SOCKET)),
+                                        .formatted(homeserver)),
                         "project.yml");
-        final String shown = ProjectShowCommand.registrationEntry(read);
-        assertThat(shown).as("what the project shows").isEqualTo(PLAIN + "." + SOCKET);
-        final PoreloContext context = open(fake, Map.of(shown, TOKEN));
-        transport(context, described(",\"lent\":[\"setup\"]"));
 
-        lifecycle(context).setup("matrix", "p", Map.of("homeserver", SOCKET));
-
-        assertThat(secretsOf(" setup ")).containsEntry(NAME, TOKEN);
+        assertThat(ProjectShowCommand.registrationEntry(read))
+                .as("what the project shows for %s", homeserver)
+                .isNull();
     }
 
     @Test

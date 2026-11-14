@@ -266,12 +266,6 @@ from its side, as *blocked by*.
 | <a id="b751"></a>[B751](B751-Small-Faults-Found-Playing-Stories-On-A-Test-VM.md) | S | - | A forge's refusal reaches the agent without Porelo's internal git command line, an upstream that cannot be reached is said with one full stop, and an unknown option of `task start` answers 64 as other commands do. | 0 |
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b763"></a>[B763](B763-No-Token-Lent-To-A-Hosts-Gate.md) | S | - | A transport is lent no registration token for a homeserver that is a host's gate - a `unix:` socket or an https name under `.localhost` - since the Matrix transport drops it there; a person's own loopback homeserver and an https server keep theirs | 0 |
-
 ## Review
 
 | # | Size | Blocked by | What it covers | Open questions |
@@ -385,6 +379,7 @@ from its side, as *blocked by*.
 | <a id="b520"></a>[B520](B520-A-Build-Verdict-Final-Only-When-Every-Workflow-Is.md) | S | - | A commit's build verdict reaches the task as final only once every workflow of it is, and a later run of the same commit, started by hand, is followed again and its file replaced. | - |
 | <a id="b519"></a>[B519](B519-A-Persons-Line-On-A-Host-Reaches-The-Tasks.md) | S | - | On a host, an admitted person's line in the project's room reaches the tasks and wakes the one it mentions: on the host's own homeserver `TransportLifecycle.persons` no longer waits for the lifecycle verb `members`, which the Matrix transport dropped. | - |
 | <a id="b729"></a>[B729](B729-A-Running-Tasks-Egress-Is-Changed-By-The-Name-The-Task-List-Shows.md) | S | - | `porelo shield egress --task NAME` takes the name `porelo task list` shows, as `task status` and `task remove` do, besides the container's name. | - |
+| <a id="b763"></a>[B763](B763-No-Token-Lent-To-A-Hosts-Gate.md) | S | - | A transport is lent no registration token for a homeserver that is a host's gate - a `unix:` socket or an https name under `.localhost` - since the Matrix transport drops it there; a person's own loopback homeserver and an https server keep theirs | 0 |
 | <a id="b515"></a>[B515](B515-A-Start-That-Did-Not-Stream-Answers-With-The-Runs-Result.md) | M | - | A `Start` with a prompt that did not stream answers with the run's result in its final reply, the record its agent declares as its last message or else its last lines, so an MCP caller sees what the run answered; a streamed start also streams the run's own lines. | - |
 | <a id="b513"></a>[B513](B513-Agent-Choice-Test-Independent-Of-Listing-Order.md) | S | - | `AgentChoiceTest`'s dropped-provider case passes in every checkout, sub-agents' worktrees included, since a test's socket path takes the shorter of the relative and the absolute way. | - |
 | <a id="b512"></a>[B512](B512-The-Slow-Git-Tree-Tests-Run-Once-Per-Hand-Over.md) | S | - | Organization Git Tree's three slow classes are tagged `slow` and run only under `-Pwhole`, which the hand-over's suite, CI's build and the documented whole-suite commands name; `WholeSuiteProfileTest` holds the pom and CI to it. | - |

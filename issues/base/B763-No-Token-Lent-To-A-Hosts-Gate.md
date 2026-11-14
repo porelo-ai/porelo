@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B763",
   "title": "No Token Lent To A Host's Gate",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 56,
@@ -39,6 +39,25 @@ lends nothing, so no vault entry has to be kept for an address that never receiv
   an entry under their names in the vault. Its socket cases that expect a token are turned around, not kept beside.
 - Built once porelo-message-matrix's transport drops the token for a host's gate. Built earlier, a homeserver that
   still asks for one through a tunnel would get none.
+
+## Built
+
+- `LentEntry.server` answers `null` for a `unix:` address and for an https host that ends in `.localhost`, or in
+  `.localhost.`, which the resolver reads as the same name. `http://localhost:<port>`, `127.0.0.0/8`, `[::1]` and every
+  other https host keep their entry, `https://localhost` and `https://localhost.example.org` among them.
+- `AddressForm.isUnixSocket` had no other caller and is removed. `ProjectShowCommand` names no entry for a gate,
+  through the same `LentEntry.name`.
+- `doc/decisions.md`: "A host's gate is lent no registration token" replaces the socket's decision. `doc/transports.md`
+  says the same. The never-released changelog entry for the socket goes, and one entry under *changed* says it.
+- Red first: `LentEntryTest.aHostsGateLendsNothing` (5 cases) and `TransportLentTest.aHostsGateIsLentNoToken...`
+  (4 cases). The socket tests that expected a token are turned around or removed where no socket lends at all.
+- The reading (agy, gemini-4-argon-high), each finding checked in the code:
+  - Yellow, fixed: `https://gate.host.localhost.` passed `AddressForm.isHttps` and was lent under
+    `gate.host.localhost.`. Two cases in `aHostsGateLendsNothing` were red, then green.
+  - Yellow, fixed: `AddressForm.isUnixSocket` was left without a caller, and a test comment still spoke of a tunnel.
+  - No removed test guards a harm that no remaining test guards: every `unix:` address now lends nothing.
+- Green, run locally: 184 tests in `LentEntryTest`, `TransportLentTest`, `OrgReadingCommandsTest` and the
+  `ProjectShow` tests, 82 in `AddressFormTest`, 0 skipped. The tests tagged `documents` are green too.
 
 ## Acceptance
 
