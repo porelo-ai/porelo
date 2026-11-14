@@ -350,10 +350,9 @@ not a set.
 porelo task start --project myproject --repository myproject
 ```
 
-- `follow` fetches the file, checks the commit's signature against the key you gave, and only
-  then applies it. A later commit is picked up the same way.
-- **`--signed-by` must come from a person** - a colleague, a wiki - never from the repository
-  it verifies. `--unverified` follows without a key and says so wherever the project is shown.
+- The start fetches the project's repository and takes `project.yml` only when its newest change
+  is signed by one of the project's admins, by the key your organization holds for them. A later
+  commit is picked up the same way, at the next start.
 - `--repository` names which of the project's repositories the task works on. A project with
   only its own repository has one, named after the project. Leave it out and Porelo refuses and
   prints the line to type.

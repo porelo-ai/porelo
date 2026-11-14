@@ -207,8 +207,8 @@ systemctl --user kill -s QUIT porelod
 journalctl --user -u porelod
 ```
 
-The dump goes to the daemon's journal, names its background work (`porelo-follow`, `porelo-upstream`,
-`porelo-messages`), and the daemon keeps running under the same pid. Keep that dump with the report of the hang.
+The dump goes to the daemon's journal, names its background work (`porelo-upstream`,
+`porelo-messages`, `porelo-room-sweep`), and the daemon keeps running under the same pid. Keep that dump with the report of the hang.
 
 ### Reaching it from another computer
 

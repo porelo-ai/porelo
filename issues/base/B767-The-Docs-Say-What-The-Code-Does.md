@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B767",
   "title": "The Docs Say What The Code Does",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 3,
@@ -28,5 +28,34 @@ Filed 2026-11-14 on the operator's order, under ST361.
 - Sub-agents on Sonnet read the pages against main (196b13fb0), split into commands.md, credentials.md with
   project-file.md and running.md, and the rest. They run no test suite and no VM.
 - Each finding is checked in the code. Only a confirmed one is changed.
-- Left to B766, which is held unpushed on another branch: `doc/how-it-works.md`'s gate section and
+- Left to the issue on how the Git mirror is kept, held unpushed on another branch: `doc/how-it-works.md`'s gate section and
   its section on `default`.
+
+## Built
+
+The sub-agents read about 1,600 claims on 22 pages and the titles of the 508 unreleased changelog entries. They
+reported 13 page findings and 11 changelog findings. Each page finding was checked in the code. All 13 are true; 12
+are fixed here, and one (`porelo task run --reads` in `how-it-works.md`, which is `task start`) belongs to that held issue's
+passage. None was a fault of the code, so no bug is filed.
+
+- `doc/commands.md`: the `project` row says what the group does (`ProjectsCommand`), not that it follows.
+  `certified` is in `task status --json`, since `task list` has no `--json`. `project remove` replaces the gone
+  `project unfollow`, among the commands that name a survivor, and TAB offers projects for `project remove` and
+  `project clear`. `gate pending` takes `-p` and `-r` (`GatePendingCommand`).
+- `doc/running.md`: the dump names `porelo-upstream`, `porelo-messages` and `porelo-room-sweep`. No thread is
+  called `porelo-follow`.
+- `doc/credentials.md`: a refused client credential's message carries the HTTP status and an OAuth error code
+  (`TokenPurchase`). The fallback names include the host-less `git.ssh` and `git.token`
+  (`GitCredentialNames.candidatesFor`).
+- `doc/getting-started.md`: the `follow`, `--signed-by` and `--unverified` bullets are gone, since a project is read
+  at each start. The bullet now says the start takes `project.yml` only when an admin of the project signed its
+  newest change.
+- `doc/corporate-security.md`: no socket to a key enters a container (as `security.md` says). The developer may allow
+  a repository its own settings in `default`, where the page said "follow an unsigned project".
+- `README.md`, `doc/pitch.md`: every capability is dropped except the two Porelo's own session needs
+  (`ContainerSpec`: `--cap-add SETUID,SETGID`), and the agent holds none.
+- Not changed, put to the coordinator: 11 groups of unreleased changelog entries (17 files) name commands added and
+  then removed before any release (`project follow`, `unfollow`, `inventory`, `access`, `registry joinable`,
+  `talk room`, `org projects`, `identity backup-key --project`, `forge-token --lend`). They describe changes that
+  did happen; whether they leave the coming release notes is a decision, not a correction.
+- The tests tagged `documents` are green.

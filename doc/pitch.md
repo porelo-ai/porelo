@@ -29,7 +29,7 @@ another, and `porelo gate approve` forwards a followed repository's work to its 
 
 ## For a security officer
 
-The enforcement is not in the agent. The container runs rootless with every capability dropped. A
+The enforcement is not in the agent. The container runs rootless with every capability dropped but the two Porelo's own session needs, and the agent holds none. A
 name the project did not declare does not resolve, and a declared host is reachable on ports 80 and 443
 only. The container holds a stand-in token; a proxy on the host swaps it for the real credential, which
 stays in an encrypted vault on the machine. A reach for something undeclared is blocked and asks a

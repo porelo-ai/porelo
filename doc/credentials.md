@@ -538,8 +538,9 @@ container sees only its own task-scoped token: never the secret, never the bough
 
 At start the purchase is tried once. If it fails, an unattended or agent run is refused before a container
 exists, and a shell task warns and starts. A failure during the run reaches the container as `503`, saying
-either "the authorization server at <host> refused these client credentials" or that it could not be reached;
-neither repeats what the server sent back. The authorization server is reached by the broker alone and is not
+either "the authorization server at <host> refused these client credentials", with the HTTP status and the OAuth error
+code (one OAuth defines, else "an error code OAuth does not define"), or that it could not be reached; neither repeats
+anything else the server sent back. The authorization server is reached by the broker alone and is not
 added to what the task can reach. A grant asked for from inside the container is refused before it is
 forwarded: the broker holds this credential and buys or renews its tokens itself.
 
@@ -584,7 +585,7 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
   `--file /path/to/private-key` selects a file instead. After a successful trial, `credentials declare`
   keeps the choice for the address, and the existing approval command forwards the reviewed work.
 - **With no `credentials.yml`** a git URL falls back to vault entries named after its host, an IPv6 host with
-  its brackets (`git.token.[2001:db8::1]`): `git.ssh.<host>`, `git.token.<host>`, then `ssh.default`.
+  its brackets (`git.token.[2001:db8::1]`): for ssh `git.ssh.<host>`, `git.ssh`, then `ssh.default`; for https `git.token.<host>`, then `git.token`.
 - **A key never leaves the vault.** Porelo serves an ssh-agent for the length of the command. A token
   reaches git through git's credential helper over a pipe, for that address only; nothing is written to
   a config and no value is on a command line.

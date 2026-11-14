@@ -37,7 +37,7 @@ Supervise agents from a Flutter client — wherever they run :construction:
   credential on the way out, and a subscription sign-in is renewed on the host. No task holds a key for git.
 - **Work leaves only through the gate** — a task pushes to a gate on the host; in a `guarded` project nothing
   reaches your repository until you approve it, and an `online` one passes only the task's own branch on.
-- **Nothing to escalate to** — a rootless container, every capability dropped, `no-new-privileges`.
+- **Nothing to escalate to** — a rootless container, every capability dropped but the two Porelo's own session needs, none for the agent, `no-new-privileges`.
 - **An agent is a package** — its own `.deb`/`.rpm` with its CLI pinned by checksum; Porelo names no agent in its
   code.
 

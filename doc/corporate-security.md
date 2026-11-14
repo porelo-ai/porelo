@@ -21,8 +21,8 @@ hold the developer too, use device policy, as for any other software.
 ### Which data does the agent process, and where does it go?
 
 - **It sees one repository**, cloned inside its own container. Not the home directory, other projects,
-  ssh keys or credentials. No private key enters the container; an `online` task signs through a
-  socket to a key in the host's vault.
+  ssh keys or credentials. No private key enters the container, and no socket to one: the gate on
+  the machine pushes, with what the vault lends it.
 - **Prompts and content go to the model provider**, and to whatever the task is allowed to reach.
 
 ### Does it use only the approved AI services?
@@ -49,7 +49,7 @@ hold the developer too, use device policy, as for any other software.
 
 - **The agent, yes.** Nothing inside the container can widen its network, take a credential, or push
   past the gate.
-- **The developer, no.** They can choose the provider, follow an unsigned project, allow a blocked
+- **The developer, no.** They can choose the provider, allow a repository its own settings in `default`, allow a blocked
   connection, widen a running task's network, give one run a credential, or run the agent without
   Porelo. Requiring Porelo is a matter of device policy.
 

@@ -19,7 +19,7 @@ file are in [the project file](project-file.md).
 | [`talk`](#talk) | Shows and moves the messages a task exchanges with other tasks. |
 | [`agents`](#agents) | Lists the agents installed on this machine. |
 | [`providers`](#providers) | Lists the model providers, and what the vault holds for each. |
-| [`project`](#project) | Follows project repositories, and lists the projects here. |
+| [`project`](#project) | Lists, opens and removes the projects of this machine and of the organization. |
 | [`setup`](#setup) | Makes this account ready: OCI hooks, daemon, vault. |
 | [`doctor`](#doctor) | Checks whether this machine can run a task. |
 | [`prune`](#prune) | Shows what nothing owns any more; removes it with `--yes`. |
@@ -519,7 +519,7 @@ Ed25519 key in your agent. The task's commits are signed at its gate, so the age
 and the gate judges every commit that arrives by `ssh-keygen -Y verify` at its arrival, not by the date
 it carries: a commit arriving after its certificate ended is refused, naming the end. Each verdict is
 recorded as an `arrived` event. When your agent holds none of those keys, the task starts as before,
-unsigned, and `certified` is `false` in `task list --json`; on a host whose persons start tasks
+unsigned, and `certified` is `false` in `task status --json`; on a host whose persons start tasks
 (`porelo-host`), it does not start at all. There, the host records the certificate, makes the
 task's forge token, and pushes its branch, `porelo/<task>`, itself; the container holds no token.
 Porelo runs the helper by its path through `sudo -n`, as
@@ -736,7 +736,7 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | `porelo gate restore` | Restores a mirror from a bundle; never overwrites one. |
 | `porelo gate serve` | Serves the mirror for an agent to push to. Started per task. |
 
-All but `pending`, `protect` and `check` take `-p PROJECT` and `-r REPOSITORY`.
+All but `protect` and `check` take `-p PROJECT` and `-r REPOSITORY`.
 
 `gate review` and `gate pending` show each waiting commit by its full id, which is what `gate approve --commit` takes;
 a shortened id is refused, since another commit could be made to share it.
@@ -1242,7 +1242,7 @@ started again.
 A stop ends 0 only when no task it stopped still has its container running: a container counts as stopped only when
 the runtime answers a stopped state for the id Porelo recorded, and anything else - stopping, paused, unknown, a failed
 question - counts as still running. `task stop`, `task stop --all`, `panic`, `task remove`, `clear` and `project
-unfollow` name each survivor on standard error as `porelo: still running: …` and end 70, and a removal that is not
+remove` name each survivor on standard error as `porelo: still running: …` and end 70, and a removal that is not
 confirmed keeps every record of the task, so a later stop or removal still finds it.
 
 A helper and every process it started get SIGTERM and up to 2 s to end. `task remove --force` then sends SIGKILL to
@@ -1300,7 +1300,7 @@ porelo completion zsh  > <a-folder-in-your-fpath>/_porelo     # in $fpath before
 
 The deb and rpm packages already install completion; this is for a copied binary or a non-standard
 completion directory. TAB offers the names each command can use (running tasks for `attach`, all
-tasks for `stop`, projects for `unfollow`). `task start` completes only its options. Pressing TAB
+tasks for `stop`, projects for `project remove` and `project clear`). `task start` completes only its options. Pressing TAB
 never changes anything.
 
 **Names.** No command asks for a missing name; a missing or unknown one is refused with the names
