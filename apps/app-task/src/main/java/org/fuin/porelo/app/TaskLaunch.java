@@ -3492,6 +3492,22 @@ public final class TaskLaunch {
                 return 64;
             }
             if (workspace != null) {
+                // A project with no upstream: its mirror was cloned from the checkout once and the
+                // refresh follows nothing, so a start from the checkout brings it up here, before
+                // the branch is settled and scanned.
+                final TaskBase fromCheckout = request.base();
+                final java.nio.file.@Nullable Path checkout =
+                        fromCheckout == null ? null : fromCheckout.checkout();
+                if (fromCheckout != null
+                        && checkout != null
+                        && "CHECKOUT".equals(fromCheckout.source())) {
+                    final String behind =
+                            workspace.gate().followCheckout(checkout, fromCheckout.branch());
+                    if (!behind.isEmpty()) {
+                        err.println("porelo: " + behind);
+                        err.flush();
+                    }
+                }
                 try {
                     startingBranch =
                             TaskBase.select(

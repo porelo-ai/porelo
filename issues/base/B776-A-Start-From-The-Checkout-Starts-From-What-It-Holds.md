@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B776",
   "title": "A Start From the Checkout Starts From What It Holds",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 133,
@@ -45,6 +45,35 @@ committed since is neither found nor served, so nothing warns either way. This i
    goes on, as a refresh that fails already does.
 3. A base the person names (`--from`), the project's `base_branch` and the mirror's default are untouched.
 4. `doc/` where the start's base is described: what "your checkout" means for a project with no upstream.
+
+## Built
+
+- `GitGate.followCheckout(checkout, branch)`: for a gate with no upstream, fetches the branch from the checkout
+  into the mirror without `+`, so git moves it only forward; a new branch is created. Ahead, diverged or unreadable:
+  the mirror is kept and the sentence names both commits (twelve characters each) and that the task starts from the
+  mirror's. A gate with an upstream is left to `refresh()`.
+- `TaskBase` carries the checkout's top directory in memory (`checkout`, never written to `base.json`); the two-part
+  constructor stays for every other source.
+- `TaskLaunch`: before the branch is settled and scanned, a `CHECKOUT` base brings the mirror up to it; a sentence
+  is printed as `porelo: ...` and the start goes on.
+- `doc/getting-started.md` "Commit before you start"; changelog `start-from-checkout-takes-its-commit.yml`.
+- Red first: `GateFollowsCheckoutTest` against a stub that did nothing - 4 of 5 failed (the fifth pins that a gate
+  with an upstream is untouched).
+- Left: the acceptance on the VM (the key scenario without removing the mirror) needs this build installed there;
+  the removal in `task-guarded.feature` stays until then.
+
+### Reading (internal Claude Code sub-agent, one reading; agy stalled earlier)
+
+- Red, fixed: a checkout on a task's branch (`porelo/fix-1`) brought that branch into the mirror, which the gate
+  keeps out of what every task fetches from. It is refused now, naming `--from`
+  (`aTaskBranchCheckedOutHereNeverReachesTheMirror`, seen failing first).
+- Yellow, fixed: every failed fetch was said as a divergence. Quiet, git exits 1 on a refused update and says
+  nothing; anything else is said with git's own last line (`aFetchThatFailsForAnotherReasonSaysThatReason`, seen
+  failing first). The javadoc and `doc/getting-started.md` no longer speak of approved work, which a project with no
+  upstream never forwards, and say how an offline project follows.
+- Yellow, left: with no upstream, any checkout whose `project.yml` names the project counts as its checkout, not
+  only the seed; only commits reachable from the branch come over, forward only. No test drives `TaskLaunch` with a
+  checkout that gained a commit; that is the VM acceptance.
 
 ## Red-first test
 

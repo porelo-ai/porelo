@@ -324,6 +324,87 @@ public class GitGate {
     }
 
     /**
+     * Brings one branch of a mirror the person's checkout seeded up to the checkout's, when a task
+     * starts from that checkout.
+     *
+     * <p>A project with no upstream has its mirror cloned once from the checkout, and {@link
+     * #refresh()} follows only an upstream: a start that said it started from the checkout gave the
+     * task the commit the mirror was first cloned at (found when the red main of 2026-11-14 scanned
+     * an earlier scenario's tree). Fast-forward only: a mirror ahead of the checkout (one reset
+     * since, or another checkout of the same project) is never moved back; that, a diverged branch
+     * or a fetch that fails keeps the mirror's, and is said with git's reason. A task's branch is
+     * never brought in, as {@link #refresh()} keeps it out of the mirror every task fetches from.
+     *
+     * <p>A gate that forwards to an upstream is left to {@link #refresh()}, whatever the project's
+     * class; one with none follows its checkout, which is on this machine, offline too.
+     *
+     * @param checkout The checkout's top directory.
+     * @param branch The branch the task starts from, without {@code refs/heads/}.
+     * @return "" when the mirror holds the checkout's commit now, or has nothing to follow;
+     *     otherwise the sentence to say.
+     */
+    public String followCheckout(final Path checkout, final String branch) {
+        if (upstreamUrl != null || !Files.isDirectory(mirror.resolve("objects"))) {
+            return "";
+        }
+        final String ref = "refs/heads/" + branch;
+        if (taskBranch(ref)) {
+            return "your checkout is on '"
+                    + branch
+                    + "', a task's branch, which the mirror never holds; this task starts from"
+                    + " the mirror's, if it has one - name another with --from";
+        }
+        // No '+': git refuses to move a branch other than forward.
+        final CommandResult fetched =
+                runner.run(
+                        Command.of(
+                                List.of(
+                                        "git",
+                                        "--git-dir",
+                                        mirror.toString(),
+                                        "fetch",
+                                        "--quiet",
+                                        "--no-tags",
+                                        "--end-of-options",
+                                        checkout.toString(),
+                                        ref + ":" + ref)));
+        if (fetched.successful()) {
+            return "";
+        }
+        final String here = commit(List.of("git", "--git-dir", mirror.toString()), ref);
+        final String there = commit(List.of("git", "-C", checkout.toString()), ref);
+        final String reason = fetched.standardError().strip();
+        if (here.isEmpty()
+                || there.isEmpty()
+                // Quiet, git says nothing of a refused update and exits 1; anything else is fatal.
+                || fetched.exitCode() != 1) {
+            final String last =
+                    reason.isEmpty() ? "" : reason.lines().reduce((a, b) -> b).orElse("");
+            return "the mirror could not be brought to your checkout's "
+                    + branch
+                    + (last.isEmpty() ? "" : " (" + last + ")")
+                    + ", so this task starts from the mirror's, which may be behind";
+        }
+        return "the mirror's "
+                + branch
+                + " is not your checkout's: "
+                + here
+                + " in the mirror, "
+                + there
+                + " in your checkout, and it is not moved back or over; this task starts from the"
+                + " mirror's";
+    }
+
+    /** The first twelve characters of a ref's commit, or "" when it does not resolve. */
+    private String commit(final List<String> git, final String ref) {
+        final List<String> all = new ArrayList<>(git);
+        all.addAll(List.of("rev-parse", "--verify", "--quiet", ref + "^{commit}"));
+        final CommandResult result = runner.run(Command.of(all));
+        final String commit = result.standardOutput().strip();
+        return result.successful() && commit.length() >= 12 ? commit.substring(0, 12) : "";
+    }
+
+    /**
      * Says why an online task may not pass its work on as a branch: the upstream holds it already,
      * so a push with force would replace someone else's work, or the project's pattern matches the
      * upstream's default branch, so the mirror would hide it from every task.

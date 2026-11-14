@@ -1,0 +1,2 @@
+title: "A task started from your checkout in a project with no upstream starts from the checkout's commit, where it started from the commit the gate was first copied at; a gate ahead of the checkout or gone another way is kept and the start says so"
+type: fixed

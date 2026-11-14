@@ -16,7 +16,17 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /** The branch a task starts from, separate from the branch its work is forwarded to. */
-public record TaskBase(String branch, String source) {
+public record TaskBase(String branch, String source, @Nullable Path checkout) {
+
+    /**
+     * A starting branch with no checkout behind it.
+     *
+     * @param branch The branch.
+     * @param source Where it was chosen.
+     */
+    public TaskBase(final String branch, final String source) {
+        this(branch, source, null);
+    }
 
     /** Durable, host-owned start information. */
     public static final String FILE = "base.json";
@@ -81,7 +91,8 @@ public record TaskBase(String branch, String source) {
         }
         final String name = symbolic.standardOutput().strip();
         // A git that names no branch says nothing to choose by; the project and mirror decide.
-        return name.isEmpty() ? null : new TaskBase(name, "CHECKOUT");
+        // The checkout's place, in memory only: the start brings the mirror up to it.
+        return name.isEmpty() ? null : new TaskBase(name, "CHECKOUT", top);
     }
 
     /**

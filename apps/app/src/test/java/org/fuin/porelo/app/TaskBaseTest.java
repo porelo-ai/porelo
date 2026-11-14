@@ -111,9 +111,14 @@ class TaskBaseTest {
         final PoreloContext context = context();
         final TaskBase requested =
                 TaskBase.requested(context, project, project.ownRepository(), checkout, null);
-        assertThat(TaskBase.select(context, project, mirror, requested))
+        final TaskBase fromCheckout = TaskBase.select(context, project, mirror, requested);
+        assertThat(fromCheckout)
                 .as("a checkout on develop is not redirected to main by project settings")
-                .isEqualTo(new TaskBase("develop", "CHECKOUT"));
+                .extracting(TaskBase::branch, TaskBase::source)
+                .containsExactly("develop", "CHECKOUT");
+        assertThat(fromCheckout.checkout())
+                .as("the checkout's place, for the start to bring the mirror up to it")
+                .isEqualTo(checkout.toRealPath());
         assertThat(
                         TaskBase.select(
                                 context,

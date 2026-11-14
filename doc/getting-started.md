@@ -266,7 +266,11 @@ Four of these lines are the security model:
 
 **Commit before you start.** The task takes your checkout's committed history, local commits
 included; uncommitted changes stay behind. Your remote is yours: Porelo neither pulls from it nor
-pushes to it.
+pushes to it. In a project with no `upstream`, a start from your checkout first brings the gate's
+copy of the branch forward to your commit. Where that copy holds commits your checkout does not -
+you reset it since, or another checkout of the project moved it - or the two went different ways,
+it is never moved back: the start names both commits and starts from the gate's. A task's own
+branch checked out here is never brought in; name another with `--from`.
 
 - When the agent exits you get a shell in the workspace. `--attach shell` skips the agent;
   `-P "your prompt"` runs it without a terminal.
