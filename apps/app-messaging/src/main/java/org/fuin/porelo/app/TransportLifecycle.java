@@ -1999,6 +1999,15 @@ final class TransportLifecycle {
                                     Command.of(arguments), described, settings, secrets),
                             line -> say(scheme, line, secrets));
         } catch (org.fuin.porelo.core.process.CommandException ex) {
+            final @Nullable String unfenced = TransportFence.reachRefusal(ex);
+            if (unfenced != null) {
+                throw new Refused(
+                        "the "
+                                + scheme
+                                + " transport could not run fenced: "
+                                + StartStep.cleanLines(unfenced),
+                        77);
+            }
             throw ex.withStandardError(withheld(StartStep.cleanLines(ex.standardError()), secrets));
         } catch (final IllegalArgumentException ex) {
             throw new Refused(

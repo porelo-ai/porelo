@@ -94,7 +94,7 @@ class TransportFenceTest {
 
         assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
                 .as("an empty answer and a failed lookup both refuse the launch")
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CommandException.class)
                 .hasMessageContaining("missing.example.org")
                 .hasMessageContaining("no addresses");
         assertThat(runner.invocations()).as("no namespace or unfenced fallback starts").isEmpty();
@@ -257,7 +257,7 @@ class TransportFenceTest {
 
         assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
                 .as("DNS configuration must provide usable literal nameserver addresses")
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CommandException.class)
                 .hasMessageContaining("nameserver");
         assertThat(runner.invocations()).as("the verb never starts").isEmpty();
     }
@@ -276,7 +276,7 @@ class TransportFenceTest {
 
         assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
                 .as("a resolver file read failure refuses before launching")
-                .isInstanceOf(UncheckedIOException.class)
+                .isInstanceOf(CommandException.class)
                 .hasMessageContaining("resolver");
         assertThat(runner.invocations()).as("no fallback starts").isEmpty();
     }
@@ -297,7 +297,7 @@ class TransportFenceTest {
 
         assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
                 .as("all reach syntax is checked before any lookup")
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(CommandException.class);
         assertThat(runner.invocations()).as("invalid reaches start nothing").isEmpty();
     }
 
@@ -321,7 +321,7 @@ class TransportFenceTest {
                                 fence(runner, List.of(reach), false)
                                         .run(Command.of("/transport", "members")))
                 .as("such a reach refuses before any process starts")
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CommandException.class)
                 .hasMessageContaining("cannot be reached");
         assertThat(runner.invocations()).as("nothing starts").isEmpty();
     }
@@ -347,7 +347,7 @@ class TransportFenceTest {
 
         assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
                 .as("the answer is refused before a port is mapped or a rule rendered")
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CommandException.class)
                 .hasMessageContaining("server.example.org")
                 .hasMessageContaining("cannot be reached");
         assertThat(runner.invocations()).as("nothing starts").isEmpty();
@@ -372,7 +372,7 @@ class TransportFenceTest {
 
         assertThatThrownBy(() -> fenced.run(Command.of("/transport", "members")))
                 .as("scoped answers are refused before being rendered")
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CommandException.class)
                 .hasMessageContaining("scoped");
         assertThat(runner.invocations()).as("no launch follows an unusable answer").isEmpty();
     }
@@ -572,7 +572,7 @@ class TransportFenceTest {
                                 fence(runner, List.of(reach), false)
                                         .run(Command.of("/transport", "members")))
                 .as("unsupported reaches refuse before any process starts")
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CommandException.class)
                 .hasMessageContaining("literal");
         assertThat(runner.invocations()).as("no fallback starts the verb").isEmpty();
     }

@@ -1424,11 +1424,158 @@ class TransportConversationsTest {
                                         + ": the transport refused it, exit 75");
     }
 
+    @Test
+    void aPassOverTwoProjectsHandsOutTheOthersArrivalWhenOneProjectsReachDoesNotResolve()
+            throws Exception {
+        // Harm: one project's DNS outage ended the pass, and no project's conversation was read.
+        final FakeCommandRunner refusing =
+                new TransportTestRunner() {
+                    @Override
+                    public TransportFence.Resolver resolver() {
+                        return name -> {
+                            if ("gone.example".equals(name))
+                                throw new java.net.UnknownHostException(name);
+                            return new java.net.InetAddress[] {
+                                java.net.InetAddress.ofLiteral("192.0.2.10")
+                            };
+                        };
+                    }
+                };
+        final PoreloContext context = twoProjects(refusing);
+        final Path savedP = context.paths().xdg().state().resolve("transport/room/p.json");
+        Files.writeString(savedP, Files.readString(savedP).replace("127.0.0.1", "gone.example"));
+        final Path inboundP = arrival(context, "p");
+        final Path inboundQ = arrival(context, "q");
+        final Mailbox reviewP = mailbox("porelo-p-review");
+        final Mailbox reviewQ = mailbox("porelo-q-review");
+
+        final TransportConversations.Outcome outcome =
+                new TransportConversations(
+                                context, context.paths().messaging().transportDirectory())
+                        .pass(
+                                List.of(
+                                        member("porelo-p-review", reviewP, "p", "room"),
+                                        member("porelo-q-review", reviewQ, "q", "room")));
+
+        assertThat(outcome.handed())
+                .as("the other project's arrival reached its task; said: %s", outcome.failures())
+                .containsEntry("q-arrival.json", "porelo-q-review")
+                .doesNotContainKey("p-arrival.json");
+        assertThat(inboundP.resolve("p-arrival.json"))
+                .as("the refused project's arrival waits for the next pass")
+                .exists();
+        assertThat(inboundQ.resolve("q-arrival.json")).as("the handed one is gone").doesNotExist();
+        assertThat(outcome.failures())
+                .as("the refusal is recorded for that project alone")
+                .singleElement()
+                .satisfies(said -> assertThat(said).contains("gone.example"));
+    }
+
+    @Test
+    void aPassWhosePastaIsMissingRecordsEachProjectsRefusalAndGoesOn() throws Exception {
+        // Harm: a missing namespace helper ended the pass at its first project.
+        final java.util.concurrent.atomic.AtomicBoolean gone =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        final FakeCommandRunner missing =
+                new TransportTestRunner() {
+                    @Override
+                    public java.util.function.Function<String, Path> programs() {
+                        return name -> {
+                            if (gone.get() && "pasta".equals(name))
+                                throw new java.io.UncheckedIOException(
+                                        new IOException("pasta is missing"));
+                            return Path.of("/usr/bin", name);
+                        };
+                    }
+                };
+        final PoreloContext context = twoProjects(missing);
+        final Path inboundP = arrival(context, "p");
+        final Path inboundQ = arrival(context, "q");
+        gone.set(true);
+
+        final TransportConversations.Outcome outcome =
+                new TransportConversations(
+                                context, context.paths().messaging().transportDirectory())
+                        .pass(
+                                List.of(
+                                        member(
+                                                "porelo-p-review",
+                                                mailbox("porelo-p-review"),
+                                                "p",
+                                                "room"),
+                                        member(
+                                                "porelo-q-review",
+                                                mailbox("porelo-q-review"),
+                                                "q",
+                                                "room")));
+
+        assertThat(outcome.failures())
+                .as("each project's refusal is recorded, the second after the first")
+                .hasSize(2)
+                .allSatisfy(said -> assertThat(said).contains("pasta"));
+        assertThat(List.of(inboundP.resolve("p-arrival.json"), inboundQ.resolve("q-arrival.json")))
+                .as("nothing that arrived is lost")
+                .allSatisfy(arrival -> assertThat(arrival).exists());
+    }
+
+    /** Two guarded projects, p and q, each with its room set up and its secrets in the vault. */
+    private PoreloContext twoProjects(final FakeCommandRunner supplied) throws Exception {
+        supplied.answering(
+                "describe", "{\"scheme\":\"room\",\"poll\":true,\"lifecycle\":[\"setup\"]}");
+        supplied.answering(
+                "setup",
+                "{\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!r\","
+                        + "\"reaches\":[\"127.0.0.1\"]}");
+        final PoreloContext context = supplied(supplied).asking(prompt -> PASSPHRASE.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        emptyVault(context);
+        assertThat(
+                        context.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("the fixture opens its own vault without a kernel keyring")
+                .isPresent();
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        for (final String name : List.of("p", "q")) {
+            lifecycle.setup("room", name, Map.of());
+            final Path file = dir.resolve(name + ".yml");
+            Files.writeString(
+                    file,
+                    "project: {name: "
+                            + name
+                            + ", security_class: guarded}\nimage: {from: 'ubuntu:24.04'}\n");
+            new ProjectRegistry(context.paths().projects().projectRegistry()).remember(name, file);
+        }
+        LegacyTaskFixture.record(context, "porelo-q-review", "q", "b".repeat(64));
+        for (final String name : List.of("p", "q")) {
+            assertThat(lifecycle.secrets("room", "project/" + name))
+                    .as("the fixture keeps the secrets of project %s", name)
+                    .isNotEmpty();
+        }
+        return context;
+    }
+
+    /** One word for a project's tasks, left by its transport's earlier poll. */
+    private static Path arrival(final PoreloContext context, final String project)
+            throws IOException {
+        final Path inbound =
+                Files.createDirectories(
+                        context.paths().xdg().state().resolve("transport/room/inbound/" + project));
+        Files.writeString(inbound.resolve(project + "-arrival.json"), "{\"body\":\"hi\"}");
+        return inbound;
+    }
+
     private PoreloContext context() throws IOException {
         return context(runner);
     }
 
     private PoreloContext context(final org.fuin.porelo.core.process.CommandRunner runner)
+            throws IOException {
+        return supplied(TransportTestRunner.fake(runner));
+    }
+
+    /** A context whose runner supplies its own programs and resolver. */
+    private PoreloContext supplied(final org.fuin.porelo.core.process.CommandRunner runner)
             throws IOException {
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -1447,10 +1594,7 @@ class TransportConversationsTest {
         Files.writeString(adapter, "#!/bin/sh\n");
         adapter.toFile().setExecutable(true);
         final PoreloContext context =
-                new PoreloContext(
-                        TransportTestRunner.fake(runner),
-                        new PoreloPaths(xdg, dir.resolve("bin")),
-                        arguments -> 0);
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         for (String container :
                 List.of(
                         "porelo-p-a",

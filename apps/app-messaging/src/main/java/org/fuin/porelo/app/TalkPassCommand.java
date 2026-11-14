@@ -155,6 +155,18 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
                                                         : ", "
                                                                 + result.refused().size()
                                                                 + " refused")));
+        report.sent()
+                .forEach(
+                        (transport, result) -> {
+                            if (!result.waiting().isEmpty()) {
+                                err.println(
+                                        "porelo: "
+                                                + transport
+                                                + " waits: "
+                                                + TalkReadCommand.shown(result.waiting()));
+                                err.flush();
+                            }
+                        });
         out.println(
                 "delivered "
                         + report.delivered().delivered().size()

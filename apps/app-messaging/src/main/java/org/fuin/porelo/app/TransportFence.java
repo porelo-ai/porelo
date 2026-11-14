@@ -87,27 +87,23 @@ final class TransportFence implements CommandRunner {
         return runner.run(command(verb), lines);
     }
 
-    /** Retains the verb's input, environment, directory and limit when wrapping its arguments. */
+    /**
+     * Retains the verb's input, environment, directory and limit when wrapping its arguments.
+     *
+     * @throws CommandException For every reason the fence cannot be built, before the verb runs: a
+     *     reach that is invalid, unreachable or resolves to nothing, a resolver configuration it
+     *     cannot read or use, or a missing program; {@link #refusal} tells it apart.
+     */
     Command command(final Command verb) {
-        final List<Reach> parsed = reaches.stream().map(TransportFence::reach).toList();
-        for (final Reach reach : parsed) {
-            final @Nullable InetAddress literal = reach.literal();
-            if (literal != null && unreachable(literal)) throw cannotBeReached(reach.host());
+        final Planned planned;
+        try {
+            planned = planned();
+        } catch (final IllegalArgumentException | UncheckedIOException ex) {
+            throw new CommandException(verb, new Unfenced(ex));
         }
-        final Map<String, List<InetAddress>> resolved = new LinkedHashMap<>();
-        for (final Reach reach : parsed) {
-            resolved.computeIfAbsent(reach.host(), host -> addresses(reach));
-        }
-        final List<InetAddress> nameservers =
-                !offline && parsed.stream().anyMatch(reach -> reach.literal() == null)
-                        ? nameservers()
-                        : List.of();
-        final boolean loopbackDns =
-                !nameservers.isEmpty()
-                        && nameservers.stream().allMatch(InetAddress::isLoopbackAddress);
-        final Set<String> ports = loopbackPorts(parsed, resolved);
-        if (loopbackDns) ports.add("53");
-        final String rules = rules(resolved, nameservers);
+        final Set<String> ports = planned.ports();
+        final boolean loopbackDns = planned.loopbackDns();
+        final String rules = planned.rules();
         final List<String> arguments = new ArrayList<>();
         try {
             arguments.add(programs.apply("pasta").toString());
@@ -146,7 +142,7 @@ final class TransportFence implements CommandRunner {
         } catch (final UncheckedIOException ex) {
             throw new CommandException(
                     verb,
-                    new IOException(
+                    new Unfenced(
                             "Cannot fence the transport: "
                                     + ex.getMessage()
                                     + "; install pasta, nftables and util-linux's setpriv from"
@@ -167,6 +163,76 @@ final class TransportFence implements CommandRunner {
                 binaryInput == null ? fenced : fenced.withBinaryInput(binaryInput);
         final @Nullable Duration timeout = chosen.timeout();
         return timeout == null ? withInput : withInput.withTimeout(timeout);
+    }
+
+    /** What the fence loads and which loopback ports it maps, read before any program is found. */
+    private record Planned(String rules, Set<String> ports, boolean loopbackDns) {}
+
+    private Planned planned() {
+        final List<Reach> parsed = reaches.stream().map(TransportFence::reach).toList();
+        for (final Reach reach : parsed) {
+            final @Nullable InetAddress literal = reach.literal();
+            if (literal != null && unreachable(literal)) throw cannotBeReached(reach.host());
+        }
+        final Map<String, List<InetAddress>> resolved = new LinkedHashMap<>();
+        for (final Reach reach : parsed) {
+            resolved.computeIfAbsent(reach.host(), host -> addresses(reach));
+        }
+        final List<InetAddress> nameservers =
+                !offline && parsed.stream().anyMatch(reach -> reach.literal() == null)
+                        ? nameservers()
+                        : List.of();
+        final boolean loopbackDns =
+                !nameservers.isEmpty()
+                        && nameservers.stream().allMatch(InetAddress::isLoopbackAddress);
+        final Set<String> ports = loopbackPorts(parsed, resolved);
+        if (loopbackDns) ports.add("53");
+        return new Planned(rules(resolved, nameservers), ports, loopbackDns);
+    }
+
+    /**
+     * Why a fence could not be built: the cause of the {@link CommandException} the fence refuses
+     * with, so a caller tells a verb that never ran from one that failed.
+     */
+    private static final class Unfenced extends IOException {
+
+        private static final long serialVersionUID = 1L;
+
+        /** Whether a reach or the resolver configuration refused, rather than a missing program. */
+        private final boolean reach;
+
+        Unfenced(final RuntimeException cause) {
+            super(cause.getMessage(), cause);
+            this.reach = true;
+        }
+
+        Unfenced(final String message, final Throwable cause) {
+            super(message, cause);
+            this.reach = false;
+        }
+    }
+
+    /**
+     * Returns the fence's own reason when a verb was refused because its fence could not be built,
+     * so it never ran.
+     *
+     * @param ex What running the verb threw.
+     * @return The reason, or {@code null} when the verb was started.
+     */
+    static @Nullable String refusal(final CommandException ex) {
+        return ex.getCause() instanceof Unfenced unfenced ? unfenced.getMessage() : null;
+    }
+
+    /**
+     * Returns the fence's own reason when a reach or the resolver configuration refused the verb.
+     *
+     * @param ex What running the verb threw.
+     * @return The reason, or {@code null} when the verb was started or a program was missing.
+     */
+    static @Nullable String reachRefusal(final CommandException ex) {
+        return ex.getCause() instanceof Unfenced unfenced && unfenced.reach
+                ? unfenced.getMessage()
+                : null;
     }
 
     private static String script(final String rules) {

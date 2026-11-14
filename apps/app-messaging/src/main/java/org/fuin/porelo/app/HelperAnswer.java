@@ -83,7 +83,10 @@ final class HelperAnswer {
                     ? null
                     : "the transport refused it, exit " + result.exitCode();
         } catch (final CommandException ex) {
-            return "the transport could not be run";
+            final @Nullable String unfenced = TransportFence.refusal(ex);
+            return unfenced == null
+                    ? "the transport could not be run"
+                    : "the transport could not run fenced: " + unfenced;
         } finally {
             Files.deleteIfExists(shown);
             Files.deleteIfExists(signature);

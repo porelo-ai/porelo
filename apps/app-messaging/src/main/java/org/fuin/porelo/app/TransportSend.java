@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 
@@ -35,9 +36,29 @@ public final class TransportSend {
      * @param sent Messages a transport took.
      * @param deferred Messages still waiting, which the next pass tries again.
      * @param refused Messages nothing will carry, with why.
+     * @param waiting Why the deferred messages wait, said once for them all, or "" when nothing
+     *     says.
      */
     public record Result(
-            List<String> sent, List<String> deferred, List<MessageDelivery.Held> refused) {}
+            List<String> sent,
+            List<String> deferred,
+            List<MessageDelivery.Held> refused,
+            String waiting) {
+
+        /**
+         * Constructor for a pass that has nothing to say about why a message waits.
+         *
+         * @param sent Messages a transport took.
+         * @param deferred Messages still waiting, which the next pass tries again.
+         * @param refused Messages nothing will carry, with why.
+         */
+        public Result(
+                final List<String> sent,
+                final List<String> deferred,
+                final List<MessageDelivery.Held> refused) {
+            this(sent, deferred, refused, "");
+        }
+    }
 
     private final TransportVerbs verbs;
 
@@ -208,9 +229,16 @@ public final class TransportSend {
         final TransportDescription described = TransportDescription.of(verbs, adapter);
         final boolean shows = described.takes(SHOWN);
         final boolean mentions = described.takes(MENTION);
+        @org.jspecify.annotations.Nullable String unfenced = null;
         // What was deferred is tried first, so a queue drains in the order it filled.
         for (final Path message : concat(queued(waiting), queued(active))) {
             final String name = message.getFileName().toString();
+            if (unfenced != null) {
+                // The same fence for every message of this pass: none of them can leave now.
+                keep(mailbox, message, waiting);
+                deferred.add(name);
+                continue;
+            }
             final Path signature = message.resolveSibling(name + ".sig");
             final Path destination =
                     message.resolveSibling(name + MessageDispatch.DESTINATION_SUFFIX);
@@ -272,6 +300,16 @@ public final class TransportSend {
                                         ? verbs
                                         : verbs.reaching(acting.reaches(), acting.loopbackOnly()))
                                 .run(command);
+            } catch (final CommandException ex) {
+                unfenced = TransportFence.refusal(ex);
+                if (unfenced == null) {
+                    throw ex;
+                }
+                // Its fence cannot be built now: nothing ran, and the queue waits for the next
+                // pass, as it does when its account cannot be had.
+                keep(mailbox, message, waiting);
+                deferred.add(name);
+                continue;
             } finally {
                 Files.deleteIfExists(line);
             }
@@ -281,9 +319,7 @@ public final class TransportSend {
                 moveWithCompanions(mailbox, message, mailbox.sent());
                 sent.add(name);
             } else if (result.exitCode() == TEMPORARY) {
-                if (!waiting.equals(message.getParent())) {
-                    moveWithCompanions(mailbox, message, waiting);
-                }
+                keep(mailbox, message, waiting);
                 deferred.add(name);
             } else {
                 moveWithCompanions(mailbox, message, mailbox.hold());
@@ -295,7 +331,15 @@ public final class TransportSend {
                                         : result.standardError().strip()));
             }
         }
-        return new Result(sent, deferred, refused);
+        return new Result(sent, deferred, refused, unfenced == null ? "" : unfenced);
+    }
+
+    /** Keeps a message for the next pass, where it is when it already waited. */
+    private void keep(final Mailbox mailbox, final Path message, final Path waiting)
+            throws IOException {
+        if (!waiting.equals(message.getParent())) {
+            moveWithCompanions(mailbox, message, waiting);
+        }
     }
 
     /**

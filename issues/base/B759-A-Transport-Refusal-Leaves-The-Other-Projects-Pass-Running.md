@@ -52,3 +52,33 @@ Found by the reading of [B743](README.md#b743) part (c) (agy, gemini-4-argon-hig
 ## Answered
 
 - None open.
+
+## Built
+
+- **`TransportFence.command()`** refuses with `CommandException` for every reason it cannot build the fence. That
+  covers an invalid or unreachable reach, a name that resolves to nothing, a resolver file it cannot read or use, and
+  a missing pasta, nft or setpriv. The cause keeps today's sentence. `TransportFence.refusal(ex)` gives that sentence
+  for any refusal, and `reachRefusal(ex)` gives it for a reach or resolver refusal only.
+- **`TransportLifecycle`** turns a reach or resolver refusal into the same `Refused` ("the <scheme> transport could
+  not run fenced: ...", 77) that it gave for `IllegalArgumentException` before. A missing program is rethrown as
+  before, so start, members and room members say what they said. An unreadable resolver file used to escape as
+  `UncheckedIOException` there; it is now that `Refused` too.
+- **`TransportSend.send()`** defers that message and every later one of the pass when the fence refuses its verb,
+  just as it does when its account cannot be had. `Result` has a new `waiting` field that gives the reason once, and
+  `talk pass` prints it as `porelo: <transport> waits: <reason>`. Any other `CommandException` is still thrown.
+- **`TransportConversations`** (`pass`, `waitOnce`, `waitDirect`, `confirm`) records a fence refusal as one failure
+  of that project and goes on with the others. **`HelperAnswer`** gives the fence's reason instead of "could not be
+  run".
+- `TransportFenceTest` now expects `CommandException`, with the messages unchanged.
+
+Seen red, then green (unit tests). The four new tests went red with `CommandException` escaping the pass when the
+two catches were broken on purpose. They went green once the code was restored from a copy:
+
+- `TransportSendTest`: `aPassOverTwoProjectsDeliversTheOthersMessageWhenOneProjectsReachDoesNotResolve` and
+  `aPassWhosePastaIsMissingKeepsEveryProjectsMessagesWaitingAndGoesOn`.
+- `TransportConversationsTest`: `aPassOverTwoProjectsHandsOutTheOthersArrivalWhenOneProjectsReachDoesNotResolve` and
+  `aPassWhosePastaIsMissingRecordsEachProjectsRefusalAndGoesOn`.
+- The reading (agy, gemini-4-argon-high) found no grave or normal gap. Two minor ones are closed: both send tests now
+  check on disk that the refused project's messages left the active queue for the deferred one, and that each
+  project says why it waits. Declined: the `IllegalArgumentException` catches left in `TransportLifecycle` no longer
+  see a fence refusal, but other code on those paths may still throw one.

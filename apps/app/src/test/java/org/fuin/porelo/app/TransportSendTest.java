@@ -326,4 +326,132 @@ class TransportSendTest {
         assertThat(sent.environment()).doesNotContainKey("TOKEN");
         assertThat(sent.input()).isEqualTo("{\"secrets\":{\"TOKEN\":\"task-secret-1234\"}}");
     }
+
+    @Test
+    void aPassOverTwoProjectsDeliversTheOthersMessageWhenOneProjectsReachDoesNotResolve(
+            @TempDir final Path dir) throws IOException {
+        // Harm: one project's DNS outage ended the pass, and no project's message left.
+        final FakeCommandRunner resolving =
+                new TransportTestRunner() {
+                    @Override
+                    public TransportFence.Resolver resolver() {
+                        return name -> {
+                            if ("gone.example".equals(name))
+                                throw new java.net.UnknownHostException(name);
+                            return new java.net.InetAddress[] {
+                                java.net.InetAddress.ofLiteral("192.0.2.10")
+                            };
+                        };
+                    }
+                };
+        resolving.answering("send", "{}");
+        final Mailbox gone = queuedFor(dir, "porelo-p-t", "m-1.json", "m-2.json");
+        final Mailbox other = queuedFor(dir, "porelo-q-t", "m-3.json");
+        final TransportSend send =
+                new TransportSend(
+                        resolving,
+                        withAdapter(dir),
+                        (transport, container) ->
+                                new TransportSend.Acting(
+                                        java.util.Map.of("TOKEN", "t"),
+                                        null,
+                                        java.util.Map.of(),
+                                        List.of(
+                                                "porelo-p-t".equals(container)
+                                                        ? "gone.example"
+                                                        : "matrix.example"),
+                                        false));
+
+        final TransportSend.Result first = send.send(gone, "local");
+        final TransportSend.Result second = send.send(other, "local");
+
+        assertThat(second.sent())
+                .as("the other project's message left")
+                .containsExactly("m-3.json");
+        assertThat(other.sent().resolve("m-3.json")).as("it moved to sent").exists();
+        assertThat(first.deferred())
+                .as("every message of the project whose reach does not resolve waits")
+                .containsExactly("m-1.json", "m-2.json");
+        assertThat(gone.queueDeferred("local").resolve("m-2.json.sig"))
+                .as("nothing is lost: the message waits with its signature")
+                .exists();
+        assertThat(gone.queueDeferred("local").resolve("m-1.json"))
+                .as("the message whose verb was refused waits too, in order")
+                .exists();
+        assertThat(gone.queueActive("local").resolve("m-1.json"))
+                .as("and is no longer in the active queue")
+                .doesNotExist();
+        assertThat(first.waiting())
+                .as("why it waits is said once, naming the reach")
+                .contains("gone.example");
+        assertThat(resolving.invocations())
+                .as("only the other project's message was handed to its transport")
+                .filteredOn(command -> command.describe().contains(" send "))
+                .hasSize(1);
+    }
+
+    @Test
+    void aPassWhosePastaIsMissingKeepsEveryProjectsMessagesWaitingAndGoesOn(@TempDir final Path dir)
+            throws IOException {
+        // Harm: a missing namespace helper ended the pass with the first project's message.
+        final FakeCommandRunner missing =
+                new TransportTestRunner() {
+                    @Override
+                    public java.util.function.Function<String, Path> programs() {
+                        return name -> {
+                            if ("pasta".equals(name))
+                                throw new java.io.UncheckedIOException(
+                                        new IOException("pasta is missing"));
+                            return Path.of("/usr/bin", name);
+                        };
+                    }
+                };
+        missing.answering("send", "{}");
+        final Mailbox first = queuedFor(dir, "porelo-p-t", "m-1.json");
+        final Mailbox second = queuedFor(dir, "porelo-q-t", "m-2.json");
+        final TransportSend send =
+                new TransportSend(
+                        missing,
+                        withAdapter(dir),
+                        (transport, container) ->
+                                new TransportSend.Acting(
+                                        java.util.Map.of("TOKEN", "t"),
+                                        null,
+                                        java.util.Map.of(),
+                                        List.of("matrix.example"),
+                                        false));
+
+        final TransportSend.Result one = send.send(first, "local");
+        final TransportSend.Result two = send.send(second, "local");
+
+        assertThat(List.of(one.deferred(), two.deferred()))
+                .as("each project's message waits for the next pass")
+                .containsExactly(List.of("m-1.json"), List.of("m-2.json"));
+        assertThat(first.queueDeferred("local").resolve("m-1.json"))
+                .as("nothing is lost in the first project")
+                .exists();
+        assertThat(second.queueDeferred("local").resolve("m-2.json"))
+                .as("nothing is lost in the second")
+                .exists();
+        assertThat(List.of(one.waiting(), two.waiting()))
+                .as("each says why it waits, naming the missing helper")
+                .allSatisfy(waiting -> assertThat(waiting).contains("pasta"));
+        assertThat(missing.invocations())
+                .as("nothing ran unfenced")
+                .noneMatch(command -> command.describe().contains(" send "));
+    }
+
+    private Mailbox queuedFor(final Path dir, final String container, final String... names)
+            throws IOException {
+        final Mailbox mailbox = new Mailbox(dir.resolve(container));
+        mailbox.create();
+        final Path active = mailbox.queueActive("local");
+        Files.createDirectories(active);
+        for (final String name : names) {
+            Files.writeString(active.resolve(name), "{\"messageId\":\"" + name + "\"}");
+            Files.writeString(active.resolve(name + ".sig"), "-----BEGIN SSH SIGNATURE-----");
+            Files.writeString(active.resolve(name + ".to"), "/peer/inbound");
+        }
+        return mailbox;
+    }
 }

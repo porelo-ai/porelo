@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
@@ -293,6 +294,9 @@ final class TransportConversations {
                 }
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
+            } catch (final CommandException ex) {
+                // This project's alone: the others' conversations are still asked.
+                failures.add(unfenced(scheme, project, ex));
             }
         }
         return new Outcome(handed, dropped, marked, failures);
@@ -322,6 +326,8 @@ final class TransportConversations {
                     // A task removed while its transport was asked is no failure.
                     failures.add(String.valueOf(ex.getMessage()));
                 }
+            } catch (final CommandException ex) {
+                failures.add(unfenced(member.scheme(), member.project(), ex));
             }
         }
         return failures;
@@ -473,6 +479,8 @@ final class TransportConversations {
                                         verbs.project(context, scheme, project, false)));
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
+            } catch (final CommandException ex) {
+                failures.add(unfenced(scheme, project, ex));
             }
         }
         return new Outcome(handed, dropped, List.of(), failures);
@@ -495,9 +503,24 @@ final class TransportConversations {
                 direct(adapter, member, handed, failures, WAIT_SECONDS);
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
+            } catch (final CommandException ex) {
+                failures.add(unfenced(member.scheme(), member.project(), ex));
             }
         }
         return new Outcome(handed, 0, List.of(), failures);
+    }
+
+    /**
+     * Says why a project's verb was refused before it ran, as one failure of the pass; a verb that
+     * ran and failed is not this pass's to judge.
+     */
+    private static String unfenced(
+            final String scheme, final String project, final CommandException ex) {
+        final @Nullable String refusal = TransportFence.refusal(ex);
+        if (refusal == null) {
+            throw ex;
+        }
+        return "the " + scheme + " transport could not run fenced for " + project + ": " + refusal;
     }
 
     /** What a transport announces when its poll can wait on the server for something to arrive. */

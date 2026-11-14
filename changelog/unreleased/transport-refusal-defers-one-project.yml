@@ -1,0 +1,2 @@
+title: "A transport verb whose network fence cannot be built for one project, because its reach does not resolve, the resolver file is unusable or pasta is missing, now defers that project's messages and the pass goes on for the other projects"
+type: fixed
