@@ -2692,15 +2692,29 @@ public final class TaskLaunch {
                         : 69;
         context.openIfShut(
                 context.vault().exists() && context.recordedId(container) == null, true, err);
+        enrolling = false;
         reservation =
                 new TaskReservations(context).start(project.name(), request.task(), container);
     }
+
+    /** Whether this start has begun to make things under its name: from its enrolment on. */
+    private boolean enrolling;
 
     private void releaseReservation() {
         final TaskReservations.Lease held = reservation;
         reservation = null;
         if (held != null) {
             try {
+                if (!enrolling) {
+                    // Refused before it made anything: its claim would only hold the project.
+                    // Best effort: a claim that cannot be ended stays unfinished, and the refusal
+                    // is still the start's answer.
+                    try {
+                        held.withdraw();
+                    } catch (java.io.IOException | RuntimeException ex) {
+                        // Left as an unfinished start, which 'porelo task remove' ends.
+                    }
+                }
                 held.close();
             } catch (java.io.IOException ex) {
                 throw new java.io.UncheckedIOException(ex);
@@ -3638,6 +3652,7 @@ public final class TaskLaunch {
             // can reach is - and enrolled earlier, a start refused afterwards for something else
             // left its account at the transport with nothing to retire it.
             final TaskConversations conversations = new TaskConversations(context);
+            enrolling = true;
             final String unreachable =
                     conversations.enroll(
                             project,

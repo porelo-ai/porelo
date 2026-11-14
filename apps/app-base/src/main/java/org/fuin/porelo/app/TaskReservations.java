@@ -149,16 +149,14 @@ public final class TaskReservations {
         private final String container;
         private final String attempt;
         private final boolean made;
+        private final boolean ours;
         private boolean closed;
 
-        private Lease(Claim claim) {
-            this(claim, false);
-        }
-
-        private Lease(Claim claim, boolean made) {
+        private Lease(Claim claim, boolean made, boolean ours) {
             container = claim.container();
             attempt = claim.attempt();
             this.made = made;
+            this.ours = ours;
             OWNED.get().put(claimKey(container), attempt);
         }
 
@@ -177,6 +175,52 @@ public final class TaskReservations {
          */
         public boolean made() {
             return made;
+        }
+
+        /**
+         * Ends this start's own claim when the start was refused before it made anything: no
+         * enrolment, state, secret or container is under the name, so nothing is left to protect
+         * and the claim would only hold the project against its removal. A start refused for a key
+         * in its tree left one, and the project could not be removed until a task that never
+         * existed was (2026-11-14).
+         *
+         * <p>Only a claim this lease made itself, still reserved, with no id and no container: an
+         * attempt it took back from an earlier start that died keeps protecting what that start may
+         * have made.
+         *
+         * @return Whether the claim was ended.
+         * @throws IOException When the claims cannot be read or written.
+         */
+        public boolean withdraw() throws IOException {
+            if (!ours || closed) return false;
+            return locked(
+                    () -> {
+                        final Claim old = read(container, "", "");
+                        if (old == null
+                                || !old.attempt().equals(attempt)
+                                || old.stage() != Stage.RESERVED
+                                || !old.id().isEmpty()
+                                || recorded(old) != null
+                                || context.podman().poreloContainers().contains(container)) {
+                            return Boolean.FALSE;
+                        }
+                        write(
+                                new Claim(
+                                        old.project(),
+                                        old.task(),
+                                        container,
+                                        attempt,
+                                        Stage.RETIRED,
+                                        "",
+                                        0,
+                                        ""),
+                                true);
+                        // Let go here, under the same lock: a close of its own afterwards could
+                        // meet another start's claim on the freed name.
+                        closed = true;
+                        OWNED.get().remove(claimKey(container), attempt);
+                        return Boolean.TRUE;
+                    });
         }
 
         /** Called only after both copies of podman's id have been recorded. */
@@ -311,7 +355,7 @@ public final class TaskReservations {
                                         return entries;
                                     });
                 } else write(fresh, true);
-                return new Lease(fresh);
+                return new Lease(fresh, false, true);
             }
             if (!old.attempt().equals(attempt)) throw taken(project, task, container, old);
             reconcile(old);
@@ -328,7 +372,7 @@ public final class TaskReservations {
                             processStart());
             write(next, true);
             // A recorded id survived reconcile only with its container listed under it.
-            return new Lease(next, recorded != null);
+            return new Lease(next, recorded != null, false);
         }
         for (String other : protectedNames()) {
             final Claim owner = known(other);
@@ -418,7 +462,7 @@ public final class TaskReservations {
         } else {
             publish(fresh);
         }
-        return new Lease(fresh, listed);
+        return new Lease(fresh, listed, fresh.stage() == Stage.RESERVED);
     }
 
     /** Verifies every id independently; an unrecorded container is never adopted. */

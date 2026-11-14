@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B778",
   "title": "A Start Refused Before Any Container Leaves No Start Behind",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 135,
@@ -34,6 +34,23 @@ whose start was refused for a key meets the same: the project cannot be removed 
 
 1. Find where a start refused before the container keeps its reservation (`RESERVED`, or claimed with no container).
 2. End the reservation on every refusal before the container is made; a start cut off midway stays recoverable.
+
+## Built
+
+- `TaskReservations.Lease.withdraw()`: ends the lease's claim (retired, as a removal leaves it) when this lease made
+  the claim itself, it is still reserved, holds no id and no container is under the name. An attempt taken back from
+  an earlier start that died is never withdrawn: what that start may have made stays protected.
+- `TaskLaunch`: the start marks itself as making things from its enrolment in the project's conversations on, the
+  first thing it makes. A start that ends before that withdraws its claim before it lets it go.
+- `doc/commands.md` on unfinished starts; changelog `refused-start-leaves-no-start.yml`.
+- Red first: `TaskRunCommandTest.aStartRefusedBeforeItMadeAnythingLeavesNoUnfinishedStart`, a credential refusal,
+  failed against the old code with the claim left unfinished. `TaskReservationsTest` pins both sides of `withdraw`.
+- Reading (Sonnet sub-agent, one reading): no Red. Fixed: a withdrawn lease lets go under the same lock, so its
+  own close cannot meet another start's claim on the freed name; a withdraw that fails leaves the claim unfinished
+  and the refusal still answers. Left: the test drives a credential refusal (exit 69), not the secret scan's (65),
+  which refuses on the same side of the enrolment; a start refused after enrolment still leaves an unfinished start.
+- The key scenario's line removing its unfinished start can go once this is on the VM; that is
+  [B779](README.md#b779)'s scenario change.
 
 ## Red-first test
 

@@ -1189,6 +1189,25 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartRefusedBeforeItMadeAnythingLeavesNoUnfinishedStart(@TempDir Path dir)
+            throws IOException {
+        // A start refused for a key in its tree left its claim, and the project could not be
+        // removed until a task that never existed was (VM, 2026-11-14).
+        final PoreloContext context = refusingProviderContext(dir, false);
+        try {
+            refusesBeforeCreatingATask(unattendedStart(context, dir));
+
+            final TaskReservations reservations = new TaskReservations(context);
+            assertThat(reservations.unfinishedNames())
+                    .as("a refusal before anything was made holds no start")
+                    .isEmpty();
+            assertThat(reservations.projects()).as("nor any project against its removal").isEmpty();
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
     void anEmptyVaultDoesNotInventAStoredKindForAnUnattendedStart(@TempDir Path dir)
             throws IOException {
         // Inventing a refused kind sends the operator to a different provider instead of signing

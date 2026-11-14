@@ -549,6 +549,32 @@ class TaskReservationsTest {
     }
 
     @Test
+    void aFreshClaimWithdrawnLeavesTheNameFreeForItsOwnTask() throws Exception {
+        final TaskReservations reservations = new TaskReservations(context());
+        try (var claim = reservations.start("web", "x", "porelo-web-x")) {
+            assertThat(claim.withdraw()).as("nothing was made under it").isTrue();
+        }
+        assertThat(reservations.locked(() -> reservations.projectBusy("web"))).isNull();
+        assertThat(reservations.protectedNames()).doesNotContain("porelo-web-x");
+        try (var next = reservations.start("web", "x", "porelo-web-x")) {
+            assertThat(next.attempt()).isNotBlank();
+        }
+    }
+
+    @Test
+    void aRecoveredAttemptIsNeverWithdrawnByTheStartThatTookItBack() throws Exception {
+        // An earlier start that died may have made state and secrets its claim still protects.
+        final TaskReservations reservations = new TaskReservations(context());
+        try (var claim = reservations.reserve("web", "x", "porelo-web-x", "first")) {}
+        try (var again = reservations.start("web", "x", "porelo-web-x")) {
+            assertThat(again.attempt()).isEqualTo("first");
+            assertThat(again.withdraw()).isFalse();
+        }
+        assertThat(reservations.locked(() -> reservations.projectBusy("web")))
+                .contains("porelo task remove porelo-web-x");
+    }
+
+    @Test
     void reservingARetiredNameDeletesItsLeftoverMailbox() throws Exception {
         final PoreloContext context = context();
         final String container = org.fuin.porelo.runtime.ContainerName.encoded("web", "x", 1000);

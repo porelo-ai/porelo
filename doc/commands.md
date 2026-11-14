@@ -364,8 +364,8 @@ contents are unknown. A task never removes itself when it ends. At a terminal it
 running task first; to push the work it holds to the gate, discard it, or keep the task; to start a stopped task
 so its work can be pushed; and to discard unseen what nobody recorded - no by default, and never with `--yes`,
 which otherwise stops or starts the task as removing it needs. `--no-input` asks nothing.
-A start refused before its container was made leaves an unfinished start, which `project clear` and `project remove`
-refuse for, naming `porelo task remove <container>`; `task remove` takes it by that name or by the task's own name, and
+A start refused before it joined its project's conversations - for a secret in its tree or for a credential - leaves
+no unfinished start. One that stopped later, before its container was made, leaves an unfinished start, which `project clear` and `project remove` refuse for, naming `porelo task remove <container>`; `task remove` takes it by that name or by the task's own name, and
 a task name whose unfinished starts are in several projects is refused, exit 64, listing them.
 
 **Elsewhere, what a refusal would send you to type is asked at a terminal**, by the same rules: `prune` and `clear`

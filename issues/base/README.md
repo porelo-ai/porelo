@@ -242,7 +242,6 @@ from its side, as *blocked by*.
 | <a id="b747"></a>[B747](B747-An-Unreadable-Local-Upstream-Is-Named-As-Such.md) | S | - | A start on a repository whose upstream is a local path this account cannot read is refused before anything is made, naming it as unreadable with what fixes it, never as missing and never with git's command line. | 0 |
 | <a id="b748"></a>[B748](B748-A-Refused-Repository-Setting-Names-The-Start-Command.md) | XS | - | A start refused without a terminal because a repository's porelo.yml asks for settings not yet allowed names `porelo task start` at a terminal as the next step. | 0 |
 | <a id="b750"></a>[B750](B750-A-Checkout-Joins-Default-Under-Its-Own-Name.md) | S | - | A start in a checkout with no project named adds it to `default` under the checkout's directory name, as the story of work without a project says, not under its origin's name. | 0 |
-| <a id="b778"></a>[B778](B778-A-Start-Refused-Before-Any-Container-Leaves-No-Start-Behind.md) | S | - | A task start that is refused before any container is made, as by the secret scan, ends its reservation, so the project can be removed and the name started again without a task removal first | 0 |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](README.md#b467) | `Review` names where each file Porelo delivered into the task came from. | - |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it | - |
 | <a id="b558"></a>[B558](B558-The-Event-Log-Has-A-Copy-Off-The-Machine.md) | M | [B154](README.md#b154) | Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event. | - |
@@ -430,6 +429,7 @@ from its side, as *blocked by*.
 | <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | - |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | - |
 | <a id="b777"></a>[B777](B777-The-Resolver-Scenario-Leaves-No-Task-Running.md) | S | - | The scenario "the resolver is the system's dnsmasq, whatever PATH finds first" removes its task when it ends, so a later run in the same account starts its own | 0 |
+| <a id="b778"></a>[B778](B778-A-Start-Refused-Before-Any-Container-Leaves-No-Start-Behind.md) | S | - | A task start that is refused before any container is made, as by the secret scan, ends its reservation, so the project can be removed and the name started again without a task removal first | 0 |
 
 ## Finished
 
