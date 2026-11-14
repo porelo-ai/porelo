@@ -116,28 +116,44 @@ Feature: The AppArmor profile a task runs in, on a machine Porelo was installed 
         And its output has a line matching "ended +with an error at .*: the provider - .+"
         And a script runs "porelo task remove porelo-armored_kept --force; porelo task remove porelo-armored_asked --force"
 
-    Scenario: what runs in porelo-task cannot connect to a socket that no Porelo binary serves
-        # The effect the profile exists for. A tmux server started by a plain exec of the agent's own
-        # user is outside porelo-task and wears no porelo label: the same user's connect reaches it from
-        # a plain exec, and is refused from the task's session, which Porelo put into porelo-task. A
-        # profile weakened to a bare unix rule would let both through.
+    Scenario: what runs in porelo-task cannot connect to an abstract socket that no Porelo binary serves
+        # The effect the profile exists for. A server on an abstract name, started by a plain exec of
+        # the agent's own user, is outside porelo-task and wears no porelo label: the same user's
+        # connect reaches it from a plain exec, and is refused from the task's session, which Porelo
+        # put into porelo-task. A profile weakened to a bare unix rule would let both through. The
+        # name is abstract because the peer rule judges only those; a path socket is held by the
+        # file rules, which let the task reach every file of its container.
         Given the suite runs as an unprivileged user
         And a script runs "porelo task remove porelo-armored_fenced --force"
         And a project called "armored" of class "guarded" with a file in it
         And a terminal on the machine
-        When I run "porelo task start fenced --project armored --repository armored --agent stub --attach shell --detach --clearance deny"
-        And a script runs:
+        When I run "porelo task start fenced --project armored --repository armored --agent stub --attach shell --detach --clearance deny; echo start-exit-$?"
+        # A command typed into the terminal is not waited for: the container exists once it says so.
+        Then within 600 seconds the terminal shows "start-exit-0"
+        When a script runs:
             """
-            podman exec --user agent porelo-armored_fenced sh -c \
-                'mkdir -p /tmp/foreign && tmux -S /tmp/foreign/sock new-session -d sleep 3600'
-            podman exec --user agent porelo-armored_fenced tmux -S /tmp/foreign/sock list-sessions >/dev/null \
+            podman exec -i --user agent porelo-armored_fenced sh -c 'mkdir -p /tmp/foreign && cat > /tmp/foreign/serve.pl' <<'PERL'
+            use Socket;
+            socket(S, AF_UNIX, SOCK_STREAM, 0) or die "socket: $!";
+            bind(S, pack_sockaddr_un("\0porelo-foreign")) or die "bind: $!";
+            listen(S, 5) or die "listen: $!";
+            while (accept(C, S)) { close C }
+            PERL
+            podman exec -i --user agent porelo-armored_fenced sh -c 'cat > /tmp/foreign/reach.pl' <<'PERL'
+            use Socket;
+            socket(C, AF_UNIX, SOCK_STREAM, 0) or die "socket: $!";
+            print connect(C, pack_sockaddr_un("\0porelo-foreign")) ? "FOREIGN-" . "REACHED\n" : "FOREIGN-" . "REFUSED\n";
+            PERL
+            podman exec -d --user agent porelo-armored_fenced perl /tmp/foreign/serve.pl
+            sleep 1
+            podman exec --user agent porelo-armored_fenced perl /tmp/foreign/reach.pl | grep -q FOREIGN-REACHED \
                 && echo "outside porelo-task the agent's user reaches it"
             """
         Then its output contains "outside porelo-task the agent's user reaches it"
         When I run "porelo task attach porelo-armored_fenced"
         And I wait for the session inside the container
-        And I run "cat /proc/self/attr/apparmor/current; echo; tmux -S /tmp/foreign/sock list-sessions >/dev/null 2>&1 && echo FOREIGN-''REACHED || echo FOREIGN-''REFUSED"
-        # Split in what is typed, so the echo of the line itself matches neither.
+        # The script prints its answer in two halves, so the typed line itself matches neither.
+        And I run "cat /proc/self/attr/apparmor/current; echo; perl /tmp/foreign/reach.pl"
         Then the terminal shows "porelo-task (enforce)"
         And the terminal shows "FOREIGN-REFUSED"
         When I log off
