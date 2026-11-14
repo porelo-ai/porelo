@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B761",
   "title": "A Run's Time Limit Outlasts A Daemon Restart",
-  "state": "Implementing",
+  "state": "Review",
   "priority": "High",
   "size": "M",
   "rank": 8,
@@ -46,6 +46,28 @@ wait ended.
 - Red first: `RunLimitWatchTest` - a state with `until` in the past, no close, no live waiter and a running container
   in the fake runner: the pass stops the task and writes the limit's end. Red today, since nothing reads the record.
   Beside it: a live waiter, a closed run and a record without `until` stop nothing.
+
+## Built
+
+- Measured first, on this machine's podman: a process started by `podman exec` keeps running when the `podman exec`
+  client is killed (SIGKILL). An agent therefore outlives a restart of porelod, and nothing else ends it.
+- `RunLimit.started` writes `until` (start plus minutes) beside `minutes`, and the waiting process (`waiterPid`, and
+  `waiterStarted` when the system says so). `RunLimit.closed` marks the run's end, written in `TaskLaunch` before the
+  work record's end, whatever the exit. `RunLimit.due` answers the minutes of a run whose `until` passed, that is not
+  closed, not already ended by its limit, and whose waiter is gone. A record without `until` is never due. A waiter
+  is alive only when its pid runs and, where both say so, started at the recorded time, so a pid used again is not
+  taken for it.
+- `RunLimitWatch` (app-task), started by `PoreloDaemon` beside the room sweep, looks at its start and once a minute.
+  For each running task whose run is due, it closes the run first, so a failed stop is not retried at every pass. It
+  then calls `TaskLaunch.endAtLimit`, the same end the wait uses, and says each one in porelod's log.
+- Start's `minutes` in `15-task.varlink` says the limit holds across a restart of porelod. One changelog entry.
+- Not told apart: an agent that ended on its own while no process waited, in a container still running. Its run is
+  ended at its deadline and read as ended by its limit, since nothing recorded its own end.
+- Red first: `RunLimitWatchTest.aRunPastItsDeadlineThatNothingWaitsOnIsEndedAtItsLimit` (red), then green. Beside it
+  as guards: a live waiter, before the deadline, a closed run, a record without `until`, and the waiter's liveness.
+- Green, targeted: `RunLimitWatchTest` 6, `TaskRunCommandTest` 310, and the wire, daemon and app tests named for
+  the run limit, the task list, the agent's end, the daemon and the interfaces (48, 330, 177), 0 skipped.
+- The VM acceptance below is not run yet: the VM queue holds other walks.
 
 ## Acceptance
 

@@ -1434,6 +1434,17 @@ public final class PoreloDaemon {
                                     System.out.flush();
                                 });
                 rooms.start();
+                // A run started here waits here, and its agent outlives a restart of this daemon:
+                // at this start and once a minute, a run whose limit passed while nothing waited
+                // on it is ended as its own wait would have ended it.
+                new org.fuin.porelo.app.RunLimitWatch(
+                                owned,
+                                org.fuin.porelo.app.RunLimitWatch.INTERVAL,
+                                line -> {
+                                    System.out.println("porelod: " + line);
+                                    System.out.flush();
+                                })
+                        .start();
                 // Both: the watch answers at once where a message is already on this machine, and
                 // the
                 // timer still goes and asks, because a watch can miss things and a transport that

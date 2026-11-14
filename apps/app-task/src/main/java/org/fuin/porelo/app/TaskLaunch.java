@@ -4390,6 +4390,12 @@ public final class TaskLaunch {
                 }
             }
             try {
+                RunLimit.closed(context.paths().tasks().containerState(container));
+            } catch (java.io.IOException ex) {
+                err.println("porelo: could not close this run's time limit: " + ex.getMessage());
+                err.flush();
+            }
+            try {
                 records.runEnded(container, calls, code);
             } catch (java.io.IOException ex) {
                 err.println(

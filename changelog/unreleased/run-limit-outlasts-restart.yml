@@ -1,0 +1,2 @@
+title: "An unattended run's time limit holds when porelod restarts during the run: porelod ends a run whose minutes passed while nothing waited on it any more, and List says the limit ended it"
+type: fixed
