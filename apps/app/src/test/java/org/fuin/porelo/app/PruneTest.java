@@ -543,6 +543,130 @@ class PruneTest {
         assertThat(mirror).doesNotExist();
     }
 
+    /** Makes a file named as an agent lookup's socket of a process, aged past {@link #age}. */
+    private static Path lookupSocket(PoreloContext context, long pid) throws IOException {
+        final Path runtime = Files.createDirectories(context.paths().xdg().runtime());
+        final Path socket = runtime.resolve("porelo-agent-pi-" + pid + "-1.sock");
+        Files.writeString(socket, "");
+        age(runtime);
+        return socket;
+    }
+
+    /** A pid no process can hold: above the kernel's limit of 2^22. */
+    private static final long GONE = 9_999_999L;
+
+    /** Init, which started before any socket a test makes. */
+    private static final long BOOT = 1L;
+
+    @Test
+    void aSocketADeadLookupLeftIsRemovedAsSuchAndALiveOnesStays() throws IOException {
+        // Taken for a task, it was listed, could not be removed, and doctor counted it forever.
+        final PoreloContext context = context();
+        final Path dead = lookupSocket(context, GONE);
+        final Path live = lookupSocket(context, BOOT);
+
+        final Prune.Result shown = new Prune(context).run(false, false);
+        assertThat(shown.removes())
+                .as(shown.toString())
+                .singleElement()
+                .satisfies(
+                        item -> {
+                            assertThat(item.kind()).isEqualTo("SOCKET");
+                            assertThat(item.name()).isEqualTo(dead.toString());
+                        });
+        assertThat(shown.keeps()).as(shown.toString()).isEmpty();
+
+        final Prune.Result done = new Prune(context).run(true, false);
+        assertThat(done.keeps()).as(done.toString()).isEmpty();
+        assertThat(dead).as("the dead lookup's socket goes").doesNotExist();
+        assertThat(live).as("a running lookup's socket stays").exists();
+    }
+
+    @Test
+    void theAnswerAtATerminalShowsWhatCouldNotBeRemoved() throws IOException {
+        // It printed "Removed:" and nothing, while everything listed was still there.
+        final PoreloContext context = context();
+        final Path dead = lookupSocket(context, GONE);
+        final Path runtime = context.paths().xdg().runtime();
+        assertThat(runtime.toFile().setWritable(false))
+                .as("the fixture makes the socket impossible to remove")
+                .isTrue();
+        try {
+            final String said = prune(context, question -> "y");
+            // The preview says "Would be removed"; "Removed:" heads only what an answer removed.
+            assertThat(said)
+                    .contains("Could not be removed:\n  socket " + dead)
+                    .doesNotContain("Removed:");
+        } finally {
+            runtime.toFile().setWritable(true);
+        }
+        assertThat(dead).exists();
+    }
+
+    @Test
+    void aSocketWhosePidANewerProcessHoldsIsLeftOverAndAFreshOneIsNot() throws IOException {
+        // A pid comes back: the process holding it now started after the socket was made, so it
+        // is not the lookup that made it. A socket made just now may be a lookup still starting.
+        final PoreloContext context = context();
+        final Path reused = lookupSocket(context, ProcessHandle.current().pid());
+        Files.setLastModifiedTime(
+                reused, java.nio.file.attribute.FileTime.from(java.time.Instant.EPOCH));
+        final Path fresh =
+                context.paths().xdg().runtime().resolve("porelo-agent-pi-" + GONE + "-2.sock");
+        Files.writeString(fresh, "");
+
+        new Prune(context).run(true, false);
+
+        assertThat(reused).as("the pid's holder started after the socket").doesNotExist();
+        assertThat(fresh).as("a socket younger than the grace stays").exists();
+    }
+
+    @Test
+    void aDanglingLinkNamedAsALookupsSocketIsRemovedNotOnlyReported() throws IOException {
+        final PoreloContext context = context();
+        final Path runtime = Files.createDirectories(context.paths().xdg().runtime());
+        final Path link =
+                Files.createSymbolicLink(
+                        runtime.resolve("porelo-agent-pi-" + GONE + "-3.sock"),
+                        dir.resolve("nowhere"));
+        // Aged without following it, which a dangling link would refuse.
+        Files.getFileAttributeView(
+                        link,
+                        java.nio.file.attribute.BasicFileAttributeView.class,
+                        java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                .setTimes(
+                        java.nio.file.attribute.FileTime.from(java.time.Instant.EPOCH), null, null);
+
+        final Prune.Result done = new Prune(context).run(true, false);
+
+        assertThat(done.removes()).extracting(Prune.Item::name).contains(link.toString());
+        assertThat(Files.exists(link, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                .as("what is reported removed is gone")
+                .isFalse();
+    }
+
+    @Test
+    void aFileInTheRuntimeDirectoryIsNeverTakenForATask() throws IOException {
+        // A task's runtime state is a directory; a file of a task's shape there is someone
+        // else's, and removing it as a task retired the name while the file stayed.
+        final PoreloContext context = context();
+        final Path runtime = Files.createDirectories(context.paths().xdg().runtime());
+        final Path file = Files.writeString(runtime.resolve("porelo-web-x"), "");
+        age(runtime);
+
+        final Prune.Result shown = new Prune(context).run(false, false);
+
+        assertThat(shown.removes()).as(shown.toString()).isEmpty();
+        assertThat(shown.keeps()).as(shown.toString()).isEmpty();
+        new Prune(context).run(true, false);
+        assertThat(file).exists();
+        assertThat(context.paths().xdg().state().resolve("task-identities"))
+                .as("no name was retired for it")
+                .satisfiesAnyOf(
+                        path -> assertThat(path).doesNotExist(),
+                        path -> assertThat(path).isEmptyDirectory());
+    }
+
     @Test
     void withoutATerminalOrWithNoInputNothingIsAskedAndTheLineIsTodays() throws IOException {
         final PoreloContext context = context();

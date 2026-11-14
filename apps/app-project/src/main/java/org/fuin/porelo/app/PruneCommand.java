@@ -58,36 +58,7 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
             out.flush();
             return 0;
         }
-        final java.util.List<Prune.Item> kept =
-                result.keeps().stream()
-                        .filter(item -> !item.holds().startsWith("not removed"))
-                        .toList();
-        final java.util.List<Prune.Item> failed =
-                result.keeps().stream()
-                        .filter(item -> item.holds().startsWith("not removed"))
-                        .toList();
-        if (!result.removes().isEmpty()) {
-            out.println(yes ? "Removed:" : "Would be removed - nothing is, without --yes:");
-            result.removes().forEach(item -> show(out, item, null));
-            out.println();
-        }
-        if (!kept.isEmpty()) {
-            out.println(
-                    "Kept, because it may hold work nobody has looked at"
-                            + (includingWork ? ":" : " - --including-work removes it too:"));
-            kept.forEach(item -> show(out, item, item.holds()));
-            out.println();
-        }
-        if (!failed.isEmpty()) {
-            out.println("Could not be removed:");
-            failed.forEach(item -> show(out, item, item.holds()));
-            out.println();
-        }
-        if (!result.unchecked().isEmpty()) {
-            out.println("Not looked at:");
-            result.unchecked().forEach(said -> out.println("  " + said));
-            out.println();
-        }
+        report(out, result, yes, false);
         if (!yes && !result.removes().isEmpty()) {
             // What a second command with --yes would remove is asked here instead, no by default:
             // removing is the one step a person decides, and the list they decide on is the one
@@ -100,9 +71,15 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
                                 "Remove them now?",
                                 "",
                                 true)) {
+                    // What went and what could not be removed are said; what is kept and what
+                    // was not looked at stood in the list just answered.
                     final Prune.Result done = new Prune(context).run(true, includingWork);
-                    out.println("Removed:");
-                    done.removes().forEach(item -> show(out, item, null));
+                    if (done.removes().isEmpty()
+                            && done.keeps().stream()
+                                    .noneMatch(item -> item.holds().startsWith("not removed"))) {
+                        out.println("Nothing was left to remove.");
+                    }
+                    report(out, done, true, true);
                     out.flush();
                     return 0;
                 }
@@ -113,6 +90,47 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         }
         out.flush();
         return 0;
+    }
+
+    /**
+     * Shows what a prune removed or would remove, what it kept, what it could not remove and what
+     * it did not look at; after an answer, only what went and what could not be removed.
+     */
+    private void report(
+            final PrintWriter out,
+            final Prune.Result result,
+            final boolean applied,
+            final boolean answered) {
+        final java.util.List<Prune.Item> kept =
+                result.keeps().stream()
+                        .filter(item -> !item.holds().startsWith("not removed"))
+                        .toList();
+        final java.util.List<Prune.Item> failed =
+                result.keeps().stream()
+                        .filter(item -> item.holds().startsWith("not removed"))
+                        .toList();
+        if (!result.removes().isEmpty()) {
+            out.println(applied ? "Removed:" : "Would be removed - nothing is, without --yes:");
+            result.removes().forEach(item -> show(out, item, null));
+            out.println();
+        }
+        if (!kept.isEmpty() && !answered) {
+            out.println(
+                    "Kept, because it may hold work nobody has looked at"
+                            + (includingWork ? ":" : " - --including-work removes it too:"));
+            kept.forEach(item -> show(out, item, item.holds()));
+            out.println();
+        }
+        if (!failed.isEmpty()) {
+            out.println("Could not be removed:");
+            failed.forEach(item -> show(out, item, item.holds()));
+            out.println();
+        }
+        if (!result.unchecked().isEmpty() && !answered) {
+            out.println("Not looked at:");
+            result.unchecked().forEach(said -> out.println("  " + said));
+            out.println();
+        }
     }
 
     /**

@@ -26,6 +26,47 @@ class InstalledAgentTest {
                 .endsWith(".sock");
     }
 
+    @Test
+    void aLookupsSocketNamesTheProcessThatMadeItAndNoOtherNameDoes() {
+
+        // A lookup that is killed leaves its socket; whoever clears it must know whose it was,
+        // and must never take a task's runtime directory for one.
+        final Path socket =
+                InstalledAgent.socketFor(
+                        Path.of("/usr/libexec/porelo/agents/porelo-agent-claude"),
+                        Path.of("/run/user/1000/porelo"));
+
+        assertThat(InstalledAgent.lookupOf(socket.getFileName().toString()))
+                .as("the pid read back is this process's, which made the name")
+                .hasValue(ProcessHandle.current().pid());
+        assertThat(InstalledAgent.lookupOf("porelo-agent-pi-1951100-5.sock")).hasValue(1951100L);
+        // An agent described in agents.d runs a binary under a name of its own, such as "stub".
+        assertThat(
+                        InstalledAgent.lookupOf(
+                                InstalledAgent.socketFor(
+                                                Path.of("/usr/lib/porelo-agent-stub/stub"),
+                                                Path.of("/run/user/1000/porelo"))
+                                        .getFileName()
+                                        .toString()))
+                .as("a described agent's lookup socket is read back too")
+                .hasValue(ProcessHandle.current().pid());
+        for (final String other :
+                java.util.List.of(
+                        "porelo-web-app-x",
+                        "porelo-agent-pi-1951100-5",
+                        "porelo-agent-pi.sock",
+                        "porelo-agent--1-2.sock",
+                        "porelo-agent-pi-x-5.sock",
+                        "porelo-agent-pi-0-5.sock",
+                        "porelo-agent-pi-12-05.sock",
+                        "porelod.sock",
+                        "mcp")) {
+            assertThat(InstalledAgent.lookupOf(other))
+                    .as("%s is not a lookup's socket", other)
+                    .isEmpty();
+        }
+    }
+
     private static Path adapter(Path dir, String name, String script) throws java.io.IOException {
         final Path file =
                 java.nio.file.Files.createDirectories(dir.resolve("agents"))

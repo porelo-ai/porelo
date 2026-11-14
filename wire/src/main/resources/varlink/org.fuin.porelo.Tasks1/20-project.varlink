@@ -552,7 +552,7 @@ method Prune(
 
 # One thing Prune found.
 type PrunedThing (
-  # PROJECT, TASK, IMAGE, BUILD, RECORD or VAULT.
+  # PROJECT, TASK, IMAGE, BUILD, RECORD, VAULT or SOCKET.
   kind: string,
   # A project, a container, an image, a path or a vault entry.
   name: string,

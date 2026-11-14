@@ -69,8 +69,11 @@ public class InstalledAgent implements AutoCloseable {
      * @return The path.
      */
     static Path socketFor(final Path executable, final Path socketDirectory) {
+        // A described agent's binary has a name of its own ("stub"); the prefix makes every
+        // lookup's socket one that lookupOf reads back and a prune can tell from a task's.
+        final String binary = String.valueOf(executable.getFileName());
         return socketDirectory.resolve(
-                executable.getFileName()
+                (binary.startsWith(AgentDirectory.PREFIX) ? binary : AgentDirectory.PREFIX + binary)
                         + "-"
                         + ProcessHandle.current().pid()
                         + "-"
@@ -81,6 +84,26 @@ public class InstalledAgent implements AutoCloseable {
     /** Counts the lookups of this process, so each has a socket of its own. */
     private static final java.util.concurrent.atomic.AtomicLong LOOKUPS =
             new java.util.concurrent.atomic.AtomicLong();
+
+    /**
+     * Reads which process a lookup's socket was made for, from the name {@link #socketFor} gives
+     * it.
+     *
+     * @param fileName A file name in a socket directory.
+     * @return The pid of the process that made it, or empty when the name is not a lookup's socket.
+     */
+    public static java.util.OptionalLong lookupOf(final String fileName) {
+        final java.util.regex.Matcher name = LOOKUP_SOCKET.matcher(fileName);
+        return name.matches()
+                ? java.util.OptionalLong.of(Long.parseLong(name.group(1)))
+                : java.util.OptionalLong.empty();
+    }
+
+    /** What {@link #socketFor} names a socket: the agent binary, the pid, the lookup's count. */
+    private static final java.util.regex.Pattern LOOKUP_SOCKET =
+            java.util.regex.Pattern.compile(
+                    java.util.regex.Pattern.quote(AgentDirectory.PREFIX)
+                            + "[^/]+-([1-9][0-9]{0,17})-[1-9][0-9]{0,17}\\.sock");
 
     /**
      * Starts an agent binary and completes its handshake.

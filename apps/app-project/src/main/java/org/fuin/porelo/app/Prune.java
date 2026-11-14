@@ -55,8 +55,8 @@ public final class Prune {
     /**
      * One thing found.
      *
-     * @param kind {@code PROJECT}, {@code TASK}, {@code IMAGE}, {@code BUILD}, {@code RECORD} or
-     *     {@code VAULT}.
+     * @param kind {@code PROJECT}, {@code TASK}, {@code IMAGE}, {@code BUILD}, {@code RECORD},
+     *     {@code VAULT} or {@code SOCKET}.
      * @param name What it is called: a project, a container, an image, a path or a vault entry.
      * @param what What of it goes, or would go, as a person recognises it.
      * @param holds What it holds that nobody has looked at, or "" when nothing; non-empty means it
@@ -201,6 +201,7 @@ public final class Prune {
             final Item item = task(container, apply, includingWork);
             (item.holds().isEmpty() ? removes : keeps).add(item);
         }
+        lookupSockets(apply, removes, keeps);
         // What a project's removal already named is not named again on its own.
         final Set<String> named = new java.util.HashSet<>();
         removes.stream()
@@ -325,13 +326,87 @@ public final class Prune {
                         directoryOf(context.paths().tasks().result("x")),
                         directoryOf(context.paths().tasks().containerState("x")))) {
             for (final String name : names(directory)) {
-                if (ContainerName.isTask(name) && !containers.contains(name)) {
+                if (ContainerName.isTask(name)
+                        && !containers.contains(name)
+                        && !elseInRuntime(directory, name)) {
                     gone.add(name);
                 }
             }
         }
         gone.removeIf(name -> !settled(name));
         return gone;
+    }
+
+    /**
+     * Returns whether an entry of the runtime directory is not a task's: a task's runtime state
+     * there is a directory, and a file beside it - an agent lookup's socket, for one - is not.
+     */
+    private boolean elseInRuntime(final @Nullable Path directory, final String name) {
+        return directory != null
+                && directory.equals(context.paths().xdg().runtime())
+                && !Files.isDirectory(
+                        directory.resolve(name), java.nio.file.LinkOption.NOFOLLOW_LINKS);
+    }
+
+    /**
+     * Lists, and removes when asked, every socket an agent lookup left in the runtime directory
+     * whose lookup has ended: untouched for {@link #SETTLED}, and its pid held by no process or by
+     * one that started after the socket was made. A lookup lasts seconds, so a younger socket may
+     * be one still starting; a process whose start cannot be read is taken for its lookup.
+     */
+    private void lookupSockets(
+            final boolean apply, final List<Item> removes, final List<Item> keeps) {
+        final Path runtime = context.paths().xdg().runtime();
+        final java.time.Instant before = java.time.Instant.now().minus(SETTLED);
+        for (final String name : names(runtime)) {
+            final java.util.OptionalLong pid =
+                    org.fuin.porelo.agent.api.InstalledAgent.lookupOf(name);
+            final Path socket = runtime.resolve(name);
+            if (pid.isEmpty()
+                    || Files.isDirectory(socket, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                continue;
+            }
+            final java.time.Instant made;
+            try {
+                made =
+                        Files.getLastModifiedTime(socket, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                .toInstant();
+            } catch (IOException ex) {
+                continue;
+            }
+            if (made.isAfter(before) || madeBy(pid.getAsLong(), made)) {
+                continue;
+            }
+            final Item item =
+                    new Item("SOCKET", socket.toString(), List.of("an agent lookup's socket"), "");
+            if (apply) {
+                try {
+                    // The entry itself, never what it points to: a dangling link goes too.
+                    Files.deleteIfExists(socket);
+                } catch (IOException ex) {
+                    keeps.add(
+                            new Item(
+                                    "SOCKET",
+                                    socket.toString(),
+                                    item.what(),
+                                    "not removed: " + ex.getMessage()));
+                    continue;
+                }
+            }
+            removes.add(item);
+        }
+    }
+
+    /** Returns whether the process holding a pid may be the lookup that made a socket then. */
+    private static boolean madeBy(final long pid, final java.time.Instant made) {
+        return ProcessHandle.of(pid)
+                .map(
+                        process ->
+                                process.info()
+                                        .startInstant()
+                                        .map(start -> !start.isAfter(made))
+                                        .orElse(true))
+                .orElse(false);
     }
 
     /**
