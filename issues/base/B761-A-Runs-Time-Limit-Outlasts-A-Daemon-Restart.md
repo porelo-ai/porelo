@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B761",
   "title": "A Run's Time Limit Outlasts A Daemon Restart",
-  "state": "Backlog",
+  "state": "Implementing",
   "priority": "High",
   "size": "M",
   "rank": 8,
