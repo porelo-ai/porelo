@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B764",
   "title": "A Refresh On A Host Without Porelo-Host Says So",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "Highest",
   "rank": 1,
