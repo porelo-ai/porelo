@@ -120,6 +120,18 @@ any branch, so nothing you are looking at changes under your feet; an `online` p
 the task's own branch on to its `upstream` at once. The gate listens on your machine's loopback
 only; nothing else on your network can reach it, and only the task's own container is connected to it.
 
+The mirror is a **bare repository**: git's database alone (its objects, branches and tags, settings and
+hooks), with no working tree, which is the form a forge keeps a repository in. Nothing in it is
+edited, built or run. Porelo makes it with `git clone --bare --no-hardlinks` from the upstream,
+through the machine's own key lending, or with `git init --bare` when there is no upstream yet. It
+sets the mirror to take pushes over HTTP. There is one per project and repository, in Porelo's data
+directory (`$XDG_DATA_HOME/porelo`): `mirrors/<project>/<repository>.git`, or `mirrors/<project>.git`
+for a repository named as its project. A task's push lands there as `refs/porelo/incoming/<task>`.
+Work is done only in clones of it. One is the task's `/workspace` in the container. The other is
+what `porelo gate checkout` writes: a new repository of its own whose only remote is the mirror,
+with its hooks switched off. It is not a git worktree, so it shares no settings or hooks with the
+mirror.
+
 Then, on your side:
 
 ```
@@ -257,6 +269,7 @@ ever edited. `porelo talk` shows and moves them; see [commands](commands.md#talk
 | Term | In one sentence |
 |---|---|
 | Agent | The tool that does the work inside the container, installed as a package Porelo discovers rather than knows by name. |
+| Bare repository | A git repository with no working tree: only its database of commits, branches and settings. |
 | Broker | The process on your side that swaps a task's phantom token for the real credential on the way out. |
 | Clearance | What happens when a task reaches something its rules do not allow: `prompt`, `allow`, `deny` or `off`. |
 | Client | Software that talks to one or more nodes and decides nothing itself, such as the CLI. |
@@ -265,9 +278,9 @@ ever edited. `porelo talk` shows and moves them; see [commands](commands.md#talk
 | Egress | A task's outbound traffic: denied unless the project declared it. |
 | Egress set | A named, reviewed group of hosts a project may reach, such as `maven`. |
 | Gate | The one crossing where work leaves your machine, and where somebody reads it first. |
+| Git mirror | The repository's copy on your machine, a bare repository, that a task clones from and pushes to. |
 | Helper | A process on your side serving exactly one task, such as the broker or the gate. |
 | Image | The recipe a task's container is built from: base Linux, agent, project tools. |
-| Mirror | The repository's copy on your machine that a task clones from and pushes to. |
 | Mode | How a person is involved in a task: `shell`, `agent` or `unattended`. |
 | Node | A running `porelod` and everything it owns, one per user account, not one per machine. |
 | Operator | The person who owns a node, the only one who can unlock its vault or approve at its gate. |

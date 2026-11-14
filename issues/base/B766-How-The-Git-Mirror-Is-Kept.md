@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B766",
   "title": "How The Git Mirror Is Kept",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 2,
@@ -38,3 +38,10 @@ Filed 2026-11-14 on the operator's order.
     a worktree, so it shares no config or hooks with the mirror.
 - The glossary's row "Mirror" becomes "Git mirror", and a row "Bare repository" is added.
 - The tests tagged `documents` stay green.
+
+## Built
+
+- One paragraph after the gate's first one in `doc/how-it-works.md`. It says what the plan lists, with the data
+  directory written `$XDG_DATA_HOME/porelo`, as `doc/credentials.md` and `doc/commands.md` write it.
+- The glossary has "Bare repository", and "Git mirror" in place of "Mirror", each in alphabetical order.
+- The tests tagged `documents` are green.
