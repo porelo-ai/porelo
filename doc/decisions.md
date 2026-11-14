@@ -1058,8 +1058,11 @@ each feature as not installed, so nothing runs at build time that the project fi
 
 *Superseded on 2026-11-06 for what wins: the operator decided in porelo-project's "A repository of its own stays in
 Default and says what it needs" that a repository's `porelo.yml` and the local override add to the project's image key
-by key - a value they set wins, their `run` lines follow the project's, their `env` joins it. The rest of this entry
-still holds until that issue gives the repository's file more than `image`.*
+by key - a value they set wins, their `run` lines follow the project's, their `env` joins it. In `default` the files
+now hold more than `image`: the project file's form, less `project.name`, `repositories`, `mcp` and `readings`, and
+what they set is allowed once per machine before a start runs under it, as
+[the project file](project-file.md#a-repositorys-own-settings-in-default) says; the refusal by name below no longer
+holds there. For a followed project's repository file the rest of this entry still holds: `image` only.*
 
 A repository declares the toolchain its tasks need in `porelo.yml` at its root, instead of a devcontainer file whose
 tools sit behind `features` Porelo does not run. The file may hold `image` only (`from`, `run` or `run_file`, and

@@ -1048,8 +1048,9 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   user part: of a URL all before its first `/` up to the last `@` there is left out but a plain ssh user, and all of
   it when `%40` follows that `@`; of `user@host:path`, split as git splits it at the first colon after its host,
   bracketed or not, a user that is no plain name, or without a user all up to the last `@` that a host and a colon
-  follow; an origin without a credential is kept as given. It cannot be removed, and its settings cannot be changed: for other
-  settings, make a project of your own.
+  follow; an origin without a credential is kept as given. It cannot be removed. A repository in it changes its settings
+  for itself through its `porelo.yml` and the checkout's `.porelo.yml`, each change allowed once per machine
+  ([the project file](project-file.md#a-repositorys-own-settings-in-default)); for other settings, make a project of your own.
 - A repository stays in `default` until you take it out, also once a project of the organization names it: a start
   from its checkout then goes into that project. A start in `default` on such a repository (`-p default -r NAME`, or
   from the window) says so once, with the project and the command that takes it out,

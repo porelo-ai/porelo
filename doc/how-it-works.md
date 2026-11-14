@@ -84,10 +84,10 @@ The agents differ in what they do inside a task, and in how hard their limits ho
 
 ## A project, and the project `default`
 
-A **project** is what tasks are started *for*. It is a repository with a `project.yml` in it, which
-this machine **follows**: it pulls the repository and takes the project's settings from the file
-there, checked against a signing key you gave it. A project can span several repositories; a task
-works on exactly one of them.
+A **project** is what tasks are started *for*. It is a repository with a `project.yml` in it. A
+project of your organization is read at each start: the start fetches the project's repository and
+takes the settings from the file there, whose newest change must be signed by one of the project's
+admins. A project can span several repositories; a task works on exactly one of them.
 
 The file is short. For the common case:
 
@@ -109,8 +109,12 @@ Porelo's own settings. A `porelo task start` in a checkout no project names work
 `default`, and the checkout's `origin` becomes where approved work goes. `default` is `guarded`,
 reaches only the agent's provider, refuses blocked connections without asking, and has no
 conversation between tasks: a start there says it has no room and goes on, and a conversation or a
-peer asked for `default` is refused, naming a project repository as the way. Its settings cannot be
-changed: for other settings, make a project repository and follow it.
+peer asked for `default` is refused, naming a project repository as the way. Those are its settings
+as it comes. A repository in `default` can change them for itself: its checked-in `porelo.yml`, and
+your own `.porelo.yml` beside it in the checkout, may hold the project file's form, the project's name
+and its repositories aside, and what they change is shown and allowed once on each machine before a
+task runs under it. [The project file](project-file.md#a-repositorys-own-settings-in-default) says
+how they add up.
 
 ## The gate: work leaves only after review
 
@@ -148,13 +152,31 @@ still listed and ranked from the whole change: a dangerous file beyond the cut i
 A review whose file list and log alone are too large is refused by name with the same command, rather
 than sent as if it were complete.
 
+**An example: `default` run `online` against a repository on your own machine.** Give the work a
+bare repository of its own to arrive in, and clone your checkout from it. Your own `.porelo.yml`
+makes the class `online`, which needs a `central`, and names that same bare repository, so the
+checkout's `origin` and the project's `central` are one place:
+
+```
+git init --bare ~/shop-central.git
+git clone file://$HOME/shop-central.git ~/shop
+cd ~/shop
+printf 'project:\n  security_class: "online"\n  central: "file://%s/shop-central.git"\n' "$HOME" > .porelo.yml
+porelo task start shop-work      # asks once to allow both settings, then starts
+```
+
+The agent's branch `porelo/<task>` arrives in `~/shop-central.git` as soon as the task pushes it,
+never on the branch you have checked out. You take it as any other branch:
+`git fetch origin porelo/shop-work`, then merge it. The gate may push that branch with force, so
+keep no work of your own on it.
+
 In `guarded`, `approve` is the only command that sends work anywhere: `porelo approve` brings a
 checkout's task into that checkout as `porelo/<task>`, and `porelo gate approve` forwards a followed
 repository's work to its `upstream` - the immediate Git destination: the host's forge or a central or
 company forge, named in the project file.
 
 A task never sees another task's work, with one named exception: a task started to read it.
-`porelo task run --reads foo-1` (Tasks1 Start's `reads`) starts a reader whose gate shows it, read
+`porelo task start --reads foo-1` (Tasks1 Start's `reads`) starts a reader whose gate shows it, read
 only, where `foo-1`'s work landed once a gate forwarded it: `git ls-remote origin` lists
 `refs/porelo/landed/foo-1/<branch>`, and `git fetch` brings it as `origin/landed/foo-1/<branch>`.
 Work still waiting at the gate is shown to nobody, and no other task's work is shown. Tasks1 List
@@ -274,7 +296,7 @@ ever edited. `porelo talk` shows and moves them; see [commands](commands.md#talk
 | Clearance | What happens when a task reaches something its rules do not allow: `prompt`, `allow`, `deny` or `off`. |
 | Client | Software that talks to one or more nodes and decides nothing itself, such as the CLI. |
 | Container | A sealed, rootless room for one task, built by podman. |
-| `default` | The project every machine has without a file, `guarded`, with settings that cannot be changed. |
+| `default` | The project every machine has without a file, `guarded` as it comes; a repository in it may change its own settings, each change allowed once per machine. |
 | Egress | A task's outbound traffic: denied unless the project declared it. |
 | Egress set | A named, reviewed group of hosts a project may reach, such as `maven`. |
 | Gate | The one crossing where work leaves your machine, and where somebody reads it first. |

@@ -577,7 +577,7 @@ from them instead with `porelo project sign-repository-file -C PATH --yes`, the 
 
 In the built-in project `default`, a repository's `porelo.yml`, and the person's `.porelo.yml` beside it in the
 checkout, may hold the project file's form, less `project.name` and `repositories`, which make a project the one it
-is. Each adds to the project's file, the checked-in file first, then the person's:
+is, and `mcp` and `readings`, which are signed with the project's file alone. Each adds to the project's file, the checked-in file first, then the person's:
 
 ```yaml
 egress:

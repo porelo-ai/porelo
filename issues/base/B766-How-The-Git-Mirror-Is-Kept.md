@@ -10,7 +10,7 @@
   "priority": "High",
   "rank": 2,
   "blockedBy": [],
-  "covers": "`doc/how-it-works.md` says the Git mirror is a bare repository, how it is made, where it lies, where a task's push lands, and that work is done only in clones of it; its glossary names the Git mirror and a bare repository",
+  "covers": "`doc/how-it-works.md` says the Git mirror is a bare repository, how it is made, where it lies, where a task's push lands, and that work is done only in clones of it, with an example of default run online against a repository on this machine; its glossary names the Git mirror and a bare repository; no page says default's settings cannot be changed",
   "openQuestions": 0
 }
 ```
@@ -44,4 +44,29 @@ Filed 2026-11-14 on the operator's order.
 - One paragraph after the gate's first one in `doc/how-it-works.md`. It says what the plan lists, with the data
   directory written `$XDG_DATA_HOME/porelo`, as `doc/credentials.md` and `doc/commands.md` write it.
 - The glossary has "Bare repository", and "Git mirror" in place of "Mirror", each in alphabetical order.
+- The tests tagged `documents` are green.
+
+## Built, second part (the operator's order of 2026-11-14, 11:11Z)
+
+- `default`'s own settings, read in `RepositorySettings.read` and `theProjects`: a repository's `porelo.yml` and the
+  checkout's `.porelo.yml` may hold the project file's form, less `project.name`, `repositories`, `mcp` and
+  `readings`; what they change is allowed once per machine. Corrected where pages said otherwise:
+  - `doc/how-it-works.md`: "Its settings cannot be changed" now says what a repository in `default` may change and
+    links the project file. The glossary row no longer says its settings cannot be changed. The opening paragraph
+    no longer says a machine follows a project against a key you gave; a project is read at each start, signed
+    by one of its admins.
+  - `doc/commands.md`: the same claim in the `default` paragraph.
+  - `doc/decisions.md`: the superseded note of "A repository's image comes from porelo.yml" now says the files hold
+    more in `default` and that "image only" still holds for a followed project's repository file
+    (`RepositoryFile`).
+  - `doc/project-file.md`: `mcp` and `readings` are named beside `project.name` and `repositories`.
+- An example in the gate section: `default` run `online` against a bare repository on this machine. The checkout is
+  cloned from it, and `.porelo.yml` sets `security_class: "online"` and `central` to the same `file://` address,
+  since an online project needs a `central` (`Project`, "is online, so it needs an upstream"). The agent's branch
+  `porelo/<task>` arrives there and is fetched and merged by the person. The gate may push that branch with force
+  (`GitGate`, `--force` and `--force-with-lease`). A `file://` central is what the acceptance suite's online
+  projects use (`TerminalSteps.anOnlineProjectSaying`). A non-bare checkout as `central` is not said: no code or
+  test shows it.
+- The gate section's reader is started with `porelo task start --reads`, not `task run`: the command is `start`
+  (`TaskRunCommand`), as [B767](README.md#b767)'s reading found.
 - The tests tagged `documents` are green.
