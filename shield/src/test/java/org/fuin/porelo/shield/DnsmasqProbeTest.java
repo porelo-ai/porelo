@@ -59,6 +59,8 @@ class DnsmasqProbeTest {
     void asksDnsmasqRatherThanGuessingFromAVersionNumber() {
 
         // It is a compile-time option, so two builds of one version can differ.
-        assertThat(DnsmasqProbe.versionCommand()).containsExactly("dnsmasq", "--version");
+        assertThat(DnsmasqProbe.versionCommand(name -> java.nio.file.Path.of("/usr/sbin", name)))
+                .as("the dnsmasq the hook runs, not one PATH finds first")
+                .containsExactly("/usr/sbin/dnsmasq", "--version");
     }
 }

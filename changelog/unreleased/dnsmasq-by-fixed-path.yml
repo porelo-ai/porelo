@@ -1,0 +1,2 @@
+title: "The resolver hook, porelo shield dns and porelo doctor take dnsmasq from the system's root-owned directories, never from PATH, so a dnsmasq placed earlier there cannot decide what a task's names resolve to"
+type: security

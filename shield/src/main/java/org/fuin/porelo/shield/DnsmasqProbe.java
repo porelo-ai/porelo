@@ -65,11 +65,18 @@ public final class DnsmasqProbe {
     }
 
     /**
-     * Returns the command that asks dnsmasq what it supports.
+     * Returns the command that asks dnsmasq what it supports: the dnsmasq the hooks run, at its
+     * fixed path, not one {@code PATH} finds first.
      *
      * @return Command and arguments.
+     * @throws java.io.UncheckedIOException If no root-owned dnsmasq is in the fixed directories.
      */
     public static java.util.List<String> versionCommand() {
-        return java.util.List.of("dnsmasq", "--version");
+        return versionCommand(org.fuin.porelo.wire.SystemProgram::find);
+    }
+
+    static java.util.List<String> versionCommand(
+            java.util.function.Function<String, java.nio.file.Path> programs) {
+        return java.util.List.of(programs.apply("dnsmasq").toString(), "--version");
     }
 }

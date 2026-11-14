@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Sidecar;
 import org.fuin.porelo.wire.SystemProgram;
@@ -28,9 +29,45 @@ public class SupervisorHook extends Hook {
     /** File the resolver's query log is written to. */
     static final String LOG_FILE = "dnsmasq.log";
 
+    private final Function<String, Path> programs;
+
     /** Constructor. */
     public SupervisorHook() {
+        this(SystemProgram::find);
+    }
+
+    /**
+     * Constructor for tests.
+     *
+     * @param programs Finds a program by its name, at a fixed path.
+     */
+    SupervisorHook(final Function<String, Path> programs) {
         super("supervisor", false);
+        this.programs = programs;
+    }
+
+    /**
+     * Returns the command that runs the resolver in a container's network namespace.
+     *
+     * <p>Both programs by a fixed path: {@code nsenter} looked a bare {@code dnsmasq} up in the
+     * {@code PATH} the runtime handed the hook, and one placed earlier there decided what the
+     * task's names resolve to and which addresses its firewall opens.
+     *
+     * @param pid Host process id of the container's init process.
+     * @param config The resolver's configuration.
+     * @param programs Finds a program by its name, at a fixed path.
+     * @return Command and arguments.
+     */
+    static List<String> resolverCommand(
+            final long pid, final Path config, final Function<String, Path> programs) {
+        return List.of(
+                programs.apply("nsenter").toString(),
+                "--target",
+                String.valueOf(pid),
+                "--net",
+                programs.apply("dnsmasq").toString(),
+                "--keep-in-foreground",
+                "--conf-file=" + config);
     }
 
     @Override
@@ -57,15 +94,7 @@ public class SupervisorHook extends Hook {
 
         // nsenter for the same reason the nft hook uses it: setns is per-thread and this process
         // must not join the container's network namespace itself.
-        final List<String> command =
-                List.of(
-                        SystemProgram.find("nsenter").toString(),
-                        "--target",
-                        String.valueOf(state.pid()),
-                        "--net",
-                        "dnsmasq",
-                        "--keep-in-foreground",
-                        "--conf-file=" + config);
+        final List<String> command = resolverCommand(state.pid(), config, programs);
 
         final Process resolver =
                 new ProcessBuilder(command)

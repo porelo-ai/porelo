@@ -112,12 +112,21 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         final String install =
                 "install a dnsmasq built with nftset support"
                         + " (Fedora and Debian both ship one)";
+        final java.util.List<String> version;
+        try {
+            version = DnsmasqProbe.versionCommand();
+        } catch (java.io.UncheckedIOException ex) {
+            // The hooks run only a root-owned dnsmasq in the fixed directories; judging one from
+            // PATH said yes about a program no task would use.
+            return Probe.missing(
+                    name,
+                    "no dnsmasq the hooks may run, so no declared domain resolves: "
+                            + ex.getMessage(),
+                    install);
+        }
         try {
             final CommandResult result =
-                    context.runner()
-                            .run(
-                                    org.fuin.porelo.core.process.Command.of(
-                                            DnsmasqProbe.versionCommand()));
+                    context.runner().run(org.fuin.porelo.core.process.Command.of(version));
             if (!result.successful()) {
                 return Probe.unknown(
                         name,

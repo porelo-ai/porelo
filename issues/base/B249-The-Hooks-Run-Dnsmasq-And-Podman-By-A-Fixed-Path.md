@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B249",
   "title": "The Hooks Run dnsmasq and podman by a Fixed Path",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 76,
@@ -104,3 +104,21 @@ comes from `PATH`. Size S.
 
 - On the test VM: that the hook finds `/usr/sbin/dnsmasq` under rootless podman's user namespace, and that a
   stand-in first in `PATH` is not run.
+
+## Built
+
+- `SupervisorHook.resolverCommand(pid, config, programs)` takes `nsenter` and `dnsmasq` through `programs`, and the
+  hook passes `SystemProgram::find`. A `dnsmasq` that is missing or not root-owned fails the hook before anything
+  starts; the hook is soft-fail, so the container starts without a resolver and the hook's log names the path and
+  the reason.
+- `DnsPolicy.command` takes `dnsmasq` through its `programs` function, as it takes `nsenter`.
+- `DnsmasqProbe.versionCommand()` gives the fixed path. `porelo doctor`'s `dnsmasq nftset` line says, when there
+  is none, that no `dnsmasq` the hooks may run was found, with the reason, and runs nothing from `PATH`.
+- `podman` stays called by name, as decided. `SystemProgram.find`'s comment says a dangling link is refused.
+- `doc/security.md`, under "A resolver of the agent's own": the resolver is the system's `dnsmasq` by its fixed
+  path, one only under another directory is not used, and `podman` comes from `PATH`.
+- Red first: `DnsPolicyTest.runsInsideTheContainersNamespace` (expects `/usr/sbin/dnsmasq`),
+  `DnsmasqProbeTest.asksDnsmasqRatherThanGuessingFromAVersionNumber` (the fixed path), and the new
+  `SupervisorHookTest` (the command, and a refused `dnsmasq` in the log); the build of the tests was red, then green.
+- Green, targeted: `SupervisorHookTest` 2, `NftHookTest` 8, `DnsPolicyTest` 17, `DnsmasqProbeTest` 5,
+  `EgressPolicyTest` 11, the doctor tests (44).

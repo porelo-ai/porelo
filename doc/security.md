@@ -280,6 +280,14 @@ the task's namespace as that namespace's root; the agent runs as its own user, a
 upstream on port 53 are dropped like any other. So a name the agent wants answered goes through
 Porelo's resolver, which answers only what the project declared, and logs what it was asked.
 
+**The resolver is the system's `dnsmasq`, by its fixed path.** The hook that starts it, `porelo shield dns`
+and `porelo doctor` take `dnsmasq`, as they take `nsenter` and `nft`, from the system's root-owned directories
+(`/usr/sbin`, `/usr/bin`, `/sbin`, `/bin`), never from `PATH`: a `dnsmasq` placed earlier there would decide what a
+task's names resolve to and which addresses its firewall opens. A `dnsmasq` only elsewhere, such as under
+`/usr/local/sbin`, is not used; the task then starts without a resolver, its hook log says why, and `porelo doctor`
+says so. `podman` is still taken from `PATH`: Porelo runs every task through the same `podman`, with the
+person's own rights.
+
 What this rests on: nothing the agent runs is the namespace's root. A command an operator runs in the
 container as root (`podman exec --user root`) could ask the upstream directly. What remains, by
 design: a name under a **declared** domain is forwarded upstream, so a declared domain whose

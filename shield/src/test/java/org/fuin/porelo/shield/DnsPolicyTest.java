@@ -195,10 +195,10 @@ class DnsPolicyTest {
                                         4711L,
                                         "/tmp/dns.conf",
                                         name -> java.nio.file.Path.of("/usr/sbin", name))))
-                .as("the resolver must join the container namespace through a checked program")
+                .as("the resolver must join the container namespace, and run, as checked programs")
                 .isEqualTo(
                         "podman unshare /usr/sbin/nsenter --target 4711 --net"
-                                + " dnsmasq --keep-in-foreground --conf-file=/tmp/dns.conf");
+                                + " /usr/sbin/dnsmasq --keep-in-foreground --conf-file=/tmp/dns.conf");
     }
 
     @Test

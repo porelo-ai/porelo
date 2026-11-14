@@ -37,6 +37,10 @@ public final class SystemProgram {
      * kernel's overflow uid; only programs directly in the fixed distribution directories may use
      * that owner, and only when the map contains no outside uid 0.
      *
+     * <p>A dangling link of the name in a fixed directory is refused, not passed over for the next
+     * directory: the directories are root's, so only root can leave one, and failing closed there
+     * is the safer side.
+     *
      * @param name Program name without directory components.
      * @return Root-owned executable in a root-owned directory.
      * @throws UncheckedIOException If the program is absent or unsafe, or the namespace's map

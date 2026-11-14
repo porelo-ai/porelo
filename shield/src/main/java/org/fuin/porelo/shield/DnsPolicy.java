@@ -342,7 +342,12 @@ public class DnsPolicy {
             long containerPid, String configFile, Function<String, Path> programs) {
         return EgressPolicy.inNamespace(
                 containerPid,
-                List.of("dnsmasq", "--keep-in-foreground", "--conf-file=" + configFile),
+                // By a fixed path, as nsenter: a dnsmasq first on PATH would decide what the task's
+                // names resolve to.
+                List.of(
+                        programs.apply("dnsmasq").toString(),
+                        "--keep-in-foreground",
+                        "--conf-file=" + configFile),
                 programs);
     }
 }
