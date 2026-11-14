@@ -32,9 +32,13 @@ import org.opentest4j.TestAbortedException;
  */
 public class TerminalSteps {
 
+    // One command of a line: a start whose task is named first, and its project, as picocli takes
+    // it.
     private static final Pattern TASK_START =
             Pattern.compile(
-                    "^porelo task start ([A-Za-z0-9._-]+)\\s(?:.*\\s)?--project ([A-Za-z0-9._-]+)(?:\\s|$)");
+                    "(?:^|[;&|]\\s*)porelo task start ([A-Za-z0-9][A-Za-z0-9._-]*)"
+                            + "(?:\\s[^;&|]*)?\\s(?:--project(?:=|\\s+)|-p\\s+)([A-Za-z0-9][A-Za-z0-9._-]*)"
+                            + "(?:[\\s;&|]|$)");
 
     private final World world;
 
@@ -68,9 +72,12 @@ public class TerminalSteps {
      * starts: only a failed scenario's, best effort, so a removal that fails does not hide why the
      * scenario did.
      *
+     * <p>After {@link #closeTheTerminal()}, which runs first by its higher order: a start still
+     * running in the terminal holds its task, and a removal beside it is refused.
+     *
      * @param scenario The scenario that ended.
      */
-    @After
+    @After(order = 9000)
     public void removeTheTypedStartsOfAFailedScenario(Scenario scenario) {
         if (!scenario.isFailed()) {
             return;
@@ -93,7 +100,7 @@ public class TerminalSteps {
     static Optional<String> startedContainer(String command) {
         final Matcher start = TASK_START.matcher(command);
         return start.find()
-                ? Optional.of("porelo-" + start.group(2) + "_" + start.group(1))
+                ? Optional.of(ReadySteps.container(start.group(2), start.group(1)))
                 : Optional.empty();
     }
 
@@ -260,8 +267,9 @@ public class TerminalSteps {
      */
     @When("I run {string}")
     public void iRun(String command) throws IOException {
-        startedContainer(command).ifPresent(typedStarts::add);
-        world.terminal().type(World.expand(command));
+        final String expanded = World.expand(command);
+        startedContainer(expanded).ifPresent(typedStarts::add);
+        world.terminal().type(expanded);
         // Not "wait for the prompt": a command that asks a question never reaches one, and waiting
         // for it would hang on exactly the scenarios this module exists for.
         world.terminal().drain();

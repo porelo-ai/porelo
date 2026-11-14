@@ -321,7 +321,7 @@ public class WaitingSteps {
     private String listed(String project, String task) throws IOException {
         final Ssh.Output output = world.run("porelo task list");
         assertThat(output.status()).as("'porelo task list' failed:%n%s", output.all()).isZero();
-        return row(output.out(), task, project);
+        return row(output.out(), project, task);
     }
 
     /**
@@ -329,11 +329,11 @@ public class WaitingSteps {
      * task of the same name in another project - one a failed scenario left dead - is not this one.
      *
      * @param list What the list printed.
-     * @param task The task's name.
      * @param project The task's project.
+     * @param task The task's name.
      * @return The row, or an empty text if none is listed.
      */
-    static String row(String list, String task, String project) {
+    static String row(String list, String project, String task) {
         final String name = TaskSteps.aName(task);
         for (final String line : list.split("\n")) {
             final String[] columns = line.trim().split("\\s+");

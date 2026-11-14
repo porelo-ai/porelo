@@ -58,6 +58,19 @@ Seen on Build 43583612326, Leg fedora, on main 93ee09f90 (green one commit befor
 - Green: the unit tests of `acceptance/kit` and `acceptance/suite` (`-Pwhole`), 0 skipped there. The feature itself
   runs on the legs of this commit's Build.
 
+- The reading (agy, gemini-4-argon-high, 10:45:55-10:55:06Z), each finding checked in the code, fixed after the
+  push in one commit on top:
+  - Red, fixed: the removal and `closeTheTerminal` had the same order. A start still running in the terminal holds
+    its task's reservation, and a removal beside it is refused. The removal now runs at order 9000, after the
+    terminal is closed; Cucumber runs the higher order first.
+  - Red, fixed: the container was read before `World.expand`. A `${NAME}` in the task or project was missed. It is
+    read from the expanded command now.
+  - Yellow, fixed: the pattern missed `; ...` right after the project, `cd ... && porelo task start`, `-p` and
+    `--project=`. It took an option for the task when none is named, and named project porelo's container wrongly.
+    It now matches one command of a line, needs a task name first, and names the container through
+    `ReadySteps.container`. Six cases were red, then green.
+  - Yellow, fixed: `row` took `(task, project)` where every other helper takes `(project, task)`.
+
 ## To be checked
 
 - Who sent SIGTERM to porelo-waits_attended. The job log has no podman events. The parallel scenarios that stop or

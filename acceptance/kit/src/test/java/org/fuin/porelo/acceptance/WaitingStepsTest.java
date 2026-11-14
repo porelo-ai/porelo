@@ -17,7 +17,7 @@ class WaitingStepsTest {
     @Test
     void aDeadRowOfAnotherProjectIsNotReadAsThisScenarios() {
         // Seen on a leg: one failed scenario's dead task stood above the next one's, and was read.
-        assertThat(WaitingSteps.row(LIST, "attended", "rests"))
+        assertThat(WaitingSteps.row(LIST, "rests", "attended"))
                 .as("the row of the task's own project")
                 .contains(" rests ")
                 .contains(" at rest ")
@@ -26,6 +26,6 @@ class WaitingStepsTest {
 
     @Test
     void noRowOfThatProjectIsNoRow() {
-        assertThat(WaitingSteps.row(LIST, "attended", "works")).as("not listed").isEmpty();
+        assertThat(WaitingSteps.row(LIST, "works", "attended")).as("not listed").isEmpty();
     }
 }

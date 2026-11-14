@@ -123,7 +123,12 @@ class TerminalStepsTest {
             value = {
                 "porelo task start attended --project waits --repository waits --agent stub|porelo-waits_attended",
                 "porelo task start shell --project accept|porelo-accept_shell",
-                "porelo task start keys --agent stub --project keys --clearance deny|porelo-keys_keys"
+                "porelo task start keys --agent stub --project keys --clearance deny|porelo-keys_keys",
+                "porelo task start fenced --agent stub --project armored; echo start-exit-$?|porelo-armored_fenced",
+                "cd ~/imaged && porelo task start shaped --project imaged|porelo-imaged_shaped",
+                "porelo task start shell -p cpu --agent stub|porelo-cpu_shell",
+                "porelo task start shell --project=cpu|porelo-cpu_shell",
+                "porelo task start attended --project porelo --agent stub|porelo_attended"
             })
     void aTypedStartNamesTheContainerAFailedScenarioRemoves(String command, String container) {
         assertThat(TerminalSteps.startedContainer(command)).as(command).contains(container);
@@ -135,7 +140,9 @@ class TerminalStepsTest {
                 "porelo task start attended",
                 "porelo task stop porelo-waits_attended",
                 "porelo task list",
-                "echo porelo task start x --project y"
+                "echo porelo task start x --project y",
+                "porelo task start --repository session --project session --agent stub",
+                "porelo task start attended; porelo task list --project waits"
             })
     void aCommandThatStartsNoTaskOfANamedProjectNamesNone(String command) {
         assertThat(TerminalSteps.startedContainer(command)).as(command).isEmpty();
