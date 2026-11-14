@@ -191,4 +191,17 @@ class SecretScanTest {
                 .isInstanceOf(GateException.class)
                 .hasMessageContaining("more than can be read at once");
     }
+
+    @Test
+    void aWordThatHoldsAShapeInsideItIsNoToken(@TempDir Path root) throws Exception {
+        // A scenario's name, a disk's: 'sk-' inside a longer word is no key.
+        final Path mirror =
+                mirror(
+                        root,
+                        Map.of(
+                                "notes.md",
+                                "the task-unattended-feature-scenario-name and a disk-partition-label-xyz\n"));
+
+        assertThat(SecretScan.scan(runner, mirror, "main")).isEmpty();
+    }
 }

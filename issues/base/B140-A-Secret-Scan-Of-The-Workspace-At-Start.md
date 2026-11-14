@@ -99,7 +99,7 @@ Nothing scans the tree today; `CredentialScan` in `supervisor/` watches provider
 - Red first: `SecretScanTest` did not compile without `SecretScan`. The start tests in `TaskRunCommandTest`
   (`aProjectThatRefusesSecretsCreatesNoContainerForAWorkspaceHoldingOne`, `aProjectThatWarnsSaysTheFindingAndStarts`)
   failed with the call in `TaskLaunch` switched off, in the same reactor, and pass with it.
-- Green, targeted: `CredentialShapesTest` 9, `SecretScanTest` 8, `SecretsKnownTest` 2, `SecretsSettingTest` 4, the three
+- Green, targeted: `CredentialShapesTest` 9, `SecretScanTest` 9, `SecretsKnownTest` 2, `SecretsSettingTest` 4, the three
   start tests, `WorkspaceSetupTest` 6, `CommandMaskTest` 29, `ToolCallsTest` 13, `ProjectReaderTest` 66,
   `ProjectFileFaultsTest` 112, `ReadingsDirectoryTest` 10, `RepositorySettingsTest` 4, `PoreloCliTest` 4.
 
@@ -136,8 +136,19 @@ None.
 
 None.
 
+## Checked on the VM (2026-11-14)
+
+- ubuntu26.04 as `core`, snapshot.140: the new scenario "a start whose tree holds a private key is refused before any
+  container, where the project says refuse" (`task-guarded.feature`) is green. The start says `secret
+  deploy/key:1  looks like a private key; the agent can read it` and `(secrets: refuse)`, exits 65, leaves no
+  container, and prints no byte of the key's body.
+- Time: the VM's own mirrors hold at most 3 files, so a bare copy of porelo's `main` (3135 files, an 18 MB mirror) was
+  scanned with the same `git grep`: 1.65, 1.90 and 2.12 s wall, 35 MB at most, on 6 CPUs.
+- The same copy showed 105 places, 78 of them `sk-` inside longer words (`task-...`, `disk-...`). The scan now takes
+  each token shape only where no token character comes before it (`CredentialShapes.Shape.bounded`); masking keeps
+  the unbounded shapes. Porelo's own tree then gives 43 places, the fake credentials of its tests and docs.
+  `SecretScanTest.aWordThatHoldsAShapeInsideItIsNoToken` pins it.
+
 ## To be checked
 
-- How long the scan takes on a large repository's mirror, measured on the test VM.
-- On the VM: a start of a guarded project whose tree holds a private key says the line, and under `refuse` makes no
-  container.
+None.

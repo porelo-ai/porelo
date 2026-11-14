@@ -114,7 +114,7 @@ public final class SecretScan {
                                 "-E"));
         for (final CredentialShapes.Shape shape : CredentialShapes.ALL) {
             command.add("-e");
-            command.add(shape.pattern());
+            command.add(shape.bounded());
         }
         command.add(id);
         command.add("--");

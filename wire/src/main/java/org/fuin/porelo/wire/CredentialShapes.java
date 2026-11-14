@@ -31,6 +31,19 @@ public final class CredentialShapes {
         public Pattern compiled() {
             return Pattern.compile(pattern);
         }
+
+        /**
+         * Returns the shape as a token of its own: not preceded by a character a token holds.
+         *
+         * <p>For a search that warns: inside a longer word, {@code sk-} is a task name or a disk's,
+         * and a scan of porelo's own tree found 105 places so and 43 without. Masking keeps the
+         * unbounded shape, where a run masked by chance costs only that run.
+         *
+         * @return The expression, POSIX ERE and Java alike.
+         */
+        public String bounded() {
+            return pattern.startsWith("-") ? pattern : "(^|[^A-Za-z0-9_-])(" + pattern + ")";
+        }
     }
 
     /** What a private key is said to be. */
