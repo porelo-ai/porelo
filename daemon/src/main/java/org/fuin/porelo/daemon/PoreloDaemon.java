@@ -1154,24 +1154,16 @@ public final class PoreloDaemon {
      */
     static Map<String, Object> projectRow(PoreloContext context, ProjectInventory.Summary summary) {
         final Map<String, Object> row = summary.asMap();
-        if (summary.file() == null) {
+        // A carried project not taken here has the host's room; a file that does not read says so.
+        final Map<String, Object> messages =
+                org.fuin.porelo.app.Conversations.ofProject(
+                        context, summary, org.fuin.porelo.app.OrganizationProjects.HOST_FILES);
+        if (messages == null) {
             return row;
         }
-        try {
-            final org.fuin.porelo.core.project.Project project =
-                    org.fuin.porelo.core.project.ProjectReader.read(
-                            java.nio.file.Path.of(summary.file()));
-            final Map<String, Object> messages =
-                    org.fuin.porelo.app.Conversations.row(context, project);
-            if (messages != null) {
-                final Map<String, Object> with = new LinkedHashMap<>(row);
-                with.put("messages", messages);
-                return with;
-            }
-        } catch (RuntimeException ex) {
-            // A project file that cannot be read has no conversation to show.
-        }
-        return row;
+        final Map<String, Object> with = new LinkedHashMap<>(row);
+        with.put("messages", messages);
+        return with;
     }
 
     /**

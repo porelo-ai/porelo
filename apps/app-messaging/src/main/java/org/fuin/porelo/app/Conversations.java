@@ -147,6 +147,97 @@ public final class Conversations {
     }
 
     /**
+     * Returns a listed project's conversation, as its row carries it.
+     *
+     * <p>A project the host carries for this person and not taken here yet has no file to read its
+     * mail section from: its conversation is the host's room, not set up here until the person sets
+     * it up or its first task starts. A file that does not read says why, instead of leaving the
+     * row without a conversation and its room without a word (2026-11-14).
+     *
+     * @param context The machine.
+     * @param summary The project as listed.
+     * @param hostFiles Where a host's files of the projects it carries are.
+     * @return Its {@code messages}, or {@code null} when it has no conversation.
+     */
+    public static @Nullable Map<String, Object> ofProject(
+            final PoreloContext context,
+            final ProjectInventory.Summary summary,
+            final java.nio.file.Path hostFiles) {
+        final String file = summary.file();
+        if (file == null || file.isEmpty()) {
+            if (!summary.carried()) {
+                return null;
+            }
+            final OrganizationProjects.Placed host;
+            try {
+                host = OrganizationProjects.host(hostFiles, summary.name());
+            } catch (java.io.IOException | RuntimeException ignored) {
+                return unreadable(context, "the host's file of the project does not read");
+            }
+            if (host == null || host.homeserver() == null) {
+                return null;
+            }
+            final String room = host.room() == null ? "" : host.room();
+            final Map<String, Object> row = new LinkedHashMap<>();
+            row.put("transport", "matrix");
+            row.put("conversation", room);
+            row.put("reaches", java.util.List.of());
+            row.put("ready", false);
+            row.put(
+                    "detail",
+                    "carried by the host and not set up here yet: set it up, or start the"
+                            + " project's first task here");
+            row.put("loopbackOnly", false);
+            row.put("machine", "");
+            row.put("admitted", false);
+            row.put("address", "");
+            row.put("room", room);
+            waiting(context, row);
+            return row;
+        }
+        final Project project;
+        try {
+            project = org.fuin.porelo.core.project.ProjectReader.read(java.nio.file.Path.of(file));
+        } catch (RuntimeException ignored) {
+            return unreadable(
+                    context, "the project's file does not read: 'porelo project check' says why");
+        }
+        try {
+            return row(context, project);
+        } catch (RuntimeException ignored) {
+            return unreadable(context, "the project's conversation cannot be read");
+        }
+    }
+
+    /**
+     * A conversation that cannot be said, with why, so the room's button says it. The error's own
+     * words stay out: a project file's refusal quotes the value it refused, which can be a password
+     * in an address.
+     */
+    private static Map<String, Object> unreadable(final PoreloContext context, final String why) {
+        final Map<String, Object> row = new LinkedHashMap<>();
+        row.put("transport", "");
+        row.put("conversation", "");
+        row.put("reaches", java.util.List.of());
+        row.put("ready", false);
+        row.put("detail", why);
+        row.put("loopbackOnly", false);
+        row.put("machine", "");
+        row.put("admitted", false);
+        row.put("address", "");
+        row.put("room", "");
+        waiting(context, row);
+        return row;
+    }
+
+    private static void waiting(final PoreloContext context, final Map<String, Object> row) {
+        final VaultWait waiting = vaultWaiting(context);
+        row.put("waits", waiting.waits());
+        row.put("waitsOn", waiting.waitsOn());
+        row.put("vault", waiting.vault());
+    }
+
+    /**
      * Sets a project's conversation up on this machine, or confirms it, without starting a task -
      * so a machine being bound learns the name it goes by there and whether it is let in yet.
      *
@@ -192,10 +283,7 @@ public final class Conversations {
         row.put("admitted", admitted);
         row.put("address", said.address());
         row.put("room", said.room());
-        final VaultWait waiting = vaultWaiting(context);
-        row.put("waits", waiting.waits());
-        row.put("waitsOn", waiting.waitsOn());
-        row.put("vault", waiting.vault());
+        waiting(context, row);
         return row;
     }
 

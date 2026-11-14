@@ -375,8 +375,43 @@ final class MessagingMethods {
      */
     static Map<String, Object> setUpMessages(
             PoreloContext context, Map<String, Object> parameters) {
-        final org.fuin.porelo.core.project.Project project =
-                talking(context, text(parameters, "project"));
+        return setUpMessages(
+                context,
+                parameters,
+                org.fuin.porelo.app.OrganizationProjects.of(context),
+                org.fuin.porelo.app.ProjectTaking::take);
+    }
+
+    /**
+     * Sets up a project's conversation, taking first a project the host carries for this person and
+     * that is not here yet, as its first start would, so its room opens before any task.
+     *
+     * @param context The machine.
+     * @param parameters {@code project}.
+     * @param projects What the host carries for this person.
+     * @param taker How a carried project is taken.
+     * @return {@code messages}.
+     */
+    static Map<String, Object> setUpMessages(
+            PoreloContext context,
+            Map<String, Object> parameters,
+            org.fuin.porelo.app.OrganizationProjects projects,
+            ProjectMethods.Taker taker) {
+        final String name = text(parameters, "project");
+        // Taken first when the host carries it and it is not taken here as the organization's,
+        // as the listing judges a carried row: a file of the same name written here is not it.
+        if (!org.fuin.porelo.app.DefaultProject.is(name)
+                && org.fuin.porelo.app.ProjectSource.resolve(context, name).outcome()
+                        != org.fuin.porelo.app.ProjectSource.Outcome.ORGANIZATION) {
+            final Map<String, Object> took = ProjectMethods.taken(context, name, projects, taker);
+            final Object reason = took.get("reason");
+            if (!"".equals(reason) && !"not-carried".equals(reason)) {
+                throw new VarlinkException(
+                        INTERFACE + ".ConversationRefused",
+                        Map.of("message", String.valueOf(took.get("words")), "code", 69));
+            }
+        }
+        final org.fuin.porelo.core.project.Project project = talking(context, name);
         try {
             return Map.of("messages", org.fuin.porelo.app.Conversations.setUp(context, project));
         } catch (org.fuin.porelo.app.Conversations.Refused ex) {

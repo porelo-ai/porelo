@@ -429,6 +429,90 @@ class MessagingMethodsTest {
         }
     }
 
+    /** Writes the host's file of project demo, as a host carrying it for this person does. */
+    private Path hostFiles() throws Exception {
+        final Path hostFiles = Files.createDirectories(dir.resolve("host-files"));
+        final Map<String, @Nullable Object> file = new java.util.LinkedHashMap<>();
+        file.put("project", "demo");
+        file.put("revision", "the-organizations");
+        file.put("address", "git@forge.example.org:acme/demo.git");
+        file.put("fetch_from", null);
+        file.put("signing_keys", java.util.List.of());
+        file.put("homeserver", "unix:/run/porelo-matrix/client.sock");
+        file.put("room", "#demo:host");
+        Files.writeString(hostFiles.resolve("demo.json"), org.fuin.porelo.wire.Json.write(file));
+        return hostFiles;
+    }
+
+    @Test
+    void aSetupOfACarriedProjectNotTakenHereTakesItFirst() throws Exception {
+        // The room of a project the host carries opens before its first task (2026-11-14).
+        final PoreloContext context = context();
+        final java.util.List<String> took = new java.util.ArrayList<>();
+        final var projects =
+                new org.fuin.porelo.app.OrganizationProjects(
+                        context.paths().projects().organizationProjects(), hostFiles());
+
+        assertThatThrownBy(
+                        () ->
+                                MessagingMethods.setUpMessages(
+                                        context,
+                                        Map.of("project", "demo"),
+                                        projects,
+                                        (machine, project) -> took.add(project)))
+                .as("the fake takes nothing, so the project is still not here")
+                .isInstanceOf(VarlinkException.class);
+        assertThat(took).containsExactly("demo");
+    }
+
+    @Test
+    void aSetupTakesACarriedProjectEvenWhereAFileOfItsNameWasWrittenHere() throws Exception {
+        // The listing calls that row carried; a file of the same name here is not the
+        // organization's.
+        final PoreloContext context = context();
+        final Path local = dir.resolve("local-demo.yml");
+        Files.writeString(
+                local,
+                "project:\n  name: demo\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n");
+        Files.writeString(
+                context.paths().projects().projectRegistry().resolve("demo"), local + "\n");
+        final java.util.List<String> took = new java.util.ArrayList<>();
+        final var projects =
+                new org.fuin.porelo.app.OrganizationProjects(
+                        context.paths().projects().organizationProjects(), hostFiles());
+
+        assertThatThrownBy(
+                        () ->
+                                MessagingMethods.setUpMessages(
+                                        context,
+                                        Map.of("project", "demo"),
+                                        projects,
+                                        (machine, project) -> took.add(project)))
+                .isInstanceOf(VarlinkException.class);
+        assertThat(took).containsExactly("demo");
+    }
+
+    @Test
+    void aSetupOfAProjectNoHostCarriesTakesNothing() throws Exception {
+        final PoreloContext context = context();
+        final java.util.List<String> took = new java.util.ArrayList<>();
+        final var projects =
+                new org.fuin.porelo.app.OrganizationProjects(
+                        context.paths().projects().organizationProjects(),
+                        Files.createDirectories(dir.resolve("no-host")));
+
+        assertThatThrownBy(
+                        () ->
+                                MessagingMethods.setUpMessages(
+                                        context,
+                                        Map.of("project", "demo"),
+                                        projects,
+                                        (machine, project) -> took.add(project)))
+                .isInstanceOf(VarlinkException.class)
+                .hasMessageContaining("NoSuchProject");
+        assertThat(took).isEmpty();
+    }
+
     private PoreloContext context() throws Exception {
         return context(true);
     }

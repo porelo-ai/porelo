@@ -99,7 +99,8 @@ type Project (
   # every task of the project holds. Names only, never a value.
   credentials: [string]string,
   # The project's conversation - its room - when a peer is reached through a transport's own ('<scheme>:');
-  # absent otherwise.
+  # absent otherwise. A project a host carries, not taken here, whose host names a homeserver has the host's room, not ready until
+  # SetUpMessages or its first task; a file that does not read has one not ready, its detail saying why.
   messages: ?ProjectMessages
 )
 

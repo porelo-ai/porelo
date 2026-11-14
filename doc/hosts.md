@@ -114,6 +114,12 @@ malformed publications withhold carrying with `cannot-say` and an explanation na
 field or value. Repository progress distinguishes a taken copy from one still waiting or not
 carried, independently of its last central distance.
 
+A project the host carries and the person has not taken on this machine yet lists the host's room as its
+conversation when the host names a homeserver for it, not ready until it is set up. `SetUpMessages(project)` takes the project first, as its first start
+would, and then sets the room up, so a person opens the project's room before any task. A project file that does
+not read lists a conversation that is not ready, its detail naming `porelo project check`, never the error's words,
+rather than none.
+
 ## Open pull requests over the daemon
 
 `org.fuin.porelo.Tasks1.PullRequests(project)` reads the open pull requests this account's person token can
