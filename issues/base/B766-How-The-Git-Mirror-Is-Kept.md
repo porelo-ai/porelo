@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B766",
   "title": "How The Git Mirror Is Kept",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 2,

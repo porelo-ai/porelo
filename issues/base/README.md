@@ -204,7 +204,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b766"></a>[B766](B766-How-The-Git-Mirror-Is-Kept.md) | XS | - | `doc/how-it-works.md` says the Git mirror is a bare repository, how it is made, where it lies, where a task's push lands, and that work is done only in clones of it; its glossary names the Git mirror and a bare repository | 0 |
 | <a id="b140"></a>[B140](B140-A-Secret-Scan-Of-The-Workspace-At-Start.md) | M | - | A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write. | 0 |
 | <a id="b761"></a>[B761](B761-A-Runs-Time-Limit-Outlasts-A-Daemon-Restart.md) | M | - | An unattended run's `minutes` is kept as a deadline in its task's state, and porelod, on its start and while it runs, stops a run whose deadline passed and that no process is waiting on, as the run itself would have | 0 |
 | <a id="b762"></a>[B762](B762-A-Failed-Starts-Caller-Key-Outlasts-A-Reboot.md) | S | - | Every start that keeps its task after a failure - kept by default, one that only read, one handed over - leaves the caller's key where a reboot does not reach, so List gives it back after a machine restart | 0 |
@@ -266,6 +265,12 @@ from its side, as *blocked by*.
 | <a id="b749"></a>[B749](B749-Removing-An-Unknown-Default-Repository-Is-Wrong-Use.md) | XS | - | `porelo project default remove NAME` for a name 'default' does not hold answers 64, wrong use, and names what 'default' holds; never 70, which says Porelo failed. | 0 |
 | <a id="b751"></a>[B751](B751-Small-Faults-Found-Playing-Stories-On-A-Test-VM.md) | S | - | A forge's refusal reaches the agent without Porelo's internal git command line, an upstream that cannot be reached is said with one full stop, and an unknown option of `task start` answers 64 as other commands do. | 0 |
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b766"></a>[B766](B766-How-The-Git-Mirror-Is-Kept.md) | XS | - | `doc/how-it-works.md` says the Git mirror is a bare repository, how it is made, where it lies, where a task's push lands, and that work is done only in clones of it; its glossary names the Git mirror and a bare repository | 0 |
 
 ## Review
 
