@@ -6,6 +6,7 @@ Diagnostics name `porelo-host` and its grouped verbs; installed paths and servic
 `forge issue-token` rotates the person's token, while `forge lend-token` preserves concurrent lends; both answer only the token on stdout.
 `org follow` reconciles the signed organization from root's timer; `org refresh` follows immediately with a waiting migration's central token on stdin; `org renew-pin` takes renewed admin pins on stdin. All three run as root without `SUDO_USER`.
 It reads root's organization status and task certificate records and sweeps ended task tokens.
+`org status` and `org status --json`, as root with no `SUDO_*` variable, are read whatever else the environment carries, as in a root login over ssh (`ssh root@host porelo-host org status`): they read fixed files and start no child. They still refuse sudo, and a caller other than root is still refused; every other verb, and any other argument, keeps the environment check.
 Through sudo, a recorded, unlocked person who is not revoked by the organization can read any task whose principal names a project they belong to, using the host's people records for membership.
 A task outside those projects is refused with status 65 and exactly the same output as an unrecorded fingerprint.
 Root without `SUDO_USER` can read any task record.

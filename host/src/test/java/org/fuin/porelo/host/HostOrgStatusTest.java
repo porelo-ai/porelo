@@ -58,6 +58,68 @@ class HostOrgStatusTest {
                 .isEqualTo(new Answer(0, "workshop: no organization; 0 persons; 0 projects\n", ""));
     }
 
+    /** What a root login over ssh carries beside what sudo and root's units carry. */
+    private static final Map<String, String> ROOT_LOGIN =
+            Map.of(
+                    "DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/0/bus",
+                    "SSH_CONNECTION", "192.0.2.1 50000 192.0.2.2 22",
+                    "SSH_TTY", "/dev/pts/0",
+                    "XDG_SESSION_ID", "7",
+                    "SHLVL", "1",
+                    "_", "/usr/bin/porelo-host");
+
+    @Test
+    void aRootLoginReadsTheStatusWhateverItsSessionCarries() {
+        // An ssh login as root was refused for DBUS_SESSION_BUS_ADDRESS (2026-11-14), and sudo is
+        // refused by the verb itself: no interactive caller could read the status.
+        assertThat(fixture.run(ROOT_LOGIN, "org", "status", "--json"))
+                .isEqualTo(new Answer(0, EMPTY, ""));
+        assertThat(fixture.run(ROOT_LOGIN, "org", "status").code()).isZero();
+    }
+
+    @Test
+    void aRootLoginsSessionStillRefusesEveryOtherVerb() {
+        final Answer follow = fixture.run(ROOT_LOGIN, "org", "follow");
+
+        assertThat(follow.code()).isEqualTo(78);
+        assertThat(follow.err()).contains("refusing environment variable");
+    }
+
+    @Test
+    void aStatusAskedThroughSudoWithASessionIsStillRefusedForTheEnvironment() {
+        final Map<String, String> sudo = new java.util.HashMap<>(ROOT_LOGIN);
+        sudo.put("SUDO_USER", "alice");
+
+        final Answer answer = fixture.run(sudo, "org", "status", "--json");
+
+        assertThat(answer.code())
+                .as("refused for the environment, before the verb's own sudo refusal")
+                .isEqualTo(78);
+        assertThat(answer.err()).contains("refusing environment variable");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"--json extra", "--help", "--json=x", "-h"})
+    void onlyTheStatusAsItIsWrittenPassesTheCheck(String more) {
+        final java.util.List<String> args =
+                new java.util.ArrayList<>(java.util.List.of("org", "status"));
+        args.addAll(java.util.List.of(more.split(" ")));
+
+        final Answer answer = fixture.run(ROOT_LOGIN, args.toArray(String[]::new));
+
+        assertThat(answer.code()).isEqualTo(78);
+        assertThat(answer.err()).contains("refusing environment variable");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SUDO_UID", "SUDO_TTY"})
+    void anySudoVariableKeepsTheCheck(String name) {
+        final Map<String, String> sudo = new java.util.HashMap<>(ROOT_LOGIN);
+        sudo.put(name, "1000");
+
+        assertThat(fixture.run(sudo, "org", "status", "--json").code()).isEqualTo(78);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"alice", ""})
     void sudoCannotReadRootOrganizationStatus(String sudoUser) throws Exception {

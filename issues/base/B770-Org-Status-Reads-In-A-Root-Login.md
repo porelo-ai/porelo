@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B770",
   "title": "Org Status Reads in a Root Login",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 127,
@@ -46,6 +46,26 @@ reads fixed files under `/etc/porelo-host` under a read lock and starts no child
 - `HostEnvironmentTest` / `PoreloHostTest`: a root login's environment (the list above) lets `org status` answer and
   still refuses `org follow` and `project add`. Red first: today `org status` exits 78.
 - The host docs name `ssh root@host porelo-host org status` as the way to read it.
+
+## Built
+
+- `PoreloHost.readsTheStatusAsRoot(args, environment)`: true for exactly `org status` and `org status --json` with no
+  `SUDO_*` variable; `run` skips `HostEnvironment.check` for it alone. `OrgStatus` reads no variable but `SUDO_USER`,
+  which it refuses, and starts no child, so nothing the check guards is reached.
+- `host/README.md` names `ssh root@host porelo-host org status`; changelog `org-status-in-a-root-login.yml`.
+
+Tests (`HostOrgStatusTest`): a root login's environment (`DBUS_SESSION_BUS_ADDRESS`, `SSH_CONNECTION`, `SSH_TTY`,
+`XDG_SESSION_ID`, `SHLVL`, `_`) reads the status in both forms; the same environment still refuses `org follow`
+with 78 for the environment; with `SUDO_USER` added the status is still refused. Seen failing first: the root login's
+status answered 78.
+
+### Reading (Sonnet sub-agent, one reading)
+
+No Red. Yellow, fixed: the sudo test asserted only a non-zero exit, so a sudo refusal (65) would have passed; it
+asserts 78 and the environment's words now. Added: other argument lists (`--json extra`, `--help`, `--json=x`, `-h`)
+and a lone `SUDO_UID` or `SUDO_TTY` keep the check. The README says the exemption needs root and no `SUDO_*`.
+Yellow, left: a non-root caller with a session's variables now gets 77 (root's alone) instead of 78; the read
+fixture runs as root only, so it is not tested here.
 
 ## Red-first test
 

@@ -131,6 +131,25 @@ public final class PoreloHost implements Callable<Integer> {
                         : HostPerson::from);
     }
 
+    /**
+     * Tells whether a call is the one read the environment check lets by: {@code org status}, with
+     * or without {@code --json}, asked without sudo.
+     *
+     * <p>The check guards what a variable can do to a child or a path. This verb reads fixed files
+     * under {@code /etc/porelo-host} and starts no child, and it refuses sudo itself; a root login
+     * over ssh carries its session's variables, and was refused for them, so no interactive caller
+     * could read the status at all (2026-11-14). The one verb, never a list: every other verb keeps
+     * the check, which a test pins.
+     */
+    static boolean readsTheStatusAsRoot(String[] args, Map<String, String> environment) {
+        final boolean status =
+                args.length >= 2
+                        && args[0].equals("org")
+                        && args[1].equals("status")
+                        && (args.length == 2 || args.length == 3 && args[2].equals("--json"));
+        return status && environment.keySet().stream().noneMatch(name -> name.startsWith("SUDO_"));
+    }
+
     static int run(
             String[] args,
             Map<String, String> environment,
@@ -220,7 +239,9 @@ public final class PoreloHost implements Callable<Integer> {
             java.time.Clock clock,
             PushService pushService) {
         try {
-            HostEnvironment.check(environment);
+            if (!readsTheStatusAsRoot(args, environment)) {
+                HostEnvironment.check(environment);
+            }
             final boolean informational = args.length == 1 && answersAlone(args[0]);
             if (!informational && uid.real() != 0 && !HostForgeCommands.unprivileged(args)) {
                 if (args.length > 0
