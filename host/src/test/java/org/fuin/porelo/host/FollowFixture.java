@@ -23,6 +23,9 @@ final class FollowFixture {
     final Map<Object, List<String>> acls = new HashMap<>();
     final Map<String, Long> accounts = new TreeMap<>();
     final Set<String> peopleGroup = new TreeSet<>();
+    final Set<String> adminsGroup = new TreeSet<>();
+    boolean adminsGroupMade;
+    final Map<Object, Integer> groupOwners = new HashMap<>();
     final Map<String, Map<String, Object>> rules = new TreeMap<>();
     final StringWriter journal = new StringWriter();
     final Clock clock;
@@ -73,7 +76,10 @@ final class FollowFixture {
                             if (owners.containsKey(path)) attrs.put("uid", owners.get(path));
                             return attrs;
                         },
-                        (path, uid, gid) -> owners.put(path, uid));
+                        (path, uid, gid) -> {
+                            owners.put(path, uid);
+                            groupOwners.put(identity(path), gid);
+                        });
         host =
                 new HostFiles(
                         root,
@@ -490,6 +496,11 @@ final class FollowFixture {
                 Files.getAttribute(file, "unix:ino"), Files.getAttribute(file, "creationTime"));
     }
 
+    /** The group a file was given through the files' ownership, by the file itself. */
+    Integer group(String name) throws IOException {
+        return groupOwners.get(identity(path(name)));
+    }
+
     List<String> readers(String name) throws IOException {
         return acls.getOrDefault(identity(path(name)), List.of());
     }
@@ -531,7 +542,16 @@ final class FollowFixture {
         if (name.equals("getent")) {
             if (argv.get(1).equals("group")) {
                 return new HostPrograms.Result(
-                        0, "porelo-people:x:2000:" + String.join(",", peopleGroup) + "\n");
+                        0,
+                        "porelo-people:x:2000:"
+                                + String.join(",", peopleGroup)
+                                + "\n"
+                                + (adminsGroupMade
+                                        ? HostStatusView.ADMINS
+                                                + ":x:2001:"
+                                                + String.join(",", adminsGroup)
+                                                + "\n"
+                                        : ""));
             }
             if (argv.size() > 2) {
                 final String login = argv.getLast();
@@ -628,6 +648,18 @@ final class FollowFixture {
                                 + (Long.parseLong(span[1]) - Long.parseLong(span[0]) + 1)
                                 + "\n");
             }
+            return new HostPrograms.Result(0, "");
+        }
+        if (name.equals("gpasswd") && argv.getLast().equals(HostStatusView.ADMINS)) {
+            if (argv.contains("--add")) {
+                adminsGroup.add(argv.get(2));
+            } else {
+                adminsGroup.remove(argv.get(2));
+            }
+            return new HostPrograms.Result(0, "");
+        }
+        if (name.equals("groupadd") && argv.getLast().equals(HostStatusView.ADMINS)) {
+            adminsGroupMade = true;
             return new HostPrograms.Result(0, "");
         }
         if (name.equals("gpasswd")) {

@@ -427,6 +427,99 @@ class HostFollowTest {
                 .doesNotContain(FollowFixture.key(1));
     }
 
+    private static boolean named(List<String> argv, String program) {
+        return Path.of(argv.getFirst()).getFileName().toString().equals(program);
+    }
+
+    private static String tail(String key) {
+        return key.substring(key.length() - 20);
+    }
+
+    @Test
+    void aFollowWritesTheAdminsViewWithoutASecret() throws Exception {
+        f.answer.put("organization_admins", List.of(FollowFixture.admin("owner", 7)));
+        f.run();
+        final String name = HostStatusView.PATH;
+        final String text = f.read(name);
+        assertThat(text)
+                .as("the view holds no pin, key or fingerprint of root's status")
+                .doesNotContain("pinned", "ssh-ed25519", "SHA256:", "fixture-read-material")
+                .doesNotContain(tail(FollowFixture.key(1)), tail(FollowFixture.key(7)));
+        final Map<String, Object> view = object(parse(text));
+        assertThat(view.keySet())
+                .as("the view names only its allow-listed fields, in order")
+                .containsExactly(
+                        "host", "organization", "commit", "followed", "persons", "projects");
+        assertThat(view)
+                .as("the view names the host, what it follows and the follow that wrote it")
+                .containsEntry("host", "build-host")
+                .containsEntry("organization", "following")
+                .containsEntry("commit", "a".repeat(40))
+                .containsEntry("followed", "2026-11-04T00:00:00Z");
+        assertThat(array(view.get("persons")))
+                .as("each person carries their login, state, host admin mark and roles alone")
+                .allSatisfy(
+                        person ->
+                                assertThat(object(person).keySet())
+                                        .containsExactly(
+                                                "login", "state", "host_admin", "projects"))
+                .anySatisfy(
+                        person ->
+                                assertThat(object(person))
+                                        .containsEntry("login", "alice")
+                                        .containsEntry("host_admin", true));
+        assertThat((int) Files.getAttribute(f.path(name), "unix:mode") & 07777)
+                .as("root writes it and the admins' group reads it, no one else")
+                .isEqualTo(0640);
+        assertThat(f.group(name))
+                .as("the file is given to the admins' group the follow keeps")
+                .isEqualTo(2001);
+        assertThat(f.adminsGroup)
+                .as("the group holds exactly the persons marked host admin")
+                .containsExactly("alice");
+        assertThat(f.commands)
+                .as("the follow makes the missing group as root, through the account commands")
+                .anyMatch(
+                        argv ->
+                                named(argv, "groupadd")
+                                        && argv.subList(1, argv.size())
+                                                .equals(
+                                                        List.of(
+                                                                "--system",
+                                                                HostStatusView.ADMINS)));
+        assertThat(f.path(name).getParent())
+                .as("no staged copy is left beside the view")
+                .isDirectoryNotContaining("glob:**/.porelo-host.*");
+    }
+
+    @Test
+    void aPersonNoLongerMarkedHostAdminLeavesTheAdminsGroupAtTheNextFollow() throws Exception {
+        f.run();
+        assertThat(f.adminsGroup).containsExactly("alice");
+        f.adminsGroup.add("mallory");
+        f.answer.put("admins", List.of(FollowFixture.admin("bob", 2)));
+        f.next("b");
+        f.run();
+        assertThat(f.adminsGroup)
+                .as("the unmarked admin and anyone the organization never marked leave the group")
+                .containsExactly("bob");
+        assertThat(f.commands.stream().filter(argv -> named(argv, "groupadd")))
+                .as("an existing group is kept, not made again")
+                .hasSize(1);
+        assertThat(array(object(parse(f.read(HostStatusView.PATH))).get("persons")))
+                .as("the rewritten view names the new host admin and not the old one")
+                .anySatisfy(
+                        person ->
+                                assertThat(object(person))
+                                        .containsEntry("login", "bob")
+                                        .containsEntry("host_admin", true))
+                .noneSatisfy(
+                        person ->
+                                assertThat(object(person))
+                                        .containsEntry("login", "alice")
+                                        .containsEntry("host_admin", true));
+    }
+
     @Test
     void rootAuthorizationIsReplacedWhole() throws Exception {
         f.write("/etc/ssh/authorized_keys/root", FollowFixture.key(7) + "\n");

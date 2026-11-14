@@ -1,0 +1,2 @@
+title: "A host admin reads their host's status without root or sudo: each follow writes a secret-free view for the group of the host's admins, and porelo-host org status shows it with its age"
+type: added

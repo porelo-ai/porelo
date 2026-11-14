@@ -75,6 +75,11 @@ and their last measured central state. Refused when SUDO_USER is set.
 Takes a shared flock on /etc/porelo-host/forge.conf and contacts no network.
 With \-\-json, prints one complete JSON object in the host protocol's field order.
 Otherwise prints the host, organization state, person count, and project count.
+Without root, and without sudo, it prints instead the public view the last follow
+wrote to /run/porelo\-host/status.json, as root's prints, with the view's age:
+"followed <time>, <n> minutes ago", or age_seconds with \-\-json. It writes
+nothing and takes no lock. With no view yet it prints "not followed yet"
+({"followed":null} with \-\-json) and exits 0.
 .TP
 .B task show <fingerprint>
 Prints the complete recorded task certificate as one JSON object.
@@ -226,7 +231,9 @@ The login must be a non-root account and SUDO_UID must match the system account 
 Missing, empty, invalid, unknown or mismatching identities are refused.
 Root's unit invocations need no person until a verb acts for one.
 .PP
-Other invocations require real uid 0, except forge gate and forge measure.
+Other invocations require real uid 0, except forge gate, forge measure and
+exactly "org status" or "org status \-\-json" without any SUDO_ variable, which
+skips the environment check and, without root, reads only the public view.
 Every non-informational invocation still requires the host's own user namespace.
 Argument files are not expanded and JVM runtime options are ordinary arguments.
 Child programs are checked through SystemProgram, run without a shell from /,
@@ -301,8 +308,9 @@ and dependency, path, verifier or recording failures use HTTP 500.
 Boundary codes 77 and 78 still apply before the verb runs.
 .TP
 .B org status
-0 status shown; 64 bad arguments; 65 sudo or invalid records;
-69 unsafe or unreadable host files; 73 lock or unhandled file/data failure.
+0 status shown, or no view yet; 64 bad arguments; 65 sudo, invalid records or an invalid view;
+69 unsafe or unreadable host files; 73 lock or unhandled file/data failure;
+77 a caller without root outside the porelo\-host\-admins group.
 .TP
 .B org follow
 0 followed or read key not yet added; 64 bad arguments; 65 sudo, invalid pin, records or signed state;
@@ -468,6 +476,14 @@ repository has an armed row. The daemon accepts snapshots up to 16 MiB and folds
 repository display casing to lowercase. Task MCP reads stay in the task's project.
 A failed revocation keeps publication closed until
 root repairs its cause and successfully runs porelo-host org follow.
+.TP
+.I /run/porelo\-host/status.json
+The public view of root's status, which each follow writes whole, by rename:
+root's, mode 0640, group porelo\-host\-admins. It holds the host, the organization
+state, the commit, the follow's time, the persons with their state, host admin mark
+and project roles, and the projects with their state, reason, time and repositories;
+never a token, key, pin or fingerprint. The follow keeps the group, which it creates
+when missing, to exactly the admitted persons marked host admin for this host.
 .TP
 .B /etc/porelo-host/
 Root's forge.conf, people records and organization state, pin and project progress.

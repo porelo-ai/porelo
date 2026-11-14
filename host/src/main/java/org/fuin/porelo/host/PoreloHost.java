@@ -132,16 +132,17 @@ public final class PoreloHost implements Callable<Integer> {
     }
 
     /**
-     * Tells whether a call is the one read the environment check lets by: {@code org status}, with
-     * or without {@code --json}, asked without sudo.
+     * Tells whether a call is the one read the environment check and the root gate let by: {@code
+     * org status}, with or without {@code --json}, asked without sudo.
      *
      * <p>The check guards what a variable can do to a child or a path. This verb reads fixed files
      * under {@code /etc/porelo-host} and starts no child, and it refuses sudo itself; a root login
      * over ssh carries its session's variables, and was refused for them, so no interactive caller
-     * could read the status at all (2026-11-14). The one verb, never a list: every other verb keeps
-     * the check, which a test pins.
+     * could read the status at all (2026-11-14). A caller without root reads only the public view
+     * the follow wrote ({@link HostStatusView}), writes nothing and never enters the command tree.
+     * The one verb, never a list: every other verb keeps the check and the gate, which tests pin.
      */
-    static boolean readsTheStatusAsRoot(String[] args, Map<String, String> environment) {
+    static boolean readsTheStatus(String[] args, Map<String, String> environment) {
         final boolean status =
                 args.length >= 2
                         && args[0].equals("org")
@@ -239,11 +240,15 @@ public final class PoreloHost implements Callable<Integer> {
             java.time.Clock clock,
             PushService pushService) {
         try {
-            if (!readsTheStatusAsRoot(args, environment)) {
+            final boolean status = readsTheStatus(args, environment);
+            if (!status) {
                 HostEnvironment.check(environment);
             }
             final boolean informational = args.length == 1 && answersAlone(args[0]);
             if (!informational && uid.real() != 0 && !HostForgeCommands.unprivileged(args)) {
+                if (status) {
+                    return HostStatusView.print(files, clock, args.length == 3, out);
+                }
                 if (args.length > 0
                         && args[0].equals("project")
                         && !(args.length > 1 && args[1].equals("check-central"))) {
@@ -745,19 +750,7 @@ public final class PoreloHost implements Callable<Integer> {
                 if (json) {
                     spec.commandLine().getOut().println(HostJson.write(status));
                 } else {
-                    spec.commandLine()
-                            .getOut()
-                            .println(
-                                    status.get("host")
-                                            + ": "
-                                            + (status.get("organization") == null
-                                                    ? "no organization"
-                                                    : status.get("organization"))
-                                            + "; "
-                                            + HostJson.array(status.get("persons")).size()
-                                            + " persons; "
-                                            + HostJson.array(status.get("projects")).size()
-                                            + " projects");
+                    spec.commandLine().getOut().println(HostStatusView.summary(status));
                 }
             }
             return 0;

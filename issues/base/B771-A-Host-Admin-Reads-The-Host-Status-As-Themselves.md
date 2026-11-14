@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B771",
   "title": "A Host Admin Reads the Host Status as Themselves",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 128,
@@ -44,6 +44,37 @@ host admin cannot see their own machine's state.
   how old the file is, and says nothing more when it is missing ("not followed yet"). `HostEnvironment` and the root
   gate let exactly this read through for non-root callers. They never let a non-root caller write.
 - The host docs say who can read what.
+
+## Built
+
+Built by an internal Claude Code sub-agent (agy stalled without a write and was stopped), reviewed and tested by
+Core.
+
+- `HostStatusView` (new): the public view by an allow-list - host, organization, commit, followed; persons with
+  login, state, host admin mark and project roles; projects with state, why, since and repositories (central's
+  state, why, commits). `pinned`, `refused` and `purge_on` stay out. `print` is the read without root: the file must be
+  root's, mode exactly 0640 (else 69); missing says `not followed yet` (exit 0, `{"followed":null}` with `--json`);
+  unreadable 77 naming the group; malformed 65; otherwise root's one-line form plus its age, or the view plus
+  `age_seconds`.
+- `FollowContext.shared`: staged write, root and the group, 0640, renamed into place. `/run/porelo-host` stays 0755.
+- `FollowPeople.hostAdmins`: keeps `porelo-host-admins` equal to the admitted persons marked `host_admin`
+  (`getent group`, `groupadd --system` when missing, `gpasswd --delete/--add`), through the account code's runner.
+- `HostFollow`: a full follow ends by writing the view; a failure there leaves the previous file, whose age shows.
+- `PoreloHost`: `readsTheStatus` (was `readsTheStatusAsRoot`); a caller without root asking exactly `org status
+  [--json]` with no `SUDO_*` goes to `HostStatusView.print`, never into the command tree, never writing. Root's
+  output is unchanged.
+- Man page, `doc/hosts.md` "Who reads the host's status" (with the login-time group caveat), changelog
+  `host-admin-reads-status.yml`.
+- Left: the group is not removed at a host's down; a follow that ends early writes no view (the last one shows its
+  age).
+
+### Reading (internal Claude Code sub-agent, one reading; agy stalled)
+
+No Red. Yellow, fixed: the doc says a follow that cannot keep the group exits 69, and a view that is not UTF-8 is
+refused with 69. Yellow, left: a project's or repository's `why` is the refusal's shown text, which names no secret
+but may name a host path; the view's gid is not checked (only root sets it); a `getent group` row the follow cannot
+read, or the group twice (local and a directory), fails or misleads the follow; a group made by hand earlier is
+taken with its gid; the failure paths (getent, groupadd, a duplicate row, a real symlink) have no test.
 
 ## Red-first test
 

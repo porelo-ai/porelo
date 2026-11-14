@@ -1025,6 +1025,70 @@ final class FollowPeople {
         }
     }
 
+    /**
+     * Keeps the host admins' group to exactly the admitted persons marked host admin, creating it
+     * when missing; anyone else in it, a person no longer marked among them, leaves it.
+     *
+     * @return The group's id, for the status view it reads.
+     */
+    int hostAdmins() throws IOException {
+        final var accounts = accounts();
+        final Set<String> desired = new TreeSet<>();
+        records()
+                .forEach(
+                        (login, p) -> {
+                            if (!p.locked()
+                                    && !p.pending()
+                                    && p.members().contains("host-admin")
+                                    && accounts.containsKey(login)) {
+                                desired.add(login);
+                            }
+                        });
+        List<String> row = adminsRow();
+        if (row == null) {
+            c.command(List.of("groupadd", "--system", HostStatusView.ADMINS));
+            row = adminsRow();
+            if (row == null) {
+                throw new HostRefusal(69, "groupadd made no " + HostStatusView.ADMINS + " group");
+            }
+        }
+        if (!row.get(2).matches("[0-9]{1,9}")) {
+            throw new HostRefusal(69, "the host's groups could not be read");
+        }
+        final Set<String> current = new TreeSet<>();
+        if (!row.get(3).isEmpty()) {
+            current.addAll(List.of(row.get(3).split(",")));
+        }
+        for (String login : current) {
+            if (!desired.contains(login)) {
+                if (!login.matches("[a-z_][a-z0-9_-]{0,31}")) {
+                    throw new HostRefusal(65, HostStatusView.ADMINS + " holds an invalid login");
+                }
+                c.command(List.of("gpasswd", "--delete", login, HostStatusView.ADMINS));
+            }
+        }
+        for (String login : desired) {
+            if (!current.contains(login)) {
+                c.command(List.of("gpasswd", "--add", login, HostStatusView.ADMINS));
+            }
+        }
+        return Integer.parseInt(row.get(2));
+    }
+
+    private @Nullable List<String> adminsRow() throws IOException {
+        List<String> found = null;
+        for (String line : c.command(List.of("getent", "group")).lines().toList()) {
+            final String[] row = line.split(":", -1);
+            if (row.length != 4) {
+                throw new HostRefusal(69, "the host's groups could not be read");
+            }
+            if (row[0].equals(HostStatusView.ADMINS)) {
+                found = List.of(row);
+            }
+        }
+        return found;
+    }
+
     private void renewManager(String login, String groups) throws IOException {
         final String uid = "" + c.runtime.required(login).uid();
         final var shown =

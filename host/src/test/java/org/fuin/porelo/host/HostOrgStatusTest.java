@@ -133,6 +133,169 @@ class HostOrgStatusTest {
                                 "porelo-host: org status is root's alone and never runs through sudo\n"));
     }
 
+    /** What a person's own ssh login carries: no sudo, a session of their own. */
+    private static final Map<String, String> PERSON_LOGIN =
+            Map.of(
+                    "DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/1000/bus",
+                    "SSH_CONNECTION", "192.0.2.1 50000 192.0.2.2 22",
+                    "XDG_SESSION_ID", "8",
+                    "XDG_RUNTIME_DIR", "/run/user/1000",
+                    "SHLVL", "1");
+
+    private static final PoreloHost.Uid PERSON = () -> 1000;
+    private static final java.time.Clock FIVE_MINUTES_LATER =
+            java.time.Clock.fixed(
+                    java.time.Instant.parse("2026-11-14T10:05:00Z"), java.time.ZoneOffset.UTC);
+    private static final String VIEW =
+            "{\"host\":\"workshop\",\"organization\":\"following\",\"commit\":\""
+                    + COMMIT
+                    + "\",\"followed\":\"2026-11-14T10:00:00Z\",\"persons\":[{\"login\":\"alice\",\"state\":\"active\",\"host_admin\":true,\"projects\":[]}],\"projects\":[]}";
+
+    private Path view(String text) throws Exception {
+        final Path view = fixture.put(HostStatusView.PATH, text);
+        Files.setPosixFilePermissions(
+                view, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+        return view;
+    }
+
+    private java.util.List<Path> tree() throws Exception {
+        try (var paths = Files.walk(directory)) {
+            return paths.sorted().toList();
+        }
+    }
+
+    private Answer asPerson(Map<String, String> environment, String... args) {
+        return fixture.run(PERSON, FIVE_MINUTES_LATER, environment, args);
+    }
+
+    @Test
+    void aHostAdminReadsThePublicViewAsThemselves() throws Exception {
+        // Was exit 77: the root gate refused every caller without root (2026-11-14).
+        view(VIEW + "\n");
+        final var before = tree();
+
+        final Answer json = asPerson(PERSON_LOGIN, "org", "status", "--json");
+        final Answer human = asPerson(PERSON_LOGIN, "org", "status");
+
+        assertThat(json)
+                .as("the follow's public view, as written, with its age")
+                .isEqualTo(
+                        new Answer(
+                                0,
+                                VIEW.substring(0, VIEW.length() - 1) + ",\"age_seconds\":300}\n",
+                                ""));
+        assertThat(human)
+                .as("root's line, and when the follow that wrote it ran")
+                .isEqualTo(
+                        new Answer(
+                                0,
+                                "workshop: following; 1 persons; 0 projects; followed"
+                                        + " 2026-11-14T10:00:00Z, 5 minutes ago\n",
+                                ""));
+        assertThat(tree()).as("a caller without root writes nothing").isEqualTo(before);
+    }
+
+    @Test
+    void aMissingViewSaysNotFollowedYet() {
+        assertThat(asPerson(PERSON_LOGIN, "org", "status"))
+                .as("no follow wrote the view yet, and nothing more is said")
+                .isEqualTo(new Answer(0, "not followed yet\n", ""));
+        assertThat(asPerson(PERSON_LOGIN, "org", "status", "--json"))
+                .as("the JSON form says the same as an absent follow")
+                .isEqualTo(new Answer(0, "{\"followed\":null}\n", ""));
+    }
+
+    @Test
+    void rootStillReadsItsWholeStatusBesideTheView() throws Exception {
+        view(VIEW + "\n");
+        assertThat(status())
+                .as("root's answer is its own status, never the public view")
+                .isEqualTo(new Answer(0, EMPTY, ""));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"org follow", "org refresh", "org status --help", "org status --json extra"})
+    void aCallerWithoutRootIsStillRefusedEveryOtherCall(String call) throws Exception {
+        view(VIEW + "\n");
+        final var before = tree();
+
+        final Answer answer = asPerson(Map.of(), call.split(" "));
+
+        assertThat(answer.code()).as("only the status read gets past the root gate").isEqualTo(77);
+        assertThat(answer.err()).contains("root uid required");
+        assertThat(answer.out()).as("the view is not shown to another call").isEmpty();
+        assertThat(tree()).as("a refused caller writes nothing").isEqualTo(before);
+    }
+
+    @Test
+    void aStatusThroughSudoWithoutRootIsRefused() throws Exception {
+        view(VIEW + "\n");
+        final Answer answer = asPerson(SUDO, "org", "status", "--json");
+
+        assertThat(answer.code()).as("sudo to another account is no way to the view").isEqualTo(77);
+        assertThat(answer.out()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0100644, 0100660, 0100600})
+    void aViewOfAnotherModeIsRefused(int mode) throws Exception {
+        final Path view = view(VIEW + "\n");
+        fixture.overrides.put(view, Map.of("mode", mode));
+
+        final Answer answer = asPerson(PERSON_LOGIN, "org", "status");
+
+        assertThat(answer)
+                .as("only root's 0640 view is trusted")
+                .isEqualTo(
+                        new Answer(
+                                69,
+                                "",
+                                "porelo-host: " + view + " is not a plain file of root's alone\n"));
+    }
+
+    @Test
+    void aViewOwnedByAnotherAccountIsRefused() throws Exception {
+        final Path view = view(VIEW + "\n");
+        fixture.overrides.put(view, Map.of("uid", 1000));
+
+        assertThat(asPerson(PERSON_LOGIN, "org", "status", "--json"))
+                .as("a planted view is never shown")
+                .isEqualTo(
+                        new Answer(
+                                69,
+                                "",
+                                "porelo-host: " + view + " is not a plain file of root's alone\n"));
+    }
+
+    @Test
+    void aPersonOutsideTheAdminsGroupCannotReadTheView() throws Exception {
+        final Path view = view(VIEW + "\n");
+        Files.setPosixFilePermissions(view, java.util.Set.of());
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                Files.isReadable(view), "the test account reads any file");
+        fixture.overrides.put(view, Map.of("mode", 0100640));
+
+        final Answer answer = asPerson(PERSON_LOGIN, "org", "status");
+
+        assertThat(answer.code()).as("not readable is no permission").isEqualTo(77);
+        assertThat(answer.err())
+                .as("the refusal names who reads the view")
+                .contains(HostStatusView.ADMINS)
+                .hasLineCount(1);
+        assertThat(answer.out()).isEmpty();
+    }
+
+    @Test
+    void aMalformedViewIsRefused() throws Exception {
+        final Path view = view("{\"host\":\"workshop\",\"followed\":\"yesterday\"}\n");
+
+        assertThat(asPerson(PERSON_LOGIN, "org", "status"))
+                .isEqualTo(
+                        new Answer(
+                                65, "", "porelo-host: " + view + " holds no valid host status\n"));
+    }
+
     @Test
     void peopleStatesMembershipsAndPurgeDatesAreSortedAndComplete() throws Exception {
         fixture.person("zoe", "member=zulu developer\n", "lock=pending\n");

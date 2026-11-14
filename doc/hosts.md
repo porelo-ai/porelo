@@ -91,6 +91,32 @@ restarted; locked, pending and membership-free records are untouched. The JSON a
 counts people whose runtime files changed, excluding manager restarts, so a repeated file repair answers
 zero even though admitted managers restart again.
 
+## Who reads the host's status
+
+`porelo-host org status` (with `--json` for the JSON form) answers two callers differently:
+
+| Caller | Reads | Holds |
+|---|---|---|
+| root, logged in or from root's units, never through sudo | the organization as root applied it, read at once | everything, the admin pin's fingerprint (`pinned`) and the last refusal included |
+| a person marked `host_admin` for this host, logged in as themselves | `/run/porelo-host/status.json`, as the last follow wrote it | the host, the organization's state, the commit it follows, the persons with their state, host admin mark and project roles, the projects with their state, reason, time and repositories, and when that follow ran |
+| anyone else | nothing | |
+
+Each follow writes the second view whole, by rename, mode 0640, owned by root and the group `porelo-host-admins`.
+It is built from root's status by naming the fields it may hold, so a field root's status gains later stays out of
+it; it never holds a token, key, pin or fingerprint. The follow keeps that group to exactly the admitted persons the
+organization marks `host_admin` for this host: it makes the group as root when it is missing, and a person no longer
+marked, locked or pending leaves it at the next follow. A purged person's account leaves with its groups. A group
+change reaches a login when it starts: a person newly marked logs in again before they read the view, and one no
+longer marked keeps reading it until their open sessions end.
+
+A caller without root gets past the root gate for this one read alone, asked as `org status` or `org status --json`
+and without sudo; any other verb, option or a call through sudo is refused with 77 as before, and such a caller never
+writes. The answer is root's line, or root's JSON, with the view's age: `followed <time>, <n> minutes ago`, or
+`age_seconds` in JSON. A follow that cannot keep the group leaves the last view in place and exits 69, so the view's
+time is what tells a stale one. A host no follow has written the view on yet answers `not followed yet` (`{"followed":null}` in JSON),
+exit 0. A view that is not root's 0640 plain file is refused with 69, as is one that is not UTF-8; one that is not JSON with 65, and a person outside
+the group, who cannot read the file, with 77.
+
 ## Where a host reaches a project's repositories
 
 On a host, whatever `upstream` a row of a project's file says, a row with a `central` is reached at

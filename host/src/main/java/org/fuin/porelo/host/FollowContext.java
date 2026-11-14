@@ -84,6 +84,29 @@ final class FollowContext {
         write(path(path), text, mode);
     }
 
+    /**
+     * Replaces a file whole, by rename, as root's with mode 0640 in the given group, so the group
+     * never reads a half-written file and never another group's.
+     *
+     * @param path The file to replace.
+     * @param text Its new content.
+     * @param group The group that reads it.
+     */
+    void shared(Path path, String text, int group) throws IOException {
+        directories(ProjectFiles.parent(path), 0700);
+        if (files.exists(path)) {
+            files.trusted(path, false);
+        }
+        final Path staged = files.stage(path, ProjectFiles.STAGED_PREFIX, text);
+        try {
+            files.owner(staged, files.owner, group);
+            Files.setAttribute(staged, "unix:mode", 0640, LinkOption.NOFOLLOW_LINKS);
+            files.replace(staged, path);
+        } finally {
+            files.delete(staged);
+        }
+    }
+
     void json(String path, Object value) throws IOException {
         write(path, ProjectRecords.pythonJson(value, false) + "\n", 0600);
     }

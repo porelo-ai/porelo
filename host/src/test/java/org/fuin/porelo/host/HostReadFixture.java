@@ -76,6 +76,33 @@ final class HostReadFixture {
 
     record Answer(int code, String out, String err) {}
 
+    /** Runs as a caller of the given real uid, at a fixed time. */
+    Answer run(
+            PoreloHost.Uid uid,
+            java.time.Clock clock,
+            Map<String, String> environment,
+            String... args) {
+        final StringWriter out = new StringWriter();
+        final StringWriter err = new StringWriter();
+        final HostFiles files = files();
+        final int code =
+                PoreloHost.run(
+                        args,
+                        environment,
+                        uid,
+                        new PrintWriter(out, true),
+                        new PrintWriter(err, true),
+                        files,
+                        env -> {
+                            throw new AssertionError("the status read asks no person");
+                        },
+                        new HostSweep(files),
+                        new ProjectRuntime(files),
+                        java.io.InputStream.nullInputStream(),
+                        clock);
+        return new Answer(code, out.toString(), err.toString());
+    }
+
     Answer run(Map<String, String> environment, String... args) {
         final StringWriter out = new StringWriter();
         final StringWriter err = new StringWriter();

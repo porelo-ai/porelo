@@ -306,6 +306,8 @@ final class HostFollow {
                                         .map(value -> string(object(value).get("project")))
                                         .toList()));
         attempt(errors, () -> projects.measure(applied));
+        // Without the admins' group the view keeps its last follow, whose time it names.
+        attempt(errors, () -> HostStatusView.write(c, people.hostAdmins()));
         if (!errors.isEmpty()) {
             throw new HostRefusal(
                     69,
