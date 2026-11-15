@@ -80,4 +80,48 @@ class TaskProfileTest {
                 .isEqualTo("agent");
         assertThat(TaskProfile.readFrom(named).modelLabel()).as("nothing gave it a label").isNull();
     }
+
+    @Test
+    void aTasksEffortIsReadBackAsRecordedAndKeptThroughAnEdit(@TempDir Path dir)
+            throws IOException {
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "agent-a",
+                        TaskMode.UNATTENDED,
+                        "do the work",
+                        null,
+                        "2026-11-08T00:00:00Z",
+                        "deny",
+                        null,
+                        "provider-a",
+                        null,
+                        null,
+                        0,
+                        null,
+                        TaskProfile.FROM_AGENT,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "high")
+                .writeTo(dir);
+
+        final TaskProfile read = TaskProfile.readFrom(dir);
+
+        assertThat(read).as("the record is there").isNotNull();
+        assertThat(read.effort()).as("the effort it was started with").isEqualTo("high");
+        read.withLabel("caption").withClearance("allow").writeTo(dir);
+        assertThat(TaskProfile.readFrom(dir).effort())
+                .as("kept through both edits")
+                .isEqualTo("high");
+    }
+
+    @Test
+    void aRecordFromBeforeEffortsHasNone(@TempDir Path dir) throws IOException {
+        Files.writeString(
+                dir.resolve(TaskProfile.FILE),
+                "{\"version\":11,\"agent\":\"agent-a\",\"mode\":\"unattended\"}");
+
+        assertThat(TaskProfile.readFrom(dir).effort()).as("the agent ran on its own").isNull();
+    }
 }

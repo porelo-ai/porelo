@@ -172,6 +172,15 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable String model;
 
     @Option(
+            names = "--effort",
+            paramLabel = "<value>",
+            description =
+                    "Reasoning effort to start the agent with: one of the values 'porelo agents"
+                            + " --verbose' lists for it. Without it nothing is passed and the agent"
+                            + " runs on its own.")
+    private @Nullable String effort;
+
+    @Option(
             names = "--max-turns",
             paramLabel = "<n>",
             description = "Turn limit. Only if the agent declares one.")
@@ -1231,7 +1240,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         work == null ? null : TaskWork.parse(work),
                                         result,
                                         readOnly,
-                                        givenRead),
+                                        givenRead,
+                                        effort),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
@@ -1378,9 +1388,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                                                         .definition(),
                                                                                 running.selected()
                                                                                         .definition()
-                                                                                        .attendedCommand(
+                                                                                        .efforted(
+                                                                                                running.selected()
+                                                                                                        .definition()
+                                                                                                        .attendedCommand(
+                                                                                                                running
+                                                                                                                        .model()),
                                                                                                 running
-                                                                                                        .model()))))
+                                                                                                        .effort()))))
                                                 : null;
                             } catch (AgentBinary.Refusal refusal) {
                                 err.println("porelo: " + refusal.refused().said());
@@ -1856,6 +1871,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--rm",
                     "--prompt",
                     "--model",
+                    "--effort",
                     "--max-turns",
                     "--subagents",
                     "--minutes",

@@ -449,7 +449,7 @@ class TaskUsageTest {
                 .containsEntry("end", "done")
                 .containsEntry("toolCallsAsked", "ASKED")
                 .containsKeys("startedAt", "endedAt", "effort");
-        assertThat(record.get("effort")).as("Start has no effort setting yet").isNull();
+        assertThat(record.get("effort")).as("a start that named no effort has none").isNull();
         assertThat(((Map<?, ?>) record.get("totals")).get("requests"))
                 .as("the usage record's totals, kept at removal")
                 .isEqualTo(3L);

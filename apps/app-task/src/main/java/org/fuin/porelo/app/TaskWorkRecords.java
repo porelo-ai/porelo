@@ -75,6 +75,32 @@ public record TaskWorkRecords(PoreloContext context) {
             final @Nullable String model,
             final String modelFrom)
             throws IOException {
+        started(container, project, repository, work, agent, model, modelFrom, null);
+    }
+
+    /**
+     * Writes a new task's record, with the reasoning effort it was started with.
+     *
+     * @param container Its container name.
+     * @param project Its project.
+     * @param repository The repository it works on, or {@code null}.
+     * @param work The issue and phase it was started for, or {@code null}.
+     * @param agent Its agent, or {@code null}.
+     * @param model The model it was started with, or {@code null} for the agent's default.
+     * @param modelFrom Where the model was settled from.
+     * @param effort The effort it was started with, or {@code null} when its start named none.
+     * @throws IOException If it cannot be written.
+     */
+    public void started(
+            final String container,
+            final String project,
+            final @Nullable String repository,
+            final @Nullable TaskWork work,
+            final @Nullable String agent,
+            final @Nullable String model,
+            final String modelFrom,
+            final @Nullable String effort)
+            throws IOException {
         if (!TaskUsage.validTask(container)) {
             return;
         }
@@ -86,8 +112,7 @@ public record TaskWorkRecords(PoreloContext context) {
         record.put("agent", agent);
         record.put("model", model);
         record.put("modelFrom", modelFrom);
-        // Start has no effort setting yet.
-        record.put("effort", null);
+        record.put("effort", effort);
         record.put("startedAt", Instant.now().toString());
         record.put("endedAt", null);
         record.put("end", null);

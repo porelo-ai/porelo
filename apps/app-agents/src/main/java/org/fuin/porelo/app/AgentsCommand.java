@@ -193,6 +193,14 @@ public class AgentsCommand implements Callable<Integer>, PoreloFactory.ContextAw
                                                                 .COUNT
                                                 ? "a count, at the same time"
                                                 : "off only - started only for a task that allows none"));
+                        // What --effort takes for it, in the agent's own words.
+                        out.println(
+                                "             efforts: "
+                                        + (agent.definition().effort().values().isEmpty()
+                                                ? "none - it takes no --effort"
+                                                : String.join(
+                                                        ", ",
+                                                        agent.definition().effort().values())));
                         // What a check waits for once the agent is attached, and for how long. Said
                         // when it is absent too: then whether it reached work cannot be told.
                         final org.fuin.porelo.agent.api.ReadyMarker ready =

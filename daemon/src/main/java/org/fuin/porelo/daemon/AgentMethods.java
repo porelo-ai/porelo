@@ -330,6 +330,8 @@ final class AgentMethods {
         identity.put("name", definition.gitIdentity().name());
         identity.put("email", definition.gitIdentity().email());
         entry.put("commitsAs", identity);
+        // What Start's effort takes for it, in the definition's order; empty: it takes none.
+        entry.put("efforts", definition.effort().values());
         return entry;
     }
 }

@@ -6353,6 +6353,198 @@ class TaskRunCommandTest {
                 .contains("'--model' 'model-a'");
     }
 
+    /** How the codex-like agent of these tests takes an effort, and which. */
+    private static final String EFFORTS =
+            "effort:\n"
+                    + "  arguments: [\"-c\", \"model_reasoning_effort={effort}\"]\n"
+                    + "  values: [low, medium, high]\n";
+
+    /** A machine with the preview agent declaring how it takes an effort, and its hooks. */
+    private PoreloContext effortContext(Path dir) throws IOException {
+        final PoreloContext context = previewContext(dir, true);
+        previewAgent(context, "preview", EFFORTS);
+        return context;
+    }
+
+    @Test
+    void aStartWithAnEffortRunsItsAgentWithTheArgumentsItsDefinitionDeclares(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = effortContext(dir);
+
+        final int code = echoingStart(context, dir, MINIMAL, "--effort", "high");
+
+        assertThat(code).as("started and run: %s", err).isZero();
+        assertThat(taskLog(context))
+                .as("the agent's command carries the effort as its definition spells it")
+                .contains("-c model_reasoning_effort=high");
+        assertThat(recorded(context).effort()).as("the task records its effort").isEqualTo("high");
+        assertThat(new TaskWorkRecords(context).since("uc", java.time.Instant.EPOCH))
+                .as("the task's record says it")
+                .singleElement()
+                .satisfies(record -> assertThat(record).containsEntry("effort", "high"));
+    }
+
+    @Test
+    void aStartWithoutAnEffortHandsItsAgentNone(@TempDir Path dir) throws IOException {
+        final PoreloContext context = effortContext(dir);
+
+        final int code = echoingStart(context, dir, MINIMAL);
+
+        assertThat(code).as("started and run: %s", err).isZero();
+        assertThat(taskLog(context))
+                .as("no effort is passed, and the agent runs on its own")
+                .doesNotContain("model_reasoning_effort")
+                .doesNotContain(" -c ");
+        assertThat(recorded(context).effort()).as("none recorded").isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void anEffortTheAgentDoesNotListIsRefusedBeforeAnythingIsMade(boolean dryRun, @TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = effortContext(dir);
+
+        final int code =
+                dryRun
+                        ? echoingStart(context, dir, MINIMAL, "--effort", "max", "--dry-run")
+                        : echoingStart(context, dir, MINIMAL, "--effort", "max");
+
+        assertThat(code).as("refused: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names the values the agent takes")
+                .contains("takes no effort 'max'")
+                .contains("low, medium, high");
+        assertThat(runner.lines())
+                .as("a refused effort leaves no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    @Test
+    void anEffortForAnAgentThatTakesNoneIsRefusedBeforeAnythingIsMade(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code = echoingStart(context, dir, MINIMAL, "--effort", "high");
+
+        assertThat(code).as("refused: %s", err).isEqualTo(64);
+        assertThat(err.toString()).contains("takes no effort");
+    }
+
+    @Test
+    void anAttendedStartHandsItsAgentItsEffort(@TempDir Path dir) throws IOException {
+        final PoreloContext context = effortContext(dir);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--effort",
+                        "medium",
+                        "--attach",
+                        "agent",
+                        "--no-gate");
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(execCalls).as("the session it went into").hasSize(1);
+        assertThat(String.join(" ", execCalls.get(0)))
+                .as("the session starts the agent with its effort")
+                .contains("'-c' 'model_reasoning_effort=medium'");
+    }
+
+    @Test
+    void canStartRefusesAnEffortTheAgentDoesNotListAsStartRefusesIt(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = effortContext(dir);
+        projectFile(dir, MINIMAL);
+
+        final StartCheck.Result refused = canStart(context, dir, "max");
+
+        assertThat(refused.outcome())
+                .as("CanStart says it cannot start: %s", refused.detail())
+                .isEqualTo(StartCheck.Outcome.EFFORT_REFUSED);
+        assertThat(refused.detail()).contains("takes no effort 'max'");
+        assertThat(canStart(context, dir, "low").outcome())
+                .as("an effort the agent lists stands in the way of nothing")
+                .isEqualTo(StartCheck.Outcome.READY);
+    }
+
+    private StartCheck.Result canStart(PoreloContext context, Path dir, String effort) {
+        return StartCheck.check(
+                context,
+                dir.resolve("project.yml"),
+                "shell",
+                "preview",
+                null,
+                null,
+                "uc",
+                true,
+                java.util.Map.of(),
+                java.util.Map.of(),
+                null,
+                null,
+                false,
+                null,
+                false,
+                java.util.Map.of(),
+                effort);
+    }
+
+    @Test
+    void aStoppedTaskBroughtBackKeepsItsEffortAndRefusesAnother(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = effortContext(dir);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "preview",
+                        org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                        "do the work",
+                        null,
+                        "2026-10-31T00:00:00Z",
+                        "deny",
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        org.fuin.porelo.wire.TaskProfile.FROM_AGENT,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "high")
+                .writeTo(state);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--effort",
+                        "low");
+
+        assertThat(code).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names the effort it keeps")
+                .contains("was started with effort 'high'");
+        assertThat(runner.lines())
+                .as("nothing is resumed for an effort it would not take")
+                .noneMatch(line -> line.contains("podman start"));
+    }
+
     @Test
     void aProjectsModelForAnAgentWithoutAModelFlagIsRefusedBeforeAnythingIsMade(@TempDir Path dir)
             throws IOException {

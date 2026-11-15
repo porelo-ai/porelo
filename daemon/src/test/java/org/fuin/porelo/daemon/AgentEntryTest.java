@@ -99,4 +99,28 @@ class AgentEntryTest {
                 .containsEntry("found", "SIGNED_IN")
                 .doesNotContainKey("foundVia");
     }
+
+    @Test
+    void answersTheEffortsItsDefinitionListsInTheirOrder() {
+        final String declared =
+                MINIMAL
+                        + "effort:\n"
+                        + "  arguments: [\"--effort\", \"{effort}\"]\n"
+                        + "  values: [low, medium, high]\n";
+
+        assertThat(
+                        AgentMethods.entry(
+                                "example",
+                                read(declared),
+                                Path.of("/usr/libexec/porelo/agents/example")))
+                .as("a window offers the agent's efforts as Start takes them")
+                .containsEntry("efforts", List.of("low", "medium", "high"));
+        assertThat(
+                        AgentMethods.entry(
+                                "example",
+                                read(MINIMAL),
+                                Path.of("/usr/libexec/porelo/agents/example")))
+                .as("an agent that declares none takes none")
+                .containsEntry("efforts", List.of());
+    }
 }

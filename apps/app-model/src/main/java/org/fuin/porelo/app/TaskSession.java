@@ -342,7 +342,12 @@ public final class TaskSession {
                         new TaskGuide(context.paths(), container)
                                 .instructing(
                                         definition,
-                                        attachedCommand(definition, profile.model(), id, opening)));
+                                        // The effort it was started with, behind the prefix, as
+                                        // its unattended run is given it.
+                                        definition.efforted(
+                                                attachedCommand(
+                                                        definition, profile.model(), id, opening),
+                                                profile.effort())));
         if (opening != null) {
             out.println("opening   its prompt, as the session's first turn");
         }

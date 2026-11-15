@@ -775,14 +775,46 @@ public class TaskRunner {
             java.util.Map<String, String> environment,
             Path logFile,
             java.time.Duration timeout) {
+        return runAgent(agent, binary, container, request, null, environment, logFile, timeout);
+    }
+
+    /**
+     * Runs an agent inside a running container with a reasoning effort.
+     *
+     * <p>The effort's arguments are added by Porelo from the definition the agent described, never
+     * by the agent's own command builder: an adapter built before efforts would drop one silently.
+     *
+     * @param agent The installed agent.
+     * @param binary Its binary, checked in this container by {@link #agentBinary}.
+     * @param container Container to run in.
+     * @param request What to ask the agent to do.
+     * @param effort One of the efforts its definition lists, or {@code null} for none.
+     * @param environment Variables for the run; phantom tokens only.
+     * @param logFile Where the agent's raw output goes.
+     * @param timeout How long the agent may run.
+     * @return Exit code of the agent.
+     * @throws AgentBinary.Refusal If the agent's command starts with another program.
+     */
+    public int runAgent(
+            org.fuin.porelo.agent.api.InstalledAgent agent,
+            AgentBinary.Pinned binary,
+            String container,
+            org.fuin.porelo.agent.api.RunRequest request,
+            @Nullable String effort,
+            java.util.Map<String, String> environment,
+            Path logFile,
+            java.time.Duration timeout) {
         // Told what Porelo gives it as an attended start is: the agent builds its command, and
-        // Porelo adds the guide.
+        // Porelo adds the effort and the guide, both behind its sandboxed prefix.
         return podman.execute(
                 container,
                 environment,
                 binary.running(
                         new TaskGuide(paths, container)
-                                .instructing(agent.definition(), agent.buildCommand(request))),
+                                .instructing(
+                                        agent.definition(),
+                                        agent.definition()
+                                                .efforted(agent.buildCommand(request), effort))),
                 logFile,
                 timeout);
     }

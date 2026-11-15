@@ -67,6 +67,9 @@ import org.jspecify.annotations.Nullable;
  *     none. <strong>The caller's own, and opaque to Porelo</strong>: never shown as a caption,
  *     never changed by a label or a resume, and kept through a stop and a reboot, so a caller that
  *     restarts finds every task it started by the key it chose.
+ * @param effort The reasoning effort its agent was started with, one of the values its definition
+ *     lists, or {@code null} when the start named none and the agent runs on its own. A task
+ *     brought back keeps it; a profile from before it was recorded has none.
  */
 public record TaskProfile(
         int version,
@@ -86,7 +89,71 @@ public record TaskProfile(
         @Nullable String modelLabel,
         @Nullable String named,
         @Nullable String settingsHash,
-        @Nullable String callerKey) {
+        @Nullable String callerKey,
+        @Nullable String effort) {
+
+    /**
+     * Creates a profile whose start named no reasoning effort.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     * @param model Model it runs on, or {@code null}.
+     * @param forgeBranch The branch beyond the gate, or {@code null}.
+     * @param subagents The most subagents at the same time.
+     * @param parent The task that started it, or {@code null}.
+     * @param modelFrom Where its model was settled from.
+     * @param modelLabel What a person is shown for the model, or {@code null}.
+     * @param named The task's name as its start was given it, or {@code null}.
+     * @param settingsHash Hash of the repository overrides it was created with, or {@code null}.
+     * @param callerKey The key its caller gave it, or {@code null}.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model,
+            @Nullable String forgeBranch,
+            int subagents,
+            @Nullable String parent,
+            String modelFrom,
+            @Nullable String modelLabel,
+            @Nullable String named,
+            @Nullable String settingsHash,
+            @Nullable String callerKey) {
+        this(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                label,
+                provider,
+                model,
+                forgeBranch,
+                subagents,
+                parent,
+                modelFrom,
+                modelLabel,
+                named,
+                settingsHash,
+                callerKey,
+                null);
+    }
 
     /**
      * Creates a profile whose start was given no caller's key.
@@ -565,7 +632,8 @@ public record TaskProfile(
                 modelLabel,
                 named,
                 settingsHash,
-                callerKey);
+                callerKey,
+                effort);
     }
 
     /**
@@ -597,7 +665,8 @@ public record TaskProfile(
                 modelLabel,
                 named,
                 settingsHash,
-                callerKey);
+                callerKey,
+                effort);
     }
 
     /**
@@ -648,6 +717,7 @@ public record TaskProfile(
         document.put("named", named == null ? "" : named);
         document.put("settingsHash", settingsHash == null ? "" : settingsHash);
         document.put("callerKey", callerKey == null ? "" : callerKey);
+        document.put("effort", effort == null ? "" : effort);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -702,7 +772,9 @@ public record TaskProfile(
                     text(document, "named"),
                     text(document, "settingsHash"),
                     // A task started before it was recorded, or without one, has none.
-                    text(document, "callerKey"));
+                    text(document, "callerKey"),
+                    // A task started before it was recorded, or without one, ran on its own.
+                    text(document, "effort"));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.

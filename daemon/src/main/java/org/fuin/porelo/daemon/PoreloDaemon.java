@@ -903,7 +903,28 @@ public final class PoreloDaemon {
                 resultName(parameters),
                 flag(parameters, "readOnly"),
                 // Refused by the launch with exitCode 64 past its bounds, as the name above.
-                givenFiles(parameters));
+                givenFiles(parameters),
+                // Refused by the launch with exitCode 64 when the agent does not list it.
+                effort(parameters));
+    }
+
+    /**
+     * The reasoning effort a start asks for: a string or nothing, never another value.
+     *
+     * @param parameters The call's parameters.
+     * @return The effort, or {@code null} when none was given.
+     * @throws VarlinkException {@code InvalidParameter} for a value that is no string.
+     */
+    static @Nullable String effort(Map<String, Object> parameters) {
+        final Object given = parameters.get("effort");
+        if (given == null) {
+            return null;
+        }
+        if (!(given instanceof String effort)) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "effort"));
+        }
+        return effort;
     }
 
     /**

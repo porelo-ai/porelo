@@ -80,6 +80,9 @@ public final class TaskLaunch {
      *     instead of working on it; refused beside an option it cannot go with.
      * @param given The files the task is given to read, file name to text, empty for none; fixed
      *     when the task is made.
+     * @param effort Value of {@code --effort}: one of the reasoning efforts the agent's definition
+     *     lists, or {@code null} to pass none and leave it to the agent; fixed when the task is
+     *     made.
      */
     public record Request(
             String task,
@@ -111,11 +114,78 @@ public final class TaskLaunch {
             @Nullable TaskWork work,
             @Nullable String result,
             boolean readOnly,
-            java.util.Map<String, String> given) {
+            java.util.Map<String, String> given,
+            @Nullable String effort) {
 
         /** Keeps the files in the order they were given, and unchangeable. */
         public Request {
             given = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(given));
+        }
+
+        /** Constructor for a start that names no reasoning effort. */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch,
+                @Nullable Integer subagents,
+                @Nullable TaskBase base,
+                @Nullable String parent,
+                @Nullable String named,
+                @Nullable String shortName,
+                boolean allRepositories,
+                @Nullable TaskWork work,
+                @Nullable String result,
+                boolean readOnly,
+                java.util.Map<String, String> given) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    subagents,
+                    base,
+                    parent,
+                    named,
+                    shortName,
+                    allRepositories,
+                    work,
+                    result,
+                    readOnly,
+                    given,
+                    null);
         }
 
         /** Constructor for a start that works on its repository and is given no file. */
@@ -1017,7 +1087,8 @@ public final class TaskLaunch {
                     work,
                     result,
                     readOnly,
-                    given);
+                    given,
+                    effort);
         }
     }
 
@@ -1035,6 +1106,8 @@ public final class TaskLaunch {
      *     decision, and the attaching path needs it too.
      * @param model The model its agent runs on as the start settled it, or {@code null} for the
      *     agent's own default; an attended start hands it to the agent as the unattended run does.
+     * @param effort The reasoning effort its agent is started with, or {@code null} for none; an
+     *     attended start hands it to the agent as the unattended run does.
      */
     public record Running(
             TaskRunner runner,
@@ -1044,7 +1117,32 @@ public final class TaskLaunch {
             java.util.Map<String, String> environment,
             Project project,
             IntUnaryOperator cleanUp,
-            @Nullable String model) {
+            @Nullable String model,
+            @Nullable String effort) {
+
+        /**
+         * Creates a running task whose agent is started with no reasoning effort.
+         *
+         * @param runner Runs commands in it.
+         * @param agents The installed agents.
+         * @param selected The agent, or {@code null}.
+         * @param container Container name.
+         * @param environment What the container was given.
+         * @param project The project.
+         * @param cleanUp Turns an exit code into the final one.
+         * @param model The model its agent runs on, or {@code null}.
+         */
+        public Running(
+                TaskRunner runner,
+                InstalledAgents agents,
+                @Nullable InstalledAgent selected,
+                String container,
+                java.util.Map<String, String> environment,
+                Project project,
+                IntUnaryOperator cleanUp,
+                @Nullable String model) {
+            this(runner, agents, selected, container, environment, project, cleanUp, model, null);
+        }
 
         /**
          * Creates a running task whose agent runs on its own default model.
@@ -1168,6 +1266,9 @@ public final class TaskLaunch {
 
     /** The model this call's run hands its agent: the settled one, or a task's recorded one. */
     private @Nullable String runModel;
+
+    /** The effort this call's run hands its agent: the start's, or a task's recorded one. */
+    private @Nullable String runEffort;
 
     /**
      * Settles the model with the provider and refuses one the start cannot take: a model that is no
@@ -1308,6 +1409,7 @@ public final class TaskLaunch {
             OrganizationProjects projects) {
         this.context = context;
         this.request = request;
+        this.runEffort = request.effort();
         this.steps = steps;
         this.host = host;
         this.projects = projects;
@@ -1561,6 +1663,7 @@ public final class TaskLaunch {
         final boolean descriptionNeededForUsage =
                 subagents != 0
                         || request.model() != null
+                        || request.effort() != null
                         || !effective.providers().isEmpty()
                         || request.parent() != null;
         // With no description-dependent usage to refuse, a missing other credential needs no
@@ -1572,6 +1675,10 @@ public final class TaskLaunch {
             final InstalledAgent agent = select(agents);
             reportAgentChoice(out, err);
             if (agent != null && refusesSubagents(agent, err)) {
+                credentialCheckCode = 64;
+                return false;
+            }
+            if (refusesEffort(agent, err)) {
                 credentialCheckCode = 64;
                 return false;
             }
@@ -1942,6 +2049,24 @@ public final class TaskLaunch {
                 return new Existing(container, project.name(), 64);
             }
         }
+        // Handed to its agent again from its record, as its model is: another would change
+        // nothing, and say nothing.
+        if (request.effort() != null) {
+            final org.fuin.porelo.wire.TaskProfile profile = keptProfile(container);
+            if (profile != null && !request.effort().equals(profile.effort())) {
+                err.println(
+                        "porelo: "
+                                + container
+                                + " was started with "
+                                + (profile.effort() == null
+                                        ? "no effort"
+                                        : "effort '" + profile.effort() + "'")
+                                + "; start it again without --effort, or give a new task name to"
+                                + " use another effort");
+                err.flush();
+                return new Existing(container, project.name(), 64);
+            }
+        }
         // A task's repository was fixed when it was created and cannot change, so a caller that
         // names a different one believes something false about work it is about to resume - and
         // would then look for that work where it is not. Ignoring it silently is the one answer
@@ -2262,7 +2387,8 @@ public final class TaskLaunch {
                             request.work(),
                             request.result(),
                             request.readOnly(),
-                            request.given());
+                            request.given(),
+                            request.effort());
         }
         return null;
     }
@@ -3294,6 +3420,11 @@ public final class TaskLaunch {
                 if (selected != null && refusesSubagents(selected, err)) {
                     return 64;
                 }
+                // As the start refuses it; where several agents are installed none is chosen yet.
+                if ((selected != null || choice.refusal() == null)
+                        && refusesEffort(selected, err)) {
+                    return 64;
+                }
                 SelectedProvider serving = null;
                 if (selected != null) {
                     // Refused as the start refuses it, in one line and 2: a provider the run
@@ -3406,6 +3537,10 @@ public final class TaskLaunch {
             final InstalledAgent asked = select(agents);
             reportAgentChoice(out, err);
             if (asked != null && refusesSubagents(asked, err)) {
+                return 64;
+            }
+            // An effort the agent does not list would be refused by the agent, or dropped.
+            if (refusesEffort(asked, err)) {
                 return 64;
             }
             // Settled with the provider and refused before anything is made: a model the agent has
@@ -4374,7 +4509,8 @@ public final class TaskLaunch {
                             environmentCache,
                             project,
                             code -> cleanUp(runner, container, code, out, err),
-                            model.model()));
+                            model.model(),
+                            request.effort()));
 
         } catch (HostPerson.Refused ex) {
             hostRefusal = ex.getMessage();
@@ -4678,6 +4814,7 @@ public final class TaskLaunch {
                                 binary,
                                 container,
                                 agentRequest,
+                                runEffort,
                                 environment,
                                 log,
                                 java.time.Duration.ofMinutes(request.minutes()));
@@ -4773,6 +4910,7 @@ public final class TaskLaunch {
             // unattended agent hears them, on every run, never from a file read again now.
             subagents = profile == null ? 0 : profile.subagents();
             runModel = profile == null ? null : profile.model();
+            runEffort = profile == null ? null : profile.effort();
             // Nothing extra for the exec: a container that exists already carries what it was
             // given.
             final int code =
@@ -4822,7 +4960,8 @@ public final class TaskLaunch {
                             model.label().isEmpty() ? null : model.label(),
                             request.named(),
                             ownSettingsHash.isEmpty() ? null : ownSettingsHash,
-                            callerKey)
+                            callerKey,
+                            request.effort())
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());
@@ -4853,7 +4992,8 @@ public final class TaskLaunch {
                             request.work(),
                             selected == null ? null : selected.definition().name(),
                             model.model(),
-                            model.from());
+                            model.from(),
+                            request.effort());
         } catch (java.io.IOException ex) {
             err.println("porelo: could not start this task's work record: " + ex.getMessage());
             err.flush();
@@ -4993,6 +5133,55 @@ public final class TaskLaunch {
      */
     static String subagentsFrom(@Nullable Integer flag) {
         return flag != null ? "--subagents" : "limits.subagents";
+    }
+
+    /**
+     * Refuses a start with an effort its agent does not list, or with one and no agent.
+     *
+     * @param agent The task's agent, or {@code null}.
+     * @param err Where the refusal is said.
+     * @return {@code true} when refused.
+     */
+    private boolean refusesEffort(@Nullable InstalledAgent agent, PrintWriter err) {
+        final String refused =
+                effortRefused(agent == null ? null : agent.definition(), request.effort());
+        if (refused == null) {
+            return false;
+        }
+        err.println("porelo: " + refused);
+        err.println("porelo: nothing was created");
+        err.flush();
+        return true;
+    }
+
+    /**
+     * Says why an agent cannot be started with a reasoning effort, if it cannot, in the words every
+     * interface refuses it with.
+     *
+     * @param definition The task's agent, or {@code null} for a task no agent runs in.
+     * @param effort The effort asked for, or {@code null} for none.
+     * @return The refusal, or {@code null} when none was asked or the agent lists it.
+     */
+    public static @Nullable String effortRefused(
+            org.fuin.porelo.agent.api.@Nullable AgentDefinition definition,
+            @Nullable String effort) {
+        if (effort == null) {
+            return null;
+        }
+        if (definition == null) {
+            return "no agent runs in this task, so the effort "
+                    + effort
+                    + " would change nothing; start it without --effort";
+        }
+        try {
+            definition.effort().argumentsFor(definition.name(), effort);
+            return null;
+        } catch (org.fuin.porelo.agent.api.AgentException ex) {
+            return String.valueOf(ex.getMessage())
+                    + (definition.effort().values().isEmpty()
+                            ? "; start it without --effort"
+                            : "; start it with one of those, or without --effort");
+        }
     }
 
     /**

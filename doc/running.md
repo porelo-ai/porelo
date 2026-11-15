@@ -377,6 +377,19 @@ A failed or cancelled build exits 1; a queued, running, successful or unknown bu
 separately and names the next action; the [command reference](commands.md#build) lists every code and the JSON
 fields.
 
+## The reasoning effort a task is started with
+
+An agent whose definition declares an `effort` section takes a reasoning effort, one of the values it lists in its
+own words (`porelo agents --verbose` shows them). `porelo task start --effort high`, or `Start`'s `effort` from a
+window, hands it over as the definition says; without one nothing is passed and the agent runs on its own.
+
+- **Checked before anything is made.** A value the agent does not list, or any for an agent that lists none, refuses
+  the start with exit code 64, naming the values it takes. The daemon's `CanStart` answers the same,
+  `EFFORT_REFUSED`.
+- **Fixed for the task's life.** The task keeps its effort for every later run and `task attach`; starting it again
+  with another is refused.
+- **Shown** on the task's row in `List` and `Watch` and in its record.
+
 ## Values a task is started with
 
 A project can declare values a task of it is started with, under `parameters` in the

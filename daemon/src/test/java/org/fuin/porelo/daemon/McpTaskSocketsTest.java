@@ -525,6 +525,23 @@ class McpTaskSocketsTest {
                 .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkException.class);
     }
 
+    @Test
+    void aStartTakesItsEffortAsTextAndNothingElse() throws IOException {
+        final PoreloContext context = context(HEAD + SECTION);
+        final Map<String, Object> asked = new java.util.LinkedHashMap<>();
+        asked.put("project", "uc");
+        asked.put("repository", "uc");
+        asked.put("effort", "high");
+
+        assertThat(PoreloDaemon.request(asked, context).effort()).isEqualTo("high");
+        asked.remove("effort");
+        assertThat(PoreloDaemon.request(asked, context).effort()).as("absent: none").isNull();
+        asked.put("effort", 3);
+        assertThatThrownBy(() -> PoreloDaemon.request(asked, context))
+                .as("an effort is one of the agent's words")
+                .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkException.class);
+    }
+
     private static Set<String> names(final String kind, final String idl) {
         final Set<String> names = new TreeSet<>();
         final Matcher matcher =

@@ -30,6 +30,77 @@ import org.jspecify.annotations.Nullable;
 public final class StartCheck {
 
     /**
+     * The reasoning effort the check in progress would hand Start, bound for its duration only: the
+     * one answer that needs it is given where the agent is settled, several calls down.
+     */
+    private static final ScopedValue<String> EFFORT = ScopedValue.newInstance();
+
+    /**
+     * Settles everything a start would, the reasoning effort it would be given among them.
+     *
+     * @param context Where the machine's state comes from.
+     * @param projectFile The project file, or {@code null}.
+     * @param taskName The task's name, or {@code null}.
+     * @param agentName Agent to run, or {@code null} for the only one installed.
+     * @param providerName Provider to route through, or {@code null}.
+     * @param credentialType Overrides the stored credential kind, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @param needsRepository Whether this run would have a gate at all.
+     * @param credentials The credentials the run adds.
+     * @param parameters The values the start hands in, each with where it came from.
+     * @param branch The branch named outright, or {@code null} for the one the scheme makes.
+     * @param shortName The optional container spelling, or {@code null}.
+     * @param allRepositories Whether the task would read every repository of the project.
+     * @param work The issue and phase the task would work on, or {@code null} when none is given.
+     * @param readOnly Whether the task would read its one repository.
+     * @param given The files the task would be given, by name.
+     * @param effort The effort Start would be given, or {@code null} for none; one the agent does
+     *     not list is {@link Outcome#EFFORT_REFUSED}.
+     * @return What was found.
+     */
+    public static Result check(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch,
+            @Nullable String shortName,
+            boolean allRepositories,
+            @Nullable TaskWork work,
+            boolean readOnly,
+            Map<String, String> given,
+            @Nullable String effort) {
+        final java.util.function.Supplier<Result> checked =
+                () ->
+                        check(
+                                context,
+                                projectFile,
+                                taskName,
+                                agentName,
+                                providerName,
+                                credentialType,
+                                repository,
+                                needsRepository,
+                                credentials,
+                                parameters,
+                                branch,
+                                shortName,
+                                allRepositories,
+                                work,
+                                readOnly,
+                                given);
+        return effort == null
+                ? checked.get()
+                : ScopedValue.where(EFFORT, effort).call(checked::get);
+    }
+
+    /**
      * Why work could not start, or that it could.
      *
      * <p>Values may be added; render an unrecognised one rather than throwing, by the same rule as
@@ -176,6 +247,12 @@ public final class StartCheck {
 
         /** The files a start would be given are refused. {@code detail} says why, as Start does. */
         GIVEN_REFUSED,
+
+        /**
+         * The effort names a value the agent does not list, or the agent lists none. {@code detail}
+         * names the agent and the values it takes, in the words Start refuses with.
+         */
+        EFFORT_REFUSED,
 
         /**
          * The project file asks the task's agent for more subagents at the same time than its
@@ -2209,6 +2286,13 @@ public final class StartCheck {
                         : subagentsRefused(agent, projectFile);
         if (tooMany != null) {
             return new Result(Outcome.SUBAGENTS_REFUSED, agent.name(), "", "", tooMany);
+        }
+        // Beside the number, as Start refuses it: before the provider and the credential.
+        final String effortRefused =
+                TaskLaunch.effortRefused(
+                        agent.definition(), EFFORT.isBound() ? EFFORT.get() : null);
+        if (effortRefused != null) {
+            return new Result(Outcome.EFFORT_REFUSED, agent.name(), "", "", effortRefused);
         }
 
         final SelectedProvider.Choice serving =

@@ -309,9 +309,20 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   [files](project-file.md#the-default-model), is kept for `task attach` and later starts, and starting a stopped
   task with another `--model` is refused, naming what it was started with. So is its
   [`--subagents`](project-file.md#limits) number: a continuation hands its agent the number the task was
-  started with, takes `--subagents` with that number and refuses another with exit code 64.
+  started with, takes `--subagents` with that number and refuses another with exit code 64. Its `--effort` too:
+  a continuation hands its agent the effort the task was started with, takes `--effort` with that value and
+  refuses another with exit code 64.
 
 Omit `--model` to take the [default from the files](project-file.md#the-default-model).
+
+`--effort VALUE` starts the agent with a reasoning effort, one of the values its definition lists, in the agent's
+own words: `porelo agents --verbose` says them under `efforts`, and the daemon's `Agents` answers them as
+`efforts`. Porelo adds the arguments the definition declares (for one agent `--effort high`, for another
+`-c model_reasoning_effort=high`), attended and unattended alike. Without it nothing is passed and the agent runs
+on its own; no word such as "default" stands for that. A value the agent does not list, or any for an agent that
+lists none, is refused with exit code 64 before anything is made, a dry run included, naming the values it takes;
+the daemon's `CanStart` answers it as `EFFORT_REFUSED`. The task's row and its record say the effort it was
+started with.
 A daemon client likewise omits `Start.model` when the person has not chosen a model; sending the
 default explicitly records it as a choice from the start. A project's default is recorded as
 `modelFrom: project`, a repository's as `repository`, and the agent's own default as `agent`.
@@ -982,7 +993,8 @@ recorded as such, and the receiving peer may refuse it again.
 ## agents
 
 `porelo agents [--verbose] [--supply-chain] [--json] [--directory=<path>]` lists the installed agents.
-`--verbose` adds what each needs to reach; `--supply-chain` shows what its install pins; `--json` answers a
+`--verbose` adds what each needs to reach and the reasoning efforts `task start --effort` takes for it;
+`--supply-chain` shows what its install pins; `--json` answers a
 program, as [A host a playbook brings up](hosts.md) says.
 
 ## ecosystems

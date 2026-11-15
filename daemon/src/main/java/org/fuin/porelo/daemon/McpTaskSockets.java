@@ -94,6 +94,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "prompt",
                     "agent",
                     "model",
+                    "effort",
                     "minutes",
                     "mode",
                     "maxTurns",

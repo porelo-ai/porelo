@@ -87,3 +87,27 @@ not.
 Answered: a project names no default effort beside its model; the work rules' effort is the one (Agent Planner,
 2026-11-15). Whether a person may start a model the rule does not name is the operator's, in the planner's PL156; the
 machine's list is the same either way.
+
+## As built
+
+The effort, in the app and the daemon (the agent definition's `effort` was built before; `Models` is built
+separately):
+
+- `TaskProfile` records `effort` (absent in an older profile reads as none); `TaskLaunch.Request`, `Start.effort`,
+  `CanStart.effort` and `porelo task start --effort` take it. `TaskLaunch.effortRefused` says the one refusal, in
+  the definition's words: a start, a dry run and the credential check refuse it with 64 before anything is made, and
+  `StartCheck` answers `EFFORT_REFUSED` beside `SUBAGENTS_REFUSED`. A task brought back takes its own effort and
+  refuses another with 64; a later run and `task attach` take the recorded one.
+- Porelo adds the arguments itself with `AgentDefinition.efforted`, inside `instructing`, at the three places an
+  agent's command is built: `TaskRunner.runAgent` (unattended), `TaskSession` (attended session), and
+  `TaskRunCommand`'s attach.
+- The daemon reads `effort` as a string, else `InvalidParameter`; a task's MCP start may carry it as it carries
+  `model`. `Agents` answers `efforts`, `porelo agents --verbose` prints them, `Task.effort` and the run record's
+  `effort` say it.
+- Plan differences: `StartCheck` takes the effort through a scoped value bound by a new `check` overload rather than
+  through every overload.
+- Red first:
+  - `TaskProfileTest`: did not compile (no effort component).
+  - `TaskRunCommandTest`: the effort tests ran red with the field in place and nothing applied: the unattended log
+    lacked `-c model_reasoning_effort=high`, and the attended session lacked `'-c' 'model_reasoning_effort=medium'`.
+  - `AgentEntryTest` and `McpTaskSocketsTest`: red with the `efforts` entry and the `effort` parameter taken out.

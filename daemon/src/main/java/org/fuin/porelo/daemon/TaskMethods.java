@@ -351,7 +351,8 @@ final class TaskMethods {
                 // Start's own, and refused by the same rule before anything else.
                 org.fuin.porelo.app.TaskWork.of(parameters.get("work")),
                 flag(parameters, "readOnly"),
-                PoreloDaemon.givenFiles(parameters));
+                PoreloDaemon.givenFiles(parameters),
+                PoreloDaemon.effort(parameters));
     }
 
     /**

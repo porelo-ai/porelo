@@ -105,7 +105,9 @@ final class TaskRows {
                 ended(row.get("ended")),
                 null,
                 // Absent from an older daemon, which is no task that only reads.
-                flag(row, "readOnly"));
+                flag(row, "readOnly"),
+                // Absent where the start named none, and from an older daemon.
+                absent(row, "effort"));
     }
 
     private static TaskInventory.@Nullable Ended ended(final @Nullable Object value) {
