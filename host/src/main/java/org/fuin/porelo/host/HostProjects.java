@@ -237,7 +237,8 @@ final class HostProjects {
                             && row.get("why") instanceof String
                             && List.of("no-read-key", "unreachable", "no-central-main", "local")
                                     .contains(row.get("why"));
-            case "up-to-date", "moved-on" -> row.keySet().equals(Set.of("repository", "state"));
+            case "up-to-date", "moved-on", "diverged" ->
+                    row.keySet().equals(Set.of("repository", "state"));
             default -> false;
         };
     }

@@ -2857,6 +2857,31 @@ public final class TaskLaunch {
 
     private int reservationVaultCode = 69;
 
+    /** Asks the host to follow before a start given work; a test puts a stand-in here. */
+    CentralFreshness.@Nullable Follow follow;
+
+    private @Nullable String centralRefusal(
+            Project project, org.fuin.porelo.core.project.Repository repository) {
+        final OrganizationProjects.Placed placed;
+        try {
+            placed = projects.host(project.name());
+        } catch (java.io.IOException ex) {
+            return "this host's record of " + project.name() + " does not read: " + ex.getMessage();
+        }
+        if (placed == null) {
+            // Not carried by this host's organization: no copy of central to be behind.
+            return null;
+        }
+        final CentralFreshness.Follow asked = follow;
+        return CentralFreshness.refusal(
+                asked != null ? asked : () -> HostFollowCommand.now(context),
+                new HostCentral(HostCentral.DIRECTORY, HostCentral.ATTRIBUTES),
+                project,
+                placed,
+                repository,
+                java.time.Instant.now());
+    }
+
     private void reserveTask(Project project, String container, PrintWriter err)
             throws java.io.IOException {
         reservationVaultCode =
@@ -3071,6 +3096,16 @@ public final class TaskLaunch {
         }
 
         workedOn = repository;
+        if (request.work() != null && host.present()) {
+            // A planned task on a copy that misses what its planner just saved to central writes
+            // a second issue: the host follows first, and a copy still behind refuses the start.
+            final String behind = centralRefusal(project, repository);
+            if (behind != null) {
+                err.println("porelo: " + behind);
+                err.flush();
+                return 69;
+            }
+        }
         if (DefaultProject.is(project.name()) && !namedInDefaultSaid) {
             // Once, however often a refused start is tried again on this launch.
             namedInDefaultSaid = true;

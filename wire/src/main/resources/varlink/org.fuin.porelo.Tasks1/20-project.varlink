@@ -598,7 +598,9 @@ type Repository (
   # both as they were.
   aheadMeasured: ?string,
   # How the host forge's copy stands against central, as the host last said: up-to-date, ahead,
-  # moved-on (central has commits the copy lacks), cannot-say or no-central. cannot-say is also
+  # moved-on (central has commits the copy lacks, and the copy none central lacks, or which is not
+  # known), diverged (each holds commits the other lacks: a task merges central/main), cannot-say or
+  # no-central. cannot-say is also
   # what Porelo records when the host's answer was refused or could not be asked. New values may
   # appear. Absent off a host, before the host's first answer, and where carriedHere is not
   # true; ahead, aheadMeasured and centralWhy with it.

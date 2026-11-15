@@ -31,6 +31,7 @@ final class ProjectRuntime {
     private final Transfers transfers;
     private final SocketCheck sockets;
     private final ForgeFactory forgeFactory;
+    private @Nullable ProjectRuntime unbudgeted;
 
     @FunctionalInterface
     interface Transfers {
@@ -196,21 +197,28 @@ final class ProjectRuntime {
                         return forgeFactory.unauthenticated(socket).until(clock, deadline);
                     }
                 };
-        return new ProjectRuntime(
-                files,
-                (argv, input, environment, timeout) ->
-                        commands.run(argv, input, environment, remaining(clock, deadline, timeout)),
-                programs,
-                sockets,
-                bounded,
-                (argv, input, output, environment, timeout) ->
-                        transfers.run(
-                                argv,
-                                input,
-                                output,
-                                environment,
-                                remaining(clock, deadline, timeout)),
-                personFiles);
+        final ProjectRuntime result =
+                new ProjectRuntime(
+                        files,
+                        (argv, input, environment, timeout) ->
+                                commands.run(
+                                        argv,
+                                        input,
+                                        environment,
+                                        remaining(clock, deadline, timeout)),
+                        programs,
+                        sockets,
+                        bounded,
+                        (argv, input, output, environment, timeout) ->
+                                transfers.run(
+                                        argv,
+                                        input,
+                                        output,
+                                        environment,
+                                        remaining(clock, deadline, timeout)),
+                        personFiles);
+        result.unbudgeted = unbudgeted();
+        return result;
     }
 
     private static Duration remaining(
@@ -521,11 +529,17 @@ final class ProjectRuntime {
     }
 
     HostPrograms.Result exec(String account, List<String> arguments) throws IOException {
-        return commands.run(
-                execCommand(account, arguments, false),
-                new byte[0],
-                SAFE_ENV,
-                Duration.ofSeconds(60));
+        return exec(account, arguments, Duration.ofSeconds(60));
+    }
+
+    HostPrograms.Result exec(String account, List<String> arguments, Duration timeout)
+            throws IOException {
+        return commands.run(execCommand(account, arguments, false), new byte[0], SAFE_ENV, timeout);
+    }
+
+    /** The same commands outside any caller's deadline: for cleanup that must still happen. */
+    ProjectRuntime unbudgeted() {
+        return unbudgeted == null ? this : unbudgeted;
     }
 
     HostPrograms.Result exec(String account, List<String> arguments, java.io.InputStream input)
@@ -564,6 +578,31 @@ final class ProjectRuntime {
                         .exitCode()
                 != 0) {
             throw new HostRefusal(69, "the verified copy could not be read");
+        }
+    }
+
+    /** Streams the forge copy's main as a bundle, read inside the forge as its account. */
+    void exportMain(String account, String project, String name, java.io.OutputStream output)
+            throws IOException {
+        if (transfers
+                        .run(
+                                execCommand(
+                                        account,
+                                        readCommand(
+                                                project,
+                                                name,
+                                                "bundle",
+                                                "create",
+                                                "-",
+                                                "refs/heads/main"),
+                                        false),
+                                java.io.InputStream.nullInputStream(),
+                                output,
+                                SAFE_ENV,
+                                Duration.ofSeconds(60))
+                        .exitCode()
+                != 0) {
+            throw new HostRefusal(69, "the local forge could not read " + project + "/" + name);
         }
     }
 

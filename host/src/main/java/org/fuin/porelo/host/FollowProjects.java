@@ -827,9 +827,9 @@ final class FollowProjects {
                                             repository,
                                             commit,
                                             Path.of(copied),
-                                            noTaskInOwn(project, object(item.get("file")))
-                                                    ? "tip"
-                                                    : "signed")
+                                            // The tip falls back to the signed file itself where
+                                            // a workflow or an image snippet would come along.
+                                            "tip")
                                     .get("state"));
         } catch (HostRefusal | IOException ex) {
             state = "";
@@ -1008,6 +1008,14 @@ final class FollowProjects {
                 names.add(name);
             }
         }
+        final Map<String, String> owns = new java.util.HashMap<>();
+        for (Object value : array(applied.get("projects"))) {
+            final var project = object(value);
+            if (address(project.get("address"))) {
+                owns.put(
+                        string(project.get("project")), repository(string(project.get("address"))));
+            }
+        }
         final ProjectMeasurements measurements =
                 new ProjectMeasurements(c.files, c.runtime, c.clock);
         final var configuration = c.runtime.configuration(HostFollow.admin(applied));
@@ -1017,7 +1025,8 @@ final class FollowProjects {
                 new HostProjects(c.host)
                         .status(applied).stream()
                                 .filter(row -> appliedNames.contains(row.get("project")))
-                                .toList());
+                                .toList(),
+                owns);
     }
 
     void members(

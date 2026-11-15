@@ -52,6 +52,7 @@ final class ProjectGiveBack {
                             switch (state) {
                                 case "ahead" -> "ahead by " + row.get("commits") + " commit(s)";
                                 case "moved-on" -> "moved-on from central";
+                                case "diverged" -> "diverged from central";
                                 case "cannot-say" -> "cannot-say (" + row.get("why") + ")";
                                 default -> state;
                             };

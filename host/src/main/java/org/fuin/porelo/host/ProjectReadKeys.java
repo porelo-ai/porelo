@@ -275,7 +275,7 @@ final class ProjectReadKeys {
                                 "core.hooksPath=/dev/null"));
         command.addAll(arguments);
         final HostPrograms.Result result =
-                arguments.getFirst().equals("clone")
+                arguments.getFirst().equals("clone") || arguments.getFirst().equals("init")
                         ? runtime.privateFiles(command, new byte[0], environment, timeout)
                         : arguments.contains("rev-list") && !arguments.contains("--count")
                                 ? runtime.collect(command, environment, timeout)
@@ -349,6 +349,123 @@ final class ProjectReadKeys {
         return ProjectRecords.object("project", project, "repositories", answers);
     }
 
+    /**
+     * Brings central's main into a root-owned scratch repository with the read key, seeded with the
+     * copy's main so only what the copy lacks travels, and lands it in the copy by {@link
+     * ProjectAdvance#follow}, which moves main only by a fast-forward that changes no workflow.
+     */
+    void follow(String account, String project, String repository) throws IOException {
+        final Manifest manifest = manifest(project);
+        follow(
+                account,
+                project,
+                manifest.directory(),
+                ProjectCopies.requireKey(manifest, repository));
+    }
+
+    /** One repository's row measured again, as {@link #centralState} measures it. */
+    Map<String, @Nullable Object> row(String account, String project, String repository)
+            throws IOException {
+        final Manifest manifest = manifest(project);
+        return state(
+                account,
+                project,
+                manifest.directory(),
+                ProjectCopies.requireKey(manifest, repository));
+    }
+
+    private void follow(
+            String account, String project, Path directory, Map<String, @Nullable Object> item)
+            throws IOException {
+        final String ssh = ssh(directory, item);
+        final Path scratch =
+                Files.createTempDirectory(
+                        files.at("/tmp"),
+                        "porelo-project-follow-",
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rwx------")));
+        try {
+            Files.setPosixFilePermissions(scratch, PosixFilePermissions.fromString("rwx------"));
+            final Path mirror = scratch.resolve("central.git");
+            final Path seed = scratch.resolve("copy.bundle");
+            final Path out = scratch.resolve("central.bundle");
+            git(
+                    List.of("init", "-q", "--bare", "--", mirror.toString()),
+                    Map.of(),
+                    Duration.ofSeconds(30));
+            final String at = "--git-dir=" + mirror;
+            Files.createFile(
+                    seed,
+                    PosixFilePermissions.asFileAttribute(
+                            PosixFilePermissions.fromString("rw-------")));
+            try (var output =
+                    Files.newOutputStream(
+                            seed,
+                            java.nio.file.StandardOpenOption.WRITE,
+                            java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                runtime.exportMain(account, project, name(item), output);
+            }
+            git(
+                    List.of(
+                            "-c",
+                            "transfer.fsckObjects=true",
+                            at,
+                            "fetch",
+                            "-q",
+                            "--no-tags",
+                            "--no-recurse-submodules",
+                            "--",
+                            seed.toString(),
+                            "+refs/heads/main:refs/porelo/copy"),
+                    Map.of(),
+                    Duration.ofSeconds(60));
+            git(
+                    List.of(
+                            "-c",
+                            "transfer.fsckObjects=true",
+                            at,
+                            "fetch",
+                            "-q",
+                            "--no-tags",
+                            "--no-recurse-submodules",
+                            "--",
+                            ProjectAddress.parse(address(item)).ssh(),
+                            "+refs/heads/main:refs/heads/main"),
+                    Map.of("GIT_SSH_COMMAND", ssh),
+                    Duration.ofSeconds(120));
+            final String target =
+                    git(
+                                    List.of(
+                                            at,
+                                            "rev-parse",
+                                            "--verify",
+                                            "--quiet",
+                                            "refs/heads/main^{commit}"),
+                                    Map.of(),
+                                    Duration.ofSeconds(30))
+                            .strip();
+            if (!target.matches(ProjectRecords.COMMIT)) {
+                throw new HostRefusal(69, "the central forge answered an invalid main");
+            }
+            // Only what the copy lacks goes into the bundle; the copy holds the rest.
+            git(
+                    List.of(
+                            at,
+                            "bundle",
+                            "create",
+                            "-q",
+                            out.toString(),
+                            "refs/heads/main",
+                            "^refs/porelo/copy"),
+                    Map.of(),
+                    Duration.ofSeconds(60));
+            new ProjectAdvance(files, runtime, account, project, name(item)).follow(target, out);
+        } finally {
+            files.removeTree(scratch);
+        }
+    }
+
     private Map<String, @Nullable Object> state(
             String account, String project, Path directory, Map<String, @Nullable Object> item) {
         if (id(item) <= 0) {
@@ -379,7 +496,8 @@ final class ProjectReadKeys {
             if (local.output().strip().equals(central)) {
                 return ProjectRecords.object("state", "up-to-date");
             }
-            if (runtime.read(
+            final int below =
+                    runtime.read(
                                     account,
                                     project,
                                     name(item),
@@ -387,9 +505,25 @@ final class ProjectReadKeys {
                                     "--is-ancestor",
                                     central,
                                     "refs/heads/main")
-                            .exitCode()
-                    != 0) {
-                return ProjectRecords.object("state", "moved-on");
+                            .exitCode();
+            if (below != 0) {
+                // Diverged only where the copy holds central's commit and neither holds the
+                // other; without central's objects the copy is taken as behind.
+                return ProjectRecords.object(
+                        "state",
+                        below == 1
+                                        && runtime.read(
+                                                                account,
+                                                                project,
+                                                                name(item),
+                                                                "merge-base",
+                                                                "--is-ancestor",
+                                                                "refs/heads/main",
+                                                                central)
+                                                        .exitCode()
+                                                == 1
+                                ? "diverged"
+                                : "moved-on");
             }
             final HostPrograms.Result count =
                     runtime.read(

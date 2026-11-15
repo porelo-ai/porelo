@@ -1160,7 +1160,8 @@ class HostProjectTest {
     @CsvSource({
         "same,up-to-date",
         "ahead,ahead",
-        "diverged,moved-on",
+        "diverged,diverged",
+        "behind,moved-on",
         "no-local,cannot-say",
         "no-central,cannot-say",
         "unreachable,cannot-say"
@@ -1172,6 +1173,11 @@ class HostProjectTest {
             case "diverged" -> {
                 host.localMain = "b".repeat(40);
                 host.ancestor = 1;
+            }
+            case "behind" -> {
+                host.localMain = "b".repeat(40);
+                host.ancestor = 1;
+                host.behind = 0;
             }
             case "no-local" -> host.localMain = null;
             case "no-central" -> host.centralMain = null;

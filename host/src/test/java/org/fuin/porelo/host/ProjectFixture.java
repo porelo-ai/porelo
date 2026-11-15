@@ -61,6 +61,7 @@ final class ProjectFixture implements AutoCloseable {
     String centralMain = "a".repeat(40);
     String localMain = centralMain;
     int ancestor = 0;
+    int behind = 1;
     String ahead = "3\n";
     int gitFailure;
     int pushFailure;
@@ -317,7 +318,11 @@ final class ProjectFixture implements AutoCloseable {
                     localMain == null ? 1 : 0, localMain == null ? "" : localMain + "\n");
         }
         if (argv.contains("merge-base")) {
-            return new HostPrograms.Result(ancestor, "");
+            return new HostPrograms.Result(
+                    argv.get(argv.indexOf("--is-ancestor") + 1).equals("refs/heads/main")
+                            ? behind
+                            : ancestor,
+                    "");
         }
         if (argv.contains("--count")) {
             return new HostPrograms.Result(0, ahead);

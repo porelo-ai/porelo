@@ -29,6 +29,30 @@ public final class HostFollowCommand implements Callable<Integer>, PoreloFactory
         this.context = context;
     }
 
+    /**
+     * Asks the host to follow now and waits for its pass, saying nothing: for a start that must
+     * work on central's newest main.
+     *
+     * @param context The machine.
+     * @return The host program's exit code, 69 when it could not be asked.
+     */
+    static int now(final PoreloContext context) {
+        try {
+            final Path host = SystemProgram.at(Path.of("/usr/sbin/porelo-host"));
+            final Path sudo = SystemProgram.find("sudo");
+            return HostGatherRunner.system(
+                            context.runner(),
+                            Command.of(sudo.toString(), "-n", host.toString(), "org", "follow-now")
+                                    .in(Path.of("/"))
+                                    .withChosenEnvironment(
+                                            Map.of("PATH", "/usr/sbin:/usr/bin", "LC_ALL", "C")),
+                            Duration.ofMinutes(12))
+                    .exitCode();
+        } catch (UncheckedIOException | CommandException | HostGatherRefusal ex) {
+            return 69;
+        }
+    }
+
     /** Keeps the root wrapper's completion and refusal status intact. */
     @Override
     public Integer call() {

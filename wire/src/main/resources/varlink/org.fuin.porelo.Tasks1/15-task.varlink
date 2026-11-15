@@ -828,7 +828,12 @@ method Start(
   steps: ?bool,
   # The issue and the phase of the project's own workflow this task works on, kept in its record as given: each one
   # line of 1 to 64 characters, else refused with exitCode 64. Porelo does not know the phases. A task brought back
-  # keeps the work it was made with.
+  # keeps the work it was made with. On a host, a start given work first has the host follow central once
+  # ('porelo host follow') and is refused with exitCode 69 before anything is made unless the host's copy of
+  # the repository then holds central's main: a copy behind central that the follow could not move (a change
+  # of its workflows), one that diverged from it, or a standing that cannot be read. Its line names the way
+  # back: 'porelo host pull' and a task that merges central/main, or 'porelo host push' where only the host is
+  # ahead. CanStart does not ask the host to follow and does not answer this.
   work: ?(issue: string, phase: string)
 ) -> (
   # One line of output. Set on every continuing reply unless steps: true was requested.

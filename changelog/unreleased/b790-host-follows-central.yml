@@ -1,0 +1,2 @@
+title: "A host's follow fast-forwards every carried repository's copy to central's `main` where the copy only lags, except across a workflow change, so a planned task no longer works on a copy that misses what the planner saved; a copy that holds work of its own while central moved on reads `diverged` instead of `moved-on`"
+type: fixed

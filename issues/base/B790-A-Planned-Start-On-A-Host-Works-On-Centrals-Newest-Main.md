@@ -109,3 +109,34 @@ and the start refuses with the way back. When built, `doc/decisions.md` records 
 1. To be checked on the host: the PI68 task still shows "1 waiting at the gate" after its pull request was merged.
    Whether that push still waits in the gate's incoming refs, whether the gate's measurement sees it landed
    (`alreadyUpstream`), and whether the task's end removes it; if it stays, it is a bug of its own.
+
+## As built
+
+- Host (porelo's host program): the measurement of a pass moves every carried repository that reads `moved-on`
+  (`ProjectReadKeys.centralState` with the project's own repository named): central's `main` is fetched with the
+  host's read key into a root-owned scratch repository seeded with a bundle of the copy's `main`, so only what is
+  missing crosses the network, and landed by `ProjectAdvance.follow` with the new reach `plain`: a fast-forward
+  only, `other-changes` (left) where a workflow changed, `ahead` or `diverged` (left) otherwise; the row is measured
+  again. The own repository always takes the `tip` reach now (the Coordinator's decision, 2026-11-15), its
+  `project.yml` still moving only as the verified, signed file. `diverged` is a central state of its own
+  (`HostProjects.centralRow`, `ProjectGiveBack`, `HostCentral.STATES`, `20-project.varlink`).
+- Start: `CentralFreshness` (app-task) asks the host to follow now (`HostFollowCommand.now`, the existing sudo rule
+  for `org follow-now`) and then reads the central state that pass published, as the window reads it. A start with
+  `work` on a host whose record carries the project is refused with exit 69 before anything is made unless the
+  task's repository reads `up-to-date` or `ahead`; a follow that did not run refuses as not known.
+- Plan changed: the start reads the host's freshly published state after its own follow instead of reading central
+  with the person's `<forge>.central`, so no person's credential is needed and the window and the start judge
+  alike. The refusal is Start's exit 69 and its line, not a `StartOutcome`, and CanStart does not answer it: it
+  would have to make the host follow on every check.
+- `doc/hosts.md`, `doc/decisions.md` ("A host's copy follows central's main by itself"), `15-task.varlink`, two
+  changelog entries under *fixed*.
+- Red first: `HostProjectFollowCentralTest` (moved, diverged, cleanup), `HostProjectTest.centralStateTellsHowMainStands`
+  (diverged), `HostFollowFilesTest.theOwnRepositoryWithATaskFollowsCentralsTipPastAnIssueFile`, `CentralFreshnessTest`
+  (three refusals red against a stub that never refuses; the failed-follow case found a defect, fixed).
+- After the Sonnet reading: a pass measures every project's rows first and follows after, each follow under a minute
+  of its own (export, fetch and landing together) that it starts only where it still fits, so one big repository
+  never empties another project's rows (`aSlowFollowLeavesItsRowMovedOnAndTheNextProjectMeasured`); a landing's
+  cleanup runs outside the budget and keeps the first error (`aDeadlineOutDuringTheLandingStillRemovesBundleAndRef`);
+  every fetch root makes checks objects and skips submodules (`everyFetchOfTheFollowChecksObjectsAndSkipsSubmodules`);
+  a start reads a state the follow it asked for wrote, never an older pass's
+  (`aStateOlderThanTheFollowAskedForSaysNothingOfNow`). Each was red first.

@@ -42,6 +42,7 @@ final class FollowFixture {
                             new LinkedHashMap<String, Object>()));
     int fetchCode, readKeyCode, verifyCode, roomCode;
     String fetchErrors = "", advanceState = "up-to-date";
+    @org.jspecify.annotations.Nullable String centralDiff;
     boolean noReadKeyAddedAnswer, noSigners, noForge;
     int advanceCount, verifyCount, copyCount;
     Function<List<String>, HostPrograms.Result> override = argv -> null;
@@ -748,13 +749,20 @@ final class FollowFixture {
         }
         if (argv.contains("git") && argv.contains("diff")) {
             return new HostPrograms.Result(
-                    0, advanceState.equals("other-changes") ? "source.java\n" : "project.yml\n");
+                    0,
+                    centralDiff != null
+                            ? centralDiff
+                            : advanceState.equals("other-changes")
+                                    ? "source.java\n"
+                                    : "project.yml\n");
         }
         if (argv.contains("git") && argv.contains("show")) {
             return new HostPrograms.Result(0, "project: alpha\n");
         }
         if (argv.contains("git") && argv.contains("ls-tree")) {
-            return new HostPrograms.Result(0, "");
+            // A workflow holds the tip back to the signed file, whose reach judges the rest.
+            return new HostPrograms.Result(
+                    0, advanceState.equals("other-changes") ? ".forgejo/workflows/run.yml\n" : "");
         }
         if (argv.contains("git") && (argv.contains("fetch") || argv.contains("update-ref"))) {
             return new HostPrograms.Result(0, "");

@@ -154,6 +154,21 @@ The central directory stays closed until updated answers succeed. A standalone d
 preserves progress for that project and leaves other projects' publications in place; only a full
 follow prunes departed projects.
 
+Each follow pass, every five minutes and whenever a person asks one, brings a carried repository's copy up to
+central's `main` by itself where the copy's `main` is an ancestor of it. For a repository other than the project's
+own, root reads central's `main` with the host's read key for that repository into a private scratch repository
+seeded with the copy's `main`, so only what the copy lacks travels, and fast-forwards the copy's `main` unless a file
+under `.forgejo/workflows`, `.gitea/workflows` or `.github/workflows` changed on the way; such a change waits for a
+person's pull request from `central/main`. The project's own repository follows central's tip the same way, through
+the project file Porelo verified: a workflow or an image `snippet_file` holds it at the signed file. The copy is never
+moved backwards or sideways, and the row is measured again after the move. Every project's rows are
+measured before any copy is moved, and each move has its own minute; one that does not fit in the pass or runs out
+leaves its row `moved-on` until the next pass, and Git checks every object root fetches for it.
+A row's central state is `up-to-date`, `ahead` (the copy holds commits central lacks, and central nothing new), `moved-on` (central holds commits the copy
+lacks and the follow did not take them), `diverged` (each holds commits the other lacks: the copy's own work waits
+for `porelo host pull` and a task that merges `central/main`, then the person's gathered push), or `cannot-say` with
+a reason.
+
 `Projects` and `WatchProjects` report this progress as `hostState` and `hostWhy` on projects and
 repositories. Waiting and refused progress can only withhold what the placement file authorizes.
 A project whose placement file does not read stays listed, with `hostFileError` naming the file and

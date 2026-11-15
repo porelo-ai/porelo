@@ -289,6 +289,17 @@ class HostFollowFilesTest {
     }
 
     @Test
+    void theOwnRepositoryWithATaskFollowsCentralsTipPastAnIssueFile() throws Exception {
+        repositories(new LinkedHashMap<>(Map.of("own", required())));
+        f.project.localMain = "b".repeat(40);
+        f.centralDiff = "issues/I1-An-Idea.md\n";
+        f.run();
+        assertThat(f.item())
+                .containsEntry("advanced", f.project.centralMain)
+                .doesNotContainKey("advance_refused");
+    }
+
+    @Test
     void localMainAheadOfCentralCountsAsAdvanced() throws Exception {
         f.project.localMain = "b".repeat(40);
         f.advanceState = "ahead";

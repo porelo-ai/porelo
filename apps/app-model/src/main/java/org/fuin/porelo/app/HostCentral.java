@@ -50,7 +50,8 @@ final class HostCentral {
     static final int MAXIMUM_BYTES = 1024 * 1024;
 
     /** The states a host may answer. */
-    static final Set<String> STATES = Set.of("up-to-date", "ahead", "moved-on", "cannot-say");
+    static final Set<String> STATES =
+            Set.of("up-to-date", "ahead", "moved-on", "diverged", "cannot-say");
 
     /** A {@code commits} at or above this is no answer a forge's copy can give. */
     static final long MOST_COMMITS = 1_000_000;

@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 /** Advances only the file Porelo verified; every container Git write has a private umask. */
 final class ProjectAdvance {
     private static final String CENTRAL = "refs/porelo/central";
+    private static final java.time.Duration CLEANUP = java.time.Duration.ofSeconds(15);
     private final ProjectFiles files;
     private final ProjectRuntime runtime;
     private final String account;
@@ -51,22 +52,7 @@ final class ProjectAdvance {
             try (var output = Files.newOutputStream(bundle, LinkOption.NOFOLLOW_LINKS)) {
                 runtime.bundle(account, copy, output);
             }
-            final String remoteBundle = directory + "/porelo-advance.bundle";
-            try {
-                require(
-                        runtime.exec(
-                                account,
-                                List.of("install", "-m", "600", "/dev/null", remoteBundle)));
-                try (var input = Files.newInputStream(bundle, LinkOption.NOFOLLOW_LINKS)) {
-                    require(runtime.exec(account, List.of("tee", remoteBundle), input));
-                }
-                git("fetch", "-q", "--no-tags", remoteBundle, "+refs/heads/main:" + CENTRAL);
-                return ProjectRecords.object("state", move(commit, reach));
-            } finally {
-                // Cleanup is part of the verdict, including on a refused or failed comparison.
-                require(runtime.exec(account, List.of("rm", "-f", remoteBundle)));
-                git("update-ref", "-d", CENTRAL);
-            }
+            return ProjectRecords.object("state", land(bundle, commit, reach));
         } catch (HostRefusal ex) {
             throw ex;
         } catch (IOException ex) {
@@ -76,12 +62,87 @@ final class ProjectAdvance {
         }
     }
 
+    /**
+     * The follow's move of a carried repository other than the project's own: the bundle holds
+     * central's main at {@code commit}, which main takes only by a fast-forward that changes no
+     * workflow.
+     */
+    String follow(String commit, Path bundle) throws IOException {
+        try {
+            return land(bundle, commit, "plain");
+        } catch (HostRefusal ex) {
+            throw ex;
+        } catch (IOException ex) {
+            throw failure();
+        }
+    }
+
+    private String land(Path bundle, String commit, String reach) throws IOException {
+        final String remoteBundle = directory + "/porelo-advance.bundle";
+        @Nullable Exception first = null;
+        try {
+            require(
+                    runtime.exec(
+                            account, List.of("install", "-m", "600", "/dev/null", remoteBundle)));
+            try (var input = Files.newInputStream(bundle, LinkOption.NOFOLLOW_LINKS)) {
+                require(runtime.exec(account, List.of("tee", remoteBundle), input));
+            }
+            git(
+                    "-c",
+                    "transfer.fsckObjects=true",
+                    "fetch",
+                    "-q",
+                    "--no-tags",
+                    "--no-recurse-submodules",
+                    remoteBundle,
+                    "+refs/heads/main:" + CENTRAL);
+            return move(commit, reach);
+        } catch (IOException | RuntimeException ex) {
+            first = ex;
+            throw ex;
+        } finally {
+            // Cleanup is part of the verdict, including on a refused or failed comparison.
+            cleanup(remoteBundle, first);
+        }
+    }
+
+    /**
+     * Runs outside the caller's deadline, each step with a short bound of its own, so a budget
+     * spent mid-landing still removes the bundle and the temporary ref; the first error stays the
+     * one thrown.
+     */
+    private void cleanup(String remoteBundle, @Nullable Exception first) throws IOException {
+        final ProjectRuntime own = runtime.unbudgeted();
+        final List<Exception> failed = new ArrayList<>();
+        try {
+            require(own.exec(account, List.of("rm", "-f", remoteBundle), CLEANUP));
+        } catch (IOException | RuntimeException ex) {
+            failed.add(ex);
+        }
+        try {
+            require(gitResult(own, CLEANUP, "update-ref", "-d", CENTRAL));
+        } catch (IOException | RuntimeException ex) {
+            failed.add(ex);
+        }
+        if (failed.isEmpty()) {
+            return;
+        }
+        if (first != null) {
+            failed.forEach(first::addSuppressed);
+            return;
+        }
+        throw failure();
+    }
+
     private String move(String commit, String reach) throws IOException {
         if (!gitResult("rev-parse", "--verify", "--quiet", CENTRAL + "^{commit}")
                 .output()
                 .strip()
                 .equals(commit)) {
             throw new HostRefusal(65, "the copy no longer holds the commit Porelo verified");
+        }
+        if (reach.equals("plain")) {
+            return plain(commit);
         }
         String signed =
                 git("log", "-1", "--first-parent", "--format=%H", CENTRAL, "--", "project.yml")
@@ -153,33 +214,66 @@ final class ProjectAdvance {
                     return "other-changes";
                 }
             }
-            git("update-ref", "refs/heads/main", target, local);
-            final String update = local + " " + target + " refs/heads/main\n";
-            final int told;
-            try (var input = new ByteArrayInputStream(update.getBytes(StandardCharsets.US_ASCII))) {
-                told =
-                        runtime.exec(
-                                        account,
-                                        List.of(
-                                                "env",
-                                                "-C",
-                                                directory,
-                                                "SSH_ORIGINAL_COMMAND=internal",
-                                                "GITEA_REPO_USER_NAME=" + project,
-                                                "GITEA_REPO_NAME=" + name,
-                                                "GITEA_REPO_IS_WIKI=false",
-                                                "GITEA_PUSHER_NAME=porelo-admin",
-                                                "GITEA_PUSHER_ID=1",
-                                                "GITEA_PR_ID=0",
-                                                "forgejo",
-                                                "hook",
-                                                "post-receive"),
-                                        input)
-                                .exitCode();
-            }
-            return told == 0 ? "moved" : "moved-unseen";
+            return forward(local, target);
         }
         return above(target, local) ? "ahead" : "diverged";
+    }
+
+    private String plain(String commit) throws IOException {
+        final String local =
+                git("rev-parse", "--verify", "--quiet", "refs/heads/main^{commit}").strip();
+        if (local.isEmpty()) {
+            throw failure();
+        }
+        if (local.equals(commit)) {
+            return "up-to-date";
+        }
+        if (!above(local, commit)) {
+            // Never backwards or sideways: work of the copy's own waits for a person.
+            return above(commit, local) ? "ahead" : "diverged";
+        }
+        if (!git(
+                        "diff",
+                        "--name-only",
+                        "--no-renames",
+                        local,
+                        commit,
+                        "--",
+                        ".forgejo/workflows",
+                        ".gitea/workflows",
+                        ".github/workflows")
+                .isBlank()) {
+            return "other-changes";
+        }
+        return forward(local, commit);
+    }
+
+    private String forward(String local, String target) throws IOException {
+        git("update-ref", "refs/heads/main", target, local);
+        final String update = local + " " + target + " refs/heads/main\n";
+        final int told;
+        try (var input = new ByteArrayInputStream(update.getBytes(StandardCharsets.US_ASCII))) {
+            told =
+                    runtime.exec(
+                                    account,
+                                    List.of(
+                                            "env",
+                                            "-C",
+                                            directory,
+                                            "SSH_ORIGINAL_COMMAND=internal",
+                                            "GITEA_REPO_USER_NAME=" + project,
+                                            "GITEA_REPO_NAME=" + name,
+                                            "GITEA_REPO_IS_WIKI=false",
+                                            "GITEA_PUSHER_NAME=porelo-admin",
+                                            "GITEA_PUSHER_ID=1",
+                                            "GITEA_PR_ID=0",
+                                            "forgejo",
+                                            "hook",
+                                            "post-receive"),
+                                    input)
+                            .exitCode();
+        }
+        return told == 0 ? "moved" : "moved-unseen";
     }
 
     private boolean above(String first, String second) throws IOException {
@@ -195,6 +289,12 @@ final class ProjectAdvance {
     }
 
     private HostPrograms.Result gitResult(String... arguments) throws IOException {
+        return gitResult(runtime, java.time.Duration.ofSeconds(60), arguments);
+    }
+
+    private HostPrograms.Result gitResult(
+            ProjectRuntime through, java.time.Duration timeout, String... arguments)
+            throws IOException {
         final List<String> argv =
                 new ArrayList<>(
                         List.of(
@@ -207,7 +307,7 @@ final class ProjectAdvance {
                                 "core.sharedRepository=0600",
                                 "--git-dir=" + directory));
         argv.addAll(List.of(arguments));
-        return runtime.exec(account, argv);
+        return through.exec(account, argv, timeout);
     }
 
     private String require(HostPrograms.Result result) {

@@ -114,6 +114,7 @@ would change the answer.
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
 | A host carries a project whole or by some of its repositories | a repository is on one host at most, and a project carried whole keeps its repositories off every other host; each read key is deleted by whoever made it | [entry](#a-host-carries-a-project-whole-or-by-some-of-its-repositories) |
+| A host's copy follows central's main by itself | every carried copy fast-forwards to central's main on each pass and before a start given work, never past a workflow change; a copy with work of its own is left and such a start refused | [entry](#a-hosts-copy-follows-centrals-main-by-itself) |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
 | A signature counts when it arrives, never when it says it was made | commits judged at arrival by the gate and the forge's pre-receive hook, messages when the receiver takes them; a date the signer writes decides nothing | [entry](#a-signature-counts-when-it-arrives-never-when-it-says-it-was-made) |
@@ -1713,3 +1714,20 @@ older readers. A merge, squash or rebase would change the signed commit or put t
 card's path. Neither is acceptance. The cost is that moving main makes a proposal stale, including when
 another proposal is accepted; its person signs again by running join. A forge that does not mark the plain
 push as merged gets a close with a comment instead. No forge merge API decides what reaches main.
+
+## A host's copy follows central's main by itself
+
+Decided by the operator on 2026-11-15. Planning is one board that every machine and person reads from central,
+so the window's planner saves an issue there, also for a repository a host carries. A task started a moment later
+on the host's older copy found no file for its issue and wrote a second one.
+
+So the host's follow fast-forwards every carried copy, the project's own repository among them, to central's
+`main` wherever the copy's `main` is an ancestor of it. It does this on every pass and right before a start that
+is given work. It moves nothing that changes the repository's workflows or adds a `snippet_file`, and the own
+repository's `project.yml` still moves only as the signed, verified file. A copy that holds work central lacks
+is left alone (`diverged`). A start given work on such a copy, or on one still behind, is refused with the way
+back named: the person's gathered push where only the host is ahead, otherwise `porelo host pull` and a task
+that merges `central/main`.
+
+The alternative was to have the planner write to the host's copy. That would make planning differ per host
+and hide each edit from other machines until a person sent it to central.
