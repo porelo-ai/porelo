@@ -26,14 +26,14 @@ Filed 2026-11-14 under ST361, from the gathered VM run of [B776](README.md#b776)
 
 `TerminalSteps.aProjectSaying` removes the checkout and runs `git init` for every scenario, so each scenario's
 "guarded" is a history of its own, while the project and its mirror live until the end of the run.
-[B776](README.md#b776) brings a mirror forward to the checkout only fast-forward, and rightly keeps a mirror that went
+A start from the checkout brings a mirror forward to the checkout only fast-forward, and rightly keeps a mirror that went
 another way, so a later scenario's start reads the first scenario's tree. The key scenario removes the mirror by
 path before its start; that knowledge belongs in the kit.
 
 ## Plan
 
 1. When the step makes a project the run already made, it removes that project with `porelo project remove --force`
-   first (needs [B778](README.md#b778) where a refused start came before), so its mirror goes with it.
+   first, which a start refused before any container no longer stops, so its mirror goes with it.
 2. Drop the mirror removal from the key scenario.
 
 ## Red-first test

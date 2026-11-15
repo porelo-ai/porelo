@@ -68,5 +68,5 @@ Filed 2026-11-14 on the operator's order.
   projects use (`TerminalSteps.anOnlineProjectSaying`). A non-bare checkout as `central` is not said: no code or
   test shows it.
 - The gate section's reader is started with `porelo task start --reads`, not `task run`: the command is `start`
-  (`TaskRunCommand`), as [B767](README.md#b767)'s reading found.
+  (`TaskRunCommand`).
 - The tests tagged `documents` are green.
