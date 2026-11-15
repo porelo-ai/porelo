@@ -510,11 +510,14 @@ anything else is refused before anything is made (exit 64). A task brought back 
 
 The host takes the file at the task's end: when the task declares `Done`, when a prompt run ends, when a listing
 finds its agent ended or its container stopped, and when the task is removed. It moves the file out of the agent's
-reach before it looks at it, so a link or a pipe is never followed or opened, and puts it back afterwards. What it
+reach before it looks at it, so a link or a pipe is never followed or opened, and puts it back afterwards by a hard
+link, which refuses to replace a file the agent wrote meanwhile. What it
 took is kept on this machine, owner-only and outside every task mount, as one of four states: `handed` (with its
 text), `missing`, `too-large` (with the size the file's attributes give) or `unreadable` (a link, a directory, a file
 the host may not read, or one that is not UTF-8 text or holds a control character other than tab, line feed and
-carriage return). A file handed back is kept as it was; another state is taken again at the next end.
+carriage return). A file handed back is kept as it was; another state is taken again at the next end. A file left
+in the box by an earlier run of the task is that run's file at the next run's end: the box is not emptied between
+runs.
 
 What was taken outlives the container and the task's removal, so a person or an interface on another computer
 reads it through the daemon's `Result` afterwards. The next start of the task forgets it, and so does the next
