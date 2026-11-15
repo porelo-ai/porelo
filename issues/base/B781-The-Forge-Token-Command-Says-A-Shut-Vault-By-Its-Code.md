@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B781",
   "title": "The Forge Token Command Says a Shut Vault by Its Code",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 10,
@@ -49,6 +49,23 @@ refusal details beside it); run by a program on a host without a forge, it fails
   missing vault and a refused `sudo -n` still exit 69. Fails today with 69.
 - `PullRequestMethodsTest` and `PoreloDaemonTest`: `MissingHostForgeToken.storeCommand` ends with `--if-forge`.
   Fails today.
+
+## Built
+
+- `HostForgeTokenCommand`: `VAULT_SHUT` = 77 for the three shut-vault paths (host vault shut, no terminal, still
+  shut after the prompt); a missing vault, a refused `sudo -n`, an unusable answer stay 69, a vault refusal 65. The
+  helper `porelo-host forge issue-token` answers 77 for its own refusals (root uid, `SUDO_UID`), so a 77 passed
+  through from it becomes 69: 77 means this command's shut vault alone.
+- `GateMethods`: the store command of `HostPushTokenUnavailable` and of `MissingHostForgeToken` carries
+  `--if-forge`. `MissingCredential`'s store command for the builds credential stays without it: that credential
+  exists only on a host with a forge, and its wire value is pinned (`BuildsWiringTest`).
+- `doc/commands.md`'s row, the contract's comment on `MissingHostForgeToken`, a changelog entry.
+- Red first: the shut-vault tests (four cases) failed with 69; `GatePushToCentralTest` (new, the push's store
+  command) and `PullRequestMethodsTest` failed on the old store command; the helper's 77 test failed with 77. The
+  acceptance features name neither command nor its code.
+- Built by a Claude Code sub-agent of Agent Core; the helper's 77 found by the Sonnet reading and fixed.
+- Left (yellow): `--if-forge` exits 0 without storing on a host with no forge; a caller cannot tell that from a
+  stored token by the code, and a window must not loop on it.
 
 ## Acceptance
 

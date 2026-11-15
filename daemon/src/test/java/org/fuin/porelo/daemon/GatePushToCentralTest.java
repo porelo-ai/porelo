@@ -58,6 +58,35 @@ class GatePushToCentralTest {
     }
 
     @Test
+    void anUnavailableHostTokenNamesAStoreCommandThatDoesNothingWithoutAForge() {
+        // A program running the named command on a host without a forge must not fail on it.
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                GateMethods.pushToCentral(
+                                        (progress, open) -> {
+                                            throw new org.fuin.porelo.app.HostGatherRefusal(
+                                                    org.fuin.porelo.app.HostGatherRefusal.Kind
+                                                            .HOST_TOKEN,
+                                                    69,
+                                                    "issuer refused",
+                                                    java.util.Map.of());
+                                        },
+                                        new Captured(true)))
+                .isInstanceOfSatisfying(
+                        org.fuin.porelo.wire.varlink.VarlinkException.class,
+                        error -> {
+                            assertThat(error.getErrorName())
+                                    .isEqualTo(
+                                            PoreloDaemon.INTERFACE + ".HostPushTokenUnavailable");
+                            assertThat(error.getParameters())
+                                    .as("the store command carries --if-forge, a no-op off a forge")
+                                    .containsEntry(
+                                            "storeCommand",
+                                            List.of("porelo", "host", "forge-token", "--if-forge"));
+                        });
+    }
+
+    @Test
     void unexpectedFailuresCannotSendTheirMessages() {
         // An unexpected child or callback exception must not reach VarlinkServer's message
         // renderer.

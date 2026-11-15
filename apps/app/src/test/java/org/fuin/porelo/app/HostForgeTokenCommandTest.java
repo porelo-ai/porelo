@@ -308,7 +308,7 @@ class HostForgeTokenCommandTest {
         // Unlock cannot create a missing vault, leaving the person unable to store a replacement
         // token.
         assertThat(cli(atTerminal).execute("host", "forge-token"))
-                .as("missing vault refuses")
+                .as("a missing vault stays 69 apart from a shut vault's 77, as nothing can open it")
                 .isEqualTo(69);
         assertThat(err.toString())
                 .as("names the available way to create the vault")
@@ -321,12 +321,12 @@ class HostForgeTokenCommandTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void aShutHostVaultNamesHostUnlockWithoutAskingForAPassphrase(boolean atTerminal) {
+    void aShutHostVaultExits77AndNamesHostUnlockWithoutAskingForAPassphrase(boolean atTerminal) {
         // A host vault has no passphrase slot, so a passphrase prompt cannot restore token storage.
         context.vault().write(Map.of(), new byte[32]);
         assertThat(cli(atTerminal).execute("host", "forge-token"))
-                .as("shut host vault refuses")
-                .isEqualTo(69);
+                .as("a shut vault exits 77, so a program tells it apart without reading words")
+                .isEqualTo(77);
         assertThat(err.toString())
                 .as("names the host vault's actual unlock command")
                 .contains("porelo host unlock <host>")
@@ -371,13 +371,34 @@ class HostForgeTokenCommandTest {
     }
 
     @Test
-    void refusesWithExit69NamingVaultUnlockWhenTheVaultIsShutAndNoTerminalIsPresent() {
+    void aShutPassphraseVaultWithoutATerminalExits77NamingVaultUnlock() {
+        // A program without a terminal must tell a shut vault from a missing forge by the code.
         context.vault().write(Map.of(), PASSPHRASE.clone());
         runner.answering("sudo -n /usr/sbin/porelo-host forge issue-token", ISSUED_TOKEN + "\n");
 
         final int exit = cli(false).execute("host", "forge-token");
 
-        assertThat(exit).as("shut vault without terminal exits 69").isEqualTo(69);
+        assertThat(exit)
+                .as("a shut vault exits 77, so a program tells it apart without reading words")
+                .isEqualTo(77);
+        assertThat(err.toString()).as("names porelo vault unlock").contains("porelo vault unlock");
+        assertThat(runner.invocations())
+                .as("does not mint or rotate the token when the vault is shut")
+                .isEmpty();
+    }
+
+    @Test
+    void aVaultStillShutAfterACancelledPromptExits77NamingVaultUnlock() {
+        // A person who declines the prompt leaves a shut vault, not a broken forge.
+        context.vault().write(Map.of(), PASSPHRASE.clone());
+        context = context.asking(prompt -> null);
+        runner.answering("sudo -n /usr/sbin/porelo-host forge issue-token", ISSUED_TOKEN + "\n");
+
+        final int exit = cli(true).execute("host", "forge-token");
+
+        assertThat(exit)
+                .as("a vault still shut after the prompt exits 77, as any shut vault does")
+                .isEqualTo(77);
         assertThat(err.toString()).as("names porelo vault unlock").contains("porelo vault unlock");
         assertThat(runner.invocations())
                 .as("does not mint or rotate the token when the vault is shut")
@@ -398,7 +419,9 @@ class HostForgeTokenCommandTest {
 
         final int exit = cli(false).execute("host", "forge-token");
 
-        assertThat(exit).as("sudo failure exits 69").isEqualTo(69);
+        assertThat(exit)
+                .as("a refused sudo stays 69, since opening the vault cannot mend it")
+                .isEqualTo(69);
         assertThat(err.toString()).as("names the sudo rule").contains("sudo rule");
     }
 
@@ -412,6 +435,27 @@ class HostForgeTokenCommandTest {
 
         assertThat(exit).as("missing or failed sudo exits 69").isEqualTo(69);
         assertThat(err.toString()).as("names the sudo rule").contains("sudo rule");
+    }
+
+    @Test
+    void aHelperRefusalWithTheShutVaultsCodeExits69() {
+        // 77 must mean a shut vault alone; the helper's own 77 would send a caller to open it.
+        context.vault().write(Map.of(), PASSPHRASE.clone());
+        openVault();
+        runner.failing(
+                "sudo -n /usr/sbin/porelo-host forge issue-token",
+                77,
+                "",
+                "porelo-host: root uid required\n");
+
+        final int exit = cli(false).execute("host", "forge-token");
+
+        assertThat(exit)
+                .as("the helper's 77 is no shut vault, so it becomes 69 with the vault open")
+                .isEqualTo(69);
+        assertThat(err.toString())
+                .as("the helper's words still reach the person")
+                .contains("root uid required");
     }
 
     @Test

@@ -50,6 +50,9 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
     /** Where the host's forge settings are published by root. */
     public static final Path FORGE_CONF = HostForgeSettings.FILE;
 
+    /** A shut vault's exit, as the organization's commands answer it, apart from other refusals. */
+    static final int VAULT_SHUT = 77;
+
     private static final Pattern TOKEN_LINE = Pattern.compile("^[0-9a-f]{40}$");
 
     @Option(names = "--if-forge", description = "Does nothing when this host runs no local forge.")
@@ -138,19 +141,19 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
                             "porelo: the host vault is shut; run 'porelo host unlock <host>' from"
                                     + " your own computer first");
                     err.flush();
-                    return 69;
+                    return VAULT_SHUT;
                 }
                 if (!terminal.getAsBoolean()) {
                     err.println("porelo: the vault is shut; run 'porelo vault unlock' first");
                     err.flush();
-                    return 69;
+                    return VAULT_SHUT;
                 }
                 context.openIfShut(true, true, err);
                 opener = context.opener();
                 if (opener.isEmpty()) {
                     err.println("porelo: the vault is shut; run 'porelo vault unlock' first");
                     err.flush();
-                    return 69;
+                    return VAULT_SHUT;
                 }
             }
             // Issuing a token revokes the previous one even if storing its replacement fails.
@@ -217,7 +220,8 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
                 err.println(safeWords(stderr, issued.standardOutput()));
                 err.flush();
             }
-            return issued.exitCode();
+            // The helper's own 77 is no shut vault; only this command's shut vault answers 77.
+            return issued.exitCode() == VAULT_SHUT ? 69 : issued.exitCode();
         }
 
         final String secret = readTokenLine(issued.standardOutput());

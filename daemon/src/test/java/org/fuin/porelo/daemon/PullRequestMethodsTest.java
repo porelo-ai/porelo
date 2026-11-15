@@ -140,7 +140,11 @@ class PullRequestMethodsTest {
                                                     "credential",
                                                     "forge.example.person",
                                                     "storeCommand",
-                                                    List.of("porelo", "host", "forge-token")));
+                                                    List.of(
+                                                            "porelo",
+                                                            "host",
+                                                            "forge-token",
+                                                            "--if-forge")));
                         });
     }
 

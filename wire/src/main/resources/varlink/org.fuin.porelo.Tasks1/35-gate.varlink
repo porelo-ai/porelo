@@ -91,6 +91,7 @@ method PullRequests(project: string) -> (pullRequests: []HostPullRequest, ended:
 method WatchPullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest)
 
 # No usable person token exists under the exact entry written by the command on this host.
+# storeCommand carries --if-forge, so it does nothing on a host without a forge.
 error MissingHostForgeToken(credential: string, storeCommand: []string)
 
 # Safe diagnostic with no forge or process output. Reasons: settings, vault-unreadable, not-carried,

@@ -128,7 +128,8 @@ final class GateMethods {
                 case HOST_TOKEN -> {
                     details.putIfAbsent("reason", "issuer");
                     if (!"busy".equals(details.get("reason"))) details.put("reason", "issuer");
-                    details.put("storeCommand", List.of("porelo", "host", "forge-token"));
+                    details.put(
+                            "storeCommand", List.of("porelo", "host", "forge-token", "--if-forge"));
                     yield new VarlinkException(
                             INTERFACE + ".HostPushTokenUnavailable",
                             fields(details, "reason", "storeCommand"));
@@ -696,7 +697,7 @@ final class GateMethods {
                             "credential",
                             ex.credential(),
                             "storeCommand",
-                            List.of("porelo", "host", "forge-token")));
+                            List.of("porelo", "host", "forge-token", "--if-forge")));
         } catch (org.fuin.porelo.app.HostPullRequestReader.Refused ex) {
             throw new VarlinkException(
                     INTERFACE + ".HostPullRequestsRefused",
