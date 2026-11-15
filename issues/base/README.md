@@ -209,6 +209,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b793"></a>[B793](B793-What-The-Next-Host-Test-Shows-Of-The-Planning-Round.md) | S | - | The host acceptances of the planning round's four issues, finished on their tests alone, are seen on a rented host, and what they left to check there is answered | 2 |
+| <a id="b794"></a>[B794](B794-A-Token-Count-Is-Partial-Only-Where-A-Reply-Left-It-Out.md) | S | - | Usage counts a request as missing a kind only where its format reports that kind and the reply did not, and its contract says that output includes reasoning in every format, so the window neither says at least for every task nor counts reasoning twice | 0 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
 | <a id="b792"></a>[B792](B792-What-The-Reading-Of-The-Read-Only-Start-Left.md) | S | - | The given files' bound holds for the whole Start message, CanStart refuses a read-only start beside from or upstream as Start does, and the read-only start's guards each have a test | 0 |
