@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B781",
   "title": "The Forge Token Command Says a Shut Vault by Its Code",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 10,
