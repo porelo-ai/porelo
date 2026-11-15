@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B791",
   "title": "A Stage Task Reads What the Planner Gives and Pushes Nothing",
-  "state": "Backlog",
+  "state": "Review",
   "size": "L",
   "priority": "High",
   "rank": 3,

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B789",
   "title": "A Task's Pull Request on a Host Is Opened by the Task",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 1,

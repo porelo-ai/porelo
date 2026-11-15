@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B788",
   "title": "The Review Read Asks Only What the Host Carries",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 5,

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B790",
   "title": "A Planned Start on a Host Works on Central's Newest Main",
-  "state": "Backlog",
+  "state": "Review",
   "size": "L",
   "priority": "High",
   "rank": 2,
