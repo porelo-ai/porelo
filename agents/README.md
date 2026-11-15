@@ -135,7 +135,8 @@ effort:                       # optional; how the agent takes a reasoning effort
   arguments: ["--effort", "{effort}"]   # {effort} is where the value goes; a config line works
                                         #     too, e.g. ["-c", "model_reasoning_effort={effort}"]
   values: [low, medium, high]   # the values it takes, in its own words and order; Start's
-                                #     effort is one of them, absent passes nothing
+                                #     effort is one of them, absent passes nothing; quote
+                                #     "off", "on", "yes", "no": YAML reads them bare as booleans
 
 login:
   arguments: ["auth", "login"]

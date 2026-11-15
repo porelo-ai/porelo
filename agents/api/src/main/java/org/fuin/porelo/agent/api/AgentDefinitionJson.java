@@ -97,6 +97,15 @@ public final class AgentDefinitionJson {
         out.put("subagents", definition.subagents().value());
         out.put("sandboxedArguments", definition.sandboxedArguments());
         out.put("instructionArguments", definition.instructionArguments());
+        if (!definition.effort().values().isEmpty()) {
+            out.put(
+                    "effort",
+                    Map.of(
+                            "arguments",
+                            definition.effort().arguments(),
+                            "values",
+                            definition.effort().values()));
+        }
         if (definition.atRest() != null) {
             out.put(
                     "atRest",
@@ -240,7 +249,13 @@ public final class AgentDefinitionJson {
                                 source.get("openingFlag"),
                                 "openingFlag",
                                 "the agent's own description")
-                        : null);
+                        : null,
+                // Absent from an adapter older than the field, which takes none; a declared one is
+                // checked as a file's is.
+                source.get("effort") instanceof Map<?, ?> effort
+                        ? new Effort(
+                                strings(effort.get("arguments")), strings(effort.get("values")))
+                        : Effort.NONE);
     }
 
     private static Map<String, Object> writeWaiting(Waiting waiting) {

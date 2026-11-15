@@ -146,7 +146,38 @@ public final class AgentDefinitionReader {
                         ? LoginFlow.of(optionalSection(root, "login").get("flow"), origin)
                         : null,
                 subagents(root, origin),
-                openingFlag(session, origin));
+                openingFlag(session, origin),
+                effort(root, origin));
+    }
+
+    /**
+     * Reads {@code effort}: how the agent takes a reasoning effort, and which values. Absent, it
+     * takes none.
+     *
+     * @param root The whole definition.
+     * @param origin Where it was read, for the refusal.
+     * @return What it declares, or {@link Effort#NONE}.
+     * @throws AgentException If the section is malformed.
+     */
+    static Effort effort(Map<?, ?> root, String origin) {
+        if (root.get("effort") == null) {
+            return Effort.NONE;
+        }
+        if (!(root.get("effort") instanceof Map<?, ?> section)) {
+            throw new AgentException(origin + ": effort must be a mapping");
+        }
+        only(section, List.of("arguments", "values"), origin, "effort");
+        final List<String> arguments = texts(section.get("arguments"), origin, "effort.arguments");
+        final List<String> values = texts(section.get("values"), origin, "effort.values");
+        if (arguments.isEmpty() || values.isEmpty()) {
+            throw new AgentException(
+                    origin + ": effort needs both arguments and values, or no effort section");
+        }
+        try {
+            return new Effort(arguments, values);
+        } catch (AgentException refused) {
+            throw new AgentException(origin + ": " + refused.getMessage());
+        }
     }
 
     /**
@@ -666,6 +697,35 @@ public final class AgentDefinitionReader {
 
     private static boolean flag(Map<?, ?> section, String key) {
         return Boolean.TRUE.equals(section.get(key));
+    }
+
+    /**
+     * Reads a list whose every item must be text as the file wrote it. YAML reads a bare {@code
+     * off}, {@code on}, {@code yes} or {@code no} as a boolean, and a bare number as a number;
+     * taken as text, {@code off} would become {@code false}. Such an item is refused, naming the
+     * quotes.
+     */
+    private static List<String> texts(@Nullable Object value, String origin, String where) {
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> items)) {
+            throw new AgentException(origin + ": " + where + " must be a list");
+        }
+        final List<String> texts = new java.util.ArrayList<>();
+        for (final Object item : items) {
+            if (!(item instanceof String text)) {
+                throw new AgentException(
+                        origin
+                                + ": "
+                                + where
+                                + " holds "
+                                + item
+                                + ", which YAML read as no text; quote it (\"off\", \"on\")");
+            }
+            texts.add(text);
+        }
+        return List.copyOf(texts);
     }
 
     private static List<String> strings(@Nullable Object value) {
