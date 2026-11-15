@@ -10,7 +10,7 @@
   "priority": "Low",
   "rank": 1,
   "blockedBy": [],
-  "covers": "Five small findings the readings of the host status, carried project, checkout start and refused start fixes left: an exit code, two untested paths and two acceptance gaps",
+  "covers": "Small findings the readings of the host fixes left: exit codes, untested paths, acceptance gaps and checks still open",
   "openQuestions": 0
 }
 ```
@@ -29,3 +29,18 @@ accepted, so nothing of it lives only in a deleted issue.
   checkout is on the test machine, with the acceptance kit's fixture change.
 - The test of a start refused before any container drives a credential refusal (exit 69), not the secret scan's
   (65), which refuses on the same side; a start refused after enrollment still leaves an unfinished start.
+- A vault entry carried sealed to a host: no RFC 7748 test vectors (the round trips and the low-order refusal stand
+  for them); still to be checked that an interface's crash between seal and receive leaves only an expiring key in
+  the host's memory.
+- An agent's sign-in carried to a host: `ImportCredential` still answers the agent's own words; the importable
+  sign-ins ask each agent once per provider with no overall deadline; no test pins that a shut vault and its guard
+  are decided before the entry is built; still to be checked which agents' sign-ins are bound to this machine and
+  must not be carried.
+- `porelo host forge-token --if-forge` exits 0 without storing on a host with no forge, which a caller cannot tell
+  from a stored token by the code; a window must not loop on it.
+- The host's review read keeps the rows of a review deleted on the forge, and of a repository never carried again,
+  while its watch lasts; a 401 on a review's confirming read is untested.
+- An agent signed in through the vault: a credential type the provider's route cannot broker is answered signed in
+  and refused at the start; an agent with no `config_dir`, or whose adapter fails, stays unknown without asking the
+  vault; the vault is read once per agent without a sign-in; `AgentSignInRuns.state` keeps its own copy of the
+  judgment; no test drives a held provider that is not the default.
