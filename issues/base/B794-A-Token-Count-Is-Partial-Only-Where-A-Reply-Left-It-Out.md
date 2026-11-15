@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B794",
   "title": "A Token Count Is Partial Only Where a Reply Left It Out",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 8,
