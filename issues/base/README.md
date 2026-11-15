@@ -265,12 +265,6 @@ from its side, as *blocked by*.
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
 | <a id="b779"></a>[B779](B779-A-Fixture-Made-Again-Gets-A-Mirror-Of-Its-Own.md) | S | - | The acceptance kit's step that makes a project afresh in a scenario also drops the mirror an earlier scenario left for that project, so no scenario has to remove a mirror by path | 0 |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b780"></a>[B780](B780-A-Forced-Removal-Waits-For-Its-Own-Container-To-Go.md) | S | - | A task removal that asked the runtime to remove its container reads the runtime's answer and waits a bounded time for the container to be gone before it calls the removal failed | 0 |
-
 ## Review
 
 | # | Size | Blocked by | What it covers | Open questions |
@@ -431,6 +425,7 @@ from its side, as *blocked by*.
 | <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. | - |
 | <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | - |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | - |
+| <a id="b780"></a>[B780](B780-A-Forced-Removal-Waits-For-Its-Own-Container-To-Go.md) | S | - | A task removal that asked the runtime to remove its container reads the runtime's answer and waits a bounded time for the container to be gone before it calls the removal failed | 0 |
 
 ## Finished
 

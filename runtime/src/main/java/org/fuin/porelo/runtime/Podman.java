@@ -937,11 +937,56 @@ public class Podman {
      * where a container that is already gone is the desired state, not a problem.
      *
      * @param container Container name or id.
+     * @return Why the runtime refused the removal, or {@code null} when it removed the container or
+     *     found none.
      */
-    public void remove(String container) {
+    public @Nullable String remove(String container) {
         final String id = target(container);
         runner.run(podman("stop", "--time", "5", id));
-        runner.run(podman("rm", "--force", id));
+        return forceRemove(id);
+    }
+
+    /**
+     * Removes a container, running or not, without stopping it first.
+     *
+     * <p>The stop's own cleanup of the container can still run beside a removal, which then loses
+     * the race; asked again once that cleanup is over, the runtime removes it.
+     *
+     * @param container Container name or id.
+     * @return Why the runtime refused, in Porelo's words, or {@code null} when it removed the
+     *     container or found none.
+     */
+    public @Nullable String forceRemove(String container) {
+        final CommandResult result = runner.run(podman("rm", "--force", target(container)));
+        if (result.successful() || result.standardError().contains("no such container")) {
+            return null;
+        }
+        return refusal(result);
+    }
+
+    /**
+     * The runtime's reasons a removal can be refused for, in its own fixed wording, so a refusal
+     * names one of them without repeating a line the runtime printed, which may hold anything.
+     */
+    private static final List<String> REMOVAL_REFUSALS =
+            List.of(
+                    "container state improper",
+                    "dependent containers",
+                    "is being removed",
+                    "is locked",
+                    "is in use",
+                    "device or resource busy");
+
+    /** Says a refused removal in Porelo's own words: the exit code and a known reason. */
+    private static String refusal(CommandResult result) {
+        final String said = result.standardError();
+        return "the runtime refused its removal, exit "
+                + result.exitCode()
+                + REMOVAL_REFUSALS.stream()
+                        .filter(said::contains)
+                        .findFirst()
+                        .map(reason -> ": " + reason)
+                        .orElse("");
     }
 
     /**

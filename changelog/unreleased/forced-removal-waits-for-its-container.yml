@@ -1,0 +1,2 @@
+title: "A forced task or project removal waits briefly for its own container to go, asks a refused removal once more, and names the runtime's reason when the container stays"
+type: fixed

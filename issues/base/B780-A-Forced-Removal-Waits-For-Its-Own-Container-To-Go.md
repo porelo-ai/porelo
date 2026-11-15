@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B780",
   "title": "A Forced Removal Waits for Its Own Container to Go",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 137,
@@ -39,17 +39,20 @@ that host.
 
 ## Plan
 
-1. `Podman.remove` reads the `rm --force` answer; a failure is tried once more after the stop's cleanup, and its
-   last line is kept for the message when it still fails.
+1. `Podman.remove` reads the `rm --force` answer; a refused removal is asked once more (`Podman.forceRemove`) when
+   the container stands stopped, its cleanup over.
 2. The purge check in `TaskControl` waits a bounded time (a few seconds, polling `stateOf(id)`) for `ABSENT` before
    it names the container a survivor, as `awaitEnd` already does for processes.
-3. When it is still there after the wait, the message carries the runtime's own answer, not only "still exists".
+3. When it is still there after the wait, the message says why in Porelo's words: the runtime's exit code and,
+   when its answer holds one, which of the runtime's fixed reasons it gave (`container state improper`,
+   `dependent containers`, ...), never the runtime's line itself, which may hold anything.
 
 ## Red-first test
 
 - A runtime stub whose first `rm` fails and whose container is listed once more after it: the removal is clean and
   the project goes. Fails today with "still exists".
 - A container that never goes: the removal still fails, after the wait, with the runtime's reason.
+- A refusal whose line holds a secret-like value: the answer names the exit code alone.
 
 ## Risks
 

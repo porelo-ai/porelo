@@ -606,8 +606,9 @@ public final class TaskControl {
         // Counted before the container goes, because afterwards there is nothing left to ask.
         final long discarded = purge ? context.podman().addedPaths(container) : 0;
 
+        @Nullable String refused = null;
         if (purge) {
-            context.podman().remove(id);
+            refused = context.podman().remove(id);
         } else {
             if (running && first != null) {
                 first.run();
@@ -650,11 +651,16 @@ public final class TaskControl {
                 .filter(TaskLifecycle::living)
                 .map(alive -> alive.pid() + " " + alive.info().command().orElse("?"))
                 .forEach(surviving::add);
-        final ContainerState observed = context.podman().stateOf(id);
+        final Removal removal =
+                purge ? awaitRemoval(id, refused) : new Removal(context.podman().stateOf(id), null);
+        final ContainerState observed = removal.state();
         final boolean gone = observed == ContainerState.ABSENT;
         if (!gone && (purge || observed != ContainerState.TERMINAL)) {
             surviving.add(
-                    "container " + container + (purge ? " still exists" : " stop unconfirmed"));
+                    "container "
+                            + container
+                            + (purge ? " still exists" : " stop unconfirmed")
+                            + (removal.refused() == null ? "" : ": " + removal.refused()));
         }
         if (!purge) {
             if (!gone && observed != ContainerState.TERMINAL) {
@@ -843,6 +849,50 @@ public final class TaskControl {
 
     /** An attempted rescue: the ref it landed on, or why it did not. */
     private record Rescue(@Nullable String ref, @Nullable String problem) {}
+
+    /** How long a removal waits for its container to go before it names it a survivor. */
+    static final java.time.Duration REMOVAL_WAIT = java.time.Duration.ofSeconds(3);
+
+    /**
+     * What became of a container a removal asked the runtime to remove.
+     *
+     * @param state Its state when last asked.
+     * @param refused The runtime's last refusal of the removal, or {@code null}.
+     */
+    private record Removal(ContainerState state, @Nullable String refused) {}
+
+    /**
+     * Waits a bounded time for a removed container to go.
+     *
+     * <p>The stop's cleanup of the container runs beside the removal, so the runtime may still list
+     * it a moment after the removal returned, or refuse a removal that raced that cleanup; one
+     * refused is asked once more when the container stands stopped, its cleanup over.
+     */
+    private Removal awaitRemoval(String id, @Nullable String refused) {
+        final long deadline = System.nanoTime() + REMOVAL_WAIT.toNanos();
+        @Nullable String reason = refused;
+        boolean retried = false;
+        while (true) {
+            final ContainerState state = context.podman().stateOf(id);
+            if (state == ContainerState.ABSENT) {
+                return new Removal(state, null);
+            }
+            if (reason != null && !retried && state == ContainerState.TERMINAL) {
+                retried = true;
+                reason = context.podman().forceRemove(id);
+                continue;
+            }
+            if (System.nanoTime() >= deadline) {
+                return new Removal(state, reason);
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return new Removal(state, reason);
+            }
+        }
+    }
 
     /** Waits up to 2 s until none of the processes is living. A zombie counts as ended. */
     private static void awaitEnd(List<ProcessHandle> processes) {

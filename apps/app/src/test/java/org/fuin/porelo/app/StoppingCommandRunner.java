@@ -42,6 +42,21 @@ final class StoppingCommandRunner extends FakeCommandRunner {
     private final Set<String> stopped = new HashSet<>();
     private final Set<String> removed = new HashSet<>();
 
+    private int refusedRemovals;
+    private String refusal = "";
+    private int listedAfterRemoval;
+
+    /** Answers the next {@code times} removals as the runtime refuses one, with its reason. */
+    void refusesRemovals(int times, String reason) {
+        refusedRemovals = times;
+        refusal = reason;
+    }
+
+    /** Lists a removed container {@code times} more inspections, as on its way out. */
+    void listsARemovedContainer(int times) {
+        listedAfterRemoval = times;
+    }
+
     private static String id(String row) {
         final String[] fields = row.split("\t", -1);
         return fields.length > 8 ? fields[8] : fields[0];
@@ -84,6 +99,11 @@ final class StoppingCommandRunner extends FakeCommandRunner {
 
     @Override
     public CommandResult run(Command command) {
+        if (command.describe().startsWith("podman rm ") && refusedRemovals > 0) {
+            refusedRemovals--;
+            super.run(command);
+            return new CommandResult(command, 2, "", refusal);
+        }
         if (command.describe().startsWith("podman start ")) beforeStart.accept(command);
         if (command.describe().startsWith("podman create ")) beforeCreate.accept(command);
         final CommandResult result = super.run(command);
@@ -117,6 +137,10 @@ final class StoppingCommandRunner extends FakeCommandRunner {
                             : stopped.contains(id)
                                     ? "exited"
                                     : initialState != null ? initialState : initialStates.get(id);
+            if (removed.contains(id) && listedAfterRemoval > 0) {
+                listedAfterRemoval--;
+                return new CommandResult(command, 0, "removing", "");
+            }
             return removed.contains(id) || state == null
                     ? new CommandResult(command, 125, "", "Error: no such container " + id)
                     : new CommandResult(command, 0, state, "");

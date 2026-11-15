@@ -500,9 +500,38 @@ class PodmanTest {
         runner.failing("rm", 125, "no such container");
 
         // Cleanup runs on the way out. A container that has vanished is the desired state.
-        podman.remove("porelo-uc-shell-1");
+        assertThat(podman.remove("porelo-uc-shell-1"))
+                .as("a container already gone is no refusal")
+                .isNull();
 
         assertThat(runner.lines()).hasSize(2);
+    }
+
+    @Test
+    void aRemovalTheRuntimeRefusesSaysWhichOfItsKnownReasons() {
+
+        runner.failing(
+                "rm",
+                2,
+                "time=\"2026\" level=warning msg=\"retrying\"\n"
+                        + "Error: cannot remove container abc as it is running: container state"
+                        + " improper\n");
+
+        assertThat(podman.remove("porelo-uc-shell-1"))
+                .as("the caller says why the container is still there")
+                .isEqualTo("the runtime refused its removal, exit 2: container state improper");
+    }
+
+    @Test
+    void aRemovalRefusalNeverRepeatsWhatTheRuntimePrinted() {
+
+        // The runtime's text is not Porelo's: what it prints may carry anything a container held.
+        runner.failing("rm", 125, "Error: oci runtime said Bearer sk-live-4711 was refused\n");
+
+        assertThat(podman.remove("porelo-uc-shell-1"))
+                .as("only Porelo's own words, never the runtime's line")
+                .isEqualTo("the runtime refused its removal, exit 125")
+                .doesNotContain("sk-live-4711");
     }
 
     @Test

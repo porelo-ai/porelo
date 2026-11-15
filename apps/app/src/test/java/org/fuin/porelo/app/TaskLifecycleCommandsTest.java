@@ -2104,6 +2104,54 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aForcedRemovalThatRacesTheStopsCleanupStillRemovesTheContainer(@TempDir Path dir)
+            throws IOException {
+
+        // The stop starts the runtime's own cleanup, which a removal beside it can lose to, and a
+        // container on its way out is listed a moment longer: neither is a container left behind.
+        final PoreloContext context = context(dir);
+        tasks("porelo-uc-shell-1\tExited (0) 1 minute ago\n");
+        UnhandedWork.note(stateOf("porelo-uc-shell-1"), new UnhandedWork.Held(true, 0, 0, null));
+        runner.refusesRemovals(1, "Error: container porelo-uc-shell-1 is locked");
+        runner.listsARemovedContainer(1);
+
+        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--force"))
+                .as("%s", err)
+                .isZero();
+        assertThat(err.toString()).as("nothing reported left").doesNotContain("still exists");
+        assertThat(runner.lines().stream().filter(line -> line.startsWith("podman rm ")))
+                .as("the refused removal is asked once more")
+                .hasSize(2);
+    }
+
+    @Test
+    void aForcedRemovalOfAContainerThatNeverGoesSaysTheRuntimesReason(@TempDir Path dir)
+            throws IOException {
+
+        // The wait is bounded, and what stays is still a failure, in the runtime's own words.
+        final PoreloContext context = context(dir);
+        tasks("porelo-uc-shell-1\tExited (0) 1 minute ago\n");
+        UnhandedWork.note(stateOf("porelo-uc-shell-1"), new UnhandedWork.Held(true, 0, 0, null));
+        runner.refusesRemovals(
+                Integer.MAX_VALUE,
+                "Error: container porelo-uc-shell-1 has dependent containers which must be removed"
+                        + " before it");
+
+        final long began = System.nanoTime();
+        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--force"))
+                .as("a container that stays is a failed removal")
+                .isNotZero();
+        assertThat(java.time.Duration.ofNanos(System.nanoTime() - began))
+                .as("the wait ends")
+                .isLessThan(TaskControl.REMOVAL_WAIT.plusSeconds(5));
+        assertThat(err.toString())
+                .as("why it stayed, as the runtime said it")
+                .contains(
+                        "still exists: the runtime refused its removal, exit 2: dependent"
+                                + " containers");
+    }
+
+    @Test
     void aCleanWorkspaceIsNotInTheWay(@TempDir Path dir) throws IOException {
 
         final PoreloContext context = context(dir);
