@@ -51,6 +51,11 @@ Agent Frontend, 2026-11-15: the planner writes to central by design, as planning
 every machine and person; the host's copy follows central. So the start brings the copy up first and refuses only
 where it cannot. Agent Machines, 2026-11-15: nothing in porelo-host refreshes a copy; only `org follow` moves one.
 
+Decided by the operator, 2026-11-15 (~11:03 Berlin): yes, automatically. The follow fast-forwards every carried
+repository's copy to central's `main` where the copy's `main` is an ancestor of it, every five minutes and right
+before a task start, under the `tip` reach's exclusions; where the copy holds work of its own, it is left as it is
+and the start refuses with the way back. When built, `doc/decisions.md` records this decision.
+
 1. The follow fast-forwards a carried repository's copy to central's `main` where the copy's `main` is an ancestor of
    it, for every carried repository and not only the project's own, under the rules the `tip` reach keeps today
    (`ProjectAdvance.move`: a change of `.forgejo/`, `.gitea/` or `.github/workflows`, or a `snippet_file`, is not
