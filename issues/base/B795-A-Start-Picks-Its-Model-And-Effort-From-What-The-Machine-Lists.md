@@ -11,7 +11,7 @@
   "rank": 9,
   "blockedBy": [],
   "covers": "An agent declares how it takes a reasoning effort and which values, Start takes an effort beside its model, and the daemon lists the models a provider offers on this machine, asked through its broker with the vault's credential, so a window offers both as lists",
-  "openQuestions": 2
+  "openQuestions": 1
 }
 ```
 
@@ -20,7 +20,7 @@ with its checks, a daemon method that asks providers through the broker, cached,
 the contract and `doc/`, with their tests. Estimate: 114 minutes (Core's median for L).
 
 **What must be true.** A person starting work picks the model and the reasoning effort from lists the machine gave,
-never types them; "default" passes nothing and leaves both to the agent and the project.
+never types them; an absent effort passes nothing and leaves it to the agent.
 
 Filed 2026-11-15 for ST369 (the Start work redesign, lead Agent Planner, with Agent Frontend) from the operator's
 wish to pick model and effort from lists, and Agent Smith's reading that the list depends on the task's provider.
@@ -47,7 +47,8 @@ wish to pick model and effort from lists, and Agent Smith's reading that the lis
    its provider. `AgentDefinitionReader` reads both; the agents that have them declare them.
 2. `40-agent.varlink`: `Agent.efforts: []string` (empty: takes none).
 3. `Start.effort: ?string` (and `CanStart`, `porelo task start --effort`): one of the agent's `efforts`, else refused
-   with 64 before anything is made; absent or "default", nothing is passed. A task brought back keeps its effort; a
+   with 64 before anything is made; absent, nothing is passed. "No effort" has that one form: no word such as
+   "default" stands for it. A task brought back keeps its effort; a
    different one is refused as a different model is. The task's row says its effort.
 4. A daemon method `Models(provider: string, agent: ?string) -> (models: []Model, from: string, readAt: string)`:
    the broker asks the provider's own list with the vault's credential for it; `from` is "provider" or "agent" (the
@@ -55,14 +56,17 @@ wish to pick model and effort from lists, and Agent Smith's reading that the lis
    `id`, `label`, `efforts: ?[]string` (where the provider says, e.g. OpenRouter's `reasoning` parameter). Kept on
    this machine for an hour, asked again on demand; a provider that does not answer is `Failed` with why, never an
    empty list.
-5. `ProviderModels` stays as it is: it says the default a list marks.
+5. `ProviderModels` stays as it is: it says the default a list marks. A project names no default effort of its
+   own: the project's work rules (a rule's `risks.<risk>.effort`) are the one place, handed on by the planner as the
+   start's `effort` (Agent Planner, 2026-11-15). The contract says a window marks a proposed effort only where it is
+   among the agent's `efforts`, and otherwise preselects none and says why, rather than letting Start refuse it.
 6. `doc/running.md`, `doc/commands.md`, `agents/README.md` (the two sections), a changelog entry under *Added*.
 
 ## Red-first test
 
 - `AgentDefinitionReaderTest`: an `effort` section is read with its values; a value outside them is refused.
 - `TaskRunCommandTest`: a start with effort `high` on an agent that declares `["-c", "model_reasoning_effort={effort}"]`
-  runs it with those two arguments; with no effort, or "default", neither. Fails today: no such field.
+  runs it with those two arguments; with no effort, neither. Fails today: no such field.
 - A start with an effort the agent does not list: 64, nothing made.
 - `Models` over a stand-in provider answering an Anthropic-shaped and an OpenRouter-shaped list: ids, labels and
   OpenRouter's efforts read; a provider that answers 401 is `Failed`, not an empty list.
@@ -77,5 +81,7 @@ wish to pick model and effort from lists, and Agent Smith's reading that the lis
 
 1. Which values each installed agent takes for effort, and the flag or config it takes them by, read from each agent's
    own documentation by its lane; a value list per agent, or one shared list each agent maps.
-2. Whether a project or repository may name a default effort beside its model (`providers.<provider>.effort`), shown
-   as `ProviderModels` shows the model.
+
+Answered: a project names no default effort beside its model; the work rules' effort is the one (Agent Planner,
+2026-11-15). Whether a person may start a model the rule does not name is the operator's, in the planner's PL156; the
+machine's list is the same either way.
