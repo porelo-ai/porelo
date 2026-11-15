@@ -674,8 +674,11 @@ final class GateMethods {
                 replies.more(answer);
                 last = answer;
             }
-            // Only open rows survive a round: each confirmed terminal row is sent once.
-            previous = round.open();
+            // Open and kept rows survive a round: each confirmed terminal row is sent once, and a
+            // refused repository's rows are confirmed once it answers again.
+            previous =
+                    java.util.stream.Stream.concat(round.open().stream(), round.kept().stream())
+                            .toList();
             pause.run();
         }
     }

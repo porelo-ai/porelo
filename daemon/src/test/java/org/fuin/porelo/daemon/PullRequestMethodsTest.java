@@ -83,6 +83,41 @@ class PullRequestMethodsTest {
         assertThat(replies.last).as("terminal rows do not finish a project watch").isFalse();
     }
 
+    @Test
+    void aRefusedRepositorysRowsReachTheNextRoundAndTheRefusalIsSent() throws Exception {
+        // A review whose repository was refused must still be confirmed later, or its merge goes
+        // unseen.
+        final var replies = new Captured(true, 2);
+        final var reads = new java.util.concurrent.atomic.AtomicInteger();
+        final var open =
+                new HostPullRequestReader.Pull(
+                        "demo", 7, "Review", "b".repeat(40), "Writer", "Signer", List.of(), "open");
+        final var refusal =
+                new HostPullRequestReader.Refusal(
+                        "demo", "forge", 503, "/api/v1/repos/demo/demo/pulls", "the forge failed");
+        GateMethods.watchPullRequests(
+                previous -> {
+                    final int round = reads.getAndIncrement();
+                    if (round == 1)
+                        assertThat(previous)
+                                .as("the kept row is carried to the next observation")
+                                .containsExactly(open);
+                    return round == 0
+                            ? new HostPullRequestReader.Round(
+                                    List.of(), List.of(), List.of(refusal), List.of(open))
+                            : new HostPullRequestReader.Round(List.of(), List.of());
+                },
+                replies,
+                () -> {});
+        assertThat(reads.get()).as("two rounds").isEqualTo(2);
+        assertThat(replies.events.get(0))
+                .as("the refusal crosses the wire")
+                .containsEntry("refused", List.of(refusal.asMap()));
+        assertThat(replies.events.get(1))
+                .as("a round with no refusal sends none")
+                .doesNotContainKey("refused");
+    }
+
     private static final class Captured
             implements org.fuin.porelo.wire.varlink.VarlinkServer.Replies {
         private final boolean streaming;

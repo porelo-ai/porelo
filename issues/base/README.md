@@ -263,12 +263,6 @@ from its side, as *blocked by*.
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
 | <a id="b779"></a>[B779](B779-A-Fixture-Made-Again-Gets-A-Mirror-Of-Its-Own.md) | S | - | The acceptance kit's step that makes a project afresh in a scenario also drops the mirror an earlier scenario left for that project, so no scenario has to remove a mirror by path | 0 |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b782"></a>[B782](B782-A-Refused-Pull-Request-Read-Says-What-It-Asked-And-Got.md) | M | - | A host's pull-request read that the forge answers with an error says the status, the path it asked and a cause chosen by the status, each with what to do, never the token; one repository's error refuses only that repository, a not-carried one is never asked, and a copy not made yet waits without a refusal | 0 |
-
 ## Review
 
 | # | Size | Blocked by | What it covers | Open questions |
@@ -287,6 +281,7 @@ from its side, as *blocked by*.
 | <a id="b761"></a>[B761](B761-A-Runs-Time-Limit-Outlasts-A-Daemon-Restart.md) | M | - | An unattended run's `minutes` is kept as a deadline in its task's state, and porelod, on its start and while it runs, stops a run whose deadline passed and that no process is waiting on, as the run itself would have | 0 |
 | <a id="b762"></a>[B762](B762-A-Failed-Starts-Caller-Key-Outlasts-A-Reboot.md) | S | - | Every start that keeps its task after a failure - kept by default, one that only read, one handed over - leaves the caller's key where a reboot does not reach, so List gives it back after a machine restart | 0 |
 | <a id="b732"></a>[B732](B732-A-Tasks-Socket-Lists-Only-Its-Own-Project.md) | S | - | Over a task's own socket, Projects and WatchProjects answer only the task's project, as List and Watch do; every other account-wide reading method granted there is held or named as an exception. | 0 |
+| <a id="b782"></a>[B782](B782-A-Refused-Pull-Request-Read-Says-What-It-Asked-And-Got.md) | M | - | A host's pull-request read that the forge answers with an error says the status, the path it asked and a cause chosen by the status, each with what to do, never the token; one repository's error refuses only that repository, whose earlier rows are kept and never ended by the error, and a not-carried one is never asked | 0 |
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | M | - | A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form; project `porelo`'s tasks are `porelo_<task>`, and what assumes a `porelo-` beginning takes both | 0 |
 | <a id="b733"></a>[B733](B733-One-Unverifiable-Task-Refuses-Only-Its-Own-Gate.md) | S | - | A retained task name whose ownership cannot be verified refuses only a lookup of that task, never another task's gate; and a project clear leaves a running task's records whole, so it cannot make one unverifiable. | 0 |
 | <a id="b738"></a>[B738](B738-What-A-Task-Writes-Never-Picks-Its-Next-Agent.md) | M | - | Nothing an agent writes in its task - a binary in $XDG_BIN_HOME, a shell start file, a variable - changes which agent binary or which environment a later start of an agent in that task runs; the start runs the root-owned wrapper by its own path with an environment Porelo sets. | 0 |

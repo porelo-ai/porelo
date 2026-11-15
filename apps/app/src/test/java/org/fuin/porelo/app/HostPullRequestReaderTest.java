@@ -61,9 +61,14 @@ class HostPullRequestReaderTest {
                                             0,
                                             "mode",
                                             Files.isDirectory(path) ? 0040755 : 0100644));
-            assertThatThrownBy(() -> reader.open(project))
-                    .as("redirects refuse without a second request")
-                    .isInstanceOf(HostPullRequestReader.Refused.class);
+            assertThat(reader.poll(project, List.of()).refused())
+                    .as("a redirect refuses its repository without a second request")
+                    .singleElement()
+                    .satisfies(
+                            refusal ->
+                                    assertThat(refusal.status())
+                                            .as("the redirect's own status")
+                                            .isEqualTo(307));
             assertThat(requests.get()).as("no credential-bearing redirect request").isEqualTo(1);
         } finally {
             server.stop(0);
@@ -256,11 +261,7 @@ class HostPullRequestReaderTest {
                             assertThat(token)
                                     .as("the person's stored token is used")
                                     .isEqualTo(TOKEN);
-                            return ("["
-                                            + new String(
-                                                    pull("open", false), StandardCharsets.UTF_8)
-                                            + "]")
-                                    .getBytes(StandardCharsets.UTF_8);
+                            return openList();
                         });
 
         assertThat(reader.open(project))
@@ -295,15 +296,8 @@ class HostPullRequestReaderTest {
                 reader(
                         (address, token) ->
                                 address.getPath().endsWith("/7")
-                                        ? pull("closed", true)
-                                        : merged.get()
-                                                ? "[]".getBytes(StandardCharsets.UTF_8)
-                                                : ("["
-                                                                + new String(
-                                                                        pull("open", false),
-                                                                        StandardCharsets.UTF_8)
-                                                                + "]")
-                                                        .getBytes(StandardCharsets.UTF_8));
+                                        ? ok(pull("closed", true))
+                                        : merged.get() ? none() : openList());
         final var first = reader.open(project);
         merged.set(true);
 
@@ -329,7 +323,9 @@ class HostPullRequestReaderTest {
         final var reader =
                 reader(
                         (address, token) ->
-                                (" ".repeat(1024 * 1024) + "[]").getBytes(StandardCharsets.UTF_8));
+                                ok(
+                                        (" ".repeat(1024 * 1024) + "[]")
+                                                .getBytes(StandardCharsets.UTF_8)));
 
         assertThatThrownBy(() -> reader.open(project))
                 .as("the response is refused before JSON parsing")
@@ -354,6 +350,292 @@ class HostPullRequestReaderTest {
                                 assertThat(ex.getClass().getSimpleName())
                                         .as("typed missing-token outcome")
                                         .isEqualTo("MissingToken"))
-                .hasMessageContaining("forge.example.person", "porelo host forge-token");
+                .hasMessageContainingAll("forge.example.person", "porelo host forge-token");
+    }
+
+    private Project threeRepositories(String carried) throws Exception {
+        final Path file = dir.resolve("three.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: demo
+                  security_class: guarded
+                  central: https://central.example/demo.git
+                image:
+                  from: ubuntu:24.04
+                repositories:
+                  shop:
+                    upstream: "https://upstream.example/shop.git"
+                    central: "https://central.example/shop.git"
+                  docs:
+                    upstream: "https://upstream.example/docs.git"
+                    central: "https://central.example/docs.git"
+                """);
+        Files.writeString(
+                dir.resolve("organization/projects/demo.json"),
+                Json.write(
+                        Map.of(
+                                "project",
+                                "demo",
+                                "revision",
+                                "",
+                                "address",
+                                "https://central.example/demo.git",
+                                "signing_keys",
+                                List.of(),
+                                "repositories",
+                                List.of(carried.split(",")))));
+        return ProjectReader.read(file);
+    }
+
+    private static HostPullRequestReader.Answer ok(byte[] body) {
+        return new HostPullRequestReader.Answer(200, body);
+    }
+
+    private HostPullRequestReader.Answer openList() {
+        return ok(
+                ("[" + new String(pull("open", false), StandardCharsets.UTF_8) + "]")
+                        .getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static HostPullRequestReader.Answer none() {
+        return ok("[]".getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static HostPullRequestReader.Answer status(int status) {
+        return new HostPullRequestReader.Answer(
+                status,
+                ("{\"message\":\"" + TOKEN + " forge words\"}").getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void aRefusedTokenRefusesTheWholeReadAndSaysWhereItWasAsked() {
+        // A token the forge refuses is shared by every repository; the person must learn to renew
+        // it.
+        final var reader = reader((address, token) -> status(401));
+
+        assertThatThrownBy(() -> reader.open(project))
+                .as("a 401 refuses the read as the token's, with the status and the path")
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        ex ->
+                                assertThat(ex.reason())
+                                        .as("the token's own reason")
+                                        .isEqualTo("forge-token"))
+                .hasMessageContainingAll(
+                        "401", "/api/v1/repos/demo/demo/pulls", "porelo host forge-token")
+                .satisfies(
+                        ex ->
+                                assertThat(ex.getMessage())
+                                        .as(
+                                                "neither the token, the host's address nor the forge's words")
+                                        .doesNotContain(
+                                                TOKEN, "127.0.0.1", "forge words", "page="));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "403,forge-access",
+        "404,forge-access",
+        "503,forge"
+    })
+    void oneRepositorysErrorRefusesThatRepositoryAloneAndSaysWhy(int code, String reason)
+            throws Exception {
+        // One repository's error must not hide the reviews of the others, nor leave which one
+        // unsaid.
+        final Project three = threeRepositories("demo,shop,docs");
+        final var reader =
+                reader(
+                        (address, token) ->
+                                address.getPath().contains("/demo/shop/")
+                                        ? status(code)
+                                        : address.getPath().contains("/demo/demo/")
+                                                ? openList()
+                                                : none());
+
+        final var round = reader.poll(three, List.of());
+
+        assertThat(round.open())
+                .as("the other repositories' reviews are answered")
+                .singleElement()
+                .satisfies(
+                        row -> assertThat(row.repository()).as("its repository").isEqualTo("demo"));
+        assertThat(round.refused())
+                .as("the refused repository is named with its reason, status and path")
+                .singleElement()
+                .satisfies(
+                        refusal -> {
+                            assertThat(refusal.repository())
+                                    .as("which repository")
+                                    .isEqualTo("shop");
+                            assertThat(refusal.reason())
+                                    .as("the cause by its status")
+                                    .isEqualTo(reason);
+                            assertThat(refusal.status())
+                                    .as("the status the forge answered")
+                                    .isEqualTo(code);
+                            assertThat(refusal.path())
+                                    .as("the path asked, without host or query")
+                                    .isEqualTo("/api/v1/repos/demo/shop/pulls");
+                            assertThat(refusal.message())
+                                    .as(
+                                            "the message says status and path, never secrets or forge words")
+                                    .contains(String.valueOf(code), "/api/v1/repos/demo/shop/pulls")
+                                    .doesNotContain(TOKEN, "127.0.0.1", "forge words");
+                        });
+        assertThat(round.asMap())
+                .as("the refusal crosses the wire beside the open list")
+                .containsKey("refused");
+    }
+
+    @Test
+    void aReviewOfARefusedRepositoryIsKeptAndEndedOnceItAnswersAgain() {
+        // A review merged while its repository could not be read must neither vanish nor end twice.
+        final AtomicBoolean refused = new AtomicBoolean();
+        final AtomicBoolean merged = new AtomicBoolean();
+        final var reader =
+                reader(
+                        (address, token) ->
+                                refused.get()
+                                        ? status(503)
+                                        : address.getPath().endsWith("/7")
+                                                ? ok(pull("closed", true))
+                                                : merged.get() ? none() : openList());
+        final var first = reader.open(project);
+        refused.set(true);
+        merged.set(true);
+
+        final var during = reader.poll(project, first);
+
+        assertThat(during.open()).as("nothing is answered open while refused").isEmpty();
+        assertThat(during.ended()).as("a refusal never ends a review").isEmpty();
+        assertThat(during.kept()).as("the earlier row is kept for the next round").isEqualTo(first);
+        refused.set(false);
+        final var after =
+                reader.poll(
+                        project,
+                        java.util.stream.Stream.concat(
+                                        during.open().stream(), during.kept().stream())
+                                .toList());
+        assertThat(after.ended())
+                .as("the merge is reported once the repository answers")
+                .singleElement()
+                .satisfies(row -> assertThat(row.state()).as("merged").isEqualTo("merged"));
+        assertThat(after.refused()).as("no refusal once it answers").isEmpty();
+    }
+
+    @Test
+    void aConfirmingReadThatFailsKeepsTheReviewInsteadOfEndingIt() {
+        // A forge failure on one review's own page must not read as that review being closed.
+        final AtomicBoolean gone = new AtomicBoolean();
+        final var reader =
+                reader(
+                        (address, token) ->
+                                address.getPath().endsWith("/7")
+                                        ? status(503)
+                                        : gone.get() ? none() : openList());
+        final var first = reader.open(project);
+        gone.set(true);
+
+        final var round = reader.poll(project, first);
+
+        assertThat(round.ended()).as("not ended").isEmpty();
+        assertThat(round.kept()).as("kept").isEqualTo(first);
+        assertThat(round.refused())
+                .as("the repository is refused with the review's own path")
+                .singleElement()
+                .satisfies(
+                        refusal ->
+                                assertThat(refusal.path())
+                                        .as("the confirming path")
+                                        .isEqualTo("/api/v1/repos/demo/demo/pulls/7"));
+    }
+
+    @Test
+    void aReviewOfARepositoryNoLongerCarriedRefusesThatRepositoryAlone() throws Exception {
+        // Dropping one repository from the host must not stop the reviews of the others.
+        final Project three = threeRepositories("demo,docs");
+        final var old =
+                new HostPullRequestReader.Pull(
+                        "shop", 3, "Old", head, "Writer", "Signer", List.of(), "open");
+        final var reader =
+                reader(
+                        (address, token) -> {
+                            assertThat(address.getPath())
+                                    .as("a repository the host does not carry is never asked")
+                                    .doesNotContain("/demo/shop/");
+                            return address.getPath().contains("/demo/demo/") ? openList() : none();
+                        });
+
+        final var round = reader.poll(three, List.of(old));
+
+        assertThat(round.open()).as("the carried repositories answer").hasSize(1);
+        assertThat(round.ended()).as("not ended").isEmpty();
+        assertThat(round.kept()).as("kept").containsExactly(old);
+        assertThat(round.refused())
+                .as("named as no longer carried")
+                .singleElement()
+                .satisfies(
+                        refusal -> {
+                            assertThat(refusal.repository()).as("which").isEqualTo("shop");
+                            assertThat(refusal.reason()).as("why").isEqualTo("not-carried");
+                        });
+    }
+
+    @Test
+    void keptRowsCountAgainstTheBoundOfWhatAWatchCarries() throws Exception {
+        // Rows a watch carries to its next round must stay within the bound it checks on entry.
+        final Project three = threeRepositories("demo,shop,docs");
+        final List<HostPullRequestReader.Pull> earlier =
+                java.util.stream.LongStream.rangeClosed(1, 500)
+                        .mapToObj(
+                                n ->
+                                        new HostPullRequestReader.Pull(
+                                                "shop", n, "Old", head, "Writer", "Signer",
+                                                List.of(), "open"))
+                        .toList();
+        final var reader =
+                reader(
+                        (address, token) ->
+                                address.getPath().contains("/demo/shop/")
+                                        ? status(503)
+                                        : address.getPath().contains("/demo/demo/")
+                                                ? openList()
+                                                : none());
+
+        assertThatThrownBy(() -> reader.poll(three, earlier))
+                .as("500 kept rows and one open row exceed the 500 a watch may carry")
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        ex -> assertThat(ex.reason()).as("the bound's reason").isEqualTo("bounds"));
+    }
+
+    @Test
+    void refusalsFollowTheCarriedRepositoriesWhateverOrderTheRowsCameIn() throws Exception {
+        // A watch sends only changed answers; a refusal list in shifting order would read as
+        // changed.
+        final Project three = threeRepositories("demo,shop,docs");
+        final var reader =
+                reader(
+                        (address, token) ->
+                                address.getPath().contains("/demo/demo/")
+                                        ? none()
+                                        : address.getPath().endsWith("/pulls/4")
+                                                ? status(503)
+                                                : address.getPath().contains("/demo/shop/")
+                                                        ? status(503)
+                                                        : none());
+        final var docs =
+                new HostPullRequestReader.Pull(
+                        "docs", 4, "Old", head, "Writer", "Signer", List.of(), "open");
+        final var gone =
+                new HostPullRequestReader.Pull(
+                        "gone", 5, "Old", head, "Writer", "Signer", List.of(), "open");
+
+        assertThat(reader.poll(three, List.of(gone, docs)).refused())
+                .as("carried repositories first in their order, then those no longer carried")
+                .extracting(HostPullRequestReader.Refusal::repository)
+                .containsExactly("shop", "docs", "gone");
     }
 }

@@ -32,7 +32,37 @@ public final class HostPullRequestReader {
 
     @FunctionalInterface
     interface Exchange {
-        byte[] get(URI address, String token);
+        Answer get(URI address, String token);
+    }
+
+    /** What the forge answered: its status and its body, which the reader judges. */
+    record Answer(int status, byte[] body) {}
+
+    /**
+     * A repository whose reviews could not be read this round, while the others' were.
+     *
+     * @param repository The repository's name in the project.
+     * @param reason The machine-readable cause.
+     * @param status The forge's status, or {@code null} when the forge was not asked.
+     * @param path The path asked, without the host's address or the query, or {@code null}.
+     * @param message Porelo's words: status, path and what to do, never the forge's.
+     */
+    public record Refusal(
+            String repository,
+            String reason,
+            @org.jspecify.annotations.Nullable Integer status,
+            @org.jspecify.annotations.Nullable String path,
+            String message) {
+        /** The fields sent over Tasks1. */
+        public Map<String, Object> asMap() {
+            final Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("repository", repository);
+            fields.put("reason", reason);
+            if (status != null) fields.put("status", status.longValue());
+            if (path != null) fields.put("path", path);
+            fields.put("message", message);
+            return fields;
+        }
     }
 
     /** A bounded observation of a review, with makers read from the local mirror. */
@@ -72,22 +102,33 @@ public final class HostPullRequestReader {
         }
     }
 
-    /** A current open list and confirmed terminal events for one polling round. */
-    public record Round(List<Pull> open, List<Pull> ended) {
+    /**
+     * A current open list and confirmed terminal events for one polling round, with the
+     * repositories refused this round and the earlier rows of those repositories, kept for the next
+     * round since a refusal never ends a review.
+     */
+    public record Round(List<Pull> open, List<Pull> ended, List<Refusal> refused, List<Pull> kept) {
         /** Keeps immutable snapshots rather than a live watch's collections. */
         public Round {
             open = List.copyOf(open);
             ended = List.copyOf(ended);
+            refused = List.copyOf(refused);
+            kept = List.copyOf(kept);
+        }
+
+        /** A round in which every repository answered. */
+        public Round(List<Pull> open, List<Pull> ended) {
+            this(open, ended, List.of(), List.of());
         }
 
         /** A bounded Tasks1 reply, fitting below the wire's four MiB message limit. */
         public Map<String, Object> asMap() {
-            final Map<String, Object> reply =
-                    Map.of(
-                            "pullRequests",
-                            open.stream().map(Pull::asMap).toList(),
-                            "ended",
-                            ended.stream().map(Pull::asMap).toList());
+            final Map<String, Object> reply = new LinkedHashMap<>();
+            reply.put("pullRequests", open.stream().map(Pull::asMap).toList());
+            reply.put("ended", ended.stream().map(Pull::asMap).toList());
+            // Absent when every repository answered, so a reply keeps its earlier shape.
+            if (!refused.isEmpty())
+                reply.put("refused", refused.stream().map(Refusal::asMap).toList());
             if (Json.write(reply).getBytes(StandardCharsets.UTF_8).length > MAXIMUM_RESPONSE) {
                 throw new Refused("bounds", "the review reply exceeds its size bound");
             }
@@ -125,6 +166,25 @@ public final class HostPullRequestReader {
         /** The machine-readable reason for refusing the observation. */
         public String reason() {
             return reason;
+        }
+    }
+
+    /** One repository's error answer; the round goes on with the others. */
+    private static final class RepositoryRefused extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        private final String reason;
+        private final int status;
+        private final String path;
+
+        RepositoryRefused(String reason, int status, String path, String message) {
+            super(message, null, false, false);
+            this.reason = reason;
+            this.status = status;
+            this.path = path;
+        }
+
+        Refusal of(String repository) {
+            return new Refusal(repository, reason, status, path, String.valueOf(getMessage()));
         }
     }
 
@@ -176,49 +236,91 @@ public final class HostPullRequestReader {
         final String token = entry.value();
         final Map<String, URI> repositories = repositories(project, settings);
         final Map<String, Pull> current = new LinkedHashMap<>();
+        final Map<String, Refusal> refused = new LinkedHashMap<>();
         for (var repository : repositories.entrySet()) {
-            for (int page = 1; page <= 100; page++) {
-                final Object answer =
-                        request(
-                                URI.create(
-                                        repository.getValue()
-                                                + "/pulls?state=open&limit=50&page="
-                                                + page),
-                                token);
-                if (!(answer instanceof List<?> pulls) || pulls.size() > 50) throw malformed();
-                for (Object object : pulls) {
-                    final Pull pull = row(project, repository.getKey(), object, token);
-                    if (!pull.state().equals("open")
-                            || current.putIfAbsent(key(pull), pull) != null) throw malformed();
-                    if (current.size() > MAXIMUM_PULLS) throw tooMany();
-                }
-                if (pulls.size() < 50) break;
-                if (page == 100) throw tooMany();
+            final Map<String, Pull> rows = new LinkedHashMap<>();
+            try {
+                read(project, repository.getKey(), repository.getValue(), token, rows, current);
+            } catch (RepositoryRefused ex) {
+                refused.put(repository.getKey(), ex.of(repository.getKey()));
+                continue;
             }
+            current.putAll(rows);
         }
         final List<Pull> ended = new ArrayList<>();
+        final List<Pull> kept = new ArrayList<>();
         if (previous.size() > MAXIMUM_PULLS) throw tooMany();
         for (Pull old : previous) {
             if (current.containsKey(key(old))) continue;
+            if (refused.containsKey(old.repository())) {
+                kept.add(old);
+                continue;
+            }
             final URI repository = repositories.get(old.repository());
-            if (repository == null)
-                throw new Refused(
-                        "not-carried",
-                        "the host no longer carries a watched repository; ask for reviews again");
-            final Pull now =
-                    row(
-                            project,
-                            old.repository(),
-                            request(URI.create(repository + "/pulls/" + old.number()), token),
-                            token);
+            if (repository == null) {
+                refused.put(
+                        old.repository(),
+                        new Refusal(
+                                old.repository(),
+                                "not-carried",
+                                null,
+                                null,
+                                "the host no longer carries this repository; its reviews are kept until it is carried again"));
+                kept.add(old);
+                continue;
+            }
+            final Pull now;
+            try {
+                now =
+                        row(
+                                project,
+                                old.repository(),
+                                request(URI.create(repository + "/pulls/" + old.number()), token),
+                                token);
+            } catch (RepositoryRefused ex) {
+                refused.put(old.repository(), ex.of(old.repository()));
+                kept.add(old);
+                continue;
+            }
             if (now.number() != old.number()) throw malformed();
             if (now.state().equals("open")) current.put(key(now), now);
             else ended.add(now);
         }
-        if (current.size() > MAXIMUM_PULLS) throw tooMany();
-        final Round result = new Round(List.copyOf(current.values()), ended);
+        // Kept rows go to the next round too, so they count against the same bound.
+        if (current.size() + kept.size() > MAXIMUM_PULLS) throw tooMany();
+        final List<Refusal> ordered = new ArrayList<>();
+        for (String name : repositories.keySet())
+            if (refused.containsKey(name)) ordered.add(refused.remove(name));
+        // What remains is no longer carried, in the order its rows were watched.
+        ordered.addAll(refused.values());
+        final Round result = new Round(List.copyOf(current.values()), ended, ordered, kept);
         result.asMap();
         return result;
+    }
+
+    /** Reads one repository's open list into rows, counting those already answered by others. */
+    private void read(
+            Project project,
+            String name,
+            URI repository,
+            String token,
+            Map<String, Pull> rows,
+            Map<String, Pull> answered) {
+        for (int page = 1; page <= 100; page++) {
+            final Object answer =
+                    request(
+                            URI.create(repository + "/pulls?state=open&limit=50&page=" + page),
+                            token);
+            if (!(answer instanceof List<?> pulls) || pulls.size() > 50) throw malformed();
+            for (Object object : pulls) {
+                final Pull pull = row(project, name, object, token);
+                if (!pull.state().equals("open") || rows.putIfAbsent(key(pull), pull) != null)
+                    throw malformed();
+                if (answered.size() + rows.size() > MAXIMUM_PULLS) throw tooMany();
+            }
+            if (pulls.size() < 50) break;
+            if (page == 100) throw tooMany();
+        }
     }
 
     private Map<String, URI> repositories(Project project, HostForgeSettings settings) {
@@ -258,7 +360,36 @@ public final class HostPullRequestReader {
     }
 
     private Object request(URI address, String token) {
-        final byte[] bytes = exchange.get(address, token);
+        final Answer answer = exchange.get(address, token);
+        if (answer.status() / 100 != 2) {
+            // The path is built from the checked copy name alone: no address, port, query or token.
+            final String path = address.getPath();
+            final String said = "the host forge answers " + answer.status() + " to " + path + ": ";
+            switch (answer.status()) {
+                case 401 ->
+                        throw new Refused(
+                                "forge-token",
+                                said
+                                        + "it refuses the person token; renew it with porelo host forge-token");
+                case 403, 404 ->
+                        throw new RepositoryRefused(
+                                "forge-access",
+                                answer.status(),
+                                path,
+                                said
+                                        + "the repository is not there for this person - its first copy is not made yet or the person is not admitted; an administrator of the host makes it or admits them");
+                default ->
+                        throw new RepositoryRefused(
+                                "forge",
+                                answer.status(),
+                                path,
+                                said
+                                        + (answer.status() / 100 == 5
+                                                ? "the forge failed; ask for reviews again later"
+                                                : "the forge does not answer a review list there; check the host's forge settings"));
+            }
+        }
+        final byte[] bytes = answer.body();
         if (bytes.length > MAXIMUM_RESPONSE)
             throw new Refused("bounds", "the forge answer exceeds its size bound");
         try {
@@ -371,7 +502,7 @@ public final class HostPullRequestReader {
         }
     }
 
-    private static byte[] http(URI address, String token) {
+    private static Answer http(URI address, String token) {
         try (HttpClient client =
                 HttpClient.newBuilder()
                         .proxy(HttpClient.Builder.NO_PROXY)
@@ -387,11 +518,7 @@ public final class HostPullRequestReader {
                                     .build(),
                             HttpResponse.BodyHandlers.limiting(
                                     HttpResponse.BodyHandlers.ofByteArray(), MAXIMUM_RESPONSE));
-            if (response.statusCode() / 100 != 2)
-                throw new Refused(
-                        "forge",
-                        "the host forge refused the review request; check access and renew the person token with porelo host forge-token");
-            return response.body();
+            return new Answer(response.statusCode(), response.body());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new Refused(

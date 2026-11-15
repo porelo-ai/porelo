@@ -193,7 +193,14 @@ HTTP stays on the configured port at `127.0.0.1`, with no proxy or redirects, a 
 a twenty-second request timeout. Each HTTP response and complete daemon reply is limited to one MiB; each project
 to 100 repositories and 500 open rows; each repository to 100 pages of 50. Maker queries allow ten seconds and
 64 KiB of output. Shown fields keep at most 1000 code points, and at most 50 help trailers are returned.
-A bound, unavailable mirror commit, forge failure, or loss of access refuses the observation and ends a stream
+A repository the forge answers with an error is refused alone, in the answer's `refused`, with its status, the
+path asked (`/api/v1/repos/<copy>/pulls`, never the host's address or the token) and a reason: `forge-access` for 403
+or 404 (its copy is not made yet or the person is not admitted: an administrator of the host makes it or admits
+them; the forge answers both alike), `forge` for any other status (ask again later), and `not-carried` for an earlier
+row of a repository the host no longer carries. The other repositories still answer, and a refused repository's
+earlier rows are kept, not ended, until it answers again. A 401 refuses the whole read with `forge-token`: the forge
+refuses the person token, renewed with `porelo host forge-token`.
+A bound, an unavailable mirror commit, or a forge that cannot be reached refuses the observation and ends a stream
 with a named error. Absence alone never means closed. Clients must mark retained data stale and ask again.
 
 ## A person's gathered push and pull
