@@ -204,6 +204,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b782"></a>[B782](B782-A-Refused-Pull-Request-Read-Says-What-It-Asked-And-Got.md) | M | - | A host's pull-request read that the forge answers with an error says the status, the path it asked and a cause chosen by the status, each with what to do, never the token; one repository's error refuses only that repository, a not-carried one is never asked, and a copy not made yet waits without a refusal | 0 |
+| <a id="b781"></a>[B781](B781-The-Forge-Token-Command-Says-A-Shut-Vault-By-Its-Code.md) | M | - | `porelo host forge-token` exits 77 when the vault is shut, apart from 69 for a missing forge, a refused sudo or a bad answer, and the store command the pull-request read names carries `--if-forge` | 0 |
+| <a id="b783"></a>[B783](B783-An-Agent-Signed-In-Through-The-Vault-Says-So.md) | M | - | An agent that drives a provider whose credential the person's vault holds is answered as able to start, signed in through the Porelo-Vault to that provider, not as not signed in, wherever the daemon tells a start's choice what it found | 0 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
