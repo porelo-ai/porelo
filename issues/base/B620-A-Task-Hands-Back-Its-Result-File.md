@@ -53,7 +53,10 @@ How it is today, read in the code:
 
 - The tests above, seen red first.
 - A discussion task, reading every repository of its project, on a rented host writes `idea.json`, ends, and the window reads its
-  content from the person's computer.
+  content from the person's computer. Seen in the operator's live test on a rented host, 2026-11-15 (~10:27 Berlin,
+  porelo 0.5.1~snapshot.552): a discussion task reading every carried repository with Claude Code wrote
+  `/run/porelo/result/idea.json` and ended, and the window read it on the operator's computer; the idea stands on the
+  board as a story with its first issue.
 
 ## As built
 
