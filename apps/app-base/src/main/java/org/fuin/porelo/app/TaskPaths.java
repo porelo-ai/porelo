@@ -151,6 +151,33 @@ public record TaskPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory holding the files a task was given to read: only the account reads it,
+     * and only the directory of the files inside it is mounted into the task, read only.
+     *
+     * <p>Beside the result's directory, under the state directory: what a container mounts has to
+     * be there when it starts again after a reboot. Forgotten when the task is removed, and when a
+     * new task of the name is made.
+     *
+     * @param container Container name.
+     * @return The directory.
+     */
+    public Path given(String container) {
+        return paths.xdg().state().resolve("given").resolve(container);
+    }
+
+    /**
+     * Returns the directory holding the one repository a task made to read it is given, mounted
+     * read only into the task; beside {@link #repositories(String)}, which a task that reads its
+     * whole project has, so a task's kind is read from which of the two it has.
+     *
+     * @param container Container name.
+     * @return The directory.
+     */
+    public Path readOnly(String container) {
+        return paths.xdg().state().resolve("read-only").resolve(container);
+    }
+
+    /**
      * Returns the box a task's agent writes the file it hands back into, mounted into the task.
      *
      * @param container Container name.

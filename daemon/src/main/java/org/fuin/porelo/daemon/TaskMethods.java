@@ -349,7 +349,9 @@ final class TaskMethods {
                 PoreloDaemon.shortName(parameters),
                 flag(parameters, "allRepositories"),
                 // Start's own, and refused by the same rule before anything else.
-                org.fuin.porelo.app.TaskWork.of(parameters.get("work")));
+                org.fuin.porelo.app.TaskWork.of(parameters.get("work")),
+                flag(parameters, "readOnly"),
+                PoreloDaemon.givenFiles(parameters));
     }
 
     /**
@@ -1217,7 +1219,9 @@ final class TaskMethods {
                     // that was never going to be made.
                     if (existing == null
                             && asked.allRepositoriesRefusal() == null
-                            && asked.resultRefusal() == null) {
+                            && asked.readOnlyRefusal() == null
+                            && asked.resultRefusal() == null
+                            && asked.givenRefusal() == null) {
                         // Refused as itself before anything is launched, the credentials too: a
                         // destination nobody declared is a typed answer an interface can show, not
                         // a

@@ -541,6 +541,12 @@ public class TaskRunner {
             // at its end; nothing else of the result's directory is mounted.
             specification.volume(result.box(container), TaskResult.MOUNT);
         }
+        final TaskGiven given = new TaskGiven(paths);
+        if (given.has(container)) {
+            // The files it was given at its start, written by the launch before this: read only,
+            // so what it reads there is what it was given.
+            specification.volumeReadOnly(given.files(container), TaskGiven.MOUNT);
+        }
         final TaskRepositories reading = new TaskRepositories(paths, container);
         if (reading.exists()) {
             // A task that reads its whole project: every repository's main, assembled by the launch

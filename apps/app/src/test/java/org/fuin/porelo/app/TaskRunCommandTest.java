@@ -9194,6 +9194,253 @@ class TaskRunCommandTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "--all-repositories",
+                "--branch=porelo/reading",
+                "--from=main",
+                "--no-gate",
+                "--upstream=https://forge.example/acme/shop.git"
+            })
+    void readingOneRepositoryRefusesWhatCannotGoWithIt(String option, @TempDir Path dir)
+            throws IOException {
+
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "--read-only",
+                        option,
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("--read-only works on one repository read only and with no gate")
+                .contains(option.split("=")[0]);
+        assertThat(runner.lines())
+                .as("refused before anything is made")
+                .noneMatch(line -> line.contains(" create "));
+    }
+
+    /** A project with a second repository, whose main a read-only task on it is given. */
+    private static final String WITH_BACKEND = MINIMAL + "repositories:\n  backend:\n";
+
+    /** Gives the repository {@code backend} a mirror whose main holds one file. */
+    private static void backendMain(PoreloContext context, Path dir) throws IOException {
+        final Path upstream = Files.createDirectories(dir.resolve("backend-upstream"));
+        git(upstream, "init", "-q", "-b", "main");
+        Files.writeString(upstream.resolve("Backend.java"), "class Backend {}\n");
+        git(upstream, "add", "Backend.java");
+        git(upstream, "commit", "-q", "-m", "initial");
+        final var project =
+                org.fuin.porelo.core.project.ProjectReader.read(dir.resolve("project.yml"));
+        final Path mirror =
+                GateSupport.mirror(context, project, GateSupport.repository(project, "backend"));
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", upstream.toString(), mirror.toString());
+    }
+
+    @Test
+    void aReadOnlyStartOnAnotherRepositoryReadsItsMainAloneWithNoGate(@TempDir Path dir)
+            throws Exception {
+
+        final PoreloContext context = context(dir, true);
+        final String project = projectFile(dir, WITH_BACKEND);
+        backendMain(context, dir);
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        runner.answering("exec", "1 2\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "analysis",
+                        "--read-only",
+                        "--repository",
+                        "backend",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        project);
+
+        final String container = "porelo-uc_analysis";
+        assertThat(code).as("said: %s / %s", err, out).isZero();
+        final Path read = context.paths().tasks().readOnly(container);
+        assertThat(runner.lines())
+                .as("its one repository is its workspace, read only: %s", err)
+                .anyMatch(line -> line.contains(read + ":/workspace:ro,Z"))
+                .anyMatch(line -> line.contains("porelo.repository=backend"));
+        try (java.util.stream.Stream<Path> left = Files.list(read)) {
+            assertThat(left.map(each -> each.getFileName().toString()).toList())
+                    .as("that repository alone")
+                    .containsExactly("backend");
+        }
+        assertThat(out.toString())
+                .as("its main, which GitGate.readMain writes without .git")
+                .contains("read      backend at ")
+                .doesNotContain("read      uc ");
+        assertThat(context.paths().tasks().repositories(container))
+                .as("not a task that reads the whole project")
+                .doesNotExist();
+        assertThat(String.join("\n", runner.lines()))
+                .as("no gate and no push target")
+                .doesNotContain("PORELO_TASK_REF")
+                .doesNotContain("refs/porelo/incoming");
+        assertThat(out.toString()).doesNotContain("branch         ");
+    }
+
+    @Test
+    void aTaskMadeReadOnlyIsNotBroughtBackToReadThemAll(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+        Files.createDirectories(context.paths().tasks().readOnly("porelo-uc-shell").resolve("uc"));
+        runner.answering("ps", STOPPED_SHELL);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "--all-repositories",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("porelo-uc-shell was made to read one repository and stays so");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman start") || line.contains("podman create"));
+    }
+
+    @Test
+    void aTaskOnOneRepositoryWithItsGateIsNotBroughtBackReadOnly(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", STOPPED_SHELL);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "--read-only",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("porelo-uc-shell was made to work on one repository and stays so")
+                .contains("--read-only");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman start") || line.contains("podman create"));
+    }
+
+    @Test
+    void givenFilesAreMountedReadOnlyWhereTheTaskReadsThem(@TempDir Path dir) throws Exception {
+        final PoreloContext context = context(dir, true);
+        final String project = projectFile(dir, WITH_BACKEND);
+        backendMain(context, dir);
+        final Path issue =
+                Files.writeString(dir.resolve("issue.md"), "# The issue as planned now\n");
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        runner.answering("exec", "1 2\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "analysis",
+                        "--read-only",
+                        "--repository",
+                        "backend",
+                        "--given",
+                        "the-issue.md=" + issue,
+                        "--result",
+                        "analysis.json",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        project);
+
+        final String container = "porelo-uc_analysis";
+        assertThat(code).as("said: %s / %s", err, out).isZero();
+        final TaskGiven given = new TaskGiven(context.paths());
+        assertThat(runner.lines())
+                .as("mounted read only: %s", err)
+                .anyMatch(line -> line.contains(given.files(container) + ":/run/porelo/given:ro"));
+        assertThat(given.files(container).resolve("the-issue.md"))
+                .hasContent("# The issue as planned now");
+        assertThat(new TaskGuide(context.paths(), container).file())
+                .content()
+                .contains("`/run/porelo/given/the-issue.md`")
+                .contains("Your whole work is `analysis.json`");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../the-issue.md", "the-issue.md"})
+    void aGivenFileStartRefusesMakesNothing(String name, @TempDir Path dir) throws Exception {
+        final PoreloContext context = context(dir, true);
+        // Valid text under a bad name, or a valid name over text that is no UTF-8.
+        final Path file = dir.resolve("issue.md");
+        if (name.startsWith("..")) {
+            Files.writeString(file, "text\n");
+        } else {
+            Files.write(file, new byte[] {'a', (byte) 0xC3, (byte) 0x28, '\n'});
+        }
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--read-only",
+                        "--given",
+                        name + "=" + file,
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString()).contains("--given");
+        assertThat(context.paths().tasks().containerState("porelo-uc-shell")).doesNotExist();
+        assertThat(context.paths().tasks().given("porelo-uc-shell")).doesNotExist();
+        assertThat(runner.lines()).noneMatch(line -> line.contains(" create "));
+    }
+
+    @Test
+    void aStartOnAHostTakesNoGivenFile(@TempDir Path dir) throws Exception {
+        final Path file = Files.writeString(dir.resolve("issue.md"), "text\n");
+
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "fix",
+                        "--host",
+                        "alice@build.example",
+                        "--project",
+                        "uc",
+                        "--given",
+                        "the-issue.md=" + file);
+
+        assertThat(code).as("a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("--host does not take --given")
+                .contains("never as arguments");
+    }
+
     /** Gives the project's own repository a mirror whose main a reading task is given. */
     private static void ownMain(PoreloContext context, Path dir) throws IOException {
         final Path upstream = Files.createDirectories(dir.resolve("upstream"));

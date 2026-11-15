@@ -250,7 +250,7 @@ class ReachDocumentTest {
         final List<PageRow> page = tableRows(page());
         assertThat(page)
                 .as("the reference is every table row of reach, hold, spend and produce")
-                .hasSize(33)
+                .hasSize(34)
                 .extracting(PageRow::part)
                 .containsOnly(Reach.Part.values());
         assertThat(

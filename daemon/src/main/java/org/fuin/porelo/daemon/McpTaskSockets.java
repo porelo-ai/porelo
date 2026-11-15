@@ -321,10 +321,13 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             i++;
         }
         comment.forEach(each -> kept.append(each).append('\n'));
-        // With the comment above each: a task's start refuses both, so a task is not told of them.
+        // With the comment above each: none is offered through a task's start, so a task is not
+        // told of them.
         return kept.toString()
                 .replaceAll(
-                        "(?m)(?:^  #.*\\R)*^  (?:waitForSignIn|allRepositories): \\?bool,\\R", "");
+                        "(?m)(?:^  #.*\\R)*^  (?:waitForSignIn|allRepositories|readOnly): \\?bool,\\R",
+                        "")
+                .replaceAll("(?m)(?:^  #.*\\R)*^  given: \\?\\[string\\]string,\\R", "");
     }
 
     /**

@@ -1,0 +1,2 @@
+title: "A task started with '--read-only' (the daemon's Start takes 'readOnly') reads the one repository it names, read only and without .git, with that repository's own agent, image and egress, no gate and nothing to push; '--given <name>=<file>' (Start's 'given') gives a task up to 16 files of UTF-8 text, each at most 1 MiB, read only under /run/porelo/given/; a task that only reads and hands back a result file is told that file is its whole work, and a task's row says readOnly"
+type: added

@@ -99,4 +99,16 @@ class TaskRowsTest {
         assertThat(read.activity()).isEqualTo(TaskInventory.Activity.UNKNOWN);
         assertThat(read.derived().screen()).isEqualTo(AgentWaiting.Screen.UNSEEN);
     }
+
+    @Test
+    void aTaskThatOnlyReadsIsSaidSoOnItsRowAndReadBackSo() {
+        final Map<String, Object> row = new java.util.HashMap<>(everythingSet().asMap());
+        assertThat(row).as("a task that works on its repository").containsEntry("readOnly", false);
+
+        row.put("readOnly", true);
+        assertThat(TaskRows.read(row).asMap()).containsEntry("readOnly", true);
+
+        row.remove("readOnly");
+        assertThat(TaskRows.read(row).readOnly()).as("an older daemon's row").isFalse();
+    }
 }

@@ -255,6 +255,14 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   or `task attach all`. It comes back only as it was made: `--all-repositories` for a task on one
   repository, and `-r` or `--no-gate` for one that reads them all, are refused (exit 64). An agent's setup file meant
   for the workspace is not written, and the start says so.
+- `--read-only` gives the task the repository `-r` names to read instead of to work on: its main as this machine takes
+  it, under `/workspace/<repository>/`, read only and without `.git`, with that repository's own agent, image and
+  egress. No gate, nothing pushed, and its end asks nothing about work, as with `--all-repositories`. It takes no
+  `--all-repositories`, `--branch`, `--from`, `--no-gate` or `--upstream` (exit 64), and comes back only as it was
+  made. See [a task that only reads](running.md#a-task-that-only-reads-and-files-it-is-given).
+- `--given <name>=<file>`, repeatable, gives the task the UTF-8 text of `<file>` to read at `/run/porelo/given/<name>`,
+  read only: at most 16 files, each at most 1 MiB, named as a result file is, and refused otherwise before anything
+  is made (exit 64). A task brought back keeps its files and refuses `--given`; `--host` takes none.
 - `--result NAME` names the one file the task hands back at its end: its agent writes it into
   `/run/porelo/result/`, and the host keeps it, at most 1 MiB of UTF-8 text, until the next start of the task.
   A name with a directory part, `.`, `..`, a control character or more than 255 bytes is refused (exit 64), and so

@@ -283,6 +283,29 @@ final class WorkspaceSetup {
             SecretCheck secrets,
             PrintWriter out,
             PrintWriter err) {
+        return readAll(project, project.allRepositories(), into, secrets, out, err);
+    }
+
+    /**
+     * Writes the repositories asked for, of the project's, into a directory each under {@code
+     * into}, as {@link #readAll(Project, java.nio.file.Path, SecretCheck, PrintWriter,
+     * PrintWriter)} writes every one: for a task made read only on its one repository, that one.
+     *
+     * @param project The project.
+     * @param repositories The repositories to write, in order.
+     * @param into The directory to write them in; what it held is removed first.
+     * @param secrets What checks each for what the project refuses.
+     * @param out Where each repository read is said.
+     * @param err Where each one that could not be is said, with why.
+     * @return The repositories written, by name, in the order asked.
+     */
+    java.util.List<String> readAll(
+            Project project,
+            java.util.List<Repository> repositories,
+            java.nio.file.Path into,
+            SecretCheck secrets,
+            PrintWriter out,
+            PrintWriter err) {
         // Whatever an earlier start of this name left is no reading of today's mains; the name is
         // free by now, so nothing of it is in use.
         removePartial(into, err);
@@ -299,7 +322,7 @@ final class WorkspaceSetup {
         }
         final java.util.List<String> read = new java.util.ArrayList<>();
         final java.util.Set<String> seen = new java.util.HashSet<>();
-        for (final Repository each : project.allRepositories()) {
+        for (final Repository each : repositories) {
             if (!seen.add(each.name())) {
                 continue;
             }

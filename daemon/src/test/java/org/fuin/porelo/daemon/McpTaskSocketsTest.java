@@ -490,6 +490,41 @@ class McpTaskSocketsTest {
                 .contains("  noGate: ?bool,");
     }
 
+    @Test
+    void aTasksStartIsNotOfferedToReadOneRepositoryOrToGiveFiles() {
+        // A task's own start reads no repository read only and gives no file: the planner does.
+        final String cut = McpTaskSockets.cut(PoreloDaemon.description(), Set.of("Start"));
+
+        assertThat(PoreloDaemon.description())
+                .contains("  readOnly: ?bool,")
+                .contains("  given: ?[string]string,");
+        assertThat(cut)
+                .doesNotContain("  readOnly: ?bool,")
+                .doesNotContain("Gives the task its one repository to read")
+                .doesNotContain("  given: ?[string]string,")
+                .doesNotContain("Files the task is given to read")
+                .contains("  result: ?string,");
+    }
+
+    @Test
+    void aStartReadsOneRepositoryAndTakesTheFilesItIsGiven() throws IOException {
+        final PoreloContext context = context(HEAD + SECTION);
+        final Map<String, Object> asked = new java.util.LinkedHashMap<>();
+        asked.put("project", "uc");
+        asked.put("repository", "uc");
+        asked.put("readOnly", true);
+        asked.put("given", Map.of("the-issue.md", "# The issue\n"));
+
+        final org.fuin.porelo.app.TaskLaunch.Request reading = PoreloDaemon.request(asked, context);
+
+        assertThat(reading.readOnly()).isTrue();
+        assertThat(reading.given()).containsExactly(Map.entry("the-issue.md", "# The issue\n"));
+        asked.put("given", Map.of("the-issue.md", 7));
+        assertThatThrownBy(() -> PoreloDaemon.request(asked, context))
+                .as("a file's text is text")
+                .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkException.class);
+    }
+
     private static Set<String> names(final String kind, final String idl) {
         final Set<String> names = new TreeSet<>();
         final Matcher matcher =

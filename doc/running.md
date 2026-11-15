@@ -523,6 +523,66 @@ What was taken outlives the container and the task's removal, so a person or an 
 reads it through the daemon's `Result` afterwards. The next start of the task forgets it, and so does the next
 creation of its name; `porelo prune` removes one a removed task left.
 
+## A task that only reads, and files it is given
+
+A planning stage that only thinks, such as an analysis or an estimate, runs as a task that reads its project's code,
+reads what its planner gives it, writes one result file, and changes nothing in any repository. The planner, not the
+agent, keeps what it found.
+
+`--read-only` (the daemon's `Start` takes `readOnly`) gives the task the repository `-r` names, to read instead of to
+work on: its main as this machine takes it, under `/workspace/<repository>/`, read only and without `.git`, with that
+repository's own agent, image and egress. It has no gate and nothing it can push, and its end asks nothing about
+work: without `--rm` it is stopped and kept, with its result, until `task remove`. It takes no `--all-repositories`,
+`--branch`, `--from`, `--no-gate` or `--upstream` (exit 64), and comes back only as it was made. `--all-repositories`
+is the same for every repository of the project.
+
+`--given <name>=<file>` (the daemon's `Start` takes `given`, file name to text) gives the task a file to read at
+`/run/porelo/given/<name>`, read only, such as the issue as the planner holds it now: one file per issue, named
+`<id>.md`. The name is one file's, as a result file's is; at most 16 files, each at most 1 MiB of UTF-8 text, and all
+of them, written as JSON, under the 4 MiB one daemon message carries; anything else is refused before anything is made
+(exit 64). The host keeps them owner-only and forgets them when the task is removed or its name made anew; a task
+brought back keeps them, and refuses `--given`. Porelo never reads what they hold, nor what a result file holds:
+`analysis.json` and `estimate.json` are the planner's to check. A start on a host (`--host`) takes no `--given`, since
+a file's text goes there only on the start's input, never as arguments, and a task's own MCP start offers neither
+option.
+
+The guide of a task that reads one repository, hands back `NAME` and was given `FILE` ends with these parts:
+
+```
+
+# This task reads one repository
+
+`/workspace` holds the one repository this task reads, as its main stood when the task
+started. It is read only: nothing in it can be changed.
+
+**Nothing in `/workspace` is pushed**, and this task has no gate: what is said above about
+pushing does not apply here.
+
+- `/workspace/REPOSITORY/`
+
+# The file this task hands back
+
+When this task ends, Porelo takes **`NAME`** from `/run/porelo/result/` and hands it to whoever
+started the task: when you declare your work done, and when your run ends. Write it there,
+whole, as UTF-8 text of at most 1 MiB, readable by others (mode 644). A link, a directory,
+anything larger or anything that is not text is not taken. Only this one file is.
+
+**Your whole work is `NAME`.** This task's repositories are read only, and
+nothing in them is committed, pushed or reviewed: what you would change there is not
+kept. Write what you found into that file alone. Never edit `issues/` or any other
+file of the repositories to record it.
+
+# The files this task was given
+
+Whoever started this task gave it these files to read, read only. Each is the
+current text, newer than any copy of the same file under `/workspace/`: where the
+two differ, this one holds.
+
+- `/run/porelo/given/FILE`
+```
+
+A task that reads every repository and hands back a file is told the same of its result file.
+
 ## A task's MCP endpoint in its guide
 
 A task whose project gives it an [MCP endpoint](project-file.md#a-tasks-mcp-endpoint) is told so in its guide, in a

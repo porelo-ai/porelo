@@ -125,6 +125,69 @@ class TaskGuideTest {
     }
 
     @Test
+    void aReadOnlyTaskWithAResultIsToldTheResultFileIsItsWholeWorkAndNamesNoPush() {
+        final String text =
+                TaskGuideText.text(
+                        true,
+                        java.util.Map.of(),
+                        new TaskGuideText.Reading(List.of("backend"), true),
+                        "analysis.json",
+                        List.of(),
+                        null);
+
+        final String own = text.substring(TaskGuideText.text(true).length());
+        assertThat(text).startsWith(TaskGuideText.text(true));
+        assertThat(own)
+                .contains("This task reads one repository")
+                .doesNotContain("whole project")
+                .contains("`/workspace/backend/`")
+                .contains("Your whole work is `analysis.json`")
+                .contains("nothing in them is committed, pushed or reviewed")
+                .contains("Never edit `issues/`")
+                .doesNotContain("git push");
+        assertThat(
+                        TaskGuideText.text(
+                                true,
+                                java.util.Map.of(),
+                                new TaskGuideText.Reading(List.of("back", "shop"), false),
+                                "estimate.json",
+                                List.of(),
+                                null))
+                .as("a task that reads its whole project is told the same of its result")
+                .contains("Your whole work is `estimate.json`");
+        assertThat(TaskGuideText.text(true, java.util.Map.of(), null, "idea.json"))
+                .as("a task that works on its repository hands its file back beside its work")
+                .doesNotContain("whole work");
+    }
+
+    @Test
+    void aTaskGivenFilesIsToldEachAndThatTheyAreNewerThanItsWorkspacesCopy() {
+        final String text =
+                TaskGuideText.text(
+                        true,
+                        java.util.Map.of(),
+                        new TaskGuideText.Reading(List.of("backend"), true),
+                        "analysis.json",
+                        List.of("the-issue.md"),
+                        null);
+
+        assertThat(text.substring(TaskGuideText.text(true).length()))
+                .contains("`/run/porelo/given/the-issue.md`")
+                .contains("current text")
+                .contains("newer than any copy of the same file under `/workspace/`");
+        assertThat(
+                        TaskGuideText.text(
+                                true,
+                                java.util.Map.of(),
+                                new TaskGuideText.Reading(List.of("backend"), true),
+                                "analysis.json",
+                                List.of(),
+                                null))
+                .as("a task given nothing is told of no files")
+                .doesNotContain("/run/porelo/given");
+    }
+
+    @Test
     void aTaskWhoseEndpointCarriesProposeIdeaIsToldHowToProposeOneWithinItsBound() {
 
         // An agent of a task with an endpoint carrying ProposeIdea and limits.ideas 1 wrote its
@@ -282,6 +345,25 @@ class TaskGuideTest {
             assertThat(documented)
                     .as("doc/running.md")
                     .contains(line.startsWith("#") ? "#" + line : line);
+        }
+    }
+
+    @Test
+    @Tag("documents")
+    void theUserDocumentationShowsTheReadOnlyAndGivenPartsWordForWord() throws IOException {
+        final String documented = Files.readString(Path.of("..", "..", "doc", "running.md"));
+        final String part =
+                TaskGuideText.text(
+                                false,
+                                java.util.Map.of(),
+                                new TaskGuideText.Reading(List.of("REPOSITORY"), true),
+                                "NAME",
+                                List.of("FILE"),
+                                null)
+                        .substring(TaskGuideText.text(false).length());
+
+        for (final String line : part.split("\n")) {
+            assertThat(documented).as("doc/running.md").contains(line);
         }
     }
 

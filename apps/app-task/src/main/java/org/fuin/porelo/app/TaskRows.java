@@ -103,7 +103,9 @@ final class TaskRows {
                 // from the container name would follow a rule that has changed before.
                 within,
                 ended(row.get("ended")),
-                null);
+                null,
+                // Absent from an older daemon, which is no task that only reads.
+                flag(row, "readOnly"));
     }
 
     private static TaskInventory.@Nullable Ended ended(final @Nullable Object value) {

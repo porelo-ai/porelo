@@ -54,6 +54,7 @@ See [the firewall](security.md) and [DNS](security.md) for how this is enforced.
 | A guarded task's builds on a host | When the host names them for the project, the host reads its own forge and hands only build verdicts and failed-job logs into `/porelo/files`. The forge credential stays on the host; this opens no task egress | control |
 | The workspace's `.git/hooks` and `.git/config` | Stay inside the container, where no host-side `git` runs them | control |
 | Additional TLS trust | Only the host authority explicitly placed in the account's owner-only `task-ca-certificates.pem` is copied into a task, read-only; the host clients' `ca-certificates.pem` stays on the host. The system store and Node gain that trust; egress rules still bound the destinations | control |
+| Files a task is given | Only for a task started with `--given`: at most 16 files, each at most 1048576 bytes of UTF-8 text under a name with no directory part, and all of them as JSON under 4194304 bytes, checked before anything is made. The host writes them owner-only, outside every other task mount, and mounts the files alone read only at `/run/porelo/given/`; a task's own MCP start offers none. Forgotten when the task is removed or a new task of its name is made | control |
 
 Through a declared MCP `Arrivals` method, a task can read its own project's published arrival ledger.
 The daemon checks and bounds the snapshot as described under [host arrivals](hosts.md#reading-a-repositorys-arrivals).

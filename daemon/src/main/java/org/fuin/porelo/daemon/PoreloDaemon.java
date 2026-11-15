@@ -900,7 +900,39 @@ public final class PoreloDaemon {
                 allRepositories,
                 org.fuin.porelo.app.TaskWork.of(parameters.get("work")),
                 // Refused by the launch with exitCode 64 when it is no file's name.
-                resultName(parameters));
+                resultName(parameters),
+                flag(parameters, "readOnly"),
+                // Refused by the launch with exitCode 64 past its bounds, as the name above.
+                givenFiles(parameters));
+    }
+
+    /**
+     * The files a start gives its task: a map of strings to strings or nothing, never another
+     * value.
+     *
+     * @param parameters The call's parameters.
+     * @return File name to text, in the order sent; empty when none are given.
+     */
+    static Map<String, String> givenFiles(Map<String, Object> parameters) {
+        final Object value = parameters.get("given");
+        if (value == null) {
+            return Map.of();
+        }
+        final VarlinkException invalid =
+                new VarlinkException(
+                        "org.varlink.service.InvalidParameter", Map.of("parameter", "given"));
+        if (!(value instanceof Map<?, ?> files)) {
+            throw invalid;
+        }
+        final Map<String, String> given = new java.util.LinkedHashMap<>();
+        for (final Map.Entry<?, ?> each : files.entrySet()) {
+            if (!(each.getKey() instanceof String name)
+                    || !(each.getValue() instanceof String text)) {
+                throw invalid;
+            }
+            given.put(name, text);
+        }
+        return given;
     }
 
     /** The name of the file a start hands back: a string or nothing, never another value. */

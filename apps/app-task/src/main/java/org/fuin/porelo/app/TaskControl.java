@@ -423,6 +423,7 @@ public final class TaskControl {
                         () -> new Mailbox(context.paths().messaging().mailbox(container)).delete(),
                         () -> new TaskGuide(context.paths(), container).delete(),
                         () -> new TaskRepositories(context.paths(), container).delete(),
+                        () -> new TaskGiven(context.paths()).forget(container),
                         more)) {
             try {
                 deletion.run();

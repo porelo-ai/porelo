@@ -142,18 +142,29 @@ public record TaskResult(PoreloPaths paths) {
      * @return The refusal, a sentence; {@code null} for a name that is one file's.
      */
     public static @Nullable String refusal(final @Nullable String name) {
-        if (name == null) return null;
-        if (name.isEmpty()) return "a result file needs a name";
+        return name == null ? null : refusal(name, "a result file");
+    }
+
+    /**
+     * Says why a name cannot be one file's in a directory a task is given, or {@code null} when it
+     * can: what a result file's name is held to, for any file of a task's.
+     *
+     * @param name The name.
+     * @param what What the file is, as a sentence names it, such as "a given file".
+     * @return The refusal, a sentence; {@code null} for a name that is one file's.
+     */
+    static @Nullable String refusal(final String name, final String what) {
+        if (name.isEmpty()) return what + " needs a name";
         if (name.equals(".") || name.equals("..")) return "'" + name + "' names no file";
-        if (name.contains("/")) return "a result file is named without a directory";
+        if (name.contains("/")) return what + " is named without a directory";
         if (name.codePoints().anyMatch(Character::isISOControl)) {
-            return "a result file's name holds no control character";
+            return what + "'s name holds no control character";
         }
         if (!StandardCharsets.UTF_8.newEncoder().canEncode(name)) {
-            return "a result file's name is UTF-8 text";
+            return what + "'s name is UTF-8 text";
         }
         if (name.getBytes(StandardCharsets.UTF_8).length > MOST_NAME) {
-            return "a result file's name has at most " + MOST_NAME + " bytes";
+            return what + "'s name has at most " + MOST_NAME + " bytes";
         }
         return null;
     }

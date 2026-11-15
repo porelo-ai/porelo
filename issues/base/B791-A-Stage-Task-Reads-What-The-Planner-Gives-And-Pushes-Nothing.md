@@ -88,3 +88,25 @@ result file is its whole work.
 - The red-first tests pass, each seen red first.
 - On the rented host, an In-analysis task started by the window reads the issue it was given, writes
   `analysis.json`, ends, and no commit or pull request appears on any forge.
+
+## As built
+
+- Contract first, handed over locally to the window and the planner: `Start.readOnly`, `Start.given`, the same two on
+  `CanStart`, `StartOutcome` `READ_ONLY_REFUSED` and `GIVEN_REFUSED`, and `Task.readOnly` (true for `allRepositories`
+  too).
+- `TaskGiven` (app-base) keeps the given files owner-only beside the result record; `TaskRunner` mounts them read
+  only at `/run/porelo/given/`. `TaskResult`'s name rule is shared by both.
+- `TaskRepositories` knows two read-only kinds, all repositories and one; `WorkspaceSetup.readAll` reads a list of
+  repositories, so the one-repository kind reuses the all-repositories machinery with its own repository's agent,
+  image and egress. `TaskLaunch` refuses both kinds beside the options they cannot take, and a task brought back
+  only as the kind it was made (`otherKind`).
+- `TaskGuideText`: a read-only task with a result is told the file is its whole work, with no commit, push or edit
+  of `issues/`; a task with given files is told they are the current text.
+- `porelo task start --read-only` and `--given <name>=<file>`; the daemon's `Start` and `CanStart`; not offered
+  through a task's MCP start (`McpTaskSockets`).
+- Plan changed on two points: a remote start (`--host`) refuses `--given` with 64, as carrying the files on the
+  input would share it with the certificate exchange; a task brought back refuses any `given`, not only other files.
+- `doc/running.md`, `doc/commands.md`, `doc/reach.md` (a new row), a changelog entry under *added*.
+- Red first: `TaskGivenTest` (12, against stubs), `StartCheckTest`, `TaskGuideTest`, `TaskRunCommandTest` (12, e.g.
+  a read-only start on another repository with no read-only workspace mount), `McpTaskSocketsTest`, `TaskRowsTest`,
+  and the doc test.

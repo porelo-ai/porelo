@@ -1072,6 +1072,8 @@ public final class TaskReservations {
                 paths.tasks().sessionRecord(container),
                 paths.tasks().guide(container),
                 paths.tasks().repositories(container),
+                paths.tasks().readOnly(container),
+                paths.tasks().given(container),
                 paths.tasks().usageRecord(container),
                 paths.tasks().clearanceJournal(container),
                 paths.xdg().state().resolve("hand-ins").resolve(container + ".jsonl"),

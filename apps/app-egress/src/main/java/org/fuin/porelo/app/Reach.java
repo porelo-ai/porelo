@@ -417,6 +417,23 @@ public final class Reach {
                                 + " destinations",
                         Kind.CONTROL),
                 new Row(
+                        Part.HOLD,
+                        "Files a task is given",
+                        "Only for a task started with `--given`: at most "
+                                + TaskGiven.MOST_FILES
+                                + " files, each at most "
+                                + TaskGiven.MOST
+                                + " bytes of UTF-8 text under a name with no directory part, and all"
+                                + " of them as JSON under "
+                                + org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE
+                                + " bytes, checked before anything is made. The host writes them"
+                                + " owner-only, outside every other task mount, and mounts the files"
+                                + " alone read only at `"
+                                + TaskGiven.MOUNT
+                                + "/`; a task's own MCP start offers none. Forgotten when the task is"
+                                + " removed or a new task of its name is made",
+                        Kind.CONTROL),
+                new Row(
                         Part.SPEND,
                         "A task's CPU",
                         "**"

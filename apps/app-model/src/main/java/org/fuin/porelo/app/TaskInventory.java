@@ -99,6 +99,8 @@ public final class TaskInventory {
      *     null} for a legacy snapshot.
      * @param ended How the work ended, or {@code null} when nothing declared or derived it.
      * @param result What was taken of the file it hands back, or {@code null} when nothing was.
+     * @param readOnly Whether it only reads: made read only on its repository, or to read every
+     *     repository of its project.
      */
     public record Task(
             String name,
@@ -141,7 +143,96 @@ public final class TaskInventory {
             @Nullable String named,
             @Nullable String logicalTask,
             @Nullable Ended ended,
-            TaskResult.@Nullable Taken result) {
+            TaskResult.@Nullable Taken result,
+            boolean readOnly) {
+
+        /** A snapshot made before a task that only reads was told apart. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters,
+                String phase,
+                String lastWrote,
+                int inboxWaiting,
+                @Nullable String forgeBranch,
+                boolean certified,
+                String certifiedUntil,
+                String model,
+                String modelLabel,
+                String modelFrom,
+                @Nullable String named,
+                @Nullable String logicalTask,
+                @Nullable Ended ended,
+                TaskResult.@Nullable Taken result) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    phase,
+                    lastWrote,
+                    inboxWaiting,
+                    forgeBranch,
+                    certified,
+                    certifiedUntil,
+                    model,
+                    modelLabel,
+                    modelFrom,
+                    named,
+                    logicalTask,
+                    ended,
+                    result,
+                    false);
+        }
 
         /** A snapshot made before the file a task hands back was carried. */
         public Task(
@@ -1228,6 +1319,7 @@ public final class TaskInventory {
             if (result != null) {
                 map.put("result", result.asMap());
             }
+            map.put("readOnly", readOnly);
             map.put("waitingFor", waitingFor == null ? "" : waitingFor);
             map.put("clearance", clearance == null ? "" : clearance);
             // Beside the name, never instead of it: the name is what every other call takes and
@@ -1973,7 +2065,9 @@ public final class TaskInventory {
                 profile == null ? null : profile.named(),
                 logicalTask(summary),
                 ended(declared, ended),
-                resultOf(summary.name(), ended != null || stoppedAfterRunning(summary)));
+                resultOf(summary.name(), ended != null || stoppedAfterRunning(summary)),
+                // What it reads is there from before its container until its removal.
+                new TaskRepositories(context.paths(), summary.name()).exists());
     }
 
     /**

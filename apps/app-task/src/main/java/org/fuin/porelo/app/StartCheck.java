@@ -169,6 +169,15 @@ public final class StartCheck {
         ALL_REPOSITORIES_REFUSED,
 
         /**
+         * A start that reads its one repository was asked beside an option it cannot go with.
+         * {@code detail} names them, in the words Start refuses with.
+         */
+        READ_ONLY_REFUSED,
+
+        /** The files a start would be given are refused. {@code detail} says why, as Start does. */
+        GIVEN_REFUSED,
+
+        /**
          * The project file asks the task's agent for more subagents at the same time than its
          * definition says it can enforce. {@code detail} names the agent and where the number came
          * from, in the words Start refuses with.
@@ -777,6 +786,87 @@ public final class StartCheck {
     }
 
     /**
+     * Settles everything a start would, a start on its one repository read only and the files it is
+     * given among them.
+     *
+     * @param context Where the machine's state comes from.
+     * @param projectFile The project file, or {@code null}.
+     * @param taskName The task's name, or {@code null}.
+     * @param agentName Agent to run, or {@code null} for the only one installed.
+     * @param providerName Provider to route through, or {@code null}.
+     * @param credentialType Overrides the stored credential kind, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @param needsRepository Whether this run would have a gate at all: {@code false} for {@code
+     *     noGate}.
+     * @param credentials The credentials the run adds.
+     * @param parameters The values the start hands in, each with where it came from.
+     * @param branch The branch named outright, or {@code null} for the one the scheme makes.
+     * @param shortName The optional container spelling, or {@code null}.
+     * @param allRepositories Whether the task would read every repository of the project.
+     * @param work The issue and phase the task would work on, or {@code null} when none is given.
+     * @param readOnly Whether the task would read its one repository.
+     * @param given The files the task would be given, by name.
+     * @return What was found.
+     */
+    public static Result check(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch,
+            @Nullable String shortName,
+            boolean allRepositories,
+            @Nullable TaskWork work,
+            boolean readOnly,
+            Map<String, String> given) {
+        final String givenRefused = TaskGiven.refusal(given);
+        if (givenRefused != null) {
+            return refused(Outcome.GIVEN_REFUSED, "--given: " + givenRefused);
+        }
+        if (readOnly) {
+            final String workRefused = work == null ? null : work.refusal();
+            if (workRefused != null) {
+                return refused(Outcome.WORK_REFUSED, workRefused);
+            }
+            return readOnly(
+                    context,
+                    projectFile,
+                    taskName,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    repository,
+                    needsRepository,
+                    credentials,
+                    parameters,
+                    branch,
+                    shortName,
+                    allRepositories);
+        }
+        return check(
+                context,
+                projectFile,
+                taskName,
+                agentName,
+                providerName,
+                credentialType,
+                repository,
+                needsRepository,
+                credentials,
+                parameters,
+                branch,
+                shortName,
+                allRepositories,
+                work);
+    }
+
+    /**
      * Settles everything a start would, a start that reads every repository among them.
      *
      * @param context Where the machine's state comes from.
@@ -859,6 +949,54 @@ public final class StartCheck {
         // Its settings are its own repository's, as Start takes them: asked with none named, the
         // signature and the image this machine has not allowed were never asked about.
         return withSettings(context, ungated, projectFile, ownRepositoryName(projectFile));
+    }
+
+    /** Settles a start on its one repository read only, as Start settles it. */
+    private static Result readOnly(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch,
+            @Nullable String shortName,
+            boolean allRepositories) {
+        // From the options alone, as Start refuses them, before anything is read.
+        final java.util.List<String> named = new java.util.ArrayList<>();
+        if (allRepositories) {
+            named.add("--all-repositories");
+        }
+        if (branch != null) {
+            named.add("--branch");
+        }
+        if (!needsRepository) {
+            named.add("--no-gate");
+        }
+        if (!named.isEmpty()) {
+            return refused(Outcome.READ_ONLY_REFUSED, TaskLaunch.readOnlyBeside(named));
+        }
+        // Its repository is named as for any start: asked as one with a gate, an unnamed one is
+        // NO_REPOSITORY_CHOSEN naming the choices. Named, the rest is answered as for a start on
+        // it without a gate, with that repository's agent, image and egress.
+        final boolean chosen = repository != null && !repository.isBlank();
+        return check(
+                context,
+                projectFile,
+                taskName,
+                agentName,
+                providerName,
+                credentialType,
+                repository,
+                !chosen,
+                credentials,
+                parameters,
+                null,
+                shortName);
     }
 
     /**

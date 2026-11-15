@@ -274,6 +274,25 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean allRepositories;
 
     @Option(
+            names = "--read-only",
+            description =
+                    "Gives the task its one repository to read instead of to work on: its main as"
+                            + " this machine takes it, under /workspace/<repository>/, read only and"
+                            + " without .git, with the repository's own agent, image and egress. No"
+                            + " gate, nothing pushed; at its end the task is stopped and kept, or"
+                            + " removed with --rm.")
+    private boolean readOnly;
+
+    @Option(
+            names = "--given",
+            paramLabel = "<name>=<file>",
+            description =
+                    "Gives the task a file to read under /run/porelo/given/<name>, read only: the"
+                            + " UTF-8 text of <file> on this machine, such as an issue as its"
+                            + " planner holds it now. At most 16, each at most 1 MiB.")
+    private java.util.List<String> givenFiles = new java.util.ArrayList<>();
+
+    @Option(
             names = "--result",
             paramLabel = "<file>",
             description =
@@ -477,6 +496,52 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     }
 
     /**
+     * Reads the files {@code --given} names, each {@code <name>=<file>}, as UTF-8 text, and checks
+     * them as the launch does.
+     *
+     * @param into Where each is put, by its name, in the order given.
+     * @return Why they cannot be given, or {@code null}.
+     */
+    private @Nullable String readGiven(final java.util.Map<String, String> into) {
+        for (final String each : givenFiles) {
+            final int at = each.indexOf('=');
+            if (at <= 0 || at == each.length() - 1) {
+                return "takes <name>=<file>, not '" + each + "'";
+            }
+            final String name = each.substring(0, at);
+            final java.nio.file.Path file = java.nio.file.Path.of(each.substring(at + 1));
+            if (into.containsKey(name)) {
+                return "'" + name + "' is given twice";
+            }
+            if (!java.nio.file.Files.isRegularFile(file)) {
+                return file + " is no file to read";
+            }
+            final byte[] bytes;
+            try (java.io.InputStream input = java.nio.file.Files.newInputStream(file)) {
+                bytes = input.readNBytes(TaskGiven.MOST + 1);
+            } catch (java.io.IOException ex) {
+                return file + " cannot be read: " + ex.getMessage();
+            }
+            if (bytes.length > TaskGiven.MOST) {
+                return "'" + name + "' is more than the 1 MiB a given file may have";
+            }
+            try {
+                into.put(
+                        name,
+                        java.nio.charset.StandardCharsets.UTF_8
+                                .newDecoder()
+                                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                                .decode(java.nio.ByteBuffer.wrap(bytes))
+                                .toString());
+            } catch (java.nio.charset.CharacterCodingException ex) {
+                return "'" + name + "' is not UTF-8 text";
+            }
+        }
+        return TaskGiven.refusal(into);
+    }
+
+    /**
      * Starts the task on a host, by the same arguments less {@code --host}, certified here.
      *
      * @param out Where the host's output goes.
@@ -563,6 +628,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
         if (!setFiles.isEmpty()) {
             return "--host does not take --set-file: the host would read it from its own files";
+        }
+        if (!givenFiles.isEmpty()) {
+            return "--host does not take --given: the host would read it from its own files, and"
+                    + " a file's text goes to a host on a start's input, never as arguments";
         }
         if (setEnv || sets.stream().anyMatch(each -> !each.contains("="))) {
             return "--host takes --set NAME=VALUE only: the host's environment is not this shell's";
@@ -829,6 +898,22 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
 
+        if (readOnly) {
+            // Before anything is asked or read, as the launch refuses them: each of these is a
+            // gate, a branch or every repository, and a task that reads its one has none of them.
+            final java.util.List<String> named = new java.util.ArrayList<>();
+            if (allRepositories) named.add("--all-repositories");
+            if (branch != null) named.add("--branch");
+            if (from != null) named.add("--from");
+            if (noGate) named.add("--no-gate");
+            if (upstream != null) named.add("--upstream");
+            if (!named.isEmpty()) {
+                err.println("porelo: " + TaskLaunch.readOnlyBeside(named));
+                err.flush();
+                return 64;
+            }
+        }
+
         if (allRepositories) {
             // Before anything is asked or read: each of these names one repository or its gate,
             // and a task that reads them all has neither.
@@ -848,6 +933,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         // Before --restarted: a start meant for a host never restarts this machine's tasks.
         if (host != null) {
             return onHost(out, err);
+        }
+        final java.util.Map<String, String> givenRead = new java.util.LinkedHashMap<>();
+        final String givenRefused = readGiven(givenRead);
+        if (givenRefused != null) {
+            err.println("porelo: --given: " + givenRefused);
+            err.flush();
+            return 64;
         }
         if (restarted) {
             return restarted(out, err);
@@ -1137,7 +1229,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         shortName,
                                         allRepositories,
                                         work == null ? null : TaskWork.parse(work),
-                                        result),
+                                        result,
+                                        readOnly,
+                                        givenRead),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
@@ -1770,6 +1864,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--upstream",
                     "--no-gate",
                     "--all-repositories",
+                    "--read-only",
+                    "--given",
                     "--clearance",
                     "--raw",
                     "--detach",

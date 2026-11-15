@@ -482,6 +482,7 @@ public final class Prune {
                             mailbox.delete();
                             new TaskGuide(context.paths(), container).delete();
                             new TaskRepositories(context.paths(), container).delete();
+                            new TaskGiven(context.paths()).forget(container);
                             new TaskResult(context.paths()).forget(container);
                             reservations.retire(container);
                             return Boolean.TRUE;

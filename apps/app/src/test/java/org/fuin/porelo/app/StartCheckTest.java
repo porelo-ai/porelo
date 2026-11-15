@@ -101,6 +101,130 @@ class StartCheckTest {
                 true);
     }
 
+    private static StartCheck.Result readOnly(
+            PoreloContext context,
+            Path project,
+            String repository,
+            boolean noGate,
+            String branch,
+            boolean allRepositories,
+            java.util.Map<String, String> given) {
+        return StartCheck.check(
+                context,
+                project,
+                null,
+                null,
+                null,
+                null,
+                repository,
+                !noGate,
+                java.util.Map.of(),
+                java.util.Map.of(),
+                branch,
+                null,
+                allRepositories,
+                null,
+                true,
+                given);
+    }
+
+    @Test
+    void readingOneRepositoryIsRefusedBesideWhatCannotGoWithItAndNeedsItNamed(@TempDir Path dir)
+            throws Exception {
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
+                        + "repositories:\n  backend:\n");
+
+        final StartCheck.Result beside =
+                readOnly(
+                        context(dir),
+                        project,
+                        "backend",
+                        true,
+                        "porelo/reading",
+                        false,
+                        java.util.Map.of());
+        assertThat(beside.outcome()).isEqualTo(StartCheck.Outcome.READ_ONLY_REFUSED);
+        assertThat(beside.detail())
+                .isEqualTo(TaskLaunch.readOnlyBeside(java.util.List.of("--branch", "--no-gate")));
+        assertThat(
+                        readOnly(context(dir), project, null, false, null, true, java.util.Map.of())
+                                .outcome())
+                .isEqualTo(StartCheck.Outcome.READ_ONLY_REFUSED);
+
+        assertThat(
+                        readOnly(
+                                        context(dir),
+                                        project,
+                                        null,
+                                        false,
+                                        null,
+                                        false,
+                                        java.util.Map.of())
+                                .outcome())
+                .as("its one repository is named, as for any start: answered as a start is")
+                .isEqualTo(
+                        StartCheck.check(
+                                        context(dir),
+                                        project,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        true,
+                                        java.util.Map.of(),
+                                        java.util.Map.of())
+                                .outcome());
+        assertThat(
+                        readOnly(
+                                        context(dir),
+                                        project,
+                                        "backend",
+                                        false,
+                                        null,
+                                        false,
+                                        java.util.Map.of())
+                                .outcome())
+                .as("named, it needs no gate")
+                .isNotIn(
+                        StartCheck.Outcome.READ_ONLY_REFUSED,
+                        StartCheck.Outcome.NO_REPOSITORY_CHOSEN,
+                        StartCheck.Outcome.UNKNOWN_REPOSITORY);
+    }
+
+    @Test
+    void givenFilesStartRefusesAreRefusedAsItRefusesThem(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
+                        + "repositories:\n  backend:\n");
+
+        final StartCheck.Result refused =
+                readOnly(
+                        context(dir),
+                        project,
+                        "backend",
+                        false,
+                        null,
+                        false,
+                        java.util.Map.of("issues/the-issue.md", "text"));
+
+        assertThat(refused.outcome()).isEqualTo(StartCheck.Outcome.GIVEN_REFUSED);
+        assertThat(refused.detail())
+                .isEqualTo(
+                        "--given: "
+                                + TaskGiven.refusal(
+                                        java.util.Map.of("issues/the-issue.md", "text")));
+    }
+
     @Test
     void readingEveryRepositoryIsRefusedBesideWhatNamesOne(@TempDir Path dir) throws Exception {
         // Answered from the options alone, as Start refuses them before it reads anything.

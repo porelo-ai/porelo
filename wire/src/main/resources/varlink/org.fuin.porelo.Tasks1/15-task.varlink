@@ -288,6 +288,10 @@ type Task (
   # It falls as ideas are taken with TakeIdea. An older daemon omits it, and a client takes that as
   # 0. 0 on a task socket without Logs or Tail.
   ideasHeldBack: ?int,
+  # Whether the task only reads: made with Start's readOnly or allRepositories, its
+  # repositories under /workspace/ read only, with no gate and nothing it can push. false for any
+  # other task. An older daemon omits it, and a client takes that as false.
+  readOnly: ?bool,
   # What it is waiting to be told: a clearance question, or review while its work is on the
   # gate's waiting list. A passed online push supplies no review reason. "" for a stopped task.
   waitingFor: string,
@@ -720,6 +724,18 @@ method Start(
   # repository or noGate for one that reads them all, is refused with exitCode 64. A prompt run
   # ends it the same way, whatever its exit.
   allRepositories: ?bool,
+  # Gives the task its one repository to read instead of to work on: that repository alone, at its
+  # main as this machine takes it, under /workspace/<repository>/, read only and without .git, and
+  # never what tasks pushed for review. Its agent, image and egress are that repository's, as for a
+  # task that works on it; 'repository' names it and is required as it is without readOnly. No gate
+  # and no push target; its end asks nothing about work: without rm it is stopped and kept, with
+  # its Result, until it is removed; with rm it is removed. The repository not readable here
+  # refuses the start (exitCode 69). Refused with exitCode 64 beside allRepositories, branch, from,
+  # noGate or upstream ("--read-only works on one repository read only and with no gate, so it
+  # takes no <options>"). An existing task is brought back only as the kind it was made: readOnly
+  # for a task made otherwise, or allRepositories or noGate for one made readOnly, is refused with
+  # exitCode 64. Not offered through a task's MCP start.
+  readOnly: ?bool,
   # The name of the one file the task hands back at its end: a file name, no directory, at most 255
   # bytes of UTF-8, no control character, never "." or "..". The task finds /run/porelo/result/
   # writable, and is told the name in its guide. At its end the host takes the file from there, at
@@ -728,6 +744,17 @@ method Start(
   # is refused with exitCode 64 before anything is made. A task brought back keeps the name it was
   # made with: another is refused with exitCode 64.
   result: ?string,
+  # Files the task is given to read, file name to UTF-8 text, such as an issue as its planner holds it
+  # now. Each name as 'result' takes one: a file name, no directory, at most 255 bytes of UTF-8, no
+  # control character, never "." or "..". At most 16 files, each at most 1 MiB of UTF-8, and all of
+  # them together, written as JSON, under the 4 MiB one varlink message may carry. Otherwise refused
+  # with exitCode 64 before anything is made ("--given: <why>"), in dryRun too. The host keeps them
+  # where only its account reads them and mounts them read only at /run/porelo/given/, and the
+  # task's guide names them as the current text, newer than any copy under /workspace/. Porelo never
+  # reads what they hold. A task brought back keeps the files it was made with, and a start that
+  # brings it back with given is refused with exitCode 64; a new task of the name has only its
+  # own. Not offered through a task's MCP start.
+  given: ?[string]string,
   # Does everything up to starting the container, then stops and reports. Nothing is created.
   dryRun: ?bool,
   # What to do with a blocked connection: prompt, allow, deny or off. Default: "prompt".
@@ -1092,6 +1119,12 @@ type StartOutcome (
   # allRepositories was asked beside an option that names one repository or its gate: repository,
   # branch or noGate. 'detail' names them, in the words Start refuses with (exitCode 64).
   ALL_REPOSITORIES_REFUSED,
+  # readOnly was asked beside an option it cannot go with: allRepositories, branch or noGate.
+  # 'detail' names them, in the words Start refuses with (exitCode 64).
+  READ_ONLY_REFUSED,
+  # given holds a name that is no file's, more than 16 files, one over 1 MiB, or more than one
+  # message carries. 'detail' says which, in the words Start refuses with (exitCode 64).
+  GIVEN_REFUSED,
   # project.yml's limits.subagents, or the repository's, asks the agent for more subagents at the same
   # time than its definition says it can enforce. 'detail' names the agent and where the number came
   # from, in the words Start refuses with (exitCode 64).
@@ -1180,6 +1213,13 @@ method CanStart(
   # repository can be read is not asked here, since that reaches every upstream: Start names each one
   # it cannot read, and refuses when it can read none.
   allRepositories: ?bool,
+  # Whether the run would read its one repository, as Start takes it. Beside allRepositories, noGate
+  # or branch it is READ_ONLY_REFUSED; otherwise the repository is named as for any start (else
+  # NO_REPOSITORY_CHOSEN), and the rest is answered as for a run on it without a gate.
+  readOnly: ?bool,
+  # The files Start would be given, as it takes them; checked by the same rule, GIVEN_REFUSED
+  # otherwise. Their text is not kept.
+  given: ?[string]string,
   # The task name Start would be given. Omitted, no name is checked. The length rule needs the
   # project, so without one only the characters are.
   task: ?string,

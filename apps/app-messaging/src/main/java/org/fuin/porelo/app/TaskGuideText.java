@@ -95,8 +95,12 @@ public final class TaskGuideText {
         if (result == null) {
             return before;
         }
-        return before
-                + """
+        return before + resultPart(result);
+    }
+
+    /** The part naming the file a task hands back. */
+    private static String resultPart(final String result) {
+        return """
 
                 # The file this task hands back
 
@@ -105,8 +109,101 @@ public final class TaskGuideText {
                 whole, as UTF-8 text of at most 1 MiB, readable by others (mode 644). A link, a directory,
                 anything larger or anything that is not text is not taken. Only this one file is.
                 """
-                        .replace("@FILE@", result)
-                        .replace("@BOX@", TaskResult.MOUNT);
+                .replace("@FILE@", result)
+                .replace("@BOX@", TaskResult.MOUNT);
+    }
+
+    /**
+     * What a task that only reads is given: its repositories, and whether it was made read only on
+     * its one repository rather than to read its whole project.
+     *
+     * @param names The repositories, by name, as they are under {@code /workspace/}.
+     * @param single Whether it was made read only on one repository.
+     */
+    public record Reading(java.util.List<String> names, boolean single) {
+
+        /**
+         * Constructor.
+         *
+         * @param names The repositories.
+         * @param single Whether it is one.
+         */
+        public Reading {
+            names = java.util.List.copyOf(names);
+        }
+    }
+
+    /**
+     * Returns the guide of a task, with what it reads, the file it hands back, the files it was
+     * given and its MCP endpoint, each part after everything every task shares.
+     *
+     * @param mailbox Whether the task has a mailbox, whose guide then follows.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading What it reads, or {@code null} for a task that works on its repository.
+     * @param result The name of the file it hands back, or {@code null} for none.
+     * @param given The names of the files it was given, empty for none.
+     * @param endpoint Its MCP endpoint, or {@code null} for a task that has none.
+     * @return Markdown.
+     */
+    public static String text(
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final @org.jspecify.annotations.Nullable Reading reading,
+            final @org.jspecify.annotations.Nullable String result,
+            final java.util.List<String> given,
+            final @org.jspecify.annotations.Nullable Endpoint endpoint) {
+        final StringBuilder all = new StringBuilder(text(mailbox, values));
+        if (reading != null && reading.single()) {
+            all.append(
+                    """
+
+                    # This task reads one repository
+
+                    `/workspace` holds the one repository this task reads, as its main stood when the task
+                    started. It is read only: nothing in it can be changed.
+
+                    **Nothing in `/workspace` is pushed**, and this task has no gate: what is said above about
+                    pushing does not apply here.
+
+                    """);
+            for (final String name : reading.names()) {
+                all.append("- `/workspace/").append(name).append("/`\n");
+            }
+        } else if (reading != null) {
+            all.append(text(mailbox, values, reading.names()).substring(all.length()));
+        }
+        if (result != null) {
+            all.append(resultPart(result));
+            if (reading != null) {
+                all.append(
+                        """
+
+                        **Your whole work is `@FILE@`.** This task's repositories are read only, and
+                        nothing in them is committed, pushed or reviewed: what you would change there is not
+                        kept. Write what you found into that file alone. Never edit `issues/` or any other
+                        file of the repositories to record it.
+                        """
+                                .replace("@FILE@", result));
+            }
+        }
+        if (!given.isEmpty()) {
+            final StringBuilder part =
+                    new StringBuilder(
+                            """
+
+                            # The files this task was given
+
+                            Whoever started this task gave it these files to read, read only. Each is the
+                            current text, newer than any copy of the same file under `/workspace/`: where the
+                            two differ, this one holds.
+
+                            """);
+            for (final String name : given) {
+                part.append("- `").append(TaskGiven.MOUNT).append('/').append(name).append("`\n");
+            }
+            all.append(part);
+        }
+        return endpoint == null ? all.toString() : all + endpointPart(endpoint);
     }
 
     /**
@@ -165,6 +262,11 @@ public final class TaskGuideText {
         if (endpoint == null) {
             return before;
         }
+        return before + endpointPart(endpoint);
+    }
+
+    /** The part of a task's MCP endpoint. */
+    private static String endpointPart(final Endpoint endpoint) {
         final StringBuilder part =
                 new StringBuilder(
                         """
@@ -244,7 +346,7 @@ public final class TaskGuideText {
                             .replace("@TITLE@", Integer.toString(TaskIdeas.MOST_TITLE))
                             .replace("@TEXT@", Integer.toString(TaskIdeas.MOST_WHAT_MUST_BE_TRUE)));
         }
-        return before + part;
+        return part.toString();
     }
 
     /**
@@ -430,13 +532,45 @@ public final class TaskGuideText {
             final @org.jspecify.annotations.Nullable String result,
             final @org.jspecify.annotations.Nullable Endpoint endpoint)
             throws IOException {
+        write(
+                guide,
+                mailbox,
+                values,
+                reading == null ? null : new Reading(reading, false),
+                result,
+                java.util.List.of(),
+                endpoint);
+    }
+
+    /**
+     * Writes the guide of a task, what it reads and the files it was given among it, into its
+     * directory, made when missing, and only when it changed.
+     *
+     * @param guide Where it goes.
+     * @param mailbox Whether the task has a mailbox.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading What it reads, or {@code null} for a task that works on its repository.
+     * @param result The name of the file it hands back, or {@code null} for none.
+     * @param given The names of the files it was given, empty for none.
+     * @param endpoint Its MCP endpoint, or {@code null} for a task that has none.
+     * @throws IOException Writing failed.
+     */
+    public static void write(
+            final TaskGuide guide,
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final @org.jspecify.annotations.Nullable Reading reading,
+            final @org.jspecify.annotations.Nullable String result,
+            final java.util.List<String> given,
+            final @org.jspecify.annotations.Nullable Endpoint endpoint)
+            throws IOException {
         final Path directory = guide.directory();
         if (Files.isSymbolicLink(directory)) {
             throw new IOException(directory + " is a link; the guide is not written through it");
         }
         Directories.create(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
-        final String text = text(mailbox, values, reading, result, endpoint);
+        final String text = text(mailbox, values, reading, result, given, endpoint);
         final Path file = guide.file();
         if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 && Files.readString(file, StandardCharsets.UTF_8).equals(text)) {
