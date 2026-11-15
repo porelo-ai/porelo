@@ -205,7 +205,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b783"></a>[B783](B783-An-Agent-Signed-In-Through-The-Vault-Says-So.md) | M | - | An agent that drives a provider whose credential the person's vault holds is answered as able to start, signed in through the Porelo-Vault to that provider, not as not signed in, wherever the daemon tells a start's choice what it found | 0 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
@@ -262,6 +261,12 @@ from its side, as *blocked by*.
 | <a id="b751"></a>[B751](B751-Small-Faults-Found-Playing-Stories-On-A-Test-VM.md) | S | - | A forge's refusal reaches the agent without Porelo's internal git command line, an upstream that cannot be reached is said with one full stop, and an unknown option of `task start` answers 64 as other commands do. | 0 |
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
 | <a id="b779"></a>[B779](B779-A-Fixture-Made-Again-Gets-A-Mirror-Of-Its-Own.md) | S | - | The acceptance kit's step that makes a project afresh in a scenario also drops the mirror an earlier scenario left for that project, so no scenario has to remove a mirror by path | 0 |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b783"></a>[B783](B783-An-Agent-Signed-In-Through-The-Vault-Says-So.md) | M | - | An agent that drives a provider whose credential the person's vault holds is answered as able to start, signed in through the Porelo-Vault to that provider, not as not signed in, wherever the daemon tells a start's choice what it found | 0 |
 
 ## Review
 

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B783",
   "title": "An Agent Signed In Through the Vault Says So",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 12,
