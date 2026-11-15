@@ -309,7 +309,6 @@ from its side, as *blocked by*.
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](README.md#b550) | `porelo-host person purge <login> \| restore-runtime`. | - |
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). | - |
 | <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. | - |
-| <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | - | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines. | 0 |
 | <a id="b569"></a>[B569](B569-The-Host-Tool-Tests-Stand-Without-The-Python.md) | M | [B552](README.md#b552) | Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or "the Python" in a test, and a test that only proved the port is removed. | - |
 | <a id="b589"></a>[B589](B589-The-Forge-Knows-The-Key-That-Signed-A-Commit.md) | L | [B550](README.md#b550), [B547](README.md#b547) | Measure certified-signature support first, then register person and task signing keys on their push accounts so the host forge verifies commits. | - |
 | <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | XS | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. The pages say what holds and the risk is accepted (XS); the rule itself is [B743](README.md#b743). | 0 |
@@ -429,6 +428,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b175"></a>B175 | The Profile That May Bind The Socket | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the proposed SELinux domain requires on SELinux machines. |
 | <a id="b782"></a>B782 | A Refused Pull-Request Read Says What It Asked and Got | A refused host review read names the status, the path asked and the cause, a 401 refusing the read and any other error only its repository, whose rows are kept, never ended, until it answers. |
 | <a id="b781"></a>B781 | The Forge Token Command Says a Shut Vault by Its Code | `porelo host forge-token` exits 77 for a shut vault alone, a 77 of its helper becoming 69, and the daemon names it with `--if-forge`. |
 | <a id="b783"></a>B783 | An Agent Signed In Through the Vault Says So | An agent with no sign-in of its own whose provider's credential the vault holds is answered signed in through the Porelo-Vault to that provider, and a shut vault cannot say. |
