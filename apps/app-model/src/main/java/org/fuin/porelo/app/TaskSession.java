@@ -321,6 +321,11 @@ public final class TaskSession {
         if (definition == null) {
             return null;
         }
+        // Before anything is asked of the container: an agent updated since may no longer take it.
+        final String gone = effortGone(container, definition, profile.effort());
+        if (gone != null) {
+            throw new EffortRefusal(gone);
+        }
         // Before its opening text is taken: a refused start leaves it for the next.
         final AgentBinary.Pinned binary =
                 switch (AgentBinary.check(context.podman(), container, definition)) {
@@ -417,6 +422,56 @@ public final class TaskSession {
 
     private Path openingFile(final String container) {
         return context.paths().tasks().containerState(container).resolve(OPENING);
+    }
+
+    /**
+     * Says why a task's recorded reasoning effort cannot be handed to its agent now, if it cannot:
+     * the agent was updated and no longer lists it. A task keeps its effort, so the way on is a new
+     * task.
+     *
+     * @param container The task's container.
+     * @param definition Its agent, as installed now.
+     * @param recorded The effort it was started with, or {@code null} for none.
+     * @return The refusal, or {@code null} when it has none or the agent still takes it.
+     */
+    public static @Nullable String effortGone(
+            String container, AgentDefinition definition, @Nullable String recorded) {
+        if (recorded == null || definition.effort().values().contains(recorded)) {
+            return null;
+        }
+        return container
+                + " was started with effort '"
+                + recorded
+                + "', which "
+                + definition.name()
+                + " no longer takes; it takes "
+                + (definition.effort().values().isEmpty()
+                        ? "no effort"
+                        : String.join(", ", definition.effort().values()))
+                + " now. A task keeps its effort: start a new task to use another";
+    }
+
+    /** A task's recorded effort its agent no longer takes; nothing was started with it. */
+    public static final class EffortRefusal extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Creates the refusal.
+         *
+         * @param said What is said, as {@link #effortGone} words it.
+         */
+        public EffortRefusal(String said) {
+            super(said);
+        }
+
+        /**
+         * Returns what is said.
+         *
+         * @return The sentence.
+         */
+        public String said() {
+            return String.valueOf(getMessage());
+        }
     }
 
     /** Builds an attached agent's command, continuing the recorded session when present. */

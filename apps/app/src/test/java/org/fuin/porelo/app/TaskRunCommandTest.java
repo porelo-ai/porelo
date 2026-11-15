@@ -6494,6 +6494,122 @@ class TaskRunCommandTest {
                 effort);
     }
 
+    /** The preview agent, updated to take only a low effort, and its attended task started high. */
+    private PoreloContext taskWhoseEffortItsAgentNoLongerTakes(Path dir, String state)
+            throws IOException {
+        final PoreloContext context = countingContext(dir);
+        final Path definition = context.paths().xdg().data().resolve("agents/preview.yaml");
+        Files.writeString(
+                definition,
+                Files.readString(definition)
+                        + "effort:\n  arguments: [\"--effort\", \"{effort}\"]\n  values: [low]\n");
+        runner.answering("ps", state);
+        runner.failing("has-session", 1, "");
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "preview",
+                        org.fuin.porelo.wire.TaskMode.AGENT,
+                        "do the work",
+                        null,
+                        "2026-11-14T00:00:00Z",
+                        "deny",
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        org.fuin.porelo.wire.TaskProfile.FROM_AGENT,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "high")
+                .writeTo(
+                        Files.createDirectories(
+                                context.paths().tasks().containerState("porelo-uc-shell")));
+        return context;
+    }
+
+    @Test
+    void aStoppedTaskWhoseAgentNoLongerTakesItsEffortIsNotBroughtBack(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context =
+                taskWhoseEffortItsAgentNoLongerTakes(
+                        dir,
+                        "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+
+        final int code =
+                execute(context, "task", "start", "shell", "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString())
+                .as("names the recorded effort, what the agent takes now and the way on")
+                .contains("was started with effort 'high'")
+                .contains("it takes low now")
+                .contains("start a new task");
+        assertThat(runner.lines())
+                .as("nothing is brought back")
+                .noneMatch(line -> line.contains("podman start"));
+        assertThat(execCalls).as("nothing runs in it").isEmpty();
+    }
+
+    @Test
+    void aTaskWhoseAgentNoLongerTakesItsEffortIsNotGoneIntoWithItsAgent(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = taskWhoseEffortItsAgentNoLongerTakes(dir, RUNNING_SHELL);
+
+        final int started = startAt(context, true, "-p", projectFile(dir, MINIMAL));
+        final String said = err.toString();
+        final int attached = execute(context, "task", "attach", "porelo-uc-shell");
+
+        assertThat(started).as("start at a terminal: %s", said).isEqualTo(64);
+        assertThat(attached).as("attach: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("was started with effort 'high'")
+                .contains("it takes low now");
+        assertThat(execCalls).as("no session is entered").isEmpty();
+    }
+
+    @Test
+    void aLaterRunOfATaskWhoseAgentNoLongerTakesItsEffortRunsNothing(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = taskWhoseEffortItsAgentNoLongerTakes(dir, RUNNING_SHELL);
+        final StringWriter said = new StringWriter();
+
+        final int code =
+                new TaskLaunch(
+                                context,
+                                new TaskLaunch.Request(
+                                        "shell",
+                                        Path.of(projectFile(dir, MINIMAL)),
+                                        null,
+                                        null,
+                                        null,
+                                        8,
+                                        null,
+                                        true,
+                                        false,
+                                        "deny",
+                                        true,
+                                        org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                                        "do the work",
+                                        null,
+                                        null,
+                                        TaskLaunch.DEFAULT_MINUTES))
+                        .runAgentInExisting(
+                                "porelo-uc-shell",
+                                null,
+                                new PrintWriter(said),
+                                new PrintWriter(said));
+
+        assertThat(code).as("%s", said).isEqualTo(TaskLaunch.EFFORT_GONE);
+        assertThat(said.toString()).contains("was started with effort 'high'");
+        assertThat(runner.lines())
+                .as("the agent is not run")
+                .noneMatch(line -> line.contains("podman exec") && line.contains("preview"));
+    }
+
     @Test
     void aStoppedTaskBroughtBackKeepsItsEffortAndRefusesAnother(@TempDir Path dir)
             throws IOException {

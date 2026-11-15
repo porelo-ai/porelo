@@ -233,6 +233,10 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
             err.println("porelo: " + refusal.refused().said());
             err.flush();
             return 70;
+        } catch (TaskSession.EffortRefusal refusal) {
+            err.println("porelo: " + refusal.said());
+            err.flush();
+            return 64;
         }
         final int left =
                 agent != null

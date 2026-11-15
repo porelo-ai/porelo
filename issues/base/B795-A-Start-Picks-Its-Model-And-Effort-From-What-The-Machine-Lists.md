@@ -104,6 +104,10 @@ red with three deliberate breaks):
 - The daemon reads `effort` as a string, else `InvalidParameter`; a task's MCP start may carry it as it carries
   `model`. `Agents` answers `efforts`, `porelo agents --verbose` prints them, `Task.effort` and the run record's
   `effort` say it.
+- A recorded effort the agent no longer lists, after the agent was updated, is checked against its current list
+  before anything runs. Bringing the task back, a later run and an attach are each refused with 64, naming the
+  recorded effort, what the agent takes now, and a new task as the way on (`TaskSession.effortGone`). Red first:
+  the attach ended 70 on an uncaught `AgentException`, the later run threw it, and the bring-back went on to resume.
 - Plan differences: `StartCheck` takes the effort through a scoped value bound by a new `check` overload rather than
   through every overload.
 - Red first:

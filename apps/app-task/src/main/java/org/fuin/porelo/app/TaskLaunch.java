@@ -1213,6 +1213,12 @@ public final class TaskLaunch {
      */
     public static final int NO_AGENT = 69;
 
+    /**
+     * What {@link #runAgentInExisting} answers when the task's recorded effort is one its agent no
+     * longer takes: nothing ran, and the way on is a new task.
+     */
+    public static final int EFFORT_GONE = 64;
+
     /** Exit code of a run whose time limit passed, or whose podman exec failed. */
     static final int TIMED_OUT = 124;
 
@@ -2049,6 +2055,14 @@ public final class TaskLaunch {
                 return new Existing(container, project.name(), 64);
             }
         }
+        // Handed to its agent again from its record, which its agent, updated since, may no longer
+        // take: refused before the task is brought back, since it keeps its effort.
+        final String gone = recordedEffortGone(container);
+        if (gone != null) {
+            err.println("porelo: " + gone);
+            err.flush();
+            return new Existing(container, project.name(), 64);
+        }
         // Handed to its agent again from its record, as its model is: another would change
         // nothing, and say nothing.
         if (request.effort() != null) {
@@ -2312,6 +2326,30 @@ public final class TaskLaunch {
     }
 
     /** Returns what a task's start recorded, from where it runs or else from its durable record. */
+    /**
+     * Says why a task's recorded effort cannot be handed to its agent as installed now, if it
+     * cannot.
+     *
+     * @param container The task's container.
+     * @return The refusal, or {@code null} when it has none, the agent still takes it, or the agent
+     *     is not installed (refused where that is).
+     */
+    private @Nullable String recordedEffortGone(String container) {
+        final org.fuin.porelo.wire.TaskProfile profile = keptProfile(container);
+        if (profile == null || profile.effort() == null || profile.agent() == null) {
+            return null;
+        }
+        try (InstalledAgents agents = context.agents()) {
+            final InstalledAgent agent = agents.find(profile.agent()).orElse(null);
+            return agent == null
+                    ? null
+                    : TaskSession.effortGone(container, agent.definition(), profile.effort());
+        } catch (org.fuin.porelo.agent.api.AgentException ex) {
+            // An agent that cannot be asked is refused where it is started, in its own words.
+            return null;
+        }
+    }
+
     private org.fuin.porelo.wire.@Nullable TaskProfile keptProfile(String container) {
         final org.fuin.porelo.wire.TaskProfile profile =
                 org.fuin.porelo.wire.TaskProfile.readFrom(
@@ -4911,6 +4949,16 @@ public final class TaskLaunch {
             subagents = profile == null ? 0 : profile.subagents();
             runModel = profile == null ? null : profile.model();
             runEffort = profile == null ? null : profile.effort();
+            // Checked against the agent as installed now, before anything runs in the container.
+            final String gone =
+                    selected == null
+                            ? null
+                            : TaskSession.effortGone(container, selected.definition(), runEffort);
+            if (gone != null) {
+                err.println("porelo: " + gone);
+                err.flush();
+                return EFFORT_GONE;
+            }
             // Nothing extra for the exec: a container that exists already carries what it was
             // given.
             final int code =

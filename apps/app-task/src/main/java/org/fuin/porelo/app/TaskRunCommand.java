@@ -1290,7 +1290,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                 (agent, container) -> render(agent, container, out, err),
                                 out,
                                 err);
-                return code == 0 || code == TaskLaunch.NO_AGENT ? code : 70;
+                return code == 0 || code == TaskLaunch.NO_AGENT || code == TaskLaunch.EFFORT_GONE
+                        ? code
+                        : 70;
             }
             if (detach) {
                 return existing.code();
@@ -1303,6 +1305,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 err.println("porelo: " + refusal.refused().said());
                 err.flush();
                 return 70;
+            } catch (TaskSession.EffortRefusal refusal) {
+                err.println("porelo: " + refusal.said());
+                err.flush();
+                return 64;
             }
             final int left =
                     TerminalAttach.run(
