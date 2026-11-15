@@ -11,7 +11,7 @@
   "rank": 9,
   "blockedBy": [],
   "covers": "An agent declares how it takes a reasoning effort and which values, Start takes an effort beside its model, and the daemon lists the models a provider offers on this machine, asked through its broker with the vault's credential, so a window offers both as lists",
-  "openQuestions": 1
+  "openQuestions": 0
 }
 ```
 
@@ -77,10 +77,12 @@ wish to pick model and effort from lists, and Agent Smith's reading that the lis
 - On a machine, the window's Start work offers this machine's models for the task's provider and the agent's efforts,
   and the started task runs with what was picked.
 
-## Open questions
+## Answered questions
 
-1. Which values each installed agent takes for effort, and the flag or config it takes them by, read from each agent's
-   own documentation by its lane; a value list per agent, or one shared list each agent maps.
+Answered: one value list per agent, in the agent's own words, declared by each adapter (Agent Smith, 2026-11-15,
+read from each CLI near its pin: claude and agy `--effort`, codex `-c model_reasoning_effort=`, pi and omp
+`--thinking`); a window offers `Model.efforts` where the list gives them and the agent's values only where it does
+not.
 
 Answered: a project names no default effort beside its model; the work rules' effort is the one (Agent Planner,
 2026-11-15). Whether a person may start a model the rule does not name is the operator's, in the planner's PL156; the

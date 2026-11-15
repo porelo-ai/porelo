@@ -219,6 +219,9 @@ type Task (
   # and the agent runs on its own default. A task started before it was recorded reads "start"
   # where it has a model and "agent" where it has none. "" when nothing recorded the task.
   modelFrom: string,
+  # The reasoning effort its agent was started with, as Start took it: one of the agent's efforts.
+  # Absent when the start named none, and the agent runs on its own. A task brought back keeps it.
+  effort: ?string,
   # How somebody is meant to be involved: SHELL, AGENT or UNATTENDED, spelled as Mode spells
   # them. A string rather than the Mode type because it has a fourth state the type does not: ""
   # for a task started before this field existed, where nothing recorded one and inventing an
@@ -790,6 +793,13 @@ method Start(
   # A client leaves this out to take the default when the person did not choose a model. Sending
   # even that same model explicitly records modelFrom as "start", rather than its file's source.
   model: ?string,
+  # Reasoning effort to start the agent with: one of the values its Agent entry lists in efforts,
+  # handed to it as its definition says. Absent, nothing is passed and the agent runs on its own;
+  # "no effort" has no other spelling. A value the agent does not list, or any for an agent that
+  # lists none, is refused with exitCode 64 before anything is made. A task brought back keeps the
+  # effort it was made with: the same is taken, another is refused with exitCode 64. A client marks
+  # a proposed effort only where the chosen agent lists it.
+  effort: ?string,
   # Turn limit, when the agent declares one. Only for a run: an attended task's session has none.
   maxTurns: ?int,
   # The most subagents the agent may run at the same time inside the task; 0 for none. Default: the
@@ -1130,6 +1140,9 @@ type StartOutcome (
   # given holds a name that is no file's, more than 16 files, one over 1 MiB, or more than one
   # message carries. 'detail' says which, in the words Start refuses with (exitCode 64).
   GIVEN_REFUSED,
+  # effort names a value the agent does not list in its efforts, or the agent lists none. 'detail'
+  # names the agent and the values it takes, in the words Start refuses with (exitCode 64).
+  EFFORT_REFUSED,
   # project.yml's limits.subagents, or the repository's, asks the agent for more subagents at the same
   # time than its definition says it can enforce. 'detail' names the agent and where the number came
   # from, in the words Start refuses with (exitCode 64).
@@ -1225,6 +1238,8 @@ method CanStart(
   # The files Start would be given, as it takes them; checked by the same rule, GIVEN_REFUSED
   # otherwise. Their text is not kept.
   given: ?[string]string,
+  # The effort Start would be given, as it takes it; one the agent does not list is EFFORT_REFUSED.
+  effort: ?string,
   # The task name Start would be given. Omitted, no name is checked. The length rule needs the
   # project, so without one only the characters are.
   task: ?string,
@@ -1738,7 +1753,7 @@ type TaskRecord (
   # Absent for the agent's default; modelFrom as Task.modelFrom.
   model: ?string,
   modelFrom: string,
-  # The reasoning effort; absent until Start has an effort setting.
+  # The reasoning effort, as Task.effort; absent when the start named none.
   effort: ?string,
   # ISO-8601. endedAt and end are absent while it works.
   startedAt: string,

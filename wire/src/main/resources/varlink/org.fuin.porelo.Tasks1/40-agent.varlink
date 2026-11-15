@@ -26,6 +26,10 @@ type Agent (
   # when its own sign-in files were found. A shut vault is CANNOT_SAY, never NOT_SIGNED_IN. A
   # client starting this agent passes foundProvider as the start's provider: it may not be the default.
   foundVia: ?string,
+  # The reasoning efforts this agent takes, in its definition's order, as Start's effort takes them.
+  # Empty for an agent whose definition declares none: it takes no effort. An older daemon omits it,
+  # and a client takes that as empty.
+  efforts: ?[]string,
   # Hosts this agent needs, added to a task's egress on top of the project's own.
   # How this agent logs itself in, as arguments to its own binary, and where that is described.
   #
@@ -165,6 +169,46 @@ type Provider (
   # and sending one as the other fails as an authentication error that looks like a wrong key.
   storeCommand: string
 )
+
+# The models a provider offers this machine, for a person to pick a start's model from.
+#
+# Asked of the provider through the broker with the credential the vault holds for it (Anthropic's
+# and OpenAI's model list, OpenRouter's with each model's parameters), never with a key a caller
+# hands over. Where the provider is the agent's own sign-in, which no key reads, the agent's own
+# list answers, when its definition declares one. Kept on this machine for an hour; 'fresh' asks
+# again. Read-only: it starts nothing and changes no file.
+method Models(
+  # The provider, by the name Providers reports.
+  provider: string,
+  # The agent the task would run, by Agents' name. Needed only where the provider is its own
+  # sign-in; omitted, the provider's own list alone answers.
+  agent: ?string,
+  # Asks the provider now rather than answering what was kept.
+  fresh: ?bool
+) -> (
+  models: []Model,
+  # "provider" when the provider's list answered, "agent" when the agent's own did, "none" when
+  # neither can be asked here (then models is empty, and a client offers the model as text).
+  from: string,
+  # ISO-8601 time the list was read.
+  readAt: string
+)
+
+# One model a provider offers.
+type Model (
+  # The id Start's model takes.
+  id: string,
+  # What a person is shown for it, as the provider names it; the id where it names none.
+  label: string,
+  # The reasoning efforts the provider says the model takes, where it says; absent where it does
+  # not, and a client then offers the agent's efforts.
+  efforts: ?[]string
+)
+
+# The provider was asked and did not answer with a list: refused the credential, unreachable, or an
+# answer that does not read. 'message' says which; the vault's credential never appears in it. Never
+# answered as an empty list, which would read as "this provider offers nothing".
+error ModelsFailed(provider: string, message: string)
 
 # What this machine could install, from its own package source.
 #

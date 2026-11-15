@@ -131,6 +131,12 @@ subagents: count              # optional; off (the default) or count: what the a
 instructions:                 # optional; how the agent takes standing instructions from a file
   arguments: ["--append-system-prompt-file", "{file}"]   # {file} is where the file's path goes
 
+effort:                       # optional; how the agent takes a reasoning effort, and which
+  arguments: ["--effort", "{effort}"]   # {effort} is where the value goes; a config line works
+                                        #     too, e.g. ["-c", "model_reasoning_effort={effort}"]
+  values: [low, medium, high]   # the values it takes, in its own words and order; Start's
+                                #     effort is one of them, absent passes nothing
+
 login:
   arguments: ["auth", "login"]
   flow: paste-code             # optional; paste-code, device-code or loopback
