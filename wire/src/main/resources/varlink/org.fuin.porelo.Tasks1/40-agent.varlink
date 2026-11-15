@@ -21,6 +21,11 @@ type Agent (
   foundProvider: string,
   # The paths found, its command on this account's PATH included.
   foundPaths: []string,
+  # How it was found SIGNED_IN where not by sign-in files of its own: "vault" when the vault
+  # holds the credential a start of it takes, for foundProvider, as the start judges it. Absent
+  # when its own sign-in files were found. A shut vault is CANNOT_SAY, never NOT_SIGNED_IN. A
+  # client starting this agent passes foundProvider as the start's provider: it may not be the default.
+  foundVia: ?string,
   # Hosts this agent needs, added to a task's egress on top of the project's own.
   # How this agent logs itself in, as arguments to its own binary, and where that is described.
   #

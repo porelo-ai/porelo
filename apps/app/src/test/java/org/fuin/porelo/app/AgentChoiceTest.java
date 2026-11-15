@@ -322,6 +322,105 @@ class AgentChoiceTest {
         }
     }
 
+    /** Writes a vault holding these entries and opens it through the keyring, which is returned. */
+    static KernelKeyring openVault(
+            final PoreloContext context, final Map<String, VaultEntry> entries) throws IOException {
+        final char[] passphrase = "made-up-passphrase".toCharArray();
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(entries, passphrase);
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        keyring.store(passphrase);
+        return keyring;
+    }
+
+    @Test
+    void anAgentWithNoSignInOfItsOwnIsSignedInThroughTheVaultHoldingItsProvider(
+            @TempDir final Path dir) throws Exception {
+
+        // Prevents a start's choice offering as not signed in an agent the vault signs in.
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                KernelKeyring.available(), "no kernel keyring here");
+        final PoreloContext context = withProviders(dir);
+        installed(context, "only", NOT_SIGNED_IN);
+        final KernelKeyring keyring =
+                openVault(context, Map.of("alpha", VaultEntry.of("made-up-value")));
+
+        try (InstalledAgents agents = context.agents()) {
+            final AgentChoice.Choice choice =
+                    AgentChoice.considerAgent(context, agents, null, null);
+
+            assertThat(choice.chosen().state())
+                    .as("the vault holds what its start uses, so it is signed in")
+                    .isEqualTo(Finding.SignedIn.SIGNED_IN);
+            assertThat(choice.chosen().throughVault())
+                    .as("signed in by the vault, not by files of its own")
+                    .isTrue();
+            assertThat(choice.provider())
+                    .as("the provider whose credential the vault holds")
+                    .isEqualTo("alpha");
+            assertThat(choice.source())
+                    .as("chosen as the one found signed in")
+                    .isEqualTo(AgentChoice.Source.SIGNED_IN);
+            assertThat(choice.line(dir))
+                    .as("the start's line says where the sign-in is")
+                    .isEqualTo("agent only, signed in through the Porelo-Vault to alpha");
+            assertThat(choice.picked("only"))
+                    .as("the same where a person picked it")
+                    .isEqualTo("agent only, signed in through the Porelo-Vault to alpha");
+        } finally {
+            keyring.forget();
+        }
+    }
+
+    @Test
+    void aShutVaultLeavesAnAgentWithNoSignInOfItsOwnUnknownNeverNotSignedIn(@TempDir final Path dir)
+            throws Exception {
+
+        // Prevents a shut vault, which may hold the credential, being told as "not signed in".
+        final PoreloContext context = withProviders(dir);
+        installed(context, "only", NOT_SIGNED_IN);
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault()
+                .write(
+                        Map.of("alpha", VaultEntry.of("made-up-value")),
+                        "made-up-passphrase".toCharArray());
+
+        try (InstalledAgents agents = context.agents()) {
+            final AgentChoice.Found found =
+                    AgentChoice.considerAgent(context, agents, null, null).chosen();
+
+            assertThat(found.state())
+                    .as("what the shut vault holds cannot be said")
+                    .isEqualTo(Finding.SignedIn.CANNOT_SAY);
+            assertThat(found.throughVault()).as("nothing was read from it").isFalse();
+        }
+    }
+
+    @Test
+    void aVaultHoldingNothingTheAgentCanDriveLeavesItNotSignedIn(@TempDir final Path dir)
+            throws Exception {
+
+        // Prevents an entry for a provider the agent cannot drive passing as its sign-in.
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                KernelKeyring.available(), "no kernel keyring here");
+        final PoreloContext context = withProviders(dir);
+        installed(context, "only", NOT_SIGNED_IN);
+        final KernelKeyring keyring =
+                openVault(context, Map.of("gamma", VaultEntry.of("made-up-value")));
+
+        try (InstalledAgents agents = context.agents()) {
+            final AgentChoice.Found found =
+                    AgentChoice.considerAgent(context, agents, null, null).chosen();
+
+            assertThat(found.state())
+                    .as("the open vault holds nothing its start could use")
+                    .isEqualTo(Finding.SignedIn.NOT_SIGNED_IN);
+            assertThat(found.throughVault()).as("nothing it holds counted").isFalse();
+        } finally {
+            keyring.forget();
+        }
+    }
+
     @Test
     void withNothingHeldTheFirstFoundStays(@TempDir final Path dir) throws Exception {
 
@@ -543,7 +642,15 @@ class AgentChoiceTest {
 
     private static AgentChoice.Found signedIn(final @Nullable String provider) {
         return new AgentChoice.Found(
-                "tool", Finding.SignedIn.SIGNED_IN, true, provider, null, null, List.of(), null);
+                "tool",
+                Finding.SignedIn.SIGNED_IN,
+                true,
+                provider,
+                null,
+                null,
+                List.of(),
+                null,
+                false);
     }
 
     @Test

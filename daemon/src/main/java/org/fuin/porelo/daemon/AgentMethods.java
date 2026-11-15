@@ -61,16 +61,10 @@ final class AgentMethods {
                                                                     agent.name(),
                                                                     agent.definition(),
                                                                     agent.executable());
-                                                    final var finds =
+                                                    found(
+                                                            entry,
                                                             org.fuin.porelo.app.AgentChoice.found(
-                                                                    context, agent);
-                                                    entry.put("found", finds.state().name());
-                                                    entry.put(
-                                                            "foundProvider",
-                                                            finds.provider() == null
-                                                                    ? ""
-                                                                    : finds.provider());
-                                                    entry.put("foundPaths", finds.paths());
+                                                                    context, agent));
                                                     return entry;
                                                 })
                                         .toList();
@@ -246,6 +240,22 @@ final class AgentMethods {
                                                                             one.version()))
                                                     .toList()));
                 });
+    }
+
+    /**
+     * Adds what an agent found of itself to its entry, as the {@code Agents} method answers it.
+     *
+     * @param entry The agent's entry.
+     * @param finds What it found.
+     */
+    static void found(
+            final Map<String, Object> entry, final org.fuin.porelo.app.AgentChoice.Found finds) {
+        entry.put("found", finds.state().name());
+        entry.put("foundProvider", finds.provider() == null ? "" : finds.provider());
+        entry.put("foundPaths", finds.paths());
+        if (finds.throughVault()) {
+            entry.put("foundVia", "vault");
+        }
     }
 
     /**

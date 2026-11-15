@@ -262,12 +262,6 @@ from its side, as *blocked by*.
 | <a id="b756"></a>[B756](B756-A-Cleared-Project-Leaves-No-Task-Records-To-Its-Successor.md) | S | - | A project clear takes the hand-in record, the build record and the handed-back file of each of the project's task names, so a later project of the same name shows none of them as its own. | 0 |
 | <a id="b779"></a>[B779](B779-A-Fixture-Made-Again-Gets-A-Mirror-Of-Its-Own.md) | S | - | The acceptance kit's step that makes a project afresh in a scenario also drops the mirror an earlier scenario left for that project, so no scenario has to remove a mirror by path | 0 |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b783"></a>[B783](B783-An-Agent-Signed-In-Through-The-Vault-Says-So.md) | M | - | An agent that drives a provider whose credential the person's vault holds is answered as able to start, signed in through the Porelo-Vault to that provider, not as not signed in, wherever the daemon tells a start's choice what it found | 0 |
-
 ## Review
 
 | # | Size | Blocked by | What it covers | Open questions |
@@ -291,6 +285,7 @@ from its side, as *blocked by*.
 | <a id="b733"></a>[B733](B733-One-Unverifiable-Task-Refuses-Only-Its-Own-Gate.md) | S | - | A retained task name whose ownership cannot be verified refuses only a lookup of that task, never another task's gate; and a project clear leaves a running task's records whole, so it cannot make one unverifiable. | 0 |
 | <a id="b738"></a>[B738](B738-What-A-Task-Writes-Never-Picks-Its-Next-Agent.md) | M | - | Nothing an agent writes in its task - a binary in $XDG_BIN_HOME, a shell start file, a variable - changes which agent binary or which environment a later start of an agent in that task runs; the start runs the root-owned wrapper by its own path with an environment Porelo sets. | 0 |
 | <a id="b781"></a>[B781](B781-The-Forge-Token-Command-Says-A-Shut-Vault-By-Its-Code.md) | M | - | `porelo host forge-token` exits 77 when the vault is shut, apart from 69 for a missing forge, a refused sudo or a bad answer, and the store command the pull-request read names carries `--if-forge` | 0 |
+| <a id="b783"></a>[B783](B783-An-Agent-Signed-In-Through-The-Vault-Says-So.md) | M | - | An agent that drives a provider whose credential the person's vault holds is answered as able to start, signed in through the Porelo-Vault to that provider, not as not signed in, wherever the daemon tells a start's choice what it found | 0 |
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 0 |
 | <a id="b742"></a>[B742](B742-A-Tasks-Tmux-Server-Starts-Fresh.md) | M | - | No setting an agent leaves in its tmux server (set-environment -g, default-shell, options) reaches the next start, which joins the `porelo` session. | 0 |
 | <a id="b249"></a>[B249](B249-The-Hooks-Run-Dnsmasq-And-Podman-By-A-Fixed-Path.md) | S | - | The resolver hook, the shield's resolver and the doctor's probe take `dnsmasq` by a fixed root-owned path, as [B239](README.md#b239) does `nsenter` and `nft`; `podman` stays called by name | 0 |

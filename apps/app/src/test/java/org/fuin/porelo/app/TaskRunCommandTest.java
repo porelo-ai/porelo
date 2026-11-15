@@ -3079,6 +3079,35 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aDryRunNamesAnAgentSignedInThroughTheVault(@TempDir Path dir) throws IOException {
+
+        // Prevents the start saying "not found signed in" of an agent the vault's credential
+        // serves.
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                org.fuin.porelo.vault.KernelKeyring.available(), "no kernel keyring here");
+        final PoreloContext context = previewContext(dir, true);
+        AgentChoiceTest.provider(context, "alpha", "spoken");
+        AgentChoiceTest.installed(context, "only", AgentChoiceTest.NOT_SIGNED_IN);
+        final org.fuin.porelo.vault.KernelKeyring keyring =
+                AgentChoiceTest.openVault(
+                        context,
+                        java.util.Map.of(
+                                "alpha", org.fuin.porelo.vault.VaultEntry.of("made-up-value")));
+
+        try {
+            final int code =
+                    execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--dry-run");
+
+            assertThat(code).as(err.toString()).isZero();
+            assertThat(out.toString())
+                    .as("the chosen agent's line names the vault and its provider")
+                    .contains("agent only, signed in through the Porelo-Vault to alpha");
+        } finally {
+            keyring.forget();
+        }
+    }
+
+    @Test
     void aDryRunSettlesTheModelForTheProviderTheAgentWasFoundSignedInTo(@TempDir Path dir)
             throws IOException {
 

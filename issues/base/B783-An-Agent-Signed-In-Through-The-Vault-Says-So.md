@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B783",
   "title": "An Agent Signed In Through the Vault Says So",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 12,
@@ -48,13 +48,29 @@ vault holds no credential for the provider's entry), and `AgentSignIns` judges b
   able to start through the vault, with that provider. Fails today with `NOT_SIGNED_IN`.
 - The same with a shut vault: unknown, never not signed in. With an empty vault: not signed in, as today.
 
+## Built
+
+- `AgentChoice.read`: with no finding signed in, `byVault` asks the vault for the start the agent takes by default,
+  then each other provider it can drive, judged by `AgentSignIns.holds` (`SelectedProvider.credentialKey` and
+  `CredentialHeaders.lacking`, moved out of `AgentSignIns.row`, which uses it too). Held: `SIGNED_IN` with that
+  provider and `throughVault`; a shut vault, or one that fails to read: `CANNOT_SAY`; else as before. A start
+  through no provider is not judged. `porelo task start` takes the found provider (`TaskLaunch.foundProvider`), so
+  a held provider that is not the default is the one started.
+- The chosen agent's line: "signed in through the Porelo-Vault to <provider>".
+- `AgentMethods.found`: the `Agents()` reply adds `foundVia: "vault"` in that case only; `40-agent.varlink` says
+  so and that a client passes `foundProvider` as the start's provider. `doc/commands.md`, a changelog entry.
+- Red first: the vault-held and shut-vault choices failed with `NOT_SIGNED_IN`, the dry run's line said "not found
+  signed in", `AgentEntryTest` missed `foundVia`. The empty-vault and own-files tests are guards, green before.
+- Built by a Claude Code sub-agent of Agent Core. Reading (Sonnet, one reading): no red. Fixed: a start through no
+  provider is not judged; a vault that fails to read cannot say; the contract names the provider to pass. Left
+  (yellow): a credential type the provider's route cannot broker is answered signed in and refused at the start
+  (as `AgentSignIns` judged before; the check lives in `app-vault`); an agent with no `config_dir`, or whose
+  adapter fails, stays `CANNOT_SAY` without asking the vault; the vault is read once per agent without a sign-in;
+  `AgentSignInRuns.state` keeps its own copy of the judgment; no test drives a held non-default provider.
+- Frontend's answer to the check: the dialog renders `Agents()`'s `agents[].found`, `foundProvider`, `foundPaths`.
+
 ## Acceptance
 
 - The red-first tests pass, each seen red first.
 - On the rented host, the start dialog offers the agent as signed in through the Porelo-Vault, and a start runs with
   the carried credential.
-
-## To be checked
-
-- Which daemon reply and field the window's "not signed in here" renders (asked of the window's agent), so the plan
-  changes that reply and no other.

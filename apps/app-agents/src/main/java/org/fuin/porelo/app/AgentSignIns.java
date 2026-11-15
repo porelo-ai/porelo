@@ -92,16 +92,31 @@ public final class AgentSignIns {
                 SelectedProvider.credentialKey(stored.keySet(), agent.name(), choice.wanted());
         row.put("credential", credential);
         if (open) {
-            final SelectedProvider selection = choice.selection();
-            final Map<String, String> headers =
-                    selection == null ? Map.of() : selection.definition().credentialHeaders();
-            // As a start judges it: a sign-in lacking what its provider sends beside the token is
-            // refused there, so it is no sign-in here.
-            row.put(
-                    "signed_in",
-                    stored.containsKey(credential)
-                            && CredentialHeaders.lacking(stored.get(credential), headers) == null);
+            row.put("signed_in", holds(stored, agent.name(), choice));
         }
         return row;
+    }
+
+    /**
+     * Says whether the vault holds the credential a start of an agent on a provider looks for.
+     *
+     * @param stored The vault's entries.
+     * @param agentName The agent's own name.
+     * @param choice The provider the start would use, not refused.
+     * @return Whether it holds one the start takes.
+     */
+    static boolean holds(
+            final Map<String, VaultEntry> stored,
+            final String agentName,
+            final SelectedProvider.Choice choice) {
+        final String credential =
+                SelectedProvider.credentialKey(stored.keySet(), agentName, choice.wanted());
+        final SelectedProvider selection = choice.selection();
+        final Map<String, String> headers =
+                selection == null ? Map.of() : selection.definition().credentialHeaders();
+        // As a start judges it: a sign-in lacking what its provider sends beside the token is
+        // refused there, so it is no sign-in here.
+        return stored.containsKey(credential)
+                && CredentialHeaders.lacking(stored.get(credential), headers) == null;
     }
 }

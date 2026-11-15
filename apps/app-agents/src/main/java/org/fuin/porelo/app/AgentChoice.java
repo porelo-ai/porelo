@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.agent.api.Finding;
 import org.fuin.porelo.agent.api.InstalledAgent;
 import org.fuin.porelo.agent.api.InstalledAgents;
@@ -103,6 +104,8 @@ public final class AgentChoice {
      * @param path Where its sign-in was found, or {@code null}.
      * @param paths Every path found, its command on the account's {@code PATH} included.
      * @param warning Why it could not be asked, or {@code null}.
+     * @param throughVault Whether it is signed in by the vault holding its provider's credential
+     *     rather than by sign-in files of its own.
      */
     public record Found(
             String agent,
@@ -112,7 +115,8 @@ public final class AgentChoice {
             Finding.@Nullable Kind kind,
             @Nullable String path,
             List<String> paths,
-            @Nullable String warning) {}
+            @Nullable String warning,
+            boolean throughVault) {}
 
     /**
      * Asks one agent what it finds of itself. Every call asks again; nothing is remembered.
@@ -141,7 +145,8 @@ public final class AgentChoice {
                     null,
                     null,
                     paths,
-                    null);
+                    null,
+                    false);
         }
         final List<Finding> findings;
         try {
@@ -155,7 +160,8 @@ public final class AgentChoice {
                     null,
                     null,
                     paths,
-                    "'" + agent.name() + "' failed to say what it finds of itself");
+                    "'" + agent.name() + "' failed to say what it finds of itself",
+                    false);
         }
         for (final Finding finding : findings) {
             if (finding.path() != null && !paths.contains(finding.path())) {
@@ -175,9 +181,26 @@ public final class AgentChoice {
                         .filter(finding -> finding.signedIn() == Finding.SignedIn.SIGNED_IN)
                         .toList();
         if (signedIn.isEmpty()) {
+            final ByVault vault = byVault(context, agent.definition());
+            if (vault.held()) {
+                return new Found(
+                        agent.name(),
+                        Finding.SignedIn.SIGNED_IN,
+                        false,
+                        vault.provider(),
+                        null,
+                        null,
+                        paths,
+                        null,
+                        true);
+            }
             final boolean cannotSay =
-                    findings.stream()
-                            .anyMatch(finding -> finding.signedIn() == Finding.SignedIn.CANNOT_SAY);
+                    vault.shut()
+                            || findings.stream()
+                                    .anyMatch(
+                                            finding ->
+                                                    finding.signedIn()
+                                                            == Finding.SignedIn.CANNOT_SAY);
             return new Found(
                     agent.name(),
                     cannotSay ? Finding.SignedIn.CANNOT_SAY : Finding.SignedIn.NOT_SIGNED_IN,
@@ -186,7 +209,8 @@ public final class AgentChoice {
                     null,
                     null,
                     paths,
-                    null);
+                    null,
+                    false);
         }
         final var drivable = SelectedProvider.drivable(context.providers(), agent.definition());
         // What the person already imported comes first: found first, the start would be refused for
@@ -224,7 +248,54 @@ public final class AgentChoice {
                 first.kind(),
                 first.path(),
                 paths,
-                null);
+                null,
+                false);
+    }
+
+    /**
+     * What the vault answers for an agent with no sign-in of its own.
+     *
+     * @param held Whether it holds a credential a start of the agent takes.
+     * @param provider The provider that credential serves, or {@code null} when none or the agent
+     *     is not brokered.
+     * @param shut Whether the vault could not be read where it would have decided.
+     */
+    private record ByVault(boolean held, @Nullable String provider, boolean shut) {}
+
+    private static ByVault byVault(final PoreloContext context, final AgentDefinition definition) {
+        final java.util.Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers =
+                context.providers();
+        // The provider a start takes by default first, then every other it can drive.
+        final List<SelectedProvider.Choice> starts = new ArrayList<>();
+        starts.add(SelectedProvider.consider(providers, definition, null));
+        SelectedProvider.drivable(providers, definition)
+                .forEach(
+                        name -> starts.add(SelectedProvider.consider(providers, definition, name)));
+        final List<SelectedProvider.Choice> usable =
+                starts.stream()
+                        // A start through no provider never reads the vault, so it decides nothing.
+                        .filter(choice -> choice.refusal() == null && choice.selection() != null)
+                        .toList();
+        if (usable.isEmpty()) {
+            // Every start is refused whatever the vault holds, so it decides nothing.
+            return new ByVault(false, null, false);
+        }
+        java.util.Optional<java.util.Map<String, org.fuin.porelo.vault.VaultEntry>> stored;
+        try {
+            stored = context.readableCredentials();
+        } catch (RuntimeException ex) {
+            // A vault that fails to read cannot say, and the agent list must still answer.
+            stored = java.util.Optional.empty();
+        }
+        if (stored.isEmpty()) {
+            return new ByVault(false, null, true);
+        }
+        for (final SelectedProvider.Choice choice : usable) {
+            if (AgentSignIns.holds(stored.get(), definition.name(), choice)) {
+                return new ByVault(true, choice.wanted(), false);
+            }
+        }
+        return new ByVault(false, null, false);
     }
 
     private static Path expanded(final PoreloContext context, final String declared) {
@@ -391,11 +462,13 @@ public final class AgentChoice {
                 case OPTION -> name + ", named with --agent";
                 case REPOSITORY -> name + ", named by the project file";
                 case SIGNED_IN ->
-                        name
-                                + provided(chosen)
-                                + (chosen == null || chosen.path() == null
-                                        ? ", found signed in"
-                                        : ", found in " + shortened(chosen.path(), home));
+                        chosen != null && chosen.throughVault()
+                                ? name + throughVault(chosen)
+                                : name
+                                        + provided(chosen)
+                                        + (chosen == null || chosen.path() == null
+                                                ? ", found signed in"
+                                                : ", found in " + shortened(chosen.path(), home));
                 case MACHINE ->
                         name
                                 + ", the only one installed"
@@ -413,8 +486,17 @@ public final class AgentChoice {
          * @return The line, or {@code null} when it was found with no provider to name.
          */
         public @Nullable String picked(final String name) {
-            final String provider = provided(foundBy(name));
+            final Found found = foundBy(name);
+            if (found != null && found.throughVault()) {
+                return "agent " + name + throughVault(found);
+            }
+            final String provider = provided(found);
             return provider.isEmpty() ? null : "agent " + name + provider;
+        }
+
+        private static String throughVault(final Found found) {
+            return ", signed in through the Porelo-Vault"
+                    + (found.provider() == null ? "" : " to " + found.provider());
         }
 
         private static String provided(final @Nullable Found found) {
