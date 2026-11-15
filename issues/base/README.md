@@ -208,6 +208,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b788"></a>[B788](B788-The-Review-Read-Asks-Only-What-The-Host-Carries.md) | M | - | The host's record of a project names the repositories its card carries, and the review read judges which are carried as the project's host status does, so a repository the window shows as not carried here is never asked for and never refused, and a host status that does not read refuses the read instead of answering no reviews | 0 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b620"></a>[B620](B620-A-Task-Hands-Back-Its-Result-File.md) | M | - | A task started with a result file's name hands that file's content back at its end, bounded at 1 MiB, kept on the machine until it is taken, and read by the window through the daemon. | - |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
