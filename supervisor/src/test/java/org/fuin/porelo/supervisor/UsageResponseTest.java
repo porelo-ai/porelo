@@ -91,7 +91,8 @@ class UsageResponseTest {
                                         new UsageSums.Count(30L, 0),
                                         new UsageSums.Count(10L, 0),
                                         new UsageSums.Count(20L, 0),
-                                        new UsageSums.Count(null, 1))));
+                                        // Messages report no reasoning: unknown, never missing.
+                                        new UsageSums.Count(null, 0))));
         assertThat(usage.totals()).isEqualTo(usage.models().getFirst().totals());
     }
 
@@ -113,7 +114,15 @@ class UsageResponseTest {
         final var usage = UsageSums.read(file, ZoneId.of("UTC"));
         assertThat(usage.totals().requests()).isEqualTo(1);
         assertThat(usage.models()).extracting(UsageSums.Group::name).containsExactly("unknown");
-        assertThat(usage.totals().fields()).containsOnly(new UsageSums.Count(null, 1));
+        assertThat(usage.totals().fields())
+                .as(
+                        "every kind messages report is missing; reasoning, which they never report, is not")
+                .containsExactly(
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 0));
     }
 
     @Test
@@ -134,6 +143,14 @@ class UsageResponseTest {
         final var usage = UsageSums.read(file, ZoneId.of("UTC"));
         assertThat(usage.totals().requests()).isEqualTo(1);
         assertThat(usage.models()).extracting(UsageSums.Group::name).containsExactly("unknown");
-        assertThat(usage.totals().fields()).containsOnly(new UsageSums.Count(null, 1));
+        assertThat(usage.totals().fields())
+                .as(
+                        "every kind messages report is missing; reasoning, which they never report, is not")
+                .containsExactly(
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 1),
+                        new UsageSums.Count(null, 0));
     }
 }

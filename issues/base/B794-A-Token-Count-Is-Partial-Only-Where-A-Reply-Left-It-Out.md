@@ -61,3 +61,29 @@ Agent Smith's reading of `UsageReading` and `UsageSums`. The window's side is Fr
 
 - The red-first tests pass, each seen red first.
 - On a machine, a task whose requests all answered shows its tokens without "at least" in the window (with F602).
+
+## As built
+
+- `UsageSums` holds a table of the kinds each format reports, keyed by the `format` string `UsageReading` writes
+  (`messages`, `responses`, `chat_completions`, `gemini`). A `null` of a kind the line's format does not report is
+  neither missing nor summed; a line with no format, an unknown one, or a broken line counts every `null` as
+  missing, as before.
+- `UsageCount.tokens` is `null` only where no request of the set reported the kind (it was `null` where every
+  request missed it), so Messages alone read reasoning as unknown with `missing` 0.
+- `15-task.varlink` says at `UsageCount` and `UsageTotals` what missing counts, that output includes reasoning in
+  every format, and that a total is input + cacheRead + cacheWrite + output; `doc/commands.md` and
+  `doc/credentials.md` say the same. `UsageReading` was read and left as it is: chat completions and responses
+  take `completion_tokens`/`output_tokens`, which hold `reasoning_tokens`; Gemini adds candidates and thoughts;
+  Messages' `output_tokens` hold thinking.
+- Plan differences: none in the code. The tests sit in a new `core` `UsageSumsTest`; `UsageResponseTest`'s
+  expectations for a Messages answer and a failed one now read reasoning as `(null, 0)`.
+- Red first: `completeRequestsMissNoKindTheirFormatDoesNotReport` (cache write and reasoning `missing=3`),
+  `aKindNoRequestReportedStaysUnknownWithoutBeingMissing` (`missing=3`), `geminiAndChatCompletionsReportNoCacheWrite`
+  (`missing=2`) and `aCutRequestStillMissesAKindItsFormatReports` (reasoning `missing=2`; its output missing 1 held
+  before and after). `aChatCompletionsOutputAlreadyHoldsItsReasoning` in `UsageReadingTest` and the unknown-format
+  case passed on arrival, as guards of what already held.
+- Sonnet's reading, kept as it is: a complete reply that omits an optional field its format reports (Gemini without
+  `cachedContentTokenCount`, chat without `prompt_tokens_details`, Responses without `reasoning_tokens`) still counts
+  that kind as missing, which says honestly that the provider did not report it; a Gemini reply with only
+  `thoughtsTokenCount` has an output of its thoughts alone. No test yet for an all-null cut in responses, chat or
+  Gemini, or for a line whose `format` is not text.

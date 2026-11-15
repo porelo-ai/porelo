@@ -1,0 +1,2 @@
+title: A task whose every request answered in full reads its token usage as exact, where every request counted as missing the kind its format never reports and every total read as partial; output includes reasoning in every format, so a total is never output plus reasoning
+type: fixed

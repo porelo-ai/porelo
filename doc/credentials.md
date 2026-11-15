@@ -76,7 +76,10 @@ Only paths ending in `/chat/completions`, `/responses`, `/v1/messages`, `:genera
 and other paths produce no usage record. Formats are recognized by path and answer shape, independently
 of a provider's declared dialect. WebSocket answers are not observed.
 
-Input excludes cache reads; output includes reasoning. Unreported counts stay `null`, including cache
+Input excludes cache reads; output includes reasoning in every format, and reasoning is the part of it
+a format names: OpenAI's `completion_tokens` and `output_tokens` already hold their `reasoning_tokens`,
+Gemini's output is `candidatesTokenCount` plus `thoughtsTokenCount`, and Anthropic's `output_tokens`
+hold thinking, which Messages report no part of. Unreported counts stay `null`, including cache
 writes where the provider does not report them. Cumulative stream counts replace previous counts;
 they are never added across chunks. Cost retains the reported member name (`cost` or
 `cost_in_usd_ticks`) and a decimal string in that member's unit.

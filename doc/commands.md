@@ -474,7 +474,12 @@ out, as before.
 
 `task status` also reads provider-reported token usage, summed by answering model, agent, local day
 and local hour. Each of input, cache read, cache write, output and reasoning has its reported total
-and the number of requests with a missing count. A wholly unreported total is unknown, never zero.
+and the number of requests with a missing count. A request is missing a kind only where its format
+reports that kind and the reply left it out (a cut stream, a failed request): Messages report no
+reasoning, and Responses, Chat Completions and Gemini no cache write, so a task whose every request
+answered in full has none missing. A line of a format Porelo does not know misses every kind it left out.
+A total nobody reported is unknown, never zero. Output includes reasoning in every format, so a task's
+tokens are input + cache read + cache write + output, never output plus reasoning.
 Hours include their UTC offset. `--json` adds, where a record exists, the same structured `usage` value returned by the daemon's
 `Usage(task)` method: `state` (`available`, `absent` or `unreadable`), `totals`, `models`, `agents`,
 `days` and `hours`. Each group has `name` and `totals`; totals have `requests` and five fields (`input`,

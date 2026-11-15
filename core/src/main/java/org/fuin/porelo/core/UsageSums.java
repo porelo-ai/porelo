@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
@@ -24,7 +25,24 @@ public final class UsageSums {
     private static final List<String> WIRE_FIELDS =
             List.of("input", "cacheRead", "cacheWrite", "output", "reasoning");
 
-    /** One field's reported total and the number of requests that did not report it. */
+    /**
+     * The kinds each request format reports, as the broker names the format on a line. A kind a
+     * format never reports is not missing from its reply; a format not named here reports them all.
+     * Every format's {@code output} holds its reasoning.
+     */
+    private static final Map<String, Set<String>> REPORTED =
+            Map.of(
+                    "messages", Set.of("input", "cache_read", "cache_write", "output"),
+                    "responses", Set.of("input", "cache_read", "output", "reasoning"),
+                    "chat_completions", Set.of("input", "cache_read", "output", "reasoning"),
+                    "gemini", Set.of("input", "cache_read", "output", "reasoning"));
+
+    private static final Set<String> EVERY_KIND = Set.copyOf(FIELDS);
+
+    /**
+     * One field's reported total, {@code null} where no request reported it, and the number of
+     * requests whose format reports it that did not.
+     */
     public record Count(@Nullable Long tokens, long missing) {
         /** Returns the contract's two fields. */
         public Map<String, Object> asMap() {
@@ -199,6 +217,7 @@ public final class UsageSums {
         private long requests;
         private final long[] sums = new long[FIELDS.size()];
         private final long[] missing = new long[FIELDS.size()];
+        private final long[] reported = new long[FIELDS.size()];
 
         /** Refuses what {@link #add} could not count, before anything was added. */
         static void check(Map<?, ?> entry) {
@@ -214,19 +233,26 @@ public final class UsageSums {
 
         void add(Map<?, ?> entry) {
             requests = Math.incrementExact(requests);
+            final Set<String> kinds =
+                    entry.get("format") instanceof String format
+                            ? REPORTED.getOrDefault(format, EVERY_KIND)
+                            : EVERY_KIND;
             for (int i = 0; i < FIELDS.size(); i++) {
                 final Object value = entry.get(FIELDS.get(i));
-                if (value == null) missing[i] = Math.incrementExact(missing[i]);
-                else
+                if (value == null) {
+                    if (kinds.contains(FIELDS.get(i))) missing[i] = Math.incrementExact(missing[i]);
+                } else {
+                    reported[i] = Math.incrementExact(reported[i]);
                     sums[i] =
                             Math.addExact(sums[i], ((java.math.BigDecimal) value).longValueExact());
+                }
             }
         }
 
         Totals value() {
             final List<Count> fields = new ArrayList<>();
             for (int i = 0; i < FIELDS.size(); i++)
-                fields.add(new Count(missing[i] == requests ? null : sums[i], missing[i]));
+                fields.add(new Count(reported[i] == 0 ? null : sums[i], missing[i]));
             return new Totals(requests, List.copyOf(fields));
         }
     }

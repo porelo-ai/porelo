@@ -1657,12 +1657,18 @@ error NoSuchLog(task: string, log: string)
 # Refused rather than treated as the default: quietly doing the cheapest thing when somebody asked
 # for the most expensive is exactly the failure the depths exist to prevent.
 error UnknownRebuild(rebuild: string)
-# Reported token totals; missing counts requests with an unreported value.
+# Reported token totals. tokens is null only where no request of the set reported the kind; missing
+# counts only the requests whose format reports the kind and whose reply left it out (a cut stream, a
+# failed request), never one whose format does not report it. A line of a format Porelo does not know
+# counts every kind it left out as missing.
 type UsageCount (
     tokens: ?int,
     missing: int
 )
 
+# output includes reasoning in every format; reasoning is the part of it a format names, and absent
+# for a format that names none. A total of tokens is input + cacheRead + cacheWrite + output, never
+# output plus reasoning.
 type UsageTotals (
     requests: int,
     input: UsageCount,

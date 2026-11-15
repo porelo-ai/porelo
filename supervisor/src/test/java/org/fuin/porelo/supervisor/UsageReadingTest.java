@@ -255,6 +255,22 @@ class UsageReadingTest {
     }
 
     @Test
+    void aChatCompletionsOutputAlreadyHoldsItsReasoning() {
+        // completion_tokens include reasoning_tokens: adding them would count reasoning twice.
+        final UsageReading reading = reading("/v1/chat/completions", false);
+
+        feed(
+                reading,
+                "{\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,"
+                        + "\"completion_tokens\":100,"
+                        + "\"completion_tokens_details\":{\"reasoning_tokens\":40}}}");
+
+        final var line = reading.finish(null);
+        assertThat(line.get("output")).as("output").isEqualTo(100L);
+        assertThat(line.get("reasoning")).as("reasoning").isEqualTo(40L);
+    }
+
+    @Test
     void aModelNameWithATildeIsKept() {
         // Seen in a real task: OpenRouter's rolling names start with one, and the model asked for
         // was lost for every such request.
