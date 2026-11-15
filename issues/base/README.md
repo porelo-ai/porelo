@@ -20,6 +20,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b785"></a>[B785](B785-A-Rotating-Sign-In-Stays-On-Its-Machine.md) | M | - | Carrying to a host refuses a sign-in whose refresh token the provider rotates, an agent's own or one the vault keeps renewable, and says to sign in on the host instead; an API key is carried as before | 1 |
+| <a id="b786"></a>[B786](B786-An-Agent-Signs-In-On-The-Host-Through-The-Window.md) | L | - | A person signs an agent in on a host from the window alone: the host's daemon starts the agent's own login there, hands the window the link or code the agent prints, takes back a pasted code, and answers signed in once the host's vault holds what the login made | 1 |
+| <a id="b787"></a>[B787](B787-A-Hosts-Own-Sign-In-Shows-Where-A-Start-Is-Chosen.md) | M | - | Agents(), AgentSignIns() and the start's check tell a sign-in made on this host from one carried here before, show the first as signed in on the host, and say of the second that it is not renewed here and to sign in on the host | 1 |
 | <a id="b605"></a>[B605](B605-A-Repositorys-Run-File-Starts-In-Default.md) | S | - | In `default`, a repository naming its image lines in `image.run_file` starts with them; CanStart and the launch agree. | - |
 | <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. | - |
 | <a id="b516"></a>[B516](B516-Task-Records-Exported-Over-OTLP.md) | M | [B514](README.md#b514) | [B514](#b514)'s records exported as OpenTelemetry logs to a collector the organization names, off by default, chosen per kind, by the CLI only. | - |
