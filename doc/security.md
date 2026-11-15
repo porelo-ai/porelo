@@ -479,5 +479,19 @@ none of the account's files or environment. Whatever it fetched stays in the ima
 firewall. Porelo does not limit the build: a person may bring their own base image at any time, which Porelo does not
 see anyway ([decision](decisions.md#a-projects-own-file-is-judged-by-its-newest-change-alone)).
 
+**A message counts only when the account delivered it, and root in the container is the account.** A task's inbox is
+writable from inside, since the agent moves what it read from `new` to `cur`; so a file counts as Porelo's only when it
+is a regular file, not followed, whose owner is the mailbox root's: the account running Porelo, root seen from inside.
+The host reads such a file through a link it makes where the agent cannot write, names any other file in the task's
+status, and the agent's guide says the same ([Messages](messages.md#receiving)). Accepted:
+- A process that is root in the container is the account under rootless podman, so it could plant a file that counts.
+  The agent cannot become root (no new privileges, every capability dropped); only Porelo enters as root, and an
+  image's own root daemon is the person's choice of image.
+- The agent can rename a delivered message to another arrived name, or back into `new`: that marks another read or
+  wakes it once more, and reaches no one beyond the task's own conversation.
+- The message record names at most 100 planted files for good; `task status` still shows each one that is there now.
+- An account whose podman maps it to the agent's user (`userns=keep-id` in its own `containers.conf`) makes every file
+  the account's, and the check passes everything. Porelo sets no user namespace; that mapping is the person's choice.
+
 The DNS gap above is the other open item on this page. What the credential proxy accepts is on
 [Credentials](credentials.md#what-the-proxy-withholds).

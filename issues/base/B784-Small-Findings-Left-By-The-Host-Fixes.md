@@ -44,3 +44,6 @@ accepted, so nothing of it lives only in a deleted issue.
   and refused at the start; an agent with no `config_dir`, or whose adapter fails, stays unknown without asking the
   vault; the vault is read once per agent without a sign-in; `AgentSignInRuns.state` keeps its own copy of the
   judgment; no test drives a held provider that is not the default.
+- A run's time limit across a daemon restart: a new run that starts in the same moment the watch judges an orphaned,
+  overdue run of its task due may be stopped by it; and an agent that ended on its own while no process waited, in a
+  container still running, is ended at its deadline and read as ended by its limit, since nothing recorded its end.
