@@ -200,6 +200,10 @@ them; the forge answers both alike), `forge` for any other status (ask again lat
 row of a repository the host no longer carries. The other repositories still answer, and a refused repository's
 earlier rows are kept, not ended, until it answers again. A 401 refuses the whole read with `forge-token`: the forge
 refuses the person token, renewed with `porelo host forge-token`.
+Only the repositories the window shows as carried here are asked: those the host's published progress names taken
+(the project's own goes with the project), within those its project record names. A record names the repositories
+the host's card names, and none when the card carries the whole project. Progress that does not read refuses the
+whole read with `not-carried`.
 A bound, an unavailable mirror commit, or a forge that cannot be reached refuses the observation and ends a stream
 with a named error. Absence alone never means closed. Clients must mark retained data stale and ask again.
 

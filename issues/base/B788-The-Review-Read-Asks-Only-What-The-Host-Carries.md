@@ -62,3 +62,26 @@ missing copy instead of failing the whole read.
 
 - The red-first tests pass, each seen red first.
 - On the host, "Needs you" holds no refused row for a repository not carried here.
+
+## As built
+
+- `FollowProjects.publication` writes the card's `repositories` into the project's record when the card names some,
+  as the card names them (project-file names); a card naming none, or an empty list, gives a record without
+  `repositories`, which carries the whole project.
+- `HostPullRequestReader.repositories` reads `HostCentral.status(project)` beside `forge.conf`
+  (`organization/central`), the file the window reads. `cannot-say` refuses the whole read with `not-carried`; the
+  project's own repository is asked when `permitsCarrying()`, every other when `permitsRepository(name)`. The
+  record's list stays a second bound for the others; the project's own goes with the project, as card lists name
+  only project-file rows.
+- Plan changed on one point: the guard counts the project's own beside the 3 taken, so 4 of 19 are asked, as the
+  window shows the own repository carried whenever the project is.
+- Red first: `HostFollowSelectionTest.theProjectRecordNamesTheRepositoriesTheCardNames` (no `repositories`),
+  `HostPullRequestReaderTest.onlyTheRepositoriesTheHostStatusNamesTakenAreAsked` (19 asked),
+  `aHostStatusThatDoesNotReadRefusesTheWholeRead` (the forge was asked). `aCardNamingNoRepositoryPublishesARecordNamingNone`
+  guards the whole-project case.
+- After the Sonnet reading: the record keeps only card names a record's reader takes (`Repository.NAME_PATTERN`):
+  the card allows `[a-z0-9._-]`, and one name the readers refuse made every reader refuse the whole record
+  (`aCardNameNoRecordReaderTakesIsLeftOutOfTheRecord`, red: all three names written). A project the host holds,
+  has pending or refused is refused with `not-carried` and its state, rather than answering no reviews
+  (`aProjectTheHostHoldsRefusesTheReadRatherThanAnsweringNoReviews`, red with the check removed).
+- `doc/hosts.md` (the review read), a changelog entry under *fixed*.

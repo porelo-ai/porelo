@@ -240,6 +240,45 @@ class HostFollowSelectionTest {
     }
 
     @Test
+    void theProjectRecordNamesTheRepositoriesTheCardNames() throws Exception {
+        // A record naming none reads as the whole project carried, so every reader asks them all.
+        rows();
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.project().put("repositories", List.of("one"));
+        f.run();
+        assertThat(f.json(FollowFixture.ORG + "projects/alpha.json").get("repositories"))
+                .as("the card's repositories, as the record's readers name them")
+                .isEqualTo(List.of("one"));
+    }
+
+    @Test
+    void aCardNameNoRecordReaderTakesIsLeftOutOfTheRecord() throws Exception {
+        // One name the record's readers refuse made every reader of that record refuse it.
+        rows();
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        // The card takes [a-z0-9._-]; a record's reader refuses an underscore or a leading hyphen.
+        f.project().put("repositories", List.of("one", "not_a_name", "-two"));
+        f.run();
+        assertThat(f.json(FollowFixture.ORG + "projects/alpha.json").get("repositories"))
+                .as("only names a record's reader takes")
+                .isEqualTo(List.of("one"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aCardNamingNoRepositoryPublishesARecordNamingNone(boolean empty) throws Exception {
+        // Absent or empty carries the whole project, which a record says by naming none.
+        rows();
+        if (empty) {
+            f.project().put("repositories", List.of());
+        }
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        assertThat(f.json(FollowFixture.ORG + "projects/alpha.json"))
+                .as("no repositories named")
+                .doesNotContainKey("repositories");
+    }
+
+    @Test
     void takingOffWithoutATokenNamesTheDeployKeyLeftAtCentral() throws Exception {
         rows();
         f.refresh(ProjectFixture.CENTRAL_TOKEN);

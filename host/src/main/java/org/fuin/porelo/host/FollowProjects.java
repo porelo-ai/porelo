@@ -30,6 +30,11 @@ import org.jspecify.annotations.Nullable;
  * operations.
  */
 final class FollowProjects {
+    /**
+     * A repository's name as the record's readers take one (porelo-core's Repository.NAME_PATTERN).
+     */
+    static final String REPOSITORY_NAME = "(?=.{1,63}$)[a-z0-9]+(?:(?:-+|\\.)[a-z0-9]+)*";
+
     static final Pattern CENTRAL =
             Pattern.compile(
                     "[!-~]{0,1024}[:/](?<repository>[A-Za-z0-9_][A-Za-z0-9_.-]{0,95}?)(?:\\.git)?/?");
@@ -134,6 +139,20 @@ final class FollowProjects {
                         project.get("signing_keys"));
         if (builds != null) {
             answer.put("builds", builds);
+        }
+        // The card's repositories bound what every reader of the record takes as carried here;
+        // a card naming none carries the whole project, which the record says by naming none.
+        // Only names a reader of the record takes: one it refuses would refuse the whole record.
+        if (project.get("repositories") instanceof List<?> named && !named.isEmpty()) {
+            final List<String> kept = new ArrayList<>();
+            for (Object n : named) {
+                if (n instanceof String s && s.matches(REPOSITORY_NAME) && !kept.contains(s)) {
+                    kept.add(s);
+                }
+            }
+            if (!kept.isEmpty()) {
+                answer.put("repositories", kept);
+            }
         }
         final var item =
                 FollowRooms.installed(c) ? optionalObject(progress.get().get(name)) : fields();

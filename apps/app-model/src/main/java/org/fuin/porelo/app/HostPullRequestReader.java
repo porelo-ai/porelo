@@ -341,9 +341,32 @@ public final class HostPullRequestReader {
                 || !carried.project().equals(project.name())) {
             throw new Refused("not-carried", "the host carries no such project for this person");
         }
+        // The host's published carry state, the same checked file the window reads: a repository
+        // it does not show as carried here has no copy on the forge to ask.
+        final HostCentral.Status status =
+                new HostCentral(conf.resolveSibling("organization/central"), attributes)
+                        .status(project.name());
+        if ("cannot-say".equals(status.state()))
+            throw new Refused(
+                    "not-carried",
+                    "the host's carry state of this project does not read; ask for reviews again once the host's follow has published it");
+        if (!status.permitsCarrying())
+            throw new Refused(
+                    "not-carried",
+                    "this host does not carry the project now ("
+                            + status.state()
+                            + (status.why() == null || status.why().isBlank()
+                                    ? ""
+                                    : ": " + status.why())
+                            + ")");
         final Map<String, URI> result = new LinkedHashMap<>();
         for (Repository repository : project.allRepositories()) {
-            if (!carried.repositories().isEmpty()
+            final boolean own = repository.name().equals(project.name());
+            if (!(own ? status.permitsCarrying() : status.permitsRepository(repository.name())))
+                continue;
+            // The record's list is a second bound; the project's own goes with the project.
+            if (!own
+                    && !carried.repositories().isEmpty()
                     && !carried.repositories().contains(repository.name())) continue;
             final String central =
                     repository.name().equals(project.name())

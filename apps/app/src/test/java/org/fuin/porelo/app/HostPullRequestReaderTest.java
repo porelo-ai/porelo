@@ -167,6 +167,9 @@ class HostPullRequestReaderTest {
                                 "https://central.example/demo.git",
                                 "signing_keys",
                                 List.of())));
+        // The host's published carry state: the project carried, its repositories not named.
+        hostStatus(
+                "{\"project\":\"demo\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[]}");
         project = ProjectReader.read(file);
         final Path mirror = GateSupport.mirror(context, project);
         Files.createDirectories(mirror);
@@ -387,6 +390,112 @@ class HostPullRequestReaderTest {
                                 "repositories",
                                 List.of(carried.split(",")))));
         return ProjectReader.read(file);
+    }
+
+    private void hostStatus(String content) throws Exception {
+        final Path central = dir.resolve("organization/central");
+        Files.createDirectories(central);
+        Files.writeString(central.resolve("demo.json"), content);
+    }
+
+    @Test
+    void onlyTheRepositoriesTheHostStatusNamesTakenAreAsked() throws Exception {
+        // A repository the window shows as not carried here must be neither asked nor refused.
+        final StringBuilder yml =
+                new StringBuilder(
+                        """
+                        project:
+                          name: demo
+                          security_class: guarded
+                          central: https://central.example/demo.git
+                        image:
+                          from: ubuntu:24.04
+                        repositories:
+                        """);
+        final StringBuilder rows = new StringBuilder();
+        for (int i = 1; i <= 18; i++) {
+            yml.append("  r")
+                    .append(i)
+                    .append(":\n    upstream: \"https://upstream.example/r")
+                    .append(i)
+                    .append(".git\"\n    central: \"https://central.example/r")
+                    .append(i)
+                    .append(".git\"\n");
+            rows.append(i == 1 ? "" : ",")
+                    .append("{\"repository\":\"r")
+                    .append(i)
+                    .append("\",\"state\":\"")
+                    .append(i <= 3 ? "taken" : "not-carried")
+                    .append("\"}");
+        }
+        final Path file = dir.resolve("nineteen.yml");
+        Files.writeString(file, yml);
+        hostStatus(
+                "{\"project\":\"demo\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[],"
+                        + "\"state\":\"carried\",\"host_repositories\":["
+                        + rows
+                        + "]}");
+        final Project nineteen = ProjectReader.read(file);
+        final List<String> asked = new java.util.ArrayList<>();
+        final var reader =
+                reader(
+                        (address, token) -> {
+                            asked.add(address.getPath());
+                            // Only the copies taken here exist on the host's forge.
+                            return address.getPath().matches("/api/v1/repos/demo/(demo|r[123])/.*")
+                                    ? none()
+                                    : status(404);
+                        });
+
+        final var round = reader.poll(nineteen, List.of());
+
+        assertThat(asked)
+                .as("the project's own and the three the host status names taken")
+                .containsExactly(
+                        "/api/v1/repos/demo/demo/pulls",
+                        "/api/v1/repos/demo/r1/pulls",
+                        "/api/v1/repos/demo/r2/pulls",
+                        "/api/v1/repos/demo/r3/pulls");
+        assertThat(round.refused()).as("no repository not carried is refused").isEmpty();
+    }
+
+    @Test
+    void aHostStatusThatDoesNotReadRefusesTheWholeRead() throws Exception {
+        // Asking nothing must not answer as an empty review list when the carry state is unknown.
+        hostStatus("not json");
+        final var reader =
+                reader(
+                        (address, token) -> {
+                            throw new AssertionError("nothing is asked: " + address.getPath());
+                        });
+
+        assertThatThrownBy(() -> reader.poll(project, List.of()))
+                .as("the read is refused as not carried, saying the carry state does not read")
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        ex -> assertThat(ex.reason()).as("why").isEqualTo("not-carried"))
+                .hasMessageContaining("carry state");
+    }
+
+    @Test
+    void aProjectTheHostHoldsRefusesTheReadRatherThanAnsweringNoReviews() throws Exception {
+        // A project held, pending or refused here skipped every repository and answered an empty
+        // list, which reads as no reviews.
+        hostStatus(
+                "{\"project\":\"demo\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[],"
+                        + "\"state\":\"held\",\"why\":\"held by the organization\"}");
+        final var reader =
+                reader(
+                        (address, token) -> {
+                            throw new AssertionError("nothing is asked: " + address.getPath());
+                        });
+
+        assertThatThrownBy(() -> reader.poll(project, List.of()))
+                .as("refused as not carried, naming the host's state")
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        ex -> assertThat(ex.reason()).as("why").isEqualTo("not-carried"))
+                .hasMessageContaining("held");
     }
 
     private static HostPullRequestReader.Answer ok(byte[] body) {
