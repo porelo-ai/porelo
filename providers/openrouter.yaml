@@ -16,3 +16,9 @@ auth_prefix:
 
 token_env:
     _default: OPENROUTER_API_KEY
+
+# Where a key reads the models it may use: one data list, each model with its name and, under
+# 'reasoning', the efforts it takes.
+models:
+    path: /api/v1/models
+    format: data

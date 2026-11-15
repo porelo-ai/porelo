@@ -72,6 +72,7 @@ final class McpMethods {
                     "Agents",
                     "AgentSignIns",
                     "Providers",
+                    "Models",
                     "Installable",
                     "Ecosystems",
                     "Peers",

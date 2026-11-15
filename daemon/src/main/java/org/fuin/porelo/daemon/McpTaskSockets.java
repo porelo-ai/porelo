@@ -653,9 +653,9 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * Reading methods taking no project or task that are the account's or the machine's by nature,
      * and so are answered whole: the one vault's names and devices, never a value ({@code
      * Credentials}, {@code Keyslots}, {@code SshKeys}, {@code CredentialCheck}, {@code
-     * HostVaultShare}); the machine's destinations, egress sets, host keys and agent catalogue; a
-     * check of the caller's own text; the event log's integrity, counts alone; the daemon's process
-     * and the methods it grants.
+     * HostVaultShare}); the machine's destinations, egress sets, host keys, agent catalogue and the
+     * models a provider offers it; a check of the caller's own text; the event log's integrity,
+     * counts alone; the daemon's process and the methods it grants.
      */
     static final Set<String> ACCOUNT_WIDE =
             Set.of(
@@ -672,6 +672,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "Installable",
                     "Keyslots",
                     "McpMethods",
+                    "Models",
                     "Process",
                     "ProjectFileSchema",
                     "Providers",

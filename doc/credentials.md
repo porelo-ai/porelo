@@ -156,6 +156,11 @@ Each is reached through the broker, with the credential on the host and a stand-
   of the stored sign-in its value comes from (`ChatGPT-Account-Id: account_id`). A sign-in keeps that setting when it
   is stored, the broker sets the header and drops the container's own value of it, and a sign-in without it is
   refused before the start.
+- **A provider may say where it lists its models.** `models` names the `path` on its upstream and the `format` of
+  the answer, `last-id-pages` (paged by `has_more` and `last_id`, as `anthropic` answers) or `data` (one `data` list
+  with each model's `name` and `reasoning.supported_efforts`, as `openai` and `openrouter` answer), and the `headers`
+  sent beside the credential, by its kind as `auth_header` is. The daemon's `Models` asks it there with the vault's
+  credential; a provider without the section answers no list, and a window takes the model as text.
 - **OpenRouter's path depends on the dialect.** A base URL that misses it answers "model not found"
   rather than 404, which reads as a bad model name.
 - **Google's terms call it a breach to reach Antigravity with its own sign-in through third-party software**, and

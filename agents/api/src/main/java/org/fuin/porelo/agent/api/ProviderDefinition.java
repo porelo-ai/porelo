@@ -32,6 +32,8 @@ import org.jspecify.annotations.Nullable;
  * @param streamUsage Whether streamed Chat Completions may request a usage chunk.
  * @param credentialHeaders Header to the setting of the stored credential its value is taken from,
  *     for a provider that wants more than the token on each request; empty for most.
+ * @param models Where and in which shape it lists the models it offers, or {@code null} where it
+ *     declares no list a key reads.
  */
 public record ProviderDefinition(
         String name,
@@ -45,7 +47,53 @@ public record ProviderDefinition(
         Map<String, String> authQuery,
         Map<String, String> grant,
         Map<String, String> credentialHeaders,
-        boolean streamUsage) {
+        boolean streamUsage,
+        @Nullable ModelListing models) {
+
+    /**
+     * Creates a provider that declares no model list.
+     *
+     * @param name Short name.
+     * @param label Human-readable label.
+     * @param upstream Real API endpoint.
+     * @param dialects Wire format to path.
+     * @param authHeader Header by credential type.
+     * @param authPrefix Prefix by credential type.
+     * @param unbrokerable Reason a credential type cannot be brokered.
+     * @param tokenEnvironment Variable by credential type.
+     * @param authQuery URL parameter by credential type.
+     * @param grant What a person grants once, as everyone does.
+     * @param credentialHeaders Header to the setting its value is taken from.
+     * @param streamUsage Whether streamed Chat Completions may request a usage chunk.
+     */
+    public ProviderDefinition(
+            String name,
+            String label,
+            String upstream,
+            Map<String, String> dialects,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
+            Map<String, String> unbrokerable,
+            Map<String, String> tokenEnvironment,
+            Map<String, String> authQuery,
+            Map<String, String> grant,
+            Map<String, String> credentialHeaders,
+            boolean streamUsage) {
+        this(
+                name,
+                label,
+                upstream,
+                dialects,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                tokenEnvironment,
+                authQuery,
+                grant,
+                credentialHeaders,
+                streamUsage,
+                null);
+    }
 
     /** Creates a provider that accepts the documented streamed usage option. */
     public ProviderDefinition(

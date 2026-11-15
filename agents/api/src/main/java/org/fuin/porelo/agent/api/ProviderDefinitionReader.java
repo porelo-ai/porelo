@@ -105,7 +105,36 @@ public final class ProviderDefinitionReader {
                 // Header to the setting of the stored credential its value comes from: what a
                 // provider wants on each request beside the token, such as an account's id.
                 ordered(root.get("credential_headers"), origin),
-                streamUsage(root, origin));
+                streamUsage(root, origin),
+                // Where and in which shape it lists its models to a key; absent, it lists none.
+                models(root.get("models"), origin));
+    }
+
+    private static @Nullable ModelListing models(@Nullable Object value, String origin) {
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof Map<?, ?> section)) {
+            throw new AgentException(origin + ": 'models' must be a mapping");
+        }
+        final Map<String, Map<String, String>> headers = new LinkedHashMap<>();
+        if (section.get("headers") != null) {
+            if (!(section.get("headers") instanceof Map<?, ?> byType)) {
+                throw new AgentException(origin + ": 'models.headers' must be a mapping");
+            }
+            byType.forEach(
+                    (type, named) -> headers.put(String.valueOf(type), ordered(named, origin)));
+        }
+        try {
+            return new ModelListing(
+                    required(section, "path", origin),
+                    ModelListing.Format.of(required(section, "format", origin), origin),
+                    headers);
+        } catch (AgentException ex) {
+            throw ex.getMessage() != null && ex.getMessage().startsWith(origin)
+                    ? ex
+                    : new AgentException(origin + ": " + ex.getMessage());
+        }
     }
 
     private static boolean streamUsage(Map<?, ?> root, String origin) {

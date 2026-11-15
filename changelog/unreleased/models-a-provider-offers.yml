@@ -1,0 +1,2 @@
+title: "The daemon's `Models` lists the models a provider offers this machine, asked of the provider with the vault's credential and kept for an hour, so a window offers them as a list"
+type: added

@@ -20,3 +20,8 @@ token_env:
 # a start rather than failing inside the task.
 unbrokerable:
     oauth: "A ChatGPT sign-in is served by the subscription's own backend, the provider 'chatgpt', not by api.openai.com, which takes an API key (porelo vault put openai)"
+
+# Where a key reads the models it may use: one data list.
+models:
+    path: /v1/models
+    format: data

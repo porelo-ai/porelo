@@ -20,3 +20,15 @@ auth_prefix:
 token_env:
     _default: ANTHROPIC_API_KEY
     oauth: CLAUDE_CODE_OAUTH_TOKEN
+
+# Where a key or a sign-in reads the models it may use, paged by the last id. Every request names
+# the API version, and a sign-in's token is taken only beside the beta that admits it.
+models:
+    path: /v1/models
+    format: last-id-pages
+    headers:
+        _default:
+            anthropic-version: "2023-06-01"
+        oauth:
+            anthropic-version: "2023-06-01"
+            anthropic-beta: oauth-2025-04-20

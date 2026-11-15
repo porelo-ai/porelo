@@ -90,8 +90,8 @@ machine's list is the same either way.
 
 ## As built
 
-The effort, in the app and the daemon (the agent definition's `effort` was built before; `Models` is built
-separately):
+The effort, in the app and the daemon (the agent definition's `effort` and its reader were built first, `AgentEffortTest`,
+red with three deliberate breaks):
 
 - `TaskProfile` records `effort` (absent in an older profile reads as none); `TaskLaunch.Request`, `Start.effort`,
   `CanStart.effort` and `porelo task start --effort` take it. `TaskLaunch.effortRefused` says the one refusal, in
@@ -111,3 +111,22 @@ separately):
   - `TaskRunCommandTest`: the effort tests ran red with the field in place and nothing applied: the unattended log
     lacked `-c model_reasoning_effort=high`, and the attended session lacked `'-c' 'model_reasoning_effort=medium'`.
   - `AgentEntryTest` and `McpTaskSocketsTest`: red with the `efforts` entry and the `effort` parameter taken out.
+  - The refusal, CanStart, brought-back tests: red with `effortRefused` and the brought-back check broken on purpose.
+
+The models a provider offers:
+
+- `Models` is served beside `Providers` (`AgentMethods`), from `ModelLists` in `apps/app-agents`; a task's MCP may
+  call it, as it may `Providers`: it reads, starts nothing and hands out no secret.
+- Where and in which shape a provider lists its models is data: a `models` section in its file (`ModelListing` in
+  the agent API: `path`, `format`, `headers` by credential kind), since naming a provider or a dialect such as
+  `openai` in Java breaks `AgentIsolationTest`. `anthropic` (`last-id-pages`, with `anthropic-version`, and
+  `anthropic-beta: oauth-2025-04-20` for a sign-in), `openai` and `openrouter` (`data`) declare it; the others none.
+- `last-id-pages` reads `data[].id`/`display_name`, paged by `has_more` and `last_id`; `data` reads `data[].id`,
+  `name` where given, `reasoning.supported_efforts` as `efforts`, and follows `links.next` on the provider's own host.
+- The credential is the vault's entry under the provider's name, in the header and prefix the provider declares for
+  its kind, as the broker puts it; no message carries it or what the provider sent back.
+- `none` with no models: no `models` section, no credential stored, or a stored kind the provider cannot broker.
+  `from: "agent"` is not built.
+- Kept in the daemon's memory for an hour per provider, answered without opening the vault; `fresh` asks again; a
+  failure is never kept. 20 seconds for the whole list, redirects not followed. A shut vault, an unknown provider, a
+  non-2xx, unreachable or unreadable answer are `ModelsFailed`.

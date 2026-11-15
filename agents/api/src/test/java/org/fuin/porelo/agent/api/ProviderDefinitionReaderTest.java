@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link ProviderDefinitionReader} and {@link ProviderDefinition}. */
@@ -309,5 +310,68 @@ class ProviderDefinitionReaderTest {
                 .containsEntry("scopes", "read:user")
                 .doesNotContainKey("client_id");
         assertThat(read(OPENROUTER).grant()).as("a key, nothing to grant").isEmpty();
+    }
+
+    private static final String LISTING =
+            OPENROUTER
+                    + """
+                    models:
+                      path: /v1/models
+                      format: last-id-pages
+                      headers:
+                        _default:
+                          api-version: "2023-06-01"
+                        oauth:
+                          api-version: "2023-06-01"
+                          api-beta: sign-in
+                    """;
+
+    @Test
+    void readsWhereAndInWhichShapeAProviderListsItsModels() {
+        final ModelListing models = read(LISTING).models();
+
+        assertThat(models).as("the section is read").isNotNull();
+        assertThat(models.path()).isEqualTo("/v1/models");
+        assertThat(models.format()).isEqualTo(ModelListing.Format.LAST_ID_PAGES);
+        assertThat(models.headersFor("api-key"))
+                .as("a key takes the default headers")
+                .containsExactly(java.util.Map.entry("api-version", "2023-06-01"));
+        assertThat(models.headersFor("oauth"))
+                .as("a sign-in takes its own")
+                .containsEntry("api-beta", "sign-in");
+        assertThat(read(OPENROUTER).models()).as("no section, no list").isNull();
+    }
+
+    @Test
+    void aModelListInAShapePoreloDoesNotReadIsRefused() {
+        assertThatThrownBy(() -> read(LISTING.replace("last-id-pages", "xml")))
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("models.format");
+    }
+
+    @Test
+    void aModelListPathThatIsMoreThanAPathIsRefused() {
+        for (final String path :
+                List.of("v1/models", "/v1/models?key=x", "/../x", "//evil.example/x")) {
+            assertThatThrownBy(() -> read(LISTING.replace("/v1/models", path)))
+                    .as("'%s' would send the credential elsewhere", path)
+                    .isInstanceOf(AgentException.class)
+                    .hasMessageContaining("models.path");
+        }
+    }
+
+    @Test
+    void theShippedProvidersThatAKeyListsDeclareTheirModelList() {
+        final java.nio.file.Path shipped = java.nio.file.Path.of("../../providers");
+        for (final String name : List.of("anthropic", "openai", "openrouter")) {
+            assertThat(ProviderDefinitionReader.fromFile(shipped.resolve(name + ".yaml")).models())
+                    .as("%s lists its models to a key", name)
+                    .isNotNull();
+        }
+        for (final String name : List.of("chatgpt", "google-sign-in")) {
+            assertThat(ProviderDefinitionReader.fromFile(shipped.resolve(name + ".yaml")).models())
+                    .as("%s is a sign-in whose list no key reads", name)
+                    .isNull();
+        }
     }
 }
