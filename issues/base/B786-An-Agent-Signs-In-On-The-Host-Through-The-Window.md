@@ -39,8 +39,11 @@ host is the only way, so the window must be able to do it alone.
    nobody attaches; `attach` is empty then. A loopback flow is refused as over SSH today (`LOOPBACK_OVER_SSH`), not served by a
    forwarded redirect port: its redirect would carry the authorization code through the person's computer to a port
    on the host.
-2. From that output the daemon takes only what the agent's definition declares its login prints - a link and, for a
-   device code, a code - matched by the definition's patterns; nothing else of the output crosses. A link is
+2. The login runs in the container's pty, as an interactive CLI needs. From its output, control sequences removed
+   and read line by line, the daemon takes only what the definition declares under `login.relay`: `link` (a pattern
+   whose first group is the link), `code` (device-code: whose first group is the code) and, for paste-code,
+   `answer: line` (the code is typed back as one line); nothing else of the output crosses. An agent whose
+   definition declares no `relay` is refused for a relayed start (`UNSUPPORTED`). A link is
    answered only as `https` to a host the agent or its provider declares, bounded in length; a code only in the
    declared alphabet and length.
 3. A new `AgentSignInWatch(agent) -> (state, link: ?string, code: ?string, paste: ?bool)` answers, with `more` as
@@ -54,7 +57,7 @@ host is the only way, so the window must be able to do it alone.
 ## Red-first test
 
 - With a fake agent whose login prints a device link and code: `AgentSignInWatch` answers `waiting-for-you` with exactly the
-  link and code, and nothing else of the output. Fails today: no such method.
+  link and code, and nothing else of the output. Fails today: no such method. The stub agent's definition declares its `relay`.
 - A link to a host the definition does not declare, or not `https`: never answered.
 - A paste-code login: `paste` true, then `AgentSignInAnswer` reaches the login's input once; a second answer, a control
   character or an overlong code is refused; the code is in no log or answer.
@@ -69,6 +72,6 @@ host is the only way, so the window must be able to do it alone.
 
 ## Open questions
 
-1. How a definition declares what its login prints (link and code patterns) and how a pasted code is entered
-   (asked of Agent Smith, who keeps the agent definitions; the definitions may need their own issues).
+1. The keys' values per agent, measured with each pinned CLI run without a terminal: Agent Smith's CC75, CX28,
+   AG30, PI67, OM65 (the shape above is given to them 2026-11-15); the rented-host acceptance needs CC75's.
 2. The window's steps: settled with Agent Frontend 2026-11-15 (F584, F585); its names are taken here.
