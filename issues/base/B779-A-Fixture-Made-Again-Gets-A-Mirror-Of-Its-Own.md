@@ -20,8 +20,6 @@ minutes (Core's median for S).
 
 **What must be true.** A scenario starts from the project its Background made, not from an earlier scenario's.
 
-Filed 2026-11-14 under ST361, from the gathered VM run of [B776](README.md#b776) and [B777](README.md#b777).
-
 ## Why
 
 `TerminalSteps.aProjectSaying` removes the checkout and runs `git init` for every scenario, so each scenario's

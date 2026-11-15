@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B780",
   "title": "A Forced Removal Waits for Its Own Container to Go",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 137,
