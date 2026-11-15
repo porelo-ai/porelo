@@ -1,0 +1,2 @@
+title: "On a host, the pull request a task's build watch opens is opened with the task's own forge token, never the person's, so the person can approve it"
+type: fixed

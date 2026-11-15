@@ -453,6 +453,17 @@ public final class BuildWatch {
             } catch (IOException written) {
                 // Said at the next try; the builds go on.
             }
+        } catch (NotNow ex) {
+            // Its own credential missing is the pull request's trouble alone: the builds are still
+            // told, and it is asked again later.
+            pullRequestSettled = false;
+            pullRequestAgain = now.plus(REFUSED);
+            try {
+                builds.pullRequest(
+                        container, "", "the pull request is not opened: " + ex.getMessage());
+            } catch (IOException written) {
+                // Said at the next try; the builds go on.
+            }
         } catch (IOException | HandIns.Refused ex) {
             // Not written down or not handed in: asked again next round, and the forge answers the
             // open one.

@@ -160,7 +160,7 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
                         @Override
                         public @Nullable PullRequest openPullRequest(final String name) {
                             // No title: the forge's reader takes the newest commit's subject.
-                            return reader.openPullRequest(target(), name, null);
+                            return reader.openPullRequest(pullRequestTarget(), name, null);
                         }
                     };
             final BuildWatch watch =
@@ -262,5 +262,15 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
      */
     private Target target() {
         return BuildTarget.of(context, upstream, api, credential, fromHost);
+    }
+
+    /**
+     * Returns what opening the task's pull request carries: on a host the task's own forge token,
+     * never the builds credential, which there is the person's.
+     *
+     * @throws BuildWatch.NotNow When the vault is shut, or the task's own token is not kept.
+     */
+    private Target pullRequestTarget() {
+        return BuildTarget.pullRequest(context, upstream, api, credential, fromHost, container);
     }
 }

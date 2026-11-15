@@ -60,13 +60,24 @@ class BuildTargetTest {
         PoreloContext.forgetAsked();
     }
 
+    /** The task's container, whose own forge token a host made at its start. */
+    private static final String CONTAINER = "porelo-p_task";
+
     private Target watchTarget(String... more) throws Throwable {
+        return asked("target", more);
+    }
+
+    private Target pullRequestTarget(String... more) throws Throwable {
+        return asked("pullRequestTarget", more);
+    }
+
+    private Target asked(String which, String... more) throws Throwable {
         final TaskWatchBuildsCommand watch = new TaskWatchBuildsCommand();
         watch.setContext(context);
         final java.util.List<String> arguments =
                 new java.util.ArrayList<>(
                         java.util.List.of(
-                                "task",
+                                CONTAINER,
                                 "--branch=main",
                                 "--upstream=" + UPSTREAM,
                                 "--api=" + API,
@@ -74,7 +85,7 @@ class BuildTargetTest {
                                 "--credential=selected"));
         arguments.addAll(java.util.List.of(more));
         new CommandLine(watch).parseArgs(arguments.toArray(String[]::new));
-        final var method = TaskWatchBuildsCommand.class.getDeclaredMethod("target");
+        final var method = TaskWatchBuildsCommand.class.getDeclaredMethod(which);
         method.setAccessible(true);
         try {
             return (Target) method.invoke(watch);
@@ -158,5 +169,71 @@ class BuildTargetTest {
         } finally {
             new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
         }
+    }
+
+    @Test
+    void aHostsPullRequestIsOpenedWithTheTasksOwnTokenAndItsBuildsReadWithTheNamedOne()
+            throws Throwable {
+        // On a host the builds credential is the person's own token: a pull request opened with it
+        // names the person as its author, who then cannot approve it.
+        TaskIdentityFixture.record(context.paths(), CONTAINER, "p", "task", "a".repeat(64));
+        try {
+            context.openIfShut(true, true, new PrintWriter(new StringWriter()));
+            context.vault()
+                    .write(
+                            Map.of(
+                                    "selected",
+                                    VaultEntry.of(token),
+                                    TaskSecrets.PREFIX + CONTAINER + "/forge-token",
+                                    VaultEntry.of("task-made")),
+                            "test passphrase".toCharArray());
+            assertThat(pullRequestTarget("--from-host").token().equals("task-made"))
+                    .as("the task's own token opens its pull request")
+                    .isTrue();
+            assertThat(watchTarget("--from-host").token().equals(token))
+                    .as("the builds are still read with the named entry")
+                    .isTrue();
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
+    }
+
+    @Test
+    void aHostsPullRequestWithoutTheTasksTokenIsNotOpenedWithThePersons() throws Throwable {
+        // A task token not kept - a vault shut at the start, an uncertified start the host gave
+        // none - must never fall back to the person's token.
+        TaskIdentityFixture.record(context.paths(), CONTAINER, "p", "task", "a".repeat(64));
+        try {
+            context.openIfShut(true, true, new PrintWriter(new StringWriter()));
+            assertThatThrownBy(() -> pullRequestTarget("--from-host"))
+                    .as("no pull request is opened as the person")
+                    .isInstanceOf(BuildWatch.NotNow.class)
+                    .hasMessageContaining("task's own forge token")
+                    .hasMessageContaining("never with the person's");
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
+    }
+
+    @Test
+    void offAHostThePullRequestIsOpenedWithTheNamedEntryAsBefore() throws Throwable {
+        try {
+            context.openIfShut(true, true, new PrintWriter(new StringWriter()));
+            assertThat(pullRequestTarget().token().equals(token))
+                    .as("the person's own forge and entry, as today")
+                    .isTrue();
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
+    }
+
+    @Test
+    void aHostsPullRequestWaitsForAShutVaultRatherThanOpeningAsThePerson() {
+        context = context.asking(VaultPrompt.NOBODY);
+        assertThatThrownBy(() -> pullRequestTarget("--from-host"))
+                .as("asked again once the vault is unlocked")
+                .isInstanceOf(BuildWatch.NotNow.class)
+                .hasMessageContaining("vault is shut")
+                .hasMessageContaining("task's own forge token");
     }
 }

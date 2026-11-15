@@ -66,6 +66,9 @@ class BuildWatchTest {
 
     private BuildRefused pullRequestRefusal;
 
+    /** What keeps the pull request alone from being opened: the task's own token not kept. */
+    private BuildWatch.NotNow pullRequestNotNow;
+
     /** The branches a pull request was asked to be opened from, in order. */
     private final List<String> opening = new ArrayList<>();
 
@@ -127,6 +130,9 @@ class BuildWatchTest {
                         opening.add(branch);
                         if (pullRequestRefusal != null) {
                             throw pullRequestRefusal;
+                        }
+                        if (pullRequestNotNow != null) {
+                            throw pullRequestNotNow;
                         }
                         final PullRequest answer = pullRequest;
                         if (answer != null) {
@@ -957,6 +963,44 @@ class BuildWatchTest {
         assertThat(opening).as("not asked again at once").hasSize(1);
 
         pullRequestRefusal = null;
+        later(BuildWatch.REFUSED);
+        watch.round();
+        assertThat(opening).hasSize(2);
+        assertThat(builds.view(TASK).pullRequest())
+                .isEqualTo("https://forge.example/owner/name/pulls/7");
+        assertThat(builds.view(TASK).pullRequestProblem()).isEmpty();
+    }
+
+    @Test
+    void aPullRequestWhoseTokenIsNotThereLeavesTheBuildsToldAndIsAskedAgainLater()
+            throws IOException {
+        // On a host the pull request is opened with the task's own token alone. Without it the
+        // refusal escaped into the round, and the builds were told nothing.
+        pullRequest = OPENED;
+        pullRequestNotNow =
+                new BuildWatch.NotNow(
+                        BuildWatch.NotNow.Reason.ENTRY_MISSING,
+                        "the task's own forge token is gone");
+        head = "";
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        watch.round();
+        watch.round();
+
+        assertThat(files)
+                .as("the build is told all the same")
+                .containsKey("build-111111111111.txt");
+        assertThat(troubles)
+                .as("a pull request not opened is not the builds' trouble")
+                .containsExactly("");
+        assertThat(builds.view(TASK).pullRequestProblem())
+                .contains("not opened")
+                .contains("the task's own forge token is gone");
+        assertThat(opening).as("not asked again at once").hasSize(1);
+
+        pullRequestNotNow = null;
         later(BuildWatch.REFUSED);
         watch.round();
         assertThat(opening).hasSize(2);

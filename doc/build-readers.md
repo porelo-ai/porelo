@@ -38,7 +38,10 @@ interface, the refusal names its executable, the build interfaces it serves and 
 - **`openPullRequest(target, branch, title)`**, optional: opens a pull request from the branch into the repository's
   default branch, or answers the one already open from it, so asking twice opens one. Without a title it takes the
   subject of the branch's newest commit. The task's builds helper asks it once, at an `online` task's first push, as
-  the forge account whose token `builds:` names - never the person's, who approves it. A reader that leaves the
+  the forge account whose token `builds:` names - never the person's, who approves it. On a host, whose builds
+  credential is the person's own token, it asks with the task's own forge token instead, the one the host made for
+  the task's account at its start, and with no other: without it no pull request is opened, the builds are still
+  told, and `task status` says why. A reader that leaves the
   default in place opens none: Porelo then says so in `task status`, and the task runs as before.
 
 `target` carries the repository as the project file names it (the reader takes it apart: only it knows how its

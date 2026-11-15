@@ -183,9 +183,10 @@ final class BuildsWiring {
                 out.println(
                         "pull request   opened from "
                                 + branch
-                                + " at the task's first push, as the forge account of '"
-                                + builds.credential()
-                                + "'");
+                                + " at the task's first push, "
+                                + (own == null
+                                        ? "as the task's own forge account, never the person's"
+                                        : "as the forge account of '" + builds.credential() + "'"));
             }
             out.flush();
             return true;

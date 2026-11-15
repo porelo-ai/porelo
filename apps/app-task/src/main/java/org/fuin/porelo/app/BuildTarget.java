@@ -15,6 +15,47 @@ final class BuildTarget {
     }
 
     /**
+     * Reads what opening a task's pull request carries.
+     *
+     * <p>On a host the builds credential is the person's own token, and a pull request opened with
+     * it names the person as its author, whose approval the forge then refuses. So there it is
+     * opened with the task's own forge token, which the host made for the task's account at its
+     * start, and with nothing else: without that token no pull request is opened.
+     *
+     * @param fromHost Whether the builds come from the host's file.
+     * @param container The task's container, whose own token is asked for.
+     */
+    static Target pullRequest(
+            final PoreloContext context,
+            final String upstream,
+            final String api,
+            final String credential,
+            final boolean fromHost,
+            final String container) {
+        if (!fromHost) {
+            return of(context, upstream, api, credential, false);
+        }
+        if (context.readableCredentials().isEmpty()) {
+            throw new BuildWatch.NotNow(
+                    BuildWatch.NotNow.Reason.VAULT_SHUT,
+                    "the vault is shut, so Porelo cannot read the task's own forge token; it opens"
+                            + " the pull request once the vault is unlocked");
+        }
+        final String token = new TaskSecrets(context).forgeToken(container).orElse("");
+        if (token.isBlank()) {
+            throw new BuildWatch.NotNow(
+                    BuildWatch.NotNow.Reason.ENTRY_MISSING,
+                    "the task's own forge token for "
+                            + container
+                            + " is not in the vault or could not be read, so its pull request is not"
+                            + " opened: on a host it is opened as the"
+                            + " task, never with the person's token, whose approval the forge"
+                            + " would then refuse");
+        }
+        return new Target(upstream, api, token);
+    }
+
+    /**
      * Reads the entry for one question to the forge.
      *
      * @param fromHost Whether the builds come from the host's file, whose entry the host's own

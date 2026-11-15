@@ -69,3 +69,19 @@ lets the task's token open a pull request on the host for this reason.
 - The red-first tests pass, each seen red first.
 - On the rented host, an unattended task's pull request names the task's account as author, and the person approves
   and merges it.
+
+## As built
+
+- `BuildTarget.pullRequest` chooses what opening a task's pull request carries, beside `BuildTarget.of` for the
+  builds: off a host the named builds entry, as before; on a host (`--from-host`) the task's own forge token
+  (`TaskSecrets.forgeToken` of its container) and nothing else. A shut vault or no task token throws `NotNow`,
+  whose words say the pull request is not opened as the person.
+- `TaskWatchBuildsCommand.openPullRequest` asks `pullRequestTarget()`; `head` and `build` still ask `target()`.
+- `BuildWatch.pullRequest` catches `NotNow` beside the refusals it caught: told as the pull request's problem, asked
+  again after `REFUSED`, the builds told all the same.
+- `BuildsWiring`'s start line says the pull request is opened as the task's own forge account on a host.
+- `doc/build-readers.md`, `doc/way-of-working.md`, a changelog entry under *fixed*.
+- Red first: `BuildTargetTest.aHostsPullRequestIsOpenedWithTheTasksOwnTokenAndItsBuildsReadWithTheNamedOne` (the
+  builds token, not the task's), `aHostsPullRequestWithoutTheTasksTokenIsNotOpenedWithThePersons` (nothing thrown),
+  `BuildWatchTest.aPullRequestWhoseTokenIsNotThereLeavesTheBuildsToldAndIsAskedAgainLater` (the refusal reached
+  the round's troubles). `offAHostThePullRequestIsOpenedWithTheNamedEntryAsBefore` keeps today's behavior.

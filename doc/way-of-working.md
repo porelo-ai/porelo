@@ -68,8 +68,9 @@ setup, registry, runner, credentials and what is lost with the host - is describ
    `forgejo` build reader and its credential in the vault.
 2. Start a task: `porelo task start --project <project> --repository <repository>`. The gate passes each push on to
    `porelo/<task>` on the forge at once.
-3. Review the task's branch and its build in the pull request Porelo opens at the task's first push, as the forge
-   account of the `builds:` credential, and merge it into the forge's `main`.
+3. Review the task's branch and its build in the pull request Porelo opens at the task's first push, as the task's
+   own forge account (never the person's, whose approval the forge would then refuse), and merge it into the
+   forge's `main`.
 4. Send the merged work to the central forge with `porelo host push` or the window’s gathered push.
 
 - **The person decides** twice: the merge on the host's forge, and the gathered push to the central forge.
