@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B782",
   "title": "A Refused Pull-Request Read Says What It Asked and Got",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 9,
