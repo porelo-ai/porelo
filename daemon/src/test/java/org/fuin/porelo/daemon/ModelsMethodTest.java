@@ -55,4 +55,79 @@ class ModelsMethodTest {
                                     .contains("porelo providers");
                         });
     }
+
+    /** A clock the test moves. */
+    private static final class Hands extends java.time.Clock {
+
+        private volatile java.time.Instant now = java.time.Instant.parse("2026-11-15T12:00:00Z");
+
+        @Override
+        public java.time.ZoneId getZone() {
+            return java.time.ZoneOffset.UTC;
+        }
+
+        @Override
+        public java.time.Clock withZone(final java.time.ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public java.time.Instant instant() {
+            return now;
+        }
+    }
+
+    @Test
+    void aFreshAskFromATasksSocketIsAnsweredFromWhatWasKept() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger asked =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final Hands clock = new Hands();
+        final ModelLists models =
+                new ModelLists(
+                        (uri, headers, timeout) -> {
+                            asked.incrementAndGet();
+                            return new ModelLists.Answer(200, "{\"data\":[{\"id\":\"m\"}]}");
+                        },
+                        clock);
+        final org.fuin.porelo.agent.api.ProviderDefinition provider =
+                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                                name: listing
+                                upstream: https://listing.example
+                                dialects:
+                                  openai: /v1
+                                auth_header:
+                                  _default: Authorization
+                                auth_prefix:
+                                  _default: "Bearer "
+                                models:
+                                  path: /v1/models
+                                  format: data
+                                """),
+                        "test.yaml");
+        final Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers =
+                Map.of("listing", provider);
+        final java.util.function.Supplier<
+                        java.util.Optional<Map<String, org.fuin.porelo.vault.VaultEntry>>>
+                credentials =
+                        () ->
+                                java.util.Optional.of(
+                                        Map.of(
+                                                "listing",
+                                                new org.fuin.porelo.vault.VaultEntry(
+                                                        "key", "api-key")));
+        final Map<String, Object> fresh = Map.of("provider", "listing", "fresh", true);
+
+        AgentMethods.models(providers, credentials, models, Map.of("provider", "listing"));
+        clock.now = clock.now.plus(java.time.Duration.ofMinutes(5));
+        McpTaskSockets.as(
+                "porelo-uc-lead", () -> AgentMethods.models(providers, credentials, models, fresh));
+
+        assertThat(asked).as("a task's fresh ask takes what was kept").hasValue(1);
+
+        AgentMethods.models(providers, credentials, models, fresh);
+
+        assertThat(asked).as("the person's fresh ask reads again").hasValue(2);
+    }
 }

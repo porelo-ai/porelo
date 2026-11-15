@@ -251,7 +251,7 @@ final class AgentMethods {
     /**
      * Answers {@code Models}: the provider's own list, asked with the vault's credential. The
      * agent's own list is not asked here, so a provider that is only an agent's sign-in answers
-     * {@code none}.
+     * {@code none}; a fresh ask from a task's socket is answered as one that is not fresh.
      *
      * @param context The machine.
      * @param models The daemon's one keeper of lists.
@@ -262,8 +262,27 @@ final class AgentMethods {
             final PoreloContext context,
             final org.fuin.porelo.app.ModelLists models,
             final Map<String, Object> parameters) {
+        return models(context.providers(), context::readableCredentials, models, parameters);
+    }
+
+    /**
+     * Answers {@code Models} from the providers and the vault given.
+     *
+     * @param providers The providers this machine declares, by name.
+     * @param credentials What the vault holds, read only when a provider is asked.
+     * @param models The daemon's one keeper of lists.
+     * @param parameters The call's.
+     * @return The reply.
+     */
+    static Map<String, Object> models(
+            final Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers,
+            final java.util.function.Supplier<
+                            java.util.Optional<Map<String, org.fuin.porelo.vault.VaultEntry>>>
+                    credentials,
+            final org.fuin.porelo.app.ModelLists models,
+            final Map<String, Object> parameters) {
         final String name = text(parameters, "provider");
-        final org.fuin.porelo.agent.api.ProviderDefinition provider = context.providers().get(name);
+        final org.fuin.porelo.agent.api.ProviderDefinition provider = providers.get(name);
         try {
             if (provider == null) {
                 throw new org.fuin.porelo.app.ModelLists.Failed(
@@ -271,8 +290,9 @@ final class AgentMethods {
                                 + org.fuin.porelo.vault.RegistryText.printable(name)
                                 + "'; 'porelo providers' lists those it does");
             }
-            return models.list(provider, context::readableCredentials, flag(parameters, "fresh"))
-                    .asMap();
+            // A task's agent takes what was kept: its fresh asks would spend the person's key.
+            final boolean fresh = flag(parameters, "fresh") && McpTaskSockets.caller() == null;
+            return models.list(provider, credentials, fresh).asMap();
         } catch (org.fuin.porelo.app.ModelLists.Failed ex) {
             throw new org.fuin.porelo.wire.varlink.VarlinkException(
                     INTERFACE + ".ModelsFailed",

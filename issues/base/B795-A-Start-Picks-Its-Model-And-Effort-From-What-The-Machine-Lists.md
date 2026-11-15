@@ -127,6 +127,11 @@ The models a provider offers:
   its kind, as the broker puts it; no message carries it or what the provider sent back.
 - `none` with no models: no `models` section, no credential stored, or a stored kind the provider cannot broker.
   `from: "agent"` is not built.
-- Kept in the daemon's memory for an hour per provider, answered without opening the vault; `fresh` asks again; a
-  failure is never kept. 20 seconds for the whole list, redirects not followed. A shut vault, an unknown provider, a
+- Kept in the daemon's memory for an hour per provider, answered without opening the vault; `fresh` asks again. A
+  provider is asked at most once a minute, by one read at a time that concurrent calls wait for; within the minute
+  its last answer or failure is given again, fresh or not. A fresh ask from a task's MCP socket is not honored.
+- The credential goes only to the upstream's own https origin: a next page on another scheme, port or host is
+  `ModelsFailed` before it is asked, and an upstream that is not https is refused (a provider file already refuses
+  one). 20 seconds for the whole list, at most 50 pages, redirects not followed. A shut vault, an unknown provider, a
   non-2xx, unreachable or unreadable answer are `ModelsFailed`.
+- The contract's `agent` is accepted and reserved, and `from` is "provider" or "none".

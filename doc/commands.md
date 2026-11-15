@@ -1129,7 +1129,10 @@ The daemon's `Models` answers which models a provider offers this machine, for a
 `ProviderModels`, which says only the default. It asks the provider with the credential the vault holds for it, in
 the header the broker puts it in, at the path and in the shape its file's `models` section names (see
 [model providers](credentials.md#model-providers)), with a model's name and the reasoning efforts it lists where the
-provider gives them. A list is kept in the daemon for an hour per provider, and `fresh` asks again.
+provider gives them. A list is kept in the daemon for an hour per provider, and `fresh` asks again, but a provider is asked at most
+once a minute and one read at a time: within that minute its last answer or failure is given again. A task's MCP
+socket is answered what was kept, its `fresh` not honored, and a next page is followed only on the provider's own
+https origin.
 A provider that refuses the credential, cannot be reached within 20 seconds or answers what does not read is
 `ModelsFailed`, never an empty list, and so is a shut vault. A provider the vault holds nothing for, one whose file names no
 `models`, and one that cannot broker the kind stored answer `from: "none"` with no models, and a window

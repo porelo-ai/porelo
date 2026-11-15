@@ -34,8 +34,10 @@ import org.jspecify.annotations.Nullable;
  * declares none, one the vault holds nothing for, and one whose stored kind it cannot broker answer
  * {@code none}.
  *
- * <p>A listing is kept in memory for an hour per provider; a failure is never kept. Nothing here
- * writes a file, and no message carries the credential or what the provider sent back.
+ * <p>A listing is kept in memory for an hour per provider. One read per provider is in flight at a
+ * time, and a provider is asked at most once a minute: within it, its last answer or failure is
+ * given again, fresh or not. Nothing here writes a file, and no message carries the credential or
+ * what the provider sent back.
  */
 public final class ModelLists {
 
@@ -44,6 +46,9 @@ public final class ModelLists {
 
     /** How long one listing may take, every page included. */
     public static final Duration PATIENCE = Duration.ofSeconds(20);
+
+    /** How long after one ask a provider is not asked again, fresh or not. */
+    public static final Duration SPACING = Duration.ofMinutes(1);
 
     /** More pages than any provider's list has; a provider that pages on is refused. */
     private static final int MOST_PAGES = 50;
@@ -159,7 +164,20 @@ public final class ModelLists {
 
     private final Clock clock;
 
-    private final Map<String, Listing> kept = new ConcurrentHashMap<>();
+    /** What was last asked of each provider, by name; written under that provider's lock. */
+    private final Map<String, Asked> asked = new ConcurrentHashMap<>();
+
+    /** One lock per provider, so one read is in flight per provider and the others take it. */
+    private final Map<String, Object> locks = new ConcurrentHashMap<>();
+
+    /**
+     * The last ask of a provider: when, and its listing or why it failed.
+     *
+     * @param at When it was asked.
+     * @param listing What it answered, or {@code null} when it failed.
+     * @param failure Why it failed, or {@code null}.
+     */
+    private record Asked(Instant at, @Nullable Listing listing, @Nullable String failure) {}
 
     /** Asks the providers at their own https addresses. */
     public ModelLists() {
@@ -208,7 +226,8 @@ public final class ModelLists {
      * @param provider The provider.
      * @param credentials What the vault holds, read only when the provider has to be asked; empty
      *     when it is shut or unreadable.
-     * @param fresh Whether to ask although a listing is kept.
+     * @param fresh Whether to ask although a listing is kept; not within {@link #SPACING} of the
+     *     last ask, which is answered again instead.
      * @return The listing.
      * @throws Failed If the provider was asked and did not answer with a list, or the vault is
      *     shut.
@@ -222,12 +241,33 @@ public final class ModelLists {
         if (listed == null) {
             return none();
         }
-        if (!fresh) {
-            final Listing listing = kept.get(provider.name());
-            if (listing != null && clock.instant().isBefore(listing.readAt().plus(KEPT))) {
-                return listing;
+        // One read per provider at a time: a call that waited takes the answer the read gave.
+        synchronized (locks.computeIfAbsent(provider.name(), name -> new Object())) {
+            final Instant now = clock.instant();
+            final Asked last = asked.get(provider.name());
+            if (last != null && now.isBefore(last.at().plus(SPACING))) {
+                // A loop of asks, fresh or not, reaches the provider once a minute.
+                if (last.listing() != null) {
+                    return last.listing();
+                }
+                throw new Failed(last.failure() + "; asked again from " + last.at().plus(SPACING));
             }
+            if (!fresh
+                    && last != null
+                    && last.listing() != null
+                    && now.isBefore(last.listing().readAt().plus(KEPT))) {
+                return last.listing();
+            }
+            return read(provider, listed, credentials, now);
         }
+    }
+
+    private Listing read(
+            final ProviderDefinition provider,
+            final org.fuin.porelo.agent.api.ModelListing listed,
+            final Supplier<Optional<Map<String, VaultEntry>>> credentials,
+            final Instant now)
+            throws Failed {
         final Map<String, VaultEntry> stored =
                 credentials
                         .get()
@@ -246,10 +286,15 @@ public final class ModelLists {
         if (provider.unbrokerableReason(type) != null) {
             return none();
         }
-        final Listing listing =
-                new Listing(ask(provider, listed, entry, type), "provider", clock.instant());
-        kept.put(provider.name(), listing);
-        return listing;
+        try {
+            final Listing listing =
+                    new Listing(ask(provider, listed, entry, type), "provider", clock.instant());
+            asked.put(provider.name(), new Asked(now, listing, null));
+            return listing;
+        } catch (Failed ex) {
+            asked.put(provider.name(), new Asked(now, null, ex.getMessage()));
+            throw ex;
+        }
     }
 
     private Listing none() {
@@ -283,6 +328,12 @@ public final class ModelLists {
                 query == null
                         ? ""
                         : query + "=" + URLEncoder.encode(entry.value(), StandardCharsets.UTF_8);
+        final URI upstream = URI.create(provider.upstream());
+        if (!"https".equals(upstream.getScheme())) {
+            // A provider refuses such an upstream when it is read; this keeps the key off one made
+            // any other way.
+            throw new Failed("'" + provider.name() + "' is not reached over https");
+        }
         final long deadline = System.nanoTime() + PATIENCE.toNanos();
         final List<Model> models = new ArrayList<>();
         String next = paged ? base + "?limit=1000" : base;
@@ -292,9 +343,10 @@ public final class ModelLists {
                         "'" + provider.name() + "' kept paging past " + MOST_PAGES + " pages");
             }
             final URI plain = URI.create(next);
-            if (!java.util.Objects.equals(plain.getHost(), provider.upstreamHost())) {
-                // The credential goes to the provider's own host and to no address a page names.
-                throw new Failed("'" + provider.name() + "' named a next page on another host");
+            if (!sameOrigin(plain, upstream)) {
+                // The credential goes to the provider's own origin and to no address a page names:
+                // the same host on plain http or another port would carry it in the clear.
+                throw new Failed("'" + provider.name() + "' named a next page on another origin");
             }
             final Map<?, ?> document =
                     page(provider, URI.create(withKey(next, key)), headers, deadline);
@@ -304,6 +356,19 @@ public final class ModelLists {
                             : dataPage(provider, document, models, plain);
         }
         return models;
+    }
+
+    private static boolean sameOrigin(final URI one, final URI other) {
+        return "https".equals(one.getScheme())
+                && "https".equals(other.getScheme())
+                && one.getHost() != null
+                && one.getHost().equalsIgnoreCase(other.getHost())
+                && port(one) == port(other)
+                && one.getRawUserInfo() == null;
+    }
+
+    private static int port(final URI uri) {
+        return uri.getPort() == -1 ? 443 : uri.getPort();
     }
 
     private static String withKey(final String address, final String key) {

@@ -92,10 +92,38 @@ class ModelListsTest {
 
     private HttpServer server;
 
+    /** A clock the test moves. */
+    static final class Hands extends java.time.Clock {
+
+        private volatile java.time.Instant now = java.time.Instant.parse("2026-11-15T12:00:00Z");
+
+        void advance(final java.time.Duration by) {
+            now = now.plus(by);
+        }
+
+        @Override
+        public java.time.ZoneId getZone() {
+            return java.time.ZoneOffset.UTC;
+        }
+
+        @Override
+        public java.time.Clock withZone(final java.time.ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public java.time.Instant instant() {
+            return now;
+        }
+    }
+
+    private final Hands clock = new Hands();
+
     @AfterEach
     void stop() {
         if (server != null) {
             server.stop(0);
+            server = null;
         }
     }
 
@@ -113,6 +141,10 @@ class ModelListsTest {
                     final Answer answer = answers.apply(target);
                     final byte[] payload = answer.body().getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    if (answer.status() / 100 == 3) {
+                        // A redirect names where it points in its body here, as Location.
+                        exchange.getResponseHeaders().set("Location", answer.body());
+                    }
                     exchange.sendResponseHeaders(answer.status(), payload.length);
                     try (OutputStream out = exchange.getResponseBody()) {
                         out.write(payload);
@@ -131,7 +163,7 @@ class ModelListsTest {
                                                 + (uri.getRawQuery() == null
                                                         ? ""
                                                         : "?" + uri.getRawQuery()))),
-                java.time.Clock.systemUTC());
+                clock);
     }
 
     private record Answer(int status, String body) {}
@@ -288,9 +320,158 @@ class ModelListsTest {
         assertThat(second.readAt()).as("with the time it was read").isEqualTo(first.readAt());
         assertThat(vaultReads).as("and without opening the vault again").hasValue(1);
 
+        clock.advance(java.time.Duration.ofMinutes(2));
         lists.list(OPENROUTER, () -> stored("openrouter"), true);
 
         assertThat(asked).as("fresh asks the provider again").hasSize(2);
+    }
+
+    private static Answer page(final String next) {
+        return new Answer(
+                200,
+                "{\"data\":[{\"id\":\"m\"}],\"links\":{\"next\":"
+                        + (next == null ? "null" : "\"" + next + "\"")
+                        + "}}");
+    }
+
+    @Test
+    void aNextPageOnAnotherSchemePortOrHostIsRefusedBeforeTheKeyTravels() throws Exception {
+        for (final String next :
+                List.of(
+                        "http://openrouter.example/api/v1/models?page=2",
+                        "https://openrouter.example:8443/api/v1/models?page=2",
+                        "https://elsewhere.example/api/v1/models?page=2")) {
+            asked.clear();
+            final ModelLists lists = lists(target -> page(next));
+
+            assertThatThrownBy(() -> lists.list(OPENROUTER, () -> stored("openrouter"), false))
+                    .as("'%s' is not the provider's own origin", next)
+                    .isInstanceOf(ModelLists.Failed.class)
+                    .hasMessageContaining("another origin");
+            assertThat(asked).as("no second request carries the key to %s", next).hasSize(1);
+            server.stop(0);
+            server = null;
+        }
+    }
+
+    @Test
+    void aNextPageOnTheProvidersOwnOriginIsFollowed() throws Exception {
+        final ModelLists lists =
+                lists(
+                        target ->
+                                target.contains("page=2")
+                                        ? page(null)
+                                        : page("https://openrouter.example/api/v1/models?page=2"));
+
+        assertThat(lists.list(OPENROUTER, () -> stored("openrouter"), false).models()).hasSize(2);
+        assertThat(asked).hasSize(2);
+    }
+
+    @Test
+    void anHttpUpstreamNeverBecomesAProviderSoNothingIsSentInTheClear() {
+        assertThatThrownBy(
+                        () ->
+                                provider(
+                                        """
+                                        name: plain
+                                        upstream: http://plain.example
+                                        dialects:
+                                          openai: /v1
+                                        models:
+                                          path: /v1/models
+                                          format: data
+                                        """))
+                .isInstanceOf(org.fuin.porelo.agent.api.AgentException.class)
+                .hasMessageContaining("https");
+    }
+
+    @Test
+    void aProviderThatPagesWithoutEndIsCutAtFiftyPages() throws Exception {
+        final ModelLists lists = lists(target -> page("/api/v1/models?page=" + (asked.size() + 1)));
+
+        assertThatThrownBy(() -> lists.list(OPENROUTER, () -> stored("openrouter"), false))
+                .isInstanceOf(ModelLists.Failed.class)
+                .hasMessageContaining("50 pages");
+        assertThat(asked).as("fifty asks and no more").hasSize(50);
+    }
+
+    @Test
+    void aRedirectIsAFailureAndNotFollowed() throws Exception {
+        final ModelLists lists =
+                lists(target -> target.contains("moved") ? page(null) : new Answer(302, "/moved"));
+
+        assertThatThrownBy(() -> lists.list(OPENROUTER, () -> stored("openrouter"), false))
+                .isInstanceOf(ModelLists.Failed.class)
+                .hasMessageContaining("302");
+        assertThat(asked).as("the redirect is not followed with the key").hasSize(1);
+    }
+
+    @Test
+    void aFreshAskWithinAMinuteOfTheLastReadIsAnsweredFromWhatWasKept() throws Exception {
+        final ModelLists lists = lists(target -> page(null));
+
+        lists.list(OPENROUTER, () -> stored("openrouter"), false);
+        clock.advance(java.time.Duration.ofSeconds(30));
+        lists.list(OPENROUTER, () -> stored("openrouter"), true);
+
+        assertThat(asked).as("a fresh ask half a minute later asks nothing").hasSize(1);
+
+        clock.advance(java.time.Duration.ofSeconds(31));
+        lists.list(OPENROUTER, () -> stored("openrouter"), true);
+
+        assertThat(asked).as("a minute after the last read it asks again").hasSize(2);
+    }
+
+    @Test
+    void aFailureIsAnsweredAgainForAMinuteWithoutAsking() throws Exception {
+        final ModelLists lists = lists(target -> new Answer(500, "{}"));
+
+        for (int call = 0; call < 3; call++) {
+            final boolean fresh = call > 0;
+            assertThatThrownBy(() -> lists.list(OPENROUTER, () -> stored("openrouter"), fresh))
+                    .isInstanceOf(ModelLists.Failed.class)
+                    .hasMessageContaining("500");
+        }
+        assertThat(asked).as("a loop of asks reaches the provider once a minute").hasSize(1);
+    }
+
+    @Test
+    void callsAtOnceShareOneRead() throws Exception {
+        final java.util.concurrent.CountDownLatch release =
+                new java.util.concurrent.CountDownLatch(1);
+        final ModelLists lists =
+                lists(
+                        target -> {
+                            try {
+                                release.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                            return page(null);
+                        });
+        final List<java.util.concurrent.CompletableFuture<ModelLists.Listing>> calls =
+                new java.util.ArrayList<>();
+        for (int call = 0; call < 5; call++) {
+            final boolean fresh = call % 2 == 0;
+            calls.add(
+                    java.util.concurrent.CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return lists.list(
+                                            OPENROUTER, () -> stored("openrouter"), fresh);
+                                } catch (ModelLists.Failed ex) {
+                                    throw new IllegalStateException(ex);
+                                }
+                            },
+                            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()));
+        }
+        Thread.sleep(500);
+        release.countDown();
+
+        for (final var call : calls) {
+            assertThat(call.get(20, java.util.concurrent.TimeUnit.SECONDS).models()).hasSize(1);
+        }
+        assertThat(asked).as("five calls at once, one read").hasSize(1);
     }
 
     @Test
