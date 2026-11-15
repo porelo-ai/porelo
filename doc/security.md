@@ -379,7 +379,8 @@ of all tasks at once - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `po
 Every transport verb except `setup` runs in a user and network namespace created by `pasta --config-net`.
 Before the verb starts, nftables loads an output policy that drops traffic outside namespace loopback and the
 addresses in the saved conversation's `reaches`. A reach may be a literal IPv4 or IPv6 address or a host name,
-with an optional port. Porelo looks up each name through the host's resolver at each verb's start and allows only
+with an optional port, or the plain absolute path of a Unix socket, which is reached through the file system and
+adds no address and no port. Porelo looks up each name through the host's resolver at each verb's start and allows only
 the returned addresses for that run. A failed lookup or an empty answer refuses the verb before it runs.
 The verb runs as root of pasta's user namespace, where it would hold `CAP_NET_ADMIN` and could flush that ruleset:
 `setpriv` empties its bounding, inheritable and ambient capability sets and sets no-new-privileges first, so the

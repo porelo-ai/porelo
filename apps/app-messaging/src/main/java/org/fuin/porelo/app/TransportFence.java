@@ -169,7 +169,13 @@ final class TransportFence implements CommandRunner {
     private record Planned(String rules, Set<String> ports, boolean loopbackDns) {}
 
     private Planned planned() {
-        final List<Reach> parsed = reaches.stream().map(TransportFence::reach).toList();
+        // A socket file is reached through the file system, which the namespace does not fence: it
+        // adds no address and maps no port, and only a plain absolute path is one.
+        final List<Reach> parsed =
+                reaches.stream()
+                        .filter(reach -> !socket(reach))
+                        .map(TransportFence::reach)
+                        .toList();
         for (final Reach reach : parsed) {
             final @Nullable InetAddress literal = reach.literal();
             if (literal != null && unreachable(literal)) throw cannotBeReached(reach.host());
@@ -444,9 +450,25 @@ final class TransportFence implements CommandRunner {
         if (number < 1 || number > 65535) throw invalidReach();
     }
 
+    /**
+     * Whether a reach names a Unix socket by its absolute path, as a transport names a homeserver
+     * it reaches through one.
+     *
+     * @param reach As the transport said it.
+     * @return {@code true} for a plain absolute path; a reach starting with a slash that is not one
+     *     is refused.
+     */
+    static boolean socket(final String reach) {
+        if (!reach.startsWith("/")) return false;
+        if (reach.length() > 4096
+                || !reach.matches("(/[A-Za-z0-9._@+-]+)+")
+                || reach.matches(".*/\\.{1,2}(/.*)?")) throw invalidReach();
+        return true;
+    }
+
     private static IllegalArgumentException invalidReach() {
         return new IllegalArgumentException(
                 "A transport fence requires a host name or literal address with an optional port"
-                        + " from 1 to 65535");
+                        + " from 1 to 65535, or a socket's plain absolute path");
     }
 }

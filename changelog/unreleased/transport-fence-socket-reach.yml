@@ -1,0 +1,2 @@
+title: "A transport that reaches its homeserver through a Unix socket runs fenced, where every task start taking part in that conversation was refused"
+type: fixed

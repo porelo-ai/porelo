@@ -339,6 +339,64 @@ class TransportVerbsTest {
                 name -> Path.of("/usr/bin", name));
     }
 
+    @Test
+    void aHomeserverReachedThroughASocketRunsFencedWithNoAddressOfItsOwn() throws Exception {
+        // Harm: a task start that takes part in its project's conversation is refused outright on a
+        // host whose transport reaches the homeserver through a Unix socket.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final PoreloContext context = context(runner);
+        final Path adapters = Files.createDirectories(dir.resolve("adapters"));
+        final Path adapter =
+                Files.writeString(adapters.resolve(TransportDirectory.PREFIX + "room"), "");
+        assertThat(adapter.toFile().setExecutable(true))
+                .as("the fixture adapter is executable")
+                .isTrue();
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(
+                        context,
+                        new TransportDirectory(List.of(adapters)),
+                        dir.resolve("host"),
+                        name -> Path.of("/usr/bin", name));
+        runner.answering("describe", "{\"scheme\":\"room\",\"lifecycle\":[\"join\"]}");
+        runner.answering(" join ", "{}");
+        remember(context, "p", List.of("/run/porelo-matrix/client.sock", "192.0.2.10"));
+        register(context, "guarded");
+
+        lifecycle.join("room", "p", "alice", false, Map.of());
+
+        final Command command = runner.only(" join ");
+        assertThat(command.program())
+                .as("the call still enters the fence")
+                .isEqualTo("/usr/bin/pasta");
+        assertThat(command.arguments())
+                .as("a socket maps no loopback port")
+                .containsSubsequence("-T", "none");
+        assertThat(script(command))
+                .as("the socket opens no address; the other reach keeps its own")
+                .contains("ip daddr 192.0.2.10 accept")
+                .doesNotContain("client.sock");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"run/x.sock", "/run/../etc/x.sock", "/run//x.sock", "/run/x.sock/"})
+    void aSocketReachThatIsNoPlainAbsolutePathIsRefused(final String reach) throws Exception {
+        // Harm: a transport's word names something other than one socket file, and it is taken.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final TransportVerbs verbs =
+                new TransportVerbs(
+                                runner,
+                                name -> Path.of("/usr/bin", name),
+                                name -> new InetAddress[0],
+                                Files.writeString(
+                                        dir.resolve("resolv.conf"), "nameserver 127.0.0.53\n"))
+                        .reaching(List.of(reach), false);
+
+        assertThatThrownBy(() -> verbs.run(Command.of("/transport", "poll")))
+                .as("refused, never run")
+                .hasMessageContaining("A transport fence requires");
+        assertThat(runner.invocations()).as("nothing ran").isEmpty();
+    }
+
     private void register(final PoreloContext context, final String securityClass)
             throws Exception {
         final Path project =
