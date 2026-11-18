@@ -15,8 +15,8 @@
 ```
 
 **Why this size.** S: `TaskLaunch` (around line 4090) hands `WorkspaceSetup.readAll` every repository of
-`project.allRepositories()`. It takes the carried ones from the host's record of the project instead, which B796 reads
-as well. A unit test of the selection and one of the words.
+`project.allRepositories()`. It takes the carried ones from the host's record of the project instead, which
+[B796](README.md#b796) reads as well. A unit test of the selection and one of the words.
 
 **What must be true.** An agent that discusses an idea on a machine reads the repositories that machine has, and its
 output carries no error for a repository that was never put there.

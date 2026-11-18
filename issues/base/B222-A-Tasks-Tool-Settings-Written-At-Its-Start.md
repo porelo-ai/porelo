@@ -66,7 +66,7 @@ placed.
 
 - To Backlog, priority unchanged.
 
-## Covered by B467 (2026-11-13)
+## Covered by [B467](README.md#b467) (2026-11-13)
 
 - [B467](README.md#b467), in Review, builds what this issue asks: a project declares its build tool's repositories in
   `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns,
