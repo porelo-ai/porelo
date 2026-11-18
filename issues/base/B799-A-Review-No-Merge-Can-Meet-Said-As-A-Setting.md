@@ -16,7 +16,9 @@
 
 **Why this size.** XS: the text form of `review_waits` in `ProjectShowCommand.text` (`apps/app-organization`), the
 one assertion of `OrgReadingCommandsTest` that holds the old words, and the sentence in `doc/commands.md`; the JSON
-field and its value stay, so no contract changes.
+field and its value stay, so no contract changes. [B800](README.md#b800) lets repositories without their own
+`review` follow the project's, so a project set `optional` shows no warning at all; this issue stays for a project
+that is `required` and has one admin, where the line still misleads.
 
 **What must be true.** A person reading `porelo project show` takes the review warning for what it is: the project's
 setting `review: required` cannot be met while the project has fewer than two unlocked admins, so no merge in those
