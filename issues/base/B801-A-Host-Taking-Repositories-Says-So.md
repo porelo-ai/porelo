@@ -36,20 +36,30 @@ project with nineteen repositories that took about a minute, and the progress a 
 - Host (`host/.../FollowProjects.java`):
   - with a token in hand, `reconcile` and `repositories` set the project's state to `taking` instead of
     `waiting-for-token`, with `taking_since` (UTC, read from `c.clock`), `taking_done` and `taking_total` (the
-    repositories this run must take);
+    repositories this run must take, absent while the run is still counting them, so a reader says no count rather
+    than "0 of 0");
   - `takeNamed` saves `host-projects.json` after each repository it takes, through the same `save`, so a reader
     sees the count grow; the end of the run sets `carried`, or `waiting-for-token` only where a repository still waits
-    for a token, or `held`/`refused` as today, and removes the `taking_*` fields;
+    for a token, or `held`/`refused` as today, and removes the `taking_*` fields; a run with a token that ends
+    without taking everything says why in `why` (per repository, as `repositories_why` already groups it), so a
+    reader tells "this token did not help" from "not started yet";
+  - two readers see it, and both are written as the run goes: the project's row in `host-projects.json`, which
+    `porelo-host org status` answers as root to the Machine Admin over ssh (`HostProjects.status`), and the
+    members' publication `/etc/porelo-host/organization/central/<project>.json`, which today `ProjectMeasurements`
+    writes only at the end of the run and a member's own daemon reads (`HostCentral`); the members' file is
+    rewritten with the new state and counts after each repository, keeping the last measured repositories;
   - a run that is stopped midway leaves `taking` behind: the next follow run, or a reader that finds `taking` with no
     follow run holding the host's follow lock, says the state the items show, never `taking` from a dead run.
 - The host's state lists that validate the file: `HostFollow.progress` (line 110) and `HostProjects` take `taking`.
-- Machine (`apps/app-model/.../HostCentral.java`): `PROJECT_STATES` gains `taking`, and the answer's `taking_done`,
+- Machine (`apps/app-model/.../HostCentral.java`), the member's own daemon only, since the file is published for
+  the project's unlocked members: `PROJECT_STATES` gains `taking`, and the answer's `taking_done`,
   `taking_total` (non-negative, done at most total, bounded like `MOST_COMMITS`) and `taking_since` (an instant) are
-  validated and carried; anything else stays refused as today.
+  validated and carried; anything else stays refused as today. A Machine Admin who is no member reads the same state
+  from `porelo-host org status` as root, as today.
 - Contract (`20-project.varlink`): `hostState` documents `taking`, and the project row gains `hostTakingDone: ?int`,
   `hostTakingTotal: ?int` and `hostTakingSince: ?string`, absent in every other state; an added enum value and added
-  optional fields are not breaking within `Tasks1`. The shape is posted to Agent Frontend in the room and agreed
-  before it is built; `ProjectInventory` carries the fields, and the record crossing varlink is two edits as the rules
+  optional fields are not breaking within `Tasks1`. The shape is agreed with the interface's owner: `taking` with
+  the three fields, `hostTakingTotal` absent while counting, and the reason of a run that ended short in `hostWhy`; `ProjectInventory` carries the fields, and the record crossing varlink is two edits as the rules
   say.
 - A machine on an older version reads `taking` as a state it does not know and says `cannot-say` for the minute the
   run lasts, as it does for any unknown state; that is said in the hand-over to the interface's owner.
@@ -72,4 +82,3 @@ project with nineteen repositories that took about a minute, and the progress a 
 ## To be checked
 
 - How the host's follow lock is held, so a reader can tell a live run's `taking` from a dead one's.
-- The shape of the three new fields with Agent Frontend, in the room, before the build.
