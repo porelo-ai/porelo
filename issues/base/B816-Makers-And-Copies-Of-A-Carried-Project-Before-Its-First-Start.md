@@ -51,7 +51,7 @@ Read in porelo at aec066e43.
   fetches `refs/pull/<n>/head` the same way for card proposals.
 - **Contract.** `35-gate.varlink`, `HostPullRequest`: makers are read from the local mirror or from the head fetched
   from the host's forge into Porelo's own store, never from the forge's user fields. `doc/hosts.md` says the same.
-- **Left by B796's reading, done here:** tests of the carried path for a withheld or `cannot-say` carry state, a
+- **Left by [B796](README.md#b796)'s reading, done here:** tests of the carried path for a withheld or `cannot-say` carry state, a
   malformed host record or person list, and that every asked address is on loopback.
 - **Red first:** a carried, unplaced project with one open pull request answers it with its makers (today
   `makers`); a repository whose key differs from its central address's name is asked under the copy the address
