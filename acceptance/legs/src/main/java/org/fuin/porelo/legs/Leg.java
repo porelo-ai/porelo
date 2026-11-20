@@ -11,6 +11,7 @@ import org.fuin.porelo.machines.Credential;
 import org.fuin.porelo.machines.HostKey;
 import org.fuin.porelo.machines.Lease;
 import org.fuin.porelo.machines.Machines;
+import org.fuin.porelo.machines.RemoteSession;
 import org.fuin.porelo.machines.Spec;
 import org.fuin.porelo.machines.Ssh;
 import org.fuin.porelo.machines.Stopping;
@@ -368,7 +369,7 @@ public final class Leg {
                     step("what a person does at a terminal");
                     HostServices.around(
                             command -> {
-                                final Ssh root = lease.ssh();
+                                final RemoteSession root = lease.ssh();
                                 root.reconnect();
                                 run(root, command);
                             },
@@ -389,7 +390,7 @@ public final class Leg {
                                     () -> {
                                         // The scenarios that restart the machine took the session
                                         // with them.
-                                        final Ssh root = lease.ssh();
+                                        final RemoteSession root = lease.ssh();
                                         root.reconnect();
                                         return root.run(CACHE_SERVED).all();
                                     }));
@@ -884,7 +885,7 @@ public final class Leg {
      * @param command What to run.
      * @throws IOException If it failed.
      */
-    private static void run(Ssh ssh, String command) throws IOException {
+    private static void run(RemoteSession ssh, String command) throws IOException {
         final Ssh.Output out = ssh.run(command);
         System.out.print(out.all());
         if (out.status() != 0) {
