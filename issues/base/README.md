@@ -105,6 +105,7 @@ from its side, as *blocked by*.
 | <a id="b251"></a>[B251](B251-Porelo-Inside-A-Lima-VM.md) | - | - | Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there | - |
 | <a id="b257"></a>[B257](B257-A-Direct-Peer-Reached-Without-A-Conversation.md) | - | - | A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it | - |
 | <a id="b333"></a>[B333](B333-Porelod-Prunes-Once-A-Day.md) | - | - | `porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays | - |
+| <a id="b817"></a>[B817](B817-Small-Findings-Of-An-Agents-Own-Model-List.md) | S | - | What the reading of an agent's own model list left: a broken installed agent answered as an unknown one, two contract sentences on when the vault is read, and three test gaps | - |
 
 ## Accepted
 
