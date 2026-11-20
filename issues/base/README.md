@@ -232,7 +232,6 @@ from its side, as *blocked by*.
 | <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. | - |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first | - |
 | <a id="b670"></a>[B670](B670-A-Task-Is-Not-Given-Its-Issue-Prefixes.md) | XS | - | A task is no longer given PORELO_ISSUE_PREFIXES; the shared rule in each AGENTS.md says how issues are named instead. | 0 |
-| <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. | 0 |
 | <a id="b630"></a>[B630](B630-A-Tasks-Record-Splits-Its-Work-By-Sub-Agent.md) | L | - | A task's record names each sub-agent's own span with its issue and parent, counts tokens per sub-agent, takes an issue id with a hyphen, and keeps several issue and phase pairs given at the start. | - |
 | <a id="b635"></a>[B635](B635-Leaving-An-Attended-Task-Can-Stop-It.md) | M | - | Two choices made at a task's start, on the CLI and in Tasks1 Start so the window can offer them, neither the default: the session and the task end when the agent ends, and the task stops when the person leaves its shell; without them a task behaves as today. | - |
 | <a id="b222"></a>[B222](B222-A-Tasks-Tool-Settings-Written-At-Its-Start.md) | M | [B220](README.md#b220), [B219](README.md#b219) | A task's start has the plugins `configure` it and places their tool settings, pointing at the broker with no credential. | 0 |
@@ -282,9 +281,10 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker | - |
+| <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. | 0 |
 
 ## Review
 

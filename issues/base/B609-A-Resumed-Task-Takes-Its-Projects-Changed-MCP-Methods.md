@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B609",
   "title": "A Resumed Task Takes Its Project's Changed MCP Methods",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 30,
