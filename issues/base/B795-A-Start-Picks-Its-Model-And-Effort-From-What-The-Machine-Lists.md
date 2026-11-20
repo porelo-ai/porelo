@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B795",
   "title": "A Start Picks Its Model and Effort From What the Machine Lists",
-  "state": "Implementing",
+  "state": "Review",
   "size": "L",
   "priority": "High",
   "rank": 9,

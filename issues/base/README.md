@@ -281,11 +281,9 @@ from its side, as *blocked by*.
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker | - |
-| <a id="b794"></a>[B794](B794-A-Token-Count-Is-Partial-Only-Where-A-Reply-Left-It-Out.md) | S | - | Usage counts a request as missing a kind only where its format reports that kind and the reply did not, and its contract says that output includes reasoning in every format, so the window neither says at least for every task nor counts reasoning twice | 0 |
-| <a id="b795"></a>[B795](B795-A-Start-Picks-Its-Model-And-Effort-From-What-The-Machine-Lists.md) | L | - | An agent declares how it takes a reasoning effort and which values, Start takes an effort beside its model, and the daemon lists the models a provider offers on this machine, asked through its broker with the vault's credential, so a window offers both as lists | 0 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
 
 ## Review
 
@@ -306,7 +304,9 @@ from its side, as *blocked by*.
 | <a id="b805"></a>[B805](B805-A-Projects-Tracker-Key-Read-And-Kept.md) | M | - | `project.yml` takes the top-level key `tracker` the person's planner writes (which store holds the issues); porelo checks its shape, keeps it through every rewrite of the file, documents it, and uses it for nothing else | - |
 | <a id="b806"></a>[B806](B806-A-Task-Given-Work-Pushes-Only-Commits-Naming-Its-Issue.md) | M | - | a task given work is told the trailer `Porelo-Issue: <tracker reference>` and its gate refuses a push with a commit that lacks it; the work's issue is the tracker's reference; built on the cut-over day | - |
 | <a id="b140"></a>[B140](B140-A-Secret-Scan-Of-The-Workspace-At-Start.md) | M | - | A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write. | 0 |
+| <a id="b794"></a>[B794](B794-A-Token-Count-Is-Partial-Only-Where-A-Reply-Left-It-Out.md) | S | - | Usage counts a request as missing a kind only where its format reports that kind and the reply did not, and its contract says that output includes reasoning in every format, so the window neither says at least for every task nor counts reasoning twice | 0 |
 | <a id="b732"></a>[B732](B732-A-Tasks-Socket-Lists-Only-Its-Own-Project.md) | S | - | Over a task's own socket, Projects and WatchProjects answer only the task's project, as List and Watch do; every other account-wide reading method granted there is held or named as an exception. | 0 |
+| <a id="b795"></a>[B795](B795-A-Start-Picks-Its-Model-And-Effort-From-What-The-Machine-Lists.md) | L | - | An agent declares how it takes a reasoning effort and which values, Start takes an effort beside its model, and the daemon lists the models a provider offers on this machine, asked through its broker with the vault's credential, so a window offers both as lists | 0 |
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | M | - | A task's container name is one project's and one task's: new tasks are named `porelo-<project>_<task>` already; what is left is the code that still reads a project or task out of a name, the host's records kept by task name alone, and the docs and stories on the old form; project `porelo`'s tasks are `porelo_<task>`, and what assumes a `porelo-` beginning takes both | 0 |
 | <a id="b733"></a>[B733](B733-One-Unverifiable-Task-Refuses-Only-Its-Own-Gate.md) | S | - | A retained task name whose ownership cannot be verified refuses only a lookup of that task, never another task's gate; and a project clear leaves a running task's records whole, so it cannot make one unverifiable. | 0 |
 | <a id="b738"></a>[B738](B738-What-A-Task-Writes-Never-Picks-Its-Next-Agent.md) | M | - | Nothing an agent writes in its task - a binary in $XDG_BIN_HOME, a shell start file, a variable - changes which agent binary or which environment a later start of an agent in that task runs; the start runs the root-owned wrapper by its own path with an environment Porelo sets. | 0 |
