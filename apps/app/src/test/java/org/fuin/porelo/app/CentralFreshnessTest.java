@@ -103,8 +103,8 @@ class CentralFreshnessTest {
 
     @Test
     void aCopyBehindCentralThatTheFollowDidNotMoveRefusesTheStart() throws Exception {
-        // The planner saved an issue to central; a task on the host's older copy wrote a second
-        // one.
+        // A task given work on the host's older copy would work on code its work was not planned
+        // against.
         assertThat(refusal("moved-on", 0))
                 .as("refused, naming the way back")
                 .contains("'pi'")

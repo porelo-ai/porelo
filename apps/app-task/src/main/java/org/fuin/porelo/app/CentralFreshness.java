@@ -8,12 +8,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Whether a start given work on a host may work on the host's copy of its repository: the copy must
- * hold central's newest main, which the window's planner may have moved a moment ago.
+ * hold central's newest main, which a person may have moved a moment ago.
  *
  * <p>The host is asked to follow now first, which brings a copy behind central up to it where it
  * can; then the central state that pass published is read, as the window reads it. Anything but a
- * copy that holds central's main refuses: a planned task on a copy that misses its own issue writes
- * a second one.
+ * copy that holds central's main refuses: a task given work never starts on older code than the one
+ * its work was planned against.
  */
 final class CentralFreshness {
     private CentralFreshness() {}
@@ -102,7 +102,7 @@ final class CentralFreshness {
                                             : answer == null || answer.why() == null
                                                     ? "the host's central state says nothing of it"
                                                     : answer.why())
-                            + "), and a task given work must not miss what its planner saved there;"
+                            + "), and a task given work starts only on central's newest main;"
                             + " start again once 'porelo host follow' answers";
         };
     }

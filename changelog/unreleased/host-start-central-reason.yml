@@ -1,0 +1,2 @@
+title: "A start given work on a host whose copy of its repository is behind central is still refused, and the refusal now says a task given work starts only on central's newest main instead of naming an issue its planner saved"
+type: changed

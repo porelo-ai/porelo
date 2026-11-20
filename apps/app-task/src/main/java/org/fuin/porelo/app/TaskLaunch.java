@@ -3261,8 +3261,8 @@ public final class TaskLaunch {
 
         workedOn = repository;
         if (request.work() != null && host.present()) {
-            // A planned task on a copy that misses what its planner just saved to central writes
-            // a second issue: the host follows first, and a copy still behind refuses the start.
+            // A task given work starts on central's newest main: the host follows first, and a
+            // copy still behind refuses the start.
             final String behind = centralRefusal(project, repository);
             if (behind != null) {
                 err.println("porelo: " + behind);

@@ -555,9 +555,10 @@ is the same for every repository of the project.
 of them, written as JSON, under the 4 MiB one daemon message carries; anything else is refused before anything is made
 (exit 64). The host keeps them owner-only and forgets them when the task is removed or its name made anew; a task
 brought back keeps them, and refuses `--given`. Porelo never reads what they hold, nor what a result file holds:
-`analysis.json` and `estimate.json` are the planner's to check. A start on a host (`--host`) takes no `--given`, since
+`analysis.json` and `estimate.json` are the planner's to check. `porelo task start --host` takes no `--given`, since
 a file's text goes there only on the start's input, never as arguments, and a task's own MCP start offers neither
-option.
+option. A window that starts a task on a host calls that host's own daemon's `Start`, over a forwarded socket or
+`porelo daemon connect`, and its `given` is taken there as on this machine.
 
 The guide of a task that reads one repository, hands back `NAME` and was given `FILE` ends with these parts:
 

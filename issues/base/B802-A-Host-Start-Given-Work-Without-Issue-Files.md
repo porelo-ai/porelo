@@ -1,7 +1,7 @@
 # B802 — A Host Start Given Work Without Issue Files
 
 ```json
-{ "$schema": "issue-1.json", "id": "B802", "title": "A Host Start Given Work Without Issue Files", "state": "Implementing",
+{ "$schema": "issue-1.json", "id": "B802", "title": "A Host Start Given Work Without Issue Files", "state": "Review",
   "size": "S", "priority": "High", "rank": 1, "blockedBy": [],
   "covers": "A host daemon's `Start` given work and `given` files, through a forwarded socket or `porelo daemon connect`, is proven on a host; the refusal of a copy behind central says what stays true once no repository holds an issue file" }
 ```
@@ -24,18 +24,22 @@ by calling the host daemon's own `Start` with `work` and `given` (file name to t
   work on a host whose copy is behind central is still refused, also once no repository holds an issue file, so a
   task never works on old code. Only its words change: they name the issue the planner saved to central, and say
   instead that a task given work starts on central's newest main.
-- **The test that goes red first:** the `CentralFreshness` test on the new wording.
+- **Tests:** no unit test is written for the wording, which only reads wrong; the refusal itself stays pinned by
+  `CentralFreshnessTest` as it is.
 - **Acceptance step on a host:** a `Start` through `porelo daemon connect` to the host's daemon, with `work` and a
   `given` file near the 1 MiB limit, shows the text at `/run/porelo/given/<name>` in the task; one given file the
   rules refuse is refused with exit 64 before anything is made.
-- **Docs:** `doc/running.md` says that a host's `Start` takes `given` as a local one does.
+- **Docs:** `doc/running.md` says that a host's `Start` takes `given` as a local one does; `doc/decisions.md`, in
+  "A host's copy follows central's main by itself", says the refusal stays without issue files.
 
 ## Acceptance
 
-- The acceptance step passes on the VM's host, through the relay and through a forwarded socket.
+- The acceptance step passes on the VM through `porelo daemon connect`, the relay a window uses where no socket
+  opens; a forwarded socket reaches the same daemon and the same `Start`, so it is not run apart.
 - A host start given work on a copy behind central is still refused, and its reason no longer names an issue.
 
-## To be checked
+## Built
 
-- That `porelo daemon connect` carries a `Start` of up to the 4 MiB one varlink message may hold, given files
-  included, without cutting it.
+- The reworded refusal, the decision and the docs; the scenario "a start through the relay is given its issue as
+  a file" in `task-unattended.feature` reads the given file's mount with `podman inspect` (source, read only) and its
+  digest, and a refused name's exit 64 with nothing made.

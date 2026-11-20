@@ -74,6 +74,54 @@ Feature: An unattended run, started at the terminal and through the daemon
         And its output contains 'answered: "result":"stub: finished"'
         And its output contains 'answered: "resultKind":"ANSWER"'
 
+    Scenario: a start through the relay is given its issue as a file, the call a window makes to a host's daemon
+        # A window starts a task on a host through that host's own daemon, over the relay; once no
+        # repository holds an issue file, the issue reaches the task only as a given file.
+        Given a daemon of this scenario's own
+        When a script runs:
+            """
+            work=$(mktemp -d)
+            python3 - "$work" <<'PY'
+            import json, sys
+            work = sys.argv[1]
+            issue = "# ISSUE-1 - the issue as the planner holds it\n" + "x" * (1000 * 1024) + "\n"
+            open(work + "/issue.md", "w").write(issue)
+            start = {"task": "givenwork", "project": "unattended", "agent": "stub", "repository": "unattended",
+                     "prompt": "say hello and stop", "clearance": "deny", "keep": True,
+                     "work": {"issue": "ISSUE-1", "phase": "Implementing"}, "given": {"issue.md": issue}}
+            open(work + "/start.json", "w").write(json.dumps({"method": "org.fuin.porelo.Tasks1.Start", "parameters": start}))
+            start["task"] = "givenrefused"
+            start["given"] = {"../issue.md": "text"}
+            open(work + "/refused.json", "w").write(json.dumps({"method": "org.fuin.porelo.Tasks1.Start", "parameters": start}))
+            PY
+            ask() { { cat "$1"; printf '\0'; } | timeout 600 porelo daemon connect 2>/dev/null | tr '\0' '\n' | head -1; }
+            reply=$(ask "$work/start.json")
+            container=$(printf '%s' "$reply" | grep -oE '"container":"[^"]*"' | head -1 | cut -d'"' -f4)
+            echo "started: ${container:-nothing}"
+            [ -n "$container" ] || printf 'the reply began: %.200s\n' "$reply"
+            # What the task is given is a mount: read where the host keeps it and how it reaches the task,
+            # which holds whether or not the agent's run has ended.
+            mount=$(podman inspect --format '{{range .Mounts}}{{if eq .Destination "/run/porelo/given"}}{{.Source}} {{.RW}}{{end}}{{end}}' "$container" 2>/dev/null)
+            source=${mount% *}
+            if [ -n "$container" ] && [ -n "$source" ] && [ "$(sha256sum < "$source/issue.md" | cut -d' ' -f1)" = "$(sha256sum < "$work/issue.md" | cut -d' ' -f1)" ]; then
+                echo "the task is given its issue whole"
+            fi
+            [ -n "$container" ] && [ "${mount##* }" = "false" ] && echo "the task cannot change it"
+            refused=$(ask "$work/refused.json")
+            if printf '%s' "$refused" | grep -qE '"exitCode":64'; then
+                echo 'a name that leaves the directory: "exitCode":64'
+                podman container exists porelo-unattended_givenrefused 2>/dev/null || echo "nothing was made for it"
+            fi
+            [ -n "$container" ] && porelo task remove "$container" --force >/dev/null 2>&1
+            rm -rf "$work"
+            true
+            """
+        Then its output contains "started: porelo-unattended_givenwork"
+        And its output contains "the task is given its issue whole"
+        And its output contains "the task cannot change it"
+        And its output contains 'a name that leaves the directory: "exitCode":64'
+        And its output contains "nothing was made for it"
+
     Scenario: a task's logs are kept in one archive readable by the account only, without the agent's words unasked
         When a script runs:
             """

@@ -1727,7 +1727,8 @@ is given work. It moves nothing that changes the repository's workflows or adds 
 repository's `project.yml` still moves only as the signed, verified file. A copy that holds work central lacks
 is left alone (`diverged`). A start given work on such a copy, or on one still behind, is refused with the way
 back named: the person's gathered push where only the host is ahead, otherwise `porelo host pull` and a task
-that merges `central/main`.
+that merges `central/main`. The refusal stays where no repository holds an issue file and a task reads its issue
+only as a given file: a task given work never starts on older code than its work was planned against.
 
 The alternative was to have the planner write to the host's copy. That would make planning differ per host
 and hide each edit from other machines until a person sent it to central.
