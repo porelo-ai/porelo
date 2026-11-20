@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B741",
   "title": "An Agent Never Replaces What Starts It",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 50,
@@ -127,4 +127,10 @@ for the four adapters or carries them.
 - The reading, declined: the ptrace race (Yama `ptrace_scope` 1 is the default on both supported distributions, so
   the agent's earlier process cannot attach to the check's shell, which is no descendant of it); the agent's own
   config hooks under its home (they run as the agent, with what the agent already has).
-- Not run: the acceptance suite.
+- On a machine: `PinnedBinaryInContainerTest` in real podman containers on the build box (Ubuntu 26.04.1), on the
+  code of main plus a change to the daemon's MCP sockets, 3 tests, 0 failures, 0 skipped: a root-owned binary is
+  pinned and one the agent could change is refused; a binary reached through a directory the agent can rename is
+  refused; a script runs through its recorded interpreter and one the agent could swap is refused. Every task the
+  acceptance suite starts runs the stub through the same check.
+- The six agents' adapters install their binaries as root (`owner: root` artifacts, pi by its own root step). That an
+  agent updating itself in a task fails to write over its binary is the operator's test with the real agents.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B743",
   "title": "A Transport's Verb Fenced To What It Reaches",
-  "state": "Implementing",
+  "state": "Review",
   "size": "L",
   "priority": "Medium",
   "rank": 50,
@@ -102,7 +102,12 @@ nftables apply only inside a container's network namespace.
     literal loopback reach is mapped either way, so nothing widens; precompiled patterns - a few lines per verb.
 - Green on the host after these: 609 tests in the transport, clearing, message and start classes, 0 failures, with
   the 4 real-pasta machine tests.
-- Still open: the acceptance run on the VM. Until it has run, the real-pasta test on the host is what is measured.
+- The acceptance, on a machine: `TransportFenceMachineTest` against real pasta on the build box (Ubuntu 26.04.1,
+  kernel 7.0), on the code of main plus a change to the daemon's MCP sockets, 4 tests, 0 failures, 0 skipped: a verb
+  reaches a declared host by name; a verb cannot connect outside `reaches` although the account can; a fenced verb
+  cannot lift its own fence; a mapped homeserver is reachable while another loopback listener is refused. An offline
+  project's verb reaching loopback alone is held by the unit tests of `TransportFence`. `doc/security.md`,
+  `doc/transports.md` and `doc/decisions.md` say what holds, with `setup` as the accepted exception.
 
 ## Acceptance
 
