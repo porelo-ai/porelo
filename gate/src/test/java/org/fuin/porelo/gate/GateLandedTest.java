@@ -207,6 +207,75 @@ class GateLandedTest {
                         new GitGate.Landed("second", landed));
     }
 
+    @Test
+    void onlyWhatReceivePackWroteIsJudgedAndAJudgeThatFailsRefuses() throws Exception {
+        // A task's own client sends these: a command receive-pack refused moved nothing, and its
+        // words must reach no judge, no put-back and no upstream.
+        final String ref = GitGate.INCOMING + "foo-10";
+        final List<String> judged = new ArrayList<>();
+        final boolean[] failing = {false};
+        final TaskToken token = TaskToken.mint();
+        final GitHttpServer server =
+                new GitHttpServer(
+                                new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                                mirror,
+                                token,
+                                new GitSubprocess(),
+                                ref)
+                        .judging(
+                                (old, commit) -> {
+                                    judged.add(old + " " + commit);
+                                    if (failing[0]) {
+                                        throw new java.io.IOException("git log exited 128");
+                                    }
+                                    return null;
+                                });
+        server.start();
+        try (server) {
+            final String url =
+                    "http://"
+                            + InetAddress.getLoopbackAddress().getHostAddress()
+                            + ":"
+                            + server.port()
+                            + "/mirror.git";
+
+            receive(url, token, landed, landed, ref);
+            assertThat(judged).as("a stale command receive-pack refused").isEmpty();
+            receive(url, token, landed, "--no-deref", ref);
+            assertThat(judged).as("a command whose side is no object name").isEmpty();
+            assertThat(git(mirror, "rev-parse", ref)).as("the ref did not move").isEqualTo(held);
+
+            failing[0] = true;
+            assertThat(receive(url, token, held, landed, ref))
+                    .as("not judged is not taken")
+                    .contains("could not be judged");
+            assertThat(judged).as("this one was written, and asked").hasSize(1);
+        }
+        assertThat(git(mirror, "rev-parse", ref)).as("the ref went back").isEqualTo(held);
+    }
+
+    @Test
+    void aPushCommandWhoseSidesAreNoObjectNamesIsRefusedBeforeGitSeesThem() {
+        // Each side reaches git's arguments when the push is judged or put back.
+        for (final String command :
+                List.of(
+                        held + " --no-deref " + GitGate.INCOMING + "foo-10",
+                        "-d " + held + " " + GitGate.INCOMING + "foo-10",
+                        held.toUpperCase(java.util.Locale.ROOT) + " " + held + " refs/x")) {
+            final byte[] request = (pkt(command + "\n") + "0000").getBytes(StandardCharsets.UTF_8);
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> GitHttpServer.commands(request))
+                    .as(command)
+                    .isInstanceOf(GateException.class);
+        }
+        assertThat(
+                        GitHttpServer.commands(
+                                (pkt(held + " " + landed + " refs/x\n") + "0000")
+                                        .getBytes(StandardCharsets.UTF_8)))
+                .as("a command git sends")
+                .hasSize(1);
+    }
+
     /** Sends one receive-pack command as git would, with an empty pack unless it deletes. */
     private static String receive(String url, TaskToken token, String old, String now, String ref)
             throws Exception {

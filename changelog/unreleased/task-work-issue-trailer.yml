@@ -1,0 +1,2 @@
+title: "A task started with `--work` for an issue pushes only commits carrying the trailer `Porelo-Issue: <issue>`, which its gate checks and its guide names; the issue is a tracker's reference of up to 200 characters, kept when the task is brought back"
+type: added

@@ -40,6 +40,21 @@ final class GateWiring {
         return this;
     }
 
+    /** The issue the task was started for, or {@code null} for a task given no work. */
+    private @Nullable String issue;
+
+    /**
+     * Has the task's gate refuse a push whose commits do not each carry the trailer {@code
+     * Porelo-Issue: <issue>}.
+     *
+     * @param worked The issue the task was started for, or {@code null} for none.
+     * @return This wiring.
+     */
+    GateWiring forIssue(final @Nullable String worked) {
+        this.issue = worked;
+        return this;
+    }
+
     /** Whether a build watch reports on what this gate passes on. */
     private boolean followsBuilds = true;
 
@@ -291,6 +306,7 @@ final class GateWiring {
      * @param reads The tasks whose landed work it reads; none for every other task.
      * @param followsBuilds Whether the project follows the builds of what it passes on.
      * @param watched Whether the task's build watch started.
+     * @param issue The issue the task was started for, or {@code null} for none.
      * @return The command.
      */
     static java.util.List<String> serving(
@@ -304,7 +320,8 @@ final class GateWiring {
             final @Nullable Certified certified,
             final java.util.List<String> reads,
             final boolean followsBuilds,
-            final boolean watched) {
+            final boolean watched,
+            final @Nullable String issue) {
         final java.util.List<String> command =
                 new java.util.ArrayList<>(
                         java.util.List.of(
@@ -366,6 +383,11 @@ final class GateWiring {
             command.add("--reads");
             command.add(String.join(",", reads));
         }
+        if (issue != null) {
+            // On the recorded command line too, so a resumed task's gate judges as it did; joined
+            // to its option, so the value is never read as an option of its own.
+            command.add("--issue=" + issue);
+        }
         if (repository != null) {
             // On the recorded command line, so that resuming the task brings back a gate on the
             // same mirror. A resumed task that served the project's own repository instead would
@@ -374,6 +396,49 @@ final class GateWiring {
             command.add(repository);
         }
         return command;
+    }
+
+    /**
+     * Returns the command that serves the gate of a task given no work.
+     *
+     * @param project The task's project.
+     * @param bind Where the gate listens.
+     * @param port Its port.
+     * @param state The task's runtime state.
+     * @param taskName The task's own name.
+     * @param repository Which repository of the project, or {@code null} for its own.
+     * @param forgeBranch The task's branch at the forge, or {@code null} for {@code porelo/<task>}.
+     * @param certified What its arrivals are judged by, or {@code null}.
+     * @param reads The tasks whose landed work it reads; none for every other task.
+     * @param followsBuilds Whether the project follows the builds of what it passes on.
+     * @param watched Whether the task's build watch started.
+     * @return The command.
+     */
+    static java.util.List<String> serving(
+            final org.fuin.porelo.core.project.Project project,
+            final String bind,
+            final int port,
+            final java.nio.file.Path state,
+            final String taskName,
+            final @Nullable String repository,
+            final @Nullable String forgeBranch,
+            final @Nullable Certified certified,
+            final java.util.List<String> reads,
+            final boolean followsBuilds,
+            final boolean watched) {
+        return serving(
+                project,
+                bind,
+                port,
+                state,
+                taskName,
+                repository,
+                forgeBranch,
+                certified,
+                reads,
+                followsBuilds,
+                watched,
+                null);
     }
 
     /** The gate's option for a task whose project follows builds and whose watch did not start. */
@@ -433,7 +498,8 @@ final class GateWiring {
                         certified,
                         reads,
                         followsBuilds,
-                        watchesBuilds);
+                        watchesBuilds,
+                        issue);
 
         try {
             final ProcessBuilder builder =

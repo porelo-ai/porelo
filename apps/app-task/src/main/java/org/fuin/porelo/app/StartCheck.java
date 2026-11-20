@@ -284,8 +284,8 @@ public final class StartCheck {
         SETTINGS_UNSIGNED,
 
         /**
-         * The issue or the phase the task would work on is not one line of 1 to {@value
-         * TaskWork#MOST} characters. {@code detail} says which, in the words Start refuses with.
+         * The issue or the phase the task would work on is one {@link TaskWork#refusal()} refuses.
+         * {@code detail} says which, in the words Start refuses with.
          */
         WORK_REFUSED
     }

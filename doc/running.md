@@ -597,6 +597,29 @@ two differ, this one holds.
 
 A task that reads every repository and hands back a file is told the same of its result file.
 
+## A task given work
+
+A task started with [`--work`](commands.md) for an issue, and pushing through a gate, pushes only commits that name
+the issue: each carries the line `Porelo-Issue: <issue>` in the trailer block at the end of its message, below the
+subject and a blank line, one such line per issue it is for. Its gate refuses a push that brings a commit without
+it, naming the first such commit, and puts its ref back, so the agent amends and pushes again; the trailers are read
+as git parses them, with the host's git configuration shut out. Only the task's own commits are judged: what a
+branch, a tag or another task's landed work already holds is not. The task's rescue, which Porelo pushes before
+removing it, is never refused for it. The issue is kept with the task, so a task brought back is judged and told the
+same.
+
+Such a task's guide ends with a part of its own, after everything above:
+
+```markdown
+# The issue this task works on
+
+This task works on `ISSUE`. **Each commit you make for it carries the line
+`Porelo-Issue: ISSUE` in the trailer block at the end of its message**, below the subject
+and a blank line, as `git commit --trailer "Porelo-Issue: ISSUE"` writes it. The gate
+refuses a push that brings a commit without it; amend the commit and push again. A commit
+may name further issues by further such lines.
+```
+
 ## A task's MCP endpoint in its guide
 
 A task whose project gives it an [MCP endpoint](project-file.md#a-tasks-mcp-endpoint) is told so in its guide, in a

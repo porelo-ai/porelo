@@ -314,6 +314,24 @@ public record TaskWorkRecords(PoreloContext context) {
         return new TaskUsage(context).read(task).totals().asMap();
     }
 
+    /**
+     * Returns the work a task was started with, as its record keeps it.
+     *
+     * @param container Its container name.
+     * @return The work, or {@code null} for a task given none or without a record.
+     * @throws IOException If its record cannot be read.
+     */
+    public @Nullable TaskWork work(final String container) throws IOException {
+        if (!TaskUsage.validTask(container)) {
+            return null;
+        }
+        final Path file = file(container);
+        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+            return null;
+        }
+        return TaskWork.of(read(file).get("work"));
+    }
+
     private Path file(final String container) {
         return context.paths().tasks().workRecord(container);
     }

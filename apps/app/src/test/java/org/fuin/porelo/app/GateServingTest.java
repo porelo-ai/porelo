@@ -165,6 +165,43 @@ class GateServingTest {
     }
 
     @Test
+    void aTaskGivenWorkHasItsGateJudgeTheIssueOnItsRecordedCommandLine() {
+
+        // Recorded, so a resumed task's gate refuses as the first one did; joined to its option, so
+        // no issue is read as an option of its own.
+        final java.util.List<String> command =
+                GateWiring.serving(
+                        project("online"),
+                        "127.0.0.1",
+                        9418,
+                        Path.of("/run/user/1000/porelo/porelo-uc-shell"),
+                        "shell",
+                        null,
+                        null,
+                        null,
+                        java.util.List.of(),
+                        true,
+                        true,
+                        "owner/repo#7");
+
+        assertThat(command).as("the gate is given the issue").contains("--issue=owner/repo#7");
+        // A task brought back is told the issue its gate judges by, read from the same line.
+        assertThat(
+                        TaskLaunch.recordedGate(
+                                new TaskHelpers(
+                                        java.util.List.of(
+                                                new TaskHelpers.Helper(
+                                                        "gate",
+                                                        command,
+                                                        java.util.Map.of(),
+                                                        TaskHelpers.BEFORE)))))
+                .isEqualTo(new TaskLaunch.RecordedGate(true, "owner/repo#7"));
+        assertThat(TaskLaunch.recordedGate(new TaskHelpers(java.util.List.of())))
+                .as("a task without a gate is told nothing of it")
+                .isEqualTo(new TaskLaunch.RecordedGate(false, null));
+    }
+
+    @Test
     void aResumedTasksGateIsToldWhetherItsBuildWatchComesBack() {
 
         // On a resume the same as at a start: the gate follows the watch the resume starts, which a

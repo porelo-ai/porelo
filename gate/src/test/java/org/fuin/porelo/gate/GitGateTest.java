@@ -943,6 +943,79 @@ class GitGateTest {
     }
 
     @Test
+    void aSecondPushWhileTheFirstIsJudgedCannotKeepWhatTheFirstWasRefused() throws Exception {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final TaskToken token = TaskToken.mint();
+        git(root, "init", work.toString());
+        git(work, "config", "http.extraHeader", "Authorization: " + token.basicAuthorization());
+        makeCommit("refused.txt", "the commit the judge refuses");
+        final String refused = git(work, "rev-parse", "HEAD").standardOutput().strip();
+        makeCommit("on-top.txt", "built on it");
+        final String onTop = git(work, "rev-parse", "HEAD").standardOutput().strip();
+        final java.util.concurrent.CountDownLatch secondJudged =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Future<?>> second =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.ExecutorService pushes =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+        try (GitHttpServer server =
+                new GitHttpServer(
+                        new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                        mirror,
+                        token,
+                        new GitSubprocess(),
+                        GitGate.INCOMING + "task-1")) {
+            // Judges each update by its own commit alone, as a judge that walks from the old side
+            // does: the second push names the refused commit as its old side.
+            server.judging(
+                    (old, commit) -> {
+                        if (!commit.equals(refused)) {
+                            secondJudged.countDown();
+                            return null;
+                        }
+                        second.set(
+                                pushes.submit(
+                                        () ->
+                                                git(
+                                                        work,
+                                                        "push",
+                                                        "--force",
+                                                        url(server),
+                                                        onTop
+                                                                + ":"
+                                                                + GitGate.INCOMING
+                                                                + "task-1")));
+                        try {
+                            secondJudged.await(5, java.util.concurrent.TimeUnit.SECONDS);
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return "commit " + commit + " is refused";
+                    });
+            server.start();
+
+            assertThatThrownBy(
+                            () ->
+                                    git(
+                                            work,
+                                            "push",
+                                            url(server),
+                                            refused + ":" + GitGate.INCOMING + "task-1"))
+                    .hasMessageContaining("is refused");
+            try {
+                second.get().get(30, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (java.util.concurrent.ExecutionException ex) {
+                // Refused as stale once the first push's ref was put back: neither is taken.
+            }
+        } finally {
+            pushes.shutdownNow();
+        }
+        assertThat(gate.resolves(GitGate.INCOMING + "task-1"))
+                .as("the ref does not hold the refused commit by way of the second push")
+                .isFalse();
+    }
+
+    @Test
     void anOnlineTasksGateRefusesDeletingItsBranch() throws IOException {
         final Path upstream = upstreamWithMain();
         final GitGate gate = gate(GateMode.ONLINE, upstream.toString());

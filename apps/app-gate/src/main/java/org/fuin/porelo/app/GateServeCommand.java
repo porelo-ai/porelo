@@ -10,6 +10,7 @@ import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.gate.GitHttpServer;
 import org.fuin.porelo.gate.GitSubprocess;
+import org.fuin.porelo.gate.IssueTrailers;
 import org.fuin.porelo.gate.SignedArrivals;
 import org.fuin.porelo.gate.TaskToken;
 import org.jspecify.annotations.Nullable;
@@ -114,6 +115,14 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                     "On a host: the task's branch, porelo/<task>, is pushed to this repository of the"
                             + " host's forge on its loopback, with the task's own token. Only with --pass-on, not with --branch.")
     private @Nullable String hostPush;
+
+    @Option(
+            names = "--issue",
+            paramLabel = "ISSUE",
+            description =
+                    "The issue the task was started for. Every commit a push brings to --ref then carries"
+                            + " the trailer 'Porelo-Issue: <issue>', or the push is refused. Only with --ref.")
+    private @Nullable String issue;
 
     @Option(
             names = "--principal",
@@ -303,6 +312,19 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 err.flush();
                 return 2;
             }
+            if (issue != null) {
+                final String issueRefused = IssueTrailers.refusal(issue);
+                if (issueRefused != null || ref == null || !ref.startsWith(GitGate.INCOMING)) {
+                    // A gate that judged nothing would let work leave without its issue, silently.
+                    err.println(
+                            "porelo: --issue "
+                                    + (issueRefused != null
+                                            ? issueRefused
+                                            : "needs --ref " + GitGate.INCOMING + "<task>"));
+                    err.flush();
+                    return 2;
+                }
+            }
             if ((principal == null) != (signers == null)
                     || (principal != null && (ref == null || !ref.startsWith(GitGate.INCOMING)))) {
                 // Half of it would serve a task's gate that judges nothing, silently.
@@ -432,16 +454,24 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 if (ref != null && !reads.isEmpty()) {
                     server.reading(reads);
                 }
+                final GitHttpServer.@Nullable Arrivals byIssue =
+                        issue == null || ref == null
+                                ? null
+                                : new IssueTrailers(
+                                                gate.mirror(), issue, GitSubprocess.withoutConfig())
+                                        ::judge;
                 if (principal != null && signers != null && ref != null) {
                     server.judging(
                             ArrivalRecords.recording(
-                                    new SignedArrivals(
-                                                    gate.mirror(),
-                                                    principal,
-                                                    signers,
-                                                    new GitSubprocess(),
-                                                    java.time.Clock.systemUTC())
-                                            ::judge,
+                                    ArrivalRecords.inOrder(
+                                            byIssue,
+                                            new SignedArrivals(
+                                                            gate.mirror(),
+                                                            principal,
+                                                            signers,
+                                                            new GitSubprocess(),
+                                                            java.time.Clock.systemUTC())
+                                                    ::judge),
                                     projectName,
                                     ref.substring(ref.lastIndexOf('/') + 1),
                                     (kind, named, task, detail) ->
@@ -452,6 +482,7 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                     // its line says it went unsigned rather than reading as judged.
                     server.judging(
                             ArrivalRecords.unjudged(
+                                    byIssue,
                                     projectName,
                                     ref.substring(ref.lastIndexOf('/') + 1),
                                     (kind, named, task, detail) ->

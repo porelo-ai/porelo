@@ -3451,6 +3451,55 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStoppedTaskBroughtBackKeepsItsIssueAndRefusesAnother(@TempDir Path dir)
+            throws IOException {
+
+        // Its gate judges the issue it was made for, from its recorded command line; another one
+        // given now would be shown in the guide while the gate refused by the first.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        new TaskWorkRecords(context)
+                .started(
+                        "porelo-uc-shell",
+                        "uc",
+                        null,
+                        new TaskWork("owner/repo#1", "Implementing"),
+                        null,
+                        null,
+                        "start");
+
+        final int other =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, WITH_BRANCH),
+                        "--work",
+                        "owner/repo#2:Implementing");
+
+        assertThat(other).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString()).as("names the issue it keeps").contains("owner/repo#1");
+        for (final String work : List.of("owner/repo#1:Reading", "owner/repo#1:")) {
+            assertThat(
+                            execute(
+                                    context,
+                                    "task",
+                                    "start",
+                                    "shell",
+                                    "-p",
+                                    projectFile(dir, WITH_BRANCH),
+                                    "--work",
+                                    work))
+                    .as("the same issue, another or no phase: %s", work)
+                    .isEqualTo(64);
+        }
+    }
+
+    @Test
     void aStoppedTaskBroughtBackKeepsItsBranchAndRefusesANewOne(@TempDir Path dir)
             throws IOException {
 

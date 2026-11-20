@@ -99,6 +99,30 @@ public final class TaskGuideText {
     }
 
     /** The part naming the file a task hands back. */
+    /**
+     * Returns the part that tells a task given work how its commits name the issue, after every
+     * other part, so the guide's opening stays the same for every task; empty for none.
+     *
+     * @param issue The issue, or {@code null}.
+     * @return Markdown, or the empty string.
+     */
+    static String issuePart(final @org.jspecify.annotations.Nullable String issue) {
+        if (issue == null) {
+            return "";
+        }
+        return """
+
+                # The issue this task works on
+
+                This task works on `@ISSUE@`. **Each commit you make for it carries the line
+                `Porelo-Issue: @ISSUE@` in the trailer block at the end of its message**, below the subject
+                and a blank line, as `git commit --trailer "Porelo-Issue: @ISSUE@"` writes it. The gate
+                refuses a push that brings a commit without it; amend the commit and push again. A commit
+                may name further issues by further such lines.
+                """
+                .replace("@ISSUE@", issue);
+    }
+
     private static String resultPart(final String result) {
         return """
 
@@ -564,13 +588,42 @@ public final class TaskGuideText {
             final java.util.List<String> given,
             final @org.jspecify.annotations.Nullable Endpoint endpoint)
             throws IOException {
+        write(guide, mailbox, values, reading, result, given, endpoint, null);
+    }
+
+    /**
+     * Writes the guide of a task, the issue its commits name among it, into its directory, made
+     * when missing, and only when it changed.
+     *
+     * @param guide Where it goes.
+     * @param mailbox Whether the task has a mailbox.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @param reading What it reads, or {@code null} for a task that works on its repository.
+     * @param result The name of the file it hands back, or {@code null} for none.
+     * @param given The names of the files it was given, empty for none.
+     * @param endpoint Its MCP endpoint, or {@code null} for a task that has none.
+     * @param issue The issue each of its commits names, or {@code null} for a task given no work or
+     *     one without a gate.
+     * @throws IOException Writing failed.
+     */
+    public static void write(
+            final TaskGuide guide,
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values,
+            final @org.jspecify.annotations.Nullable Reading reading,
+            final @org.jspecify.annotations.Nullable String result,
+            final java.util.List<String> given,
+            final @org.jspecify.annotations.Nullable Endpoint endpoint,
+            final @org.jspecify.annotations.Nullable String issue)
+            throws IOException {
         final Path directory = guide.directory();
         if (Files.isSymbolicLink(directory)) {
             throw new IOException(directory + " is a link; the guide is not written through it");
         }
         Directories.create(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
-        final String text = text(mailbox, values, reading, result, given, endpoint);
+        final String text =
+                text(mailbox, values, reading, result, given, endpoint) + issuePart(issue);
         final Path file = guide.file();
         if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 && Files.readString(file, StandardCharsets.UTF_8).equals(text)) {

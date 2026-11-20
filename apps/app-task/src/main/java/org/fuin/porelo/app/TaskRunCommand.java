@@ -1888,6 +1888,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--all-repositories",
                     "--read-only",
                     "--given",
+                    "--work",
                     "--clearance",
                     "--raw",
                     "--detach",

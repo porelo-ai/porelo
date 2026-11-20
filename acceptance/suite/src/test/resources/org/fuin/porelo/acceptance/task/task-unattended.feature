@@ -178,3 +178,20 @@ Feature: An unattended run, started at the terminal and through the daemon
         And its output contains "container: Exited"
         And its output contains "ended by its limit"
         And its output contains "its time limit of 1 minutes passed"
+
+    Scenario: a task given work pushes only commits that name its issue
+        When a task called "issued" is started in "unattended" for the "stub" agent with the work "owner/repo#7:Implementing" and left running
+        And a script runs about the task:
+            """
+            podman exec --user agent {task} grep -q 'Porelo-Issue: owner/repo#7' /run/porelo/guide/README.md && echo "the guide names the line"
+            podman exec --user agent {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m "acceptance: no issue named" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' 2>&1 \
+                && echo "the push without it went through" || echo "the push without it was refused"
+            podman exec --user agent {task} sh -c 'cd /workspace && git -c user.email=agent@localhost -c user.name=agent commit -q --amend --allow-empty -m "acceptance: the issue named" --trailer "Porelo-Issue: owner/repo#7" && timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"' 2>&1 \
+                && echo "the push with it went through"
+            porelo task remove {task} --force >/dev/null 2>&1
+            true
+            """
+        Then its output contains "the guide names the line"
+        And its output contains "does not carry the trailer 'Porelo-Issue: owner/repo#7'"
+        And its output contains "the push without it was refused"
+        And its output contains "the push with it went through"

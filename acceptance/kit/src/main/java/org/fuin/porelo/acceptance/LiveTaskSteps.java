@@ -115,6 +115,25 @@ public class LiveTaskSteps {
     }
 
     /**
+     * Starts a task of a given name for an issue's work and leaves it running.
+     *
+     * @param task The task's name.
+     * @param project Project directory in the operator's home.
+     * @param agent Which agent to run.
+     * @param work The work, {@code <issue>:<phase>}.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @When(
+            "a task called {string} is started in {string} for the {string} agent with the work"
+                    + " {string} and left running")
+    public void aNamedTaskIsStartedForWork(String task, String project, String agent, String work)
+            throws IOException {
+        started(
+                world.run(
+                        startCommand(task, project, agent, null) + " --work " + Shell.quote(work)));
+    }
+
+    /**
      * Starts a task and leaves it running, through a provider the scenario names.
      *
      * @param project Project directory in the operator's home.

@@ -20,6 +20,9 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
 
     private final long timeoutSeconds;
 
+    /** Whether git runs without the account's and the system's configuration. */
+    private final boolean withoutConfig;
+
     /** Constructor using the {@code git} on the path and a five-minute timeout. */
     public GitSubprocess() {
         this("git", 300);
@@ -32,8 +35,31 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
      * @param timeoutSeconds How long a single request may take.
      */
     public GitSubprocess(String executable, long timeoutSeconds) {
+        this(executable, timeoutSeconds, false);
+    }
+
+    private GitSubprocess(String executable, long timeoutSeconds, boolean withoutConfig) {
         this.executable = executable;
         this.timeoutSeconds = timeoutSeconds;
+        this.withoutConfig = withoutConfig;
+    }
+
+    /**
+     * Returns a runner of the {@code git} on the path that reads neither the account's nor the
+     * system's configuration, for a judgement no setting of the host may change.
+     *
+     * @return The runner, with a five-minute timeout.
+     */
+    public static GitSubprocess withoutConfig() {
+        return new GitSubprocess("git", 300, true);
+    }
+
+    private ProcessBuilder configured(final ProcessBuilder builder) {
+        if (withoutConfig) {
+            builder.environment().put("GIT_CONFIG_GLOBAL", "/dev/null");
+            builder.environment().put("GIT_CONFIG_NOSYSTEM", "1");
+        }
+        return builder;
     }
 
     @Override
@@ -46,7 +72,7 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
         // Read from the file and written as it comes: a push or a fetch is held by neither side in
         // memory whole.
         final Process process =
-                new ProcessBuilder(command)
+                configured(new ProcessBuilder(command))
                         .redirectInput(input.toFile())
                         .redirectError(ProcessBuilder.Redirect.DISCARD)
                         .start();
@@ -85,12 +111,24 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
 
     @Override
     public byte[] run(List<String> arguments, byte[] input) throws IOException {
+        return running(arguments, input, false);
+    }
+
+    @Override
+    public byte[] runOrFail(List<String> arguments, byte[] input) throws IOException {
+        return running(arguments, input, true);
+    }
+
+    private byte[] running(List<String> arguments, byte[] input, boolean mustSucceed)
+            throws IOException {
 
         final List<String> command = new ArrayList<>(List.of(executable));
         command.addAll(arguments);
 
         final Process process =
-                new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+                configured(new ProcessBuilder(command))
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start();
 
         // Written on a separate thread: receive-pack answers while it is still reading, so writing
         // the whole request first can fill both pipe buffers and deadlock.
@@ -128,7 +166,12 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
                                 + " s");
             }
             writer.join();
-            return output.get(timeoutSeconds, TimeUnit.SECONDS);
+            final byte[] said = output.get(timeoutSeconds, TimeUnit.SECONDS);
+            if (mustSucceed && process.exitValue() != 0) {
+                throw new IOException(
+                        "git " + arguments.getFirst() + " exited " + process.exitValue());
+            }
+            return said;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while running git", ex);

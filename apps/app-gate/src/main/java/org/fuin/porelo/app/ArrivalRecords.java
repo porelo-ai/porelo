@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.time.Clock;
 import org.fuin.porelo.gate.GitHttpServer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Records each push's arrival at a task's gate, with its verdict: a task's commits are judged by
@@ -31,10 +32,13 @@ final class ArrivalRecords {
     private ArrivalRecords() {}
 
     /**
-     * Returns a judge for a task that has no certificate, so nothing can judge its commits: it
-     * accepts every push, as the gate always did for such a task, and records each one as {@code
-     * accepted, unsigned} - never a bare {@code accepted}, which reads as judged.
+     * Returns a judge for a task that has no certificate, so nothing can judge its signatures: it
+     * accepts every push the issue judge accepts, as the gate always did for such a task, and
+     * records each one as {@code accepted, unsigned} - never a bare {@code accepted}, which reads
+     * as judged; a push the issue judge refuses is recorded as refused.
      *
+     * @param byIssue The judge of the task's issue trailers, or {@code null} for a task given no
+     *     work.
      * @param project The project.
      * @param task The task's container.
      * @param recorder Where each arrival is recorded.
@@ -42,14 +46,45 @@ final class ArrivalRecords {
      * @return A judge that accepts.
      */
     static GitHttpServer.Arrivals unjudged(
-            String project, String task, Recorder recorder, Clock clock) {
+            GitHttpServer.@Nullable Arrivals byIssue,
+            String project,
+            String task,
+            Recorder recorder,
+            Clock clock) {
         return (old, commit) -> {
+            final String arrived = clock.instant().toString();
+            final String verdict = byIssue == null ? null : byIssue.judge(old, commit);
             recorder.record(
                     EventLog.ARRIVED,
                     project,
                     task,
-                    old + ".." + commit + " arrived " + clock.instant() + ": " + ACCEPTED_UNSIGNED);
-            return null;
+                    old
+                            + ".."
+                            + commit
+                            + " arrived "
+                            + arrived
+                            + ": "
+                            + (verdict == null ? ACCEPTED_UNSIGNED : "refused, " + verdict));
+            return verdict;
+        };
+    }
+
+    /**
+     * Returns a judge that asks the issue judge first and the other only when it accepts, so both
+     * must hold.
+     *
+     * @param byIssue The judge of the task's issue trailers, or {@code null} for none.
+     * @param then The judge asked after it.
+     * @return The two in order.
+     */
+    static GitHttpServer.Arrivals inOrder(
+            GitHttpServer.@Nullable Arrivals byIssue, GitHttpServer.Arrivals then) {
+        if (byIssue == null) {
+            return then;
+        }
+        return (old, commit) -> {
+            final String first = byIssue.judge(old, commit);
+            return first != null ? first : then.judge(old, commit);
         };
     }
 

@@ -2023,6 +2023,37 @@ public final class TaskLaunch {
             err.flush();
             return new Existing(container, project.name(), 64);
         }
+        // Its gate judges the issue it was made with, and its record keeps the work.
+        if (request.work() != null) {
+            final String workRefused = request.work().refusal();
+            if (workRefused != null) {
+                err.println("porelo: " + workRefused);
+                err.flush();
+                return new Existing(container, project.name(), 64);
+            }
+            final TaskWork keptWork = keptWork(container);
+            final String keptIssue =
+                    keptWork != null ? keptWork.issue() : recordedGate(container).issue();
+            final boolean same =
+                    keptWork != null
+                            ? keptWork.equals(request.work())
+                            : request.work().issue().equals(keptIssue);
+            if (!same) {
+                err.println(
+                        "porelo: "
+                                + container
+                                + (keptIssue == null
+                                        ? " was started without --work"
+                                        : " was started with --work "
+                                                + (keptWork != null
+                                                        ? keptWork.issue() + ":" + keptWork.phase()
+                                                        : keptIssue))
+                                + ", which stays as it was; start it again without --work, or"
+                                + " remove it and start a new task");
+                err.flush();
+                return new Existing(container, project.name(), 64);
+            }
+        }
         // Its box was mounted when it was made, under the name it was made with.
         if (request.result() != null) {
             final String keptResult = new TaskResult(context.paths()).name(container);
@@ -4394,6 +4425,7 @@ public final class TaskLaunch {
 
             if (workspace != null) {
                 if (!gate().reading(reads)
+                        .forIssue(request.work() == null ? null : request.work().issue())
                         .followingBuilds(BuildsWiring.follows(project, hostBuilds))
                         .watchingBuilds(buildsWatched)
                         .startGate(
@@ -7148,6 +7180,63 @@ public final class TaskLaunch {
      * @param created Whether the task is being made now, rather than started again.
      * @throws java.io.IOException Writing failed.
      */
+    /** The work a task was made with, as its record keeps it; {@code null} when it cannot tell. */
+    private @Nullable TaskWork keptWork(final String container) {
+        try {
+            return new TaskWorkRecords(context).work(container);
+        } catch (java.io.IOException ex) {
+            // Its recorded gate still names the issue it judges by.
+            return null;
+        }
+    }
+
+    /** Whether a new task pushes through a gate. */
+    private boolean gatedAtStart() {
+        return !request.noGate() && !request.reads() && !request.readOnly();
+    }
+
+    /**
+     * What a task's recorded gate judges by: whether it has one, and the issue on its command line.
+     *
+     * @param gated Whether the task was started with a gate.
+     * @param issue The issue its gate refuses pushes without, or {@code null} for none.
+     */
+    record RecordedGate(boolean gated, @Nullable String issue) {}
+
+    /**
+     * Reads the task's gate from the helpers its start recorded, as a resume starts it again: the
+     * runtime directory's first, the durable record's after a reboot.
+     */
+    private RecordedGate recordedGate(final String container) {
+        TaskHelpers saved = TaskHelpers.readFrom(context.paths().tasks().containerState(container));
+        if (saved.helpers().isEmpty()) {
+            saved = TaskHelpers.readFrom(context.paths().tasks().taskRecord(container));
+        }
+        return recordedGate(saved);
+    }
+
+    /**
+     * Reads a gate from recorded helpers.
+     *
+     * @param saved The helpers a start recorded.
+     * @return Whether a gate is among them, and the issue its command line names.
+     */
+    static RecordedGate recordedGate(final TaskHelpers saved) {
+        return saved.helpers().stream()
+                .filter(helper -> "gate".equals(helper.name()))
+                .findFirst()
+                .map(
+                        gate ->
+                                new RecordedGate(
+                                        true,
+                                        gate.command().stream()
+                                                .filter(each -> each.startsWith("--issue="))
+                                                .map(each -> each.substring("--issue=".length()))
+                                                .findFirst()
+                                                .orElse(null)))
+                .orElse(new RecordedGate(false, null));
+    }
+
     private void informed(final Project project, final String container, final boolean created)
             throws java.io.IOException {
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
@@ -7187,6 +7276,14 @@ public final class TaskLaunch {
             final TaskRepositories reading = new TaskRepositories(context.paths(), container);
             // Its endpoint from the file the daemon reads for it, so a task brought back is told
             // what it has now.
+            // A new task's from its start; one brought back is told what its recorded gate judges
+            // by.
+            final String issue =
+                    created
+                            ? (request.work() != null && gatedAtStart()
+                                    ? request.work().issue()
+                                    : null)
+                            : recordedGate(container).issue();
             TaskGuideText.write(
                     guide,
                     mailbox.exists(),
@@ -7196,7 +7293,8 @@ public final class TaskLaunch {
                             : null,
                     result.hasBox(container) ? result.name(container) : null,
                     files.names(container),
-                    McpWiring.told(context, container, project.name()));
+                    McpWiring.told(context, container, project.name()),
+                    issue);
         }
         if (!mailbox.exists()) {
             return;

@@ -117,8 +117,10 @@ saying the forge did not answer, so the agent's push never waits without end and
 long - unless the forge, asked after for at most 30 seconds more, holds the push, which it may have set before it
 stalled. A wait for another push
 of the same task counts toward that limit, and a push that failed puts the gate's ref back only while it still holds
-what that push wrote. The gate
-refuses a push to any other branch, a tag, a deletion and any other repository; a push with force
+what that push wrote. Pushes of one task are taken one after another; one that waits more than five minutes for
+another to be judged and passed on is refused, so it can be pushed again. The gate
+refuses a push to any other branch, a tag, a deletion and any other repository, and the push of a task given work
+whose commits do not all name its issue ([Running](running.md#a-task-given-work)); a push with force
 to the task's own branch goes through, since an agent that rebases needs it. That branch is settled at the start: a
 start whose branch the upstream holds already, or whose project's pattern matches the upstream's default branch, is
 refused before anything is made, so a push with force never replaces work it did not make. The gate fetches from

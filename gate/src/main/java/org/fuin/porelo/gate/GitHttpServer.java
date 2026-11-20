@@ -53,6 +53,13 @@ public class GitHttpServer implements AutoCloseable {
 
     private volatile @org.jspecify.annotations.Nullable Arrivals arrivals;
 
+    /** Held by one push from receive-pack to its answer. */
+    private final java.util.concurrent.locks.ReentrantLock pushing =
+            new java.util.concurrent.locks.ReentrantLock();
+
+    /** The longest a push waits for another of the same task to be judged and passed on. */
+    static final java.time.Duration PUSH_WAIT = java.time.Duration.ofMinutes(5);
+
     private volatile @org.jspecify.annotations.Nullable Signer signer;
 
     private volatile @org.jspecify.annotations.Nullable Taken taken;
@@ -157,6 +164,19 @@ public class GitHttpServer implements AutoCloseable {
          * @throws IOException If the process fails.
          */
         byte[] run(List<String> arguments, byte[] input) throws IOException;
+
+        /**
+         * Runs git as {@link #run} does, and fails unless it exits zero, for a verdict that must
+         * not rest on part of an answer. The default cannot tell how git exited, for a test's git.
+         *
+         * @param arguments Arguments after {@code git}.
+         * @param input Request body, possibly empty.
+         * @return What git wrote to standard output.
+         * @throws IOException If the process fails or exits other than zero.
+         */
+        default byte[] runOrFail(List<String> arguments, byte[] input) throws IOException {
+            return run(arguments, input);
+        }
 
         /**
          * Runs git with a request read from a file, writing what it says to a stream as it says it.
@@ -511,39 +531,75 @@ public class GitHttpServer implements AutoCloseable {
                 }
             }
 
-            // What receive-pack answers is its status and progress, kilobytes: held, so a refusal
-            // can replace it.
-            final ByteArrayOutputStream response = new ByteArrayOutputStream();
-            git.stream(
-                    hidingOthers(ref, "receive-pack", "--stateless-rpc", mirror.toString()),
-                    body,
-                    response);
-
-            final String judged = judge(commands(request));
-            if (judged != null) {
+            // One push at a time, from receive-pack to its answer: a second push that moved the ref
+            // while the first was judged left the first's refusal nothing to put back, and was
+            // itself judged only from the first's commit.
+            final boolean held;
+            try {
+                held =
+                        pushing.tryLock(
+                                PUSH_WAIT.toSeconds(), java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted while waiting for another push", ex);
+            }
+            if (!held) {
                 exchange.getResponseHeaders()
                         .add("Content-Type", "application/x-" + service + "-result");
                 exchange.getResponseHeaders().add("Cache-Control", "no-cache");
-                send(exchange, refusal(updated, judged, capabilities(request)));
+                send(
+                        exchange,
+                        refusal(
+                                updated,
+                                "another push of this task was judged or passed on for longer than "
+                                        + PUSH_WAIT.toMinutes()
+                                        + " minutes; nothing was taken - push again",
+                                capabilities(request)));
                 return;
             }
+            try {
+                // What receive-pack answers is its status and progress, kilobytes: held, so a
+                // refusal
+                // can replace it.
+                final ByteArrayOutputStream response = new ByteArrayOutputStream();
+                git.stream(
+                        hidingOthers(ref, "receive-pack", "--stateless-rpc", mirror.toString()),
+                        body,
+                        response);
 
-            if (upstream != null) {
-                final String passed = passOn(commands(request));
-                if (passed != null) {
+                // Only what receive-pack wrote: a command it refused moved nothing, and is neither
+                // judged, put back nor passed on.
+                final List<String[]> written = written(commands(request));
+                final String judged = judge(written);
+                if (judged != null) {
                     exchange.getResponseHeaders()
                             .add("Content-Type", "application/x-" + service + "-result");
                     exchange.getResponseHeaders().add("Cache-Control", "no-cache");
-                    send(exchange, refusal(updated, passed, capabilities(request)));
+                    send(exchange, refusal(updated, judged, capabilities(request)));
                     return;
                 }
-            }
 
-            tellTaken(commands(request), reportedOk(response.toByteArray(), capabilities(request)));
-            exchange.getResponseHeaders()
-                    .add("Content-Type", "application/x-" + service + "-result");
-            exchange.getResponseHeaders().add("Cache-Control", "no-cache");
-            send(exchange, response.toByteArray());
+                if (upstream != null) {
+                    final String passed = passOn(written);
+                    if (passed != null) {
+                        exchange.getResponseHeaders()
+                                .add("Content-Type", "application/x-" + service + "-result");
+                        exchange.getResponseHeaders().add("Cache-Control", "no-cache");
+                        send(exchange, refusal(updated, passed, capabilities(request)));
+                        return;
+                    }
+                }
+
+                tellTaken(
+                        commands(request),
+                        reportedOk(response.toByteArray(), capabilities(request)));
+                exchange.getResponseHeaders()
+                        .add("Content-Type", "application/x-" + service + "-result");
+                exchange.getResponseHeaders().add("Cache-Control", "no-cache");
+                send(exchange, response.toByteArray());
+            } finally {
+                pushing.unlock();
+            }
         } finally {
             java.nio.file.Files.deleteIfExists(body);
         }
@@ -714,6 +770,44 @@ public class GitHttpServer implements AutoCloseable {
         return null;
     }
 
+    /** A git object name, SHA-1 or SHA-256. */
+    private static final java.util.regex.Pattern OBJECT =
+            java.util.regex.Pattern.compile("[0-9a-f]{40}|[0-9a-f]{64}");
+
+    /**
+     * Returns the commands whose ref now stands where the command set it, read from the mirror:
+     * receive-pack may refuse some or all of a push, and says so only to the client.
+     *
+     * @param commands The push's {@code <old> <new> <ref>} commands.
+     * @return Those receive-pack carried out.
+     */
+    private List<String[]> written(final List<String[]> commands) throws IOException {
+        if (arrivals == null && upstream == null) {
+            // Nothing judges or passes on, so nothing needs the mirror read.
+            return commands;
+        }
+        final List<String[]> written = new java.util.ArrayList<>();
+        for (final String[] command : commands) {
+            final String now =
+                    new String(
+                                    git.run(
+                                            List.of(
+                                                    "--git-dir",
+                                                    mirror.toString(),
+                                                    "show-ref",
+                                                    "--hash",
+                                                    "--verify",
+                                                    command[2]),
+                                            new byte[0]),
+                                    StandardCharsets.US_ASCII)
+                            .strip();
+            if (ZERO.equals(command[1]) ? now.isEmpty() : now.equals(command[1])) {
+                written.add(command);
+            }
+        }
+        return written;
+    }
+
     /**
      * Judges what a push wrote to the task's ref, and puts the mirror's ref back when it is
      * refused.
@@ -733,7 +827,15 @@ public class GitHttpServer implements AutoCloseable {
             if (!command[2].equals(ref) || ZERO.equals(command[1])) {
                 continue;
             }
-            final String said = judge.judge(command[0], command[1]);
+            String said;
+            try {
+                said = judge.judge(command[0], command[1]);
+            } catch (IOException ex) {
+                // Not judged is not taken: the ref goes back as for a refusal.
+                System.err.println(
+                        "could not judge " + printable(command[1]) + ": " + ex.getMessage());
+                said = "commit " + command[1] + " could not be judged; push again";
+            }
             if (said == null) {
                 continue;
             }
@@ -1020,7 +1122,10 @@ public class GitHttpServer implements AutoCloseable {
                 continue;
             }
             final String[] fields = line.split(" ");
-            if (fields.length != 3) {
+            if (fields.length != 3
+                    || !OBJECT.matcher(fields[0]).matches()
+                    || !OBJECT.matcher(fields[1]).matches()) {
+                // Each side reaches git's arguments when the push is judged or put back.
                 throw new GateException(
                         "a push command that is not '<old> <new> <ref>' is refused: " + line);
             }

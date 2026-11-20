@@ -8,14 +8,19 @@ import org.jspecify.annotations.Nullable;
  * What a task was started to work on: one issue and one phase of the project's own workflow, named
  * by whoever started it and kept as given.
  *
- * @param issue The issue, such as {@code ISSUE-1}.
+ * @param issue The issue, such as {@code ISSUE-1} or a tracker's reference such as {@code
+ *     owner/repo#123}; it stands as it is in the trailer {@code Porelo-Issue: <issue>} each of the
+ *     task's commits carries, in the task's guide and as an option of its gate's process.
  * @param phase A working state of the project's workflow, such as {@code Implementing}; Porelo does
  *     not know the set.
  */
 public record TaskWork(String issue, String phase) {
 
-    /** The most characters of an issue or a phase. */
+    /** The most characters of a phase. */
     public static final int MOST = 64;
+
+    /** The most characters of an issue. */
+    public static final int ISSUE_MOST = org.fuin.porelo.gate.IssueTrailers.MOST;
 
     /**
      * Reads {@code --work <issue>:<phase>}.
@@ -55,8 +60,21 @@ public record TaskWork(String issue, String phase) {
      *     #MOST} characters.
      */
     public @Nullable String refusal() {
-        final String issue = refused("issue", this.issue);
+        final String issue = issueRefusal(this.issue);
         return issue != null ? issue : refused("phase", phase);
+    }
+
+    /**
+     * Says why text cannot be a work's issue, or {@code null}: 1 to {@value #ISSUE_MOST} characters
+     * of printable ASCII without a space, a colon or a backtick, and not led by {@code -}. It
+     * stands as it is in a commit's trailer, a markdown code span and a process's option, where
+     * each of those would change what it says.
+     *
+     * @param issue The issue.
+     * @return The refusal, a usage error, or {@code null}.
+     */
+    public static @Nullable String issueRefusal(final String issue) {
+        return org.fuin.porelo.gate.IssueTrailers.refusal(issue);
     }
 
     private static @Nullable String refused(final String what, final String value) {

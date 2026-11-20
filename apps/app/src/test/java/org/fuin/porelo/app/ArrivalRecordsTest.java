@@ -44,7 +44,7 @@ class ArrivalRecordsTest {
     void aPushOfATaskWithoutACertificateIsAcceptedAndRecordedAsUnsigned() throws Exception {
         // A bare 'accepted' would read as judged by a certificate that does not exist.
         final GitHttpServer.Arrivals unjudged =
-                ArrivalRecords.unjudged("demo", "porelo-demo-fix", this::record, clock);
+                ArrivalRecords.unjudged(null, "demo", "porelo-demo-fix", this::record, clock);
 
         assertThat(unjudged.judge("a1", "b2")).as("accepted, as before").isNull();
 
@@ -52,6 +52,37 @@ class ArrivalRecordsTest {
                 .containsExactly(
                         "arrived|demo|porelo-demo-fix|a1..b2 arrived 2026-10-31T03:00:00Z:"
                                 + " accepted, unsigned");
+    }
+
+    @Test
+    void theIssueJudgesRefusalHoldsWithOrWithoutACertificate() throws Exception {
+        // Most tasks have no certificate: their push still leaves only with its issue named.
+        final GitHttpServer.Arrivals byIssue = (old, commit) -> "commit " + commit + " lacks it";
+        final List<String> signedAsked = new ArrayList<>();
+
+        assertThat(
+                        ArrivalRecords.unjudged(
+                                        byIssue, "demo", "porelo-demo-fix", this::record, clock)
+                                .judge("a1", "b2"))
+                .as("refused without a certificate")
+                .isEqualTo("commit b2 lacks it");
+        assertThat(recorded.getLast()).as("recorded as refused").contains("refused, commit b2");
+        assertThat(
+                        ArrivalRecords.inOrder(
+                                        byIssue,
+                                        (old, commit) -> {
+                                            signedAsked.add(commit);
+                                            return null;
+                                        })
+                                .judge("b2", "c3"))
+                .as("refused with one, though its signature holds")
+                .isEqualTo("commit c3 lacks it");
+        assertThat(signedAsked).as("the first refusal wins").isEmpty();
+        assertThat(
+                        ArrivalRecords.inOrder((old, commit) -> null, (old, commit) -> "unsigned")
+                                .judge("c3", "d4"))
+                .as("both must hold")
+                .isEqualTo("unsigned");
     }
 
     @Test

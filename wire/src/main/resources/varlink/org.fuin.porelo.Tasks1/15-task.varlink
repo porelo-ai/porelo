@@ -836,8 +836,11 @@ method Start(
   certify: ?bool,
   # Streams each step as its own reply, carrying step and no line. Default false: the stream is lines only, as before.
   steps: ?bool,
-  # The issue and the phase of the project's own workflow this task works on, kept in its record as given: each one
-  # line of 1 to 64 characters, else refused with exitCode 64. Porelo does not know the phases. A task brought back
+  # The issue and the phase of the project's own workflow this task works on, kept in its record as given. The issue,
+  # such as a tracker's reference owner/repo#123, is 1 to 200 characters of printable ASCII without a space, ':' or
+  # '`', not led by '-'; each of the task's commits carries it as the trailer 'Porelo-Issue: <issue>', and its gate
+  # refuses a push with a commit that does not. The phase is one line of 1 to 64 characters. Either refused with
+  # exitCode 64. Porelo does not know the phases. A task brought back
   # keeps the work it was made with. On a host, a start given work first has the host follow central once
   # ('porelo host follow') and is refused with exitCode 69 before anything is made unless the host's copy of
   # the repository then holds central's main: a copy behind central that the follow could not move (a change
@@ -1165,7 +1168,7 @@ type StartOutcome (
   # 'detail' says it in words; a history rewritten under the change this machine took last is refused
   # the same way, with 'commit' "". Nothing here can allow it: a person signs with their own commit.
   SETTINGS_UNSIGNED,
-  # The work given, its issue or its phase, is not one line of 1 to 64 characters. 'detail' says which,
+  # The work given, its issue or its phase, is not one Start takes (see Start's work). 'detail' says which,
   # in the words Start refuses with (exitCode 64). Answered before anything else, as Start refuses it.
   WORK_REFUSED
 )

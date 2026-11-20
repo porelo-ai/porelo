@@ -186,8 +186,12 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 
 **`task start`**
 - `--work ISSUE:PHASE`: names the issue and the phase of the project's own workflow (such as `Implementing`) the
-  task works on, kept in its record as given; each one line of 1 to 64 characters, else exit code 64. Over the
-  daemon, Start's `work: (issue, phase)`, which `CanStart` takes too and answers `WORK_REFUSED` for.
+  task works on, kept in its record as given. The issue is the tracker's reference, such as `owner/repo#123`: 1 to
+  200 characters of printable ASCII without a space, `:` or a backtick, not starting with `-`; the phase is one line
+  of 1 to 64 characters; else exit code 64. A task with a gate then pushes only commits naming the issue
+  ([Running](running.md#a-task-given-work)). A stopped task brought back keeps its work, and `--work` naming
+  another issue is refused with exit code 64. Over the daemon, Start's `work: (issue, phase)`, which `CanStart`
+  takes too and answers `WORK_REFUSED` for.
 - `--short NAME`: records an optional container spelling for the task: `[a-z][a-z0-9-]*`, at most 16 characters,
   no underscore and no `porelo-` prefix. It stays fixed with the project's short spelling when the task is created.
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
