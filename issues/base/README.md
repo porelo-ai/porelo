@@ -128,7 +128,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
-| <a id="b806"></a>[B806](B806-A-Task-Given-Work-Pushes-Only-Commits-Naming-Its-Issue.md) | M | - | a task given work is told the trailer `Porelo-Issue: <tracker reference>` and its gate refuses a push with a commit that lacks it; the work's issue is the tracker's reference; built on the cut-over day | - |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | [B136](README.md#b136), [B291](README.md#b291), [B292](README.md#b292) | Dependency changes and registry/name findings as SARIF; commit-bound human confirmation holds approval; splits into extraction (M), registry/hold (L), look-alike names (S). | 1 |
 | <a id="b145"></a>[B145](B145-Four-Eyes-At-The-Gate.md) | L | [B136](README.md#b136), [B293](README.md#b293) | Independent human signatures required for E0/C3 or project four-eyes policy, bound to the exact reviewed commit; no agent or forge verdict can substitute. | 2 |
@@ -209,6 +208,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b806"></a>[B806](B806-A-Task-Given-Work-Pushes-Only-Commits-Naming-Its-Issue.md) | M | - | a task given work is told the trailer `Porelo-Issue: <tracker reference>` and its gate refuses a push with a commit that lacks it; the work's issue is the tracker's reference; built on the cut-over day | - |
 | <a id="b793"></a>[B793](B793-What-The-Next-Host-Test-Shows-Of-The-Planning-Round.md) | S | - | The host acceptances of the planning round's four issues, finished on their tests alone, are seen on a rented host, and what they left to check there is answered | 2 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b796"></a>[B796](B796-Pull-Requests-Of-A-Carried-Project-Read-Before-Its-First-Start.md) | S | - | WatchPullRequests and PullRequests read the pull requests of a project the host carries for the person before a start has placed it there, from the host's record of the project and its carried repositories, instead of refusing it as a project this machine does not have | - |

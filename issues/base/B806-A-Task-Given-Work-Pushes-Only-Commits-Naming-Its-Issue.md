@@ -2,7 +2,7 @@
 
 ```json
 { "$schema": "issue-1.json", "id": "B806", "title": "A Task Given Work Pushes Only Commits Naming Its Issue",
-  "state": "Analyzed", "size": "M", "priority": "High", "rank": 5, "blockedBy": [],
+  "state": "Backlog", "size": "M", "priority": "High", "rank": 5, "blockedBy": [],
   "covers": "a task given work is told the trailer `Porelo-Issue: <tracker reference>` and its gate refuses a push with a commit that lacks it; the work's issue is the tracker's reference; built on the cut-over day" }
 ```
 
