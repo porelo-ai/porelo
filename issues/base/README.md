@@ -217,7 +217,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b793"></a>[B793](B793-What-The-Next-Host-Test-Shows-Of-The-Planning-Round.md) | S | - | The host acceptances of the planning round's four issues, finished on their tests alone, are seen on a rented host, and what they left to check there is answered | 2 |
-| <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b796"></a>[B796](B796-Pull-Requests-Of-A-Carried-Project-Read-Before-Its-First-Start.md) | S | - | WatchPullRequests and PullRequests read the pull requests of a project the host carries for the person before a start has placed it there, from the host's record of the project and its carried repositories, instead of refusing it as a project this machine does not have | - |
 | <a id="b797"></a>[B797](B797-A-Reading-Task-Reads-Only-What-The-Machine-Carries.md) | S | - | A task that reads all of a project's repositories reads only those the machine carries; the others are named once, in one plain line, and no failed clone of a repository that is not there reaches the agent's output | - |
 | <a id="b798"></a>[B798](B798-An-Empty-Mirror-Directory-Is-No-Detached-Head.md) | S | - | A mirror directory that holds no repository is taken as no mirror and made anew, not as a detached HEAD whose fix is at the upstream; no task leaves an empty directory where the project's own mirror belongs | - |
@@ -241,7 +240,6 @@ from its side, as *blocked by*.
 | <a id="b322"></a>[B322](B322-Porelos-Acceptance-Legs-Run-On-The-Hosts-Forge.md) | M | - | porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool; only GitHub publishes | 0 |
 | <a id="b734"></a>[B734](B734-A-Clear-Takes-A-Task-The-Inventory-Does-Not-List.md) | S | - | A project clear finds a container of the project that the task inventory does not list, such as a running task whose ownership cannot be verified: it names it and refuses, or with force removes it and takes its records whole. | 0 |
 | <a id="b739"></a>[B739](B739-Daemon-Socket-Tests-Pass-In-A-Deep-Checkout.md) | XS | - | McpSocketsReopenTest passes in a checkout whose path is long: its task and daemon sockets are bound under a short temporary directory, never under target/, so no socket path passes Linux's 108 bytes. | 0 |
-| <a id="b743"></a>[B743](B743-A-Transports-Verb-Fenced-To-What-It-Reaches.md) | L | - | Every verb of a transport runs in a network namespace of its own whose ruleset lets it reach only what its `reaches` names and loopback, so a transport's mistake cannot reach another host. | 0 |
 | <a id="b745"></a>[B745](B745-A-Waiting-Pushs-Review-Summary-Served.md) | M | [B291](README.md#b291), [B166](README.md#b166) | The daemon answers, per waiting push, the counts of open findings and open review threads, and each check run's name, completeness in its own word and finding count, so an interface can say whether a push's checks finished. | 0 |
 | <a id="b700"></a>[B700](B700-A-Service-Connect-Guarded-By-Its-Tests.md) | S | - | Each of `service connect`'s path and namespace guards has a test that fails without it, its relay is tested with a large binary stream and a service that stays open, and a request cut short is a failure even when the service closes first. | 0 |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | M | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own | - |
@@ -284,7 +282,9 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker | - |
+| <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b609"></a>[B609](B609-A-Resumed-Task-Takes-Its-Projects-Changed-MCP-Methods.md) | S | - | A task's MCP socket serves the methods its project file allows now, not the ones allowed when the daemon first opened it, without taking the mounted socket's inode away. | 0 |
+| <a id="b743"></a>[B743](B743-A-Transports-Verb-Fenced-To-What-It-Reaches.md) | L | - | Every verb of a transport runs in a network namespace of its own whose ruleset lets it reach only what its `reaches` names and loopback, so a transport's mistake cannot reach another host. | 0 |
 
 ## Review
 

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B743",
   "title": "A Transport's Verb Fenced To What It Reaches",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "L",
   "priority": "Medium",
   "rank": 50,
