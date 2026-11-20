@@ -109,6 +109,11 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b810"></a>[B810](B810-A-Use-Case-Written-Twice-Lives-In-One-Service.md) | L | - | Reject, Approve, the steps before a task's launch, and Say/Tell, each written once in the daemon and once in the CLI, move into one service each that both call; Reject's drift between the two is settled first |
+| <a id="b811"></a>[B811](B811-The-Daemons-Methods-Hand-Their-Work-To-Services.md) | L | - | ProposeIdea, Done, LogArchive, PendingBundle, DeleteBackup, removeProject, CredentialDeclare and keepHostVaultShare move their work into services, and the daemon stops calling static methods of commands |
+| <a id="b812"></a>[B812](B812-The-Vault-Commands-Hand-Their-Work-To-Services.md) | M | - | VaultPutCommand, VaultAuthorizeCommand's keep and HostStopSecretsCommand move their use cases into services, and CredentialChange calls those services instead of the commands |
+| <a id="b813"></a>[B813](B813-Keep-Organization-Creation-And-Gate-Serving-Hand-Their-Work-To-Services.md) | M | - | KeepCommand's lock, newer-record rule and staged write, OrgCreateCommand's refusal, write and settling, and GateServeCommand's tie of passing on to the landed record move into services |
+| <a id="b814"></a>[B814](B814-The-Gates-Push-Use-Case-Leaves-Its-HTTP-Handler.md) | M | - | GitHttpServer's handler only maps the request: the push lock, receive-pack, judging, putting a refused ref back and passing on move into a gate service tested without HTTP |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
