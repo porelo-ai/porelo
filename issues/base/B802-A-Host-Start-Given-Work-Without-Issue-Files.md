@@ -1,7 +1,7 @@
 # B802 — A Host Start Given Work Without Issue Files
 
 ```json
-{ "$schema": "issue-1.json", "id": "B802", "title": "A Host Start Given Work Without Issue Files", "state": "Analyzed",
+{ "$schema": "issue-1.json", "id": "B802", "title": "A Host Start Given Work Without Issue Files", "state": "Backlog",
   "size": "S", "priority": "High", "rank": 1, "blockedBy": [],
   "covers": "A host daemon's `Start` given work and `given` files, through a forwarded socket or `porelo daemon connect`, is proven on a host; the refusal of a copy behind central says what stays true once no repository holds an issue file" }
 ```

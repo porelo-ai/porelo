@@ -1,7 +1,7 @@
 # B805 — A Project's Planning Keys Read And Kept
 
 ```json
-{ "$schema": "issue-1.json", "id": "B805", "title": "A Project's Planning Keys Read And Kept", "state": "Analyzed",
+{ "$schema": "issue-1.json", "id": "B805", "title": "A Project's Planning Keys Read And Kept", "state": "Backlog",
   "size": "M", "priority": "High", "rank": 4, "blockedBy": [],
   "covers": "`project.yml` takes two top-level keys the person's planner writes, `issue_floor` (issue prefix to the highest number it ever used) and `tracker` (which store holds the issues); porelo checks their shape, keeps them through every rewrite of the file, shows and documents them, and uses them for nothing else" }
 ```
