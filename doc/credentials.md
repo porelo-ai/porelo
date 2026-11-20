@@ -160,7 +160,9 @@ Each is reached through the broker, with the credential on the host and a stand-
   the answer, `last-id-pages` (paged by `has_more` and `last_id`, as `anthropic` answers) or `data` (one `data` list
   with each model's `name` and `reasoning.supported_efforts`, as `openai` and `openrouter` answer), and the `headers`
   sent beside the credential, by its kind as `auth_header` is. The daemon's `Models` asks it there with the vault's
-  credential; a provider without the section answers no list, and a window takes the model as text.
+  credential. With `agent`, it uses that agent's declared list for this provider where the provider gives no list
+  or its ask fails, including with a shut vault; a provider list wins. Without either list, a window takes the model
+  as text when `from` is `none`; a failed ask stays `ModelsFailed`. See [providers](commands.md#providers).
 - **OpenRouter's path depends on the dialect.** A base URL that misses it answers "model not found"
   rather than 404, which reads as a bad model name.
 - **Google's terms call it a breach to reach Antigravity with its own sign-in through third-party software**, and

@@ -282,7 +282,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
-| <a id="b815"></a>[B815](B815-An-Agents-Own-Model-List.md) | M | - | An agent definition may declare its own models per provider, a static list of id and name, and Models answers it with from 'agent' where the provider gives no list for the stored credential, so a task on an agent's own sign-in offers a model list instead of free text |
 
 ## Review
 
@@ -312,6 +311,7 @@ from its side, as *blocked by*.
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 0 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b742"></a>[B742](B742-A-Tasks-Tmux-Server-Starts-Fresh.md) | M | - | No setting an agent leaves in its tmux server (set-environment -g, default-shell, options) reaches the next start, which joins the `porelo` session. | 0 |
+| <a id="b815"></a>[B815](B815-An-Agents-Own-Model-List.md) | M | - | An agent definition may declare its own models per provider, a static list of id and name, and Models answers it with from 'agent' where the provider gives no list for the stored credential, so a task on an agent's own sign-in offers a model list instead of free text | - |
 | <a id="b249"></a>[B249](B249-The-Hooks-Run-Dnsmasq-And-Podman-By-A-Fixed-Path.md) | S | - | The resolver hook, the shield's resolver and the doctor's probe take `dnsmasq` by a fixed root-owned path, as [B239](README.md#b239) does `nsenter` and `nft`; `podman` stays called by name | 0 |
 | <a id="b768"></a>[B768](B768-The-Setup-Script-Asks-The-Dnsmasq-The-Hooks-Run.md) | XS | - | `porelo-setup.sh` checks `nftset` support of the `dnsmasq` in `/usr/sbin`, `/usr/bin`, `/sbin` or `/bin`, the one the hooks take since [B249](README.md#b249), never of one found on root's `PATH`; its test's stand-in moves to where the script looks | 0 |
 | <a id="b769"></a>[B769](B769-The-Acceptance-Suite-Takes-The-Test-Heap-Limit.md) | XS | - | `acceptance/suite`'s failsafe fork gets `porelo.test.jvm.args` as its `argLine`, as every surefire fork does from the parent | 0 |

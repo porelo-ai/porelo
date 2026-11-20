@@ -3,13 +3,18 @@ package org.fuin.porelo.daemon;
 import static org.fuin.porelo.daemon.PoreloDaemon.*;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.agent.api.AgentDefinition;
+import org.fuin.porelo.agent.api.AgentModels;
+import org.fuin.porelo.app.ModelLists;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.TaskControl;
 import org.fuin.porelo.app.TaskInventory;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The daemon's methods for agents and providers.
@@ -249,9 +254,8 @@ final class AgentMethods {
     }
 
     /**
-     * Answers {@code Models}: the provider's own list, asked with the vault's credential. The
-     * agent's own list is not asked here, so a provider that is only an agent's sign-in answers
-     * {@code none}; a fresh ask from a task's socket is answered as one that is not fresh.
+     * Answers {@code Models}: the provider's list, or the selected agent's matching model menu. A
+     * fresh ask from a task's socket is answered as one that is not fresh.
      *
      * @param context The machine.
      * @param models The daemon's one keeper of lists.
@@ -262,7 +266,16 @@ final class AgentMethods {
             final PoreloContext context,
             final org.fuin.porelo.app.ModelLists models,
             final Map<String, Object> parameters) {
-        return models(context.providers(), context::readableCredentials, models, parameters);
+        return models(
+                context.providers(),
+                context::readableCredentials,
+                models,
+                parameters,
+                name -> {
+                    try (var installed = context.agents()) {
+                        return installed.find(name).map(agent -> agent.definition()).orElse(null);
+                    }
+                });
     }
 
     /**
@@ -281,27 +294,77 @@ final class AgentMethods {
                     credentials,
             final org.fuin.porelo.app.ModelLists models,
             final Map<String, Object> parameters) {
+        return models(providers, credentials, models, parameters, name -> null);
+    }
+
+    /** Answers with the installed agent definitions supplied by the caller. */
+    static Map<String, Object> models(
+            final Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers,
+            final java.util.function.Supplier<
+                            java.util.Optional<Map<String, org.fuin.porelo.vault.VaultEntry>>>
+                    credentials,
+            final ModelLists models,
+            final Map<String, Object> parameters,
+            final java.util.function.Function<String, @Nullable AgentDefinition> agents) {
+        final Object requested = parameters.get("agent");
+        final AgentModels declared;
+        if (requested == null) {
+            declared = AgentModels.NONE;
+        } else {
+            final AgentDefinition agent =
+                    requested instanceof String name ? agents.apply(name) : null;
+            if (agent == null) {
+                throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                        "org.varlink.service.InvalidParameter", Map.of("parameter", "agent"));
+            }
+            declared = agent.models();
+        }
         final String name = text(parameters, "provider");
         final org.fuin.porelo.agent.api.ProviderDefinition provider = providers.get(name);
+        // An agent's menu cannot make an undeclared provider usable.
+        if (provider == null) {
+            throw modelsFailed(
+                    name,
+                    "this machine declares no provider '"
+                            + org.fuin.porelo.vault.RegistryText.printable(name)
+                            + "'; 'porelo providers' lists those it does");
+        }
+        final List<AgentModels.Model> fallback = declared.providers().getOrDefault(name, List.of());
         try {
-            if (provider == null) {
-                throw new org.fuin.porelo.app.ModelLists.Failed(
-                        "this machine declares no provider '"
-                                + org.fuin.porelo.vault.RegistryText.printable(name)
-                                + "'; 'porelo providers' lists those it does");
-            }
             // A task's agent takes what was kept: its fresh asks would spend the person's key.
             final boolean fresh = flag(parameters, "fresh") && McpTaskSockets.caller() == null;
-            return models.list(provider, credentials, fresh).asMap();
-        } catch (org.fuin.porelo.app.ModelLists.Failed ex) {
-            throw new org.fuin.porelo.wire.varlink.VarlinkException(
-                    INTERFACE + ".ModelsFailed",
-                    Map.of(
-                            "provider",
-                            org.fuin.porelo.vault.RegistryText.printable(name),
-                            "message",
-                            String.valueOf(ex.getMessage())));
+            final ModelLists.Listing listing = models.list(provider, credentials, fresh);
+            return "none".equals(listing.from()) && !fallback.isEmpty()
+                    ? agentModels(fallback)
+                    : listing.asMap();
+        } catch (ModelLists.Failed ex) {
+            if (!fallback.isEmpty()) {
+                return agentModels(fallback);
+            }
+            throw modelsFailed(name, String.valueOf(ex.getMessage()));
         }
+    }
+
+    private static Map<String, Object> agentModels(List<AgentModels.Model> models) {
+        // Static menus belong to an agent, never the provider's cache or minute limit.
+        return new ModelLists.Listing(
+                        models.stream()
+                                .map(model -> new ModelLists.Model(model.id(), model.name(), null))
+                                .toList(),
+                        "agent",
+                        Instant.now())
+                .asMap();
+    }
+
+    private static org.fuin.porelo.wire.varlink.VarlinkException modelsFailed(
+            String provider, String message) {
+        return new org.fuin.porelo.wire.varlink.VarlinkException(
+                INTERFACE + ".ModelsFailed",
+                Map.of(
+                        "provider",
+                        org.fuin.porelo.vault.RegistryText.printable(provider),
+                        "message",
+                        message));
     }
 
     /**

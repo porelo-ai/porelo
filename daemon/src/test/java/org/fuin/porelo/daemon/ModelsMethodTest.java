@@ -3,13 +3,23 @@ package org.fuin.porelo.daemon;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.StringReader;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+import org.fuin.porelo.agent.api.AgentDefinition;
+import org.fuin.porelo.agent.api.AgentDefinitionReader;
+import org.fuin.porelo.agent.api.ProviderDefinition;
+import org.fuin.porelo.agent.api.ProviderDefinitionReader;
 import org.fuin.porelo.app.ModelLists;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -129,5 +139,300 @@ class ModelsMethodTest {
         AgentMethods.models(providers, credentials, models, fresh);
 
         assertThat(asked).as("the person's fresh ask reads again").hasValue(2);
+    }
+
+    private static AgentDefinition agent(String id) {
+        return AgentDefinitionReader.read(
+                new StringReader(
+                        """
+                name: example
+                binary: example-cli
+                git_identity:
+                  name: Example
+                  email: noreply@example.com
+                headless:
+                  prompt_flag: ""
+                models:
+                  listing:
+                    - {id: %s, name: Large Model}
+                    - {id: small, name: Small Model}
+                """
+                                .formatted(id)),
+                "agent.yaml");
+    }
+
+    private static ProviderDefinition provider(String name, boolean lists) {
+        return ProviderDefinitionReader.read(
+                new StringReader(
+                        """
+                name: %s
+                upstream: https://listing.example
+                dialects:
+                  openai: /v1
+                auth_header:
+                  _default: Authorization
+                auth_prefix:
+                  _default: "Bearer "
+                """
+                                        .formatted(name)
+                                + (lists
+                                        ? """
+                models:
+                  path: /v1/models
+                  format: data
+                """
+                                        : "")),
+                "provider.yaml");
+    }
+
+    private static Supplier<Optional<Map<String, VaultEntry>>> stored() {
+        return () -> Optional.of(Map.of("listing", new VaultEntry("fixture", "api-key")));
+    }
+
+    private static ModelLists noAsk() {
+        return new ModelLists(
+                (uri, headers, timeout) -> {
+                    throw new AssertionError("No provider request is possible here");
+                },
+                new Hands());
+    }
+
+    private static Map<String, Object> reply(
+            ProviderDefinition provider,
+            Supplier<Optional<Map<String, VaultEntry>>> credentials,
+            ModelLists lists) {
+        return AgentMethods.models(
+                Map.of(provider.name(), provider),
+                credentials,
+                lists,
+                Map.of("provider", provider.name(), "agent", "example"),
+                name -> agent("large"));
+    }
+
+    private static void isAgentList(Map<String, Object> reply) {
+        assertThat(reply)
+                .as("a person's model choices come from this agent")
+                .containsEntry("from", "agent")
+                .containsEntry(
+                        "models",
+                        List.of(
+                                Map.of("id", "large", "label", "Large Model"),
+                                Map.of("id", "small", "label", "Small Model")));
+        assertThat(reply.get("readAt"))
+                .as("the contract carries a read time")
+                .isInstanceOf(String.class);
+    }
+
+    @Test
+    void noStoredProviderCredentialAnswersTheAgentsModelsWithoutEfforts() {
+        isAgentList(reply(provider("listing", true), () -> Optional.of(Map.of()), noAsk()));
+    }
+
+    @Test
+    void aProviderWithNoListingAnswersTheAgentWithoutReadingTheVault() {
+        isAgentList(
+                reply(
+                        provider("listing", false),
+                        () -> {
+                            throw new AssertionError("An agent's static list needs no vault");
+                        },
+                        noAsk()));
+    }
+
+    @Test
+    void aShutVaultStillAnswersTheAgentsModels() {
+        isAgentList(reply(provider("listing", true), Optional::empty, noAsk()));
+    }
+
+    @Test
+    void aFailedAskAndItsKeptFailureAnswerTheAgent() {
+        final AtomicInteger asked = new AtomicInteger();
+        final ModelLists lists =
+                new ModelLists(
+                        (uri, headers, timeout) -> {
+                            asked.incrementAndGet();
+                            return new ModelLists.Answer(403, "refused");
+                        },
+                        new Hands());
+
+        isAgentList(reply(provider("listing", true), stored(), lists));
+        isAgentList(reply(provider("listing", true), stored(), lists));
+        assertThat(asked).as("fallback does not bypass provider spacing").hasValue(1);
+    }
+
+    @Test
+    void aProvidersListWinsAndItsKeptListWinsWithAShutVault() {
+        final ModelLists lists =
+                new ModelLists(
+                        (uri, headers, timeout) ->
+                                new ModelLists.Answer(
+                                        200,
+                                        "{\"data\":[{\"id\":\"remote\",\"name\":\"Remote\"}]}"),
+                        new Hands());
+
+        final Map<String, Object> expected = reply(provider("listing", true), stored(), lists);
+        assertThat(expected)
+                .as("provider model choices take precedence")
+                .containsEntry("from", "provider")
+                .containsEntry("models", List.of(Map.of("id", "remote", "label", "Remote")));
+        assertThat(
+                        reply(
+                                provider("listing", true),
+                                () -> {
+                                    throw new AssertionError("A kept provider list needs no vault");
+                                },
+                                lists))
+                .as("locking does not replace a kept provider list")
+                .isEqualTo(expected);
+    }
+
+    @Test
+    void anEmptyProviderListStillWins() {
+        final ModelLists lists =
+                new ModelLists(
+                        (uri, headers, timeout) -> new ModelLists.Answer(200, "{\"data\":[]}"),
+                        new Hands());
+        assertThat(reply(provider("listing", true), stored(), lists))
+                .as("empty is a provider answer, not an absent listing")
+                .containsEntry("from", "provider")
+                .containsEntry("models", List.of());
+    }
+
+    @Test
+    void anotherProviderDoesNotOfferThisAgentsModels() {
+        assertThat(reply(provider("other", false), () -> Optional.of(Map.of()), noAsk()))
+                .as("a model id belongs to its declared provider")
+                .containsEntry("from", "none")
+                .containsEntry("models", List.of());
+        assertThatThrownBy(() -> reply(provider("other", true), Optional::empty, noAsk()))
+                .as("a failure without a matching agent list stays a failure")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        failure ->
+                                assertThat(failure.getErrorName())
+                                        .as("the contract's failure")
+                                        .isEqualTo(PoreloDaemon.INTERFACE + ".ModelsFailed"));
+    }
+
+    @Test
+    void anUnknownAgentIsInvalidBeforeAnyCredentialIsRead() {
+        assertThatThrownBy(
+                        () ->
+                                AgentMethods.models(
+                                        Map.of("listing", provider("listing", true)),
+                                        () -> {
+                                            throw new AssertionError(
+                                                    "An unknown agent cannot read credentials");
+                                        },
+                                        noAsk(),
+                                        Map.of("provider", "listing", "agent", "absent"),
+                                        name -> null))
+                .as("a misspelled agent must not silently choose provider models")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        failure -> {
+                            assertThat(failure.getErrorName())
+                                    .as("the invalid parameter error")
+                                    .isEqualTo("org.varlink.service.InvalidParameter");
+                            assertThat(failure.getParameters())
+                                    .as("names the rejected parameter")
+                                    .containsEntry("parameter", "agent");
+                        });
+    }
+
+    @Test
+    void anUnknownAgentFromTheMachinesDirectoryIsInvalid() {
+        assertThatThrownBy(
+                        () ->
+                                AgentMethods.models(
+                                        context(),
+                                        noAsk(),
+                                        Map.of("provider", "listing", "agent", "absent")))
+                .as("the machine path resolves the supplied agent too")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        failure ->
+                                assertThat(failure.getErrorName())
+                                        .as("unknown agent is InvalidParameter")
+                                        .isEqualTo("org.varlink.service.InvalidParameter"));
+    }
+
+    @Test
+    void anUnknownProviderDoesNotUseAnAgentsDeclaration() {
+        assertThatThrownBy(
+                        () ->
+                                AgentMethods.models(
+                                        Map.of(),
+                                        stored(),
+                                        noAsk(),
+                                        Map.of("provider", "listing", "agent", "example"),
+                                        name -> agent("large")))
+                .as("an undeclared provider is still refused")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        failure ->
+                                assertThat(failure.getErrorName())
+                                        .as("the provider error")
+                                        .isEqualTo(PoreloDaemon.INTERFACE + ".ModelsFailed"));
+    }
+
+    @Test
+    void anOmittedAgentKeepsTheProviderOnlyAnswer() {
+        assertThat(
+                        AgentMethods.models(
+                                Map.of("listing", provider("listing", false)),
+                                () -> {
+                                    throw new AssertionError("No listing needs no vault");
+                                },
+                                noAsk(),
+                                Map.of("provider", "listing")))
+                .as("the agent parameter remains optional")
+                .containsEntry("from", "none")
+                .containsEntry("models", List.of());
+    }
+
+    @Test
+    void agentListsAreNeitherSharedBetweenAgentsNorKeptInsteadOfAProvider() {
+        final Hands clock = new Hands();
+        final AtomicInteger status = new AtomicInteger(403);
+        final ModelLists lists =
+                new ModelLists(
+                        (uri, headers, timeout) ->
+                                new ModelLists.Answer(
+                                        status.get(), "{\"data\":[{\"id\":\"remote\"}]}"),
+                        clock);
+        final Map<String, ProviderDefinition> providers =
+                Map.of("listing", provider("listing", true));
+        final var first =
+                AgentMethods.models(
+                        providers,
+                        stored(),
+                        lists,
+                        Map.of("provider", "listing", "agent", "first"),
+                        name -> agent(name));
+        final var second =
+                AgentMethods.models(
+                        providers,
+                        stored(),
+                        lists,
+                        Map.of("provider", "listing", "agent", "second"),
+                        name -> agent(name));
+        assertThat(first.get("models"))
+                .as("the first agent keeps its own model ids")
+                .isEqualTo(
+                        List.of(
+                                Map.of("id", "first", "label", "Large Model"),
+                                Map.of("id", "small", "label", "Small Model")));
+        assertThat(second.get("models"))
+                .as("a kept provider failure uses the second agent's list")
+                .isEqualTo(
+                        List.of(
+                                Map.of("id", "second", "label", "Large Model"),
+                                Map.of("id", "small", "label", "Small Model")));
+        status.set(200);
+        clock.now = clock.now.plus(ModelLists.SPACING);
+        assertThat(reply(provider("listing", true), stored(), lists))
+                .as("a later provider answer replaces the fallback immediately")
+                .containsEntry("from", "provider");
     }
 }

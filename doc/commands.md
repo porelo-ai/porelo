@@ -1137,10 +1137,17 @@ provider gives them. A list is kept in the daemon for an hour per provider, and 
 once a minute and one read at a time: within that minute its last answer or failure is given again. A task's MCP
 socket is answered what was kept, its `fresh` not honored, and a next page is followed only on the provider's own
 https origin.
-A provider that refuses the credential, cannot be reached within 20 seconds or answers what does not read is
-`ModelsFailed`, never an empty list, and so is a shut vault. A provider the vault holds nothing for, one whose file names no
-`models`, and one that cannot broker the kind stored answer `from: "none"` with no models, and a window
-then takes the model as text.
+The optional `agent` names an installed agent; an unknown name is `InvalidParameter`. A provider list wins,
+including an empty list. Where the provider gives no list or its ask fails, the selected agent's `models` for that
+provider answer `from: "agent"`, with each `name` as its `label` and no `efforts`, so the window offers the agent's
+efforts. The static list makes no request, needs no vault unlock, and is neither cached nor limited per minute;
+a shut vault still permits it. `porelo agents --verbose` prints the declared lists per provider.
+
+Without a matching agent list, a provider that refuses the credential, cannot be reached within 20 seconds or
+answers what does not read is `ModelsFailed`, and so is a shut vault. A provider the vault holds nothing for,
+one whose file names no `models`, and one that cannot broker the kind stored answer `from: "none"` with no models,
+and a window then takes the model as text. An undeclared provider is `ModelsFailed` even when the agent names models
+for it. Omitting `agent` asks only the provider.
 
 ## setup
 

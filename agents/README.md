@@ -138,6 +138,11 @@ effort:                       # optional; how the agent takes a reasoning effort
                                 #     effort is one of them, absent passes nothing; quote
                                 #     "off", "on", "yes", "no": YAML reads them bare as booleans
 
+models:                       # optional; the agent's own model menu, per provider
+  example-provider:
+    - {id: large, name: Large Model}
+    - {id: small, name: Small Model}
+
 login:
   arguments: ["auth", "login"]
   flow: paste-code             # optional; paste-code, device-code or loopback
@@ -174,6 +179,15 @@ Any other value is refused naming `login.flow`. An omitted flow keeps the older 
 Porelo leaves `BROWSER` unset and keeps the URL-printing browser shim. Measure the adapter's flow before declaring
 it. `porelo agents --json` reports each agent's `flow` with the declared spelling, or `""` when undeclared, so an
 interface can show the corresponding sign-in hint.
+
+**`models` is the agent's own menu, keyed by provider.** Each provider names a non-empty list of
+`{id, name}` entries, preserving provider and model order. Provider names follow the provider definition's name
+rules; ids must be non-empty and unique within their provider, and both fields must be text. Unknown members and
+malformed sections are refused, naming the member. Quote values YAML would read as numbers or booleans.
+`porelo agents --verbose` prints these lists per provider. The daemon's `Models` uses the selected agent's list for
+that provider when the provider gives no list or its ask fails, including with a shut vault; a provider list wins.
+It answers `from: "agent"`, each `name` as `label`, and no `efforts`, so clients offer the agent's efforts. This
+static list makes no request, needs no vault unlock, and is neither cached nor limited per minute.
 
 **A digest is required.** The fetch and the check are generated into one `RUN`
 with `set -e`, so a mismatch fails the layer and nothing is installed — verified

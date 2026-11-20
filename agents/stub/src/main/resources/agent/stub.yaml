@@ -73,6 +73,11 @@ provider:
     socket_env: PORELO_STUB_SOCKET
     base_url_env: PORELO_STUB_BASE_URL
 
+models:
+    anthropic:
+        - { id: stub-large, name: Stub Large }
+        - { id: stub-small, name: Stub Small }
+
 # Resolved on purpose, and granted. IANA holds example.com for exactly this, so it will not
 # move, expire or start redirecting somewhere else.
 allowed_domains:

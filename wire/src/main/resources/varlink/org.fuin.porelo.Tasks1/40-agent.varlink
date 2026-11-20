@@ -174,42 +174,50 @@ type Provider (
 #
 # Asked of the provider with the credential the vault holds for it, at the path and in the shape its
 # provider file's 'models' section names (Anthropic's and OpenAI's model list, OpenRouter's with
-# each model's efforts), never with a key a caller hands over. A provider whose file names no list
-# answers "none". Kept on this machine for an hour; a provider is asked at most once a minute, one
-# read at a time, and within that minute its last answer or failure is given again. Read-only: it
-# starts nothing and changes no file.
+# each model's efforts), never with a key a caller hands over. A provider list wins, including an
+# empty one. Where it gives no list or the ask fails, the selected agent's declared models for
+# this provider answer instead. Without either list, "none" has no models.
+# A provider list is kept on this machine for an hour; a provider is asked at most once a minute,
+# one read at a time, and within that minute its last answer or failure is given again. The agent's
+# static list makes no request, needs no vault unlock, and is neither kept nor limited per minute;
+# it is available with a shut vault. Read-only: it starts no task and changes no file.
 method Models(
   # The provider, by the name Providers reports.
   provider: string,
-  # The agent the task would run, by Agents' name. Reserved: an agent's own list where its sign-in
-  # is the provider is not read yet, so it is accepted and does not change the answer.
+  # The agent the task would run, by Agents' name. Its declared models for this provider are used
+  # where the provider gives no list or the ask fails. Unknown is InvalidParameter; absent asks
+  # only the provider. An undeclared provider is ModelsFailed even if the agent names models for it.
   agent: ?string,
   # Asks the provider now rather than answering what was kept, unless it was asked within the last
   # minute. Not honored from a task's MCP socket, which is answered what was kept.
   fresh: ?bool
 ) -> (
   models: []Model,
-  # "provider" when the provider's list answered, "none" when it cannot be asked here (then models
-  # is empty, and a client offers the model as text).
+  # "provider" when the provider's list answered, "agent" for the selected agent's declared list
+  # for this provider, "none" when neither gives a list (then models is empty, and a client offers
+  # the model as text). A failed ask stays ModelsFailed when no matching agent list exists.
   from: string,
-  # ISO-8601 time the list was read.
+  # ISO-8601 time the list was read, or the static agent list was answered.
   readAt: string
 )
 
-# One model a provider offers.
+# One model a provider or the selected agent offers.
 type Model (
   # The id Start's model takes.
   id: string,
-  # What a person is shown for it, as the provider names it; the id where it names none.
+  # What a person is shown: the provider's name for it (the id where it names none), or the
+  # agent's declared name when from is "agent".
   label: string,
   # The reasoning efforts the provider says the model takes, where it says; absent where it does
-  # not, and a client then offers the agent's efforts.
+  # not. Always absent for an agent list; a client then offers the agent's efforts.
   efforts: ?[]string
 )
 
 # The provider was asked and did not answer with a list: refused the credential, unreachable, or an
-# answer that does not read. 'message' says which; the vault's credential never appears in it. Never
-# answered as an empty list, which would read as "this provider offers nothing".
+# answer that does not read, and the selected agent declares no models for this provider. A shut
+# vault without a matching agent list, or an undeclared provider, also fails. 'message' says which;
+# the vault's credential never appears in it. Never answered as an empty list, which would read as
+# "this provider offers nothing".
 error ModelsFailed(provider: string, message: string)
 
 # What this machine could install, from its own package source.

@@ -97,6 +97,26 @@ public final class AgentDefinitionJson {
         out.put("subagents", definition.subagents().value());
         out.put("sandboxedArguments", definition.sandboxedArguments());
         out.put("instructionArguments", definition.instructionArguments());
+        final Map<String, Object> models = new LinkedHashMap<>();
+        definition
+                .models()
+                .providers()
+                .forEach(
+                        (provider, list) ->
+                                models.put(
+                                        provider,
+                                        list.stream()
+                                                .map(
+                                                        model ->
+                                                                Map.of(
+                                                                        "id",
+                                                                        model.id(),
+                                                                        "name",
+                                                                        model.name()))
+                                                .toList()));
+        if (!models.isEmpty()) {
+            out.put("models", models);
+        }
         if (!definition.effort().values().isEmpty()) {
             out.put(
                     "effort",
@@ -255,7 +275,8 @@ public final class AgentDefinitionJson {
                 source.get("effort") instanceof Map<?, ?> effort
                         ? new Effort(
                                 strings(effort.get("arguments")), strings(effort.get("values")))
-                        : Effort.NONE);
+                        : Effort.NONE,
+                AgentDefinitionReader.models(source, "the agent's own description"));
     }
 
     private static Map<String, Object> writeWaiting(Waiting waiting) {

@@ -147,7 +147,70 @@ public final class AgentDefinitionReader {
                         : null,
                 subagents(root, origin),
                 openingFlag(session, origin),
-                effort(root, origin));
+                effort(root, origin),
+                models(root, origin));
+    }
+
+    /**
+     * Reads the agent's provider model lists from a file or its own description.
+     *
+     * @param root The definition.
+     * @param origin Where it was read, for the refusal.
+     * @return Its models, or {@link AgentModels#NONE} when absent.
+     * @throws AgentException If a section or member is malformed.
+     */
+    static AgentModels models(Map<?, ?> root, String origin) {
+        if (!root.containsKey("models")) {
+            return AgentModels.NONE;
+        }
+        if (!(root.get("models") instanceof Map<?, ?> section)) {
+            throw new AgentException(origin + ": models must be a mapping");
+        }
+        if (section.isEmpty()) {
+            throw new AgentException(
+                    origin + ": models names no provider; leave the section out for none");
+        }
+        final Map<String, List<AgentModels.Model>> providers = new LinkedHashMap<>();
+        for (final var provider : section.entrySet()) {
+            final String where = "models." + provider.getKey();
+            if (!(provider.getKey() instanceof String name)
+                    || !name.matches("[a-z0-9][a-z0-9-]{0,30}")) {
+                throw new AgentException(origin + ": " + where + " is not a provider name");
+            }
+            if (!(provider.getValue() instanceof List<?> list)) {
+                throw new AgentException(origin + ": " + where + " must be a non-empty list");
+            }
+            final List<AgentModels.Model> models = new ArrayList<>();
+            for (final Object item : list) {
+                if (!(item instanceof Map<?, ?> model)) {
+                    throw new AgentException(origin + ": " + where + " model must be a mapping");
+                }
+                only(model, List.of("id", "name"), origin, where);
+                models.add(
+                        new AgentModels.Model(
+                                modelText(model, "id", origin, where),
+                                modelText(model, "name", origin, where)));
+            }
+            providers.put(name, models);
+        }
+        try {
+            return new AgentModels(providers);
+        } catch (AgentException refused) {
+            throw new AgentException(origin + ": " + refused.getMessage());
+        }
+    }
+
+    private static String modelText(Map<?, ?> model, String key, String origin, String where) {
+        if (!(model.get(key) instanceof String text)) {
+            throw new AgentException(
+                    origin
+                            + ": "
+                            + where
+                            + "."
+                            + key
+                            + " must be text; quote non-text YAML values");
+        }
+        return text;
     }
 
     /**

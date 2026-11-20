@@ -67,6 +67,7 @@ import org.jspecify.annotations.Nullable;
  *     argument, any other value a flag the text follows; {@code null} when it declares nothing, and
  *     then only an agent whose headless prompt is positional takes one, positionally.
  * @param effort How it takes a reasoning effort, and which values; {@link Effort#NONE} for none.
+ * @param models Its model menu per provider, used when the provider gives no list.
  */
 public record AgentDefinition(
         String name,
@@ -98,7 +99,107 @@ public record AgentDefinition(
         @Nullable LoginFlow loginFlow,
         SubagentLimit subagents,
         @Nullable String openingFlag,
-        Effort effort) {
+        Effort effort,
+        AgentModels models) {
+
+    /**
+     * Constructor for an agent that declares no model menu.
+     *
+     * @param name Short name.
+     * @param label Human-readable label.
+     * @param binary Executable inside the container.
+     * @param gitIdentity Commit author.
+     * @param headless Command-line shape.
+     * @param supportsResume Whether it continues a session.
+     * @param resumeFlag The flag that does, or {@code null}.
+     * @param tokenEnvironment Where its token goes, by credential type.
+     * @param provider How it reaches a provider, or {@code null}.
+     * @param allowedDomains Destinations it may reach.
+     * @param refusedDomains Destinations it may not.
+     * @param version Its pinned version, or {@code null}.
+     * @param artifacts What the image build fetches.
+     * @param installAsRoot Commands run as root in the image.
+     * @param installAsAgent Commands run as the agent in the image.
+     * @param packaged Trees the package carries.
+     * @param configDirectory Where it keeps its credentials, or {@code null}.
+     * @param loginArguments What runs its login, or {@code null}.
+     * @param loginDocumentation Where its login is described, or {@code null}.
+     * @param sandboxedArguments What turns its own permission prompts off.
+     * @param ready What it shows once at work, or {@code null}.
+     * @param waiting What waiting for a person looks like, or {@code null}.
+     * @param sessionIds Where it names its session, or {@code null}.
+     * @param instructionArguments How it takes standing instructions.
+     * @param atRest What its screen shows at rest, or {@code null}.
+     * @param grants Hosts it is granted per provider.
+     * @param loginFlow How its login completes, or {@code null}.
+     * @param subagents What the adapter can enforce of subagents.
+     * @param openingFlag How its attended session takes an opening text, or {@code null}.
+     * @param effort How it takes a reasoning effort.
+     */
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready,
+            @Nullable Waiting waiting,
+            @Nullable SessionIds sessionIds,
+            List<String> instructionArguments,
+            @Nullable AtRest atRest,
+            List<AgentGrant> grants,
+            @Nullable LoginFlow loginFlow,
+            SubagentLimit subagents,
+            @Nullable String openingFlag,
+            Effort effort) {
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                waiting,
+                sessionIds,
+                instructionArguments,
+                atRest,
+                grants,
+                loginFlow,
+                subagents,
+                openingFlag,
+                effort,
+                AgentModels.NONE);
+    }
 
     /**
      * Constructor for an agent that takes no reasoning effort.

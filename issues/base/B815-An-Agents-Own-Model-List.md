@@ -2,7 +2,7 @@
 
 ```json
 { "$schema": "issue-1.json", "id": "B815", "title": "An Agent's Own Model List",
-  "state": "Implementing", "size": "M", "priority": "High", "rank": 51, "blockedBy": [],
+  "state": "Review", "size": "M", "priority": "High", "rank": 51, "blockedBy": [],
   "covers": "An agent definition may declare its own models per provider, a static list of id and name, and Models answers it with from 'agent' where the provider gives no list for the stored credential, so a task on an agent's own sign-in offers a model list instead of free text" }
 ```
 
@@ -52,6 +52,29 @@ Read in porelo at ea5a5b7ac.
   `from: "agent"`; with a list from the provider, the provider's; for another provider, `none`.
 - An agent definition with a malformed `models` section is refused when it is read, naming the member.
 
-## To be checked
+## As built
 
-- With Agent Smith: the section keyed by provider (`models: {anthropic: [...]}`) rather than one flat list.
+- `agents/api`: `AgentModels` (`providers()`: a provider's name to its `Model(id, name)` list, order kept), read by
+  `AgentDefinitionReader.models` from a file and from an agent's own description alike, and written by
+  `AgentDefinitionJson` only where an agent declares models. Refused when read: a section that is no mapping or
+  names no provider, a key that is no provider name, an empty list or one of more than 100, an unknown member, an
+  `id` or `name` that is not text, blank, longer than 200 (`id`) or 100 (`name`) characters, or holds a control,
+  format or line character, and a duplicate `id`.
+- `AgentMethods.models`: `agent` resolved among the installed agents, unknown is `InvalidParameter`; where
+  `ModelLists.list` answers `none` or throws `Failed` (a shut vault included) and the agent declares models for that
+  provider, the answer is that list with `from: "agent"`, `label` its `name`, no `efforts`, neither kept nor limited
+  per minute. A provider's list wins, even an empty one; another provider and an undeclared provider are as before.
+- `porelo agents --verbose` prints the lists per provider; the stub declares two for one provider; the contract text
+  of `Models` and `Model`, `agents/README.md`, `doc/commands.md` and `doc/credentials.md` say so; changelog entry.
+- Built by Codex CLI (gpt-6.1-sol, xhigh); the lead ran the tests. Red first: `AgentModelsTest` 21 of 21 red before
+  the reader existed; `ModelsMethodTest` 7 of 14 red before the fallback (`from` was `none`, a shut vault was
+  `ModelsFailed`, an unknown agent was not `InvalidParameter`).
+- Reading (Antigravity CLI, gemini-4-argon-high): nothing grave; the vault is never unlocked or a credential shown,
+  a task's MCP caller cannot ask fresh, an undeclared provider stays refused, and the agent's list never enters the
+  provider's kept list or its minute limit. Fixed, each case seen red first (9 red): `models: {}` was taken as none,
+  and an `id` or `name` could carry control or format characters, be blank, or be of any length or count. Left as
+  [B817](README.md#b817): a broken installed agent is answered `InvalidParameter`, two contract sentences, three
+  test gaps.
+- Tests on the lead's run: `AgentModelsTest` 35, `ModelsMethodTest` 14, `AgentIsolationTest`, the agents API and the
+  stub's tests, the contract tests, 0 failures.
+- Handed over locally to the adapters' owner for Claude Code's definition before the push.
