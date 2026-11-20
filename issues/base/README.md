@@ -127,7 +127,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b802"></a>[B802](B802-A-Task-Started-On-A-Host-Is-Given-Its-Files.md) | M | - | `porelo task run --host` takes `--given`: the files go to the host on the start's input, beside the certificate, never as arguments; the host keeps and mounts them as a local start does | - |
+| <a id="b802"></a>[B802](B802-A-Host-Start-Given-Work-Without-Issue-Files.md) | S | - | A host daemon's `Start` given work and `given` files, through a forwarded socket or `porelo daemon connect`, is proven on a host; the refusal of a copy behind central says what stays true once no repository holds an issue file | - |
 | <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker | - |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b804"></a>[B804](B804-The-Credential-Helpers-Answer-Is-The-Forges-API-Token.md) | XS | - | `porelo vault credential --for <organization address>` is stated, and pinned by a test, to answer with the token Porelo's own calls to that forge's API take, usable by a person's program against that API | - |
