@@ -105,6 +105,7 @@ from its side, as *blocked by*.
 | <a id="b257"></a>[B257](B257-A-Direct-Peer-Reached-Without-A-Conversation.md) | - | - | A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it | - |
 | <a id="b333"></a>[B333](B333-Porelod-Prunes-Once-A-Day.md) | - | - | `porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays | - |
 | <a id="b817"></a>[B817](B817-Small-Findings-Of-An-Agents-Own-Model-List.md) | S | - | What the reading of an agent's own model list left: a broken installed agent answered as an unknown one, two contract sentences on when the vault is read, and three test gaps | - |
+| <a id="b819"></a>[B819](B819-Small-Findings-Of-Review-Heads-Fetched-Before-A-Start.md) | S | - | What the reading of review heads fetched before a start left: no bound on a round's fetches, review stores no deletion or prune clears, and two first reads taking a project twice | - |
 
 ## Accepted
 
