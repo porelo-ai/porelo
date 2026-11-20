@@ -2,7 +2,7 @@
 
 ```json
 { "$schema": "issue-1.json", "id": "B815", "title": "An Agent's Own Model List",
-  "state": "Analyzed", "size": "M", "priority": "High", "rank": 51, "blockedBy": [],
+  "state": "Backlog", "size": "M", "priority": "High", "rank": 51, "blockedBy": [],
   "covers": "An agent definition may declare its own models per provider, a static list of id and name, and Models answers it with from 'agent' where the provider gives no list for the stored credential, so a task on an agent's own sign-in offers a model list instead of free text" }
 ```
 
