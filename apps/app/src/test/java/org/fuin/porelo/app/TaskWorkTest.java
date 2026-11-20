@@ -35,7 +35,7 @@ class TaskWorkTest {
 
     @Test
     void anIssueIsATrackersReferenceOfAtMost200Characters() {
-        assertThat(new TaskWork("porelo-ai/porelo#123", "Implementing").refusal())
+        assertThat(new TaskWork("porelo-ai/porelo#123", "Implementing").refusal()) // not-a-citation
                 .as("a tracker's reference")
                 .isNull();
         assertThat(new TaskWork("o/" + "r".repeat(195) + "#12", "Implementing").refusal())

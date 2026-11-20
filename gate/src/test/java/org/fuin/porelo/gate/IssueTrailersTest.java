@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class IssueTrailersTest {
 
-    private static final String ISSUE = "porelo-ai/porelo#123";
+    private static final String ISSUE = "porelo-ai/porelo#123"; // not-a-citation
 
     private static final String LINE = "Porelo-Issue: " + ISSUE;
 
