@@ -217,7 +217,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b793"></a>[B793](B793-What-The-Next-Host-Test-Shows-Of-The-Planning-Round.md) | S | - | The host acceptances of the planning round's four issues, finished on their tests alone, are seen on a rented host, and what they left to check there is answered | 2 |
-| <a id="b815"></a>[B815](B815-An-Agents-Own-Model-List.md) | M | - | An agent definition may declare its own models per provider, a static list of id and name, and Models answers it with from 'agent' where the provider gives no list for the stored credential, so a task on an agent's own sign-in offers a model list instead of free text | - |
 | <a id="b797"></a>[B797](B797-A-Reading-Task-Reads-Only-What-The-Machine-Carries.md) | S | - | A task that reads all of a project's repositories reads only those the machine carries; the others are named once, in one plain line, and no failed clone of a repository that is not there reaches the agent's output | - |
 | <a id="b798"></a>[B798](B798-An-Empty-Mirror-Directory-Is-No-Detached-Head.md) | S | - | A mirror directory that holds no repository is taken as no mirror and made anew, not as a detached HEAD whose fix is at the upstream; no task leaves an empty directory where the project's own mirror belongs | - |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
@@ -282,6 +281,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
+| <a id="b815"></a>[B815](B815-An-Agents-Own-Model-List.md) | M | - | An agent definition may declare its own models per provider, a static list of id and name, and Models answers it with from 'agent' where the provider gives no list for the stored credential, so a task on an agent's own sign-in offers a model list instead of free text |
 
 ## Review
 
