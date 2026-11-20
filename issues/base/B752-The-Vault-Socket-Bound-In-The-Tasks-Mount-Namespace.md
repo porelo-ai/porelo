@@ -18,7 +18,7 @@
 **Why this size.** S: the relay in `supervisor` gains one option that binds a socket file through the container's
 root; `CredentialWiring` and `TaskLaunch` start the relay for a socket agent too, after the container exists;
 `TaskRunner` drops one mount; each part has unit tests. No FFM and no contract another repository reads. Estimate: 45
-minutes (Core's median for S). It starts after [B742](README.md#b742), which changes the same `podman exec` paths.
+minutes (Core's median for S). The `podman exec` paths it changes are those that start a fresh tmux server.
 
 **What must be true.** The vault socket a task's agent connects to lies in the task's own mount namespace, and only
 the task's root can replace it. A process of the same account on the host cannot put a file in its place without

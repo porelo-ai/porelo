@@ -21,7 +21,7 @@ Core's median for S (45 minutes).
 **What must be true.** For an offline project, Porelo passes a transport only when the transport says what it reaches
 and all of it is loopback. A transport that says nothing is refused.
 
-Found while estimating [B199](README.md#b199). When `setup` prints no `reaches`, the field becomes an empty list
+Found while estimating how a transport reaches only what it names. When `setup` prints no `reaches`, the field becomes an empty list
 (`TransportLifecycle`, where setup's answer is read). The empty list passes the loopback filter in
 `TransportLifecycle.setupHeld` and in `TaskConversations` before a task enrolls. `--loopback-only` still goes to every
 verb, so the transport is still told; but Porelo's own check does not hold.

@@ -23,7 +23,7 @@ Estimate: 38 minutes (Core's median for S).
 
 **What must be true.** A verb that cannot be fenced is refused for its project alone; the pass goes on for the rest.
 
-Found by the reading of [B743](README.md#b743) part (c) (agy, gemini-4-argon-high), checked in the code:
+Found by the reading of the fence of a transport's verbs, part (c) (agy, gemini-4-argon-high), checked in the code:
 
 - `TransportFence.command()` throws `IllegalArgumentException` for a name that resolves to nothing or a resolver file
   it cannot use, `UncheckedIOException` for one it cannot read, and `CommandException` for a missing pasta, nftables

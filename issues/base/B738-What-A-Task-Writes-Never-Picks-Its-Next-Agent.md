@@ -52,8 +52,8 @@ the next start runs or runs with. This is Porelo's to close, not an adapter's: a
 ## Built
 
 The plan's second and third points are built. The first, starting each agent by an absolute root-owned path, holds
-today for pi and stub only, and is carried on in [B741](README.md#b741). The tmux server an agent can keep alive
-between starts is [B742](README.md#b742).
+today for pi and stub only, and is built for every agent: its start runs its binary by an absolute, root-owned path. The tmux server an agent can keep alive
+between starts starts fresh: no setting an agent leaves in it reaches the next start.
 
 - **No start file the agent owns.** `Podman.NO_START_FILES` (`--env BASH_ENV= --env ENV=`) is passed to every
   unattended run (`executeArguments`) and to every interactive exec (`attachArguments`). Those execs carry the tmux
@@ -74,4 +74,4 @@ between starts is [B742](README.md#b742).
     `buildbox-porelo-720782e01a3c-20261113T172152Z.log`): core 133, runtime 106 and apps/app 377 tests, 0 skipped.
 - **So, for pi and stub:** a `pi` or `porelo-stub-cli` left in `$XDG_BIN_HOME`, or a variable set in `.bashrc` or
   `.profile`, changes nothing in the next start, unattended or attached. claude, omp, codex and agy install their
-  binary under `/home/agent`, so the agent can still overwrite it itself ([B741](README.md#b741)).
+  binary under `/home/agent`, so the agent could overwrite it itself; every agent's start now refuses a binary its user could change.

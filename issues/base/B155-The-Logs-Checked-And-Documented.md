@@ -28,7 +28,7 @@ Logs are sensitive data themselves; nobody has checked all of Porelo's at once.
 ## The shape
 
 A page listing each log; a test that the broker's and the gate's logs contain no credential; file rights as
-[B50](README.md#b50) sets them. `task.log`, which carries the agent's words and so prompt contents, is cut after 30 days
+The file rights Porelo sets for its own files hold them. `task.log`, which carries the agent's words and so prompt contents, is cut after 30 days
 by default, a period the account's settings may change.
 
 ## Plan
@@ -54,8 +54,8 @@ Steps:
    what each wrote to its output and finds neither secret, nor an `Authorization` header's value. Whatever it finds
    is fixed where it is written, by leaving it out, not by masking after the fact.
 2. The same test asserts each log file is `rw-------` and its directory `rwx------`; where a writer does not set it,
-   it is set where the file is made (`TaskHelpers` already does it for some). Where [B50](README.md#b50) widens or narrows a right,
-   the test follows [B50](README.md#b50).
+   it is set where the file is made (`TaskHelpers` already does it for some). Where a later change widens or narrows a right,
+   the test follows it.
 3. `task.log` holds what the agent said, by design, so it is kept for a period, not as long as the task:
    `task_log: {days: 30}` in the account-wide settings file (`config.yml`, which [B153](README.md#b153) adds; whichever
    is built first brings its reader). A `task.log` last written longer ago than that is removed, even while its task

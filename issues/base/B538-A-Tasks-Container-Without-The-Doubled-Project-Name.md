@@ -27,7 +27,7 @@ High priority (the operator, 2026-11-09).
 two projects can make one container name.
 
 The form changed on 2026-11-13 (the operator): project `porelo`'s tasks are `porelo_<task>`, every other project's
-`porelo-<project>_<task>`; it is built by [B246](README.md#b246). The design below still names the earlier
+`porelo-<project>_<task>`; it is built. The design below still names the earlier
 `porelo-<task>` for project `porelo`.
 
 ## Plan
