@@ -1,7 +1,7 @@
 # B803 — Porelo's Markdown Issues Removed After The Cut-Over
 
 ```json
-{ "$schema": "issue-1.json", "id": "B803", "title": "Porelo's Markdown Issues Removed After The Cut-Over", "state": "Backlog",
+{ "$schema": "issue-1.json", "id": "B803", "title": "Porelo's Markdown Issues Removed After The Cut-Over", "state": "Implementing",
   "size": "S", "priority": "High", "rank": 2, "blockedBy": [],
   "covers": "Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker" }
 ```

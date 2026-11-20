@@ -209,7 +209,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker | - |
 | <a id="b793"></a>[B793](B793-What-The-Next-Host-Test-Shows-Of-The-Planning-Round.md) | S | - | The host acceptances of the planning round's four issues, finished on their tests alone, are seen on a rented host, and what they left to check there is answered | 2 |
 | <a id="b741"></a>[B741](B741-An-Agent-Never-Replaces-What-Starts-It.md) | S | - | Every agent's start runs its binary by an absolute, root-owned path and refuses one the agent could change; each adapter installs its binary as root, as pi does. | 0 |
 | <a id="b796"></a>[B796](B796-Pull-Requests-Of-A-Carried-Project-Read-Before-Its-First-Start.md) | S | - | WatchPullRequests and PullRequests read the pull requests of a project the host carries for the person before a start has placed it there, from the host's record of the project and its carried repositories, instead of refusing it as a project this machine does not have | - |
@@ -278,6 +277,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker | - |
 | <a id="b794"></a>[B794](B794-A-Token-Count-Is-Partial-Only-Where-A-Reply-Left-It-Out.md) | S | - | Usage counts a request as missing a kind only where its format reports that kind and the reply did not, and its contract says that output includes reasoning in every format, so the window neither says at least for every task nor counts reasoning twice | 0 |
 | <a id="b795"></a>[B795](B795-A-Start-Picks-Its-Model-And-Effort-From-What-The-Machine-Lists.md) | L | - | An agent declares how it takes a reasoning effort and which values, Start takes an effort beside its model, and the daemon lists the models a provider offers on this machine, asked through its broker with the vault's credential, so a window offers both as lists | 0 |
 
