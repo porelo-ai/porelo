@@ -20,9 +20,10 @@ by calling the host daemon's own `Start` with `work` and `given` (file name to t
   `TaskMethods`), checks it with `TaskGiven.refusal`, keeps the files owner-only and mounts them read only at
   `/run/porelo/given/`; a host's daemon is the same daemon. `porelo task run --host` refuses `--given`, but no
   window path uses it: the window calls the host daemon's `Start`. So no new call is needed.
-- **The refusal of a copy behind central** (`CentralFreshness`, `TaskLaunch.centralRefusal`): its words name the
-  issue the planner saved to central. They say instead what stays true: a task given work starts on central's
-  newest main.
+- **The refusal of a copy behind central** (`CentralFreshness`, `TaskLaunch.centralRefusal`) stays: a start given
+  work on a host whose copy is behind central is still refused, also once no repository holds an issue file, so a
+  task never works on old code. Only its words change: they name the issue the planner saved to central, and say
+  instead that a task given work starts on central's newest main.
 - **The test that goes red first:** the `CentralFreshness` test on the new wording.
 - **Acceptance step on a host:** a `Start` through `porelo daemon connect` to the host's daemon, with `work` and a
   `given` file near the 1 MiB limit, shows the text at `/run/porelo/given/<name>` in the task; one given file the
@@ -32,12 +33,7 @@ by calling the host daemon's own `Start` with `work` and `given` (file name to t
 ## Acceptance
 
 - The acceptance step passes on the VM's host, through the relay and through a forwarded socket.
-- The refusal of a copy behind central no longer names an issue.
-
-## Open questions
-
-- Should a host start given work still be refused when the host's copy is behind central, once no issue lives in a
-  repository? Proposed: yes, it keeps a task off old code; only its words change.
+- A host start given work on a copy behind central is still refused, and its reason no longer names an issue.
 
 ## To be checked
 
