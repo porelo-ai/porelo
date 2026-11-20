@@ -2,7 +2,7 @@
 
 ```json
 { "$schema": "issue-1.json", "id": "B818", "title": "An Attached Agent's State Shown Within Its Bound",
-  "state": "Backlog", "size": "S", "priority": "High", "rank": 141, "blockedBy": [],
+  "state": "Implementing", "size": "S", "priority": "High", "rank": 141, "blockedBy": [],
   "covers": "The three acceptance scenarios of an attached agent's shown state (working, at rest, waiting) failed together once on the fedora leg within their 60 s and passed on a rerun with no change; the cause is found and fixed, never retried away" }
 ```
 
