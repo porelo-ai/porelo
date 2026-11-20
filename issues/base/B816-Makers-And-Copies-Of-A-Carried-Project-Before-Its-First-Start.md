@@ -2,7 +2,7 @@
 
 ```json
 { "$schema": "issue-1.json", "id": "B816", "title": "Makers and Copies of a Carried Project Before Its First Start",
-  "state": "Backlog", "size": "M", "priority": "High", "rank": 139, "blockedBy": [],
+  "state": "Implementing", "size": "M", "priority": "High", "rank": 139, "blockedBy": [],
   "covers": "A carried project's open pull requests answer before its first start with their makers, read from the person's gate mirror brought up as a first start would, from the copy each repository's central address names; the window shows no cannot-be-read item for it" }
 ```
 

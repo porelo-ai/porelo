@@ -218,7 +218,6 @@ from its side, as *blocked by*.
 |---|---|---|---|---|
 | <a id="b793"></a>[B793](B793-What-The-Next-Host-Test-Shows-Of-The-Planning-Round.md) | S | - | The host acceptances of the planning round's four issues, finished on their tests alone, are seen on a rented host, and what they left to check there is answered | 2 |
 | <a id="b797"></a>[B797](B797-A-Reading-Task-Reads-Only-What-The-Machine-Carries.md) | S | - | A task that reads all of a project's repositories reads only those the machine carries; the others are named once, in one plain line, and no failed clone of a repository that is not there reaches the agent's output | - |
-| <a id="b816"></a>[B816](B816-Makers-And-Copies-Of-A-Carried-Project-Before-Its-First-Start.md) | M | - | A carried project's open pull requests answer before its first start with their makers, read from the person's gate mirror brought up as a first start would, from the copy each repository's central address names; the window shows no cannot-be-read item for it | - |
 | <a id="b798"></a>[B798](B798-An-Empty-Mirror-Directory-Is-No-Detached-Head.md) | S | - | A mirror directory that holds no repository is taken as no mirror and made anew, not as a detached HEAD whose fix is at the upstream; no task leaves an empty directory where the project's own mirror belongs | - |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo_pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. | - |
 | <a id="b792"></a>[B792](B792-What-The-Reading-Of-The-Read-Only-Start-Left.md) | S | - | The given files' bound holds for the whole Start message, CanStart refuses a read-only start beside from or upstream as Start does, and the read-only start's guards each have a test | 0 |
@@ -282,6 +281,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
+| <a id="b816"></a>[B816](B816-Makers-And-Copies-Of-A-Carried-Project-Before-Its-First-Start.md) | M | - | A carried project's open pull requests answer before its first start with their makers, read from the person's gate mirror brought up as a first start would, from the copy each repository's central address names; the window shows no cannot-be-read item for it |
 
 ## Review
 
