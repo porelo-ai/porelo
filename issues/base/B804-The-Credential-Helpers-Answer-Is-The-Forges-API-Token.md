@@ -1,7 +1,7 @@
 # B804 — The Credential Helper's Answer Is The Forge's API Token
 
 ```json
-{ "$schema": "issue-1.json", "id": "B804", "title": "The Credential Helper's Answer Is The Forge's API Token", "state": "Backlog",
+{ "$schema": "issue-1.json", "id": "B804", "title": "The Credential Helper's Answer Is The Forge's API Token", "state": "Implementing",
   "size": "XS", "priority": "High", "rank": 3, "blockedBy": [],
   "covers": "`porelo vault credential --for <organization address>` is stated, and pinned by a test, to answer with the token Porelo's own calls to that forge's API take, usable by a person's program against that API" }
 ```
