@@ -438,7 +438,13 @@ public final class EgressControl {
                 file.branch(),
                 file.credentials(),
                 file.repositories(),
-                file.baseBranch());
+                file.baseBranch(),
+                file.mcp(),
+                file.providers(),
+                file.toolRepositories(),
+                file.extensions(),
+                file.readings(),
+                file.tracker());
     }
 
     /** The egress section alone, which is what a person writes. */

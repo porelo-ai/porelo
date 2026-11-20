@@ -104,7 +104,30 @@ final class FileBinder {
                 providers,
                 toolRepositories,
                 extensions,
-                readings(b, top.get("readings")));
+                readings(b, top.get("readings")),
+                tracker(b, top.get(Sections.TRACKER)));
+    }
+
+    /**
+     * Binds {@code tracker}: absent is {@code null}, written empty is an empty map, which the check
+     * refuses for want of a kind. A setting written without a value is kept as empty text, which
+     * the check refuses by its name.
+     */
+    private static @Nullable Map<String, String> tracker(
+            final Binding b, final @Nullable Node node) {
+        if (node == null) {
+            return null;
+        }
+        final Map<String, String> settings = new LinkedHashMap<>();
+        b.named(node, Sections.TRACKER)
+                .forEach(
+                        (key, value) -> {
+                            final String text = b.text(value, Binding.join(Sections.TRACKER, key));
+                            if (text != null || Binding.isNull(value)) {
+                                settings.put(key, text == null ? "" : text);
+                            }
+                        });
+        return settings;
     }
 
     private static @Nullable Readings readings(final Binding b, final @Nullable Node node) {

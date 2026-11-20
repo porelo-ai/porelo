@@ -33,6 +33,8 @@ import org.jspecify.annotations.Nullable;
  * @param extensions The block kept for each ecosystem adapter, by the adapter's name, as plain
  *     values: text, truth values, numbers, lists and maps ({@code extensions}).
  * @param readings Where a reading of an issue writes its findings ({@code readings}).
+ * @param tracker Which store holds the project's issues, setting to value, in the order written
+ *     ({@code tracker}); {@code null} where the file leaves it out. The planner's, kept unread.
  */
 public record ProjectFile(
         @Nullable ProjectInfo project,
@@ -51,7 +53,8 @@ public record ProjectFile(
         Map<String, ProviderEntry> providers,
         java.util.List<ToolRepositoryEntry> toolRepositories,
         Map<String, Object> extensions,
-        @Nullable Readings readings) {
+        @Nullable Readings readings,
+        @Nullable Map<String, String> tracker) {
 
     /**
      * Constructor.
@@ -73,6 +76,7 @@ public record ProjectFile(
      * @param toolRepositories The repositories a build tool reaches.
      * @param extensions The block kept for each ecosystem adapter, by its name.
      * @param readings Where a reading writes its findings, or {@code null}.
+     * @param tracker Which store holds the issues, or {@code null}.
      */
     public ProjectFile {
         parameters = ordered(parameters);
@@ -84,6 +88,67 @@ public record ProjectFile(
                         ? java.util.List.of()
                         : java.util.List.copyOf(toolRepositories);
         extensions = ordered(extensions);
+        tracker = tracker == null ? null : ordered(tracker);
+    }
+
+    /**
+     * Constructor for a file that records nothing for the person's planner.
+     *
+     * @param project Who the project is.
+     * @param image What a task's container is built from.
+     * @param build What the image build fetches from.
+     * @param egress What a task may reach.
+     * @param limits What one task may consume.
+     * @param mail Whom its tasks may write to.
+     * @param builds Where its builds are read.
+     * @param parameters The values a task may be started with.
+     * @param branch How a task's branch is named.
+     * @param credentials Vault entries to their destinations.
+     * @param repositories The repositories by name.
+     * @param baseBranch The branch a task starts from by default.
+     * @param mcp What a task may do through its MCP endpoint, or {@code null}.
+     * @param providers Each provider's default model, by name.
+     * @param toolRepositories The repositories a build tool reaches.
+     * @param extensions The block kept for each ecosystem adapter, by its name.
+     * @param readings Where a reading writes its findings, or {@code null}.
+     */
+    public ProjectFile(
+            @Nullable ProjectInfo project,
+            @Nullable Image image,
+            @Nullable BuildSources build,
+            @Nullable Egress egress,
+            @Nullable Limits limits,
+            @Nullable Mail mail,
+            @Nullable Builds builds,
+            Map<String, Parameter> parameters,
+            @Nullable BranchScheme branch,
+            Map<String, String> credentials,
+            Map<String, RepositoryEntry> repositories,
+            @Nullable String baseBranch,
+            @Nullable Mcp mcp,
+            Map<String, ProviderEntry> providers,
+            java.util.List<ToolRepositoryEntry> toolRepositories,
+            Map<String, Object> extensions,
+            @Nullable Readings readings) {
+        this(
+                project,
+                image,
+                build,
+                egress,
+                limits,
+                mail,
+                builds,
+                parameters,
+                branch,
+                credentials,
+                repositories,
+                baseBranch,
+                mcp,
+                providers,
+                toolRepositories,
+                extensions,
+                readings,
+                null);
     }
 
     /**

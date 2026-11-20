@@ -162,7 +162,8 @@ public final class ProjectReader {
      * Returns the places where a project file holds what is not Porelo's to know: the project's own
      * names ({@code credentials}, {@code repositories}), each transport's settings ({@code
      * mail.transports.<scheme>}), the agents an MCP endpoint may start ({@code mcp.agents}), by the
-     * names this machine's agents go by, and each ecosystem adapter's block ({@code extensions}).
+     * names this machine's agents go by, each ecosystem adapter's block ({@code extensions}), and
+     * where the person's planner keeps the issues ({@code tracker}).
      *
      * @return Their paths.
      */
@@ -172,7 +173,8 @@ public final class ProjectReader {
                 "repositories",
                 "mail.transports.<scheme>",
                 "mcp.agents",
-                "extensions");
+                "extensions",
+                "tracker");
     }
 
     /**

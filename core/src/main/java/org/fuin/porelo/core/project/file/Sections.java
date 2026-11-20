@@ -33,6 +33,9 @@ final class Sections {
     /** An entry of {@code tool_repositories}, a list whose entries are mappings. */
     static final String TOOL_REPOSITORY = "tool_repositories[]";
 
+    /** Which store holds the project's issues: the project file's alone. */
+    static final String TRACKER = "tracker";
+
     /** The section that allows a task an MCP endpoint: the project file's alone. */
     private static final String MCP = "mcp";
 
@@ -49,7 +52,11 @@ final class Sections {
         keys.put(
                 TOP,
                 project.keys(TOP).stream()
-                        .filter(key -> !"repositories".equals(key) && !MCP.equals(key))
+                        .filter(
+                                key ->
+                                        !"repositories".equals(key)
+                                                && !MCP.equals(key)
+                                                && !TRACKER.equals(key))
                         .toList());
         keys.remove("repositories.<name>");
         keys.remove(MCP);
@@ -81,7 +88,8 @@ final class Sections {
                         "providers",
                         "tool_repositories",
                         "extensions",
-                        "readings"));
+                        "readings",
+                        TRACKER));
         keys.put(
                 "project",
                 List.of(
@@ -164,6 +172,12 @@ final class Sections {
                             + where
                             + "' cannot be set here; only from, env, run and run_file may be set"
                             + " under image";
+        }
+        if (TOP.equals(section) && TRACKER.equals(key)) {
+            return "'"
+                    + where
+                    + "' cannot be set here; what the person's planner keeps is the project file's"
+                    + " alone";
         }
         if (TOP.equals(section) && MCP.equals(key)) {
             return "'"

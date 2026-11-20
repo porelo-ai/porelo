@@ -539,7 +539,8 @@ final class Binding {
         return ProjectFileCheck.shown(scalar.getValue());
     }
 
-    private static boolean isNull(final Node node) {
+    /** Whether a value is written empty, or as YAML's null. */
+    static boolean isNull(final Node node) {
         return node instanceof ScalarNode && Tag.NULL.equals(node.getTag());
     }
 

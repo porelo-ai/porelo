@@ -155,6 +155,9 @@ final class FileYaml {
             put(readings, "directory", file.readings().directory());
             top.put("readings", readings);
         }
+        if (file.tracker() != null) {
+            top.put(Sections.TRACKER, new LinkedHashMap<>(file.tracker()));
+        }
         return top;
     }
 

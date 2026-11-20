@@ -125,9 +125,12 @@ public final class RepositorySettings {
         }
         for (final NodeTuple tuple : mapping.getValue()) {
             final String key = text(tuple.getKeyNode());
-            // What a task may do through its MCP endpoint, and where its readings go, are signed
-            // with the project's file alone.
-            if ("repositories".equals(key) || "mcp".equals(key) || "readings".equals(key)) {
+            // What a task may do through its MCP endpoint, where its readings go and what the
+            // person's planner keeps are signed with the project's file alone.
+            if ("repositories".equals(key)
+                    || "mcp".equals(key)
+                    || "readings".equals(key)
+                    || Sections.TRACKER.equals(key)) {
                 faults.add(theProjects(source, tuple.getKeyNode(), key));
             } else if ("project".equals(key)
                     && tuple.getValueNode() instanceof MappingNode section) {

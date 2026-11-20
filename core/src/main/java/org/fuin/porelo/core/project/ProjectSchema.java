@@ -10,7 +10,8 @@ import java.util.List;
  * same set. Two places are open by design: the names under {@code credentials} and {@code
  * repositories} are the project's own, and what is under {@code mail.transports.<scheme>} is the
  * transport's, handed to it as it is written - the transport refuses what it does not know. A block
- * under {@code extensions} is likewise its ecosystem adapter's.
+ * under {@code extensions} is likewise its ecosystem adapter's, and the settings under {@code
+ * tracker} are the person's planner's.
  */
 final class ProjectSchema {
 
@@ -681,6 +682,16 @@ final class ProjectSchema {
                                     + " PORELO_READINGS_DIRECTORY.",
                             "string",
                             Project.READINGS_DEFAULT,
+                            false),
+                    key(
+                            "",
+                            "tracker",
+                            "Which store holds the project's issues, as the person's planner reads"
+                                    + " it: 'kind' and settings of one line each; absent, the"
+                                    + " issues are Markdown files in the repositories. Porelo keeps"
+                                    + " it unread.",
+                            "map",
+                            "",
                             false));
 
     private ProjectSchema() {}
