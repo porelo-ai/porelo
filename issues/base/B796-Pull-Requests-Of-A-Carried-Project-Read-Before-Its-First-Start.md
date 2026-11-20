@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B796",
   "title": "Pull Requests of a Carried Project Read Before Its First Start",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 138,
