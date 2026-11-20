@@ -43,11 +43,13 @@ Feature: Porelo shows an agent waiting for a person, read by the agent's own dec
         And porelo shows the "stub" agent in task "attended" of "rests" at rest
         And a script runs "porelo task remove porelo-rests_attended --force"
 
+    # A step every 30 seconds: the stub pushes at every tenth step, and a push waiting at the gate
+    # rightly reads as waiting, so its first push must come long after this scenario's bound.
     Scenario: an attached agent at work is said to be working, never at rest
         Given a project called "busy" of class "guarded" with a file in it
         And a script runs:
             """
-            cd ~/busy && echo 2 > .porelo-stub-works && git add -A && git commit -q -m 'work until stopped'
+            cd ~/busy && echo 30 > .porelo-stub-works && git add -A && git commit -q -m 'work until stopped'
             """
         And a terminal on the machine
         When I run "porelo task start attended --project busy --repository busy --agent stub --clearance deny"
