@@ -692,6 +692,24 @@ final class ProjectSchema {
                                     + " it unread.",
                             "map",
                             "",
+                            false),
+                    key(
+                            "",
+                            "velocity",
+                            "What the person's planner starts the project's velocity from."
+                                    + " Porelo checks its form and keeps it unread.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "velocity",
+                            "seed",
+                            "The starting median per repository and size, in minutes: each key"
+                                    + " one of the file's repositories, each size one of XS, S,"
+                                    + " M, L and XL, any of them missing, each value a whole"
+                                    + " number from 1 to 100000.",
+                            "map",
+                            "",
                             false));
 
     private ProjectSchema() {}

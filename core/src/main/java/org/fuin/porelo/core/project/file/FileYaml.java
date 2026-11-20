@@ -158,6 +158,17 @@ final class FileYaml {
         if (file.tracker() != null) {
             top.put(Sections.TRACKER, new LinkedHashMap<>(file.tracker()));
         }
+        if (file.velocity() != null) {
+            final Map<String, Object> seed = new LinkedHashMap<>();
+            file.velocity()
+                    .seed()
+                    .forEach(
+                            (repository, sizes) ->
+                                    seed.put(repository, new LinkedHashMap<>(sizes)));
+            final Map<String, Object> velocity = new LinkedHashMap<>();
+            velocity.put("seed", seed);
+            top.put(Sections.VELOCITY, velocity);
+        }
         return top;
     }
 

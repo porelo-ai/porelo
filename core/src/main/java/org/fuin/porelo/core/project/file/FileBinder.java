@@ -105,7 +105,56 @@ final class FileBinder {
                 toolRepositories,
                 extensions,
                 readings(b, top.get("readings")),
-                tracker(b, top.get(Sections.TRACKER)));
+                tracker(b, top.get(Sections.TRACKER)),
+                velocity(b, top.get(Sections.VELOCITY)));
+    }
+
+    /**
+     * Binds {@code velocity}: absent is {@code null}; each repository's sizes as written, a size
+     * written empty kept as no minutes, which the check refuses, and one whose minutes are no whole
+     * number left out after its fault.
+     */
+    private static @Nullable Velocity velocity(final Binding b, final @Nullable Node node) {
+        if (node == null) {
+            return null;
+        }
+        if (Binding.isNull(node)) {
+            // Written empty is a seed of nothing, which the check refuses.
+            return new Velocity(Map.of());
+        }
+        final Map<String, Node> s = b.section(node, Sections.VELOCITY, Sections.VELOCITY);
+        if (s == null) {
+            return null;
+        }
+        final String seedPath = Binding.join(Sections.VELOCITY, "seed");
+        final Node seedNode = s.get("seed");
+        if (seedNode == null || Binding.isNull(seedNode)) {
+            return new Velocity(Map.of());
+        }
+        final Map<String, Map<String, Integer>> seed = new LinkedHashMap<>();
+        b.named(seedNode, seedPath)
+                .forEach(
+                        (repository, sizes) -> {
+                            final String path = Binding.join(seedPath, repository);
+                            final Map<String, Integer> minutes = new LinkedHashMap<>();
+                            b.named(sizes, path)
+                                    .forEach(
+                                            (size, value) -> {
+                                                // Written empty is kept as no minutes, so the
+                                                // check refuses it by its path, never drops it.
+                                                final Integer number =
+                                                        Binding.isNull(value)
+                                                                ? Integer.valueOf(0)
+                                                                : b.number(
+                                                                        value,
+                                                                        Binding.join(path, size));
+                                                if (number != null) {
+                                                    minutes.put(size, number);
+                                                }
+                                            });
+                            seed.put(repository, minutes);
+                        });
+        return new Velocity(seed);
     }
 
     /**

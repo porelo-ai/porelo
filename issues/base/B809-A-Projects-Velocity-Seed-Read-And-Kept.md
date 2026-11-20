@@ -2,7 +2,7 @@
 
 ```json
 { "$schema": "issue-1.json", "id": "B809", "title": "A Project's Velocity Seed Read And Kept",
-  "state": "Implementing", "size": "M", "priority": "Highest", "rank": 1, "blockedBy": [],
+  "state": "Review", "size": "M", "priority": "Highest", "rank": 1, "blockedBy": [],
   "covers": "`project.yml` takes the top-level key `velocity.seed.<repository>.{XS..XL}` the person's planner writes (the starting minutes per size); porelo checks its form, keeps it through every rewrite of the file, documents it, and reads nothing in it" }
 ```
 

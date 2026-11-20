@@ -63,6 +63,13 @@ public final class ProjectFileCheck {
     /** How a setting of {@code tracker} is named. */
     private static final String TRACKER_KEY = "[a-z][a-z0-9_]{0,62}";
 
+    /** The sizes {@code velocity.seed} names minutes for, as the planner sizes an issue. */
+    private static final java.util.List<String> SIZES =
+            java.util.List.of("XS", "S", "M", "L", "XL");
+
+    /** The most minutes {@code velocity.seed} names for one size. */
+    private static final int SEED_MOST = 100_000;
+
     /** The longest value of a setting of {@code tracker}. */
     private static final int TRACKER_VALUE_MOST = 512;
 
@@ -271,6 +278,57 @@ public final class ProjectFileCheck {
         if (file.tracker() != null) {
             tracker(file.tracker());
         }
+        if (file.velocity() != null) {
+            velocity(file.velocity(), file.repositories().keySet());
+        }
+    }
+
+    /**
+     * Checks {@code velocity.seed}: each key one of the file's repositories, each size one of
+     * {@link #SIZES}, each value whole minutes within {@link #SEED_MOST}. What the minutes mean is
+     * the person's planner's to judge.
+     */
+    private void velocity(final Velocity velocity, final java.util.Set<String> repositories) {
+        final String seedPath = Binding.join(Sections.VELOCITY, "seed");
+        if (velocity.seed().isEmpty()) {
+            fault(
+                    Sections.VELOCITY,
+                    "'velocity' needs 'seed', the starting minutes of at least one repository");
+            return;
+        }
+        velocity.seed()
+                .forEach(
+                        (repository, sizes) -> {
+                            final String path = Binding.join(seedPath, repository);
+                            if (!repositories.contains(repository)) {
+                                fault(
+                                        path,
+                                        "'" + path + "' is not one of this file's repositories");
+                                return;
+                            }
+                            if (sizes.isEmpty()) {
+                                fault(path, "'" + path + "' needs the minutes of a size");
+                            }
+                            sizes.forEach(
+                                    (size, minutes) -> {
+                                        final String at = Binding.join(path, size);
+                                        if (!SIZES.contains(size)) {
+                                            fault(
+                                                    at,
+                                                    "'"
+                                                            + at
+                                                            + "' is no size: one of XS, S, M, L"
+                                                            + " and XL");
+                                        } else if (minutes < 1 || minutes > SEED_MOST) {
+                                            fault(
+                                                    at,
+                                                    "'"
+                                                            + at
+                                                            + "' is whole minutes from 1 to "
+                                                            + SEED_MOST);
+                                        }
+                                    });
+                        });
     }
 
     /**

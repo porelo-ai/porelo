@@ -36,6 +36,9 @@ final class Sections {
     /** Which store holds the project's issues: the project file's alone. */
     static final String TRACKER = "tracker";
 
+    /** What the person's planner starts a project's velocity from: the project file's alone. */
+    static final String VELOCITY = "velocity";
+
     /** The section that allows a task an MCP endpoint: the project file's alone. */
     private static final String MCP = "mcp";
 
@@ -56,10 +59,12 @@ final class Sections {
                                 key ->
                                         !"repositories".equals(key)
                                                 && !MCP.equals(key)
-                                                && !TRACKER.equals(key))
+                                                && !TRACKER.equals(key)
+                                                && !VELOCITY.equals(key))
                         .toList());
         keys.remove("repositories.<name>");
         keys.remove(MCP);
+        keys.remove(VELOCITY);
     }
 
     private Sections(final boolean repositoryFile) {
@@ -89,7 +94,9 @@ final class Sections {
                         "tool_repositories",
                         "extensions",
                         "readings",
-                        TRACKER));
+                        TRACKER,
+                        VELOCITY));
+        keys.put(VELOCITY, List.of("seed"));
         keys.put(
                 "project",
                 List.of(
@@ -173,7 +180,7 @@ final class Sections {
                             + "' cannot be set here; only from, env, run and run_file may be set"
                             + " under image";
         }
-        if (TOP.equals(section) && TRACKER.equals(key)) {
+        if (TOP.equals(section) && (TRACKER.equals(key) || VELOCITY.equals(key))) {
             return "'"
                     + where
                     + "' cannot be set here; what the person's planner keeps is the project file's"

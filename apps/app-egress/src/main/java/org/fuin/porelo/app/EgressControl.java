@@ -444,7 +444,8 @@ public final class EgressControl {
                 file.toolRepositories(),
                 file.extensions(),
                 file.readings(),
-                file.tracker());
+                file.tracker(),
+                file.velocity());
     }
 
     /** The egress section alone, which is what a person writes. */

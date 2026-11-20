@@ -163,7 +163,8 @@ public final class ProjectReader {
      * names ({@code credentials}, {@code repositories}), each transport's settings ({@code
      * mail.transports.<scheme>}), the agents an MCP endpoint may start ({@code mcp.agents}), by the
      * names this machine's agents go by, each ecosystem adapter's block ({@code extensions}), and
-     * where the person's planner keeps the issues ({@code tracker}).
+     * where the person's planner keeps the issues ({@code tracker}) and the repositories it seeds
+     * the velocity of ({@code velocity.seed}).
      *
      * @return Their paths.
      */
@@ -174,7 +175,8 @@ public final class ProjectReader {
                 "mail.transports.<scheme>",
                 "mcp.agents",
                 "extensions",
-                "tracker");
+                "tracker",
+                "velocity.seed");
     }
 
     /**

@@ -306,6 +306,15 @@ tracker:
   kind: github
   project: acme/7                  # the GitHub project holding the issues' fields
 
+# Optional. What the person's planner starts the project's velocity from: the median minutes of
+# each size until enough items are measured. Porelo checks its form, keeps it as written and uses
+# it for nothing. Only this file names it; a repository's porelo.yml that does is refused. Each key
+# under 'seed' is one of the repositories above, each size one of XS, S, M, L and XL, any of them
+# missing, each value a whole number of minutes from 1 to 100000.
+velocity:
+  seed:
+    backend: { XS: 30, S: 120, M: 480, L: 1440 }
+
 # Optional. Gives each task of this project an MCP endpoint, through which it starts, lists and
 # stops tasks within these limits; without it a task gets none. See "A task's MCP endpoint" below.
 # mcp:
@@ -594,7 +603,7 @@ from them instead with `porelo project sign-repository-file -C PATH --yes`, the 
 
 In the built-in project `default`, a repository's `porelo.yml`, and the person's `.porelo.yml` beside it in the
 checkout, may hold the project file's form, less `project.name` and `repositories`, which make a project the one it
-is, and `mcp`, `readings` and `tracker`, which are signed with the project's file alone. Each adds to the project's file, the checked-in file first, then the person's:
+is, and `mcp`, `readings`, `tracker` and `velocity`, which are signed with the project's file alone. Each adds to the project's file, the checked-in file first, then the person's:
 
 ```yaml
 egress:

@@ -130,7 +130,8 @@ public final class RepositorySettings {
             if ("repositories".equals(key)
                     || "mcp".equals(key)
                     || "readings".equals(key)
-                    || Sections.TRACKER.equals(key)) {
+                    || Sections.TRACKER.equals(key)
+                    || Sections.VELOCITY.equals(key)) {
                 faults.add(theProjects(source, tuple.getKeyNode(), key));
             } else if ("project".equals(key)
                     && tuple.getValueNode() instanceof MappingNode section) {
