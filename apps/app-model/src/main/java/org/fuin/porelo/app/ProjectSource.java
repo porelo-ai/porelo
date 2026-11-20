@@ -175,7 +175,7 @@ public final class ProjectSource {
     }
 
     /**
-     * Returns the names this machine can resolve, the organization's placed ones first.
+     * Returns the names this machine knows, including projects carried for this person.
      *
      * <p>What a refusal prints. A person who mistypes a project name should be told which projects
      * this machine has, which is a question only the machine can answer.
@@ -187,7 +187,12 @@ public final class ProjectSource {
         final java.util.Set<String> all = new java.util.LinkedHashSet<>();
         all.add(DefaultProject.NAME);
         try {
-            all.addAll(OrganizationProjects.of(context).names());
+            final OrganizationProjects projects = OrganizationProjects.of(context);
+            all.addAll(projects.names());
+            for (final OrganizationProjects.HostRead carried :
+                    projects.hostedRows(System.getProperty("user.name"))) {
+                all.add(carried.project());
+            }
         } catch (final IOException ex) {
             // A listing of names is not the place to fail over a directory.
             all.clear();

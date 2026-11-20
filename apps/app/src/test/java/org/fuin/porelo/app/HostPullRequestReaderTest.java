@@ -147,13 +147,14 @@ class HostPullRequestReaderTest {
                 .write(Map.of("forge.example.person", VaultEntry.of(TOKEN)), PASSWORD.clone());
         context.asking(prompt -> PASSWORD.clone())
                 .openIfShut(true, true, new PrintWriter(Writer.nullWriter()));
-        conf = dir.resolve("forge.conf");
+        conf = context.paths().hostDirectory().resolve("forge.conf");
+        Files.createDirectories(conf.getParent());
         Files.writeString(conf, "name=forge.example\naccount=forge\ngit_port=3001\n");
         final Path file = dir.resolve("project.yml");
         Files.writeString(
                 file,
                 "project:\n  name: demo\n  security_class: guarded\n  central: https://central.example/demo.git\nimage:\n  from: ubuntu:24.04\n");
-        final Path carried = dir.resolve("organization/projects");
+        final Path carried = conf.resolveSibling("organization/projects");
         Files.createDirectories(carried);
         Files.writeString(
                 carried.resolve("demo.json"),
@@ -231,6 +232,141 @@ class HostPullRequestReaderTest {
                 conf,
                 path -> Map.of("uid", 0, "mode", Files.isDirectory(path) ? 0040755 : 0100644),
                 forge);
+    }
+
+    private void carriedFor(String account) throws Exception {
+        Files.deleteIfExists(dir.resolve("project.yml"));
+        final Path persons = conf.resolveSibling("organization/persons");
+        Files.createDirectories(persons);
+        Files.writeString(persons.resolve(account + ".json"), "{\"projects\":[\"demo\"]}");
+        Files.writeString(
+                conf.resolveSibling("organization/projects/demo.json"),
+                Json.write(
+                        Map.of(
+                                "project", "demo",
+                                "revision", "",
+                                "address", "https://central.example/demo.git",
+                                "signing_keys", List.of(),
+                                "repositories", List.of("shop", "docs"))));
+        hostStatus(
+                """
+                {"project":"demo","read_at":"2026-11-09T10:00:00Z","repositories":[],
+                 "state":"carried","host_repositories":[
+                   {"repository":"shop","state":"taken"},
+                   {"repository":"docs","state":"not-carried"}]}
+                """);
+        final Path shop = GateSupport.mirror(context, "demo", "shop");
+        Files.createDirectories(shop);
+        git(shop, "init", "--bare");
+        Files.writeString(
+                shop.resolve("objects/info/alternates"),
+                GateSupport.mirror(context, project).resolve("objects") + "\n");
+        assertThat(ProjectSource.resolve(context, "demo").file())
+                .as("no project file placed, written or registered")
+                .isNull();
+    }
+
+    @Test
+    void aCarriedProjectAnswersBeforeItsFirstStart() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        final List<String> asked = new java.util.ArrayList<>();
+        final var reader =
+                reader(
+                        (address, token) -> {
+                            asked.add(address.getPath());
+                            return openList();
+                        });
+
+        assertThat(reader.open("demo"))
+                .extracting(HostPullRequestReader.Pull::repository)
+                .containsExactly("demo", "shop");
+        assertThat(asked)
+                .containsExactly("/api/v1/repos/demo/demo/pulls", "/api/v1/repos/demo/shop/pulls");
+    }
+
+    @Test
+    void aCarriedProjectCanBePolledAgainWithoutAProjectFile() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        final AtomicBoolean merged = new AtomicBoolean();
+        final var reader =
+                reader(
+                        (address, token) ->
+                                address.getPath().endsWith("/7")
+                                        ? ok(pull("closed", true))
+                                        : merged.get() ? none() : openList());
+        final var first = reader.poll("demo", List.of());
+        merged.set(true);
+
+        final var second = reader.poll("demo", first.open());
+
+        assertThat(second.open()).isEmpty();
+        assertThat(second.ended())
+                .extracting(HostPullRequestReader.Pull::repository)
+                .containsExactly("demo", "shop");
+        assertThat(second.ended()).allMatch(row -> row.state().equals("merged"));
+    }
+
+    @Test
+    void anotherPersonsCarriedProjectIsStillRefused() throws Exception {
+        carriedFor(System.getProperty("user.name") + "-other");
+        final var reader =
+                reader(
+                        (address, token) -> {
+                            throw new AssertionError(
+                                    "another person's repositories must not be read");
+                        });
+
+        assertThatThrownBy(() -> reader.open("demo"))
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
+                .hasMessage("no project 'demo' here. This machine has: default");
+    }
+
+    @Test
+    void carryingTheWholeProjectUsesItsPublishedRepositoryNames() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        final Path record = conf.resolveSibling("organization/projects/demo.json");
+        Files.writeString(record, Files.readString(record).replace("[\"shop\",\"docs\"]", "[]"));
+        final var reader = reader((address, token) -> openList());
+
+        assertThat(reader.open("demo"))
+                .extracting(HostPullRequestReader.Pull::repository)
+                .containsExactly("demo", "shop");
+    }
+
+    @Test
+    void aProjectFileStillBoundsTheRepositoriesReadByName() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        final Path file = context.paths().projects().defaultProjectFile("demo");
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: demo
+                  security_class: guarded
+                  central: https://central.example/demo.git
+                image:
+                  from: ubuntu:24.04
+                """);
+        final var reader = reader((address, token) -> openList());
+
+        assertThat(reader.open("demo"))
+                .extracting(HostPullRequestReader.Pull::repository)
+                .containsExactly("demo");
+    }
+
+    @Test
+    void anUnplacedProjectStillRequiresMirrorMakersForAnOpenReview() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        final Path mirror = GateSupport.mirror(context, project);
+        Files.move(mirror, mirror.resolveSibling("missing-demo.git"));
+        final var reader = reader((address, token) -> openList());
+
+        assertThatThrownBy(() -> reader.open("demo"))
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        refusal -> assertThat(refusal.reason()).isEqualTo("makers"))
+                .hasMessageContaining("mirror could not supply bounded makers");
     }
 
     private byte[] pull(String state, boolean merged) {
@@ -376,7 +512,7 @@ class HostPullRequestReaderTest {
                     central: "https://central.example/docs.git"
                 """);
         Files.writeString(
-                dir.resolve("organization/projects/demo.json"),
+                conf.resolveSibling("organization/projects/demo.json"),
                 Json.write(
                         Map.of(
                                 "project",
@@ -393,7 +529,7 @@ class HostPullRequestReaderTest {
     }
 
     private void hostStatus(String content) throws Exception {
-        final Path central = dir.resolve("organization/central");
+        final Path central = conf.resolveSibling("organization/central");
         Files.createDirectories(central);
         Files.writeString(central.resolve("demo.json"), content);
     }

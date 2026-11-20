@@ -205,6 +205,18 @@ public final class OrganizationProjects {
     }
 
     /**
+     * Reads a carried project only among the projects known for this account.
+     *
+     * @param account The person's host login.
+     * @param name The project's name.
+     * @return The readable host record, or {@code null} when it is not this person's project.
+     * @throws IOException When the account's list or the project's record does not read.
+     */
+    public @Nullable Placed host(final String account, final String name) throws IOException {
+        return knownNames(account).contains(name) ? host(name) : null;
+    }
+
+    /**
      * Returns what a host's files say of a project, with no account's records to read.
      *
      * @param hostFiles Where a host's files are.

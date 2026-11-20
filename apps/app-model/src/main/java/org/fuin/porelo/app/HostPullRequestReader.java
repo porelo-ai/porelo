@@ -190,7 +190,11 @@ public final class HostPullRequestReader {
 
     /** Uses the host's checked configuration and a direct loopback-only HTTP client. */
     public HostPullRequestReader(PoreloContext context) {
-        this(context, HostForgeSettings.FILE, HostCentral.ATTRIBUTES, HostPullRequestReader::http);
+        this(
+                context,
+                context.paths().hostDirectory().resolve("forge.conf"),
+                HostCentral.ATTRIBUTES,
+                HostPullRequestReader::http);
     }
 
     HostPullRequestReader(
@@ -208,6 +212,32 @@ public final class HostPullRequestReader {
         this(context, conf, attributes, HostPullRequestReader::http);
     }
 
+    /** Reads a named project's open reviews, including one not yet placed by a start. */
+    public List<Pull> open(String project) {
+        return poll(project, List.of()).open();
+    }
+
+    /** Resolves a file first, then the host's record for this person, on every polling round. */
+    public Round poll(String project, List<Pull> previous) {
+        if (project.matches(Project.NAME_PATTERN)
+                && ProjectSource.resolve(context, project).file() == null) {
+            try {
+                final OrganizationProjects.Placed carried =
+                        OrganizationProjects.of(context)
+                                .host(System.getProperty("user.name"), project);
+                if (carried != null && carried.project().equals(project)) {
+                    return poll(project, previous, settings -> repositories(carried, settings));
+                }
+            } catch (IOException ex) {
+                throw new Refused(
+                        "not-carried",
+                        "this person's list of carried projects or the host's record of this project does not read; repair it before reading reviews");
+            }
+        }
+        // Keep the normal file checks and the refusal naming this person's known projects.
+        return poll(GateSupport.byName(context, project), previous);
+    }
+
     /** Reads open reviews without minting a token or fetching a repository. */
     public List<Pull> open(Project project) {
         return poll(project, List.of()).open();
@@ -215,6 +245,13 @@ public final class HostPullRequestReader {
 
     /** Confirms the state of reviews absent from a subsequent open list. */
     public Round poll(Project project, List<Pull> previous) {
+        return poll(project.name(), previous, settings -> repositories(project, settings));
+    }
+
+    private Round poll(
+            String project,
+            List<Pull> previous,
+            java.util.function.Function<HostForgeSettings, Map<String, URI>> sources) {
         final HostForgeSettings read = HostForgeSettings.read(conf, attributes);
         if (HostForgeSettings.refusal(read, conf, true) != null) {
             throw new Refused(
@@ -234,7 +271,7 @@ public final class HostPullRequestReader {
         if (entry == null || !entry.value().matches("[0-9a-f]{40}"))
             throw new MissingToken(settings.personEntry());
         final String token = entry.value();
-        final Map<String, URI> repositories = repositories(project, settings);
+        final Map<String, URI> repositories = sources.apply(settings);
         final Map<String, Pull> current = new LinkedHashMap<>();
         final Map<String, Refusal> refused = new LinkedHashMap<>();
         for (var repository : repositories.entrySet()) {
@@ -300,7 +337,7 @@ public final class HostPullRequestReader {
 
     /** Reads one repository's open list into rows, counting those already answered by others. */
     private void read(
-            Project project,
+            String project,
             String name,
             URI repository,
             String token,
@@ -341,24 +378,7 @@ public final class HostPullRequestReader {
                 || !carried.project().equals(project.name())) {
             throw new Refused("not-carried", "the host carries no such project for this person");
         }
-        // The host's published carry state, the same checked file the window reads: a repository
-        // it does not show as carried here has no copy on the forge to ask.
-        final HostCentral.Status status =
-                new HostCentral(conf.resolveSibling("organization/central"), attributes)
-                        .status(project.name());
-        if ("cannot-say".equals(status.state()))
-            throw new Refused(
-                    "not-carried",
-                    "the host's carry state of this project does not read; ask for reviews again once the host's follow has published it");
-        if (!status.permitsCarrying())
-            throw new Refused(
-                    "not-carried",
-                    "this host does not carry the project now ("
-                            + status.state()
-                            + (status.why() == null || status.why().isBlank()
-                                    ? ""
-                                    : ": " + status.why())
-                            + ")");
+        final HostCentral.Status status = status(project.name());
         final Map<String, URI> result = new LinkedHashMap<>();
         for (Repository repository : project.allRepositories()) {
             final boolean own = repository.name().equals(project.name());
@@ -374,12 +394,69 @@ public final class HostPullRequestReader {
                             : repository.central();
             final String copy = HostForgeAddress.copyOf(project.name(), central);
             if (copy == null) continue;
-            result.put(
-                    repository.name(),
-                    URI.create("http://127.0.0.1:" + settings.port() + "/api/v1/repos/" + copy));
+            result.put(repository.name(), api(settings, copy));
             if (result.size() > 100) throw tooMany();
         }
         return result;
+    }
+
+    private Map<String, URI> repositories(
+            OrganizationProjects.Placed carried, HostForgeSettings settings) {
+        final String project = carried.project();
+        final HostCentral.Status status = status(project);
+        final Map<String, URI> result = new LinkedHashMap<>();
+        final String own = HostForgeAddress.copyOf(project, carried.address());
+        if (own == null)
+            throw new Refused(
+                    "not-carried", "the host's record names no usable project repository");
+        result.put(project, api(settings, own));
+        final List<String> names;
+        if (carried.repositories().isEmpty()) {
+            if (!status.repositoriesKnown())
+                throw new Refused(
+                        "not-carried",
+                        "the host's carry state names no repositories; ask again once the host's follow has published them");
+            names = status.repositories().keySet().stream().sorted().toList();
+        } else {
+            names = carried.repositories();
+        }
+        for (String name : names) {
+            if (name.equals(project)
+                    || own.equals(project + "/" + name)
+                    || !status.permitsRepository(name)) continue;
+            if (!name.matches(Repository.NAME_PATTERN))
+                throw new Refused(
+                        "not-carried", "the host's record names no usable repository copy");
+            result.put(name, api(settings, project + "/" + name));
+            if (result.size() > 100) throw tooMany();
+        }
+        return result;
+    }
+
+    private static URI api(HostForgeSettings settings, String copy) {
+        return URI.create("http://127.0.0.1:" + settings.port() + "/api/v1/repos/" + copy);
+    }
+
+    private HostCentral.Status status(String project) {
+        // The host's published carry state, the same checked file the window reads: a repository
+        // it does not show as carried here has no copy on the forge to ask.
+        final HostCentral.Status status =
+                new HostCentral(conf.resolveSibling("organization/central"), attributes)
+                        .status(project);
+        if ("cannot-say".equals(status.state()))
+            throw new Refused(
+                    "not-carried",
+                    "the host's carry state of this project does not read; ask for reviews again once the host's follow has published it");
+        if (!status.permitsCarrying())
+            throw new Refused(
+                    "not-carried",
+                    "this host does not carry the project now ("
+                            + status.state()
+                            + (status.why() == null || status.why().isBlank()
+                                    ? ""
+                                    : ": " + status.why())
+                            + ")");
+        return status;
     }
 
     private Object request(URI address, String token) {
@@ -424,7 +501,7 @@ public final class HostPullRequestReader {
         }
     }
 
-    private Pull row(Project project, String repository, Object value, String token) {
+    private Pull row(String project, String repository, Object value, String token) {
         if (!(value instanceof Map<?, ?> fields)
                 || !(fields.get("number") instanceof Number number)
                 || !(number instanceof Long || number instanceof Integer)
@@ -438,8 +515,7 @@ public final class HostPullRequestReader {
                 || !(fields.get("merged") instanceof Boolean merged)
                 || !(state.equals("open") || state.equals("closed"))
                 || state.equals("open") && merged) throw malformed();
-        final String[] makers =
-                makers(GateSupport.mirror(context, project.name(), repository), commit);
+        final String[] makers = makers(GateSupport.mirror(context, project, repository), commit);
         final List<String> trailers =
                 java.util.Arrays.stream(makers)
                         .skip(3)

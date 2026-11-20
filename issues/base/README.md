@@ -282,7 +282,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
-| <a id="b796"></a>[B796](B796-Pull-Requests-Of-A-Carried-Project-Read-Before-Its-First-Start.md) | S | - | WatchPullRequests and PullRequests read the pull requests of a project the host carries for the person before a start has placed it there, from the host's record of the project and its carried repositories, instead of refusing it as a project this machine does not have |
 
 ## Review
 
@@ -316,6 +315,7 @@ from its side, as *blocked by*.
 | <a id="b768"></a>[B768](B768-The-Setup-Script-Asks-The-Dnsmasq-The-Hooks-Run.md) | XS | - | `porelo-setup.sh` checks `nftset` support of the `dnsmasq` in `/usr/sbin`, `/usr/bin`, `/sbin` or `/bin`, the one the hooks take since [B249](README.md#b249), never of one found on root's `PATH`; its test's stand-in moves to where the script looks | 0 |
 | <a id="b769"></a>[B769](B769-The-Acceptance-Suite-Takes-The-Test-Heap-Limit.md) | XS | - | `acceptance/suite`'s failsafe fork gets `porelo.test.jvm.args` as its `argLine`, as every surefire fork does from the parent | 0 |
 | <a id="b252"></a>[B252](B252-A-Sign-In-Collected-On-No-Disk.md) | M | - | A sign-in made in a login container reaches the vault without lying in plaintext on a disk: the agent's config directory is a `tmpfs` of a container kept running until it is collected, and the host's copies are made in `$XDG_RUNTIME_DIR` | 0 |
+| <a id="b796"></a>[B796](B796-Pull-Requests-Of-A-Carried-Project-Read-Before-Its-First-Start.md) | S | - | WatchPullRequests and PullRequests read the pull requests of a project the host carries for the person before a start has placed it there, from the host's record of the project and its carried repositories, instead of refusing it as a project this machine does not have | - |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. | - |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. | - |
 | <a id="b760"></a>[B760](B760-Prune-Removes-A-Dead-Lookups-Agent-Sockets.md) | S | - | An agent lookup's socket left in the runtime directory by a process that is gone is listed by prune as such, not as a task, and removed; after the question at a terminal, prune shows what it could not remove | 0 |

@@ -184,6 +184,34 @@ class ProjectSourceTest {
                 .containsExactly(DefaultProject.NAME, "acme", "solo");
     }
 
+    @Test
+    void aRefusalNamesCarriedProjectsForThisPerson(@TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path organization = context.paths().hostDirectory().resolve("organization");
+        Files.createDirectories(organization.resolve("projects"));
+        Files.createDirectories(organization.resolve("persons"));
+        Files.writeString(
+                organization.resolve("projects/carried.json"),
+                """
+                {"project":"carried","revision":"","address":"https://central.example/carried.git","signing_keys":[]}
+                """);
+        Files.writeString(
+                organization.resolve("persons/" + System.getProperty("user.name") + ".json"),
+                "{\"projects\":[\"carried\"]}");
+        Files.writeString(
+                organization.resolve("projects/other.json"),
+                """
+                {"project":"other","revision":"","address":"https://central.example/other.git","signing_keys":[]}
+                """);
+        Files.writeString(
+                organization.resolve("persons/" + System.getProperty("user.name") + "-other.json"),
+                "{\"projects\":[\"other\"]}");
+
+        assertThatThrownBy(() -> ProjectSource.require(context, "nowhere"))
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
+                .hasMessage("no project 'nowhere' here. This machine has: default, carried");
+    }
+
     /** A name that cannot be read must not stop a walk over all of them, nor be offered. */
     @Test
     void aRecordedFileThatIsGoneIsNotAmongTheNames(@TempDir final Path dir) throws IOException {

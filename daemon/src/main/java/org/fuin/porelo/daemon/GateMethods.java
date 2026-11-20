@@ -232,22 +232,14 @@ final class GateMethods {
                                                 new org.fuin.porelo.app.HostPullRequestReader(
                                                                 context)
                                                         .poll(
-                                                                GateSupport.byName(
-                                                                        context,
-                                                                        text(
-                                                                                parameters,
-                                                                                "project")),
+                                                                text(parameters, "project"),
                                                                 List.of()))));
         server.method(
                 "WatchPullRequests",
                 (parameters, replies) -> {
                     final var reader = new org.fuin.porelo.app.HostPullRequestReader(context);
                     watchPullRequests(
-                            previous ->
-                                    reader.poll(
-                                            GateSupport.byName(
-                                                    context, text(parameters, "project")),
-                                            previous),
+                            previous -> reader.poll(text(parameters, "project"), previous),
                             replies,
                             () -> sleep(java.time.Duration.ofSeconds(5)));
                 });

@@ -193,6 +193,10 @@ title, exact head commit, author, committer, `Assisted-by` and `Co-Authored-By` 
 the local mirror, not the forge's account fields. They are claims in the commit, not a signature or approval judgment.
 Titles and makers are bounded plain text for display; clients must render them as text.
 
+A project carried for this person can be read before its first start places a `project.yml` on the
+machine. Both methods then use the host's project record and published repository carry state. A project
+neither placed nor carried for this person is refused, naming the known projects, including carried ones.
+
 `WatchPullRequests(project)` with varlink's `more` sends an initial snapshot, then changes, polling five seconds
 after each completed round. `pullRequests` is the complete current open list; `ended` contains confirmed `merged`
 or `closed` rows once per observed transition. These events end individual rows; the watch stays open. A review
