@@ -15,8 +15,10 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.credential.Credential;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -524,5 +526,140 @@ class VaultCredentialForTest {
         assertThat(out.toString()).isEmpty();
         assertThat(err.toString()).contains("--for");
         assertNoTokenAnywhere();
+    }
+
+    /**
+     * Asks the helper for an organization's address and Porelo's forge API for the same
+     * organization, as a person's program and Porelo's own calls would. The API reads the
+     * organization from its repository's address, which is how an organization is filed.
+     */
+    private record Organization(String forge, String organization) {
+
+        /** The organization on the default port. */
+        static final Organization ACME = new Organization("forge.example.org", "acme");
+
+        /** The address the program names to the helper. */
+        String address() {
+            return "https://" + forge + "/" + organization + "/";
+        }
+
+        /** The organization's repository, as the organization's own address names it. */
+        ForgeAddress filed() {
+            return ForgeAddress.of("https://" + forge + "/" + organization + "/org.git");
+        }
+    }
+
+    /** What Porelo's own calls to the forge's API take for the organization. */
+    private static @Nullable String apiToken(
+            final PoreloContext context, final Organization organization) {
+        return OrganizationAccess.forgeToken(context, organization.filed());
+    }
+
+    /**
+     * What the helper answers git for the organization's address.
+     *
+     * @return The token it answered, or {@code null} when it answered none.
+     */
+    private @Nullable String helperToken(
+            final PoreloContext context, final Organization organization) {
+        out.getBuffer().setLength(0);
+        final int exit =
+                run(
+                        context,
+                        request(organization.forge(), organization.organization() + "/"),
+                        "--for",
+                        organization.address(),
+                        "get");
+        assertThat(exit).as(err.toString()).isZero();
+        final String answer = out.toString();
+        final int at = answer.indexOf("password=");
+        return at < 0 ? null : answer.substring(at + "password=".length()).strip();
+    }
+
+    @Test
+    void forAnOrganizationTheHelperAnswersWithTheTokenDeclaredForIt() throws Exception {
+        final PoreloContext context = declaredAndImplied();
+
+        assertThat(helperToken(context, Organization.ACME))
+                .as("the token declared for the organization is the one Porelo's API calls take")
+                .isEqualTo(apiToken(context, Organization.ACME))
+                .isEqualTo(DECLARED);
+    }
+
+    @Test
+    void forAnOrganizationTheHelperAnswersWithATokenDeclaredInAFile() throws Exception {
+        final Path file = dir.resolve("organization-token");
+        java.nio.file.Files.writeString(file, DECLARED + "\n");
+        final PoreloContext context = impliedOnly();
+        new CredentialDeclarations(context)
+                .declare(
+                        new Credential(
+                                file.toString(),
+                                Credential.Kind.TOKEN,
+                                "https://forge.example.org/acme",
+                                null,
+                                "git",
+                                Credential.Source.FILE));
+
+        assertThat(helperToken(context, Organization.ACME))
+                .as("a token declared from a file is read by both alike")
+                .isEqualTo(apiToken(context, Organization.ACME))
+                .isEqualTo(DECLARED);
+    }
+
+    @Test
+    void withNothingDeclaredBothTakeTheHostsStoredToken() throws Exception {
+        final PoreloContext context = impliedOnly();
+
+        assertThat(helperToken(context, Organization.ACME))
+                .as("git.token.<host> is the API's token where nothing is declared")
+                .isEqualTo(apiToken(context, Organization.ACME))
+                .isEqualTo(IMPLIED);
+    }
+
+    @Test
+    void aBareGitTokenIsAnsweredToGitButNeverTakenForTheApi() throws Exception {
+        final PoreloContext context = openVault(Map.of("git.token", VaultEntry.of(FALLBACK)));
+
+        assertThat(apiToken(context, Organization.ACME))
+                .as("the API takes no token stored for git at every host")
+                .isNull();
+        assertThat(helperToken(context, Organization.ACME))
+                .as("the helper falls back to it for git")
+                .isEqualTo(FALLBACK);
+    }
+
+    @Test
+    void onItsOwnPortTheHostsStoredTokenIsGitsAlone() throws Exception {
+        final Organization onItsPort = new Organization("forge.example.org:8443", "acme");
+        final PoreloContext context = impliedOnly();
+
+        assertThat(apiToken(context, onItsPort))
+                .as("on its own port the API takes only a token declared for that port")
+                .isNull();
+        assertThat(helperToken(context, onItsPort))
+                .as("the helper answers git with the host's stored token on any port")
+                .isEqualTo(IMPLIED);
+    }
+
+    @Test
+    void aDeclaredUserAndPasswordIsGitsAlone() throws Exception {
+        final PoreloContext context = impliedOnly();
+        new CredentialDeclarations(context)
+                .declare(
+                        new Credential(
+                                "git.token",
+                                Credential.Kind.BASIC,
+                                "https://forge.example.org/acme",
+                                "someone",
+                                "git",
+                                Credential.Source.VAULT));
+
+        assertThat(helperToken(context, Organization.ACME))
+                .as("the helper answers git with the declared password")
+                .isEqualTo(FALLBACK);
+        assertThat(apiToken(context, Organization.ACME))
+                .as("the API passes over a declaration that is no token")
+                .isEqualTo(IMPLIED);
     }
 }

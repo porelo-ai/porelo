@@ -643,6 +643,15 @@ GIT_TERMINAL_PROMPT=0 git -c credential.useHttpPath=true \
 - **The token is the one Porelo's own git calls take:** the credential declared for the address, else the first
   of `git.token.<host>` and `git.token` the vault holds. The program gets no entry name and no map from addresses
   to entries.
+- **For an organization's address it is also the forge's API token:** asked for `https://<forge>/<organization>/`,
+  the helper answers with the token Porelo's own calls to that forge's API take where there is one: a token declared
+  for the organization's address, from the vault, a file or a variable, or, with none declared and the forge on its
+  default port, `git.token.<host>`. The program may call the forge's API with it. What else the helper answers is
+  git's alone, and Porelo asks no forge's API with it: a bare `git.token`, a user and password declared for the
+  address, and `git.token.<host>` for a forge on its own port, where the API takes only a token declared for that
+  host and port. A token declared for one repository of the organization rather than for the organization is not
+  what the helper answers for the organization's address. Which rights the token carries, such as reading and
+  writing issues, is the person's choice when making it; Porelo checks none.
 - **Only git's request for that address is answered:** `https`, the same host compared as ASCII lowercased, the
   same port (443 when none is named), and the same path or one below it at a `/`; `/acme/p2` is not below
   `/acme/p`. git sends the path only with `credential.useHttpPath=true`, and without it a `--for` that names a
