@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B136",
   "title": "An Approve Bound To What Was Reviewed",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "High",
   "rank": 3,

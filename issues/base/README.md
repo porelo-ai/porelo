@@ -132,7 +132,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b807"></a>[B807](B807-A-Stage-Ended-In-A-Task-Is-Measured-Into-Its-Tracked-Issue.md) | L | - | A task given work ends a stage by one trailer on the commit it pushes; porelod measures the stage from the task's own record, keeps it with an id, and answers a task's or a project's stages to the person's planner, which reads them and writes the tracked issue; porelo never calls the planner, and nothing goes to `stats/` in Git | - |
 | <a id="b808"></a>[B808](B808-What-Core-Keeps-Of-The-Markdown-Issue-Store-Removed.md) | S | - | After the cut-over's copy, as its own step: porelo's `stats/`, porelo-parent's `issues/` and its daily issue check, and the project file page's Markdown store go; the shared skills' issue file rules change only as agreed in the room | - |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
@@ -165,6 +164,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b149"></a>[B149](B149-A-Local-Provider-Template.md) | M | - | http only for loopback upstreams, a broker route with no credential, and two templates: `providers/local.yaml` on `127.0.0.1` and `providers/organisation.yaml` over https; the task reaches the host port through the broker. | - |
 | <a id="b98"></a>[B98](B98-The-Image-A-Signature-Names.md) | M | - | A warning on a tag-only `base_image`, a tag-only organization project refused until allowed once, the base digest as an image label, a changed digest noted at start, an optional per-project signature policy, the default project pinned. | - |
 | <a id="b99"></a>[B99](B99-Packages-Signed-And-Checked.md) | L | - | RPMs and the setup script signed in CI with the Debian repository's key, one shared `check-signed` in the release tools, a version pointer, `gpgcheck=1` everywhere from the next joint release. | - |
