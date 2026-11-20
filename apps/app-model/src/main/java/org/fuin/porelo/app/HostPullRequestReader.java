@@ -65,7 +65,7 @@ public final class HostPullRequestReader {
         }
     }
 
-    /** A bounded observation of a review, with makers read from the local mirror. */
+    /** A bounded observation of a review, with makers read from its commit. */
     public record Pull(
             String repository,
             long number,
@@ -217,6 +217,36 @@ public final class HostPullRequestReader {
         return poll(project, List.of()).open();
     }
 
+    /**
+     * Says whether a read must take the project first: one no start placed here, which the host
+     * carries for this person now. Any other name is left to the read's own refusal, so a read
+     * never fetches a project the host does not carry for this person.
+     *
+     * @param project The project's name.
+     * @return Whether to take it before reading.
+     * @throws Refused {@code not-carried} when the host withholds it or its records do not read.
+     */
+    public boolean takesFirst(String project) {
+        if (!project.matches(Project.NAME_PATTERN)
+                || ProjectSource.resolve(context, project).file() != null) {
+            return false;
+        }
+        final OrganizationProjects.Placed carried;
+        try {
+            carried =
+                    OrganizationProjects.of(context).host(System.getProperty("user.name"), project);
+        } catch (IOException ex) {
+            throw new Refused(
+                    "not-carried",
+                    "this person's list of carried projects or the host's record of this project does not read; repair it before reading reviews");
+        }
+        if (carried == null || !carried.project().equals(project)) {
+            return false;
+        }
+        status(project);
+        return true;
+    }
+
     /** Resolves a file first, then the host's record for this person, on every polling round. */
     public Round poll(String project, List<Pull> previous) {
         if (project.matches(Project.NAME_PATTERN)
@@ -226,7 +256,10 @@ public final class HostPullRequestReader {
                         OrganizationProjects.of(context)
                                 .host(System.getProperty("user.name"), project);
                 if (carried != null && carried.project().equals(project)) {
-                    return poll(project, previous, settings -> repositories(carried, settings));
+                    status(project);
+                    throw new Refused(
+                            "not-carried",
+                            "the carried project's verified file is not placed; take the project before reading reviews");
                 }
             } catch (IOException ex) {
                 throw new Refused(
@@ -238,7 +271,7 @@ public final class HostPullRequestReader {
         return poll(GateSupport.byName(context, project), previous);
     }
 
-    /** Reads open reviews without minting a token or fetching a repository. */
+    /** Reads open reviews, fetching missing heads into the reader's own store. */
     public List<Pull> open(Project project) {
         return poll(project, List.of()).open();
     }
@@ -312,6 +345,7 @@ public final class HostPullRequestReader {
                         row(
                                 project,
                                 old.repository(),
+                                repository,
                                 request(URI.create(repository + "/pulls/" + old.number()), token),
                                 token);
             } catch (RepositoryRefused ex) {
@@ -350,7 +384,7 @@ public final class HostPullRequestReader {
                             token);
             if (!(answer instanceof List<?> pulls) || pulls.size() > 50) throw malformed();
             for (Object object : pulls) {
-                final Pull pull = row(project, name, object, token);
+                final Pull pull = row(project, name, repository, object, token);
                 if (!pull.state().equals("open") || rows.putIfAbsent(key(pull), pull) != null)
                     throw malformed();
                 if (answered.size() + rows.size() > MAXIMUM_PULLS) throw tooMany();
@@ -395,39 +429,6 @@ public final class HostPullRequestReader {
             final String copy = HostForgeAddress.copyOf(project.name(), central);
             if (copy == null) continue;
             result.put(repository.name(), api(settings, copy));
-            if (result.size() > 100) throw tooMany();
-        }
-        return result;
-    }
-
-    private Map<String, URI> repositories(
-            OrganizationProjects.Placed carried, HostForgeSettings settings) {
-        final String project = carried.project();
-        final HostCentral.Status status = status(project);
-        final Map<String, URI> result = new LinkedHashMap<>();
-        final String own = HostForgeAddress.copyOf(project, carried.address());
-        if (own == null)
-            throw new Refused(
-                    "not-carried", "the host's record names no usable project repository");
-        result.put(project, api(settings, own));
-        final List<String> names;
-        if (carried.repositories().isEmpty()) {
-            if (!status.repositoriesKnown())
-                throw new Refused(
-                        "not-carried",
-                        "the host's carry state names no repositories; ask again once the host's follow has published them");
-            names = status.repositories().keySet().stream().sorted().toList();
-        } else {
-            names = carried.repositories();
-        }
-        for (String name : names) {
-            if (name.equals(project)
-                    || own.equals(project + "/" + name)
-                    || !status.permitsRepository(name)) continue;
-            if (!name.matches(Repository.NAME_PATTERN))
-                throw new Refused(
-                        "not-carried", "the host's record names no usable repository copy");
-            result.put(name, api(settings, project + "/" + name));
             if (result.size() > 100) throw tooMany();
         }
         return result;
@@ -501,7 +502,7 @@ public final class HostPullRequestReader {
         }
     }
 
-    private Pull row(String project, String repository, Object value, String token) {
+    private Pull row(String project, String repository, URI source, Object value, String token) {
         if (!(value instanceof Map<?, ?> fields)
                 || !(fields.get("number") instanceof Number number)
                 || !(number instanceof Long || number instanceof Integer)
@@ -515,7 +516,8 @@ public final class HostPullRequestReader {
                 || !(fields.get("merged") instanceof Boolean merged)
                 || !(state.equals("open") || state.equals("closed"))
                 || state.equals("open") && merged) throw malformed();
-        final String[] makers = makers(GateSupport.mirror(context, project, repository), commit);
+        final String[] makers =
+                reviewMakers(project, repository, source, number.longValue(), commit, token);
         final List<String> trailers =
                 java.util.Arrays.stream(makers)
                         .skip(3)
@@ -532,6 +534,46 @@ public final class HostPullRequestReader {
                 shown(makers[2], token),
                 trailers,
                 merged ? "merged" : state);
+    }
+
+    private String[] reviewMakers(
+            String project,
+            String repository,
+            URI source,
+            long number,
+            String commit,
+            String token) {
+        try {
+            return makers(GateSupport.mirror(context, project, repository), commit);
+        } catch (Refused ex) {
+            // The gate alone writes its mirror. Review reads keep missing heads in their own store.
+        }
+        final Path store =
+                context.paths()
+                        .xdg()
+                        .state()
+                        .resolve("reviews")
+                        .resolve(project)
+                        .resolve(repository + ".git");
+        try {
+            return FileLocks.holdingWithin(
+                            store.resolveSibling(repository + ".lock"),
+                            // Long enough to wait out another read's fetch of three bounded steps.
+                            Duration.ofSeconds(75),
+                            () -> {
+                                try {
+                                    return makers(store, commit);
+                                } catch (Refused absent) {
+                                    // Not fetched yet: a head kept from an earlier round is read
+                                    // again, never fetched again.
+                                }
+                                HostReviewHeads.fetch(store, source, number, commit, token);
+                                return makers(store, commit);
+                            })
+                    .orElseThrow(HostPullRequestReader::noMakers);
+        } catch (IOException ex) {
+            throw noMakers();
+        }
     }
 
     private static String[] makers(Path mirror, String commit) {
@@ -553,9 +595,14 @@ public final class HostPullRequestReader {
                             "--format=%H%n%an <%ae>%n%cn <%ce>%n%(trailers:only,unfold)",
                             commit,
                             "--");
+            builder.environment().clear();
             builder.environment()
                     .putAll(
                             Map.of(
+                                    "PATH",
+                                    System.getenv().getOrDefault("PATH", "/usr/bin:/bin"),
+                                    "LC_ALL",
+                                    "C",
                                     "GIT_CONFIG_GLOBAL",
                                     "/dev/null",
                                     "GIT_CONFIG_NOSYSTEM",
@@ -657,6 +704,6 @@ public final class HostPullRequestReader {
     private static Refused noMakers() {
         return new Refused(
                 "makers",
-                "the mirror could not supply bounded makers for the review head; refresh the mirror before asking again");
+                "the mirror or bounded host forge fetch could not supply makers for the exact review head; check the forge and ask again");
     }
 }

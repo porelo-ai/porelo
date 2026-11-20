@@ -231,7 +231,13 @@ class HostPullRequestReaderTest {
                 context,
                 conf,
                 path -> Map.of("uid", 0, "mode", Files.isDirectory(path) ? 0040755 : 0100644),
-                forge);
+                (address, token) -> {
+                    assertThat(address.getScheme()).isEqualTo("http");
+                    assertThat(address.getHost()).isEqualTo("127.0.0.1");
+                    assertThat(address.getUserInfo()).isNull();
+                    assertThat(address.getFragment()).isNull();
+                    return forge.get(address, token);
+                });
     }
 
     private void carriedFor(String account) throws Exception {
@@ -269,6 +275,7 @@ class HostPullRequestReaderTest {
     @Test
     void aCarriedProjectAnswersBeforeItsFirstStart() throws Exception {
         carriedFor(System.getProperty("user.name"));
+        takeForReview();
         final List<String> asked = new java.util.ArrayList<>();
         final var reader =
                 reader(
@@ -285,8 +292,9 @@ class HostPullRequestReaderTest {
     }
 
     @Test
-    void aCarriedProjectCanBePolledAgainWithoutAProjectFile() throws Exception {
+    void aCarriedProjectCanBePolledAgainAfterTaking() throws Exception {
         carriedFor(System.getProperty("user.name"));
+        takeForReview();
         final AtomicBoolean merged = new AtomicBoolean();
         final var reader =
                 reader(
@@ -326,6 +334,7 @@ class HostPullRequestReaderTest {
         carriedFor(System.getProperty("user.name"));
         final Path record = conf.resolveSibling("organization/projects/demo.json");
         Files.writeString(record, Files.readString(record).replace("[\"shop\",\"docs\"]", "[]"));
+        takeForReview();
         final var reader = reader((address, token) -> openList());
 
         assertThat(reader.open("demo"))
@@ -355,18 +364,466 @@ class HostPullRequestReaderTest {
                 .containsExactly("demo");
     }
 
-    @Test
-    void anUnplacedProjectStillRequiresMirrorMakersForAnOpenReview() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void anUnplacedProjectAnswersWithFetchedMakersAfterTaking(boolean existingMirror)
+            throws Exception {
         carriedFor(System.getProperty("user.name"));
+        takeForReview();
         final Path mirror = GateSupport.mirror(context, project);
-        Files.move(mirror, mirror.resolveSibling("missing-demo.git"));
-        final var reader = reader((address, token) -> openList());
+        final Path forge = mirror.resolveSibling("forge.git");
+        Files.move(mirror, forge);
+        if (existingMirror) {
+            Files.createDirectories(mirror);
+            git(mirror, "init", "--bare");
+            Files.writeString(mirror.resolve("kept"), "the gate alone writes here");
+        }
+        final Map<String, String> before = snapshot(mirror);
+        git(forge, "update-ref", "refs/pull/7/head", head);
+        try (var server = new ReviewForge(forge)) {
+            final var rows =
+                    reader(
+                                    (address, token) ->
+                                            address.getPath().contains("/demo/shop/")
+                                                    ? none()
+                                                    : openList())
+                            .open("demo");
+            assertThat(rows)
+                    .singleElement()
+                    .satisfies(
+                            row -> {
+                                assertThat(row.author()).isEqualTo("Writer <writer@example.org>");
+                                assertThat(row.committer())
+                                        .isEqualTo("Signer <signer@example.org>");
+                                assertThat(row.trailers())
+                                        .containsExactly(
+                                                "Assisted-by: Tool",
+                                                "Co-Authored-By: Helper <help@example.org>");
+                            });
+            assertThat(server.asked).contains("/demo/demo.git/info/refs");
+            assertThat(snapshot(mirror)).as("the gate's mirror is never written").isEqualTo(before);
+            if (!existingMirror) assertThat(mirror).doesNotExist();
+            final Path store = context.paths().xdg().state().resolve("reviews/demo/demo.git");
+            assertThat(git(store, "rev-parse", "refs/porelo/review")).isEqualTo(head);
+        }
+    }
 
+    @Test
+    void aFetchedHeadIsKeptInOnePackAndNeverFetchedAgain() throws Exception {
+        // Loose objects escape the per-file size bound, and a fetch every round of a watch grows
+        // the store and asks the forge without end.
+        carriedFor(System.getProperty("user.name"));
+        takeForReview();
+        final Path mirror = GateSupport.mirror(context, project);
+        final Path forge = mirror.resolveSibling("forge.git");
+        Files.move(mirror, forge);
+        git(forge, "update-ref", "refs/pull/7/head", head);
+        try (var server = new ReviewForge(forge)) {
+            final var reader =
+                    reader(
+                            (address, token) ->
+                                    address.getPath().contains("/demo/shop/")
+                                            ? none()
+                                            : openList());
+            assertThat(reader.open("demo")).hasSize(1);
+            assertThat(reader.open("demo")).hasSize(1);
+            assertThat(server.asked.stream().filter(path -> path.endsWith("/info/refs")))
+                    .as("a head kept from the first round is read again, not fetched again")
+                    .hasSize(1);
+            final Path store = context.paths().xdg().state().resolve("reviews/demo/demo.git");
+            try (var files = Files.walk(store.resolve("objects"))) {
+                assertThat(
+                                files.filter(Files::isRegularFile)
+                                        .map(each -> store.resolve("objects").relativize(each))
+                                        .filter(each -> !each.startsWith("pack"))
+                                        .toList())
+                        .as("no loose object, so the pack's bound holds the whole fetch")
+                        .isEmpty();
+            }
+            try (var packs = Files.list(store.resolve("objects/pack"))) {
+                assertThat(packs.filter(each -> each.toString().endsWith(".pack"))).hasSize(1);
+            }
+        }
+    }
+
+    @Test
+    void aStoreOfTheOtherHashIsMadeAnewRatherThanRefusingForever() throws Exception {
+        // One answer naming a 64-digit head made a sha256 store that refused every later read.
+        carriedFor(System.getProperty("user.name"));
+        takeForReview();
+        final Path mirror = GateSupport.mirror(context, project);
+        final Path forge = mirror.resolveSibling("forge.git");
+        Files.move(mirror, forge);
+        git(forge, "update-ref", "refs/pull/7/head", head);
+        final Path store = context.paths().xdg().state().resolve("reviews/demo/demo.git");
+        Files.createDirectories(store);
+        git(store, "init", "--bare", "--object-format=sha256");
+        try (var server = new ReviewForge(forge)) {
+            assertThat(
+                            reader(
+                                            (address, token) ->
+                                                    address.getPath().contains("/demo/shop/")
+                                                            ? none()
+                                                            : openList())
+                                    .open("demo"))
+                    .singleElement()
+                    .satisfies(
+                            row ->
+                                    assertThat(row.author())
+                                            .isEqualTo("Writer <writer@example.org>"));
+        }
+    }
+
+    @Test
+    void aRedirectOfTheReviewFetchNeverReceivesThePersonsToken() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        takeForReview();
+        final Path mirror = GateSupport.mirror(context, project);
+        final Path forge = mirror.resolveSibling("forge.git");
+        Files.move(mirror, forge);
+        git(forge, "update-ref", "refs/pull/7/head", head);
+        try (var server = new ReviewForge(forge, true)) {
+            assertThatThrownBy(
+                            () ->
+                                    reader(
+                                                    (address, token) ->
+                                                            address.getPath()
+                                                                            .contains("/demo/shop/")
+                                                                    ? none()
+                                                                    : openList())
+                                            .open("demo"))
+                    .isInstanceOfSatisfying(
+                            HostPullRequestReader.Refused.class,
+                            refusal -> assertThat(refusal.reason()).isEqualTo("makers"));
+            assertThat(server.asked)
+                    .as("git follows no redirect with the person's token")
+                    .containsExactly("/demo/demo.git/info/refs");
+        }
+    }
+
+    @Test
+    void onlyAnUnplacedProjectCarriedForThisPersonIsTakenFirst() throws Exception {
+        assertThat(reader((address, token) -> openList()).takesFirst("demo"))
+                .as("not carried for this person: left to the read's own refusal, untaken")
+                .isFalse();
+        carriedFor(System.getProperty("user.name"));
+        assertThat(reader((address, token) -> openList()).takesFirst("demo")).isTrue();
+        takeForReview();
+        assertThat(reader((address, token) -> openList()).takesFirst("demo"))
+                .as("placed already")
+                .isFalse();
+    }
+
+    @Test
+    void aFetchedHeadMustEqualTheRowAndNeverCreatesTheGateMirror() throws Exception {
+        final Path mirror = GateSupport.mirror(context, project);
+        final Path forge = mirror.resolveSibling("forge.git");
+        Files.move(mirror, forge);
+        git(forge, "update-ref", "refs/pull/7/head", head);
+        try (var server = new ReviewForge(forge)) {
+            head = "b".repeat(40);
+            assertThatThrownBy(() -> reader((address, token) -> openList()).open(project))
+                    .isInstanceOfSatisfying(
+                            HostPullRequestReader.Refused.class,
+                            refusal -> assertThat(refusal.reason()).isEqualTo("makers"));
+            assertThat(server.asked).contains("/demo/demo.git/info/refs");
+            assertThat(mirror).doesNotExist();
+        }
+    }
+
+    @Test
+    void anUnplacedProjectNeverGuessesCopiesFromRepositoryKeys() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        final List<String> asked = new java.util.ArrayList<>();
+        final var reader =
+                reader(
+                        (address, token) -> {
+                            asked.add(address.getPath());
+                            return none();
+                        });
         assertThatThrownBy(() -> reader.open("demo"))
                 .isInstanceOfSatisfying(
                         HostPullRequestReader.Refused.class,
-                        refusal -> assertThat(refusal.reason()).isEqualTo("makers"))
-                .hasMessageContaining("mirror could not supply bounded makers");
+                        refusal -> assertThat(refusal.reason()).isEqualTo("not-carried"));
+        assertThat(asked).isEmpty();
+    }
+
+    @Test
+    void aRepositoryKeyUsesTheCopyNamedByItsCentralAddress() throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        takeForReview("product");
+        final List<String> asked = new java.util.ArrayList<>();
+        reader(
+                        (address, token) -> {
+                            asked.add(address.getPath());
+                            return none();
+                        })
+                .open("demo");
+        assertThat(asked)
+                .containsExactly(
+                        "/api/v1/repos/demo/demo/pulls", "/api/v1/repos/demo/product/pulls");
+    }
+
+    private Map<String, String> snapshot(Path directory) throws Exception {
+        final Map<String, String> result = new java.util.TreeMap<>();
+        if (!Files.exists(directory)) return result;
+        try (var paths = Files.walk(directory)) {
+            for (Path path : paths.filter(Files::isRegularFile).toList()) {
+                result.put(
+                        directory.relativize(path).toString(),
+                        java.util.HexFormat.of()
+                                .formatHex(
+                                        java.security.MessageDigest.getInstance("SHA-256")
+                                                .digest(Files.readAllBytes(path))));
+            }
+        }
+        return result;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"pending", "waiting-for-token", "held", "refused", "cannot-say"})
+    void anUnplacedProjectRequiresACarriedState(String state) throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        if (state.equals("cannot-say")) hostStatus("not JSON");
+        else
+            hostStatus(
+                    Json.write(
+                            Map.of(
+                                    "project",
+                                    "demo",
+                                    "state",
+                                    state,
+                                    "read_at",
+                                    java.time.Instant.now().toString(),
+                                    "repositories",
+                                    List.of())));
+        assertThat(
+                        new HostCentral(
+                                        conf.resolveSibling("organization/central"),
+                                        path ->
+                                                Map.of(
+                                                        "uid",
+                                                        0,
+                                                        "mode",
+                                                        Files.isDirectory(path)
+                                                                ? 0040755
+                                                                : 0100644))
+                                .status("demo")
+                                .state())
+                .isEqualTo(state);
+        assertThatThrownBy(
+                        () ->
+                                reader(
+                                                (address, token) -> {
+                                                    throw new AssertionError(
+                                                            "no request without carrying");
+                                                })
+                                        .open("demo"))
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        refusal -> assertThat(refusal.reason()).isEqualTo("not-carried"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"pending", "waiting-for-token", "held", "refused", "cannot-say"})
+    void aWithheldProjectIsRefusedBeforeItIsTaken(String state) throws Exception {
+        // Taking lends this person a forge token and fetches: never for what the host withholds.
+        carriedFor(System.getProperty("user.name"));
+        if (state.equals("cannot-say")) hostStatus("not JSON");
+        else
+            hostStatus(
+                    Json.write(
+                            Map.of(
+                                    "project",
+                                    "demo",
+                                    "state",
+                                    state,
+                                    "read_at",
+                                    java.time.Instant.now().toString(),
+                                    "repositories",
+                                    List.of())));
+        assertThatThrownBy(() -> reader((address, token) -> openList()).takesFirst("demo"))
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        refusal -> assertThat(refusal.reason()).isEqualTo("not-carried"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"organization/projects/demo.json", "organization/persons/"})
+    void anUnplacedProjectRefusesMalformedHostFiles(String file) throws Exception {
+        carriedFor(System.getProperty("user.name"));
+        final Path malformed =
+                conf.resolveSibling(
+                        file.endsWith("/")
+                                ? file + System.getProperty("user.name") + ".json"
+                                : file);
+        Files.writeString(malformed, "{not JSON");
+        assertThatThrownBy(
+                        () ->
+                                reader(
+                                                (address, token) -> {
+                                                    throw new AssertionError(
+                                                            "no request from a malformed record");
+                                                })
+                                        .open("demo"))
+                .isInstanceOfSatisfying(
+                        HostPullRequestReader.Refused.class,
+                        refusal -> assertThat(refusal.reason()).isEqualTo("not-carried"));
+    }
+
+    private void takeForReview() throws Exception {
+        takeForReview("shop");
+    }
+
+    private void takeForReview(String copyName) throws Exception {
+        final var carried =
+                OrganizationProjects.host(conf.resolveSibling("organization/projects"), "demo");
+        assertThat(carried).isNotNull();
+        try (var source =
+                new RegistryCheckout(Files.createDirectory(dir.resolve("signed-project")))) {
+            source.write(
+                    "project.yml",
+                    "project:\n  name: demo\n  security_class: guarded\n  central: https://central.example/demo.git\nimage:\n  from: ubuntu:24.04\nrepositories:\n  shop:\n    upstream: https://upstream.example/shop.git\n    central: https://central.example/shop.git\n"
+                            .replace(
+                                    "central.example/shop.git",
+                                    "central.example/" + copyName + ".git"));
+            source.commit("michael");
+            Files.writeString(
+                    conf.resolveSibling("organization/projects/demo.json"),
+                    Json.write(
+                            Map.of(
+                                    "project",
+                                    "demo",
+                                    "revision",
+                                    "",
+                                    "address",
+                                    "https://central.example/demo.git",
+                                    "fetch_from",
+                                    "file://" + source.repo,
+                                    "repositories",
+                                    carried.repositories(),
+                                    "signing_keys",
+                                    List.of(
+                                            Map.of(
+                                                    "login",
+                                                    "admin",
+                                                    "role",
+                                                    "admin",
+                                                    "key",
+                                                    source.key("michael"),
+                                                    "valid_from",
+                                                    "2000-01-01",
+                                                    "valid_until",
+                                                    "2999-01-01")))));
+            assertThat(ProjectSource.resolve(context, "demo").file()).isNull();
+            ProjectTaking.takeToAsk(context, "demo");
+            assertThat(ProjectSource.resolve(context, "demo").file()).isNotNull();
+        }
+    }
+
+    private final class ReviewForge implements AutoCloseable {
+        private final com.sun.net.httpserver.HttpServer server;
+        private final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        ReviewForge(Path repository) throws Exception {
+            this(repository, false);
+        }
+
+        ReviewForge(Path repository, boolean redirect) throws Exception {
+            git(repository, "update-server-info");
+            server =
+                    com.sun.net.httpserver.HttpServer.create(
+                            new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext(
+                    "/",
+                    exchange -> {
+                        final String path = exchange.getRequestURI().getPath();
+                        if (redirect) {
+                            asked.add(path);
+                            exchange.getResponseHeaders()
+                                    .set(
+                                            "Location",
+                                            "http://127.0.0.1:"
+                                                    + ReviewForge.this.server.getAddress().getPort()
+                                                    + "/stolen"
+                                                    + path);
+                            exchange.sendResponseHeaders(307, -1);
+                            exchange.close();
+                            return;
+                        }
+                        assertThat(path)
+                                .isIn("/demo/demo.git/info/refs", "/demo/demo.git/git-upload-pack");
+                        asked.add(path);
+                        final String authorization =
+                                "Basic "
+                                        + java.util.Base64.getEncoder()
+                                                .encodeToString(
+                                                        ("x-access-token:" + TOKEN)
+                                                                .getBytes(StandardCharsets.UTF_8));
+                        assertThat(exchange.getRequestHeaders().getFirst("Authorization"))
+                                .isEqualTo(authorization);
+                        assertThat(exchange.getLocalAddress().getAddress().isLoopbackAddress())
+                                .isTrue();
+                        final boolean advertise = path.endsWith("/info/refs");
+                        final var arguments =
+                                new java.util.ArrayList<>(
+                                        List.of("git", "upload-pack", "--stateless-rpc"));
+                        if (advertise) arguments.add("--advertise-refs");
+                        arguments.add(repository.toString());
+                        final var builder = new ProcessBuilder(arguments);
+                        builder.environment()
+                                .putAll(
+                                        Map.of(
+                                                "GIT_CONFIG_GLOBAL",
+                                                "/dev/null",
+                                                "GIT_CONFIG_NOSYSTEM",
+                                                "1"));
+                        builder.redirectError(ProcessBuilder.Redirect.DISCARD);
+                        final var process = builder.start();
+                        try (var input = process.getOutputStream()) {
+                            if (!advertise) exchange.getRequestBody().transferTo(input);
+                        }
+                        final byte[] bytes = process.getInputStream().readAllBytes();
+                        try {
+                            assertThat(process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS))
+                                    .isTrue();
+                            assertThat(process.exitValue()).isZero();
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            throw new java.io.IOException(ex);
+                        } finally {
+                            process.destroyForcibly();
+                        }
+                        exchange.getResponseHeaders()
+                                .set(
+                                        "Content-Type",
+                                        "application/x-git-upload-pack-"
+                                                + (advertise ? "advertisement" : "result"));
+                        exchange.sendResponseHeaders(200, 0);
+                        try (var out = exchange.getResponseBody()) {
+                            if (advertise)
+                                out.write(
+                                        "001e# service=git-upload-pack\n0000"
+                                                .getBytes(StandardCharsets.UTF_8));
+                            out.write(bytes);
+                        }
+                        exchange.close();
+                    });
+            server.start();
+            Files.writeString(
+                    conf,
+                    "name=forge.example\naccount=forge\ngit_port="
+                            + server.getAddress().getPort()
+                            + "\n");
+        }
+
+        @Override
+        public void close() {
+            server.stop(0);
+        }
     }
 
     private byte[] pull(String state, boolean merged) {

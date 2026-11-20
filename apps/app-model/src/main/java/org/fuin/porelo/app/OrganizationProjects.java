@@ -315,7 +315,7 @@ public final class OrganizationProjects {
         final Object document;
         try {
             document = Json.parse(Files.readString(file, StandardCharsets.UTF_8));
-        } catch (final IllegalArgumentException ex) {
+        } catch (final IllegalArgumentException | org.fuin.porelo.wire.JsonException ex) {
             throw new IOException(file + " does not read", ex);
         }
         if (!(document instanceof Map<?, ?> map)

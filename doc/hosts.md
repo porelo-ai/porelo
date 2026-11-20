@@ -190,12 +190,16 @@ rather than none.
 `org.fuin.porelo.Tasks1.PullRequests(project)` reads the open pull requests this account's person token can
 see in the project's repositories carried by the host. Each row names the repository key, positive review number,
 title, exact head commit, author, committer, `Assisted-by` and `Co-Authored-By` trailers, and state. Makers come from
-the local mirror, not the forge's account fields. They are claims in the commit, not a signature or approval judgment.
+the local mirror or the head fetched from the host's forge into Porelo's own store, never the forge's account
+fields. They are claims in the commit, not a signature or approval judgment.
 Titles and makers are bounded plain text for display; clients must render them as text.
 
 A project carried for this person can be read before its first start places a `project.yml` on the
-machine. Both methods then use the host's project record and published repository carry state. A project
-neither placed nor carried for this person is refused, naming the known projects, including carried ones.
+machine. Before the first read, both methods take an unplaced project as a question before a start does:
+the host's helper lends a fetch token, the signed project file is verified and placed, and the file names each
+repository's copy by its central address. A watch takes once before its first round. A refused take answers
+`HostPullRequestsRefused` with the take's reason. A project neither placed nor carried for this person is refused,
+naming the known projects, including carried ones.
 
 `WatchPullRequests(project)` with varlink's `more` sends an initial snapshot, then changes, polling five seconds
 after each completed round. `pullRequests` is the complete current open list; `ended` contains confirmed `merged`
@@ -205,13 +209,19 @@ opened and ended entirely between polls can go unseen. Without `more`, the watch
 Both methods read the vault entry `<name>.person` written by `porelo host forge-token`. The name and port come from
 the same bounded, root-owned plain forge-settings file that command reads. A missing or unusable entry answers
 `MissingHostForgeToken(credential, storeCommand)`, naming `porelo host forge-token`. A locked or unreadable vault is
-`HostPullRequestsRefused` with reason `vault-unreadable`. Neither method mints credentials, fetches git objects,
-or is available to a task through MCP: they use the person's forge identity to read work awaiting human judgment.
+`HostPullRequestsRefused` with reason `vault-unreadable`. When the gate's mirror lacks a review head, the reader
+fetches exactly `refs/pull/<number>/head` from that repository's loopback copy into
+`$XDG_STATE_HOME/porelo/reviews/<project>/<repository>.git`. The fetched ref must name exactly the row's head before
+its makers are read. The person token reaches git only in its environment, with no proxy or redirects. The gate's
+mirror is never written. Neither method is available to a task through MCP: they use the person's forge identity
+to read work awaiting human judgment.
 
 HTTP stays on the configured port at `127.0.0.1`, with no proxy or redirects, a ten-second connection timeout and
 a twenty-second request timeout. Each HTTP response and complete daemon reply is limited to one MiB; each project
 to 100 repositories and 500 open rows; each repository to 100 pages of 50. Maker queries allow ten seconds and
-64 KiB of output. Shown fields keep at most 1000 code points, and at most 50 help trailers are returned.
+64 KiB of output. Review fetches are shallow, allow twenty seconds per git command, and use
+`/usr/bin/prlimit` from util-linux to limit each received pack and other written file to 32 MiB; an unavailable
+limiter refuses the makers. Shown fields keep at most 1000 code points, and at most 50 help trailers are returned.
 A repository the forge answers with an error is refused alone, in the answer's `refused`, with its status, the
 path asked (`/api/v1/repos/<copy>/pulls`, never the host's address or the token) and a reason: `forge-access` for 403
 or 404 (its copy is not made yet or the person is not admitted: an administrator of the host makes it or admits
@@ -223,7 +233,7 @@ Only the repositories the window shows as carried here are asked: those the host
 (the project's own goes with the project), within those its project record names. A record names the repositories
 the host's card names, and none when the card carries the whole project. Progress that does not read refuses the
 whole read with `not-carried`.
-A bound, an unavailable mirror commit, or a forge that cannot be reached refuses the observation and ends a stream
+A bound, a head whose makers cannot be read or fetched, or a forge that cannot be reached refuses the observation and ends a stream
 with a named error. Absence alone never means closed. Clients must mark retained data stale and ask again.
 
 ## A person's gathered push and pull

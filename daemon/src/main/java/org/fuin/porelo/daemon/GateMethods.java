@@ -225,21 +225,30 @@ final class GateMethods {
                                         text(parameters, "repository"))));
         server.method(
                 "PullRequests",
-                (parameters, replies) ->
-                        replies.last(
-                                pullRequestReply(
-                                        () ->
-                                                new org.fuin.porelo.app.HostPullRequestReader(
-                                                                context)
-                                                        .poll(
-                                                                text(parameters, "project"),
-                                                                List.of()))));
+                (parameters, replies) -> {
+                    final String project = text(parameters, "project");
+                    final var reader = new org.fuin.porelo.app.HostPullRequestReader(context);
+                    replies.last(
+                            pullRequestReply(
+                                    takingWhereCarried(
+                                            () -> reader.takesFirst(project),
+                                            () ->
+                                                    org.fuin.porelo.app.ProjectTaking.takeToAsk(
+                                                            context, project)),
+                                    () -> reader.poll(project, List.of())));
+                });
         server.method(
                 "WatchPullRequests",
                 (parameters, replies) -> {
+                    final String project = text(parameters, "project");
                     final var reader = new org.fuin.porelo.app.HostPullRequestReader(context);
                     watchPullRequests(
-                            previous -> reader.poll(text(parameters, "project"), previous),
+                            takingWhereCarried(
+                                    () -> reader.takesFirst(project),
+                                    () ->
+                                            org.fuin.porelo.app.ProjectTaking.takeToAsk(
+                                                    context, project)),
+                            previous -> reader.poll(project, previous),
                             replies,
                             () -> sleep(java.time.Duration.ofSeconds(5)));
                 });
@@ -645,6 +654,7 @@ final class GateMethods {
      * tests.
      */
     static void watchPullRequests(
+            ProjectQuestion take,
             java.util.function.Function<
                             List<org.fuin.porelo.app.HostPullRequestReader.Pull>,
                             org.fuin.porelo.app.HostPullRequestReader.Round>
@@ -652,6 +662,7 @@ final class GateMethods {
             VarlinkServer.Replies replies,
             Runnable pause)
             throws java.io.IOException {
+        takePullRequestProject(take);
         List<org.fuin.porelo.app.HostPullRequestReader.Pull> previous = List.of();
         Map<String, Object> last = null;
         while (replies.open()) {
@@ -673,6 +684,54 @@ final class GateMethods {
                             .toList();
             pause.run();
         }
+    }
+
+    @FunctionalInterface
+    interface ProjectQuestion {
+        void take() throws org.fuin.porelo.app.ProjectTaking.Refused;
+    }
+
+    /**
+     * Takes a project for a pull-request read only where the host carries it for this person and no
+     * start placed it yet: any other name goes to the read's own refusal, untaken, so a read never
+     * fetches what is not this person's, nor says a fetch's words.
+     *
+     * @param carried Whether to take; it refuses as the read would where the host withholds it.
+     * @param take The take.
+     * @return The question a read asks first.
+     */
+    static ProjectQuestion takingWhereCarried(
+            java.util.function.BooleanSupplier carried, ProjectQuestion take) {
+        return () -> {
+            final boolean takes;
+            try {
+                takes = carried.getAsBoolean();
+            } catch (org.fuin.porelo.app.HostPullRequestReader.Refused ex) {
+                throw new VarlinkException(
+                        INTERFACE + ".HostPullRequestsRefused",
+                        Map.of("reason", ex.reason(), "message", String.valueOf(ex.getMessage())));
+            }
+            if (takes) {
+                take.take();
+            }
+        };
+    }
+
+    private static void takePullRequestProject(ProjectQuestion take) {
+        try {
+            take.take();
+        } catch (org.fuin.porelo.app.ProjectTaking.Refused ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".HostPullRequestsRefused",
+                    Map.of("reason", ex.reason(), "message", String.valueOf(ex.getMessage())));
+        }
+    }
+
+    static Map<String, Object> pullRequestReply(
+            ProjectQuestion take,
+            java.util.function.Supplier<org.fuin.porelo.app.HostPullRequestReader.Round> read) {
+        takePullRequestProject(take);
+        return pullRequestReply(read);
     }
 
     /** Maps the reader's safe named outcomes without letting forge words become wire errors. */

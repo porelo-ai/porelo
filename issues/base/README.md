@@ -283,7 +283,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b803"></a>[B803](B803-Porelos-Markdown-Issues-Removed-After-The-Cut-Over.md) | S | - | Once the project's issues live in GitHub Issues: `issues/`, its index, its check in the Shared rules workflow, its build exclusion and every text that points at it removed; the acceptance story that reads the index reads the tracker |
-| <a id="b816"></a>[B816](B816-Makers-And-Copies-Of-A-Carried-Project-Before-Its-First-Start.md) | M | - | A carried project's open pull requests answer before its first start with their makers, read from the person's gate mirror brought up as a first start would, from the copy each repository's central address names; the window shows no cannot-be-read item for it |
 
 ## Review
 
@@ -310,6 +309,7 @@ from its side, as *blocked by*.
 | <a id="b738"></a>[B738](B738-What-A-Task-Writes-Never-Picks-Its-Next-Agent.md) | M | - | Nothing an agent writes in its task - a binary in $XDG_BIN_HOME, a shell start file, a variable - changes which agent binary or which environment a later start of an agent in that task runs; the start runs the root-owned wrapper by its own path with an environment Porelo sets. | 0 |
 | <a id="b815"></a>[B815](B815-An-Agents-Own-Model-List.md) | M | - | An agent definition may declare its own models per provider, a static list of id and name, and Models answers it with from 'agent' where the provider gives no list for the stored credential, so a task on an agent's own sign-in offers a model list instead of free text | - |
 | <a id="b796"></a>[B796](B796-Pull-Requests-Of-A-Carried-Project-Read-Before-Its-First-Start.md) | S | - | WatchPullRequests and PullRequests read the pull requests of a project the host carries for the person before a start has placed it there, from the host's record of the project and its carried repositories, instead of refusing it as a project this machine does not have | - |
+| <a id="b816"></a>[B816](B816-Makers-And-Copies-Of-A-Carried-Project-Before-Its-First-Start.md) | M | - | A carried project's open pull requests answer before its first start with their makers, read from the person's gate mirror brought up as a first start would, from the copy each repository's central address names; the window shows no cannot-be-read item for it | - |
 | <a id="b594"></a>[B594](B594-A-Room-For-Default-Is-Refused-By-Name.md) | S | - | A transport or a peer for `default` is refused, naming a project repository as the way, as egress already is. | - |
 | <a id="b595"></a>[B595](B595-A-Repository-Leaves-Default-When-A-Project-Names-It.md) | M | - | A repository of `default` that an organization's project names is offered for removal from `default`, at a start and over the daemon. | - |
 | <a id="b760"></a>[B760](B760-Prune-Removes-A-Dead-Lookups-Agent-Sockets.md) | S | - | An agent lookup's socket left in the runtime directory by a process that is gone is listed by prune as such, not as a task, and removed; after the question at a terminal, prune shows what it could not remove | 0 |

@@ -16,6 +16,7 @@ class PullRequestMethodsTest {
         final var replies = new Captured(true, 1);
         final var reads = new java.util.concurrent.atomic.AtomicInteger();
         GateMethods.watchPullRequests(
+                () -> {},
                 previous -> {
                     assertThat(reads.incrementAndGet())
                             .as("an empty watch stops when its caller leaves")
@@ -36,6 +37,7 @@ class PullRequestMethodsTest {
         // A non-streaming caller must receive a final reply rather than hang in a polling loop.
         final var replies = new Captured(false, 1);
         GateMethods.watchPullRequests(
+                () -> {},
                 previous -> new HostPullRequestReader.Round(List.of(), List.of()),
                 replies,
                 () -> {
@@ -58,6 +60,7 @@ class PullRequestMethodsTest {
                 new HostPullRequestReader.Pull(
                         "demo", 7, "Review", "b".repeat(40), "Writer", "Signer", List.of(), state);
         GateMethods.watchPullRequests(
+                () -> {},
                 previous -> {
                     final int round = reads.getAndIncrement();
                     assertThat(round)
@@ -96,6 +99,7 @@ class PullRequestMethodsTest {
                 new HostPullRequestReader.Refusal(
                         "demo", "forge", 503, "/api/v1/repos/demo/demo/pulls", "the forge failed");
         GateMethods.watchPullRequests(
+                () -> {},
                 previous -> {
                     final int round = reads.getAndIncrement();
                     if (round == 1)
@@ -116,6 +120,111 @@ class PullRequestMethodsTest {
         assertThat(replies.events.get(1))
                 .as("a round with no refusal sends none")
                 .doesNotContainKey("refused");
+    }
+
+    @Test
+    void aWatchTakesTheProjectOnceBeforeReadingAcrossRounds() throws Exception {
+        final var takes = new java.util.concurrent.atomic.AtomicInteger();
+        final var reads = new java.util.concurrent.atomic.AtomicInteger();
+        final var replies = new Captured(true, 2);
+        GateMethods.watchPullRequests(
+                takes::incrementAndGet,
+                previous -> {
+                    assertThat(takes.get())
+                            .as("the project is taken once before any read")
+                            .isEqualTo(1);
+                    final var row =
+                            new HostPullRequestReader.Pull(
+                                    "demo",
+                                    reads.incrementAndGet(),
+                                    "Review",
+                                    "b".repeat(40),
+                                    "Writer",
+                                    "Signer",
+                                    List.of(),
+                                    "open");
+                    return new HostPullRequestReader.Round(List.of(row), List.of());
+                },
+                replies,
+                () -> {});
+        assertThat(reads.get()).isEqualTo(2);
+        assertThat(takes.get()).isEqualTo(1);
+    }
+
+    @Test
+    void aReadTakesBeforeReading() {
+        final var takes = new java.util.concurrent.atomic.AtomicInteger();
+        assertThat(
+                        GateMethods.pullRequestReply(
+                                takes::incrementAndGet,
+                                () -> {
+                                    assertThat(takes.get()).isEqualTo(1);
+                                    return new HostPullRequestReader.Round(List.of(), List.of());
+                                }))
+                .containsEntry("pullRequests", List.of());
+        assertThat(takes.get()).isEqualTo(1);
+    }
+
+    @Test
+    void aProjectNotCarriedForThisPersonIsNeverTaken() throws Exception {
+        // Taking fetches with this person's key or token: never for what the host does not carry
+        // for them, and never where a fetch's words could reach the answer.
+        final var takes = new java.util.concurrent.atomic.AtomicInteger();
+        GateMethods.takingWhereCarried(() -> false, takes::incrementAndGet).take();
+        assertThat(takes.get()).as("a name not carried for this person is left untaken").isZero();
+        GateMethods.takingWhereCarried(() -> true, takes::incrementAndGet).take();
+        assertThat(takes.get()).as("a carried, unplaced project is taken").isEqualTo(1);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void aRefusedTakeIsTheReadsNamedWireError(
+            boolean watch, @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        final var xdg =
+                org.fuin.porelo.core.config.XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME",
+                                            "XDG_DATA_HOME",
+                                            "XDG_CONFIG_HOME",
+                                            "XDG_RUNTIME_DIR" ->
+                                            dir.resolve(name).toString();
+                                    default -> null;
+                                },
+                        dir);
+        final var context =
+                new org.fuin.porelo.app.PoreloContext(
+                        new org.fuin.porelo.testing.FakeCommandRunner(),
+                        new org.fuin.porelo.app.PoreloPaths(xdg, dir.resolve("bin")),
+                        args -> 0);
+        final var record =
+                context.paths().hostDirectory().resolve("organization/projects/demo.json");
+        java.nio.file.Files.createDirectories(record.getParent());
+        java.nio.file.Files.writeString(record, "{not JSON");
+        final GateMethods.ProjectQuestion take =
+                () -> org.fuin.porelo.app.ProjectTaking.takeToAsk(context, "demo");
+        final java.util.function.Supplier<HostPullRequestReader.Round> read =
+                () -> {
+                    throw new AssertionError("a refused take must never read");
+                };
+        assertThatThrownBy(
+                        () -> {
+                            if (watch)
+                                GateMethods.watchPullRequests(
+                                        take,
+                                        previous -> read.get(),
+                                        new Captured(true, 1),
+                                        () -> {});
+                            else GateMethods.pullRequestReply(take, read);
+                        })
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        error -> {
+                            assertThat(error.getErrorName())
+                                    .isEqualTo(PoreloDaemon.INTERFACE + ".HostPullRequestsRefused");
+                            assertThat(error.getParameters()).containsEntry("reason", "cannot-say");
+                        });
     }
 
     private static final class Captured
