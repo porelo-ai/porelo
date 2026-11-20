@@ -53,6 +53,7 @@ jobs:
                   fetch-depth: 0
 
             - name: The pinned GraalVM
+              id: pinned-jdk
               uses: ./.github/actions/pinned-jdk
 
             # -s settings.xml so a developer's own ~/.m2/settings.xml cannot be what makes a build work here; -Pwhole runs the
@@ -109,6 +110,12 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
+
+            # Even after a failure, so what the job fetched is not asked of Central again; this job alone saves.
+            - if: always()
+              uses: ./.github/actions/maven-cache-save
+              with:
+                  key: ${{ steps.pinned-jdk.outputs.maven-cache-key }}
 
     # Before anything is rented: a run of this repository that already proved this commit's tree on both legs - a
     # squash merge of a branch that is up to date with main gives main that branch's tree - from a push, a dispatch

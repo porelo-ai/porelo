@@ -93,9 +93,11 @@ class BuildCachesTest {
                     .matches(".*([0-9a-f]{64}|\\$\\{\\{ (hashFiles|steps)\\(?[^}]*}}).*");
             final Object prefix = with(cache).get("restore-keys");
             if (prefix != null) {
-                assertThat(key)
-                        .as("restore-keys is the key's own prefix")
-                        .startsWith((String) prefix);
+                for (final String line : ((String) prefix).strip().split("\n")) {
+                    assertThat(key)
+                            .as("each line of restore-keys is the key's own prefix")
+                            .startsWith(line.strip());
+                }
             }
         }
     }
