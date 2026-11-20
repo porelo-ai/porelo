@@ -56,7 +56,7 @@ from the host's copy of the repository, and once no repository holds an issue fi
 
 ## To be checked
 
-- Whether the person's planner starts a task on a host through `porelo task run --host`, or through another call
-  that would need `given` too; asked of the planner's agent.
+- Whether the window, which starts the tasks the planner offers with their given files, starts one on a host through
+  `porelo task run --host` or through another call that would need `given` too; asked of the window's agent.
 - That an older host that does not read the given line fails the start loud rather than reading the JSON as the
   certificate; if it does not, the line carries a version the old reader refuses.
