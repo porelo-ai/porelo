@@ -2,7 +2,7 @@
 
 ```json
 { "$schema": "issue-1.json", "id": "B816", "title": "Makers and Copies of a Carried Project Before Its First Start",
-  "state": "Analyzed", "size": "M", "priority": "High", "rank": 139, "blockedBy": [],
+  "state": "Backlog", "size": "M", "priority": "High", "rank": 139, "blockedBy": [],
   "covers": "A carried project's open pull requests answer before its first start with their makers, read from the person's gate mirror brought up as a first start would, from the copy each repository's central address names; the window shows no cannot-be-read item for it" }
 ```
 
@@ -31,7 +31,8 @@ Left by [B796](README.md#b796), read in its code and its reading:
 
 Read in porelo at aec066e43.
 
-- **Copies: take the project first, as a question before a start does.** `ProjectTaking.takeToAsk(context, name)`
+- **Copies: take the project first, as a question before a start does** (decided: a pull-request read places the
+  carried project as a first start would, and keeps fetched review heads in Porelo's own store). `ProjectTaking.takeToAsk(context, name)`
   (`app-task`) already places a carried project once, when none stands here yet: it fetches the project repository
   from the host's forge with a token the host's helper makes for this person (`HostForgeAccess`, loopback only),
   checks its signatures and writes the placed project. `CanStart` calls it for the same reason. `PullRequests` and
@@ -61,10 +62,3 @@ Read in porelo at aec066e43.
 - On a host that carries a project no start has placed, `WatchPullRequests` answers its open pull requests with
   their makers, and the window shows no "cannot be read" item for it.
 - A head the forge answers differently from the row is refused, and nothing is written into the gate's mirror.
-
-## Open questions
-
-- A pull-request read then places the carried project on this machine (a fetch of its project repository with a
-  token for this person, as a first start or a question before a start does), and keeps fetched review heads in
-  Porelo's own store. Is that acceptable for a read the window makes on its own? The alternative reads the
-  `project.yml` at the host's recorded revision without placing it, and costs a second reading path (L).
