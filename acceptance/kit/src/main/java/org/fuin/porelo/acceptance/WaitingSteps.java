@@ -23,8 +23,14 @@ import org.fuin.porelo.machines.Ssh;
 public class WaitingSteps {
 
     /**
-     * How long a reading may take to show: a screen is read every few seconds, and a task takes a
-     * moment to draw.
+     * How long an agent may take to draw its first screen once its task exists: the start's cost,
+     * which is the machine's, bounded apart from what a scenario asks.
+     */
+    static final Duration STARTS_WITHIN = Duration.ofSeconds(60);
+
+    /**
+     * How long a reading may take to show, from the agent's first screen: a screen is read every
+     * few seconds.
      */
     static final Duration SHOWS_WITHIN = Duration.ofSeconds(60);
 
@@ -34,6 +40,19 @@ public class WaitingSteps {
     static final Duration HOLDS_FOR = Duration.ofSeconds(8);
 
     private static final Duration POLL = Duration.ofSeconds(1);
+
+    private static final ShownWithin.Clock CLOCK =
+            new ShownWithin.Clock() {
+                @Override
+                public Instant now() {
+                    return Instant.now();
+                }
+
+                @Override
+                public void pause() {
+                    WaitingSteps.pause();
+                }
+            };
 
     private final World world;
 
@@ -56,23 +75,14 @@ public class WaitingSteps {
      */
     @Then("porelo shows the {string} agent in task {string} of {string} waiting for a person")
     public void showsWaiting(String agent, String task, String project) throws IOException {
-        final Instant deadline = existsBy(project, task).plus(SHOWS_WITHIN);
-        String status = "";
-        while (Instant.now().isBefore(deadline)) {
-            status = status(project, task);
-            if (screen(status).startsWith("reads as waiting for you")) {
-                return;
-            }
-            pause();
-        }
-        throw new AssertionError(
-                "Porelo did not show the "
-                        + agent
-                        + " agent waiting within "
-                        + SHOWS_WITHIN.toSeconds()
-                        + "s. If its screen shows a question, the agent's waiting declaration no"
-                        + " longer fits it. 'porelo task status' said:\n"
-                        + status);
+        shown(
+                project,
+                task,
+                () -> new ShownWithin.Look(status(project, task), ""),
+                look -> screen(look.status()).startsWith("reads as waiting for you"),
+                Duration.ZERO,
+                "the " + agent + " agent shown waiting",
+                "If its screen shows a question, the agent's waiting declaration no longer fits it.");
     }
 
     /**
@@ -85,32 +95,26 @@ public class WaitingSteps {
      */
     @Then("porelo shows the {string} agent in task {string} of {string} not waiting for a person")
     public void showsNotWaiting(String agent, String task, String project) throws IOException {
-        final Instant deadline = existsBy(project, task).plus(SHOWS_WITHIN);
-        String status = "";
-        Instant since = null;
-        while (Instant.now().isBefore(deadline)) {
-            status = status(project, task);
-            final String screen = screen(status);
-            assertThat(screen)
-                    .as("the %s agent read as waiting when it asks nothing:%n%s", agent, status)
-                    .doesNotStartWith("reads as waiting");
-            if (screen.startsWith("reads as not waiting")) {
-                since = since == null ? Instant.now() : since;
-                if (!Instant.now().isBefore(since.plus(HOLDS_FOR))) {
-                    return;
-                }
-            } else {
-                since = null;
-            }
-            pause();
-        }
-        throw new AssertionError(
-                "Porelo did not settle on showing the "
+        shown(
+                project,
+                task,
+                () -> new ShownWithin.Look(status(project, task), ""),
+                look -> {
+                    final String screen = screen(look.status());
+                    assertThat(screen)
+                            .as(
+                                    "the %s agent read as waiting when it asks nothing:%n%s",
+                                    agent, look.status())
+                            .doesNotStartWith("reads as waiting");
+                    return screen.startsWith("reads as not waiting");
+                },
+                HOLDS_FOR,
+                "the "
                         + agent
-                        + " agent not waiting within "
-                        + SHOWS_WITHIN.toSeconds()
-                        + "s - 'cannot say' is not 'not waiting'. 'porelo task status' said:\n"
-                        + status);
+                        + " agent shown not waiting for "
+                        + HOLDS_FOR.toSeconds()
+                        + "s unbroken",
+                "'cannot say' is not 'not waiting'.");
     }
 
     /**
@@ -143,35 +147,52 @@ public class WaitingSteps {
 
     private void showsActivity(String agent, String task, String project, String activity)
             throws IOException {
-        final Instant deadline = existsBy(project, task).plus(SHOWS_WITHIN);
-        String status = "";
-        String listed = "";
-        Instant since = null;
-        while (Instant.now().isBefore(deadline)) {
-            status = status(project, task);
-            listed = listed(project, task);
-            if (activity.equals(activity(status)) && listed.contains(" " + activity + " ")) {
-                since = since == null ? Instant.now() : since;
-                if (!Instant.now().isBefore(since.plus(HOLDS_FOR))) {
-                    return;
-                }
-            } else {
-                since = null;
-            }
-            pause();
-        }
-        throw new AssertionError(
-                "Porelo did not settle on showing the "
+        shown(
+                project,
+                task,
+                () ->
+                        new ShownWithin.Look(
+                                status(project, task),
+                                "its row of 'porelo task list':\n" + listed(project, task)),
+                look ->
+                        activity.equals(activity(look.status()))
+                                && look.shown().contains(" " + activity + " "),
+                HOLDS_FOR,
+                "the "
                         + agent
-                        + " agent "
+                        + " agent shown "
                         + activity
-                        + " within "
-                        + SHOWS_WITHIN.toSeconds()
-                        + "s. If its screen shows it so, the agent's at_rest no longer fits it."
-                        + " 'porelo task status' said:\n"
-                        + status
-                        + "\nits row of 'porelo task list':\n"
-                        + listed);
+                        + " for "
+                        + HOLDS_FOR.toSeconds()
+                        + "s unbroken in its status and its row",
+                "If its screen shows it so, the agent's at_rest no longer fits it.");
+    }
+
+    private void shown(
+            String project,
+            String task,
+            ShownWithin.Status look,
+            java.util.function.Predicate<ShownWithin.Look> shown,
+            Duration holds,
+            String what,
+            String hint)
+            throws IOException {
+        existsBy(project, task);
+        final ShownWithin.Took took =
+                new ShownWithin(CLOCK, STARTS_WITHIN, SHOWS_WITHIN)
+                        .waitFor(look, shown, holds, what, hint);
+        // The suite log keeps what each part cost, which is what any change to a bound is read by.
+        System.out.println(
+                "task "
+                        + task
+                        + " of "
+                        + project
+                        + ": first screen "
+                        + took.start().toMillis()
+                        + " ms after the step found the task, then "
+                        + took.state().toMillis()
+                        + " ms to "
+                        + what);
     }
 
     /**
@@ -228,18 +249,17 @@ public class WaitingSteps {
     }
 
     /**
-     * Waits for a task typed at a terminal to exist, and says when it did.
+     * Waits for a task typed at a terminal to exist.
      *
-     * <p>The step's own bound counts from then: before it, the task's image is still being built,
+     * <p>The step's own bounds count from then: before it, the task's image is still being built,
      * which the agent has no say in - measured, a scenario asked about a task that did not exist
      * yet.
      *
      * @param project The task's project.
      * @param task The task.
-     * @return When it existed.
      * @throws IOException If the machine cannot be reached.
      */
-    private Instant existsBy(String project, String task) throws IOException {
+    private void existsBy(String project, String task) throws IOException {
         final Instant deadline = Instant.now().plusSeconds(LiveTaskSteps.START_SECONDS);
         while (true) {
             final Ssh.Output output =
@@ -247,7 +267,7 @@ public class WaitingSteps {
                             "porelo task status "
                                     + Shell.quote(ReadySteps.container(project, task)));
             if (output.status() == 0) {
-                return Instant.now();
+                return;
             }
             if (Instant.now().isAfter(deadline)) {
                 throw new AssertionError(
