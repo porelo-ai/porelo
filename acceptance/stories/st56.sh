@@ -1,32 +1,29 @@
 #!/usr/bin/env bash
 # ST56, the gathered findings worked off, played at the command line as a person would (B685).
 #
-# The gathered findings are porelo's B380, porelo-host's HO86 and porelo-frontend's F288. B380 was split
+# The gathered findings were porelo's B380, porelo-host's HO86 and porelo-frontend's F288. B380 was split
 # into B649, B650 and B651 with five points dropped; HO86 moved to porelo's B666; B203 took the check of
-# task names. What it does, against the porelo installed in this account:
-#   1. reads the three repositories' issue indexes and checks each gathering issue holds nothing open
-#      and each point that proved larger is filed as an issue of its own, and built (Review or Finished);
-#   2. B649: a signed commit judged by 'porelo commit verify' with an allowed-signers file holding a
+# task names. Where each issue stands is the tracker's to say, not this script's. What it does, against the
+# porelo installed in this account:
+#   1. B649: a signed commit judged by 'porelo commit verify' with an allowed-signers file holding a
 #      lone CR, a line ssh-keygen cannot parse, or a Unicode space before '#', beside git's own verdict;
-#   3. B650: a stopped --no-gate task removed without --force; the suggestion for a refused task name;
+#   2. B650: a stopped --no-gate task removed without --force; the suggestion for a refused task name;
 #      one code for a start wrong twice; a project name that leaves a task no room, at 'project init';
-#   4. B203: a task's commands answering by the task's name and by its container's name alike;
-#   5. removes everything it made and lists what held and what did not.
+#   3. B203: a task's commands answering by the task's name and by its container's name alike;
+#   4. removes everything it made and lists what held and what did not.
 # B651 (tests only), B666 (a host's push judge) and F288 (the desktop interface) show nothing at this
-# command line; they are checked as filed.
+# command line, and the tracker says where they stand.
 #
 # Run it as the test account on the test machine, never as a person's own account:
-#     bash -l st56.sh --test-account [--expect-fail ISSUES] [--issues DIR]
+#     bash -l st56.sh --test-account [--expect-fail ISSUES]
 # --expect-fail names the issues not yet in Review, comma-separated ('none' for none); default
-# none. --issues names a directory holding porelo.md, porelo-host.md and
-# porelo-frontend.md, the three issue indexes; without it they are read from GitHub's main branches.
+# none.
 # Exit 0 when nothing failed unexpectedly, 1 otherwise, 64 for wrong use.
 
 set -u -o pipefail
 
 EXPECTED=""
 TEST_ACCOUNT=no
-ISSUES=""
 usage() {
     awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
 }
@@ -39,14 +36,6 @@ while [ $# -gt 0 ]; do
         }
         EXPECTED="$2"
         [ "$EXPECTED" = none ] && EXPECTED=""
-        shift 2
-        ;;
-    --issues)
-        [ $# -ge 2 ] || {
-            usage >&2
-            exit 64
-        }
-        ISSUES="$2"
         shift 2
         ;;
     --test-account)
@@ -116,10 +105,6 @@ for tool in porelo podman git timeout ssh-keygen awk; do
         exit 64
     }
 done
-[ -n "$ISSUES" ] || command -v curl >/dev/null || {
-    echo "st56: refused: 'curl' is not installed" >&2
-    exit 64
-}
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/st56.XXXXXX") || exit 70
 chmod 700 "$WORK"
@@ -204,75 +189,6 @@ start() {
     timeout 900 porelo task start "$task" --project "$PROJECT" --repository "$PROJECT" --agent stub \
         --detach --clearance deny "$@" >"$out" 2>&1
 }
-
-# ---------------------------------------------------------------- the issue indexes
-
-# state <index file> <id>: the heading of the part of the index the issue's row stands in, or nothing.
-state() {
-    awk -v id="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')" '
-        /^##+ / { part = $0; sub(/^##+ /, "", part) }
-        index($0, "<a id=\"" id "\"></a>") { print part; exit }' "$1"
-}
-row() { grep -F "<a id=\"$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')\"></a>" "$1" | head -1; }
-# shellcheck disable=SC2329 # called through yes_if
-built() {
-    case "$1" in Review | Finished) return 0 ;; esac
-    return 1
-}
-
-step "Read the issue indexes of porelo, porelo-host and porelo-frontend"
-mkdir "$WORK/issues"
-for repository in porelo porelo-host porelo-frontend; do
-    if [ -n "$ISSUES" ]; then
-        cp -- "$ISSUES/$repository.md" "$WORK/issues/$repository.md" 2>/dev/null
-    else
-        case "$repository" in
-        porelo) path=issues/base/README.md ;;
-        *) path=issues/README.md ;;
-        esac
-        curl -sfL --max-time 60 -o "$WORK/issues/$repository.md" \
-            "https://raw.githubusercontent.com/porelo-ai/$repository/main/$path"
-    fi
-    if [ -s "$WORK/issues/$repository.md" ]; then
-        read_ "$repository: $(grep -c '<a id=' "$WORK/issues/$repository.md") issue rows"
-    else
-        read_ "$repository: no index could be read"
-    fi
-done
-INDEX="$WORK/issues/porelo.md"
-HOST_INDEX="$WORK/issues/porelo-host.md"
-FRONTEND_INDEX="$WORK/issues/porelo-frontend.md"
-point "$(yes_if test -s "$INDEX" -a -s "$HOST_INDEX" -a -s "$FRONTEND_INDEX")" "" "the three issue indexes are read"
-
-step "Read that the gathering issue B380 holds no open point"
-b380=$(state "$INDEX" B380)
-read_ "B380 stands under '${b380:-nowhere}'"
-row "$INDEX" B380 | cut -c1-400 | shown
-point "$(yes_if test "$b380" = Finished -o "$b380" = Rejected)" "" "B380 is closed"
-point "$(row "$INDEX" B380 | grep -q 'B649' && row "$INDEX" B380 | grep -q 'B650' &&
-    row "$INDEX" B380 | grep -q 'B651' && row "$INDEX" B380 | grep -q -i 'not worth it' && echo 0 || echo 1)" "" \
-    "B380 names where each point went: B649, B650, B651, and the points decided not worth it"
-
-step "Read that HO86 holds no open point and that its edges moved to porelo's B666"
-ho86=$(state "$HOST_INDEX" HO86)
-read_ "HO86 stands under '${ho86:-nowhere}'"
-row "$HOST_INDEX" HO86 | cut -c1-400 | shown
-point "$(yes_if test "$ho86" = Finished -o "$ho86" = Rejected)" "" "HO86 is closed"
-point "$(row "$HOST_INDEX" HO86 | grep -q 'B666' && echo 0 || echo 1)" "" "HO86 names B666 as where its points went"
-
-step "Read that F288 is filed in porelo-frontend, and where it stands"
-f288=$(state "$FRONTEND_INDEX" F288)
-read_ "F288 stands under '${f288:-nowhere}'"
-point "$(yes_if test -n "$f288")" "" "F288 is filed"
-point "$(yes_if built "$f288")" F288 "F288's points are worked off (F288 in Review or Finished)"
-
-step "Read that each point that proved larger is an issue of its own, and where it stands"
-for id in B649 B650 B651 B203 B666; do
-    where=$(state "$INDEX" "$id")
-    read_ "$id stands under '${where:-nowhere}'"
-    point "$(yes_if test -n "$where")" "" "$id is filed"
-    point "$(yes_if built "$where")" "$id" "$id is built (in Review or Finished)"
-done
 
 # ---------------------------------------------------------------- B649: signers files as git reads them
 

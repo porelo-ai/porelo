@@ -143,7 +143,8 @@ class TaskGuideTest {
                 .contains("`/workspace/backend/`")
                 .contains("Your whole work is `analysis.json`")
                 .contains("nothing in them is committed, pushed or reviewed")
-                .contains("Never edit `issues/`")
+                .contains("Never edit any file of the")
+                .doesNotContain("issues/")
                 .doesNotContain("git push");
         assertThat(
                         TaskGuideText.text(

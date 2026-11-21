@@ -583,8 +583,8 @@ anything larger or anything that is not text is not taken. Only this one file is
 
 **Your whole work is `NAME`.** This task's repositories are read only, and
 nothing in them is committed, pushed or reviewed: what you would change there is not
-kept. Write what you found into that file alone. Never edit `issues/` or any other
-file of the repositories to record it.
+kept. Write what you found into that file alone. Never edit any file of the
+repositories to record it.
 
 # The files this task was given
 

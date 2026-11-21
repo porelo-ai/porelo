@@ -162,7 +162,6 @@ would change the answer.
 | An agent is found by its description, and by Porelo's file name beside it | `agents.d/<name>.yaml` names any executable; `porelo-agent-*` is still read, so released agent packages keep working | [entry](#an-agent-is-found-by-its-description-and-by-porelos-file-name-beside-it) |
 | A bound in the acceptance kit is about four times what was measured | the ready bound and an unattended run's N at most 120 s; a bound above the cap fails by name | [entry](#a-bound-in-the-acceptance-kit-is-about-four-times-what-was-measured) |
 | **The documentation** | | |
-| The issue index stays one table per section | a conflict there is resolved by keeping both lines; split, nobody could read it whole | [entry](#the-issue-index-stays-one-table-per-section) |
 | The data protection page follows the federal ISDS concept template | in the template's chapters, each saying what Porelo provides and what the organisation regulates | [entry](#the-data-protection-page-follows-the-federal-isds-concept-template) |
 
 ## A host playbook reads Porelo as a contract
@@ -972,12 +971,6 @@ into one of the workflows that rent a machine, for speed would read in review as
 shrink the fallback to one type. **What would change the answer:** a guard on those call sites, or a measurement of
 `cx43`'s build time (same cores as `cpx42` at about a quarter of the price), which would make it a candidate for
 first place as a change about money.
-
-## The issue index stays one table per section
-
-`issues/base/README.md` is not split per area. Two agents adding a requirement each meet in one line of it, and that
-conflict is resolved by keeping both lines; splitting the index would trade that for a document nobody can read as a
-whole.
 
 ## A stop of every task keeps its tokens
 

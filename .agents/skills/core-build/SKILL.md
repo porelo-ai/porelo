@@ -46,7 +46,7 @@ description: porelo (core) build and publishing rules. Use when building, packag
 
 ## Publishing
 
-- **porelo's Build ignores a push that changes only `**/*.md`, `mkdocs.yml`, `doc/**`, `issues/**`, `.github/**` or
+- **porelo's Build ignores a push that changes only `**/*.md`, `mkdocs.yml`, `doc/**`, `.github/**` or
   `porelo.yml`** (`paths-ignore` in `build.yml`), even without `[skip ci]`. A change there that needs a Build is
   dispatched, or rides on the next code push.
 - **Eight artifacts reach Central: `porelo-agent-api`, `porelo-wire`, `porelo-acceptance-kit`, `porelo-bom`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-ffm-check` and `porelo-cpu-check`**, the `wire` and `ecosystems/api` ones under Apache-2.0 and the others under GPL-3.0-or-later; the

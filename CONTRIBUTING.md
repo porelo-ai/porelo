@@ -11,4 +11,4 @@ a commit carries. It is one page for every Porelo repository:
   tagged `slow` are left out), and `./mvnw -B -Pdocuments test` checks the documents.
 - **The acceptance suite** runs from here against a machine with rootless podman, reached over ssh: a local VM, or a
   machine the Build rents for each leg. See [acceptance/README.md](acceptance/README.md).
-- **Requirements** are in [issues/README.md](issues/README.md), grouped by state.
+- **Requirements** are in the repository's [GitHub Issues](https://github.com/porelo-ai/porelo/issues).

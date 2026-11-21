@@ -21,8 +21,8 @@
 
 - **`README.md` is an index; the substance is in `doc/`** (index `doc/index.md`) and `agents/README.md`; the root
   holds only `README.md`, `AGENTS.md`, `CLAUDE.md` and the generated `CHANGELOG.md`.
-- **Issues are in `issues/`**, by set: `B` the product (`issues/base/`) and `P` providers (`issues/providers/`); an
-  `A` number is `porelo-project`'s and an `F` number `porelo-frontend`'s.
+- **Issues are in the repository's GitHub Issues**, each named by its reference there (`porelo-ai/porelo#<number>`);
+  one carried over from the Markdown files keeps its old id (`B`, `P`) as a fixed alias.
 - **Skills used:** `graal`, `java-code-review`, `test-quality`, `security-audit`, `concurrency-review`, `clean-code`,
   `solid-principles`.
 
