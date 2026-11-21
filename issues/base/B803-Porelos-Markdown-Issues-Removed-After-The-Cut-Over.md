@@ -27,7 +27,7 @@ finding leaves it only as its result file or a proposed idea, which the person's
 - **`TaskGuideText`**: a reading task is told never to edit "any file of the repositories", without naming `issues/`;
   `TaskGuideTest` follows.
 - **`acceptance/stories/st56.sh`**: it fetches each repository's `issues/README.md` to tell which issues are not yet
-  in Review; it takes them from `--expect-fail` alone, or reads the tracker with the person's access.
+  in Review; it takes them from `--expect-fail` alone and leaves where each issue stands to the tracker.
 - **Texts**: `AGENTS.md` (where issues are), `README.md`, `CONTRIBUTING.md`, `doc/decisions.md` where it states a
   rule about issue files, and the `core-*` skills; shared texts (the shared block, `porelo-issues`) change only
   through the channel.
@@ -44,5 +44,3 @@ finding leaves it only as its result file or a proposed idea, which the person's
 
 - On which day the cut-over happens and that every open issue here was carried over first; it is built on that
   day only.
-- How `st56.sh` should learn which issues are not yet in Review once the index is gone: from `--expect-fail` alone,
-  or from the tracker.
