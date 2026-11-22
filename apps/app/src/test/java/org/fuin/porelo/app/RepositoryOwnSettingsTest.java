@@ -126,6 +126,45 @@ class RepositoryOwnSettingsTest {
     }
 
     @Test
+    void aRunFileAfterTheProjectsRunIsAskedForAndThenBuiltAfterIt() throws Exception {
+        final PoreloContext context = context();
+        final Path projectFile = shop(context, "image:\n  run_file: \"own.run\"\n");
+        Files.writeString(checkout().resolve("own.run"), "RUN echo own-line\n");
+        Files.writeString(
+                projectFile,
+                Files.readString(projectFile)
+                        .replaceFirst(
+                                "(?m)^(  from: .*)$", "$1\n  run: \"RUN echo project-line\""));
+        final org.fuin.porelo.core.project.Project project = ProjectReader.read(projectFile);
+        assertThat(project.imageSnippet())
+                .as("the default project names lines of its own")
+                .isEqualTo("RUN echo project-line");
+
+        final StartCheck.Result refused =
+                StartCheck.withSettings(context, READY, projectFile, "shop");
+
+        assertThat(refused.outcome())
+                .as("the start check asks for the file's lines, as the launch does")
+                .isEqualTo(StartCheck.Outcome.SETTINGS_NOT_ALLOWED);
+        assertThat(refused.settingsToAllow())
+                .extracting(each -> each.get("key") + " = " + each.get("value"))
+                .as("only the repository's line is asked")
+                .containsExactly("image.run[1] = RUN echo own-line");
+        assertThat(RepositoryOwnSettings.allowIfUnchanged(context, "shop", refused.settingsHash()))
+                .as("what was shown can be allowed")
+                .isTrue();
+        assertThat(StartCheck.withSettings(context, READY, projectFile, "shop").outcome())
+                .as("allowed, it is ready")
+                .isEqualTo(StartCheck.Outcome.READY);
+        assertThat(
+                        ImageChoice.preview(context, project, project.repository("shop"))
+                                .choice()
+                                .snippet())
+                .as("the launch builds the project's line and then the file's")
+                .isEqualTo("RUN echo project-line\nRUN echo own-line\n");
+    }
+
+    @Test
     void aChangedImageLineAsksAgainForThatLineAlone() throws Exception {
         final PoreloContext context = context();
         final Path projectFile =

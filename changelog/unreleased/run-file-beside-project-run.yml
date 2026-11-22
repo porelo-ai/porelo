@@ -1,0 +1,2 @@
+title: "In the default project, a repository whose porelo.yml or .porelo.yml names its image lines in image.run_file starts with them after the project's own lines, and the start check asks for them as the start does, instead of refusing run and run_file of different files as mutually exclusive"
+type: fixed

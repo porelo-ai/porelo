@@ -19,12 +19,16 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
 /**
  * A project file with the files of a repository added to it: the project's form, less what makes a
  * project the one it is, each value merged as {@link SettingsMerge} does, and the whole judged as
- * the project file is.
+ * the project file is. The image lines stay the project's own: an added file's lines are read and
+ * judged beside that file and joined after the project's where the image is chosen.
  */
 public final class RepositorySettings {
 
     /** Where the project's own values come from, in every source list. */
     public static final String PROJECT = "the project";
+
+    private static final String RUN = "run";
+    private static final String RUN_FILE = "run_file";
 
     private RepositorySettings() {
         throw new UnsupportedOperationException("Utility class");
@@ -97,6 +101,7 @@ public final class RepositorySettings {
         for (final Layer layer : layers) {
             final Node added = Binding.compose(new StringReader(layer.text()), layer.source());
             faults.addAll(theProjects(layer.source(), added));
+            faults.addAll(withoutImageLines(layer.source(), added));
             all.add(new SettingsMerge.Layer(layer.source(), added));
         }
         if (!faults.isEmpty()) {
@@ -146,6 +151,38 @@ public final class RepositorySettings {
             }
         }
         return faults;
+    }
+
+    /**
+     * Takes a file's image lines out of what is merged: each file's lines are read beside that file
+     * and follow the earlier ones in the image, so across files {@code run} and {@code run_file}
+     * never meet, though within one file they still exclude each other.
+     */
+    private static List<String> withoutImageLines(final String source, final @Nullable Node root) {
+        if (!(root instanceof MappingNode mapping)) {
+            return List.of();
+        }
+        for (final NodeTuple tuple : mapping.getValue()) {
+            if ("image".equals(text(tuple.getKeyNode()))
+                    && tuple.getValueNode() instanceof MappingNode image) {
+                final List<NodeTuple> lines =
+                        image.getValue().stream()
+                                .filter(
+                                        each ->
+                                                RUN.equals(text(each.getKeyNode()))
+                                                        || RUN_FILE.equals(text(each.getKeyNode())))
+                                .toList();
+                image.getValue().removeAll(lines);
+                if (lines.stream().map(each -> text(each.getKeyNode())).distinct().count() > 1) {
+                    return List.of(
+                            source
+                                    + ", line "
+                                    + (lines.getFirst().getKeyNode().getStartMark().getLine() + 1)
+                                    + ": 'image.run' and 'image.run_file' are mutually exclusive");
+                }
+            }
+        }
+        return List.of();
     }
 
     private static String theProjects(final String source, final Node at, final String key) {

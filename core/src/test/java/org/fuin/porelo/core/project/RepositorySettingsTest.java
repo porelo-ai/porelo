@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.fuin.porelo.core.project.ProjectReader.WithRepository;
 import org.fuin.porelo.core.project.file.RepositorySettings;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RepositorySettingsTest {
 
@@ -28,6 +30,9 @@ class RepositorySettingsTest {
             repositories:
               shop: {}
             """;
+
+    private static final String IMAGE_WITH_RUN =
+            "  from: \"ubuntu:24.04\"\n  run: \"RUN project-line\"\n";
 
     @Test
     void aRepositorysFileAddsToTheProjectAndSaysWhatItAsksFor() {
@@ -85,6 +90,44 @@ class RepositorySettingsTest {
         assertThatThrownBy(() -> read("limits:\n  hand_in: \"lots\"\n"))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("hand_in");
+    }
+
+    @Test
+    void aRunFileInTheRepositorysFileReadsBesideTheProjectsRun(@TempDir final Path dir)
+            throws Exception {
+        final Path project = Files.createDirectories(dir.resolve("project")).resolve("project.yml");
+        Files.writeString(project, PROJECT.replace("  from: \"ubuntu:24.04\"\n", IMAGE_WITH_RUN));
+        Files.writeString(
+                Files.createDirectories(dir.resolve("shop")).resolve("own.run"), "RUN own-line\n");
+
+        final WithRepository read =
+                ProjectReader.read(
+                        new StringReader(Files.readString(project)),
+                        project.toString(),
+                        SnippetFiles.beside(project),
+                        List.of(
+                                new RepositorySettings.Layer(
+                                        "porelo.yml of shop",
+                                        "image:\n  run_file: \"own.run\"\n"
+                                                + "limits:\n  memory: \"8g\"\n")));
+
+        assertThat(read.project().imageSnippet())
+                .as("the image choice joins the repository's lines after these")
+                .isEqualTo("RUN project-line");
+        assertThat(read.project().limits().memory())
+                .as("the file's other settings are merged")
+                .isEqualTo("8g");
+        assertThat(read.removed()).as("no layer's lines take the project's away").isEmpty();
+    }
+
+    @Test
+    void oneRepositoryFileHoldingBothRunAndRunFileIsStillRefused() {
+        assertThatThrownBy(
+                        () -> read("image:\n  run: \"RUN true\"\n" + "  run_file: \"own.run\"\n"))
+                .as("within one file the two keys exclude each other")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("porelo.yml of shop")
+                .hasMessageContaining("mutually exclusive");
     }
 
     private static WithRepository read(final String repository) {
