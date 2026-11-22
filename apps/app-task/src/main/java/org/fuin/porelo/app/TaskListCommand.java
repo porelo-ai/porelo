@@ -104,6 +104,13 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
         // listing, a project's too, since such a container has no project anything could read.
         final List<String> unlisted = inventory.unrecognized(tasks);
         TaskListing.print(TaskListing.of(tasks, project), unlisted, java.time.Instant.now(), out);
+        // Not a row: no container answers for it, and its name stays taken until it is removed.
+        for (final TaskInventory.Gone gone : inventory.gone()) {
+            if (project == null || project.equals(gone.project())) {
+                out.println(TaskInventory.goneNote(gone));
+            }
+        }
+        out.flush();
         return 0;
     }
 

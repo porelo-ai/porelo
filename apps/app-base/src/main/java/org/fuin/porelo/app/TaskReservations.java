@@ -66,19 +66,47 @@ public final class TaskReservations {
         public final @Nullable String ownerProject;
         public final @Nullable String ownerTask;
 
+        /** Whether the owner's container was removed outside Porelo, its record kept. */
+        public final boolean gone;
+
         ContainerNameTaken(
                 String container,
                 String project,
                 String task,
                 @Nullable String ownerProject,
                 @Nullable String ownerTask) {
+            this(container, project, task, ownerProject, ownerTask, false);
+        }
+
+        ContainerNameTaken(
+                String container,
+                String project,
+                String task,
+                @Nullable String ownerProject,
+                @Nullable String ownerTask,
+                boolean gone) {
             super(
-                    "container "
-                            + container
-                            + (ownerProject == null
-                                    ? " is occupied or unrecognized"
-                                    : " belongs to project " + ownerProject + ", task " + ownerTask)
-                            + "; choose another task name");
+                    gone && ownerProject != null
+                            ? "container "
+                                    + container
+                                    + " of project "
+                                    + ownerProject
+                                    + ", task "
+                                    + ownerTask
+                                    + ", was removed outside Porelo, and Porelo still keeps its"
+                                    + " record; 'porelo task remove "
+                                    + container
+                                    + "' clears it, then the name is free"
+                            : "container "
+                                    + container
+                                    + (ownerProject == null
+                                            ? " is occupied or unrecognized"
+                                            : " belongs to project "
+                                                    + ownerProject
+                                                    + ", task "
+                                                    + ownerTask)
+                                    + "; choose another task name");
+            this.gone = gone;
             this.container = container;
             this.project = project;
             this.task = task;
@@ -512,9 +540,95 @@ public final class TaskReservations {
                             instanceof TaskIdentities.Found found)
                     || !found.identity().project().equals(claim.project())
                     || !found.identity().task().equals(claim.task())) {
+                // Only where no folder records the id: that is the state removal clears.
+                if (row.isEmpty()
+                        && !occupied
+                        && recorded == null
+                        && !claim.id().isEmpty()
+                        && gone(claim.id())) {
+                    throw new ContainerNameTaken(
+                            name,
+                            claim.project(),
+                            claim.task(),
+                            claim.project(),
+                            claim.task(),
+                            true);
+                }
                 throw taken(claim.project(), claim.task(), name, claim);
             }
         }
+    }
+
+    /**
+     * Returns the id a name's claim holds for a container that was removed outside Porelo: no
+     * folder records an id any more, and podman knows neither that id nor a container of the name.
+     *
+     * @param container The task's actual name.
+     * @return The id, or {@code null} when the name holds no such task.
+     * @throws IOException When the claim or a record cannot be read.
+     */
+    public @Nullable String goneId(String container) throws IOException {
+        final String id =
+                locked(
+                        () -> {
+                            final Claim claim = known(container);
+                            if (claim == null
+                                    || claim.stage() == Stage.RETIRED
+                                    || claim.id().isEmpty()
+                                    || claim.live()
+                                    || recordsOrRefuses(claim)
+                                    || context.podman().taskCandidates().stream()
+                                            .anyMatch(row -> row.name().equals(container)))
+                                return "";
+                            return gone(claim.id()) ? claim.id() : "";
+                        });
+        return id.isEmpty() ? null : id;
+    }
+
+    /** One unreadable record keeps its name protected and the others listed. */
+    private @Nullable String goneOrProtected(final String container) {
+        try {
+            return goneId(container);
+        } catch (IOException unreadable) {
+            return null;
+        }
+    }
+
+    /** A record that names an id, or one that cannot be trusted, keeps the name protected. */
+    private boolean recordsOrRefuses(final Claim claim) throws IOException {
+        try {
+            return recorded(claim) != null;
+        } catch (ContainerNameTaken refused) {
+            return true;
+        }
+    }
+
+    /**
+     * Returns the tasks whose container was removed outside Porelo, as {@link #goneId} decides.
+     *
+     * @return Each one's actual name with its owner, in the order the claims are read.
+     * @throws IOException When a claim cannot be read.
+     */
+    public java.util.Map<String, Owner> goneTasks() throws IOException {
+        return locked(
+                () -> {
+                    final java.util.Map<String, Owner> found = new java.util.LinkedHashMap<>();
+                    for (String container : protectedNames()) {
+                        final Claim claim = known(container);
+                        if (claim != null && goneOrProtected(container) != null)
+                            found.put(container, new Owner(claim.project(), claim.task()));
+                    }
+                    return found;
+                });
+    }
+
+    /**
+     * Returns whether podman knows no container of this id: asked by the id and in its listing, as
+     * {@link #forgetGone} asks, so one answer alone frees nothing.
+     */
+    private boolean gone(final String id) {
+        return context.podman().stateOf(id) == org.fuin.porelo.runtime.Podman.ContainerState.ABSENT
+                && context.podman().taskCandidates().stream().noneMatch(row -> id.equals(row.id()));
     }
 
     /**

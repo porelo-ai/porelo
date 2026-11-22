@@ -1,0 +1,2 @@
+title: "A task whose container was removed outside Porelo is named by `porelo task list` and removed by `porelo task remove TASK`, and a start of its name says so; before, its name stayed taken and the task could not be found"
+type: fixed

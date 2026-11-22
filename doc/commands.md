@@ -393,6 +393,10 @@ which otherwise stops or starts the task as removing it needs. `--no-input` asks
 A start refused before it joined its project's conversations - for a secret in its tree or for a credential - leaves
 no unfinished start. One that stopped later, before its container was made, leaves an unfinished start, which `project clear` and `project remove` refuse for, naming `porelo task remove <container>`; `task remove` takes it by that name or by the task's own name, and
 a task name whose unfinished starts are in several projects is refused, exit 64, listing them.
+A task whose container was removed outside Porelo, by `podman rm` or by a forced removal of its image, keeps its name
+taken: `task list` names it under the list, a start of its name is refused naming `porelo task remove <container>`, and
+`task remove` takes it by either name and clears its record; work the record says it held refuses without `--force`.
+A container another program made since under that name is not taken for the task and is left alone.
 
 **Elsewhere, what a refusal would send you to type is asked at a terminal**, by the same rules: `prune` and `clear`
 list what would go and then ask whether to remove it, no by default, where they said to run them again with `--yes`;

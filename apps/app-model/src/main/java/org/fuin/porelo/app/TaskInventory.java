@@ -1699,6 +1699,55 @@ public final class TaskInventory {
     }
 
     /**
+     * A task whose container was removed outside Porelo while Porelo keeps its record.
+     *
+     * @param container Its actual name.
+     * @param project Its project.
+     * @param task Its name in the project.
+     */
+    public record Gone(String container, String project, String task) {}
+
+    /**
+     * Returns the tasks whose container was removed outside Porelo: their name stays taken until
+     * {@code porelo task remove} clears their record, so the list names them.
+     *
+     * @return One each, in the order their claims are read.
+     */
+    public List<Gone> gone() {
+        try {
+            return new TaskReservations(context)
+                    .goneTasks().entrySet().stream()
+                            .map(
+                                    entry ->
+                                            new Gone(
+                                                    entry.getKey(),
+                                                    entry.getValue().project(),
+                                                    entry.getValue().task()))
+                            .toList();
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(
+                    "Cannot read the task records: " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Says what a task whose container was removed outside Porelo is, under the list.
+     *
+     * @param gone The task.
+     * @return One line, without the {@code porelo: } prefix.
+     */
+    public static String goneNote(final Gone gone) {
+        return "task "
+                + gone.task()
+                + " of project "
+                + gone.project()
+                + ": its container was removed outside Porelo, and Porelo still keeps its record;"
+                + " 'porelo task remove "
+                + gone.container()
+                + "' clears it";
+    }
+
+    /**
      * Says what a container named like a task with no recorded id is, where a command was asked
      * about it.
      *

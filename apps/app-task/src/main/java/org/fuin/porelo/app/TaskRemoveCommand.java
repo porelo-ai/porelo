@@ -106,11 +106,12 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
                 && new TaskReservations(context).pendingRemoval(container.strip())) {
             found = new TaskTarget.Found(container.strip(), "", 0);
         }
-        if (found.reason() == TaskIdentities.Reason.MISSING
+        if ((found.reason() == TaskIdentities.Reason.MISSING
+                        || found.reason() == TaskIdentities.Reason.MISSING_RECORD)
                 && container != null
                 && !org.fuin.porelo.runtime.ContainerName.isTask(container.strip())) {
-            // A start refused before its container exists has no identity to find it by, only its
-            // claim, which its project's clearing names as unfinished.
+            // A start refused before its container exists, or a container removed outside Porelo,
+            // has no identity to find it by, only its claim, which says whether it is unmade.
             final java.util.List<String> unmade =
                     new TaskReservations(context).unmadeNamed(container.strip());
             if (unmade.size() == 1) {

@@ -277,6 +277,24 @@ public final class TaskControl {
                     () -> {
                         final TaskReservations.Owner pending = reservations.unmade(container);
                         if (pending == null) return removeExisting(container, rescue, force);
+                        // A container removed outside Porelo leaves its record saying what it held.
+                        final Path state = context.paths().tasks().containerState(container);
+                        final String work =
+                                force || reservations.goneId(container) == null
+                                        ? null
+                                        : heldInRecord(container);
+                        if (work != null) {
+                            return new Stopped(
+                                    Outcome.HOLDS_WORK,
+                                    work,
+                                    null,
+                                    false,
+                                    0,
+                                    List.of(),
+                                    state,
+                                    null,
+                                    0);
+                        }
                         // First, before anything is forgotten: a record that cannot be kept
                         // leaves the task as it was, for a removal that tries again.
                         keepRecord(container);
@@ -295,6 +313,20 @@ public final class TaskControl {
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException("Cannot remove an unfinished task", ex);
         }
+    }
+
+    /** What either folder's note says the task held; the runtime folder's first. */
+    private @Nullable String heldInRecord(final String container) {
+        for (final Path folder :
+                List.of(
+                        context.paths().tasks().containerState(container),
+                        context.paths().tasks().taskRecord(container))) {
+            if (Files.isDirectory(folder)) {
+                final String work = UnhandedWork.read(folder).phrase();
+                if (work != null) return work;
+            }
+        }
+        return null;
     }
 
     private Stopped removeExisting(String container, boolean rescue, boolean force) {
