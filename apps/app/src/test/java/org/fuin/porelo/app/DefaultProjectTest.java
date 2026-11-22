@@ -187,7 +187,7 @@ class DefaultProjectTest {
         // 'default' lists and printed in what the start said: a secret in a file and in scrollback.
         final PoreloContext context = context();
         final Path checkout = Files.createDirectories(dir.resolve("app"));
-        git(checkout, "init", "-q");
+        initWithACommit(checkout);
         git(
                 checkout,
                 "remote",
@@ -252,10 +252,30 @@ class DefaultProjectTest {
     }
 
     @Test
+    void aCheckoutWithNoCommitIsRefusedAndNothingIsAdded() throws Exception {
+        final PoreloContext context = context();
+        final Path checkout = Files.createDirectories(dir.resolve("fresh"));
+        git(checkout, "init", "-q");
+        git(checkout, "remote", "add", "origin", "git@github.com:you/fresh.git");
+
+        assertThatThrownBy(() -> WorkOrigin.fromCheckout(context, checkout))
+                .as("a start in a fresh repository says what to do first")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("holds no commit yet")
+                .hasMessageContaining("git commit");
+        assertThat(new DefaultProject(context).entries())
+                .as("the checkout is not added to 'default'")
+                .isEmpty();
+        assertThat(context.paths().xdg().data().resolve("mirrors"))
+                .as("no mirror is made")
+                .doesNotExist();
+    }
+
+    @Test
     void aCheckoutNoProjectNamesGoesIntoDefault() throws Exception {
         final PoreloContext context = context();
         final Path checkout = Files.createDirectories(dir.resolve("app"));
-        git(checkout, "init", "-q");
+        initWithACommit(checkout);
         git(checkout, "remote", "add", "origin", "git@github.com:you/app.git");
 
         final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, checkout);
@@ -284,7 +304,7 @@ class DefaultProjectTest {
     void aCheckoutJoinsDefaultUnderItsDirectorysNameNotItsOrigins() throws Exception {
         final PoreloContext context = context();
         final Path checkout = Files.createDirectories(dir.resolve("work"));
-        git(checkout, "init", "-q");
+        initWithACommit(checkout);
         git(checkout, "remote", "add", "origin", "git@github.com:you/elsewhere.git");
 
         final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, checkout);
@@ -315,7 +335,7 @@ class DefaultProjectTest {
         final Path first = Files.createDirectories(dir.resolve("My_Work"));
         final Path second = Files.createDirectories(dir.resolve("other/My_Work"));
         for (final Path checkout : java.util.List.of(first, second)) {
-            git(checkout, "init", "-q");
+            initWithACommit(checkout);
             git(checkout, "remote", "add", "origin", "git@github.com:you/elsewhere.git");
         }
 
@@ -336,7 +356,7 @@ class DefaultProjectTest {
         final Path first = Files.createDirectories(dir.resolve(name));
         final Path second = Files.createDirectories(dir.resolve("other").resolve(name));
         for (final Path checkout : java.util.List.of(first, second)) {
-            git(checkout, "init", "-q");
+            initWithACommit(checkout);
         }
 
         assertThat(WorkOrigin.fromCheckout(context, first).repository())
@@ -352,7 +372,7 @@ class DefaultProjectTest {
     void aCheckoutAlreadyInDefaultKeepsTheNameItHas() throws Exception {
         final PoreloContext context = context();
         final Path checkout = Files.createDirectories(dir.resolve("work"));
-        git(checkout, "init", "-q");
+        initWithACommit(checkout);
         git(checkout, "remote", "add", "origin", "git@github.com:you/elsewhere.git");
         final String path = checkout.toRealPath().toString();
         // As a start before the directory's name was taken recorded it: after its origin.
@@ -376,7 +396,7 @@ class DefaultProjectTest {
         final Path first = Files.createDirectories(dir.resolve("app"));
         final Path second = Files.createDirectories(dir.resolve("other/app"));
         for (final Path checkout : java.util.List.of(first, second)) {
-            git(checkout, "init", "-q");
+            initWithACommit(checkout);
             git(checkout, "remote", "add", "origin", "git@github.com:you/app.git");
         }
 
@@ -408,7 +428,7 @@ class DefaultProjectTest {
     void aCheckoutWithNoOriginIsItsOwnSourceAndNoCheckoutAtAllIsRefused() throws Exception {
         final PoreloContext context = context();
         final Path checkout = Files.createDirectories(dir.resolve("loose"));
-        git(checkout, "init", "-q");
+        initWithACommit(checkout);
 
         // Its work comes back to it, so it needs no remote at all.
         assertThat(WorkOrigin.fromCheckout(context, checkout).repository()).isEqualTo("loose");
@@ -476,6 +496,24 @@ class DefaultProjectTest {
                 .isFalse();
         assertThat(RepositoryAddress.same("/srv/git/app.git", "/srv/git/app")).isTrue();
         assertThat(RepositoryAddress.same(null, "git@github.com:you/app.git")).isFalse();
+    }
+
+    /** A checkout a start can take: its history holds a commit. */
+    private void initWithACommit(final Path checkout) {
+        git(checkout, "init", "-q");
+        git(
+                checkout,
+                "-c",
+                "user.name=T",
+                "-c",
+                "user.email=t@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "initial");
     }
 
     private void git(Path where, String... arguments) {

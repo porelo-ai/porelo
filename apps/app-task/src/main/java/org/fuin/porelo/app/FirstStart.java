@@ -617,6 +617,11 @@ public final class FirstStart {
     private void takeRepository(final Answer answer, final Path file) throws Refused {
         final Path top =
                 Objects.requireNonNull(file.getParent(), "a repository file has a checkout");
+        try {
+            WorkOrigin.refuseWithoutCommit(context, top);
+        } catch (ProjectException ex) {
+            throw new Refused(Reason.NOT_WRITTEN, String.valueOf(ex.getMessage()));
+        }
         boolean wrote = false;
         boolean moved = false;
         try {

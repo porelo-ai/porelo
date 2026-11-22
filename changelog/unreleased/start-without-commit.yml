@@ -1,0 +1,2 @@
+title: "A start in a checkout that holds no commit yet is refused before the checkout is added to the default project or mirrored, saying to commit first, and a start on a branch of a repository with no commit names that instead of a missing branch"
+type: fixed

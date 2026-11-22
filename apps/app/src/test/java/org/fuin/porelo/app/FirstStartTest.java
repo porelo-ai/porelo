@@ -162,6 +162,31 @@ class FirstStartTest {
                 .containsExactly("mine");
     }
 
+    /** A yes in a checkout with no commit keeps nothing: no file, no entry, no mirror. */
+    @Test
+    void aYesInACheckoutWithNoCommitIsRefusedAndLeavesNothingBehind() throws Exception {
+        plugin();
+        runner.failing("HEAD^{commit}", 1, "");
+
+        assertThat(atTerminal("y")).as("the yes is not taken").isNull();
+
+        assertThat(questions).as("the adapter's draft was proposed").hasSize(1);
+        assertThat(said.toString())
+                .as("the person is told why")
+                .contains("holds no commit yet", "git commit");
+        assertThat(checkout.resolve("porelo.yml")).as("no draft is written").doesNotExist();
+        assertThat(new DefaultProject(context).entries())
+                .as("the checkout is not added to 'default'")
+                .isEmpty();
+        assertThat(context.paths().xdg().data().resolve("mirrors"))
+                .as("no mirror is made")
+                .doesNotExist();
+        assertThatThrownBy(() -> WorkOrigin.withoutApproved(context, checkout))
+                .as("the start that follows refuses with the same words")
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
+                .hasMessageContaining("holds no commit yet");
+    }
+
     /** The written file reads as repository settings and has nothing left to allow. */
     private void assertReadyWithOwnSettings() {
         final Path file = new DefaultProject(context).file();

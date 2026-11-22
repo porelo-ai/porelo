@@ -41,7 +41,7 @@ public final class WorkOrigin {
      * @param directory Where the person stands.
      * @return The project and repository.
      * @throws ProjectException If the directory is in no checkout, the checkout has no {@code
-     *     origin}, or the repository cannot be added to {@code default}.
+     *     origin}, holds no commit, or the repository cannot be added to {@code default}.
      */
     public static Choice fromCheckout(final PoreloContext context, final Path directory) {
         return fromCheckout(context, directory, true);
@@ -109,6 +109,7 @@ public final class WorkOrigin {
         // approved work comes back into it, and its remote is the person's own to pull from and
         // push to.
         final String path = top.toString();
+        refuseWithoutCommit(context, top);
         final DefaultProject fallback = new DefaultProject(context);
         final DefaultProject.Entry kept = fallback.withUpstream(path);
         try {
@@ -127,6 +128,31 @@ public final class WorkOrigin {
                             + removed);
         } catch (DefaultProject.Refused ex) {
             throw new ProjectException(String.valueOf(ex.getMessage()));
+        }
+    }
+
+    /**
+     * Refuses a checkout that holds no commit yet: a task starts from committed history, so with
+     * none nothing is added to {@code default} or mirrored.
+     *
+     * @param context This machine.
+     * @param top The checkout's top directory.
+     * @throws ProjectException If it holds no commit, saying to commit first.
+     */
+    public static void refuseWithoutCommit(final PoreloContext context, final Path top) {
+        if (!context.runner()
+                .run(
+                        Command.of(
+                                "git",
+                                "-C",
+                                top.toString(),
+                                "rev-parse",
+                                "--verify",
+                                "--quiet",
+                                "HEAD^{commit}"))
+                .successful()) {
+            throw new ProjectException(
+                    top + " holds no commit yet: commit your work (git commit) and start again");
         }
     }
 

@@ -172,6 +172,38 @@ class TaskBaseTest {
     }
 
     @Test
+    void aMirrorWithNoCommitIsNamedAsARepositoryWithNoCommit() throws Exception {
+        final Path empty = Files.createDirectories(dir.resolve("empty"));
+        git(empty, "init", "-q", "-b", "main");
+        final Path mirror = dir.resolve("empty-mirror.git");
+        git(dir, "clone", "-q", "--mirror", empty.toString(), mirror.toString());
+        final PoreloContext context = context();
+        final Project project = project("");
+
+        assertThatThrownBy(
+                        () ->
+                                TaskBase.select(
+                                        context, project, mirror, new TaskBase("main", "CHECKOUT")))
+                .as("a repository without a commit has no branch to start from")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("no commit")
+                .hasMessageContaining("git commit");
+        assertThatThrownBy(
+                        () ->
+                                TaskBase.select(
+                                        context, project, checkoutMirror(), TaskBase.named("gone")))
+                .as("a branch that is really missing keeps its words")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("starting branch 'gone' is not in the mirror");
+    }
+
+    private Path checkoutMirror() throws Exception {
+        final Path mirror = dir.resolve("mirror.git");
+        git(dir, "clone", "-q", "--mirror", checkout().toString(), mirror.toString());
+        return mirror;
+    }
+
+    @Test
     void anUnrelatedCheckoutDoesNotChooseAnotherRepositoriesBranch() throws Exception {
         final Path checkout = checkout();
         git(checkout, "checkout", "-q", "develop");

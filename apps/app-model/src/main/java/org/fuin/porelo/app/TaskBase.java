@@ -143,6 +143,15 @@ public record TaskBase(String branch, String source, @Nullable Path checkout) {
                                             "for-each-ref",
                                             "--format=%(refname)",
                                             "refs/heads/"));
+            if (heads.successful()
+                    && heads.standardOutput().isBlank()
+                    && !"DEFAULT".equals(chosen.source())) {
+                throw new ProjectException(
+                        "the repository holds no commit yet, so there is no branch '"
+                                + chosen.branch()
+                                + "' to start from: commit your work (git commit), publish it to"
+                                + " the repository's source and start again");
+            }
             if (!heads.successful()
                     || !heads.standardOutput().isBlank()
                     || !"DEFAULT".equals(chosen.source())) {
