@@ -62,6 +62,31 @@ class RepositoryOwnSettingsTest {
     }
 
     @Test
+    void aRefusalWithoutATerminalNamesTheStartCommandToRunAtOne() throws Exception {
+        final PoreloContext context = context();
+        final Path projectFile = shop(context, "egress:\n  domains:\n    - \"example.org\"\n");
+
+        final StartCheck.Result refused =
+                StartCheck.withSettings(context, READY, projectFile, "shop");
+
+        assertThat(refused.detail())
+                .as("the setting is named, and the command that asks for it")
+                .contains("+ egress.domains[example.org] = example.org")
+                .contains("Run 'porelo task start' at a terminal to be asked")
+                .contains("or allow them in the window");
+        assertThat(
+                        RepositorySettingsText.imageNotAllowed(
+                                "porelo.yml of shop",
+                                "uc",
+                                java.util.List.of(
+                                        new org.fuin.porelo.core.project.file.RepositorySettings
+                                                .Asked("image.run[1]", "RUN true", "", false))))
+                .as("image lines are refused in the same words")
+                .contains("+ image.run[1] = RUN true")
+                .contains("Run 'porelo task start' at a terminal to be asked");
+    }
+
+    @Test
     void aChangedFileAsksAgainForWhatChangedAlone() throws Exception {
         final PoreloContext context = context();
         final Path projectFile =

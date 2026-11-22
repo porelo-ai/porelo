@@ -25,7 +25,7 @@ public final class RepositorySettingsText {
                 + (asked.size() == 1 ? " setting" : " settings")
                 + " this machine has not allowed: "
                 + String.join("; ", asked.stream().map(RepositorySettingsText::line).toList())
-                + ". Start it in a terminal to be asked, or allow them in the window";
+                + ". Run 'porelo task start' at a terminal to be asked, or allow them in the window";
     }
 
     /**
@@ -44,7 +44,7 @@ public final class RepositorySettingsText {
                 + project
                 + " what this machine has not allowed: "
                 + String.join("; ", asked.stream().map(RepositorySettingsText::line).toList())
-                + ". Start it in a terminal to be asked, or allow them in the window";
+                + ". Run 'porelo task start' at a terminal to be asked, or allow them in the window";
     }
 
     /**
