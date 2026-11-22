@@ -35,6 +35,8 @@ class BuildCachesTest {
 
     private static final String MUSL_CACHE = "musl-cache";
 
+    private static final String MUSL_PINS = "musl-pins";
+
     @Test
     void theMuslToolchainIsRestoredAndFetchedOnlyOnAMiss() throws IOException {
         final List<Map<?, ?>> steps = steps((Map<?, ?>) jobs(workflow()).get("native"));
@@ -67,9 +69,22 @@ class BuildCachesTest {
                 .as("saved from the folder it is restored to")
                 .isEqualTo(with(restored).get("path"));
 
+        final int pins = indexOf(steps, "id", MUSL_PINS);
+        assertThat(pins)
+                .as("the pins are read before the restore")
+                .isNotNegative()
+                .isLessThan(restore);
+        assertThat(String.valueOf(steps.get(pins).get("run")))
+                .as("read from the installer that installs on a miss, never copied here")
+                .contains("-Dmachines.args=\"musl --pins\"");
         assertThat(String.valueOf(with(restored).get("key")))
-                .as("keyed by the toolchain's and zlib's pinned digests")
-                .matches("musl-\\$\\{\\{ runner\\.os }}-[0-9a-f]{64}-[0-9a-f]{64}");
+                .as("keyed by the toolchain's and zlib's digests as the installer pins them")
+                .isEqualTo(
+                        "musl-${{ runner.os }}-${{ steps."
+                                + MUSL_PINS
+                                + ".outputs.musl }}-${{ steps."
+                                + MUSL_PINS
+                                + ".outputs.zlib }}");
         assertThat(with(restored).get("path"))
                 .as("where the pom looks for it")
                 .isEqualTo(pomMuslHome().replace("${user.home}", "~"));
