@@ -1,0 +1,2 @@
+title: "A start on a repository whose upstream is a local path this account cannot read, the place itself or what git reads in it (a bare repository's objects, a working tree's .git and .git/objects), is refused before anything is made, naming it as unreadable with how to give access; a missing local upstream is named as missing, a path's control and format characters are shown as '?', and a mirror is made beside its place and moved in whole, so a failed clone or lending leaves nothing behind and never removes a mirror another start made meanwhile"
+type: fixed

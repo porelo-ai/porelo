@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,6 +41,10 @@ public final class UpstreamProbe {
      * How long ssh may take to connect, so an unreachable host costs a start seconds, not minutes.
      */
     static final int CONNECT_SECONDS = 10;
+
+    /** What a path may not carry into words: a control, format or line character. */
+    private static final java.util.regex.Pattern HIDDEN =
+            java.util.regex.Pattern.compile("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]");
 
     private UpstreamProbe() {
         throw new UnsupportedOperationException("Utility class");
@@ -106,7 +111,7 @@ public final class UpstreamProbe {
      * @param upstream The address the gate will use: {@code --upstream} when given, else the
      *     repository's own.
      * @return What is in the way, or {@code null} when it was read or there is nothing to ask - no
-     *     upstream, as in an {@code offline} project, or a local path.
+     *     upstream, as in an {@code offline} project. A local path is read on this machine's disk.
      */
     public static @Nullable Finding forStart(
             final PoreloContext context,
@@ -115,8 +120,14 @@ public final class UpstreamProbe {
             final @Nullable String upstream) {
         final String address =
                 upstream != null && !upstream.isBlank() ? upstream : repository.upstream();
-        if (address == null || address.isBlank() || !remote(address)) {
+        if (address == null || address.isBlank()) {
             return null;
+        }
+        if (!remote(address)) {
+            final Answer local = local(address);
+            return local == null
+                    ? null
+                    : new Finding(local, !mirrored(context, project, repository));
         }
         // An offline project names no upstream, and takes no --upstream: it never gets here.
         final boolean mirrored = mirrored(context, project, repository);
@@ -138,6 +149,87 @@ public final class UpstreamProbe {
             READ.remove(key);
         }
         return answer == null ? null : new Finding(answer, !mirrored);
+    }
+
+    /**
+     * Reads a local upstream as this account can: there, and readable, or why not.
+     *
+     * @param address A path, or a {@code file://} address.
+     * @return Why it cannot be read, or {@code null} when it can or its place cannot be told here.
+     */
+    static @Nullable Answer local(final String address) {
+        final String said = address.strip();
+        final Path path;
+        try {
+            path = said.startsWith("file://") ? Path.of(java.net.URI.create(said)) : Path.of(said);
+        } catch (final IllegalArgumentException | java.nio.file.FileSystemNotFoundException ex) {
+            return null;
+        }
+        if (!path.isAbsolute()) {
+            return null;
+        }
+        if (Files.exists(path)) {
+            return readsAsGitDoes(path) ? null : unreadable(path);
+        }
+        for (Path parent = path.getParent(); parent != null; parent = parent.getParent()) {
+            if (Files.exists(parent)) {
+                // What lies in a directory this account cannot enter is unreadable, not missing.
+                return Files.isExecutable(parent)
+                        ? new Answer(
+                                Cause.NOT_FOUND,
+                                shown(path)
+                                        + " does not exist on this machine: add the repository"
+                                        + " again from where it is now",
+                                "")
+                        : unreadable(path);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Tells whether this account can read what git's clone reads of a local upstream: the place
+     * itself, and for a bare repository its {@code objects}, for a working tree its {@code .git}
+     * and {@code .git/objects}, each directory readable and searchable.
+     *
+     * @param path The upstream, there.
+     * @return {@code false} when git would fail on its permissions.
+     */
+    private static boolean readsAsGitDoes(final Path path) {
+        if (!Files.isDirectory(path)) {
+            return Files.isReadable(path);
+        }
+        if (!enterable(path)) {
+            return false;
+        }
+        final Path dotGit = path.resolve(".git");
+        if (Files.exists(dotGit, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            if (!Files.isDirectory(dotGit)) {
+                // A worktree's or a submodule's link file: what it names is git's to read.
+                return Files.isReadable(dotGit);
+            }
+            return enterable(dotGit) && enterable(dotGit.resolve("objects"));
+        }
+        final Path objects = path.resolve("objects");
+        return !Files.exists(objects) || enterable(objects);
+    }
+
+    private static boolean enterable(final Path directory) {
+        return Files.isReadable(directory) && Files.isExecutable(directory);
+    }
+
+    /** A path as words may show it: a project.yml names it, and the words reach a terminal. */
+    private static String shown(final Path path) {
+        return HIDDEN.matcher(path.toString()).replaceAll("?");
+    }
+
+    private static Answer unreadable(final Path path) {
+        return new Answer(
+                Cause.UNREADABLE,
+                shown(path)
+                        + " cannot be read by this account: give it read access, or add a copy it"
+                        + " can read",
+                "");
     }
 
     /**

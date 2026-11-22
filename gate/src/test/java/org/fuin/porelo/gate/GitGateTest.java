@@ -48,6 +48,112 @@ class GitGateTest {
     }
 
     @Test
+    void aCloneThatFailsLeavesNoMirrorDirectoryBehind() {
+        final Path seeded = root.resolve("seeded.git");
+        final GitGate gate =
+                new GitGate(
+                        withGitConfig(Path.of("/dev/null")),
+                        seeded,
+                        GateMode.GATEKEEPING,
+                        null,
+                        root.resolve("no-such-upstream.git").toString());
+
+        assertThatThrownBy(gate::initialize)
+                .as("there is nothing to clone")
+                .isInstanceOf(GateException.class);
+        assertThat(seeded).as("the mirror made for the clone is taken away").doesNotExist();
+    }
+
+    /** What lies in a directory, by name: empty when it is not there. */
+    private static List<String> entries(final Path directory) throws IOException {
+        if (!Files.isDirectory(directory)) {
+            return List.of();
+        }
+        try (var listed = Files.list(directory)) {
+            return listed.map(path -> path.getFileName().toString()).sorted().toList();
+        }
+    }
+
+    @Test
+    void aSeedWhoseCloneFailsLeavesNeitherMirrorNorItsSiblingBehind() throws IOException {
+        final Path gates = root.resolve("gates");
+        final GitGate gate =
+                new GitGate(
+                        withGitConfig(Path.of("/dev/null")),
+                        gates.resolve("seeded.git"),
+                        GateMode.GATEKEEPING,
+                        null,
+                        root.resolve("no-such-upstream.git").toString());
+
+        assertThatThrownBy(gate::initialize)
+                .as("there is nothing to clone")
+                .isInstanceOf(GateException.class);
+        assertThat(entries(gates)).as("what the failed clone left beside the mirror").isEmpty();
+    }
+
+    @Test
+    void aSeedWhoseLendingFailsLeavesNeitherMirrorNorItsSiblingBehind() throws IOException {
+        final Path gates = root.resolve("gates");
+        final GitGate gate =
+                new GitGate(
+                                withGitConfig(Path.of("/dev/null")),
+                                gates.resolve("seeded.git"),
+                                GateMode.GATEKEEPING,
+                                null,
+                                upstreamWithMain().toString())
+                        .using(
+                                url -> {
+                                    throw new GateException("nothing to lend for " + url);
+                                });
+
+        assertThatThrownBy(gate::initialize)
+                .as("the lending refused")
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("nothing to lend");
+        assertThat(entries(gates)).as("what the refused seed left beside the mirror").isEmpty();
+    }
+
+    @Test
+    void aMirrorThatAppearsWhileTheCloneRunsIsKept() throws IOException {
+        // Two starts of one repository at once: the one that finished first serves its tasks.
+        final Path gates = Files.createDirectories(root.resolve("gates"));
+        final Path seeded = gates.resolve("seeded.git");
+        final CommandRunner git = withGitConfig(Path.of("/dev/null"));
+        final java.util.concurrent.atomic.AtomicBoolean raced =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        final CommandRunner racing =
+                command -> {
+                    if (command.arguments().contains("clone") && raced.compareAndSet(false, true)) {
+                        git.runOrFail(
+                                Command.of(
+                                        "git",
+                                        "init",
+                                        "--bare",
+                                        "--initial-branch=main",
+                                        seeded.toString()));
+                        try {
+                            Files.writeString(seeded.resolve("the-other-start"), "");
+                        } catch (IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    }
+                    return git.run(command);
+                };
+        final GitGate gate =
+                new GitGate(
+                        racing, seeded, GateMode.GATEKEEPING, null, upstreamWithMain().toString());
+
+        gate.initialize();
+
+        assertThat(seeded.resolve("the-other-start"))
+                .as("the mirror the other start made is the one there")
+                .exists();
+        assertThat(entries(gates))
+                .as("only the mirror, no sibling of this start's")
+                .containsExactly("seeded.git");
+    }
+
+    @Test
     void aMirrorSeededFromALocalCloneSharesNoFileWithIt() throws Exception {
         final Path clone = Files.createDirectories(root.resolve("persons-clone"));
         git(clone, "init", "-q", "--initial-branch=main");

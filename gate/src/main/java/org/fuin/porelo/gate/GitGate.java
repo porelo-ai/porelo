@@ -233,11 +233,41 @@ public class GitGate {
         if (Files.isDirectory(mirror.resolve("objects"))) {
             return;
         }
+        // Made beside it, then moved in whole: a failure never removes another start's mirror.
+        final Path sibling =
+                mirror.toAbsolutePath()
+                        .resolveSibling(
+                                "."
+                                        + mirror.getFileName()
+                                        + ".new-"
+                                        + java.util.UUID.randomUUID().toString().substring(0, 8));
         try {
-            Directories.create(mirror);
-        } catch (java.io.IOException ex) {
-            throw new GateException("Cannot create " + mirror, ex);
+            try {
+                Directories.create(sibling);
+            } catch (java.io.IOException ex) {
+                throw new GateException("Cannot create " + sibling, ex);
+            }
+            new GitGate(runner, sibling, mode, upstreamUrl, seedUrl)
+                    .using(lending)
+                    .taskBranches(taskBranches)
+                    .make();
+            try {
+                Files.move(sibling, mirror, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.io.IOException ex) {
+                if (!Files.isDirectory(mirror.resolve("objects"))) {
+                    throw new GateException("Cannot put the mirror in place at " + mirror, ex);
+                }
+                // Another start's mirror came first and serves the same repository.
+            }
+        } finally {
+            if (Files.exists(sibling)) {
+                new GitGate(runner, sibling, mode, upstreamUrl, seedUrl).deleteMirror();
+            }
         }
+    }
+
+    /** Makes a mirror where this gate points, which nothing serves from yet. */
+    private void make() {
         if (seedUrl == null) {
             git("init", "--bare", "--initial-branch=main", mirror.toString());
         } else {

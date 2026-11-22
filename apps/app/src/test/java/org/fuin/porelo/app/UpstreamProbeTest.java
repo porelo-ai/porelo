@@ -391,14 +391,189 @@ class UpstreamProbeTest {
     }
 
     @Test
-    void asksNothingOfALocalPath(@TempDir final Path dir) throws Exception {
+    void aLocalPathThisAccountReadsIsNoQuestionAndAsksNoTool(@TempDir final Path dir)
+            throws Exception {
 
         final PoreloContext context = context(dir);
         final Project project = project(dir, "guarded");
+        final Path readable = Files.createDirectories(dir.resolve("readable.git"));
 
-        assertThat(UpstreamProbe.forStart(context, project, project.repository("local"), null))
+        assertThat(
+                        UpstreamProbe.forStart(
+                                context, project, project.repository("local"), readable.toString()))
+                .as("a directory this account can read is no question")
                 .isNull();
-        assertThat(runner.invocations()).isEmpty();
+        assertThat(
+                        UpstreamProbe.forStart(
+                                context,
+                                project,
+                                project.repository("local"),
+                                readable.toUri().toString()))
+                .as("nor is it as a file:// address")
+                .isNull();
+        assertThat(runner.invocations()).as("a local path is read without git").isEmpty();
+    }
+
+    @Test
+    void anUnreadableLocalUpstreamIsNamedAsSuchWithoutAGitCommandLine(@TempDir final Path dir)
+            throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                "root".equals(System.getProperty("user.name")), "root reads every directory");
+        final PoreloContext context = context(dir);
+        final Project project = project(dir, "guarded");
+        final Path locked = Files.createDirectories(dir.resolve("locked.git"));
+        Files.setPosixFilePermissions(locked, java.util.Set.of());
+        try {
+            for (final String address : java.util.List.of(locked.toString(), "file://" + locked)) {
+                final UpstreamProbe.Finding finding =
+                        UpstreamProbe.forStart(
+                                context, project, project.repository("local"), address);
+
+                assertThat(finding).as(address + " is in the way").isNotNull();
+                assertThat(finding.answer().cause())
+                        .as(address + " is unreadable, not missing")
+                        .isEqualTo(UpstreamProbe.Cause.UNREADABLE);
+                assertThat(finding.answer().detail())
+                        .as(address + " is named with how to give access")
+                        .contains(locked.toString())
+                        .contains("cannot be read by this account")
+                        .contains("give it read access")
+                        .doesNotContain("does not exist")
+                        .doesNotContain("clone");
+                assertThat(finding.refuses()).as("there is no mirror to start from").isTrue();
+            }
+            final Path inside = locked.resolve("inner.git");
+            assertThat(
+                            UpstreamProbe.forStart(
+                                            context,
+                                            project,
+                                            project.repository("local"),
+                                            inside.toString())
+                                    .answer()
+                                    .cause())
+                    .as("a place behind a directory this account cannot enter is unreadable")
+                    .isEqualTo(UpstreamProbe.Cause.UNREADABLE);
+            assertThat(runner.invocations()).as("no git was asked").isEmpty();
+        } finally {
+            Files.setPosixFilePermissions(
+                    locked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    @Test
+    void aMissingLocalUpstreamIsNamedAsMissing(@TempDir final Path dir) throws Exception {
+
+        final PoreloContext context = context(dir);
+        final Project project = project(dir, "guarded");
+        final Path gone = dir.resolve("gone").resolve("local.git");
+        Files.createDirectories(gone.getParent());
+
+        final UpstreamProbe.Finding finding =
+                UpstreamProbe.forStart(
+                        context, project, project.repository("local"), gone.toString());
+
+        assertThat(finding).as("%s is not there", gone).isNotNull();
+        assertThat(finding.answer().cause())
+                .as("it is named as missing")
+                .isEqualTo(UpstreamProbe.Cause.NOT_FOUND);
+        assertThat(finding.answer().detail())
+                .as("with its path and without git's words")
+                .contains(gone.toString())
+                .contains("does not exist")
+                .doesNotContain("clone");
+        assertThat(runner.invocations()).as("no git was asked").isEmpty();
+    }
+
+    /** Gives a directory a mode while a check runs, and its owner's rwx back after. */
+    private static void withMode(
+            final Path directory, final String mode, final ThrowingRunnable check)
+            throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                "root".equals(System.getProperty("user.name")), "root reads every directory");
+        Files.setPosixFilePermissions(
+                directory, java.nio.file.attribute.PosixFilePermissions.fromString(mode));
+        try {
+            check.run();
+        } finally {
+            Files.setPosixFilePermissions(
+                    directory,
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
+    }
+
+    private static void assertUnreadable(final Path upstream, final String why) {
+        final UpstreamProbe.Answer answer = UpstreamProbe.local(upstream.toString());
+        assertThat(answer).as(why).isNotNull();
+        assertThat(answer.cause()).as(why).isEqualTo(UpstreamProbe.Cause.UNREADABLE);
+        assertThat(answer.detail())
+                .as("%s: named with how to give access", why)
+                .contains(upstream.toString())
+                .contains("cannot be read by this account");
+    }
+
+    @Test
+    void aBareRepositoryWhoseObjectsCannotBeReadIsUnreadable(@TempDir final Path dir)
+            throws Exception {
+        final Path bare = Files.createDirectories(dir.resolve("x.git"));
+        final Path objects = Files.createDirectories(bare.resolve("objects"));
+
+        assertThat(UpstreamProbe.local(bare.toString()))
+                .as("a bare repository this account reads whole is no question")
+                .isNull();
+        withMode(
+                objects,
+                "---------",
+                () -> assertUnreadable(bare, "objects/ of mode 000, which git's clone reads"));
+        withMode(
+                objects,
+                "r--------",
+                () -> assertUnreadable(bare, "objects/ readable but not searchable"));
+    }
+
+    @Test
+    void aWorkingTreeWhoseGitDirectoryCannotBeReadIsUnreadable(@TempDir final Path dir)
+            throws Exception {
+        final Path tree = Files.createDirectories(dir.resolve("tree"));
+        final Path dotGit = Files.createDirectories(tree.resolve(".git"));
+        final Path objects = Files.createDirectories(dotGit.resolve("objects"));
+
+        assertThat(UpstreamProbe.local(tree.toString()))
+                .as("a working tree this account reads whole is no question")
+                .isNull();
+        withMode(dotGit, "---------", () -> assertUnreadable(tree, ".git of mode 000"));
+        withMode(objects, "---------", () -> assertUnreadable(tree, ".git/objects of mode 000"));
+        withMode(
+                objects,
+                "r--------",
+                () -> assertUnreadable(tree, ".git/objects readable but not searchable"));
+    }
+
+    @Test
+    void aTopDirectoryReadableButNotSearchableIsUnreadable(@TempDir final Path dir)
+            throws Exception {
+        final Path bare = Files.createDirectories(dir.resolve("x.git"));
+        Files.createDirectories(bare.resolve("objects"));
+
+        withMode(bare, "r--------", () -> assertUnreadable(bare, "a top directory of mode r--"));
+    }
+
+    @Test
+    void aPathInTheWordsCarriesNoControlOrFormatCharacter(@TempDir final Path dir) {
+        // A project.yml names the path, and the words reach a terminal.
+        final Path gone = dir.resolve("a\u001b[31mb\u202ec\u0007.git");
+
+        final UpstreamProbe.Answer answer = UpstreamProbe.local(gone.toString());
+
+        assertThat(answer).as("the path is not there").isNotNull();
+        assertThat(answer.detail())
+                .as("no escape, bell or direction mark reaches the terminal")
+                .doesNotContain("\u001b", "\u202e", "\u0007")
+                .contains("a?[31mb?c?.git");
     }
 
     @Test

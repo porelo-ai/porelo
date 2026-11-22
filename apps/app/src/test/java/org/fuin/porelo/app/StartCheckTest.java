@@ -1120,4 +1120,52 @@ class StartCheckTest {
                 .isEqualTo(READY);
         assertThat(runner.invocations()).as("and the network is not asked").hasSize(asked);
     }
+
+    @Test
+    void aLocalUpstreamThisAccountCannotReadIsRefusedAsUnreadableBeforeAnythingIsMade(
+            @TempDir Path dir) throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                "root".equals(System.getProperty("user.name")), "root reads every directory");
+        final PoreloContext context = context(dir);
+        final Path locked = Files.createDirectories(dir.resolve("locked.git"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.createDirectories(project.getParent());
+        Files.writeString(
+                project,
+                """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                image:
+                  from: "ubuntu:24.04"
+                repositories:
+                  locked:
+                    upstream: "%s"
+                  gone:
+                    upstream: "%s"
+                """
+                        .formatted(locked, dir.resolve("gone.git")));
+        Files.setPosixFilePermissions(locked, java.util.Set.of());
+        try {
+            final StartCheck.Result refused =
+                    StartCheck.withUpstream(context, READY, project, "locked");
+
+            assertThat(refused.outcome())
+                    .as("an upstream that is there but cannot be read")
+                    .isEqualTo(StartCheck.Outcome.UPSTREAM_UNREADABLE);
+            assertThat(refused.detail())
+                    .as("named as unreadable, with how to give access")
+                    .contains("cannot be read by this account")
+                    .doesNotContain("does not exist");
+            assertThat(StartCheck.withUpstream(context, READY, project, "gone").outcome())
+                    .as("a local upstream that is not there is named as missing")
+                    .isEqualTo(StartCheck.Outcome.UPSTREAM_NOT_FOUND);
+            assertThat(context.paths().xdg().data().resolve("mirrors"))
+                    .as("no mirror is made")
+                    .doesNotExist();
+        } finally {
+            Files.setPosixFilePermissions(
+                    locked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
 }
