@@ -64,7 +64,7 @@ class ProjectDefaultRemoveTest {
 
         final int code = remove("shop");
 
-        assertThat(code).as("refused").isNotZero();
+        assertThat(code).as("refused as 'project remove' refuses a project in use").isEqualTo(70);
         assertThat(err.toString())
                 .as("the refusal names the repository and the task working on it")
                 .contains("'shop'")
@@ -77,16 +77,22 @@ class ProjectDefaultRemoveTest {
     void onceNoTaskWorksOnItTheRepositoryIsRemovedAsBefore() {
         runner.answering("ps", "");
 
-        assertThat(remove("shop")).isZero();
-        assertThat(out.toString()).contains("removed  shop from 'default'");
-        assertThat(names()).isEmpty();
+        assertThat(remove("shop")).as("removed").isZero();
+        assertThat(out.toString()).as("said").contains("removed  shop from 'default'");
+        assertThat(names()).as("gone from 'default'").isEmpty();
     }
 
     @Test
-    void aNameDefaultDoesNotHaveIsRefusedAsBefore() {
+    void aNameDefaultDoesNotHaveIsWrongUseNamingWhatItHolds() {
         runner.answering("ps", "");
 
-        assertThat(remove("notes")).isEqualTo(70);
-        assertThat(err.toString()).contains("'default' has no repository called 'notes'");
+        // Harm: 70 says Porelo failed, and sends a person or a script to failures.log for a typo.
+        assertThat(remove("notes")).as("wrong use, not a failure of Porelo").isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names the name, what 'default' holds and how to list it")
+                .contains("'default' has no repository called 'notes'")
+                .contains("it holds shop")
+                .contains("porelo project default list");
+        assertThat(names()).as("nothing is removed").containsExactly("shop");
     }
 }

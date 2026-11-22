@@ -1109,7 +1109,8 @@ porelo project secret-known PROJECT PATH:LINE [--repository NAME] [--from BRANCH
   `projectRepository`, and `LeaveDefault(name)` takes one out on the person's word, refused as
   `DefaultRepositoryInUse` while a task of `default` works on it and `NoSuchDefaultRepository` for a name `default` does
   not have. `porelo project default remove NAME` refuses the same way, naming the tasks of `default` on it, changes
-  nothing and exits 70 while they work on it.
+  nothing and exits 70 while they work on it; for a name `default` does not have it exits 64, wrong use, and names
+  what `default` holds.
 - Each repository of `default` carries `proposal` in `DefaultRepositories()`: `UNASKED`, `ASKED`, or `CONFIGURED` when
   it has a `porelo.yml` or `.porelo.yml` where its image reads them (its checkout, or for a repository added by its
   address `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml`) or a project of the organization names

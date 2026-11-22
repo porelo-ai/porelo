@@ -158,14 +158,19 @@ public class ProjectDefaultCommand implements Callable<Integer>, PoreloFactory.C
                         yield 70;
                     }
                     case DefaultNamed.Removal.NotThere missing -> {
+                        // Wrong use, 64: a name that is not there is no failure of Porelo's.
+                        final java.util.List<String> held =
+                                project.entries().stream().map(DefaultProject.Entry::name).toList();
                         err.println(
                                 "porelo: '"
                                         + DefaultProject.NAME
                                         + "' has no repository called '"
                                         + missing.repository()
-                                        + "'");
+                                        + "'; it holds "
+                                        + (held.isEmpty() ? "none" : String.join(", ", held))
+                                        + " - see 'porelo project default list'");
                         err.flush();
-                        yield 70;
+                        yield 64;
                     }
                 };
             }
