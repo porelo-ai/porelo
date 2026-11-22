@@ -41,6 +41,10 @@ public final class World implements AutoCloseable {
 
     private final java.util.List<Task> everyStarted = new java.util.ArrayList<>();
 
+    private final Map<String, Integer> typedStarts = new LinkedHashMap<>();
+
+    private int startsTyped;
+
     private @Nullable String vault;
 
     private @Nullable String toolFailure;
@@ -459,6 +463,31 @@ public final class World implements AutoCloseable {
                     "No task is running: start one with 'When a task is started in ...'");
         }
         return task;
+    }
+
+    /**
+     * Numbers a start typed at this scenario's terminal, for the line that marks its end.
+     *
+     * @param container The container it starts.
+     * @return Its number, distinct from every other start of this scenario.
+     */
+    int typedStart(String container) {
+        // Counted over every container: a marker left by an earlier start must never stand for a
+        // later one.
+        startsTyped++;
+        typedStarts.put(container, startsTyped);
+        return startsTyped;
+    }
+
+    /**
+     * Returns the number of the last start typed for a container.
+     *
+     * @param container The container.
+     * @return Its number, or empty if no start for it was typed at this scenario's terminal.
+     */
+    java.util.OptionalInt typedStartOf(String container) {
+        final @Nullable Integer number = typedStarts.get(container);
+        return number == null ? java.util.OptionalInt.empty() : java.util.OptionalInt.of(number);
     }
 
     /**

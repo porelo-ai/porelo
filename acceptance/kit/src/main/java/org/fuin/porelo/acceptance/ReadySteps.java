@@ -116,6 +116,32 @@ public class ReadySteps {
                                                         + agent
                                                         + " agent declares no ready marker, so whether it reached work without being asked cannot be told."
                                                         + " It declares one as 'session: ready_marker:' in its manifest."));
+        reachesWork(agent, container, ready, () -> capture(container));
+    }
+
+    /** Reads a task's screen, or nothing while it has no session. */
+    @FunctionalInterface
+    interface Pane {
+
+        /**
+         * Reads the screen once.
+         *
+         * @return The screen, or empty while there is no session to read yet.
+         * @throws IOException If the machine cannot be reached.
+         */
+        Optional<String> read() throws IOException;
+    }
+
+    /**
+     * Waits for an agent's ready marker to stay on its task's screen.
+     *
+     * @param agent The agent.
+     * @param container The task's container.
+     * @param ready What the agent declares.
+     * @param panes Reads the task's screen.
+     * @throws IOException If the machine or the terminal cannot be reached.
+     */
+    void reachesWork(String agent, String container, Ready ready, Pane panes) throws IOException {
         final Steady steady = new Steady(ready.text(), STEADY);
         // The agent's bound counts from its session existing, not from the step: before that the
         // task is still being built and started, which the agent has no say in - measured, a first
@@ -125,7 +151,7 @@ public class ReadySteps {
                 java.time.Instant.now().plusSeconds(LiveTaskSteps.START_SECONDS);
         boolean session = false;
         while (true) {
-            final java.util.Optional<String> pane = capture(container);
+            final java.util.Optional<String> pane = panes.read();
             if (pane.isPresent() && !session) {
                 session = true;
                 deadline = java.time.Instant.now().plus(ready.bound());
@@ -133,6 +159,13 @@ public class ReadySteps {
             screen = pane.orElse("");
             if (steady.seen(screen, java.time.Instant.now())) {
                 return;
+            }
+            if (!session) {
+                final java.util.OptionalInt failed = failedExit(container);
+                // A session made just before the start's end is read once more before failing.
+                if (failed.isPresent() && panes.read().isEmpty()) {
+                    throw startEnded(container, failed.getAsInt());
+                }
             }
             if (java.time.Instant.now().isAfter(deadline)) {
                 throw new AssertionError(
@@ -157,6 +190,58 @@ public class ReadySteps {
         }
     }
 
+    /** How many of the terminal's last lines a failure shows. */
+    static final int TAIL = 40;
+
+    /**
+     * Reads how the start typed for a container ended, when it ended with an error.
+     *
+     * <p>Exit 0 is waited past: a detached start ends at once, before its session may exist.
+     *
+     * @param container The task's container.
+     * @return Its non-zero exit, or empty while it runs, after exit 0, or with no start typed.
+     * @throws IOException If the terminal cannot be read.
+     */
+    private java.util.OptionalInt failedExit(String container) throws IOException {
+        final java.util.OptionalInt number = world.typedStartOf(container);
+        if (number.isEmpty() || !world.hasTerminal()) {
+            return java.util.OptionalInt.empty();
+        }
+        final java.util.OptionalInt exit =
+                TerminalSteps.endedWith(world.terminal().drain(), number.getAsInt());
+        return exit.isPresent() && exit.getAsInt() != 0 ? exit : java.util.OptionalInt.empty();
+    }
+
+    /**
+     * Says that the start typed for a container ended with an error and left no session: what it
+     * printed is in the terminal now, and waiting out the bound adds nothing.
+     *
+     * @param container The task's container.
+     * @param exit Its exit.
+     * @return The failure.
+     * @throws IOException If the terminal cannot be read.
+     */
+    private AssertionError startEnded(String container, int exit) throws IOException {
+        return new AssertionError(
+                "The start typed for "
+                        + container
+                        + " ended with exit "
+                        + exit
+                        + " and no session. The terminal's last lines:\n"
+                        + lastLines(world.terminal().shownSoFar()));
+    }
+
+    /**
+     * Keeps the last lines of what a terminal showed.
+     *
+     * @param shown What it showed.
+     * @return Its last {@link #TAIL} lines.
+     */
+    static String lastLines(String shown) {
+        final java.util.List<String> lines = shown.lines().toList();
+        return String.join("\n", lines.subList(Math.max(0, lines.size() - TAIL), lines.size()));
+    }
+
     /**
      * Says that no session appeared in a task's container, and what the scenario's terminal showed.
      *
@@ -178,7 +263,7 @@ public class ReadySteps {
                         + "s";
         return terminal == null
                 ? waited + "; no terminal was open to show what the start said."
-                : waited + ". The terminal showed:\n" + terminal.shownSoFar();
+                : waited + ". The terminal's last lines:\n" + lastLines(terminal.shownSoFar());
     }
 
     /**

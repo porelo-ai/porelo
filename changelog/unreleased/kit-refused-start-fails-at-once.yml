@@ -1,0 +1,2 @@
+title: "Acceptance kit's wait for an agent's session fails within seconds when the start typed at the scenario's terminal ended with an error, naming its exit and the terminal's last 40 lines, instead of waiting out 900 seconds"
+type: fixed

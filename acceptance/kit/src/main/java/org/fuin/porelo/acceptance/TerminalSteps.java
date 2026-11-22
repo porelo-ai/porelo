@@ -104,6 +104,55 @@ public class TerminalSteps {
                 : Optional.empty();
     }
 
+    /** What starts the line a typed start's end prints, followed by its number. */
+    private static final String ENDED = "porelo-kit-start-";
+
+    /** A '#' that starts a shell comment: at the line's start or after a blank. */
+    private static final Pattern COMMENT = Pattern.compile("(^|\\s)#");
+
+    /**
+     * Has a typed line print, once it ends, a line with its exit status, so a wait for the task it
+     * starts can tell a start that ended from one still running.
+     *
+     * <p>Appended to the same line, never typed as a second one: a start that asks a question would
+     * read a second line as its answer. The command's text never holds the printed line itself, so
+     * an echoing terminal shows no marker before the start has ended.
+     *
+     * @param line The line as the scenario types it.
+     * @param number The start's number in the scenario.
+     * @return The line with its end marked, or the line itself where an appended command would not
+     *     run after it or would change it.
+     */
+    static String markingItsEnd(String line, int number) {
+        final String command = line.strip();
+        // After '&&', '||', '&', '|' or a continuation the appended command would not follow the
+        // start's end, and after a '#' it would be part of the comment.
+        if (command.endsWith("&")
+                || command.endsWith("|")
+                || command.endsWith("\\")
+                || COMMENT.matcher(command).find()) {
+            return line;
+        }
+        final String complete =
+                command.endsWith(";") ? command.substring(0, command.length() - 1) : command;
+        return complete + "; printf '\\n" + ENDED + "%s-ended %d\\n' " + number + " \"$?\"";
+    }
+
+    /**
+     * Reads the exit status a typed start's end printed.
+     *
+     * @param seen What the terminal has shown.
+     * @param number The start's number in the scenario.
+     * @return Its exit status, or empty while it has not ended.
+     */
+    static java.util.OptionalInt endedWith(String seen, int number) {
+        final Matcher ended =
+                Pattern.compile("(?m)^" + ENDED + number + "-ended (\\d+)\\r?$").matcher(seen);
+        return ended.find()
+                ? java.util.OptionalInt.of(Integer.parseInt(ended.group(1)))
+                : java.util.OptionalInt.empty();
+    }
+
     /**
      * Names the account a failed scenario ran under, in its report.
      *
@@ -268,8 +317,15 @@ public class TerminalSteps {
     @When("I run {string}")
     public void iRun(String command) throws IOException {
         final String expanded = World.expand(command);
-        startedContainer(expanded).ifPresent(typedStarts::add);
-        world.terminal().type(expanded);
+        final Optional<String> started = startedContainer(expanded);
+        started.ifPresent(typedStarts::add);
+        world.terminal()
+                .type(
+                        started.map(
+                                        container ->
+                                                markingItsEnd(
+                                                        expanded, world.typedStart(container)))
+                                .orElse(expanded));
         // Not "wait for the prompt": a command that asks a question never reaches one, and waiting
         // for it would hang on exactly the scenarios this module exists for.
         world.terminal().drain();

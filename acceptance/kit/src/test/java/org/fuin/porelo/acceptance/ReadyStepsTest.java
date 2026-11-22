@@ -178,4 +178,154 @@ class ReadyStepsTest {
                 .startsWith("No session to read appeared in porelo-live_attended within 900s")
                 .contains("no terminal was open");
     }
+
+    private static final ReadySteps.Ready AT_WORK =
+            new ReadySteps.Ready("stub: at work", Duration.ofSeconds(30));
+
+    private static final String START =
+            "porelo task start attended --project ready --repository ready --agent stub --clearance deny";
+
+    /** A scenario's world whose terminal shows what a typed start printed, and its end. */
+    private static World startTypedAndEnded(String shown) throws java.io.IOException {
+        final World world = new World();
+        world.terminal(
+                new Terminal(
+                                new java.io.ByteArrayInputStream(
+                                        shown.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                                new java.io.ByteArrayOutputStream(),
+                                () -> {})
+                        .showing(world::redact));
+        new TerminalSteps(world).iRun(START);
+        return world;
+    }
+
+    @Test
+    void aStartThatEndedWithoutASessionFailsAtOnceNamingItsExitAndWhatItSaid()
+            throws java.io.IOException {
+        // A start refused after a failed image build left no pane, and the wait ran its 900 s out.
+        final World world =
+                startTypedAndEnded(
+                        "Error: the image could not be built: mirror.example unreachable\r\n"
+                                + "\r\nporelo-kit-start-1-ended 1\r\nready$ ");
+        final long began = System.nanoTime();
+
+        final AssertionError failure =
+                org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(10),
+                        () ->
+                                org.junit.jupiter.api.Assertions.assertThrows(
+                                        AssertionError.class,
+                                        () ->
+                                                new ReadySteps(world)
+                                                        .reachesWork(
+                                                                "an-agent",
+                                                                "porelo-ready_attended",
+                                                                AT_WORK,
+                                                                java.util.Optional::empty)));
+
+        assertThat(failure.getMessage())
+                .as("the failure names the container and the start's exit")
+                .contains("porelo-ready_attended")
+                .contains("exit 1");
+        assertThat(failure.getMessage())
+                .as("the failure carries what the start printed")
+                .contains("mirror.example unreachable");
+        assertThat(Duration.ofNanos(System.nanoTime() - began))
+                .as("the failure came within seconds of the start ending")
+                .isLessThan(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void aSessionMadeJustBeforeTheStartEndedBadlyIsNotMissed() throws Exception {
+        // The first read found no session; the start then made one and ended with exit 1.
+        final World world = startTypedAndEnded("\r\nporelo-kit-start-1-ended 1\r\nready$ ");
+        final java.util.concurrent.atomic.AtomicInteger reads =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final ReadySteps.Pane pane =
+                () ->
+                        reads.getAndIncrement() == 0
+                                ? java.util.Optional.empty()
+                                : java.util.Optional.of("stub: at work");
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                Duration.ofSeconds(20),
+                () ->
+                        new ReadySteps(world)
+                                .reachesWork("an-agent", "porelo-ready_attended", AT_WORK, pane));
+
+        assertThat(reads.get())
+                .as("the pane was read again after the start's end was seen")
+                .isGreaterThan(1);
+    }
+
+    @Test
+    void aStartThatHasNotEndedIsStillWaitedFor() throws Exception {
+        final World world = startTypedAndEnded("Building the image\r\n");
+
+        assertThat(stillWaitingAfterTwoSeconds(world))
+                .as("a start still running is waited for")
+                .isTrue();
+    }
+
+    @Test
+    void aStartThatEndedWellIsStillWaitedForItsSession() throws Exception {
+        // A detached start ends at once with exit 0, and its session may come a moment later.
+        final World world = startTypedAndEnded("\r\nporelo-kit-start-1-ended 0\r\nready$ ");
+
+        assertThat(stillWaitingAfterTwoSeconds(world))
+                .as("a start that ended with exit 0 is waited for")
+                .isTrue();
+    }
+
+    private static boolean stillWaitingAfterTwoSeconds(World world) throws Exception {
+        final java.util.concurrent.ExecutorService runner =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            final java.util.concurrent.Future<?> waiting =
+                    runner.submit(
+                            () -> {
+                                new ReadySteps(world)
+                                        .reachesWork(
+                                                "an-agent",
+                                                "porelo-ready_attended",
+                                                AT_WORK,
+                                                java.util.Optional::empty);
+                                return null;
+                            });
+            try {
+                waiting.get(2, java.util.concurrent.TimeUnit.SECONDS);
+                return false;
+            } catch (java.util.concurrent.TimeoutException stillWaiting) {
+                return true;
+            } catch (java.util.concurrent.ExecutionException ended) {
+                return false;
+            } finally {
+                waiting.cancel(true);
+            }
+        } finally {
+            runner.shutdownNow();
+        }
+    }
+
+    @Test
+    void aSessionThatNeverAppearsShowsOnlyTheTerminalsLastLines() throws java.io.IOException {
+        final StringBuilder shown = new StringBuilder();
+        for (int line = 1; line <= 100; line++) {
+            shown.append("line-").append(line).append("-end\r\n");
+        }
+        final Terminal terminal =
+                new Terminal(
+                        new java.io.ByteArrayInputStream(
+                                shown.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        new java.io.ByteArrayOutputStream(),
+                        () -> {});
+
+        final String failure = ReadySteps.noSession("porelo-live_attended", terminal);
+
+        assertThat(failure).as("the last line is shown").contains("line-100-end");
+        assertThat(failure).as("the fortieth line from the end is shown").contains("line-61-end");
+        assertThat(failure)
+                .as("a line before the last forty is left out")
+                .doesNotContain("line-60-end");
+    }
 }

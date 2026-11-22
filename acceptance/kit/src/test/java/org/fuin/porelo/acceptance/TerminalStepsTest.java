@@ -147,4 +147,79 @@ class TerminalStepsTest {
     void aCommandThatStartsNoTaskOfANamedProjectNamesNone(String command) {
         assertThat(TerminalSteps.startedContainer(command)).as(command).isEmpty();
     }
+
+    @Test
+    void aMarkedStartPrintsItsExitOnceItEndsAndTheMarkCanBeReadBack() throws Exception {
+        final String line = TerminalSteps.markingItsEnd("sh -c 'echo refused; exit 3'", 2);
+        final Process shell =
+                new ProcessBuilder("sh", "-c", line).redirectErrorStream(true).start();
+        final String printed =
+                new String(
+                        shell.getInputStream().readAllBytes(),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        shell.waitFor();
+
+        assertThat(TerminalSteps.endedWith(printed, 2))
+                .as("the end of start 2 in:%n%s", printed)
+                .hasValue(3);
+        assertThat(TerminalSteps.endedWith(printed, 1))
+                .as("another start's end is not read from it")
+                .isEmpty();
+    }
+
+    @Test
+    void theMarkedLineItselfDoesNotReadAsAnEnd() {
+        // An echoing terminal shows the typed line before the start has ended.
+        final String line = TerminalSteps.markingItsEnd("porelo task start a --project b", 1);
+
+        assertThat(TerminalSteps.endedWith("ready$ " + line + "\r\n", 1))
+                .as("the echoed line %s", line)
+                .isEmpty();
+        assertThat(TerminalSteps.endedWith(line, 1))
+                .as("the line %s at a line start", line)
+                .isEmpty();
+    }
+
+    @Test
+    void aLineAnAppendedCommandWouldNotFollowIsLeftAsItIs() {
+        assertThat(TerminalSteps.markingItsEnd("porelo task start a --project b &", 1))
+                .as("a start sent to the background")
+                .isEqualTo("porelo task start a --project b &");
+        assertThat(TerminalSteps.markingItsEnd("porelo task start a --project b;", 1))
+                .as("a line ending in ';' takes the mark after it")
+                .startsWith("porelo task start a --project b; printf ")
+                .doesNotContain(";;");
+    }
+
+    @Test
+    void aLineEndingInAListOperatorOrHoldingACommentIsLeftAsItIs() {
+        for (final String line :
+                java.util.List.of(
+                        "porelo task start a --project b &&",
+                        "porelo task start a --project b ||",
+                        "porelo task start a --project b # the second try",
+                        "porelo task start a --project b #")) {
+            assertThat(TerminalSteps.markingItsEnd(line, 1))
+                    .as("a mark after %s would not follow the start's end", line)
+                    .isEqualTo(line);
+        }
+    }
+
+    @Test
+    void aTypedStartIsSentWithItsEndMarked() throws java.io.IOException {
+        final java.io.ByteArrayOutputStream typed = new java.io.ByteArrayOutputStream();
+        final World world = new World();
+        world.terminal(
+                new Terminal(new java.io.ByteArrayInputStream(new byte[0]), typed, () -> {}));
+
+        new TerminalSteps(world).iRun("porelo task start a --project b --agent stub");
+        new TerminalSteps(world).iRun("ls");
+
+        assertThat(typed.toString(java.nio.charset.StandardCharsets.UTF_8))
+                .as("what was typed")
+                .contains("porelo task start a --project b --agent stub; printf ")
+                .contains("ls\n")
+                .doesNotContain("ls; printf");
+        assertThat(world.typedStartOf("porelo-b_a")).as("the start's number").hasValue(1);
+    }
 }

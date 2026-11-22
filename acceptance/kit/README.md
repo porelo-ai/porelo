@@ -55,6 +55,11 @@ package put on the machine - and the difference between the two halves is the po
   100 columns by 40 rows, `xterm-256color`, echo off.
 - **`When a script runs "..."`** - nobody is. No pty, so `isTerminal()` is false at the far end.
 
+A `porelo task start NAME --project PROJECT` typed with `I run` gets a command appended that prints
+`porelo-kit-start-<n>-ended <exit>` on a line of its own once the line ends, so the wait for the
+agent's session fails as soon as a start ends with an error, naming its exit and the terminal's
+last 40 lines, instead of waiting out its bound.
+
 Half of what a suite exists for is "does not ask when nobody is there", and a suite that always
 allocates a pty tests one side of every one of them.
 
