@@ -141,4 +141,41 @@ class ReadyStepsTest {
         assertThat(WaitingSteps.namedCommand("talk", "recall", "pi", 120))
                 .startsWith("timeout -k 10 120 porelo task start 'talk' ");
     }
+
+    @Test
+    void aSessionThatNeverAppearsFailsWithWhatTheTerminalShowedThroughItsRedaction()
+            throws java.io.IOException {
+        // A start refused at once left a 900-second wait that ended with nothing to read.
+        final Terminal terminal =
+                new Terminal(
+                                new java.io.ByteArrayInputStream(
+                                        ("$ porelo task start --project 'live' --agent stub\r\n"
+                                                        + "The task was not started: the vault holds"
+                                                        + " no key s3cr3t-value for the provider\r\n$ ")
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                                new java.io.ByteArrayOutputStream(),
+                                () -> {})
+                        .showing(text -> text.replace("s3cr3t-value", "<value of KEY>"));
+
+        final String failure = ReadySteps.noSession("porelo-live_attended", terminal);
+
+        assertThat(failure)
+                .as("the failure names the container and the wait")
+                .startsWith("No session to read appeared in porelo-live_attended within 900s");
+        assertThat(failure)
+                .as("the failure carries the refusal task start printed")
+                .contains("The task was not started: the vault holds no key");
+        assertThat(failure)
+                .as("the failure passes through the terminal's redaction")
+                .contains("<value of KEY>")
+                .doesNotContain("s3cr3t-value");
+    }
+
+    @Test
+    void aSessionThatNeverAppearsWithNoTerminalOpenSaysSo() throws java.io.IOException {
+        assertThat(ReadySteps.noSession("porelo-live_attended", null))
+                .as("the failure says there was no terminal to show")
+                .startsWith("No session to read appeared in porelo-live_attended within 900s")
+                .contains("no terminal was open");
+    }
 }

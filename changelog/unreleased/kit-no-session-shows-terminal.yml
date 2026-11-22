@@ -1,0 +1,2 @@
+title: "Acceptance kit's wait for a task's session, when none appears, ends with what the scenario's terminal showed, redacted, so a start refused at once says why"
+type: fixed

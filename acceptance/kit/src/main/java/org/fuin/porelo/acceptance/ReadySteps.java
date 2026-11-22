@@ -137,11 +137,8 @@ public class ReadySteps {
             if (java.time.Instant.now().isAfter(deadline)) {
                 throw new AssertionError(
                         !session
-                                ? "No session to read appeared in "
-                                        + container
-                                        + " within "
-                                        + LiveTaskSteps.START_SECONDS
-                                        + "s"
+                                ? noSession(
+                                        container, world.hasTerminal() ? world.terminal() : null)
                                 : "The "
                                         + agent
                                         + " agent did not show \""
@@ -158,6 +155,30 @@ public class ReadySteps {
             }
             pause();
         }
+    }
+
+    /**
+     * Says that no session appeared in a task's container, and what the scenario's terminal showed.
+     *
+     * <p>A {@code task start} refused at once prints why and exits; without that text the failure
+     * says only that a wait ran out. It passes through the terminal's own redaction, as every
+     * failure that shows the terminal does.
+     *
+     * @param container The task's container.
+     * @param terminal The scenario's terminal, or {@code null} if none is open.
+     * @return The failure.
+     * @throws IOException If the terminal cannot be read.
+     */
+    static String noSession(String container, @Nullable Terminal terminal) throws IOException {
+        final String waited =
+                "No session to read appeared in "
+                        + container
+                        + " within "
+                        + LiveTaskSteps.START_SECONDS
+                        + "s";
+        return terminal == null
+                ? waited + "; no terminal was open to show what the start said."
+                : waited + ". The terminal showed:\n" + terminal.shownSoFar();
     }
 
     /**

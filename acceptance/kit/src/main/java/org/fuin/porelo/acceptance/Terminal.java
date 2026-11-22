@@ -300,6 +300,17 @@ public final class Terminal implements AutoCloseable {
     }
 
     /**
+     * Reads whatever has arrived and returns everything seen so far, through the filter a failure
+     * prints through.
+     *
+     * @return What a failure may show of this terminal.
+     * @throws IOException If the terminal cannot be read.
+     */
+    String shownSoFar() throws IOException {
+        return shown.apply(drain());
+    }
+
+    /**
      * Reads whatever has arrived without waiting for anything in particular.
      *
      * @return Everything seen so far.
