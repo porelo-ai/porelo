@@ -9,6 +9,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.fuin.porelo.machines.AgentLeg;
 import org.fuin.porelo.machines.Credential;
 import org.fuin.porelo.machines.HostKey;
+import org.fuin.porelo.machines.Kind;
 import org.fuin.porelo.machines.Lease;
 import org.fuin.porelo.machines.Machines;
 import org.fuin.porelo.machines.RemoteSession;
@@ -161,9 +162,9 @@ public final class Leg {
     /**
      * Runs a leg.
      *
-     * @param hetzner Where the machine comes from - rented, or already here.
+     * @param machines Where the machine comes from - rented, or already here.
      * @param os Which operating system's snapshot to boot.
-     * @param types Server types to try, in order.
+     * @param providerOverride Server types to try, in order; empty lets the build kind choose.
      * @param credential The key to connect with.
      * @param archive A tar of the working tree.
      * @param keep Whether to leave the machine running, to look at a failure.
@@ -174,9 +175,9 @@ public final class Leg {
      * @throws IOException If any step fails, saying which.
      */
     public static void run(
-            Machines hetzner,
+            Machines machines,
             String os,
-            List<String> types,
+            List<String> providerOverride,
             Credential credential,
             Path archive,
             boolean keep,
@@ -191,13 +192,15 @@ public final class Leg {
         // worst reason: the same key had built the image.
         final Spec spec =
                 new Spec(
-                        "porelo-leg-" + os + "-" + hetzner.runId(),
+                        "porelo-leg-" + os + "-" + machines.runId(),
                         os,
-                        types,
+                        Kind.AMD64_BUILD,
                         "root",
                         credential,
-                        keep);
-        try (Lease lease = hetzner.acquire(spec);
+                        keep,
+                        1,
+                        providerOverride);
+        try (Lease lease = machines.acquire(spec);
                 Stopping stopping = Stopping.on(lease)) {
             lease.awaitSsh();
 

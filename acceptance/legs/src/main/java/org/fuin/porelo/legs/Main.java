@@ -3,13 +3,15 @@ package org.fuin.porelo.legs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.fuin.porelo.machines.Credential;
-import org.fuin.porelo.machines.Hetzner;
 import org.fuin.porelo.machines.HostKey;
-import org.fuin.porelo.machines.Spec;
+import org.fuin.porelo.machines.Machines;
 import org.fuin.porelo.machines.Ssh;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The command line for what only this repository does with a machine: {@code leg}, which builds
@@ -41,7 +43,7 @@ public final class Main {
                             args,
                             COMPLAIN,
                             () ->
-                                    Hetzner.with(
+                                    Machines.setup(
                                             token(System.getenv(API_TOKEN)),
                                             runId(
                                                     System.getenv("GITHUB_RUN_ID"),
@@ -53,7 +55,7 @@ public final class Main {
         }
     }
 
-    static int run(String[] args, Consumer<String> complain, Supplier<Hetzner> open)
+    static int run(String[] args, Consumer<String> complain, Supplier<Machines> open)
             throws IOException {
         if (args.length > 0 && "leg".equals(args[0])) {
             return leg(args, complain, open);
@@ -175,7 +177,7 @@ public final class Main {
      * @return An exit code.
      * @throws IOException If the leg fails.
      */
-    private static int leg(String[] args, Consumer<String> complain, Supplier<Hetzner> open)
+    private static int leg(String[] args, Consumer<String> complain, Supplier<Machines> open)
             throws IOException {
         String os = null;
         String key = null;
@@ -214,11 +216,11 @@ public final class Main {
             complain.accept("leg needs --os and --repo");
             return 2;
         }
-        try (Hetzner hetzner = open.get()) {
+        try (Machines machines = open.get()) {
             Leg.run(
-                    hetzner,
+                    machines,
                     os,
-                    types == null ? Spec.DEFAULT_TYPES : Spec.order(types),
+                    providerOverride(types),
                     Credential.of(System.getenv(SSH_KEY), key == null ? null : Path.of(key)),
                     archiveOf(Path.of(repo)),
                     keep,
@@ -227,6 +229,23 @@ public final class Main {
                     accounts);
         }
         return 0;
+    }
+
+    /**
+     * Returns the server types {@code --type} names, in its order: comma-separated, blanks dropped;
+     * none when it is absent, so the build kind chooses.
+     *
+     * @param types The option's value, or {@code null}.
+     * @return The types, possibly none.
+     */
+    static List<String> providerOverride(final @Nullable String types) {
+        if (types == null) {
+            return List.of();
+        }
+        return Arrays.stream(types.split(","))
+                .map(String::strip)
+                .filter(each -> !each.isEmpty())
+                .toList();
     }
 
     /**
