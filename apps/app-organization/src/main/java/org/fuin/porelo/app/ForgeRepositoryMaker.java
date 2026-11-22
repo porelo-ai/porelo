@@ -75,7 +75,9 @@ final class ForgeRepositoryMaker {
             default ->
                     new Refused(
                             Refused.CANNOT_SAY,
-                            status != 0
+                            // A success status on an answer that cannot be read is a yes in
+                            // words Porelo cannot read, not a refusal.
+                            status != 0 && !succeeded(status)
                                     ? "the forge did not make the repository: it answered " + status
                                     : answered
                                             ? "the forge answered in words Porelo cannot read, and"
@@ -85,6 +87,10 @@ final class ForgeRepositoryMaker {
                                                     + " repository: ask again with the same --id",
                             null);
         };
+    }
+
+    private static boolean succeeded(final int status) {
+        return status >= 200 && status < 300;
     }
 
     private static ReposCreateInOrgRequest github(final String name) {
