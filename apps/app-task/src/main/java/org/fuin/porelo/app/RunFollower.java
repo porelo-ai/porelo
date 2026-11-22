@@ -56,6 +56,11 @@ public final class RunFollower implements AutoCloseable {
     private final Duration poll;
     private final BlockingQueue<String> waiting = new ArrayBlockingQueue<>(MOST_WAITING);
     private final AtomicLong dropped = new AtomicLong();
+    // Lines queued and not yet sent or dropped: the one the sender holds counts until it is sent.
+    private final AtomicLong unsent = new AtomicLong();
+    // Where a test holds the sender in a window it meets other threads in; nothing else sets them.
+    volatile Runnable taken = () -> {};
+    volatile Runnable idle = () -> {};
     private final ByteArrayOutputStream partial = new ByteArrayOutputStream();
     private volatile boolean ending;
     private volatile boolean stopping;
@@ -115,19 +120,26 @@ public final class RunFollower implements AutoCloseable {
                 return;
             }
             if (line == null) {
-                if (stopping || ending && !reader.isAlive()) {
+                idle.run();
+                // The reader's last lines are queued before it ends, so an empty queue looked at
+                // after it ended is final; looked at before, it may not be.
+                if (stopping || ending && !reader.isAlive() && waiting.isEmpty()) {
                     return;
                 }
-            } else if (stopping) {
-                dropped.incrementAndGet();
-                return;
-            } else {
-                try {
-                    send.accept(line);
-                } catch (RuntimeException ex) {
-                    // A caller gone: nothing more is sent, the run goes on.
-                    stopping = true;
+                continue;
+            }
+            taken.run();
+            try {
+                if (stopping) {
+                    dropped.incrementAndGet();
+                    return;
                 }
+                send.accept(line);
+            } catch (RuntimeException ex) {
+                // A caller gone: nothing more is sent, the run goes on.
+                stopping = true;
+            } finally {
+                unsent.decrementAndGet();
             }
         }
     }
@@ -236,7 +248,12 @@ public final class RunFollower implements AutoCloseable {
                 continue;
             }
             for (final String line : shown) {
-                if (line != null && (stopping || !waiting.offer(line))) {
+                if (line == null) {
+                    continue;
+                }
+                unsent.incrementAndGet();
+                if (stopping || !waiting.offer(line)) {
+                    unsent.decrementAndGet();
                     dropped.incrementAndGet();
                 }
             }
@@ -283,7 +300,8 @@ public final class RunFollower implements AutoCloseable {
         try {
             reader.join();
             final long until = System.nanoTime() + LAST_WAIT.toNanos();
-            while (!waiting.isEmpty() && sender.isAlive() && System.nanoTime() < until) {
+            // Not only the queue: a line the sender has taken is waited for until it is sent.
+            while (unsent.get() > 0 && sender.isAlive() && System.nanoTime() < until) {
                 TimeUnit.MILLISECONDS.sleep(10);
             }
             stopping = true;

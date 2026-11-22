@@ -1,0 +1,2 @@
+title: "The last lines a run writes are sent to whoever follows it, also when the run ends while they are being sent; before, one could be dropped"
+type: fixed

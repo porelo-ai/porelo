@@ -193,6 +193,54 @@ class RunFollowerTest {
     }
 
     @Test
+    void aLineTheSenderHoldsWhenTheRunEndsIsSent(@TempDir final Path dir) throws Exception {
+        // The run's last lines say why it ended: one the sender has taken from the queue, the
+        // queue empty, must not be counted as dropped by the end.
+        final Path log = dir.resolve("task.log");
+        final List<String> sent = new CopyOnWriteArrayList<>();
+        final RunFollower follower =
+                RunFollower.start(log, ArrayList::new, sent::add, Duration.ofMillis(10));
+        follower.taken = () -> pause(100);
+        append(log, "last\n");
+        follower.close();
+
+        assertThat(sent).as("the line taken as the run ended").containsExactly("last");
+        assertThat(follower.dropped()).as("nothing counted as dropped").isZero();
+    }
+
+    @Test
+    void aLineQueuedWhileTheSenderFindsNothingIsSent(@TempDir final Path dir) throws Exception {
+        // The reader queues the last lines and ends while the sender has just found the queue
+        // empty: it must look again before it ends.
+        final Path log = dir.resolve("task.log");
+        final List<String> sent = new CopyOnWriteArrayList<>();
+        final java.util.concurrent.atomic.AtomicBoolean ending =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        // The reader looks every 50 ms; the line comes after its first look, so it reads it only
+        // at the end, while the sender, finding nothing, waits longer than that.
+        final RunFollower follower =
+                RunFollower.start(log, ArrayList::new, sent::add, Duration.ofMillis(50));
+        follower.idle =
+                () -> {
+                    if (ending.get()) pause(300);
+                };
+        pause(20);
+        append(log, "last\n");
+        ending.set(true);
+        follower.close();
+
+        assertThat(sent).as("the line queued as the run ended").containsExactly("last");
+    }
+
+    private static void pause(final long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    @Test
     void aLongLineIsCutAtACodePoint(@TempDir final Path dir) throws Exception {
         final Path log = dir.resolve("task.log");
         final List<String> sent = new CopyOnWriteArrayList<>();
