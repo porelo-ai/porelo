@@ -1163,8 +1163,15 @@ class OrgReadingCommandsTest {
             }
             assertThat(run("project", "show", "demo")).as("text: %s", err).isZero();
             assertThat(out.toString())
-                    .as("the text reader needs the wait too")
-                    .contains("app", "no second admin", "second admin's approval");
+                    .as("the text names the repository no merge can be approved in, and only it")
+                    .contains("Review: required for the project's own repository, app, but")
+                    .contains("so no merge there can be approved")
+                    .contains("porelo project review demo [NAME] optional")
+                    .doesNotContain("free")
+                    .doesNotContain("a merge waits");
+            assertThat(out.toString().lines().filter(line -> line.startsWith("Review:")).count())
+                    .as("the setting is said once, never as one waiting merge per repository")
+                    .isEqualTo(1);
         }
         write(
                 "projects/demo/members.yml",

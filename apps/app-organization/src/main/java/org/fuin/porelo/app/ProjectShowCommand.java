@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,25 +90,43 @@ public class ProjectShowCommand extends OrgReading {
         if (answer.get("repositories") instanceof Map<?, ?> repositories) {
             final Object why = repositories.get("why");
             line("Repositories: " + repositories.get("state") + (why == null ? "" : ": " + why));
-            reviewWait("project", repositories);
-            if (repositories.get("names") instanceof List<?> names) {
-                for (final Object name : names) {
-                    if (name instanceof Map<?, ?> row) {
-                        reviewWait(String.valueOf(row.get("name")), row);
+            reviewWaits(String.valueOf(answer.get("project")), repositories);
+        }
+    }
+
+    /** One line for every setting no merge can meet, so it never reads as a merge waiting. */
+    private void reviewWaits(final String project, final Map<?, ?> repositories) {
+        final boolean own = repositories.get("review_waits") instanceof String;
+        final List<String> waiting = new ArrayList<>();
+        int rows = 0;
+        if (repositories.get("names") instanceof List<?> names) {
+            for (final Object name : names) {
+                if (name instanceof Map<?, ?> row) {
+                    rows++;
+                    if (row.get("review_waits") instanceof String) {
+                        waiting.add(String.valueOf(row.get("name")));
                     }
                 }
             }
         }
-    }
-
-    private void reviewWait(final String name, final Map<?, ?> row) {
-        if (row.get("review_waits") instanceof String why) {
+        if (own && waiting.size() == rows) {
             line(
-                    "Review ("
-                            + name
-                            + "): a merge waits for a second admin's approval ("
-                            + why
-                            + ")");
+                    "Review: required for the project and all its repositories, but the project has no"
+                            + " second admin, so no merge can be approved; run 'porelo project review "
+                            + project
+                            + " [NAME] optional' to change it");
+        } else if (own || !waiting.isEmpty()) {
+            if (own) {
+                waiting.addFirst("the project's own repository");
+            }
+            line(
+                    "Review: required for "
+                            + String.join(", ", waiting)
+                            + ", but the project has no second admin, so no merge there can be"
+                            + " approved; run 'porelo project review "
+                            + project
+                            + (own ? " [NAME]" : " NAME")
+                            + " optional' to change it");
         }
     }
 
