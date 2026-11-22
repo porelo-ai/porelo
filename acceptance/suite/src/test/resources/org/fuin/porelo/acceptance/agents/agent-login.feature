@@ -104,7 +104,8 @@ Feature: An agent's login is stored, through the same chain a real login takes
         And the terminal does not show "stub: logged in"
         When I type "acceptance"
         Then within 600 seconds the terminal shows "stub: logged in"
-        And within 30 seconds the terminal shows "Signed in - the credential is stored as 'anthropic'"
+        # Two minutes, as the first scenario's wait for the same store and for the reason measured there.
+        And within 120 seconds the terminal shows "Signed in - the credential is stored as 'anthropic'"
         And the terminal shows "Nothing more to do here."
         And the terminal does not show "porelo-stub-fixture-token"
         # The passphrase typed for a sign-in is the person opening the vault: it stays open, as 'vault unlock' leaves it,
