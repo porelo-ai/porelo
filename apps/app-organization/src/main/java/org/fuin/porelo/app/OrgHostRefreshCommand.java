@@ -223,7 +223,8 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                 final int exit =
                         switch (result.exitCode()) {
                             case 64, 65, 69, 73 -> result.exitCode();
-                            case 255 -> 69;
+                            // 77: the host's program refusing a caller that is not root.
+                            case 77, 255 -> 69;
                             default -> 70;
                         };
                 return report(

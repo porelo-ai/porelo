@@ -359,7 +359,8 @@ class OrgHostRefreshCommandTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"64,64", "65,65", "69,69", "73,73", "255,69", "23,70"})
+    // 77: the host's program refusing a caller that is not root, where the retired one answered 69.
+    @CsvSource({"64,64", "65,65", "69,69", "73,73", "77,69", "255,69", "23,70"})
     void mapsTheRemoteExitWithoutClaimingHandover(int remote, int expected) {
         runner.failing("porelo-host org refresh", remote, "porelo-host: setting is missing");
         assertThat(run("--json")).as("remote exit %s", remote).isEqualTo(expected);
