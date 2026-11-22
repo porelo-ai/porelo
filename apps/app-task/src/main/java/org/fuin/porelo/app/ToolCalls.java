@@ -1,5 +1,6 @@
 package org.fuin.porelo.app;
 
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
@@ -11,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 import org.fuin.porelo.agent.api.ToolEvent;
 import org.jspecify.annotations.Nullable;
 
@@ -23,10 +23,12 @@ import org.jspecify.annotations.Nullable;
  * does, joined by the job's id, not when the call returned. An end is the stream's own time, else
  * the start's stream time plus the duration the end gives, else its line's arrival; a start is the
  * stream's own time, else the end's time less that duration, else its line's arrival. Each entry
- * says which ({@code stream}, {@code duration} or {@code arrival}). A shell call's command line is
- * masked here, before anything holds it, and no other text of the stream is kept. A call that ran
- * under a sub-agent named by an issue's id carries that issue, followed up through nested
- * sub-agents.
+ * says which ({@code stream}, {@code duration} or {@code arrival}), and no end is before its start.
+ * A shell call's command line is masked here, before anything holds it, and no other text of the
+ * stream is kept. Each entry names the sub-agent call it ran under, when that call was started
+ * before it and is still open. A sub-agent named by an issue the task was started for carries that
+ * issue, and so does every call under it, followed up through nested sub-agents; a sub-agent's own
+ * tokens are those its first end gives.
  */
 public final class ToolCalls {
 
@@ -48,31 +50,36 @@ public final class ToolCalls {
     /** The time the line was read. */
     public static final String ARRIVAL = "arrival";
 
-    /** An issue's id as a project names one, such as an uppercase prefix and a number. */
-    private static final Pattern ISSUE = Pattern.compile("[A-Z]{1,4}[0-9]{1,6}");
+    /** The most calls one run keeps, and one record over all its runs. */
+    public static final int MOST = 10_000;
+
+    /** The most characters of a call's id, its parent's and its tool's name. */
+    public static final int MOST_ID = 128;
 
     private final String task;
     private final CommandMask mask;
+    private final Set<String> work;
     private final List<Call> calls = new ArrayList<>();
     private final Map<String, Call> byId = new HashMap<>();
     private final Map<String, Call> byJob = new HashMap<>();
 
     /** The jobs whose end has been taken, so a repeated end changes nothing. */
-    private final java.util.Set<String> endedJobs = new java.util.HashSet<>();
+    private final Set<String> endedJobs = new HashSet<>();
 
-    private final Map<String, String> subAgentNames = new HashMap<>();
-    private final Map<String, String> parents = new HashMap<>();
     private String asked = DID_NOT_ASK;
+    private long dropped;
 
     /**
      * Creates the entries of one run.
      *
      * @param task The task's container name, which every entry names.
      * @param mask How a command line is masked for this task.
+     * @param work The issues the task was started for: a sub-agent names no other.
      */
-    public ToolCalls(final String task, final CommandMask mask) {
+    public ToolCalls(final String task, final CommandMask mask, final Set<String> work) {
         this.task = task;
         this.mask = mask;
+        this.work = Set.copyOf(work);
     }
 
     /**
@@ -90,6 +97,10 @@ public final class ToolCalls {
             asked = ASKED;
         }
         for (final ToolEvent event : answer.get()) {
+            // Ids reach the record and join its calls: one that is no short printable text is none.
+            if (!printable(event.id(), false)) {
+                continue;
+            }
             if (event.phase() == ToolEvent.Phase.START) {
                 started(event, arrival);
             } else {
@@ -112,32 +123,54 @@ public final class ToolCalls {
             }
             return;
         }
-        final String name = event.name();
-        if (event.kind() == ToolEvent.Kind.SUB_AGENT && name != null) {
-            subAgentNames.put(event.id(), name);
+        if (calls.size() >= MOST) {
+            dropped++;
+            return;
         }
-        final String parent = event.parent();
-        if (parent != null) {
-            parents.put(event.id(), parent);
-        }
+        final Call parent = parent(event);
         final String command = event.command();
         final Call call =
                 new Call(
                         event.id(),
-                        event.tool(),
+                        printable(event.tool(), true) ? event.tool() : "",
                         event.kind().wire(),
                         time(event.at()),
                         arrival,
                         event.kind() == ToolEvent.Kind.SHELL && command != null
                                 ? mask.mask(command)
                                 : null,
-                        event.background());
+                        event.background(),
+                        parent,
+                        event.kind() == ToolEvent.Kind.SUB_AGENT
+                                ? issue(event.name(), parent)
+                                : parent == null ? null : parent.issue);
         calls.add(call);
         byId.put(event.id(), call);
         final String job = event.jobId();
         if (event.background() && job != null) {
             taken(job, call);
         }
+    }
+
+    /** The open sub-agent call started before this one that the event names, or none. */
+    private @Nullable Call parent(final ToolEvent event) {
+        final String id = event.parent();
+        if (id == null || id.equals(event.id()) || !printable(id, false)) {
+            return null;
+        }
+        final Call parent = byId.get(id);
+        return parent != null && parent.subAgent && parent.end == null ? parent : null;
+    }
+
+    /**
+     * A sub-agent's issue: its own name where that is an issue of the task's work, as the work
+     * names it, else the issue of the sub-agent it ran under.
+     */
+    private @Nullable String issue(final @Nullable String name, final @Nullable Call parent) {
+        if (name != null && work.contains(name)) {
+            return name;
+        }
+        return parent == null ? null : parent.issue;
     }
 
     /** A job's id an agent uses again is the later call's: its next end is that call's. */
@@ -160,21 +193,43 @@ public final class ToolCalls {
         }
         final Long duration = event.durationMs();
         final Instant given = time(event.at());
+        final Instant shifted =
+                duration != null && call.streamStart != null
+                        ? shifted(call.streamStart, duration)
+                        : null;
+        // The line that gave the end was read at its arrival: a duration past it is no length.
+        final Instant fromDuration = shifted != null && !shifted.isAfter(arrival) ? shifted : null;
         final Instant end;
         if (given != null) {
             end = given;
             call.endFrom = STREAM;
-        } else if (duration != null && call.streamStart != null) {
-            end = call.streamStart.plusMillis(duration);
+        } else if (fromDuration != null) {
+            end = fromDuration;
             call.endFrom = DURATION;
         } else {
             end = arrival;
             call.endFrom = ARRIVAL;
         }
-        call.end = end;
         if (duration != null && call.streamStart == null) {
-            call.start = end.minusMillis(duration);
-            call.startFrom = DURATION;
+            final Instant start = shifted(end, -duration);
+            if (start != null) {
+                call.start = start;
+                call.startFrom = DURATION;
+            }
+        }
+        // A stream that ends a call before it started says nothing of its length.
+        call.end = end.isBefore(call.start) ? call.start : end;
+        if (call.subAgent && event.usage() != null) {
+            call.tokens = event.usage();
+        }
+    }
+
+    /** A time moved by a duration, or {@code null} where no time can hold the result. */
+    private static @Nullable Instant shifted(final Instant from, final long millis) {
+        try {
+            return from.plusMillis(millis);
+        } catch (DateTimeException | ArithmeticException ex) {
+            return null;
         }
     }
 
@@ -189,6 +244,14 @@ public final class ToolCalls {
         return null;
     }
 
+    /** Whether text is 1 to {@value #MOST_ID} characters of printable ASCII, a space only if so. */
+    private static boolean printable(final String text, final boolean space) {
+        final int lowest = space ? 0x20 : 0x21;
+        return !text.isEmpty()
+                && text.length() <= MOST_ID
+                && text.chars().allMatch(c -> c >= lowest && c < 0x7f);
+    }
+
     /**
      * Says whether the agent was asked and answered.
      *
@@ -199,18 +262,32 @@ public final class ToolCalls {
     }
 
     /**
+     * Says how many calls the run started past {@value #MOST}, which no entry holds.
+     *
+     * @return The number.
+     */
+    public synchronized long dropped() {
+        return dropped;
+    }
+
+    /**
      * Returns one entry per tool call, in the order they started.
      *
-     * @return Each with {@code task}, {@code tool}, {@code kind}, {@code start} and {@code
-     *     startFrom}, {@code end} and {@code endFrom} (null for one the run never ended), {@code
-     *     command} (a shell call's, masked; else null), {@code background} and {@code issue} (null
-     *     outside a sub-agent named by an issue).
+     * @return Each with {@code task}, {@code id} (the agent's own), {@code parent} (the id of the
+     *     open sub-agent call it ran under, else null), {@code tool}, {@code kind}, {@code start}
+     *     and {@code startFrom}, {@code end} and {@code endFrom} (null for one the run never
+     *     ended), {@code command} (a shell call's, masked; else null), {@code background}, {@code
+     *     issue} (null outside a sub-agent named by an issue of the task's work) and {@code tokens}
+     *     (a sub-agent's, each kind null where its agent gave none; null for any other call and
+     *     where its agent gave none at all).
      */
     public synchronized List<Map<String, Object>> entries() {
         final List<Map<String, Object>> entries = new ArrayList<>();
         for (final Call call : calls) {
             final Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("task", task);
+            entry.put("id", call.id);
+            entry.put("parent", call.parent == null ? null : call.parent.id);
             entry.put("tool", call.tool);
             entry.put("kind", call.kind);
             entry.put("start", call.start.toString());
@@ -219,23 +296,21 @@ public final class ToolCalls {
             entry.put("endFrom", call.endFrom);
             entry.put("command", call.command);
             entry.put("background", Boolean.valueOf(call.background));
-            entry.put("issue", issue(call.id));
+            entry.put("issue", call.issue);
+            entry.put("tokens", call.tokens == null ? null : tokens(call.tokens));
             entries.add(entry);
         }
         return entries;
     }
 
-    private @Nullable String issue(final String id) {
-        final Set<String> seen = new HashSet<>();
-        String parent = parents.get(id);
-        while (parent != null && seen.add(parent)) {
-            final String name = subAgentNames.get(parent);
-            if (name != null && ISSUE.matcher(name).matches()) {
-                return name;
-            }
-            parent = parents.get(parent);
-        }
-        return null;
+    private static Map<String, Object> tokens(final ToolEvent.Usage usage) {
+        final Map<String, Object> tokens = new LinkedHashMap<>();
+        tokens.put("input", usage.input());
+        tokens.put("cacheRead", usage.cacheRead());
+        tokens.put("cacheWrite", usage.cacheWrite());
+        tokens.put("output", usage.output());
+        tokens.put("reasoning", usage.reasoning());
+        return tokens;
     }
 
     /** One call while its run is read. */
@@ -243,13 +318,17 @@ public final class ToolCalls {
         private final String id;
         private final String tool;
         private final String kind;
+        private final boolean subAgent;
         private final @Nullable Instant streamStart;
         private final @Nullable String command;
+        private final @Nullable Call parent;
+        private final @Nullable String issue;
         private boolean background;
         private Instant start;
         private String startFrom;
         private @Nullable Instant end;
         private @Nullable String endFrom;
+        private ToolEvent.@Nullable Usage tokens;
 
         private Call(
                 final String id,
@@ -258,15 +337,20 @@ public final class ToolCalls {
                 final @Nullable Instant streamStart,
                 final Instant arrival,
                 final @Nullable String command,
-                final boolean background) {
+                final boolean background,
+                final @Nullable Call parent,
+                final @Nullable String issue) {
             this.id = id;
             this.tool = tool;
             this.kind = kind;
+            this.subAgent = ToolEvent.Kind.SUB_AGENT.wire().equals(kind);
             this.streamStart = streamStart;
             this.start = streamStart != null ? streamStart : arrival;
             this.startFrom = streamStart != null ? STREAM : ARRIVAL;
             this.command = command;
             this.background = background;
+            this.parent = parent;
+            this.issue = issue;
         }
     }
 }

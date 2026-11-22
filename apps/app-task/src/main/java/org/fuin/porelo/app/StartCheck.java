@@ -51,7 +51,7 @@ public final class StartCheck {
      * @param branch The branch named outright, or {@code null} for the one the scheme makes.
      * @param shortName The optional container spelling, or {@code null}.
      * @param allRepositories Whether the task would read every repository of the project.
-     * @param work The issue and phase the task would work on, or {@code null} when none is given.
+     * @param work The issues and phases the task would work on, or {@code null} when none is given.
      * @param readOnly Whether the task would read its one repository.
      * @param given The files the task would be given, by name.
      * @param effort The effort Start would be given, or {@code null} for none; one the agent does
@@ -72,7 +72,7 @@ public final class StartCheck {
             @Nullable String branch,
             @Nullable String shortName,
             boolean allRepositories,
-            @Nullable TaskWork work,
+            @Nullable TaskWorkList work,
             boolean readOnly,
             Map<String, String> given,
             @Nullable String effort) {
@@ -284,8 +284,8 @@ public final class StartCheck {
         SETTINGS_UNSIGNED,
 
         /**
-         * The issue or the phase the task would work on is one {@link TaskWork#refusal()} refuses.
-         * {@code detail} says which, in the words Start refuses with.
+         * The issue or the phase the task would work on is one {@link TaskWorkList#refusal()}
+         * refuses. {@code detail} says which, in the words Start refuses with.
          */
         WORK_REFUSED
     }
@@ -824,7 +824,7 @@ public final class StartCheck {
      * @param branch The branch named outright, or {@code null} for the one the scheme makes.
      * @param shortName The optional container spelling, or {@code null}.
      * @param allRepositories Whether the task would read every repository of the project.
-     * @param work The issue and phase the task would work on, or {@code null} when none is given.
+     * @param work The issues and phases the task would work on, or {@code null} when none is given.
      * @return What was found.
      */
     public static Result check(
@@ -841,7 +841,7 @@ public final class StartCheck {
             @Nullable String branch,
             @Nullable String shortName,
             boolean allRepositories,
-            @Nullable TaskWork work) {
+            @Nullable TaskWorkList work) {
         final String workRefused = work == null ? null : work.refusal();
         if (workRefused != null) {
             return refused(Outcome.WORK_REFUSED, workRefused);
@@ -880,7 +880,7 @@ public final class StartCheck {
      * @param branch The branch named outright, or {@code null} for the one the scheme makes.
      * @param shortName The optional container spelling, or {@code null}.
      * @param allRepositories Whether the task would read every repository of the project.
-     * @param work The issue and phase the task would work on, or {@code null} when none is given.
+     * @param work The issues and phases the task would work on, or {@code null} when none is given.
      * @param readOnly Whether the task would read its one repository.
      * @param given The files the task would be given, by name.
      * @return What was found.
@@ -899,7 +899,7 @@ public final class StartCheck {
             @Nullable String branch,
             @Nullable String shortName,
             boolean allRepositories,
-            @Nullable TaskWork work,
+            @Nullable TaskWorkList work,
             boolean readOnly,
             Map<String, String> given) {
         final String givenRefused = TaskGiven.refusal(given);

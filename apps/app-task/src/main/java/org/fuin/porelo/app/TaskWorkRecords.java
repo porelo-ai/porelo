@@ -60,7 +60,7 @@ public record TaskWorkRecords(PoreloContext context) {
      * @param container Its container name.
      * @param project Its project.
      * @param repository The repository it works on, or {@code null}.
-     * @param work The issue and phase it was started for, or {@code null}.
+     * @param work The issues and phases it was started for, or {@code null}.
      * @param agent Its agent, or {@code null}.
      * @param model The model it was started with, or {@code null} for the agent's default.
      * @param modelFrom Where the model was settled from.
@@ -70,7 +70,7 @@ public record TaskWorkRecords(PoreloContext context) {
             final String container,
             final String project,
             final @Nullable String repository,
-            final @Nullable TaskWork work,
+            final @Nullable TaskWorkList work,
             final @Nullable String agent,
             final @Nullable String model,
             final String modelFrom)
@@ -84,7 +84,7 @@ public record TaskWorkRecords(PoreloContext context) {
      * @param container Its container name.
      * @param project Its project.
      * @param repository The repository it works on, or {@code null}.
-     * @param work The issue and phase it was started for, or {@code null}.
+     * @param work The issues and phases it was started for, or {@code null}.
      * @param agent Its agent, or {@code null}.
      * @param model The model it was started with, or {@code null} for the agent's default.
      * @param modelFrom Where the model was settled from.
@@ -95,7 +95,7 @@ public record TaskWorkRecords(PoreloContext context) {
             final String container,
             final String project,
             final @Nullable String repository,
-            final @Nullable TaskWork work,
+            final @Nullable TaskWorkList work,
             final @Nullable String agent,
             final @Nullable String model,
             final String modelFrom,
@@ -108,7 +108,7 @@ public record TaskWorkRecords(PoreloContext context) {
         record.put("task", container);
         record.put("project", project);
         record.put("repository", repository);
-        record.put("work", work == null ? null : work.asMap());
+        record.put("work", work == null ? null : work.asList());
         record.put("agent", agent);
         record.put("model", model);
         record.put("modelFrom", modelFrom);
@@ -119,6 +119,8 @@ public record TaskWorkRecords(PoreloContext context) {
         record.put("totals", totals(container));
         record.put("toolCallsAsked", ToolCalls.DID_NOT_ASK);
         record.put("toolCalls", List.of());
+        record.put("toolCallsDropped", Long.valueOf(0));
+        record.put("runs", Long.valueOf(0));
         locked(
                 () -> {
                     write(file(container), record);
@@ -142,7 +144,9 @@ public record TaskWorkRecords(PoreloContext context) {
     }
 
     /**
-     * Completes a task's record at the end of a run, with the run's tool calls.
+     * Completes a task's record at the end of a run, with the run's tool calls: each names the run
+     * it came from, counted from 1, so a call id an agent uses again in a later run is another
+     * call; past {@value ToolCalls#MOST} calls over all runs the rest are counted, never kept.
      *
      * @param container Its container name.
      * @param calls The run's tool calls.
@@ -158,14 +162,32 @@ public record TaskWorkRecords(PoreloContext context) {
                     if (record.get("toolCalls") instanceof List<?> earlier) {
                         entries.addAll(earlier);
                     }
-                    entries.addAll(calls.entries());
+                    final long run = count(record.get("runs")) + 1;
+                    long dropped = count(record.get("toolCallsDropped")) + calls.dropped();
+                    for (final Map<String, Object> entry : calls.entries()) {
+                        if (entries.size() >= ToolCalls.MOST) {
+                            dropped++;
+                            continue;
+                        }
+                        entry.put("run", Long.valueOf(run));
+                        entries.add(entry);
+                    }
+                    record.put("runs", Long.valueOf(run));
                     record.put("toolCalls", entries);
+                    record.put("toolCallsDropped", Long.valueOf(dropped));
                     record.put(
                             "toolCallsAsked", asked(record.get("toolCallsAsked"), calls.asked()));
                     record.put("endedAt", Instant.now().toString());
                     record.put("end", exitCode == 0 ? DONE : FAILED);
                     record.put("totals", totals(container));
                 });
+    }
+
+    /** A count a record keeps, 0 for one an older record does not; held where no sum overflows. */
+    private static long count(final @Nullable Object value) {
+        return value instanceof Number number
+                ? Math.clamp(number.longValue(), 0, Integer.MAX_VALUE)
+                : 0;
     }
 
     private static String asked(final @Nullable Object earlier, final String now) {
@@ -273,6 +295,10 @@ public record TaskWorkRecords(PoreloContext context) {
             if (ended != null && ended.isBefore(since)) {
                 continue;
             }
+            // An older record's one pair is answered as the list every record holds now.
+            if (record.get("work") instanceof Map<?, ?> pair) {
+                record.put("work", List.of(pair));
+            }
             if (!file.getFileName().toString().contains(RETAINED)
                     && record.get("task") instanceof String task) {
                 // A task that is still there counts on.
@@ -318,10 +344,12 @@ public record TaskWorkRecords(PoreloContext context) {
      * Returns the work a task was started with, as its record keeps it.
      *
      * @param container Its container name.
-     * @return The work, or {@code null} for a task given none or without a record.
-     * @throws IOException If its record cannot be read.
+     * @return The work, an older record's one pair as a list of one, or {@code null} for a task
+     *     given none or without a record.
+     * @throws IOException If its record cannot be read, or holds work malformed or refused as Start
+     *     refuses it.
      */
-    public @Nullable TaskWork work(final String container) throws IOException {
+    public @Nullable TaskWorkList work(final String container) throws IOException {
         if (!TaskUsage.validTask(container)) {
             return null;
         }
@@ -329,7 +357,19 @@ public record TaskWorkRecords(PoreloContext context) {
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             return null;
         }
-        return TaskWork.of(read(file).get("work"));
+        final TaskWorkList work;
+        try {
+            work = TaskWorkList.of(read(file).get("work"));
+        } catch (IllegalArgumentException ex) {
+            throw new IOException(file + " holds no work: " + ex.getMessage(), ex);
+        }
+        // A record edited by hand may hold work no start would take: none, too much or an issue
+        // twice.
+        final String refused = work == null ? null : work.refusal();
+        if (refused != null) {
+            throw new IOException(file + " holds no work a start would take: " + refused);
+        }
+        return work;
     }
 
     private Path file(final String container) {

@@ -836,18 +836,21 @@ method Start(
   certify: ?bool,
   # Streams each step as its own reply, carrying step and no line. Default false: the stream is lines only, as before.
   steps: ?bool,
-  # The issue and the phase of the project's own workflow this task works on, kept in its record as given. The issue,
-  # such as a tracker's reference owner/repo#123, is 1 to 200 characters of printable ASCII without a space, ':' or
-  # '`', not led by '-'; each of the task's commits carries it as the trailer 'Porelo-Issue: <issue>', and its gate
-  # refuses a push with a commit that does not. The phase is one line of 1 to 64 characters. Either refused with
-  # exitCode 64. Porelo does not know the phases. A task brought back
+  # The issues and the phases of the project's own workflow this task works on, in their order, kept in its record
+  # as given. Each issue, such as a tracker's reference owner/repo#123, is 1 to 200 characters of printable ASCII
+  # without a space, ':' or '`', not led by '-', and named once; each phase is one line of 1 to 64 characters; at
+  # most 16 pairs. The first pair's issue is the one each of the task's commits carries as the trailer
+  # 'Porelo-Issue: <issue>', its gate refusing a push with a commit that does not, and the one its guide names. An
+  # empty list, an issue named twice and a pair either rule refuses are refused with exitCode 64; a value that is
+  # neither a list of (issue, phase) nor one such pair, as an older client sends it, is
+  # org.varlink.service.InvalidParameter. Porelo does not know the phases. A task brought back
   # keeps the work it was made with. On a host, a start given work first has the host follow central once
   # ('porelo host follow') and is refused with exitCode 69 before anything is made unless the host's copy of
   # the repository then holds central's main: a copy behind central that the follow could not move (a change
   # of its workflows), one that diverged from it, or a standing that cannot be read. Its line names the way
   # back: 'porelo host pull' and a task that merges central/main, or 'porelo host push' where only the host is
   # ahead. CanStart does not ask the host to follow and does not answer this.
-  work: ?(issue: string, phase: string)
+  work: ?[](issue: string, phase: string)
 ) -> (
   # One line of output. Set on every continuing reply unless steps: true was requested.
   line: ?string,
@@ -1266,8 +1269,9 @@ method CanStart(
   # The task's branch at the forge, named outright, as Start takes it. Omitted, the one project.yml's
   # branch scheme makes. One its pattern refuses is BRANCH_REFUSED.
   branch: ?string,
-  # The issue and the phase the task would work on, as Start takes them. One Start would refuse is WORK_REFUSED.
-  work: ?(issue: string, phase: string)
+  # The issues and the phases the task would work on, as Start takes them. Work Start would refuse with exitCode 64 is
+  # WORK_REFUSED; a value Start answers InvalidParameter for is InvalidParameter here too.
+  work: ?[](issue: string, phase: string)
 ) -> (
   # Whether work could start. True exactly when outcome is READY, so branch on whichever suits -
   # but never infer the ACTION from this alone: three different things somebody has to do all
@@ -1719,7 +1723,15 @@ method Usage(task: string) -> (usage: Usage)
 type ToolCall (
   # The task's container name.
   task: string,
-  # The agent's own name for the tool.
+  # The agent's own id of the call, 1 to 128 characters of printable ASCII without a space; with run, it names one
+  # call of the record. Absent in older records.
+  id: ?string,
+  # The id of the sub-agent call of the same run it ran under, when that call started before it and had not ended;
+  # absent outside any sub-agent.
+  parent: ?string,
+  # The unattended run of the task it came from, counted from 1; absent in older records.
+  run: ?int,
+  # The agent's own name for the tool, 1 to 128 characters of printable ASCII, else "".
   tool: string,
   # shell, edit, read, search, web, sub-agent, mcp or other; a kind the agent cannot tell is other. A later release
   # may add one; show an unknown one by its text.
@@ -1738,9 +1750,23 @@ type ToolCall (
   # the vault could not be read. Absent for any other kind.
   command: ?string,
   background: bool,
-  # The issue whose id names the sub-agent the call ran under, followed up through nested sub-agents, as the agent
-  # named it; absent outside any sub-agent so named.
-  issue: ?string
+  # The issue of the task's work a sub-agent is named by, exactly as the work names it (ISSUE-1, owner/repo#123): for
+  # a sub-agent call its own name, else the sub-agent's it ran under, followed up through nested sub-agents. Absent
+  # outside any sub-agent so named.
+  issue: ?string,
+  # For a sub-agent call, the tokens the sub-agent spent as its agent's stream gave them at its first end, each kind
+  # absent where it gave none; absent for every other call and where the stream gives none. The task's totals stay
+  # the usage record's.
+  tokens: ?SubAgentTokens
+)
+
+# A sub-agent's tokens as its agent's stream counts them, each kind as UsageTotals names it.
+type SubAgentTokens (
+  input: ?int,
+  cacheRead: ?int,
+  cacheWrite: ?int,
+  output: ?int,
+  reasoning: ?int
 )
 
 # What one task worked on, from when to when, and with what: written when the task is made, completed at each run's
@@ -1750,8 +1776,8 @@ type TaskRecord (
   task: string,
   project: string,
   repository: ?string,
-  # As Start's work gave it, or absent.
-  work: ?(issue: string, phase: string),
+  # As Start's work gave it, in its order, or absent; always a list, an older record's one pair a list of one.
+  work: ?[](issue: string, phase: string),
   agent: ?string,
   # Absent for the agent's default; modelFrom as Task.modelFrom.
   model: ?string,
@@ -1770,7 +1796,12 @@ type TaskRecord (
   # ASKED when its agent read its runs' tool calls, CANNOT_SAY when it could not (never read as no tool having run),
   # DID_NOT_ASK when no unattended run was read: an attended session is not measured.
   toolCallsAsked: Asked,
-  toolCalls: []ToolCall
+  # At most 10000 over all its runs.
+  toolCalls: []ToolCall,
+  # The tool calls past those 10000, counted and not kept; absent in older records.
+  toolCallsDropped: ?int,
+  # The unattended runs whose calls the record holds; absent in older records.
+  runs: ?int
 )
 
 # Answers a project's task records whose task ended at since or later, or works still, removed tasks' among them,

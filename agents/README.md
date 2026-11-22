@@ -418,7 +418,7 @@ line answered for is how the run ended.
 `ToolEvents(lines)` (protocol version 5) answers, for a batch of lines of an unattended run's output, one
 `ToolEvent` per moment of a tool call: `line` (the line's index in the batch, set by the server), `id`, `phase`
 (`START` or `END`), `tool` (the agent's own name), `kind`, `command`, `background`, `jobId`, `at`, `name`,
-`parent` and `durationMs`. `kind` is the
+`parent`, `durationMs` and `usage`. `kind` is the
 closed set `shell`, `edit`, `read`, `search`, `web`, `sub-agent`, `mcp` and `other`; a tool the agent does not know is
 `other`, never left out. The mapping is per line and holds no state: Porelo joins a start to its end by `id`, and a
 background job's start and end by `jobId`, its end then the job's end. `command` is a shell call's whole command line
@@ -426,8 +426,12 @@ as the stream gives it, never masked by the agent, since Porelo masks it before 
 stream's own time where it has one; without it Porelo stamps the line's arrival. `name` is, for a `sub-agent`
 start, the name the sub-agent was given, such as the id of the issue it works on; `parent` is the id of the
 sub-agent call a call ran under (in Claude Code's stream, `parent_tool_use_id`), absent outside any sub-agent. `durationMs` is, on an `END`, how long the
-call took in milliseconds as the stream says; Porelo takes a time the stream does not give from it before it stamps
-a line's arrival, so a burst of lines read together still spans the call's true time. An agent built before version 5
+call took in milliseconds as the stream says, a whole number from 0 up; Porelo takes a time the stream does not give
+from it before it stamps a line's arrival, so a burst of lines read together still spans the call's true time.
+`usage` is, on a `sub-agent` call's `END`, the tokens the sub-agent spent as the stream counts them (`input`,
+`cacheRead`, `cacheWrite`, `output`, `reasoning`, each a whole number from 0 up and left out where the stream gives
+none); an agent whose stream says nothing leaves it out, never zero. Porelo takes a sub-agent's first end's
+`usage` alone. An event whose `durationMs` or token count is no whole number from 0 up is no event. An agent built before version 5
 answers `MethodNotFound`, and Porelo records that it cannot say, never that no tool ran.
 
 **Never** add a branch outside your module that tests an agent's name. That is

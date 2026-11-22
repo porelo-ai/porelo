@@ -88,9 +88,23 @@ public class TaskRecordsCommand implements Callable<Integer>, PoreloFactory.Cont
     }
 
     private static String line(final Map<String, Object> record) {
+        // Each phase quoted as JSON quotes it: a phase may hold a comma, a colon or two spaces.
         final String work =
-                record.get("work") instanceof Map<?, ?> given
-                        ? given.get("issue") + ":" + given.get("phase")
+                record.get("work") instanceof List<?> given && !given.isEmpty()
+                        ? String.join(
+                                ",",
+                                given.stream()
+                                        .map(
+                                                pair ->
+                                                        pair instanceof Map<?, ?> fields
+                                                                ? fields.get("issue")
+                                                                        + ":"
+                                                                        + Json.write(
+                                                                                String.valueOf(
+                                                                                        fields.get(
+                                                                                                "phase")))
+                                                                : "?")
+                                        .toList())
                         : "-";
         final int calls = record.get("toolCalls") instanceof List<?> list ? list.size() : 0;
         return record.get("startedAt")

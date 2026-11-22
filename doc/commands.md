@@ -185,13 +185,15 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task check-certificate --task TASK --login LOGIN --keys FILE [--krl FILE] [--json]` | Run by a host's helper, not by hand: checks the task certificate on standard input before the host records it, and writes nothing ([the host's contract](hosts.md#a-task-certificate-judged-for-the-host)). |
 
 **`task start`**
-- `--work ISSUE:PHASE`: names the issue and the phase of the project's own workflow (such as `Implementing`) the
-  task works on, kept in its record as given. The issue is the tracker's reference, such as `owner/repo#123`: 1 to
-  200 characters of printable ASCII without a space, `:` or a backtick, not starting with `-`; the phase is one line
-  of 1 to 64 characters; else exit code 64. A task with a gate then pushes only commits naming the issue
-  ([Running](running.md#a-task-given-work)). A stopped task brought back keeps its work, and `--work` naming
-  another issue is refused with exit code 64. Over the daemon, Start's `work: (issue, phase)`, which `CanStart`
-  takes too and answers `WORK_REFUSED` for.
+- `--work ISSUE:PHASE`: names an issue and the phase of the project's own workflow (such as `Implementing`) the
+  task works on, kept in its record as given; given once per issue, up to 16 times, the pairs kept in their order.
+  Each issue is the tracker's reference, such as `owner/repo#123`: 1 to 200 characters of printable ASCII without a
+  space, `:` or a backtick, not starting with `-`, and named once; each phase is one line of 1 to 64 characters;
+  else exit code 64. The first pair's issue is the one a task with a gate then pushes only commits naming, and the
+  one its guide names ([Running](running.md#a-task-given-work)); a sub-agent named by any issue of the list counts
+  toward it in the task's record. A stopped task brought back keeps its work, and `--work` naming other work is
+  refused with exit code 64. Over the daemon, Start's `work: [](issue, phase)`, which `CanStart` takes too and
+  answers `WORK_REFUSED` for; a single `(issue, phase)`, as an older client sends it, is taken as a list of one.
 - `--short NAME`: records an optional container spelling for the task: `[a-z][a-z0-9-]*`, at most 16 characters,
   no underscore and no `porelo-` prefix. It stays fixed with the project's short spelling when the task is created.
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
@@ -506,20 +508,33 @@ not the record's. `List` and `Watch` keep their existing task shape and do not r
 **A task's record.** porelod keeps one record per task under the state directory, written when the task is made,
 completed at the end of each unattended run, at a stop and at its removal, and kept past the removal as the usage
 record is. `porelo task records --project PROJECT --since TIME --json` and the daemon's `Records(project, since)`
-answer a project's records, oldest first: `task`, `project`, `repository`, `work` (`issue`, `phase`), `agent`,
+answer a project's records, oldest first: `task`, `project`, `repository`, `work` (a list of `issue` and `phase`, in
+the order given, a record kept with one pair answered as a list of one), `agent`,
 `model`, `modelFrom`, `effort` (null until a start has an effort setting), `startedAt`, `endedAt`, `end` (`done` or
 `failed` by a run's exit code, else `stopped` or `removed`, whichever came first since its last run), `totals` as
 `Usage` answers them, `toolCallsAsked` (`ASKED`, `CANNOT_SAY` for an agent that cannot say, never read as no tool
-having run, `DID_NOT_ASK` where no unattended run was read) and `toolCalls`. `TIME` is ISO-8601, a time with its
-offset or a date in the machine's zone; a record whose task ended before it is left out.
+having run, `DID_NOT_ASK` where no unattended run was read), `toolCalls` (at most 10 000 over all its runs),
+`toolCallsDropped` (the calls past those, counted, never kept) and `runs` (its unattended runs read). `TIME` is
+ISO-8601, a time with its offset or a date in the machine's zone; a record whose task ended before it is left out.
+Without `--json` each record is one line, its work each pair as `ISSUE:"PHASE"`, the phase quoted as JSON quotes it,
+joined by commas.
 
 Each tool call is one entry in Porelo's own format, which each agent maps its stream into (`ToolEvents` of the
-[agent protocol](https://github.com/porelo-ai/porelo/blob/main/agents/README.md#when-yaml-is-not-enough)): `task`, `tool` (the agent's own name), `kind`
+[agent protocol](https://github.com/porelo-ai/porelo/blob/main/agents/README.md#when-yaml-is-not-enough)): `task`, `id` (the agent's own
+id of the call), `parent` (the `id` of the sub-agent call it ran under), `run` (the run it came from, counted from 1:
+`run` and `id` name one call of the record), `tool` (the agent's own name), `kind`
 (`shell`, `edit`, `read`, `search`, `web`, `sub-agent`, `mcp` or `other`), `start` and `startFrom`, `end` and
 `endFrom` (`stream`, `duration` or `arrival`: the agent's own time, the other end's time and the call's duration, or
-when the line was read), `command`, `background` and `issue`. A call in the background ends when its job ends. A call
-under a sub-agent named by an issue's id carries that `issue`, through nested sub-agents. `command` is a shell
-call's whole command line, masked before it is stored: an option's token, password or key, an `Authorization:`
+when the line was read), `command`, `background`, `issue` and `tokens`. A call in the background ends when its job
+ends, and no call ends before it starts. `id` and `parent` are 1 to 128 characters of printable ASCII without a space:
+a call whose id is not is left out, and a `parent` that names no sub-agent call of the run started before it and still open is
+absent. A sub-agent whose name is exactly an issue of the task's `work`, such as `ISSUE-1` or `owner/repo#123`,
+carries that `issue`, and so does every call under it, through nested sub-agents; a sub-agent of any other name
+carries the issue of the one it ran under, or none. `tokens` is a sub-agent's own, as its agent's stream
+gives them at the sub-agent's first end (`input`, `cacheRead`, `cacheWrite`, `output`, `reasoning`, each null where the
+stream gives none), and null for any other call and an agent that gives none, never zero. Porelo adds no entry's
+`tokens` to another's or to the task's `totals`, which stay the usage record's: whether a sub-agent's count holds a
+nested one's is its agent's stream's to say. `command` is a shell call's whole command line, masked before it is stored: an option's token, password or key, an `Authorization:`
 value, an environment value whose name ends in `_TOKEN`, `_KEY`, `_SECRET` or `_PASSWORD`, a URL's user information,
 a string shaped like a known credential (inside a longer word too) and every non-blank value of the vault read
 `***`, the rest of the line kept; with the vault unreadable the whole line is `***`. Only an unattended run is read.

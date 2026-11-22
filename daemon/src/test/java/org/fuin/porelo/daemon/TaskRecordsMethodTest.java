@@ -10,6 +10,7 @@ import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.app.TaskUsage;
 import org.fuin.porelo.app.TaskWork;
+import org.fuin.porelo.app.TaskWorkList;
 import org.fuin.porelo.app.TaskWorkRecords;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
@@ -48,7 +49,8 @@ class TaskRecordsMethodTest {
                         task,
                         "uc",
                         "work",
-                        new TaskWork("ISSUE-1", "Implementing"),
+                        new TaskWorkList(
+                                java.util.List.of(new TaskWork("ISSUE-1", "Implementing"))),
                         "worker-one",
                         null,
                         "agent");
@@ -85,6 +87,6 @@ class TaskRecordsMethodTest {
         assertThat(PoreloDaemon.description())
                 .contains(
                         "method Records(project: string, since: string) -> (records: []TaskRecord)")
-                .contains("work: ?(issue: string, phase: string)");
+                .contains("work: ?[](issue: string, phase: string)");
     }
 }

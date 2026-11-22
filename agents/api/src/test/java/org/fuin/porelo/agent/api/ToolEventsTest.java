@@ -345,4 +345,81 @@ class ToolEventsTest {
                 .as("absent, left out")
                 .doesNotContainKey("durationMs");
     }
+
+    @Test
+    void aNegativeOrBrokenDurationOrTokenCountIsNoEvent() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                new ToolEvent(
+                                        0,
+                                        "x",
+                                        ToolEvent.Phase.END,
+                                        "t",
+                                        ToolEvent.Kind.OTHER,
+                                        null,
+                                        false,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        Long.valueOf(-1)))
+                .as("a call takes no negative time")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(ToolEvent.of(Map.of("line", 0, "id", "x", "phase", "END", "durationMs", -5)))
+                .as("a negative duration on the wire is no event")
+                .isNull();
+        assertThat(ToolEvent.of(Map.of("line", 0, "id", "x", "phase", "END", "durationMs", 1.5)))
+                .as("a duration that is no whole number is no event")
+                .isNull();
+        assertThat(
+                        ToolEvent.of(
+                                Map.of(
+                                        "line",
+                                        0,
+                                        "id",
+                                        "x",
+                                        "phase",
+                                        "END",
+                                        "usage",
+                                        Map.of("input", -3L))))
+                .as("a negative token count is no event")
+                .isNull();
+        assertThat(
+                        ToolEvent.of(
+                                Map.of(
+                                        "line",
+                                        0,
+                                        "id",
+                                        "x",
+                                        "phase",
+                                        "END",
+                                        "usage",
+                                        Map.of("output", 2.5))))
+                .as("a token count that is no whole number is no event")
+                .isNull();
+    }
+
+    @Test
+    void aSubAgentsTokensCrossTheWireEachKindOnItsOwn() {
+        final Map<String, Object> wire =
+                Map.of(
+                        "line",
+                        0,
+                        "id",
+                        "toolu_sub",
+                        "phase",
+                        "END",
+                        "kind",
+                        "sub-agent",
+                        "usage",
+                        Map.of("input", 1_200L, "cacheRead", 300L, "output", 80L));
+
+        final ToolEvent event = ToolEvent.of(wire);
+
+        assertThat(event).as("an end with its sub-agent's tokens is an event").isNotNull();
+        assertThat(java.util.Objects.requireNonNull(event).asMap().get("usage"))
+                .as("each kind the agent gave, the others left out")
+                .isEqualTo(Map.of("input", 1_200L, "cacheRead", 300L, "output", 80L));
+        assertThat(ToolEvent.of(event.asMap())).as("read back the same").isEqualTo(event);
+    }
 }

@@ -775,6 +775,76 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void canStartTakesAListOfWorkAnOlderClientsOnePairAndRefusesWhatStartWould(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("podman version", "5.8.1");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final java.util.function.Function<Object, Map<String, Object>> asked =
+                                work ->
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".CanStart",
+                                                Map.of(
+                                                        "project",
+                                                        PROJECT,
+                                                        "task",
+                                                        "shell",
+                                                        "repository",
+                                                        "uc",
+                                                        "work",
+                                                        work));
+                        final Map<String, String> first =
+                                Map.of("issue", "ISSUE-1", "phase", "Implementing");
+
+                        assertThat(
+                                        asked.apply(
+                                                List.of(
+                                                        first,
+                                                        Map.of(
+                                                                "issue",
+                                                                "ISSUE-2",
+                                                                "phase",
+                                                                "Reviewing"))))
+                                .as("two pairs of two issues")
+                                .doesNotContainEntry("outcome", "WORK_REFUSED");
+                        assertThat(asked.apply(first))
+                                .as("an older client's one pair")
+                                .doesNotContainEntry("outcome", "WORK_REFUSED");
+                        final Map<String, Object> twice =
+                                asked.apply(
+                                        List.of(
+                                                first,
+                                                Map.of("issue", "ISSUE-1", "phase", "Reviewing")));
+                        assertThat(twice)
+                                .as("one issue twice")
+                                .containsEntry("outcome", "WORK_REFUSED");
+                        assertThat(String.valueOf(twice.get("detail")))
+                                .as("the refusal names the issue")
+                                .contains("ISSUE-1");
+                        assertThat(asked.apply(List.of()))
+                                .as("an empty list")
+                                .containsEntry("outcome", "WORK_REFUSED");
+                        org.assertj.core.api.Assertions.assertThatThrownBy(
+                                        () -> asked.apply(List.of(first, "ISSUE-2:Reviewing")))
+                                .as("a pair that is no (issue, phase) is no parameter")
+                                .isInstanceOfSatisfying(
+                                        VarlinkException.class,
+                                        refused ->
+                                                assertThat(refused.getErrorName())
+                                                        .as("the error")
+                                                        .isEqualTo(
+                                                                "org.varlink.service.InvalidParameter"));
+                    }
+                });
+    }
+
+    @Test
     void aValueTheProjectDoesNotAllowIsRefusedByCanStartAndStartAlike(@TempDir Path dir)
             throws Exception {
 

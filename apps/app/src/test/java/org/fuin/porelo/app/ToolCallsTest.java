@@ -33,10 +33,6 @@ class ToolCallsTest {
                 0, id, phase, "Tool", kind, command, background, jobId, at, name, parent);
     }
 
-    private static ToolCalls calls() {
-        return new ToolCalls("porelo-uc_work", new CommandMask(List.of("fake-vault-value")));
-    }
-
     @Test
     void aCallsStartAndEndAreJoinedByItsIdAndItsCommandIsMasked() {
         final ToolCalls calls = calls();
@@ -140,7 +136,7 @@ class ToolCallsTest {
 
     @Test
     void aCallUnderASubAgentNamedByAnIssueCarriesThatIssueThroughNestedOnes() {
-        final ToolCalls calls = calls();
+        final ToolCalls calls = calls(ISSUE);
         calls.read(
                 Optional.of(
                         List.of(
@@ -545,5 +541,273 @@ class ToolCallsTest {
         assertThat(entry)
                 .as("a repeat moves no end later")
                 .containsEntry("end", "2026-11-11T10:00:30Z");
+    }
+
+    /** The calls of a run of a task started for these issues. */
+    private static ToolCalls calls(final String... work) {
+        return new ToolCalls(
+                "porelo-uc_work",
+                new CommandMask(List.of("fake-vault-value")),
+                java.util.Set.of(work));
+    }
+
+    private static ToolEvent start(
+            final String id, final Kind kind, final String name, final String parent) {
+        return new ToolEvent(
+                0, id, Phase.START, "Tool", kind, null, false, null, null, name, parent);
+    }
+
+    private static ToolEvent end(final String id, final Kind kind) {
+        return new ToolEvent(0, id, Phase.END, "Tool", kind, null, false, null, null);
+    }
+
+    private static Map<String, Object> byId(
+            final List<Map<String, Object>> entries, final String id) {
+        return entries.stream()
+                .filter(entry -> id.equals(entry.get("id")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no entry " + id + " in " + entries));
+    }
+
+    @Test
+    void aCallUnderASubAgentNamedByAnIssueWithAHyphenCarriesThatIssue() {
+        final ToolCalls calls = calls("ISSUE-1");
+        calls.read(
+                Optional.of(
+                        List.of(
+                                start("s1", Kind.SUB_AGENT, "ISSUE-1", null),
+                                start("c2", Kind.SHELL, null, "s1"))),
+                ARRIVED);
+
+        assertThat(calls.entries().get(1).get("issue"))
+                .as("an issue id with a hyphen names an issue")
+                .isEqualTo("ISSUE-1");
+    }
+
+    @Test
+    void aSubAgentNamedByATrackersReferenceOfTheWorkCarriesIt() {
+        final String reference = "porelo-ai/porelo#270"; // not-a-citation
+        final ToolCalls calls = calls(reference, "ISSUE-1");
+        calls.read(
+                Optional.of(
+                        List.of(
+                                start("s1", Kind.SUB_AGENT, reference, null),
+                                start("c2", Kind.SHELL, null, "s1"),
+                                start("s3", Kind.SUB_AGENT, "ISSUE-1", null))),
+                ARRIVED);
+
+        final List<Map<String, Object>> entries = calls.entries();
+        assertThat(byId(entries, "s1"))
+                .as("a sub-agent named by an issue of the work as its tracker names it")
+                .containsEntry("issue", reference);
+        assertThat(byId(entries, "c2")).as("and a call under it").containsEntry("issue", reference);
+        assertThat(byId(entries, "s3"))
+                .as("the work's other issue")
+                .containsEntry("issue", "ISSUE-1");
+    }
+
+    @Test
+    void aSubAgentCarriesItsOwnIssueAndEachCallNamesItsIdAndTheSubAgentItRanUnder() {
+        final ToolCalls calls = calls("B1"); // not-a-citation
+        calls.read(
+                Optional.of(
+                        List.of(
+                                start("s1", Kind.SUB_AGENT, "B1", null), // not-a-citation
+                                start("c2", Kind.SHELL, null, "s1"))),
+                ARRIVED);
+
+        final List<Map<String, Object>> entries = calls.entries();
+        assertThat(entries.get(0))
+                .as("the sub-agent's own span names the issue it is named by")
+                .containsEntry("id", "s1")
+                .containsEntry("parent", null)
+                .containsEntry("issue", "B1"); // not-a-citation
+        assertThat(entries.get(1))
+                .as("a call names the sub-agent call it ran under")
+                .containsEntry("id", "c2")
+                .containsEntry("parent", "s1")
+                .containsEntry("issue", "B1"); // not-a-citation
+    }
+
+    @Test
+    void aSubAgentNamedByAnIssueOutsideTheTasksWorkCarriesNoIssue() {
+        final ToolCalls calls = calls("B1"); // not-a-citation
+        calls.read(
+                Optional.of(
+                        List.of(
+                                start("s1", Kind.SUB_AGENT, "B9", null), // not-a-citation
+                                start("c2", Kind.SHELL, null, "s1"))),
+                ARRIVED);
+
+        final List<Map<String, Object>> entries = calls.entries();
+        assertThat(entries.get(0).get("issue"))
+                .as("a sub-agent names no issue the task was not started for")
+                .isNull();
+        assertThat(entries.get(1).get("issue")).as("nor do the calls under it").isNull();
+    }
+
+    @Test
+    void aParentIsKeptOnlyWhenItNamesAnOpenSubAgentCallStartedBefore() {
+        final ToolCalls calls = calls("B1"); // not-a-citation
+        calls.read(
+                Optional.of(
+                        List.of(
+                                start("s1", Kind.SUB_AGENT, "B1", null), // not-a-citation
+                                start("c0", Kind.SHELL, null, null),
+                                start("c2", Kind.SHELL, null, "nobody"),
+                                start("c3", Kind.SHELL, null, "c0"),
+                                start("c5", Kind.SUB_AGENT, "helper", "c5"),
+                                end("s1", Kind.SUB_AGENT),
+                                start("c4", Kind.SHELL, null, "s1"),
+                                start("c6", Kind.SHELL, null, "c7"),
+                                start("c7", Kind.SUB_AGENT, "B1", null))), // not-a-citation
+                ARRIVED);
+
+        final List<Map<String, Object>> entries = calls.entries();
+        for (final String id : List.of("c2", "c3", "c5", "c4", "c6")) {
+            assertThat(byId(entries, id))
+                    .as("%s names no started, open sub-agent call but itself as its parent", id)
+                    .containsEntry("parent", null)
+                    .containsEntry("issue", null);
+        }
+    }
+
+    @Test
+    void aSubAgentsTokensAreTakenFromItsFirstEndAndACallWithoutThemHasNone() {
+        final ToolCalls calls = calls();
+        calls.read(
+                Optional.of(
+                        List.of(
+                                start("s1", Kind.SUB_AGENT, "helper", null),
+                                usageEnd("s1", "sub-agent", Map.of("input", 100L, "output", 20L)),
+                                usageEnd("s1", "sub-agent", Map.of("input", 999L)),
+                                start("s2", Kind.SUB_AGENT, "other", null),
+                                end("s2", Kind.SUB_AGENT),
+                                start("c3", Kind.SHELL, null, null),
+                                usageEnd("c3", "shell", Map.of("input", 5L)))),
+                ARRIVED);
+
+        final List<Map<String, Object>> entries = calls.entries();
+        final Map<String, Object> tokens = new java.util.LinkedHashMap<>();
+        tokens.put("input", 100L);
+        tokens.put("cacheRead", null);
+        tokens.put("cacheWrite", null);
+        tokens.put("output", 20L);
+        tokens.put("reasoning", null);
+        assertThat(byId(entries, "s1"))
+                .as("the sub-agent's tokens as its first end gave them, a repeat not added")
+                .containsEntry("tokens", tokens);
+        assertThat(byId(entries, "s2"))
+                .as("a sub-agent whose agent gave no tokens has none, never zero")
+                .containsEntry("tokens", null);
+        assertThat(byId(entries, "c3"))
+                .as("only a sub-agent's own tokens are counted")
+                .containsEntry("tokens", null);
+    }
+
+    private static ToolEvent usageEnd(
+            final String id, final String kind, final Map<String, ?> usage) {
+        return java.util.Objects.requireNonNull(
+                ToolEvent.of(
+                        Map.of(
+                                "line", 0, "id", id, "phase", "END", "tool", "Tool", "kind", kind,
+                                "usage", usage)));
+    }
+
+    @Test
+    void anEndBeforeItsStartIsHeldAtTheStart() {
+        final Map<String, Object> entry =
+                only(
+                        calls(),
+                        List.of(
+                                event(
+                                        "c1",
+                                        Phase.START,
+                                        Kind.SHELL,
+                                        "make",
+                                        false,
+                                        null,
+                                        "2026-11-11T10:00:05Z",
+                                        null,
+                                        null),
+                                ended("c1", "2026-11-11T10:00:01Z", null)));
+
+        assertThat(entry)
+                .as("a call never ends before it starts")
+                .containsEntry("start", "2026-11-11T10:00:05Z")
+                .containsEntry("end", "2026-11-11T10:00:05Z");
+    }
+
+    @Test
+    void aDurationThatWouldEndACallAfterItsEndWasReadFallsBackToTheArrival() {
+        final ToolCalls calls = calls();
+        calls.read(
+                Optional.of(
+                        List.of(
+                                event(
+                                        "c1",
+                                        Phase.START,
+                                        Kind.SHELL,
+                                        "make",
+                                        false,
+                                        null,
+                                        "2026-11-11T10:00:00Z",
+                                        null,
+                                        null),
+                                ended("c1", null, Long.MAX_VALUE))),
+                ARRIVED);
+
+        final List<Map<String, Object>> entries = calls.entries();
+        assertThat(entries.get(0))
+                .as("an end later than the line that gave it is the line's arrival")
+                .containsEntry("end", ARRIVED.toString())
+                .containsEntry("endFrom", "arrival");
+    }
+
+    @Test
+    void anIdOrParentThatIsNoShortPrintableTextIsNotKept() {
+        final ToolCalls calls = calls();
+        calls.read(
+                Optional.of(
+                        List.of(
+                                start("c\u001b[1m", Kind.SHELL, null, null),
+                                start("x".repeat(129), Kind.SHELL, null, null),
+                                start("s1", Kind.SUB_AGENT, "helper", null),
+                                start("c2", Kind.SHELL, null, "s1\n"),
+                                new ToolEvent(
+                                        0,
+                                        "c3",
+                                        Phase.START,
+                                        "Bash\nforged",
+                                        Kind.SHELL,
+                                        null,
+                                        false,
+                                        null,
+                                        null))),
+                ARRIVED);
+
+        final List<Map<String, Object>> entries = calls.entries();
+        assertThat(entries)
+                .as("a call whose id is no short printable text is no call")
+                .extracting(entry -> entry.get("id"))
+                .containsExactly("s1", "c2", "c3");
+        assertThat(byId(entries, "c2"))
+                .as("a parent that is no short printable text is dropped")
+                .containsEntry("parent", null);
+        assertThat(byId(entries, "c3"))
+                .as("a tool's name that is no short printable text is not kept")
+                .containsEntry("tool", "");
+    }
+
+    @Test
+    void aRunKeepsAtMostItsCapOfCalls() {
+        final ToolCalls calls = calls();
+        final List<ToolEvent> events = new java.util.ArrayList<>();
+        for (int i = 0; i <= 10_000; i++) {
+            events.add(start("c" + i, Kind.READ, null, null));
+        }
+        calls.read(Optional.of(events), ARRIVED);
+
+        assertThat(calls.entries()).as("at most 10 000 calls a run").hasSize(10_000);
     }
 }

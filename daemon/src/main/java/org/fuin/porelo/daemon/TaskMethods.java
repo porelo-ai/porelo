@@ -349,7 +349,7 @@ final class TaskMethods {
                 PoreloDaemon.shortName(parameters),
                 flag(parameters, "allRepositories"),
                 // Start's own, and refused by the same rule before anything else.
-                org.fuin.porelo.app.TaskWork.of(parameters.get("work")),
+                PoreloDaemon.work(parameters),
                 flag(parameters, "readOnly"),
                 PoreloDaemon.givenFiles(parameters),
                 PoreloDaemon.effort(parameters));

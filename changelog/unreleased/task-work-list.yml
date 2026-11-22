@@ -1,0 +1,2 @@
+title: "A task works on several issues and phases: `porelo task start --work ISSUE:PHASE` may be given once per issue, up to 16 times, and Tasks1 `Start`, `CanStart` and `TaskRecord` carry `work` as a list in its order, the first pair the one the gate and the task's guide name; an empty list or an issue named twice is refused, an older client's single pair is taken as a list of one, and a record kept with one pair is answered as one"
+type: changed

@@ -332,7 +332,10 @@ class TaskUsageTest {
         assertUpdated(file);
 
         markEarlier(file);
-        records.runEnded(TASK, new ToolCalls(TASK, new CommandMask(java.util.List.of())), 0);
+        records.runEnded(
+                TASK,
+                new ToolCalls(TASK, new CommandMask(java.util.List.of()), java.util.Set.of()),
+                0);
         assertUpdated(file);
 
         markEarlier(file);
@@ -381,7 +384,14 @@ class TaskUsageTest {
         final TaskWork work = TaskWork.parse(WORK);
         assertThat(work.refusal()).as("one line of at most 64 characters each").isNull();
 
-        records.started(TASK, "uc", "work", work, "worker-one", "model-a", "start");
+        records.started(
+                TASK,
+                "uc",
+                "work",
+                new TaskWorkList(java.util.List.of(work)),
+                "worker-one",
+                "model-a",
+                "start");
         records.runStarted(TASK);
         record(context);
         // A stand-in adapter's stream: one shell call in the background, joined by its job's id.
@@ -414,7 +424,8 @@ class TaskUsageTest {
                                         line.substring(line.indexOf(' ') + 1)));
                     }
                 };
-        final ToolCalls calls = new ToolCalls(TASK, new CommandMask(java.util.List.of()));
+        final ToolCalls calls =
+                new ToolCalls(TASK, new CommandMask(java.util.List.of()), java.util.Set.of());
         for (final String line :
                 java.util.List.of("started 2026-01-01T22:00:00Z", "ended 2026-01-01T22:10:00Z")) {
             calls.read(java.util.Optional.of(adapter.toolEvents(line)), java.time.Instant.now());
@@ -443,7 +454,9 @@ class TaskUsageTest {
                 .containsEntry("task", TASK)
                 .containsEntry("project", "uc")
                 .containsEntry("repository", "work")
-                .containsEntry("work", Map.of("issue", work.issue(), "phase", "Implementing"))
+                .containsEntry(
+                        "work",
+                        java.util.List.of(Map.of("issue", work.issue(), "phase", "Implementing")))
                 .containsEntry("agent", "worker-one")
                 .containsEntry("model", "model-a")
                 .containsEntry("end", "done")
@@ -482,5 +495,152 @@ class TaskUsageTest {
         final Map<String, Object> fields = new java.util.LinkedHashMap<>();
         ((Map<?, ?>) parsed).forEach((key, value) -> fields.put(String.valueOf(key), value));
         return fields;
+    }
+
+    private static ToolCalls oneRun(final String... ids) {
+        final ToolCalls calls =
+                new ToolCalls(TASK, new CommandMask(java.util.List.of()), java.util.Set.of());
+        final java.util.List<org.fuin.porelo.agent.api.ToolEvent> events =
+                new java.util.ArrayList<>();
+        for (final String id : ids) {
+            events.add(
+                    new org.fuin.porelo.agent.api.ToolEvent(
+                            0,
+                            id,
+                            org.fuin.porelo.agent.api.ToolEvent.Phase.START,
+                            "Read",
+                            org.fuin.porelo.agent.api.ToolEvent.Kind.READ,
+                            null,
+                            false,
+                            null,
+                            null));
+        }
+        calls.read(java.util.Optional.of(events), java.time.Instant.now());
+        return calls;
+    }
+
+    private static Map<String, Object> written(final PoreloContext context) throws Exception {
+        return fields(Json.parseExact(Files.readString(context.paths().tasks().workRecord(TASK))));
+    }
+
+    @Test
+    void eachCallOfARecordNamesItsRunSoACallIdUsedAgainInALaterRunIsAnotherCall(
+            @TempDir final Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final TaskWorkRecords records = new TaskWorkRecords(context);
+        records.started(TASK, "uc", "work", null, "worker-one", null, "start");
+
+        records.runEnded(TASK, oneRun("c1"), 0);
+        records.runEnded(TASK, oneRun("c1"), 0);
+
+        final java.util.List<?> calls = (java.util.List<?>) written(context).get("toolCalls");
+        assertThat(calls).as("one call of each run").hasSize(2);
+        assertThat(fields(calls.get(0)))
+                .as("the first run's call")
+                .containsEntry("id", "c1")
+                .containsEntry("run", 1L);
+        assertThat(fields(calls.get(1)))
+                .as("the second run's call of the same id")
+                .containsEntry("id", "c1")
+                .containsEntry("run", 2L);
+    }
+
+    @Test
+    void aRecordKeepsAtMostItsCapOfCallsOverItsRunsAndCountsTheRest(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final TaskWorkRecords records = new TaskWorkRecords(context);
+        records.started(TASK, "uc", "work", null, "worker-one", null, "start");
+        final String[] ids = new String[6_000];
+        for (int i = 0; i < ids.length; i++) {
+            ids[i] = "c" + i;
+        }
+
+        records.runEnded(TASK, oneRun(ids), 0);
+        records.runEnded(TASK, oneRun(ids), 0);
+
+        final Map<String, Object> record = written(context);
+        assertThat((java.util.List<?>) record.get("toolCalls"))
+                .as("at most 10 000 calls a record")
+                .hasSize(10_000);
+        assertThat(record)
+                .as("the calls past it counted, never left out in silence")
+                .containsEntry("toolCallsDropped", 2_000L);
+    }
+
+    /** A record as a release that kept one issue and phase wrote it. */
+    private static final String SINGLE_PAIR_RECORD =
+            """
+            {"task":"porelo-uc-work","project":"uc","repository":"work",\
+            "work":{"issue":"ISSUE-1","phase":"Implementing"},"agent":"worker-one","model":null,\
+            "modelFrom":"start","effort":null,"startedAt":"2026-01-01T22:00:00Z","endedAt":null,\
+            "end":null,"totals":{},"toolCallsAsked":"DID_NOT_ASK","toolCalls":[],\
+            "updatedAt":"2026-01-01T22:00:00Z"}
+            """;
+
+    @Test
+    void aRecordKeptWithASinglePairReadsAsAListOfOne(@TempDir final Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().tasks().workRecord(TASK);
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, SINGLE_PAIR_RECORD);
+
+        assertThat(new TaskWorkRecords(context).since("uc", java.time.Instant.EPOCH))
+                .singleElement()
+                .satisfies(
+                        record ->
+                                assertThat(record.get("work"))
+                                        .as("an older record's one pair, answered as a list")
+                                        .isEqualTo(
+                                                java.util.List.of(
+                                                        Map.of(
+                                                                "issue",
+                                                                "ISSUE-1",
+                                                                "phase",
+                                                                "Implementing"))));
+    }
+
+    @Test
+    void theRecordsTextNamesEveryPairSoAPhaseCannotPassForAnotherPair(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().tasks().workRecord(TASK);
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                SINGLE_PAIR_RECORD.replace(
+                        "\"work\":{\"issue\":\"ISSUE-1\",\"phase\":\"Implementing\"}",
+                        "\"work\":[{\"issue\":\"ISSUE-1\",\"phase\":\"Implementing, ISSUE-9:x\"},"
+                                + "{\"issue\":\"ISSUE-2\",\"phase\":\"Reviewing\"}]"));
+        final StringWriter text = new StringWriter();
+        final var cli = PoreloCli.commandLine(context);
+        cli.setOut(new PrintWriter(text));
+
+        assertThat(cli.execute("task", "records", "--project", "uc", "--since", "2026-01-01"))
+                .as("the records are answered")
+                .isZero();
+        assertThat(text.toString())
+                .as("each pair's phase quoted, the pairs in their order")
+                .contains("ISSUE-1:\"Implementing, ISSUE-9:x\",ISSUE-2:\"Reviewing\"");
+    }
+
+    @Test
+    void aRecordWhoseWorkStartWouldRefuseIsNoRecordOfWork(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().tasks().workRecord(TASK);
+        Files.createDirectories(file.getParent());
+        final String pair = "{\"issue\":\"ISSUE-1\",\"phase\":\"Implementing\"}";
+        for (final String work : java.util.List.of("[]", "[" + pair + "," + pair + "]")) {
+            Files.writeString(
+                    file,
+                    SINGLE_PAIR_RECORD.replace(
+                            "{\"issue\":\"ISSUE-1\",\"phase\":\"Implementing\"}", work));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> new TaskWorkRecords(context).work(TASK))
+                    .as("a record whose work is %s", work)
+                    .isInstanceOf(java.io.IOException.class);
+        }
     }
 }

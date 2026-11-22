@@ -5,8 +5,8 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a task was started to work on: one issue and one phase of the project's own workflow, named
- * by whoever started it and kept as given.
+ * One issue and one phase of the project's own workflow a task was started to work on, named by
+ * whoever started it and kept as given; a task's whole work is a {@link TaskWorkList}.
  *
  * @param issue The issue, such as {@code ISSUE-1} or a tracker's reference such as {@code
  *     owner/repo#123}; it stands as it is in the trailer {@code Porelo-Issue: <issue>} each of the
@@ -34,23 +34,6 @@ public record TaskWork(String issue, String phase) {
         return colon < 0
                 ? new TaskWork(given, "")
                 : new TaskWork(given.substring(0, colon), given.substring(colon + 1));
-    }
-
-    /**
-     * Reads it as it crossed the wire.
-     *
-     * @param value The call's {@code work}, or {@code null}.
-     * @return The work, or {@code null} when none was given.
-     */
-    public static @Nullable TaskWork of(final @Nullable Object value) {
-        if (!(value instanceof Map<?, ?> fields)) {
-            return null;
-        }
-        return new TaskWork(text(fields.get("issue")), text(fields.get("phase")));
-    }
-
-    private static String text(final @Nullable Object value) {
-        return value == null ? "" : String.valueOf(value);
     }
 
     /**

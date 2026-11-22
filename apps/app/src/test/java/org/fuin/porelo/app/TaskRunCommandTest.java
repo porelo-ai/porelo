@@ -3465,7 +3465,7 @@ class TaskRunCommandTest {
                         "porelo-uc-shell",
                         "uc",
                         null,
-                        new TaskWork("owner/repo#1", "Implementing"),
+                        new TaskWorkList(List.of(new TaskWork("owner/repo#1", "Implementing"))),
                         null,
                         null,
                         "start");
@@ -6367,13 +6367,73 @@ class TaskRunCommandTest {
         assertThat(records.getFirst())
                 .containsEntry(
                         "work",
-                        java.util.Map.of(
-                                "issue", "B622", "phase", "Implementing")) // not-a-citation
+                        List.of(
+                                java.util.Map.of(
+                                        "issue",
+                                        "B622", // not-a-citation
+                                        "phase",
+                                        "Implementing")))
                 .containsEntry("model", "model-b")
                 .containsEntry("modelFrom", "start")
                 .containsEntry("end", TaskWorkRecords.DONE);
         assertThat(records.getFirst().get("startedAt")).isNotNull();
         assertThat(records.getFirst().get("endedAt")).isNotNull();
+    }
+
+    @Test
+    void twoWorkPairsReachTheRecordInTheirOrder(@TempDir Path dir) throws IOException {
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code =
+                echoingStart(
+                        context,
+                        dir,
+                        WITH_MODEL,
+                        "--work",
+                        "B622:Implementing", // not-a-citation
+                        "--work",
+                        "ISSUE-1:Reviewing");
+
+        assertThat(code).as("started and run: %s", err).isZero();
+        assertThat(new TaskWorkRecords(context).since("uc", java.time.Instant.EPOCH))
+                .as("one record of the task")
+                .singleElement()
+                .satisfies(
+                        record ->
+                                assertThat(record.get("work"))
+                                        .as("both pairs, in the order given")
+                                        .isEqualTo(
+                                                List.of(
+                                                        java.util.Map.of(
+                                                                "issue",
+                                                                "B622", // not-a-citation
+                                                                "phase",
+                                                                "Implementing"),
+                                                        java.util.Map.of(
+                                                                "issue",
+                                                                "ISSUE-1",
+                                                                "phase",
+                                                                "Reviewing"))));
+    }
+
+    @Test
+    void aStartNamingOneIssueTwiceIsRefusedNamingIt(@TempDir Path dir) throws IOException {
+        final PoreloContext context = modelContext(dir, true);
+
+        final int twice =
+                echoingStart(
+                        context,
+                        dir,
+                        WITH_MODEL,
+                        "--work",
+                        "ISSUE-2:Implementing",
+                        "--work",
+                        "ISSUE-3:Reviewing",
+                        "--work",
+                        "ISSUE-2:Reviewing");
+
+        assertThat(twice).as("an issue given twice: %s", err).isEqualTo(64);
+        assertThat(err.toString()).as("names the issue given twice").contains("ISSUE-2");
     }
 
     @Test

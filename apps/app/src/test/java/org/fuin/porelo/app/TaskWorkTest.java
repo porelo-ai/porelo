@@ -15,9 +15,76 @@ class TaskWorkTest {
         assertThat(TaskWork.parse("ISSUE-1:Reading: again"))
                 .isEqualTo(new TaskWork("ISSUE-1", "Reading: again"));
         assertThat(TaskWork.parse("ISSUE-1:Implementing").refusal()).isNull();
-        assertThat(TaskWork.of(Map.of("issue", "ISSUE-1", "phase", "Reworking")))
+    }
+
+    @Test
+    void aListOfWorkIsReadInItsOrderAndAnOlderOnePairAsAListOfOne() {
+        final Map<String, String> first = Map.of("issue", "ISSUE-1", "phase", "Reworking");
+        final Map<String, String> second = Map.of("issue", "ISSUE-2", "phase", "Reviewing");
+
+        assertThat(TaskWorkList.of(java.util.List.of(first, second)))
+                .as("both pairs, in order")
+                .isEqualTo(
+                        new TaskWorkList(
+                                java.util.List.of(
+                                        new TaskWork("ISSUE-1", "Reworking"),
+                                        new TaskWork("ISSUE-2", "Reviewing"))));
+        assertThat(TaskWorkList.of(first))
+                .as("one pair as an older client sends it")
+                .isEqualTo(
+                        new TaskWorkList(java.util.List.of(new TaskWork("ISSUE-1", "Reworking"))));
+        assertThat(TaskWorkList.of(null)).as("none given").isNull();
+        assertThat(TaskWorkList.parse(java.util.List.of("ISSUE-1:Reworking", "ISSUE-2:Reviewing")))
+                .as("--work given twice")
+                .isEqualTo(TaskWorkList.of(java.util.List.of(first, second)));
+        assertThat(
+                        java.util.Objects.requireNonNull(
+                                        TaskWorkList.of(java.util.List.of(first, second)))
+                                .first())
+                .as("the first pair, the one the gate judges by")
                 .isEqualTo(new TaskWork("ISSUE-1", "Reworking"));
-        assertThat(TaskWork.of(null)).as("none given").isNull();
+    }
+
+    @Test
+    void aListThatIsNoListOfIssueAndPhaseIsRefusedNeverTakenAsNoWork() {
+        for (final Object given :
+                java.util.List.of(
+                        "ISSUE-1:Reworking",
+                        java.util.List.of("ISSUE-1:Reworking"),
+                        Map.of("issue", 1L, "phase", "Reworking"),
+                        Map.of("issue", "ISSUE-1"))) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> TaskWorkList.of(given))
+                    .as("%s", given)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void anEmptyListAnIssueTwiceTooManyPairsOrABadPairIsRefused() {
+        assertThat(new TaskWorkList(java.util.List.of()).refusal())
+                .as("an empty list")
+                .contains("no issue");
+        assertThat(
+                        TaskWorkList.parse(
+                                        java.util.List.of("ISSUE-1:Reworking", "ISSUE-1:Reviewing"))
+                                .refusal())
+                .as("one issue twice, named")
+                .contains("ISSUE-1")
+                .contains("twice");
+        final java.util.List<String> many = new java.util.ArrayList<>();
+        for (int i = 0; i <= TaskWorkList.MOST; i++) {
+            many.add("ISSUE-" + i + ":Reworking");
+        }
+        assertThat(TaskWorkList.parse(many).refusal()).as("one pair too many").contains("at most");
+        assertThat(TaskWorkList.parse(java.util.List.of("ISSUE-1:Reworking", "ISSUE-2")).refusal())
+                .as("a pair without its phase")
+                .contains("phase");
+        assertThat(
+                        TaskWorkList.parse(
+                                        java.util.List.of("ISSUE-1:Reworking", "ISSUE-2:Reviewing"))
+                                .refusal())
+                .as("two issues, each once")
+                .isNull();
     }
 
     @Test

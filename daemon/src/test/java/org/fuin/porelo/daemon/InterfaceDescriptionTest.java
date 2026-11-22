@@ -51,6 +51,20 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void bothStartMethodsAndTheRecordTakeWorkAsAList() {
+        // A task works on several issues and phases in their order, the first the gate's.
+        for (String declared : List.of("method Start", "method CanStart", "type TaskRecord")) {
+            final Matcher declaration =
+                    Pattern.compile("(?ms)^" + declared + " ?\\(\\n(.*?)^\\)")
+                            .matcher(PoreloDaemon.description());
+            assertThat(declaration.find()).as("%s is declared", declared).isTrue();
+            assertThat(declaration.group(1))
+                    .as("%s takes a list of issue and phase", declared)
+                    .contains("work: ?[](issue: string, phase: string)");
+        }
+    }
+
+    @Test
     void bothStartMethodsAcceptAnOptionalShortSpelling() {
         // A client must be able to preflight exactly the request it starts.
         for (String method : List.of("Start", "CanStart")) {

@@ -111,7 +111,7 @@ public final class TaskLaunch {
             @Nullable String named,
             @Nullable String shortName,
             boolean allRepositories,
-            @Nullable TaskWork work,
+            @Nullable TaskWorkList work,
             @Nullable String result,
             boolean readOnly,
             java.util.Map<String, String> given,
@@ -150,7 +150,7 @@ public final class TaskLaunch {
                 @Nullable String named,
                 @Nullable String shortName,
                 boolean allRepositories,
-                @Nullable TaskWork work,
+                @Nullable TaskWorkList work,
                 @Nullable String result,
                 boolean readOnly,
                 java.util.Map<String, String> given) {
@@ -216,7 +216,7 @@ public final class TaskLaunch {
                 @Nullable String named,
                 @Nullable String shortName,
                 boolean allRepositories,
-                @Nullable TaskWork work,
+                @Nullable TaskWorkList work,
                 @Nullable String result) {
             this(
                     task,
@@ -2031,23 +2031,25 @@ public final class TaskLaunch {
                 err.flush();
                 return new Existing(container, project.name(), 64);
             }
-            final TaskWork keptWork = keptWork(container);
+            final TaskWorkList keptWork = keptWork(container);
             final String keptIssue =
-                    keptWork != null ? keptWork.issue() : recordedGate(container).issue();
+                    keptWork != null ? keptWork.first().issue() : recordedGate(container).issue();
+            // A task made before its record kept the work has only its gate's issue to compare.
             final boolean same =
                     keptWork != null
                             ? keptWork.equals(request.work())
-                            : request.work().issue().equals(keptIssue);
+                            : request.work().pairs().size() == 1
+                                    && request.work().first().issue().equals(keptIssue);
             if (!same) {
                 err.println(
                         "porelo: "
                                 + container
                                 + (keptIssue == null
                                         ? " was started without --work"
-                                        : " was started with --work "
+                                        : " was started with "
                                                 + (keptWork != null
-                                                        ? keptWork.issue() + ":" + keptWork.phase()
-                                                        : keptIssue))
+                                                        ? keptWork.options()
+                                                        : "--work " + keptIssue))
                                 + ", which stays as it was; start it again without --work, or"
                                 + " remove it and start a new task");
                 err.flush();
@@ -3188,7 +3190,7 @@ public final class TaskLaunch {
             err.flush();
             return 64;
         }
-        final TaskWork work = request.work();
+        final TaskWorkList work = request.work();
         final String workRefused = work == null ? null : work.refusal();
         if (workRefused != null) {
             err.println("porelo: --work: " + workRefused);
@@ -4425,7 +4427,7 @@ public final class TaskLaunch {
 
             if (workspace != null) {
                 if (!gate().reading(reads)
-                        .forIssue(request.work() == null ? null : request.work().issue())
+                        .forIssue(request.work() == null ? null : request.work().first().issue())
                         .followingBuilds(BuildsWiring.follows(project, hostBuilds))
                         .watchingBuilds(buildsWatched)
                         .startGate(
@@ -4846,7 +4848,14 @@ public final class TaskLaunch {
             err.println("porelo: could not mark this task's work record: " + ex.getMessage());
             err.flush();
         }
-        final ToolCalls calls = new ToolCalls(container, commandMask(container, environment));
+        // A sub-agent names only an issue of the work the task's record keeps.
+        final TaskWorkList kept = keptWork(container);
+        final TaskWorkList work = kept != null ? kept : request.work();
+        final ToolCalls calls =
+                new ToolCalls(
+                        container,
+                        commandMask(container, environment),
+                        work == null ? java.util.Set.of() : work.issues());
         // Always followed, to read the run's tool calls as its lines arrive; shown only to a
         // caller that follows.
         final RunFollower follower =
@@ -7181,7 +7190,7 @@ public final class TaskLaunch {
      * @throws java.io.IOException Writing failed.
      */
     /** The work a task was made with, as its record keeps it; {@code null} when it cannot tell. */
-    private @Nullable TaskWork keptWork(final String container) {
+    private @Nullable TaskWorkList keptWork(final String container) {
         try {
             return new TaskWorkRecords(context).work(container);
         } catch (java.io.IOException ex) {
@@ -7281,7 +7290,7 @@ public final class TaskLaunch {
             final String issue =
                     created
                             ? (request.work() != null && gatedAtStart()
-                                    ? request.work().issue()
+                                    ? request.work().first().issue()
                                     : null)
                             : recordedGate(container).issue();
             TaskGuideText.write(

@@ -191,10 +191,12 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             names = "--work",
             paramLabel = "<issue>:<phase>",
             description =
-                    "The issue and the phase of the project's workflow this task works on, such as"
+                    "An issue and the phase of the project's workflow this task works on, such as"
                             + " ISSUE-1:Implementing; each one line of at most 64 characters, kept"
-                            + " in the task's record as given.")
-    private @Nullable String work;
+                            + " in the task's record as given. Give it once per issue, at most "
+                            + TaskWorkList.MOST
+                            + " times; the first is the issue its gate and its guide name.")
+    private java.util.@Nullable List<String> work;
 
     @Option(
             names = "--subagents",
@@ -1238,7 +1240,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                 : null,
                                         shortName,
                                         allRepositories,
-                                        work == null ? null : TaskWork.parse(work),
+                                        work == null ? null : TaskWorkList.parse(work),
                                         result,
                                         readOnly,
                                         givenRead,

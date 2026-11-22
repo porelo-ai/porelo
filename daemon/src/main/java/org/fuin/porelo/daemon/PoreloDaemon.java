@@ -898,7 +898,7 @@ public final class PoreloDaemon {
                 task.isEmpty() || flag(parameters, UNNAMED) ? null : task,
                 shortName(parameters),
                 allRepositories,
-                org.fuin.porelo.app.TaskWork.of(parameters.get("work")),
+                work(parameters),
                 // Refused by the launch with exitCode 64 when it is no file's name.
                 resultName(parameters),
                 flag(parameters, "readOnly"),
@@ -906,6 +906,24 @@ public final class PoreloDaemon {
                 givenFiles(parameters),
                 // Refused by the launch with exitCode 64 when the agent does not list it.
                 effort(parameters));
+    }
+
+    /**
+     * The issues and phases a start or its question names: a list of them, or one pair as an older
+     * client sends it.
+     *
+     * @param parameters The call's parameters.
+     * @return The work, or {@code null} when none was given; refused or not by its own rule.
+     * @throws VarlinkException {@code InvalidParameter} for a value that is neither, or a pair
+     *     whose issue or phase is no string.
+     */
+    static org.fuin.porelo.app.@Nullable TaskWorkList work(Map<String, Object> parameters) {
+        try {
+            return org.fuin.porelo.app.TaskWorkList.of(parameters.get("work"));
+        } catch (IllegalArgumentException ex) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "work"));
+        }
     }
 
     /**

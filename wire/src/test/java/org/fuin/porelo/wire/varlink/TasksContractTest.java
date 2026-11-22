@@ -148,4 +148,16 @@ class TasksContractTest {
                 .hasMessageContaining("00-header.varlink")
                 .hasMessageContaining("more than once");
     }
+
+    @Test
+    void aTasksRecordAsAPlannerReadsItHoldsItsWorkAsAList() {
+        final java.util.regex.Matcher record =
+                java.util.regex.Pattern.compile("(?ms)^type TaskRecord \\(\\n(.*?)^\\)")
+                        .matcher(TasksContract.description());
+
+        assertThat(record.find()).as("the record's type is carried").isTrue();
+        assertThat(record.group(1))
+                .as("every issue and phase the task works on, in order")
+                .contains("work: ?[](issue: string, phase: string)");
+    }
 }
