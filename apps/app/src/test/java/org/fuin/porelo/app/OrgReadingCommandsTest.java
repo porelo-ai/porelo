@@ -1166,7 +1166,7 @@ class OrgReadingCommandsTest {
                     .as("the text names the repository no merge can be approved in, and only it")
                     .contains("Review: required for the project's own repository, app, but")
                     .contains("so no merge there can be approved")
-                    .contains("porelo project review demo [NAME] optional")
+                    .contains("run 'porelo project review demo optional' to change it")
                     .doesNotContain("free")
                     .doesNotContain("a merge waits");
             assertThat(out.toString().lines().filter(line -> line.startsWith("Review:")).count())

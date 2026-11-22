@@ -274,7 +274,7 @@ public final class ProjectReader {
                 egress(file.egress()),
                 build == null ? null : build.packageSources(),
                 mail(file.mail()),
-                repositories(file.repositories()),
+                repositories(file.repositories(), review(info.review())),
                 file.credentials(),
                 builds(file.builds()),
                 null,
@@ -454,7 +454,8 @@ public final class ProjectReader {
                         : new Mail.Rules(rules.project(), rules.room(), rules.others()));
     }
 
-    private static List<Repository> repositories(Map<String, RepositoryEntry> entries) {
+    private static List<Repository> repositories(
+            final Map<String, RepositoryEntry> entries, final String projectReview) {
         final List<Repository> read = new ArrayList<>();
         // A repository names no image, egress or limits: its image is its own file's, and what a
         // task may reach or consume is the project's alone.
@@ -469,7 +470,9 @@ public final class ProjectReader {
                                         entry.agent(),
                                         entry.nickname(),
                                         branch(entry.branch()),
-                                        review(entry.review()),
+                                        // A repository that names no review of its own takes the
+                                        // project's.
+                                        Objects.requireNonNullElse(entry.review(), projectReview),
                                         blankless(entry.central()))));
         return List.copyOf(read);
     }

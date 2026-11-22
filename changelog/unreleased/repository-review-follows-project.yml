@@ -1,0 +1,2 @@
+title: "A repository in `project.yml` that names no `review` of its own takes the project's, so a project set `optional` once is optional in every such repository; `required` holds only where neither names one, and a repository's own `review` reads as before"
+type: changed

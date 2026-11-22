@@ -748,6 +748,28 @@ class ProjectReaderTest {
     }
 
     @Test
+    void aRepositoryWithoutItsOwnReviewTakesTheProjects() {
+        // Harm: a merge refused for want of an approval the project said it needs not.
+        assertThat(reviewed("  review: \"optional\"", "").repositories().getFirst().review())
+                .as("an optional project makes a repository that says nothing optional")
+                .isEqualTo("optional");
+        assertThat(reviewed("  review: \"required\"", "").repositories().getFirst().review())
+                .as("a required project keeps a repository that says nothing required")
+                .isEqualTo("required");
+    }
+
+    @Test
+    void aRepositoryNamingRequiredStaysRequiredUnderAnOptionalProject() {
+        // Harm: a merge allowed without the approval its repository asks for.
+        final Project read = reviewed("  review: \"optional\"", "    review: \"required\"");
+
+        assertThat(read.review()).as("the project's own").isEqualTo("optional");
+        assertThat(read.repositories().getFirst().review())
+                .as("the repository's own review overrides the project's")
+                .isEqualTo("required");
+    }
+
+    @Test
     void anyOtherReviewIsRefusedNamingTheKey() {
         assertThatThrownBy(() -> reviewed("  review: \"sometimes\"", ""))
                 .isInstanceOf(ProjectException.class)

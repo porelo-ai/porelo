@@ -58,6 +58,7 @@ project:
 
   # Optional. Whether a merge in the project's own repository on the host's forge needs another
   # person's approval: required, the default, or optional, where the author merges their own.
+  # It is also the review of every repository below that names none of its own.
   # Porelo only reads it; the host's forge enforces it.
   review: "required"
 
@@ -84,7 +85,8 @@ repositories:
     # that carries it takes it from. Without one, the work stays on this machine. A file not yet
     # renamed keeps working as before: its 'upstream' is where work goes, and names no central.
     central: "git@github.com:you/backend.git"
-    # Optional. As the project's own 'review' above, for this repository.
+    # Optional. As the project's own 'review' above, for this repository, overriding the
+    # project's. Without either, required holds.
     review: "required"
     description: "The thing that talks to the payment provider"
     # Optional. The issue prefixes this repository owns, each one or more capital letters and named

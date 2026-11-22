@@ -112,9 +112,8 @@ public class ProjectShowCommand extends OrgReading {
         if (own && waiting.size() == rows) {
             line(
                     "Review: required for the project and all its repositories, but the project has no"
-                            + " second admin, so no merge can be approved; run 'porelo project review "
-                            + project
-                            + " [NAME] optional' to change it");
+                            + " second admin, so no merge can be approved; "
+                            + change(project, true));
         } else if (own || !waiting.isEmpty()) {
             if (own) {
                 waiting.addFirst("the project's own repository");
@@ -123,11 +122,21 @@ public class ProjectShowCommand extends OrgReading {
                     "Review: required for "
                             + String.join(", ", waiting)
                             + ", but the project has no second admin, so no merge there can be"
-                            + " approved; run 'porelo project review "
-                            + project
-                            + (own ? " [NAME]" : " NAME")
-                            + " optional' to change it");
+                            + " approved; "
+                            + change(project, own));
         }
+    }
+
+    /** The project's own setting also covers every repository that names none of its own. */
+    private static String change(final String project, final boolean own) {
+        final String named = "'porelo project review " + project + " NAME optional'";
+        return own
+                ? "run 'porelo project review "
+                        + project
+                        + " optional' to change it, or "
+                        + named
+                        + " for a repository naming its own"
+                : "run " + named + " to change it";
     }
 
     private static void reviewWait(final Map<String, @Nullable Object> row) {

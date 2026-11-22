@@ -155,7 +155,9 @@ class ProjectVerifyCommandTest {
                 .isEqualTo("git@forge.example:demo/second.git");
         assertThat(second.get("central")).isEqualTo("git@github.com:acme/second.git");
         final Map<?, ?> first = (Map<?, ?>) repositories.get("first");
-        assertThat(first.get("review")).as("left out").isEqualTo("required");
+        assertThat(first.get("review"))
+                .as("left out, it takes the project's, which the host's branch protection sets")
+                .isEqualTo("optional");
         assertThat(first.containsKey("central")).as("named, and null").isTrue();
         assertThat(first.get("central")).as("an old 'upstream' names no central").isNull();
         final Map<?, ?> local = (Map<?, ?>) repositories.get("local");
