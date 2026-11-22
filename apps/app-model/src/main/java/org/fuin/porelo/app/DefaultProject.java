@@ -270,6 +270,18 @@ public final class DefaultProject {
     }
 
     /**
+     * Returns the name a checkout has in it, or the one a start from it would add it under: its
+     * directory's, spelled as a repository name, the next free one when another has it.
+     *
+     * @param checkout The checkout's top directory, as a start in it records it.
+     * @return The name.
+     */
+    public String nameFor(final String checkout) {
+        final Entry entry = withUpstream(checkout);
+        return entry != null ? entry.name() : unused(RepositoryAddress.nameOf(checkout), entries());
+    }
+
+    /**
      * Adds a repository, or returns the one already there for the same upstream.
      *
      * @param upstream Where approved work goes.
@@ -288,8 +300,8 @@ public final class DefaultProject {
      *
      * @param address Where its history comes from and approved work goes: a checkout's path, or a
      *     remote's address.
-     * @param name What to call it, or {@code null} to name it after {@code remote}, else after the
-     *     address.
+     * @param name What to call it, or {@code null} to name it after the checkout's directory, else
+     *     after {@code remote}, else after the address.
      * @param checkout The checkout it is added from, or "".
      * @param remote The checkout's {@code origin}, shown only, or "".
      * @return What is in it now for that upstream.
@@ -343,7 +355,10 @@ public final class DefaultProject {
                 name != null && !name.isBlank()
                         ? name
                         : unused(
-                                RepositoryAddress.nameOf(remote.isBlank() ? upstream : remote),
+                                RepositoryAddress.nameOf(
+                                        !checkout.isBlank()
+                                                ? checkout
+                                                : remote.isBlank() ? upstream : remote),
                                 entries);
         if (!chosen.matches(Repository.NAME_PATTERN) || chosen.equals(NAME)) {
             throw new Refused(
@@ -583,9 +598,20 @@ public final class DefaultProject {
     private static String unused(final String wanted, final List<Entry> entries) {
         String candidate = wanted;
         for (int number = 2; candidate.equals(NAME) || taken(candidate, entries); number++) {
-            candidate = wanted + "-" + number;
+            candidate = numbered(wanted, number);
         }
         return candidate;
+    }
+
+    /** A name with its number, the name cut so both fit in a repository name's 63 characters. */
+    private static String numbered(final String wanted, final int number) {
+        final String suffix = "-" + number;
+        final String base =
+                wanted.substring(0, Math.min(wanted.length(), 63 - suffix.length()))
+                        // A cut may leave a '.' or '-' the number would follow, which no name
+                        // holds.
+                        .replaceAll("[.-]+$", "");
+        return base + suffix;
     }
 
     private static boolean taken(final String name, final List<Entry> entries) {

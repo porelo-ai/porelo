@@ -281,6 +281,96 @@ class DefaultProjectTest {
     }
 
     @Test
+    void aCheckoutJoinsDefaultUnderItsDirectorysNameNotItsOrigins() throws Exception {
+        final PoreloContext context = context();
+        final Path checkout = Files.createDirectories(dir.resolve("work"));
+        git(checkout, "init", "-q");
+        git(checkout, "remote", "add", "origin", "git@github.com:you/elsewhere.git");
+
+        final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, checkout);
+
+        // Harm: -r, 'project default remove' and 'task list' would want a name the person never
+        // sees.
+        assertThat(choice.repository())
+                .as("the start works on the repository under the checkout's directory name")
+                .isEqualTo("work");
+        assertThat(choice.said())
+                .as("the start's line names the directory's name")
+                .contains("added to 'default' as 'work'");
+        assertThat(new DefaultProject(context).entries())
+                .as("'default' lists it under the directory's name, its origin kept to be shown")
+                .singleElement()
+                .satisfies(
+                        entry -> {
+                            assertThat(entry.name()).as("name").isEqualTo("work");
+                            assertThat(entry.remote())
+                                    .as("remote")
+                                    .isEqualTo("git@github.com:you/elsewhere.git");
+                        });
+    }
+
+    @Test
+    void aDirectoryNameIsSpelledAsARepositoryNameAndTakesTheNextFreeOne() throws Exception {
+        final PoreloContext context = context();
+        final Path first = Files.createDirectories(dir.resolve("My_Work"));
+        final Path second = Files.createDirectories(dir.resolve("other/My_Work"));
+        for (final Path checkout : java.util.List.of(first, second)) {
+            git(checkout, "init", "-q");
+            git(checkout, "remote", "add", "origin", "git@github.com:you/elsewhere.git");
+        }
+
+        assertThat(WorkOrigin.fromCheckout(context, first).repository())
+                .as("a directory name is spelled as a repository name is")
+                .isEqualTo("my-work");
+        assertThat(WorkOrigin.fromCheckout(context, second).repository())
+                .as("a name another checkout has takes the next free one")
+                .isEqualTo("my-work-2");
+    }
+
+    @Test
+    void twoCheckoutsWhoseDirectoryNameSpellsSixtyThreeCharactersBothJoinDefault()
+            throws Exception {
+        final PoreloContext context = context();
+        // The cut that leaves room for "-2" ends at the hyphen, which a name cannot end in.
+        final String name = "a".repeat(60) + "-bc";
+        final Path first = Files.createDirectories(dir.resolve(name));
+        final Path second = Files.createDirectories(dir.resolve("other").resolve(name));
+        for (final Path checkout : java.util.List.of(first, second)) {
+            git(checkout, "init", "-q");
+        }
+
+        assertThat(WorkOrigin.fromCheckout(context, first).repository())
+                .as("the first keeps its whole name")
+                .isEqualTo(name);
+        assertThat(WorkOrigin.fromCheckout(context, second).repository())
+                .as("the second is cut so its number fits in 63 characters")
+                .isEqualTo("a".repeat(60) + "-2")
+                .matches(org.fuin.porelo.core.project.Repository.NAME_PATTERN);
+    }
+
+    @Test
+    void aCheckoutAlreadyInDefaultKeepsTheNameItHas() throws Exception {
+        final PoreloContext context = context();
+        final Path checkout = Files.createDirectories(dir.resolve("work"));
+        git(checkout, "init", "-q");
+        git(checkout, "remote", "add", "origin", "git@github.com:you/elsewhere.git");
+        final String path = checkout.toRealPath().toString();
+        // As a start before the directory's name was taken recorded it: after its origin.
+        new DefaultProject(context)
+                .add(path, "elsewhere", path, "git@github.com:you/elsewhere.git");
+
+        final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, checkout);
+
+        assertThat(choice.repository())
+                .as("a recorded entry keeps its name, so its tasks and mirror are found")
+                .isEqualTo("elsewhere");
+        assertThat(new DefaultProject(context).entries())
+                .as("no second entry is added for the same checkout")
+                .extracting(DefaultProject.Entry::name)
+                .containsExactly("elsewhere");
+    }
+
+    @Test
     void twoCheckoutsOfOneRemoteAreTwoRepositoriesEachItsOwnSource() throws Exception {
         final PoreloContext context = context();
         final Path first = Files.createDirectories(dir.resolve("app"));

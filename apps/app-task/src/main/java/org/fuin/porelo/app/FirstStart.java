@@ -688,7 +688,7 @@ public final class FirstStart {
                 "",
                 DefaultProject.NAME,
                 hash,
-                repositoryName(top, origin),
+                repositoryName(top),
                 file,
                 null,
                 List.of(),
@@ -696,21 +696,9 @@ public final class FirstStart {
                 CheckoutProject.upstream(origin, top));
     }
 
-    /** Keeps the draft and its allowance under the name a default start uses after collisions. */
-    private String repositoryName(final Path top, final String origin) {
-        final DefaultProject fallback = new DefaultProject(context);
-        final DefaultProject.Entry entry = fallback.withUpstream(top.toString());
-        if (entry != null) {
-            return entry.name();
-        }
-        final String wanted = RepositoryAddress.nameOf(CheckoutProject.upstream(origin, top));
-        final Set<String> taken = new LinkedHashSet<>();
-        fallback.entries().forEach(each -> taken.add(each.name()));
-        String candidate = wanted;
-        for (int number = 2; DefaultProject.is(candidate) || taken.contains(candidate); number++) {
-            candidate = wanted + "-" + number;
-        }
-        return candidate;
+    /** Keeps the draft and its allowance under the name a default start gives the checkout. */
+    private String repositoryName(final Path top) {
+        return new DefaultProject(context).nameFor(top.toString());
     }
 
     /** Keeps advice outside the checkout, so pulling or editing work cannot reset what was said. */
@@ -1040,7 +1028,7 @@ public final class FirstStart {
             return Answer.plain(Outcome.NO_PLUGIN, "", "", notes);
         }
         final String upstream = CheckoutProject.upstream(origin, top);
-        final String repository = repositoryName(top, origin);
+        final String repository = repositoryName(top);
         final ProjectProposal proposal;
         try {
             // A repository with no origin is reached where a task in 'default' reaches it.

@@ -1075,8 +1075,10 @@ porelo project secret-known PROJECT PATH:LINE [--repository NAME] [--from BRANCH
   nothing reads any more. See [clear](#clear).
 - **`default`** is the project every machine has. It is `guarded`, reaches only
   the agent's provider, refuses blocked connections and has no conversation. `task start` without
-  `-p`, in a checkout no project names, adds that checkout's `origin` to it, never with its
-  user part: of a URL all before its first `/` up to the last `@` there is left out but a plain ssh user, and all of
+  `-p`, in a checkout no project names, adds that checkout to it under its directory's name, spelled as a
+  repository name and the next free one (`work-2`) when another has it; a checkout already in it keeps its name.
+  Its `origin` is kept to be shown, never with its user part: of a URL all before its first `/` up to the last `@`
+  there is left out but a plain ssh user, and all of
   it when `%40` follows that `@`; of `user@host:path`, split as git splits it at the first colon after its host,
   bracketed or not, a user that is no plain name, or without a user all up to the last `@` that a host and a colon
   follow; an origin without a credential is kept as given. It cannot be removed. A repository in it changes its settings

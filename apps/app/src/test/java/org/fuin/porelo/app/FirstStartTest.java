@@ -144,6 +144,24 @@ class FirstStartTest {
         assertReadyWithOwnSettings();
     }
 
+    @Test
+    void aYesInACheckoutNamedOtherThanItsOriginKeepsItUnderTheDirectorysName() throws Exception {
+        plugin();
+        checkout = Files.createDirectories(root.resolve("work/mine")).toRealPath();
+        runner.answering("--show-toplevel", checkout.toString());
+
+        final WorkOrigin.Choice choice = atTerminal("y");
+
+        // Harm: the settings would be kept for a name the start in 'default' never uses.
+        assertThat(choice.repository())
+                .as("the first start names the repository after the checkout's directory")
+                .isEqualTo("mine");
+        assertThat(new DefaultProject(context).entries())
+                .as("'default' keeps it under the same name")
+                .extracting(DefaultProject.Entry::name)
+                .containsExactly("mine");
+    }
+
     /** The written file reads as repository settings and has nothing left to allow. */
     private void assertReadyWithOwnSettings() {
         final Path file = new DefaultProject(context).file();

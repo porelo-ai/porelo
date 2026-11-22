@@ -1,0 +1,2 @@
+title: "A start in a checkout no project names adds it to `default` under the checkout directory's name, spelled as a repository name and the next free one when taken, not under its origin's name; a checkout already in `default` keeps the name it has"
+type: fixed
