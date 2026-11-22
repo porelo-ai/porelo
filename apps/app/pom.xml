@@ -85,6 +85,16 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Orders bom before this module, and into any '-am' run naming it, so PublishedBomTest
+             finds the pom bom's flatten writes. Its flattened pom carries no dependencies. -->
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-bom</artifactId>
+            <version>${porelo.version}</version>
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+
         <!-- provided: generates the picocli reflection metadata at compile time, so the native
              image needs no hand-written configuration for the command tree. -->
 
