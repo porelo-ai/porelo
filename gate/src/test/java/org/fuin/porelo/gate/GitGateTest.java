@@ -676,7 +676,7 @@ class GitGateTest {
                                             url(server),
                                             "HEAD:" + GitGate.INCOMING + "task-1"))
                     .hasMessageContaining("remote rejected")
-                    .hasMessageContaining("the upstream refused it");
+                    .hasMessageContaining("the forge refused it");
         }
         assertThat(gate.resolves(GitGate.INCOMING + "task-1"))
                 .as("what the forge did not take")
@@ -873,9 +873,201 @@ class GitGateTest {
                         .standardOutput()
                         .strip();
 
-        assertThat(gate.passOn("porelo/task-1", commit))
-                .startsWith("the upstream refused it: ")
-                .contains("protected: no porelo branches here");
+        final String said = gate.passOn("porelo/task-1", commit);
+
+        assertThat(said)
+                .as("the forge's words, after Porelo's own sentence")
+                .startsWith("the forge refused it: ")
+                .contains("remote: protected: no porelo branches here")
+                .contains("[remote rejected]")
+                .contains("pre-receive hook declined");
+        // Harm: the agent and gate.log would read the host's mirror path and Porelo's git options.
+        assertThat(said)
+                .as("no Porelo command line, mirror path or git option")
+                .doesNotContain("--git-dir", mirror.toString(), "credential.helper", "push --force")
+                .doesNotContain("\n");
+    }
+
+    /** A key file a lending hands ssh, as Porelo's own leases do. */
+    private static final String KEY = "/keys/porelo/id_test";
+
+    /** The push a gate runs, with the key in its environment as a lease puts it there. */
+    private Command pushOf(final String upstream) {
+        return Command.of(
+                        "git",
+                        "--git-dir",
+                        mirror.toString(),
+                        "push",
+                        "--force",
+                        "--end-of-options",
+                        upstream,
+                        "abc:refs/heads/porelo/task-1")
+                .withEnvironment(
+                        Map.of("GIT_SSH_COMMAND", "ssh -i " + KEY + " -o IdentitiesOnly=yes"));
+    }
+
+    @Test
+    void gitsOwnReasonIsKeptWithoutTheMirrorAKeyPathOrAnAddresssCredential() {
+        final String upstream = "https://jo:s3cret@forge.example/acme/shop.git";
+        final GitGate gate = new GitGate(runner, mirror, GateMode.ONLINE, upstream);
+        final Command push = pushOf(upstream);
+
+        final String said =
+                gate.refusal(
+                        new org.fuin.porelo.core.process.CommandException(
+                                push,
+                                new CommandResult(
+                                        push,
+                                        128,
+                                        "",
+                                        "fatal: not a git repository: '"
+                                                + mirror
+                                                + "'\nLoad key \""
+                                                + KEY
+                                                + "\": invalid format\nerror: failed to push some"
+                                                + " refs to 'https://jo:s3cret@other.example/x.git'\n"
+                                                + "fatal: unable to access '"
+                                                + upstream
+                                                + "'\n")));
+
+        assertThat(said)
+                .as("git's own reason stays, the mirror named as such")
+                .startsWith("the push to the upstream failed: ")
+                .contains("not a git repository: 'the mirror'")
+                .contains("invalid format")
+                .contains("failed to push some refs");
+        // Harm: the agent and gate.log would learn the host's paths and an address's password.
+        assertThat(said)
+                .as("no mirror path, key path or credential of an address")
+                .doesNotContain(mirror.toString(), KEY, "s3cret", "jo:");
+    }
+
+    @Test
+    void aGitThatNeverRanIsSaidSoWithItsOwnReason() {
+        final GitGate gate = new GitGate(runner, mirror, GateMode.ONLINE, "/elsewhere/up.git");
+
+        final String said =
+                gate.refusal(
+                        new org.fuin.porelo.core.process.CommandException(
+                                pushOf("/elsewhere/up.git"),
+                                new IOException("No such file or directory")));
+
+        assertThat(said)
+                .as("git could not be run, and why")
+                .isEqualTo("git could not be run: No such file or directory");
+    }
+
+    @Test
+    void theForgesLinesKeepOnlyPrintableCharactersAndAreCutAtABound() {
+        final GitGate gate = new GitGate(runner, mirror, GateMode.ONLINE, "/elsewhere/up.git");
+        final Command push = pushOf("/elsewhere/up.git");
+
+        final String said =
+                gate.refusal(
+                        new org.fuin.porelo.core.process.CommandException(
+                                push,
+                                new CommandResult(
+                                        push,
+                                        1,
+                                        "",
+                                        "remote: \u001b[31mred\u001b[0m words\u0007\nremote: "
+                                                + "x".repeat(5000)
+                                                + "\n")));
+
+        // Harm: a forge's escape sequences would act on the person's terminal reading gate.log.
+        assertThat(said)
+                .as("no control character")
+                .contains("remote: [31mred[0m words")
+                .doesNotContain("\u001b", "\u0007");
+        assertThat(said.length()).as("bounded").isLessThan(2100);
+        assertThat(said).as("saying it was cut").endsWith("(cut at 2000 characters)");
+    }
+
+    /**
+     * Lends nothing but answers a refused push with words of its own, as a credential's help does.
+     */
+    private static GitCredentials answering(final @org.jspecify.annotations.Nullable String said) {
+        return url ->
+                new GitCredentials.Lease() {
+                    @Override
+                    public Map<String, String> environment() {
+                        return Map.of("GIT_SSH_COMMAND", "ssh -i " + KEY);
+                    }
+
+                    @Override
+                    public List<String> arguments() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public GateException failure(
+                            final org.fuin.porelo.core.process.CommandException failure) {
+                        return new GateException("help", failure) {
+                            private static final long serialVersionUID = 1L;
+
+                            @Override
+                            public @org.jspecify.annotations.Nullable String getMessage() {
+                                return said;
+                            }
+                        };
+                    }
+
+                    @Override
+                    public void close() {}
+                };
+    }
+
+    private String refusedThrough(final GitCredentials lending) throws IOException {
+        final Path upstream = upstreamWithMain();
+        Files.writeString(
+                upstream.resolve("hooks/pre-receive"),
+                "#!/bin/sh\necho 'protected: no porelo branches here' >&2\nexit 1\n");
+        upstream.resolve("hooks/pre-receive").toFile().setExecutable(true);
+        final GitGate gate = gate(GateMode.ONLINE, upstream.toString()).using(lending);
+        final String commit =
+                git(root, "--git-dir", mirror.toString(), "rev-parse", "refs/heads/main")
+                        .standardOutput()
+                        .strip();
+        return String.valueOf(gate.passOn("porelo/task-1", commit));
+    }
+
+    @Test
+    void aCredentialsHelpIsSaidAsPorelosWithoutItsCommandLineTheMirrorOrTheKey()
+            throws IOException {
+        final String said =
+                refusedThrough(
+                        answering(
+                                "The push was refused. Credential: file "
+                                        + KEY
+                                        + " (SHA256:abc). The remote command failed; its cause has"
+                                        + " not been identified. Run 'porelo credentials keys' to"
+                                        + " choose a key. Run: 'porelo' 'credentials' 'try-push'"
+                                        + " 'ssh://git@forge.example/acme/shop.git' '--repository' '"
+                                        + mirror
+                                        + "' '--refspec' 'abc:refs/heads/porelo/task-1' '--file' '"
+                                        + KEY
+                                        + "'"));
+
+        assertThat(said)
+                .as("Porelo's help, not put in the forge's mouth")
+                .doesNotStartWith("the forge refused it")
+                .contains("The push was refused.")
+                .contains("porelo credentials keys");
+        // Harm: the agent would be handed a command line holding the host's mirror and key paths.
+        assertThat(said)
+                .as("no command line, mirror path or key path")
+                .doesNotContain("try-push", mirror.toString(), KEY);
+    }
+
+    @Test
+    void aCredentialsHelpWithNoWordsLeavesTheForgesOwn() throws IOException {
+        final String said = refusedThrough(answering(null));
+
+        assertThat(said)
+                .as("the forge's words, never 'null'")
+                .startsWith("the forge refused it: ")
+                .contains("protected: no porelo branches here")
+                .doesNotContain("null");
     }
 
     @Test

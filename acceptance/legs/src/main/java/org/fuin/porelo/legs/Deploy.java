@@ -33,10 +33,12 @@ import org.jspecify.annotations.Nullable;
 final class Deploy {
 
     /**
-     * A run number in a package version: {@code 0.1.0~snapshot.162} or {@code
-     * ~snapshot.162.1+local...}.
+     * A run in a package version, as the build writes {@code -Dporelo.snapshot.run}: {@code
+     * 0.1.0~snapshot.162}, {@code ~snapshot.162.1+local...} or a stamp, {@code
+     * ~snapshot.20261114T044528+local...}.
      */
-    private static final Pattern RUN = Pattern.compile("~snapshot\\.([0-9]+(?:\\.[0-9]+)*)");
+    private static final Pattern RUN =
+            Pattern.compile("~snapshot\\.([0-9A-Za-z]+(?:\\.[0-9A-Za-z]+)*)");
 
     private static final String PACKAGED = "/usr/bin/porelo";
 
@@ -179,7 +181,7 @@ final class Deploy {
         // A package built earlier may no longer outrank what the machine is offered, and apt would
         // replace it within the hour. Not so for an account's copy, which apt does not know about.
         final Optional<String> built = highestRun(List.of(deb.get().getFileName().toString()));
-        if (scope == Scope.MACHINE && (built.isEmpty() || compareDotted(built.get(), number) < 0)) {
+        if (scope == Scope.MACHINE && (built.isEmpty() || compareRuns(built.get(), number) < 0)) {
             out.println(
                     deb.get().getFileName()
                             + " is run "
@@ -360,20 +362,59 @@ final class Deploy {
                 .map(RUN::matcher)
                 .filter(Matcher::find)
                 .map(m -> m.group(1))
-                .max(Deploy::compareDotted);
+                .max(Deploy::compareRuns);
     }
 
-    private static int compareDotted(String left, String right) {
-        final String[] a = left.split("\\.");
-        final String[] b = right.split("\\.");
-        for (int at = 0; at < Math.max(a.length, b.length); at++) {
-            final long x = at < a.length ? Long.parseLong(a[at]) : 0;
-            final long y = at < b.length ? Long.parseLong(b[at]) : 0;
-            if (x != y) {
-                return Long.compare(x, y);
+    /**
+     * Compares two runs as dpkg compares versions, so a run below another here is one apt would
+     * replace: runs of digits as numbers, the text between them with letters before other signs.
+     */
+    private static int compareRuns(String left, String right) {
+        int a = 0;
+        int b = 0;
+        while (a < left.length() || b < right.length()) {
+            while (!digitAt(left, a) && a < left.length()
+                    || !digitAt(right, b) && b < right.length()) {
+                final int signs = Integer.compare(order(left, a), order(right, b));
+                if (signs != 0) {
+                    return signs;
+                }
+                a++;
+                b++;
+            }
+            final int fromA = a;
+            while (digitAt(left, a)) {
+                a++;
+            }
+            final int fromB = b;
+            while (digitAt(right, b)) {
+                b++;
+            }
+            final int numbers =
+                    new java.math.BigInteger("0" + left.substring(fromA, a))
+                            .compareTo(new java.math.BigInteger("0" + right.substring(fromB, b)));
+            if (numbers != 0) {
+                return numbers;
             }
         }
         return 0;
+    }
+
+    private static boolean digitAt(String text, int at) {
+        return at < text.length() && text.charAt(at) >= '0' && text.charAt(at) <= '9';
+    }
+
+    /**
+     * dpkg's order of a sign between digits: '~' first, then a digit or the end, letters, the rest.
+     */
+    private static int order(String text, int at) {
+        if (at >= text.length() || digitAt(text, at)) {
+            return 0;
+        }
+        final char sign = text.charAt(at);
+        return sign == '~'
+                ? -1
+                : sign >= 'A' && sign <= 'Z' || sign >= 'a' && sign <= 'z' ? sign : sign + 256;
     }
 
     /**

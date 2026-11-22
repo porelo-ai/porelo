@@ -1917,11 +1917,118 @@ public class GitGate {
                     }
                     return new GateException.ForgeSilent(waited, held != null).getMessage();
                 }
-                return "the upstream refused it: " + lease.failure(ex).getMessage();
+                final String help = lease.failure(ex).getMessage();
+                return help == null || help.equals(ex.getMessage())
+                        ? refusal(ex)
+                        : helped(help, ex.getCommand());
             }
         } catch (GateException ex) {
             return ex.getMessage();
         }
+    }
+
+    /** The most of a forge's or git's words a refusal copies. */
+    private static final int MOST_SAID = 2000;
+
+    /**
+     * An absolute path in a command's arguments or environment, such as a key file ssh is given;
+     * never the path of an address after its scheme.
+     */
+    private static final java.util.regex.Pattern PATH =
+            java.util.regex.Pattern.compile("(?<![\\w.:/])/[^\\s'\"]+");
+
+    /** What an address carries before its host: a user, and a password or token with it. */
+    private static final java.util.regex.Pattern USER_INFO =
+            java.util.regex.Pattern.compile("([A-Za-z][A-Za-z0-9+.-]*://)[^/@\\s'\"]*@");
+
+    /**
+     * Says why a push to the upstream failed in the forge's own words - its {@code remote:} lines
+     * and each refused ref - on one line, else in git's, never with Porelo's git command line, the
+     * mirror's path, a key file's path or an address's credential.
+     *
+     * @param failed The failed push.
+     * @return The sentence.
+     */
+    String refusal(final CommandException failed) {
+        final Command command = failed.getCommand();
+        final CommandResult result = failed.getResult();
+        if (result == null) {
+            // Git never ran: the exception's own reason, as its message names the command.
+            final Throwable cause = failed.getCause();
+            final String why = cause == null ? null : cause.getMessage();
+            return "git could not be run: "
+                    + said(why == null || why.isBlank() ? "no reason was given" : why, command);
+        }
+        final List<String> lines =
+                failed.standardError()
+                        .lines()
+                        .map(line -> line.strip().replaceAll("\\s+", " "))
+                        .filter(line -> !line.isEmpty())
+                        .toList();
+        final List<String> forge =
+                lines.stream()
+                        .filter(line -> line.startsWith("remote: ") || line.startsWith("! ["))
+                        .toList();
+        if (!forge.isEmpty()) {
+            return "the forge refused it: " + said(String.join(" ", forge), command);
+        }
+        // Not the forge's words, as when it was never reached: git's own.
+        return "the push to the upstream failed: "
+                + said(
+                        lines.isEmpty()
+                                ? "git exited with code " + result.exitCode()
+                                : String.join(" ", lines),
+                        command);
+    }
+
+    /**
+     * Says a credential's help for a refused push as Porelo's own words, without the command it
+     * names for a person at a terminal, which holds the mirror's and the key's paths.
+     */
+    private String helped(final String help, final Command command) {
+        final int run = help.indexOf(" Run: ");
+        return "the push was not taken: "
+                + said((run < 0 ? help : help.substring(0, run)).strip(), command);
+    }
+
+    /**
+     * Returns words copied into a refusal as the agent and {@code gate.log} may read them:
+     * printable characters only, the mirror named as such, no path the command gave git or ssh, no
+     * address's credential, and at most {@value #MOST_SAID} characters.
+     */
+    private String said(final String words, final Command command) {
+        String text = words;
+        text = text.replace(mirror.toAbsolutePath().normalize().toString(), "the mirror");
+        text = text.replace(mirror.toString(), "the mirror");
+        final java.util.Set<String> paths =
+                new java.util.TreeSet<>(
+                        java.util.Comparator.comparingInt(String::length)
+                                .reversed()
+                                .thenComparing(java.util.Comparator.naturalOrder()));
+        final List<String> given = new ArrayList<>(command.arguments());
+        given.addAll(command.environment().values());
+        for (final String each : given) {
+            final java.util.regex.Matcher path = PATH.matcher(each);
+            while (path.find()) {
+                if (!path.group().equals(upstreamUrl) && !path.group().equals("/dev/null")) {
+                    paths.add(path.group());
+                }
+            }
+        }
+        for (final String path : paths) {
+            text = text.replace(path, "a local file");
+        }
+        text = USER_INFO.matcher(text).replaceAll("$1");
+        final StringBuilder printable = new StringBuilder(text.length());
+        text.codePoints()
+                .filter(
+                        point ->
+                                !Character.isISOControl(point)
+                                        && Character.getType(point) != Character.FORMAT)
+                .forEach(printable::appendCodePoint);
+        return printable.length() <= MOST_SAID
+                ? printable.toString()
+                : printable.substring(0, MOST_SAID) + " ... (cut at " + MOST_SAID + " characters)";
     }
 
     /**

@@ -29,6 +29,7 @@ import picocli.CommandLine.Spec;
 @Command(
         name = "start",
         mixinStandardHelpOptions = true,
+        exitCodeOnInvalidInput = 64,
         description =
                 "Starts a task: creates it, brings back the one that is stopped, or at a terminal goes into"
                         + " the one that is running.")

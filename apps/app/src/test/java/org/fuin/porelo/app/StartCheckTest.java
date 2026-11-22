@@ -37,6 +37,29 @@ class StartCheckTest {
     }
 
     @Test
+    void anUpstreamNothingAnswersIsSaidWithOneFullStop(@TempDir Path dir) {
+        final UpstreamProbe.Answer unreachable =
+                UpstreamProbe.answer(
+                        context(dir),
+                        "ssh://git@127.0.0.1:2222/acme/shop.git",
+                        "ssh: connect to host 127.0.0.1 port 2222: Connection refused");
+
+        assertThat(unreachable.cause())
+                .as("the probe's own sentence for a host nothing answers")
+                .isEqualTo(UpstreamProbe.Cause.UNREACHABLE);
+        assertThat(StartCheck.said(unreachable))
+                .as("a sentence that has its full stop gets no second one")
+                .isEqualTo(unreachable.detail())
+                .doesNotContain("..");
+        assertThat(
+                        StartCheck.said(
+                                new UpstreamProbe.Answer(
+                                        UpstreamProbe.Cause.NOT_FOUND, "no repository there", "")))
+                .as("a sentence without one gets it")
+                .isEqualTo("no repository there.");
+    }
+
+    @Test
     void saysSoWhenThereIsNoProjectFile(@TempDir Path dir) {
 
         // Checked first and cheaply: every other answer is about a run against a project, and

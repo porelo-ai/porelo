@@ -97,6 +97,54 @@ class DeployTest {
     }
 
     @Test
+    void installsAPackageBuiltWithAStampGivenThatStampAsItsRun() throws IOException {
+        final Path target = Files.createDirectories(repository.resolve(Deploy.PACKAGES));
+        final Path deb =
+                Files.writeString(
+                        target.resolve(
+                                "porelo_0.1.0~snapshot.20261114T044528+local.20261114T0446_amd64.deb"),
+                        "");
+        machine.answer("bash -lc 'command -v porelo'", "/usr/bin/porelo\n");
+        machine.answer("echo \"/run/user", "/run/user/1001/porelo/porelod.sock\n");
+        machine.answer(
+                "porelo agents", "NAME  FROM\nstub  /home/somebody/.local/share/porelo/agents\n");
+
+        final int code =
+                Deploy.deploy(
+                        "somebody@192.0.2.10",
+                        repository,
+                        "20261114T044528",
+                        true,
+                        machine,
+                        run -> 0,
+                        out);
+
+        // Harm: a build's own stamp, which -Dporelo.snapshot.run writes, could never be deployed.
+        assertThat(code).as("the stamp the package was built with is its run: %s", text()).isZero();
+        assertThat(machine.uploads)
+                .as("that package is the one installed")
+                .containsEntry(deb, STAGING + "/" + deb.getFileName());
+    }
+
+    @Test
+    void comparesARunStampAsAptComparesIt() {
+        assertThat(
+                        Deploy.highestRun(
+                                List.of(
+                                        "0.1.0~snapshot.162.1",
+                                        "0.1.0~snapshot.20261114T044528+local.20261114T0446")))
+                .as("a stamp is read whole, up to the local part")
+                .contains("20261114T044528");
+        assertThat(
+                        Deploy.highestRun(
+                                List.of(
+                                        "0.1.0~snapshot.20261114T044528",
+                                        "0.1.0~snapshot.20261114T050000")))
+                .as("the later stamp is the higher run")
+                .contains("20261114T050000");
+    }
+
+    @Test
     void refusesToGoOnWhenAnotherPoreloShadowsThePackage() throws IOException {
         deb();
         machine.answer("bash -lc 'command -v porelo'", "/home/somebody/.local/bin/porelo\n");

@@ -1760,9 +1760,9 @@ public final class StartCheck {
      * @return The sentence.
      */
     public static String said(UpstreamProbe.Answer answer) {
-        return answer.detail()
-                + (answer.fix().isEmpty() ? "" : " Then: '" + answer.fix() + "'")
-                + ".";
+        final String sentence =
+                answer.detail() + (answer.fix().isEmpty() ? "" : " Then: '" + answer.fix() + "'");
+        return sentence.endsWith(".") ? sentence : sentence + ".";
     }
 
     private static @Nullable String projectUpstream(Path projectFile, String repository) {

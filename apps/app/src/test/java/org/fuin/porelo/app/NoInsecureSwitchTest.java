@@ -39,8 +39,8 @@ class NoInsecureSwitchTest {
                 .isEqualTo(2);
         assertThat(err.toString()).contains("--insecure");
         assertThat(line.execute("task", "start", "--insecure"))
-                .as("nor on the start, where the checks are made")
-                .isEqualTo(2);
+                .as("nor on the start, where the checks are made, as wrong use")
+                .isEqualTo(64);
     }
 
     @Test

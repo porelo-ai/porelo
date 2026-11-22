@@ -953,8 +953,8 @@ class TaskRunCommandTest {
                                 projectFile(dir, MINIMAL),
                                 "--now",
                                 "--detach"))
-                .as("an option the start does not have is picocli's usage refusal")
-                .isEqualTo(CommandLine.ExitCode.USAGE);
+                .as("an option the start does not have is wrong use, 64 as on every other command")
+                .isEqualTo(64);
         assertThat(err.toString())
                 .as("the refusal names the option as unknown to the start")
                 .contains("'--now' is not an option of 'porelo task start'");
@@ -7524,13 +7524,13 @@ class TaskRunCommandTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
         "-1, 64, --subagents takes 0 or more",
-        "two, 2, --subagents",
-        "1.5, 2, --subagents"
+        "two, 64, --subagents",
+        "1.5, 64, --subagents"
     })
     void aNumberOfSubagentsBelowNoneOrNotWholeIsWrongUse(
             String value, int refused, String said, @TempDir Path dir) throws IOException {
         // Below none is refused by the start, as the daemon's is; what is no number at all is
-        // refused by the parser, as every option's is.
+        // refused by the parser, as every option's is; both are wrong use, 64.
         final PoreloContext context = previewContext(dir);
         previewAgent(context, "preview", "subagents: count\n");
 
@@ -9200,7 +9200,8 @@ class TaskRunCommandTest {
                                 "-p",
                                 projectFile(dir, MINIMAL),
                                 "--nope"))
-                .isEqualTo(2);
+                .as("an unknown option is wrong use, 64 as on every other command")
+                .isEqualTo(64);
     }
 
     @Test
