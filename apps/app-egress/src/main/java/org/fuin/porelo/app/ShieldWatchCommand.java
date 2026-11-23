@@ -358,12 +358,15 @@ public class ShieldWatchCommand implements Callable<Integer>, PoreloFactory.Cont
     private @Nullable Verdict handle(
             ClearanceHub hub, ClearanceService service, String line, PrintWriter err) {
         try {
-            if (!(org.fuin.porelo.wire.Json.parse(line) instanceof java.util.Map<?, ?> event)) {
+            if (!(org.fuin.porelo.wire.Json.parseExact(line)
+                    instanceof java.util.Map<?, ?> event)) {
                 return null;
             }
             final String destination = String.valueOf(event.get("destination"));
             final String protocol = String.valueOf(event.get("protocol"));
-            final int port = event.get("port") instanceof Number number ? number.intValue() : 0;
+            final int port =
+                    org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(event.get("port"))
+                            .orElse(0);
             // A bare address is not something an operator can judge. The resolver logged what it
             // answered, which is the only place to turn the number back into the name the agent
             // asked for; the address stays visible because the decision is about it.

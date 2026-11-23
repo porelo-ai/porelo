@@ -105,6 +105,26 @@ class TaskResultTest {
     }
 
     @Test
+    void aRecordedSizeThatIsAFractionIsNoRecordRatherThanCutToAWholeNumber() throws IOException {
+        final TaskResult result = task(context(), true);
+        written(result, "four".getBytes(StandardCharsets.UTF_8));
+        assertThat(result.take(TASK)).isNotNull();
+        final Path record;
+        try (java.util.stream.Stream<Path> files = Files.walk(dir)) {
+            record =
+                    files.filter(each -> each.getFileName().toString().equals("taken.json"))
+                            .findFirst()
+                            .orElseThrow();
+        }
+        Files.writeString(
+                record, "{\"name\": \"" + NAME + "\", \"state\": \"handed\", \"bytes\": 4.5}");
+
+        assertThat(result.taken(TASK))
+                .as("a size of 4.5 bytes is no size; never taken as 4")
+                .isNull();
+    }
+
+    @Test
     void aFileOfExactlyTheBoundIsHandedBackAndOneByteMoreIsTooLargeWithItsSize()
             throws IOException {
         // An unbounded read lets one task fill the host's disk and every reply of the daemon.

@@ -531,7 +531,7 @@ public class ReadySteps {
      * @return The marker and its bound, or empty when the agent declares none.
      */
     static Optional<Ready> ready(String describe) {
-        final Object parsed = Json.parse(describe);
+        final Object parsed = Json.parseExact(describe);
         if (!(parsed instanceof Map<?, ?> root)) {
             throw new AssertionError("An agent's description is a JSON object, not: " + describe);
         }
@@ -542,8 +542,8 @@ public class ReadySteps {
             return Optional.empty();
         }
         final Duration bound =
-                definition.get("readyWithinSeconds") instanceof Number seconds
-                        ? Duration.ofSeconds(seconds.longValue())
+                definition.get("readyWithinSeconds") instanceof Long seconds
+                        ? Duration.ofSeconds(seconds)
                         : DEFAULT_BOUND;
         if (bound.compareTo(READY_CAP) > 0) {
             throw new AssertionError(

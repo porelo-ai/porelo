@@ -402,14 +402,16 @@ public record TaskResult(PoreloPaths paths) {
         final String text = text(bytes);
         if (text == null) return null;
         try {
-            if (Json.parse(text) instanceof Map<?, ?> fields
+            if (Json.parseExact(text) instanceof Map<?, ?> fields
                     && fields.get("name") instanceof String name
                     && refusal(name) == null
                     && fields.get("state") instanceof String word
                     && State.of(word) instanceof State state
-                    && fields.get("bytes") instanceof Number size
-                    && size.longValue() >= 0) {
-                return new Taken(name, state, size.longValue());
+                    && org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(fields.get("bytes"))
+                            instanceof java.util.OptionalLong size
+                    && size.isPresent()
+                    && size.getAsLong() >= 0) {
+                return new Taken(name, state, size.getAsLong());
             }
         } catch (JsonException ex) {
             return null;

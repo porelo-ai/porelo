@@ -649,7 +649,8 @@ final class McpWiring {
             return null;
         }
         final String said = String.valueOf(record.get("state"));
-        final int code = record.get("code") instanceof Number number ? number.intValue() : -1;
+        final int code =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(record.get("code")).orElse(-1);
         return switch (said) {
             case "running" ->
                     TaskLifecycle.alive(state.resolve(HELPER + ".pid"))
@@ -667,7 +668,7 @@ final class McpWiring {
 
     private static @Nullable Map<?, ?> record(Path state) {
         try {
-            return Json.parse(Files.readString(state.resolve(RECORD), StandardCharsets.UTF_8))
+            return Json.parseExact(Files.readString(state.resolve(RECORD), StandardCharsets.UTF_8))
                             instanceof Map<?, ?> map
                     ? map
                     : null;
