@@ -219,8 +219,10 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   at a terminal, before anything is made: whether to propose its tools from its build files, naming where a yes
   writes `.porelo.yml` (no by default). A yes writes the tools draft, as `TakeProposal` with `TOOLS` does, and the
   start's image reads it, asking for each of its lines; a no writes nothing. Either is recorded as `ASKED`, and no
-  start asks again. A repository that cannot be proposed is named in one line, nothing recorded, and the start goes
-  on. `--yes` never answers it: with `--yes`, `--no-input`, `--dry-run` or no terminal one line names
+  start asks again. A repository with nothing to read yet, its checkout gone or, added by its address, its mirror
+  without a default branch, is neither asked nor named, since no answer could be acted on or recorded; a start once
+  the mirror has one asks. A repository that cannot be proposed for another reason is named in one line, nothing
+  recorded, and the start goes on. `--yes` never answers it: with `--yes`, `--no-input`, `--dry-run` or no terminal one line names
   `porelo project init` and the start goes on as before. A start whose checkout the adapters were just asked about
   (the question above, or none installed, or nothing recognized), a task brought back, and every other project ask
   nothing of it; so does the daemon's `Start`, which says nothing of it either.

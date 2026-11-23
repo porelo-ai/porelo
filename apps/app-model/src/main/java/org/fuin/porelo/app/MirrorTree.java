@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A repository's reviewed tree, exported from the gate's bare mirror for the adapters to read when
@@ -56,15 +57,45 @@ final class MirrorTree implements AutoCloseable {
     }
 
     /**
-     * Returns whether a repository of {@value DefaultProject#NAME} has a mirror at all.
+     * Returns whether a repository of {@value DefaultProject#NAME} has a mirror with a default
+     * branch to read, as {@link #export} reads it.
      *
      * @param context This machine.
      * @param repository The repository's name.
-     * @return Whether its mirror exists: a directory holding no repository is none.
+     * @return Whether its mirror's HEAD names a default branch that has a commit.
+     * @throws IOException When the mirror cannot be read.
      */
-    static boolean exists(final PoreloContext context, final String repository) {
-        return Files.isDirectory(
-                GateSupport.mirror(context, DefaultProject.NAME, repository).resolve("objects"));
+    static boolean readable(final PoreloContext context, final String repository)
+            throws IOException {
+        return readable(GateSupport.mirror(context, DefaultProject.NAME, repository));
+    }
+
+    /**
+     * Returns whether a mirror has a default branch to read, as {@link #export} reads it.
+     *
+     * @param mirror The bare mirror.
+     * @return Whether its HEAD names a default branch that has a commit.
+     * @throws IOException When the mirror cannot be read.
+     */
+    static boolean readable(final Path mirror) throws IOException {
+        return defaultCommit(mirror) != null;
+    }
+
+    /**
+     * The commit of the default branch a mirror's HEAD names, or {@code null} when there is no
+     * mirror, its HEAD names no branch or a task's, or the branch has no commit yet.
+     */
+    private static @Nullable String defaultCommit(final Path mirror) throws IOException {
+        if (!Files.isDirectory(mirror)) {
+            return null;
+        }
+        final Git head = git(mirror, "symbolic-ref", "--quiet", "HEAD");
+        final String ref = head.text().strip();
+        if (head.exit() != 0 || !ref.startsWith("refs/heads/") || ref.startsWith(TASK_BRANCHES)) {
+            return null;
+        }
+        final Git commit = git(mirror, "rev-parse", "--verify", "--quiet", ref + "^{commit}");
+        return commit.exit() == 0 ? commit.text().strip() : null;
     }
 
     /**
@@ -91,21 +122,13 @@ final class MirrorTree implements AutoCloseable {
      * @throws IOException When the mirror cannot be read or the export written.
      */
     static Optional<MirrorTree> export(final Path mirror, final Path runtime) throws IOException {
-        if (!Files.isDirectory(mirror)) {
+        final String commit = defaultCommit(mirror);
+        if (commit == null) {
             return Optional.empty();
         }
-        final Git head = git(mirror, "symbolic-ref", "--quiet", "HEAD");
-        final String ref = head.text().strip();
-        if (head.exit() != 0 || !ref.startsWith("refs/heads/") || ref.startsWith(TASK_BRANCHES)) {
-            return Optional.empty();
-        }
-        final Git commit = git(mirror, "rev-parse", "--verify", "--quiet", ref + "^{commit}");
-        if (commit.exit() != 0) {
-            return Optional.empty();
-        }
-        final Git listed = git(mirror, "ls-tree", "-r", "-z", "--full-tree", commit.text().strip());
+        final Git listed = git(mirror, "ls-tree", "-r", "-z", "--full-tree", commit);
         if (listed.exit() != 0) {
-            throw new IOException("Cannot list the tree of " + ref + " in " + mirror);
+            throw new IOException("Cannot list the tree of " + commit + " in " + mirror);
         }
         final List<Blob> blobs = blobs(listed.text());
         final Path parent = Files.createDirectories(runtime.resolve("mirror-trees"));

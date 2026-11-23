@@ -1,0 +1,2 @@
+title: "`porelo task start` in default asks whether to propose a repository's tools only when its checkout is on this machine or its mirror has a default branch to read, so a repository added by address and never fetched is not asked a question whose answer could not be recorded"
+type: fixed

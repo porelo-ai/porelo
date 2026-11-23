@@ -766,8 +766,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
      * Offers once to propose the tools of a repository of {@code default} nobody was asked about:
      * at a terminal, a yes writes the tools draft its image reads and a no keeps nothing, each
      * recorded as asked; {@code --yes} never answers it, and a start nobody is asked in names
-     * {@code porelo project init} in one line. A repository answered or configured, and every other
-     * project, and a task brought back, go as they did.
+     * {@code porelo project init} in one line. A repository answered or configured, one with
+     * nothing to read yet - its checkout gone, or added by address and its mirror with no default
+     * branch - whose answer could be neither acted on nor recorded, and every other project, and a
+     * task brought back, go as they did.
      *
      * @param project The project the start runs in.
      * @param err Where it is asked and said.
@@ -788,6 +790,22 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 || defaults.proposal(entry) != DefaultProject.Proposal.UNASKED
                 // A task brought back keeps the image it was made with.
                 || exists(project)) {
+            return;
+        }
+        final DefaultProposal proposal = new DefaultProposal(context, detector);
+        try {
+            if (!proposal.readable(entry)) {
+                return;
+            }
+        } catch (java.io.IOException ex) {
+            err.println(
+                    "porelo: the tools of "
+                            + name
+                            + " cannot be proposed: "
+                            + org.fuin.porelo.vault.RegistryText.printable(
+                                    String.valueOf(ex.getMessage()))
+                            + "; nothing asked, and this start goes on");
+            err.flush();
             return;
         }
         final String where =
@@ -823,13 +841,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         final boolean taken = given.equals("y") || given.equals("yes");
         try {
             final DefaultProposal.Taken done =
-                    new DefaultProposal(context, detector)
-                            .take(
-                                    DefaultProject.NAME,
-                                    name,
-                                    taken
-                                            ? DefaultProposal.Choice.TOOLS
-                                            : DefaultProposal.Choice.NONE);
+                    proposal.take(
+                            DefaultProject.NAME,
+                            name,
+                            taken ? DefaultProposal.Choice.TOOLS : DefaultProposal.Choice.NONE);
             err.println(
                     "porelo: "
                             + (!taken

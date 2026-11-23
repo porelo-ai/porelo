@@ -265,7 +265,7 @@ public final class DefaultProposal {
     }
 
     private DefaultProject.Entry proposable(final String project, final String repository)
-            throws NotProposable, NoSuchRepository {
+            throws NotProposable, NoSuchRepository, IOException {
         if (!DefaultProject.is(project)) {
             throw new NotProposable(NOT_DEFAULT);
         }
@@ -275,12 +275,26 @@ public final class DefaultProposal {
                                 .filter(each -> each.name().equals(repository))
                                 .findFirst()
                                 .orElseThrow(() -> new NoSuchRepository(repository));
-        if (entry.source() == DefaultProject.Source.REMOTE
-                ? !MirrorTree.exists(context, entry.name())
-                : !Files.isDirectory(Path.of(entry.checkout()))) {
+        if (!readable(entry)) {
             throw new NotProposable(NO_CHECKOUT);
         }
         return entry;
+    }
+
+    /**
+     * Returns whether a repository can be read for a proposal now, so an answer to one can be acted
+     * on and recorded: its checkout is on this machine, or, added by address, its mirror has a
+     * default branch to read. Otherwise {@link #propose} and {@link #take} refuse it as {@link
+     * #NO_CHECKOUT}.
+     *
+     * @param entry The repository.
+     * @return Whether it can be read.
+     * @throws IOException When its mirror cannot be read.
+     */
+    public boolean readable(final DefaultProject.Entry entry) throws IOException {
+        return entry.source() == DefaultProject.Source.REMOTE
+                ? MirrorTree.readable(context, entry.name())
+                : Files.isDirectory(Path.of(entry.checkout()));
     }
 
     /** A repository added by its address, exported from its mirror; null for a checkout. */

@@ -165,4 +165,20 @@ class MirrorTreeTest {
         git(root, "init", "-q", "--bare", empty.toString());
         assertThat(MirrorTree.export(empty, runtime)).isEmpty();
     }
+
+    @Test
+    void isReadableOnlyWhenItsDefaultBranchHasACommit(@TempDir Path root) throws Exception {
+
+        assertThat(MirrorTree.readable(root.resolve("absent.git"))).as("no mirror").isFalse();
+
+        final Path empty = root.resolve("empty.git");
+        git(root, "init", "-q", "--bare", empty.toString());
+        assertThat(MirrorTree.readable(empty)).as("a default branch with no commit").isFalse();
+
+        final Path mirror = mirror(root);
+        assertThat(MirrorTree.readable(mirror)).isTrue();
+
+        git(mirror, "symbolic-ref", "HEAD", "refs/heads/porelo/task");
+        assertThat(MirrorTree.readable(mirror)).as("a task's branch is never read").isFalse();
+    }
 }

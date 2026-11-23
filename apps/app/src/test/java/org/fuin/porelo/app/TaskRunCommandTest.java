@@ -2522,6 +2522,34 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aRepositoryAddedByAddressWithNothingToReadIsNotAsked(@TempDir Path dir) throws Exception {
+        // Added with 'porelo project default add' and no mirror yet: no answer could be acted on.
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        new DefaultProject(context(dir, true))
+                .add("https://forge.example/acme/shop.git", "shop", "");
+        proposalAnswer = "y";
+
+        firstStartAt(
+                context(dir, true),
+                checkout,
+                true,
+                "y",
+                "-p",
+                "default",
+                "-r",
+                "shop",
+                "--attach",
+                "shell",
+                "--detach");
+
+        assertThat(proposalAsked).as("nothing to read, nothing asked: %s", err).isEmpty();
+        assertThat(err.toString())
+                .as("nor named as asked by a later start")
+                .doesNotContain("porelo project init", "cannot be proposed");
+        assertThat(shopsProposal(dir)).isEqualTo(DefaultProject.Proposal.UNASKED);
+    }
+
+    @Test
     void aYesWritesTheToolsDraftWhoseLinesTheStartReads(@TempDir Path dir) throws Exception {
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
         shopInDefault(dir, checkout);
