@@ -41,9 +41,22 @@ final class HostPush {
             DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")
                     .withResolverStyle(ResolverStyle.STRICT);
     private final HostFiles files;
+
+    /** The commit check of a host push; its worker keeps 270 s of it. */
+    private static final Duration COMMIT_CHECK = Duration.ofSeconds(280);
+
     private final ProjectRuntime runtime;
     private final Clock clock;
     private final java.io.PrintWriter errors;
+
+    /**
+     * Returns the time factors this run of porelo-host read from its host configuration.
+     *
+     * @return The factors the judge's limits follow.
+     */
+    org.fuin.porelo.wire.LimitFactors limits() {
+        return runtime.limits();
+    }
 
     HostPush(HostFiles files, ProjectRuntime runtime, Clock clock) {
         this(files, runtime, clock, new java.io.PrintWriter(System.err, true));
@@ -100,7 +113,7 @@ final class HostPush {
             throw new HostRefusal(65, "only the forge's own hook asks for a push to be judged");
         final PushRequest request;
         try {
-            request = PushRequest.read(input);
+            request = PushRequest.read(input, runtime.limits());
         } catch (IOException ex) {
             throw new HostRefusal(69, "the hook's request could not be read");
         }
@@ -320,7 +333,7 @@ final class HostPush {
                         argv,
                         request.lines().getBytes(StandardCharsets.US_ASCII),
                         HostPrograms.ENVIRONMENT,
-                        Duration.ofSeconds(280));
+                        runtime.limits().machines(COMMIT_CHECK));
             } catch (IOException ex) {
                 throw new HostRefusal(69, "porelo commit verify could not run");
             }

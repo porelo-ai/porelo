@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.organization.gittree.HttpForgeAdmin;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -53,16 +54,12 @@ final class HostProject implements Callable<Integer> {
         AutoCloseable acquire(Path conf, @Nullable Integer descriptor) throws IOException;
     }
 
-    HostProject() {
-        this(new ProjectFiles());
+    HostProject(LimitFactors limits) {
+        this(new ProjectFiles(), limits);
     }
 
-    static CommandLine commandLine() {
-        return commandLine(System.getenv());
-    }
-
-    static CommandLine commandLine(Map<String, String> environment) {
-        final HostProject host = new HostProject();
+    static CommandLine commandLine(Map<String, String> environment, LimitFactors limits) {
+        final HostProject host = new HostProject(limits);
         host.environment = Map.copyOf(environment);
         final CommandLine command = new CommandLine(host);
         command.setEndOfOptionsDelimiter("");
@@ -77,10 +74,10 @@ final class HostProject implements Callable<Integer> {
         return command;
     }
 
-    private HostProject(ProjectFiles files) {
+    private HostProject(ProjectFiles files, LimitFactors limits) {
         this(
                 files,
-                new ProjectRuntime(files),
+                new ProjectRuntime(files, limits),
                 (origin, token) -> HttpForgeAdmin.central(java.net.URI.create(origin), token),
                 ProjectLock::acquire);
     }

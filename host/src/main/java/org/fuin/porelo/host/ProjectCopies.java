@@ -12,6 +12,10 @@ import org.jspecify.annotations.Nullable;
 /** Private, short-lived copies of central main, handed to the forge account. */
 final class ProjectCopies {
     private final ProjectFiles files;
+
+    /** The clone of a project copy from central. */
+    private static final Duration CLONE = Duration.ofSeconds(30);
+
     private final ProjectRuntime runtime;
     private final ProjectReadKeys keys;
 
@@ -71,7 +75,7 @@ final class ProjectCopies {
                         ProjectAddress.parse(ProjectReadKeys.address(item)).ssh(),
                         path.toString()),
                 Map.of("GIT_SSH_COMMAND", keys.ssh(manifest.directory(), item)),
-                Duration.ofSeconds(30));
+                runtime.limits().services(CLONE));
         final ProjectRecords records = new ProjectRecords(files);
         final String account =
                 ProjectRecords.setting(

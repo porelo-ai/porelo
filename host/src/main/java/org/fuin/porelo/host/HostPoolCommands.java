@@ -3,6 +3,7 @@ package org.fuin.porelo.host;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -11,13 +12,13 @@ import picocli.CommandLine.Command;
 final class HostPoolCommands {
     private HostPoolCommands() {}
 
-    static CommandLine commandLine(Map<String, String> environment) {
+    static CommandLine commandLine(Map<String, String> environment, LimitFactors limits) {
         return new CommandLine(new PoreloHost.Group())
-                .addSubcommand("revert", new Revert(environment))
-                .addSubcommand("give-back", new GiveBack(environment))
-                .addSubcommand("make", new Make(environment))
-                .addSubcommand("address", new Address(environment))
-                .addSubcommand("delete", new Delete(environment));
+                .addSubcommand("revert", new Revert(environment, limits))
+                .addSubcommand("give-back", new GiveBack(environment, limits))
+                .addSubcommand("make", new Make(environment, limits))
+                .addSubcommand("address", new Address(environment, limits))
+                .addSubcommand("delete", new Delete(environment, limits));
     }
 
     private static void rootUnit(Map<String, String> environment) {
@@ -34,6 +35,7 @@ final class HostPoolCommands {
             description = "Revert stopped pool VMs; --one settles just one VM for up.")
     static final class Revert implements Callable<Integer> {
         private final Map<String, String> environment;
+        private final LimitFactors limits;
 
         @CommandLine.Option(names = "--one")
         private @Nullable String one;
@@ -43,15 +45,16 @@ final class HostPoolCommands {
 
         @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
 
-        Revert(Map<String, String> environment) {
+        Revert(Map<String, String> environment, LimitFactors limits) {
             this.environment = environment;
+            this.limits = limits;
         }
 
         @Override
         public Integer call() throws Exception {
             rootUnit(environment);
             final HostPool pool =
-                    new HostPool(spec.commandLine().getOut(), spec.commandLine().getErr());
+                    new HostPool(spec.commandLine().getOut(), spec.commandLine().getErr(), limits);
             if (one != null && list == null) return pool.one(one);
             if (one == null && list != null) return pool.service(list);
             throw new HostRefusal(
@@ -67,15 +70,17 @@ final class HostPoolCommands {
             description = "Mark the sudo run account resetting and schedule poweroff.")
     static final class GiveBack implements Callable<Integer> {
         private final Map<String, String> environment;
+        private final LimitFactors limits;
         @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
 
-        GiveBack(Map<String, String> environment) {
+        GiveBack(Map<String, String> environment, LimitFactors limits) {
             this.environment = environment;
+            this.limits = limits;
         }
 
         @Override
         public Integer call() throws Exception {
-            return new HostPool(spec.commandLine().getOut(), spec.commandLine().getErr())
+            return new HostPool(spec.commandLine().getOut(), spec.commandLine().getErr(), limits)
                     .giveBack(environment);
         }
     }
@@ -87,6 +92,7 @@ final class HostPoolCommands {
             description = "Import a pool VM from its prepared seed and backing volume.")
     static final class Make implements Callable<Integer> {
         private final Map<String, String> environment;
+        private final LimitFactors limits;
 
         @CommandLine.Parameters(index = "0")
         private String name;
@@ -106,14 +112,15 @@ final class HostPoolCommands {
         @CommandLine.Parameters(index = "5")
         private String osinfo;
 
-        Make(Map<String, String> environment) {
+        Make(Map<String, String> environment, LimitFactors limits) {
             this.environment = environment;
+            this.limits = limits;
         }
 
         @Override
         public Integer call() throws Exception {
             rootUnit(environment);
-            new PoolMachines().make(name, volume, seed, memory, vcpus, osinfo);
+            new PoolMachines(limits).make(name, volume, seed, memory, vcpus, osinfo);
             return 0;
         }
     }
@@ -125,6 +132,7 @@ final class HostPoolCommands {
             description = "Wait for a pool VM's IPv4 lease, for at most the given seconds.")
     static final class Address implements Callable<Integer> {
         private final Map<String, String> environment;
+        private final LimitFactors limits;
 
         @CommandLine.Parameters(index = "0")
         private String name;
@@ -134,14 +142,15 @@ final class HostPoolCommands {
 
         @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
 
-        Address(Map<String, String> environment) {
+        Address(Map<String, String> environment, LimitFactors limits) {
             this.environment = environment;
+            this.limits = limits;
         }
 
         @Override
         public Integer call() throws Exception {
             rootUnit(environment);
-            spec.commandLine().getOut().println(new PoolMachines().address(name, seconds));
+            spec.commandLine().getOut().println(new PoolMachines(limits).address(name, seconds));
             return 0;
         }
     }
@@ -153,18 +162,20 @@ final class HostPoolCommands {
             description = "Delete a pool VM and verify its domain and volumes are gone.")
     static final class Delete implements Callable<Integer> {
         private final Map<String, String> environment;
+        private final LimitFactors limits;
 
         @CommandLine.Parameters(index = "0")
         private String name;
 
-        Delete(Map<String, String> environment) {
+        Delete(Map<String, String> environment, LimitFactors limits) {
             this.environment = environment;
+            this.limits = limits;
         }
 
         @Override
         public Integer call() throws Exception {
             rootUnit(environment);
-            new PoolMachines().delete(name);
+            new PoolMachines(limits).delete(name);
             return 0;
         }
     }

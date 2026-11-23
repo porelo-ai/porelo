@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.fuin.porelo.wire.LimitFactors;
 import org.fuin.porelo.wire.SystemProgram;
 import org.jspecify.annotations.Nullable;
 
@@ -31,8 +32,16 @@ final class HostPrograms {
     private final int maximumBytes;
     private final Function<String, Path> programs;
 
-    HostPrograms() {
-        this(Duration.ofSeconds(10), 65536);
+    /** A host program's limit when its caller names none. */
+    static final Duration TIMEOUT = Duration.ofSeconds(10);
+
+    /**
+     * Runs host programs under the host's time factors.
+     *
+     * @param limits The factors this run of porelo-host read from its host configuration.
+     */
+    HostPrograms(LimitFactors limits) {
+        this(limits.machines(TIMEOUT), 65536);
     }
 
     HostPrograms(Duration timeout, int maximumBytes) {

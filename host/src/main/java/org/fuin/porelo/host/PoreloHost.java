@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
+import org.fuin.porelo.wire.LimitFactors;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.Ansi;
@@ -30,29 +31,33 @@ public final class PoreloHost implements Callable<Integer> {
     private final java.io.InputStream input;
     private final Function<Map<String, String>, HostPerson> person;
 
-    /** Uses only the installed host tree and the sudo identity. */
+    /**
+     * Uses only the installed host tree and the sudo identity; it describes the command tree, while
+     * a run of porelo-host reads its time factors in {@link #main}.
+     */
     public PoreloHost() {
-        this(System.getenv(), new HostFiles(), HostPerson::from);
-    }
-
-    PoreloHost(
-            Map<String, String> environment,
-            HostFiles files,
-            Function<Map<String, String>, HostPerson> person) {
-        this(environment, files, person, new HostSweep(files));
+        this(System.getenv(), new HostFiles(), HostPerson::from, LimitFactors.DEFAULT);
     }
 
     private PoreloHost(
             Map<String, String> environment,
             HostFiles files,
             Function<Map<String, String>, HostPerson> person,
-            HostSweep sweep) {
+            LimitFactors limits) {
+        this(environment, files, person, new ProjectRuntime(files, limits));
+    }
+
+    private PoreloHost(
+            Map<String, String> environment,
+            HostFiles files,
+            Function<Map<String, String>, HostPerson> person,
+            ProjectRuntime runtime) {
         this(
                 environment,
                 files,
                 person,
-                sweep,
-                new ProjectRuntime(files),
+                new HostSweep(files, runtime, java.time.Clock.systemUTC()),
+                runtime,
                 System.in,
                 java.time.Clock.systemUTC());
     }
@@ -119,7 +124,7 @@ public final class PoreloHost implements Callable<Integer> {
             Uid uid,
             PrintWriter out,
             PrintWriter err) {
-        return run(
+        return runUnder(
                 args,
                 environment,
                 uid,
@@ -127,8 +132,17 @@ public final class PoreloHost implements Callable<Integer> {
                 err,
                 new HostFiles(),
                 args.length >= 2 && args[0].equals("org") && args[1].equals("follow-now")
-                        ? env -> HostPerson.from(env, java.time.Duration.ofSeconds(10))
-                        : HostPerson::from);
+                        ? limits -> env -> HostPerson.from(env, limits.machines(FOLLOW_NOW_LOOKUP))
+                        : limits -> HostPerson::from);
+    }
+
+    /** The person account lookup of {@code org follow-now}. */
+    private static final java.time.Duration FOLLOW_NOW_LOOKUP = java.time.Duration.ofSeconds(10);
+
+    /** How a run finds its sudo person, under the time factors it read. */
+    @FunctionalInterface
+    interface People {
+        Function<Map<String, String>, HostPerson> under(LimitFactors limits);
     }
 
     /**
@@ -159,7 +173,43 @@ public final class PoreloHost implements Callable<Integer> {
             PrintWriter err,
             HostFiles files,
             Function<Map<String, String>, HostPerson> person) {
-        return run(args, environment, uid, out, err, files, person, new HostSweep(files));
+        return runUnder(args, environment, uid, out, err, files, limits -> person);
+    }
+
+    /**
+     * Reads the host's time factors once, before anything else is done, and runs under them.
+     *
+     * @return The verb's exit code, or the refusal's when the host configuration is refused.
+     */
+    private static int runUnder(
+            String[] args,
+            Map<String, String> environment,
+            Uid uid,
+            PrintWriter out,
+            PrintWriter err,
+            HostFiles files,
+            People people) {
+        final LimitFactors limits;
+        try {
+            limits = HostLimits.read(files).factors();
+        } catch (HostRefusal ex) {
+            err.println(ex.getMessage());
+            return ex.exitCode();
+        }
+        final ProjectRuntime runtime = new ProjectRuntime(files, limits);
+        final java.time.Clock clock = java.time.Clock.systemUTC();
+        return run(
+                args,
+                environment,
+                uid,
+                out,
+                err,
+                files,
+                people.under(limits),
+                new HostSweep(files, runtime, clock),
+                runtime,
+                System.in,
+                clock);
     }
 
     static int run(
@@ -180,7 +230,7 @@ public final class PoreloHost implements Callable<Integer> {
                 files,
                 person,
                 sweep,
-                new ProjectRuntime(files),
+                new ProjectRuntime(files, LimitFactors.DEFAULT),
                 System.in,
                 java.time.Clock.systemUTC());
     }
@@ -212,6 +262,12 @@ public final class PoreloHost implements Callable<Integer> {
                 PoreloHost::servePush);
     }
 
+    /** I/O of the forge hook's push socket, given to it in whole seconds. */
+    private static final java.time.Duration PUSH_SOCKET = java.time.Duration.ofSeconds(30);
+
+    /** Reading the whole push request from the hook. */
+    private static final java.time.Duration PUSH_REQUEST = java.time.Duration.ofSeconds(30);
+
     @FunctionalInterface
     interface PushService {
         void serve(HostPush judge) throws IOException;
@@ -220,8 +276,11 @@ public final class PoreloHost implements Callable<Integer> {
     private static void servePush(HostPush judge) throws IOException {
         final var socket = HostSocketActivation.standardInput();
         final long peer = HostSocketActivation.peerUid();
-        try (var connection = new GateConnection(socket, false, 30)) {
-            connection.readDeadline(java.time.Duration.ofSeconds(30));
+        final LimitFactors limits = judge.limits();
+        try (var connection =
+                new GateConnection(
+                        socket, false, (int) HostLimits.seconds(limits.services(PUSH_SOCKET)))) {
+            connection.readDeadline(limits.machines(PUSH_REQUEST));
             judge.serve(connection.input, connection.output, peer);
         }
     }
@@ -326,16 +385,18 @@ public final class PoreloHost implements Callable<Integer> {
                         .addSubcommand("sweep", new TaskSweep(host)));
         command.addSubcommand(
                 "forge",
-                HostForgeCommands.commandLine(host.environment)
+                HostForgeCommands.commandLine(host.environment, host.runtime.limits())
                         .addSubcommand("issue-token", new ForgeToken(host, false))
                         .addSubcommand("lend-token", new ForgeToken(host, true)));
-        command.addSubcommand("project", HostProject.commandLine(host.environment));
+        command.addSubcommand(
+                "project", HostProject.commandLine(host.environment, host.runtime.limits()));
         command.addSubcommand(
                 "person",
                 new CommandLine(new Group())
                         .addSubcommand("purge", new PersonPurge(host))
                         .addSubcommand("restore-runtime", new PersonRestoreRuntime(host)));
-        command.addSubcommand("pool", HostPoolCommands.commandLine(host.environment));
+        command.addSubcommand(
+                "pool", HostPoolCommands.commandLine(host.environment, host.runtime.limits()));
         command.addSubcommand("store", HostStore.commandLine(host.files, host.runtime, host.input));
         command.addSubcommand("judge-push", new JudgePush(host));
         command.addSubcommand("test-switches", new TestSwitches(host));
@@ -650,7 +711,7 @@ public final class PoreloHost implements Callable<Integer> {
             int exit = 73;
             try {
                 final var answer =
-                        new HostFollow(host.files, spec.commandLine().getErr())
+                        new HostFollow(host.files, host.runtime, spec.commandLine().getErr())
                                 .run(spec.name(), host.environment, System.in);
                 spec.commandLine().getOut().println(HostJson.write(answer));
                 exit = 0;
@@ -813,9 +874,7 @@ public final class PoreloHost implements Callable<Integer> {
             try (var lock = HostConfigurationLock.acquire(conf, false)) {
                 spec.commandLine()
                         .getOut()
-                        .println(
-                                HostJson.write(
-                                        new HostTasks(host.files).show(person, fingerprint)));
+                        .println(HostJson.write(host.tasks.show(person, fingerprint)));
             }
             return 0;
         }

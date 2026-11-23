@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.fuin.porelo.organization.gittree.HttpForgeAdmin;
+import org.fuin.porelo.wire.LimitFactors;
 import org.fuin.porelo.wire.SystemProgram;
 import org.jspecify.annotations.Nullable;
 
@@ -31,6 +32,7 @@ final class ProjectRuntime {
     private final Transfers transfers;
     private final SocketCheck sockets;
     private final ForgeFactory forgeFactory;
+    private final LimitFactors limits;
     private @Nullable ProjectRuntime unbudgeted;
 
     @FunctionalInterface
@@ -70,27 +72,43 @@ final class ProjectRuntime {
         Path checked(String path);
     }
 
-    ProjectRuntime(ProjectFiles files) {
+    /**
+     * The installed programs under the host's time factors.
+     *
+     * @param files The root file tree.
+     * @param limits The factors this run of porelo-host read from its host configuration.
+     */
+    ProjectRuntime(ProjectFiles files, LimitFactors limits) {
         this(
                 files,
-                (argv, input, environment, timeout) ->
-                        new HostPrograms(timeout, outputLimit(argv)).run(argv, input, environment),
-                path ->
-                        Path.of(path).isAbsolute()
-                                ? SystemProgram.at(Path.of(path))
-                                : HostPrograms.program(path));
+                ProjectRuntime::command,
+                ProjectRuntime::program,
+                ProjectRuntime::isSocket,
+                HttpForgeAdmin::new,
+                ProjectRuntime::transfer,
+                new HostFiles(),
+                limits);
     }
 
     ProjectRuntime(ProjectFiles files, Commands commands, Programs programs) {
-        this(
-                files,
-                commands,
-                programs,
-                path ->
-                        ((int) Files.getAttribute(path, "unix:mode", LinkOption.NOFOLLOW_LINKS)
-                                        & 0170000)
-                                == 0140000,
-                HttpForgeAdmin::new);
+        this(files, commands, programs, ProjectRuntime::isSocket, HttpForgeAdmin::new);
+    }
+
+    private static HostPrograms.Result command(
+            List<String> argv, byte[] input, Map<String, String> environment, Duration timeout)
+            throws IOException {
+        return new HostPrograms(timeout, outputLimit(argv)).run(argv, input, environment);
+    }
+
+    private static Path program(String path) {
+        return Path.of(path).isAbsolute()
+                ? SystemProgram.at(Path.of(path))
+                : HostPrograms.program(path);
+    }
+
+    private static boolean isSocket(Path path) throws IOException {
+        return ((int) Files.getAttribute(path, "unix:mode", LinkOption.NOFOLLOW_LINKS) & 0170000)
+                == 0140000;
     }
 
     ProjectRuntime(
@@ -112,17 +130,29 @@ final class ProjectRuntime {
         return new HostPrograms(timeout, 1024 * 1024).transfer(argv, input, output, environment);
     }
 
-    ProjectRuntime(HostFiles files) {
+    /**
+     * The installed programs under the host's time factors, for the host's own file tree.
+     *
+     * @param files The host's file tree.
+     * @param limits The factors this run of porelo-host read from its host configuration.
+     */
+    ProjectRuntime(HostFiles files, LimitFactors limits) {
         this(
+                new ProjectFiles(files.path("/"), 0),
+                ProjectRuntime::command,
+                ProjectRuntime::program,
+                files::isSocket,
+                HttpForgeAdmin::new,
+                ProjectRuntime::transfer,
                 files,
-                (argv, input, environment, timeout) ->
-                        new HostPrograms(timeout, outputLimit(argv)).run(argv, input, environment),
-                path ->
-                        Path.of(path).isAbsolute()
-                                ? SystemProgram.at(Path.of(path))
-                                : HostPrograms.program(path),
-                HttpForgeAdmin::new);
+                limits);
     }
+
+    /** An account or group lookup: getent or {@code id -u}. */
+    private static final Duration LOOKUP = Duration.ofSeconds(10);
+
+    /** One command as a person or in an account's container, and one transfer or bundle. */
+    private static final Duration COMMAND = Duration.ofSeconds(60);
 
     /** The most of a push verifier's answer root reads. */
     static final int MOST_PUSH_ANSWER = 64 * 1024 * 1024;
@@ -174,6 +204,27 @@ final class ProjectRuntime {
             ForgeFactory forgeFactory,
             Transfers transfers,
             HostFiles personFiles) {
+        this(
+                files,
+                commands,
+                programs,
+                sockets,
+                forgeFactory,
+                transfers,
+                personFiles,
+                LimitFactors.DEFAULT);
+    }
+
+    private ProjectRuntime(
+            ProjectFiles files,
+            Commands commands,
+            Programs programs,
+            SocketCheck sockets,
+            ForgeFactory forgeFactory,
+            Transfers transfers,
+            HostFiles personFiles,
+            LimitFactors limits) {
+        this.limits = limits;
         this.personFiles = personFiles;
         this.files = files;
         this.transfers = transfers;
@@ -216,9 +267,40 @@ final class ProjectRuntime {
                                         output,
                                         environment,
                                         remaining(clock, deadline, timeout)),
-                        personFiles);
+                        personFiles,
+                        limits);
         result.unbudgeted = unbudgeted();
         return result;
+    }
+
+    /**
+     * Returns the same programs under other time factors.
+     *
+     * @param factors The factors the copy's limits follow.
+     * @return A runtime whose limits, and those of its unbudgeted form, follow them.
+     */
+    ProjectRuntime limited(LimitFactors factors) {
+        final ProjectRuntime result =
+                new ProjectRuntime(
+                        files,
+                        commands,
+                        programs,
+                        sockets,
+                        forgeFactory,
+                        transfers,
+                        personFiles,
+                        factors);
+        result.unbudgeted = unbudgeted == null ? null : unbudgeted.limited(factors);
+        return result;
+    }
+
+    /**
+     * Returns the time factors this run of porelo-host read from its host configuration.
+     *
+     * @return The factors every limit of porelo-host follows.
+     */
+    LimitFactors limits() {
+        return limits;
     }
 
     private static Duration remaining(
@@ -344,7 +426,7 @@ final class ProjectRuntime {
                         List.of("/usr/bin/getent", "group", "porelo-people"),
                         new byte[0],
                         PERSON_ENV,
-                        Duration.ofSeconds(10));
+                        limits.machines(LOOKUP));
         final String[] people = group.output().strip().split(":", -1);
         if (group.exitCode() != 0 || people.length != 4 || !people[0].equals("porelo-people")) {
             return null;
@@ -409,7 +491,7 @@ final class ProjectRuntime {
     String command(List<String> arguments, int... accepted) {
         try {
             final HostPrograms.Result result =
-                    commands.run(arguments, new byte[0], PERSON_ENV, Duration.ofSeconds(60));
+                    commands.run(arguments, new byte[0], PERSON_ENV, limits.machines(COMMAND));
             return checkedResult(
                     Path.of(arguments.getFirst()).getFileName().toString(), result, accepted);
         } catch (IOException ex) {
@@ -437,7 +519,7 @@ final class ProjectRuntime {
                         List.of("/usr/bin/id", "-u", account),
                         new byte[0],
                         SAFE_ENV,
-                        Duration.ofSeconds(10));
+                        limits.machines(LOOKUP));
         final String number = uid.output().strip();
         if (uid.exitCode() != 0 || !number.matches("[1-9][0-9]*")) {
             throw new HostRefusal(
@@ -464,7 +546,7 @@ final class ProjectRuntime {
                         List.of("/usr/bin/getent", "passwd", account),
                         new byte[0],
                         SAFE_ENV,
-                        Duration.ofSeconds(10));
+                        limits.machines(LOOKUP));
         final String[] fields = passwd.output().strip().split(":", -1);
         if (passwd.exitCode() != 0 || fields.length != 7 || !fields[0].equals(account)) {
             throw new HostRefusal(
@@ -492,7 +574,7 @@ final class ProjectRuntime {
                 containerCommand(account, arguments, environment, false),
                 new byte[0],
                 environment,
-                Duration.ofSeconds(60));
+                limits.machines(COMMAND));
     }
 
     private List<String> containerCommand(
@@ -529,7 +611,7 @@ final class ProjectRuntime {
     }
 
     HostPrograms.Result exec(String account, List<String> arguments) throws IOException {
-        return exec(account, arguments, Duration.ofSeconds(60));
+        return exec(account, arguments, limits.machines(COMMAND));
     }
 
     HostPrograms.Result exec(String account, List<String> arguments, Duration timeout)
@@ -549,7 +631,7 @@ final class ProjectRuntime {
                 input,
                 java.io.OutputStream.nullOutputStream(),
                 SAFE_ENV,
-                Duration.ofSeconds(60));
+                limits.machines(COMMAND));
     }
 
     void bundle(String account, Path copy, java.io.OutputStream output) throws IOException {
@@ -574,7 +656,7 @@ final class ProjectRuntime {
                                 java.io.InputStream.nullInputStream(),
                                 output,
                                 SAFE_ENV,
-                                Duration.ofSeconds(60))
+                                limits.machines(COMMAND))
                         .exitCode()
                 != 0) {
             throw new HostRefusal(69, "the verified copy could not be read");
@@ -599,7 +681,7 @@ final class ProjectRuntime {
                                 java.io.InputStream.nullInputStream(),
                                 output,
                                 SAFE_ENV,
-                                Duration.ofSeconds(60))
+                                limits.machines(COMMAND))
                         .exitCode()
                 != 0) {
             throw new HostRefusal(69, "the local forge could not read " + project + "/" + name);
@@ -682,7 +764,7 @@ final class ProjectRuntime {
                         List.of("/usr/bin/getent", "passwd", account),
                         new byte[0],
                         SAFE_ENV,
-                        Duration.ofSeconds(10));
+                        limits.machines(LOOKUP));
         if (missingAllowed && passwd.exitCode() == 2) {
             return null;
         }
@@ -697,7 +779,7 @@ final class ProjectRuntime {
         return collect(
                 execCommand(account, readCommand(project, name, "rev-list", "--all"), false),
                 SAFE_ENV,
-                Duration.ofSeconds(60));
+                limits.machines(COMMAND));
     }
 
     HostPrograms.Result read(String account, String project, String name, String... arguments)

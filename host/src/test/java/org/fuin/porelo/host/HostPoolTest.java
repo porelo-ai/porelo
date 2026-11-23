@@ -49,6 +49,8 @@ class HostPoolTest {
         boolean markerAbsentAtUp = true;
         Consumer<Pool> afterScan = pool -> {};
         HostPool.Lock lock;
+        org.fuin.porelo.wire.LimitFactors limits = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+        Duration clockBound = Duration.ofSeconds(10);
 
         Pool() throws Exception {
             run = root.resolve("run/porelo-pool-revert");
@@ -59,7 +61,13 @@ class HostPoolTest {
             Files.writeString(list, "pool-1\n");
             Files.setAttribute(list, "unix:mode", 0600);
             files = new ProjectFiles(root, (int) Files.getAttribute(root, "unix:uid"));
-            lock = () -> HostConfigurationLock.acquire(root, false, Duration.ofMillis(500));
+            lock =
+                    () ->
+                            HostConfigurationLock.acquire(
+                                    root,
+                                    false,
+                                    Duration.ofMillis(500),
+                                    org.fuin.porelo.wire.LimitFactors.DEFAULT);
             runtime =
                     new ProjectRuntime(
                             files,
@@ -75,7 +83,7 @@ class HostPoolTest {
                                 if (command.equals("domtime")) {
                                     assertThat(timeout)
                                             .as("an unanswered agent cannot hold the pool")
-                                            .isEqualTo(Duration.ofSeconds(10));
+                                            .isEqualTo(clockBound);
                                     clockAttempts++;
                                     if (lateAgent) throw new IOException("silent agent");
                                     if (clockAttempts <= failedClocks) return result(1, "");
@@ -135,7 +143,7 @@ class HostPoolTest {
         HostPool pool() {
             return new HostPool(
                     files,
-                    runtime,
+                    runtime.limited(limits),
                     () -> {},
                     lock,
                     (started, lines) -> {
@@ -517,6 +525,23 @@ class HostPoolTest {
                 .contains("could not set the clock of pool-1");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "'', 20, 10",
+        "retries=2.0, 40, 10",
+        "machines=2.0, 20, 20",
+        "polling=2.0, 20, 10"
+    })
+    void theClockTriesFollowTheRetriesFactorAndEachCallTheMachinesFactor(
+            String line, int tries, int seconds) throws Exception {
+        final Pool pool = new Pool();
+        pool.lateAgent = true;
+        pool.limits = org.fuin.porelo.wire.LimitFactors.parse(line);
+        pool.clockBound = Duration.ofSeconds(seconds);
+        pool.service();
+        assertThat(pool.clockAttempts).as("the tries the retries factor allows").isEqualTo(tries);
+    }
+
     @Test
     void twoRevertsOfThePoolTakeTurns() throws Exception {
         final Pool pool = new Pool();
@@ -524,7 +549,11 @@ class HostPoolTest {
         pool.lock =
                 () -> {
                     attempted.countDown();
-                    return HostConfigurationLock.acquire(root, false, Duration.ofSeconds(2));
+                    return HostConfigurationLock.acquire(
+                            root,
+                            false,
+                            Duration.ofSeconds(2),
+                            org.fuin.porelo.wire.LimitFactors.DEFAULT);
                 };
         final FutureTask<Integer> running = new FutureTask<>(pool::one);
         try (var held = HostConfigurationLock.acquire(root, false)) {

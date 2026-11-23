@@ -19,6 +19,9 @@ final class ProjectMeasurements {
     /** One repository's second measurement after its follow. */
     private static final java.time.Duration REMEASURE = java.time.Duration.ofSeconds(30);
 
+    /** All central state questions of one measurement together. */
+    private static final java.time.Duration CENTRAL_QUESTIONS = java.time.Duration.ofSeconds(120);
+
     private final ProjectFiles files;
     private final ProjectRuntime runtime;
     private final Clock clock;
@@ -139,7 +142,7 @@ final class ProjectMeasurements {
             }
         }
         // Central questions share one time budget so a follow stays bounded across projects.
-        final var deadline = clock.instant().plusSeconds(120);
+        final var deadline = clock.instant().plus(runtime.limits().services(CENTRAL_QUESTIONS));
         final var keys = new ProjectReadKeys(files, runtime.until(clock, deadline));
         final Map<String, String> readAts = new java.util.HashMap<>();
         final Map<String, List<?>> measuredRows = new java.util.HashMap<>();
@@ -238,7 +241,7 @@ final class ProjectMeasurements {
             List<String> projects,
             Map<String, String> owns,
             Map<String, List<?>> measuredRows) {
-        final var budget = clock.instant().plus(FOLLOWS);
+        final var budget = clock.instant().plus(runtime.limits().machines(FOLLOWS));
         for (String project : projects) {
             final String own = owns.get(project);
             final List<?> rows = measuredRows.get(project);
@@ -251,11 +254,19 @@ final class ProjectMeasurements {
                 final String repository = HostJson.string(row.get("repository"));
                 if (!"moved-on".equals(row.get("state"))
                         || own.equalsIgnoreCase(repository)
-                        || clock.instant().plus(FOLLOW).plus(REMEASURE).isAfter(budget)) {
+                        || clock.instant()
+                                .plus(runtime.limits().services(FOLLOW))
+                                .plus(runtime.limits().machines(REMEASURE))
+                                .isAfter(budget)) {
                     continue;
                 }
                 try {
-                    new ProjectReadKeys(files, runtime.until(clock, clock.instant().plus(FOLLOW)))
+                    new ProjectReadKeys(
+                                    files,
+                                    runtime.until(
+                                            clock,
+                                            clock.instant()
+                                                    .plus(runtime.limits().services(FOLLOW))))
                             .follow(account, project, repository);
                 } catch (HostRefusal | IOException ex) {
                     continue;
@@ -266,7 +277,12 @@ final class ProjectMeasurements {
                     again.putAll(
                             new ProjectReadKeys(
                                             files,
-                                            runtime.until(clock, clock.instant().plus(REMEASURE)))
+                                            runtime.until(
+                                                    clock,
+                                                    clock.instant()
+                                                            .plus(
+                                                                    runtime.limits()
+                                                                            .machines(REMEASURE))))
                                     .row(account, project, repository));
                     if (HostProjects.centralRow(again)) {
                         updated.set(index, again);

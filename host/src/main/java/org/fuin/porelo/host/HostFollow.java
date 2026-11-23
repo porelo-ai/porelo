@@ -19,14 +19,17 @@ import org.jspecify.annotations.Nullable;
 
 /** Root's timer and SSH window follow the signed organization through one exclusive lock. */
 final class HostFollow {
+    /** A whole follow, for every verb but renew-pin. */
+    private static final java.time.Duration FOLLOW = java.time.Duration.ofSeconds(300);
+
     private final FollowContext context;
     private final ProjectMigration.Central central;
 
-    HostFollow(HostFiles host, PrintWriter err) {
+    HostFollow(HostFiles host, ProjectRuntime runtime, PrintWriter err) {
         this(
                 host,
                 new ProjectFiles(),
-                new ProjectRuntime(host),
+                runtime,
                 Clock.systemUTC(),
                 err,
                 (origin, token) ->
@@ -58,7 +61,10 @@ final class HostFollow {
                     return renew(supplied);
                 }
                 final FollowContext bounded =
-                        context.until(context.clock.instant().plusSeconds(300));
+                        context.until(
+                                context.clock
+                                        .instant()
+                                        .plus(context.runtime.limits().machines(FOLLOW)));
                 if (verb.equals("refresh")) {
                     FollowContext.ascii(supplied, "token");
                     final String value = new String(supplied, StandardCharsets.US_ASCII).strip();

@@ -49,7 +49,10 @@ class HostFollowNowFlowTest {
             // it.
             try (var lock =
                     HostConfigurationLock.acquire(
-                            fixture.path("/etc/porelo-host/forge.conf"), false, Duration.ZERO)) {
+                            fixture.path("/etc/porelo-host/forge.conf"),
+                            false,
+                            Duration.ZERO,
+                            org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
                 starts++;
                 activate("42", FIRST);
                 complete("42", FIRST, 65);

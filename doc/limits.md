@@ -39,6 +39,9 @@ services=1.0,machines=1.0,polling=1.0,retries=1.0
   `--limits: <what is wrong>`.
 - **The line is written with all four**, in the order above, each with at least one digit after its dot.
 
+- **`porelo-host` takes the factors from `/etc/porelo-host/host.yml`**, the host configuration its role writes
+  with the line under `limits:`, never from a person's file: a missing file is all four at 1.0, and a file it
+  cannot take stops it non-zero, naming the file and what is wrong.
 - **A program takes `--limits <line>` before its mode or verb**: `<program> --limits <line> serve <socket>`. An
   agent program, a build reader and an ecosystem adapter are handed the factors by the shared main they run on,
   through their `withLimits`, before they serve; one that keeps no time limits of its own needs nothing. A program

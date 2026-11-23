@@ -3,6 +3,7 @@ package org.fuin.porelo.host;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.wire.LimitFactors;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
@@ -10,9 +11,9 @@ import picocli.CommandLine.Command;
 final class HostForgeCommands {
     private HostForgeCommands() {}
 
-    static CommandLine commandLine(Map<String, String> environment) {
+    static CommandLine commandLine(Map<String, String> environment, LimitFactors limits) {
         return new CommandLine(new PoreloHost.Group())
-                .addSubcommand("gate", new Gate(environment))
+                .addSubcommand("gate", new Gate(environment, limits))
                 .addSubcommand("measure", new Measure());
     }
 
@@ -29,6 +30,7 @@ final class HostForgeCommands {
             description = "Serve one socket-activated forge connection.")
     static final class Gate implements Callable<Integer> {
         private final Map<String, String> environment;
+        private final LimitFactors limits;
 
         @CommandLine.ArgGroup(exclusive = true, multiplicity = "1")
         private Modes modes = new Modes();
@@ -47,8 +49,9 @@ final class HostForgeCommands {
         @CommandLine.Option(names = "--upstream", required = true)
         private Path upstream;
 
-        Gate(Map<String, String> environment) {
+        Gate(Map<String, String> environment, LimitFactors limits) {
             this.environment = environment;
+            this.limits = limits;
         }
 
         @Override
@@ -62,7 +65,7 @@ final class HostForgeCommands {
             final String mode = modes.web ? "web" : modes.runner ? "runner" : "git";
             try {
                 final var channel = HostSocketActivation.accepted(environment, mode);
-                final var gate = ForgeGate.installed(mode, channel, upstream);
+                final var gate = ForgeGate.installed(mode, channel, upstream, limits);
                 // Closing Java's inherited channel detaches stderr too; the process owns its
                 // lifetime.
                 try (var connection = new GateConnection(channel, false)) {

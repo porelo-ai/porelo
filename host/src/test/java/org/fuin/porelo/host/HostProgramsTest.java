@@ -180,7 +180,10 @@ class HostProgramsTest {
     void aCallerOwnedExecutableIsRefused() throws Exception {
         // A path must not bypass root ownership checks.
         final Path file = Files.writeString(directory.resolve("program"), "untrusted");
-        assertThatThrownBy(() -> new HostPrograms().run(List.of(file.toString())))
+        assertThatThrownBy(
+                        () ->
+                                new HostPrograms(org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                                        .run(List.of(file.toString())))
                 .as("the runner checks absolute paths through SystemProgram")
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Refusing");
@@ -189,7 +192,10 @@ class HostProgramsTest {
     @Test
     void aMissingProgramDoesNotFallBackToTheCallersPath() {
         // A missing tool must not run an attacker-supplied PATH substitute.
-        assertThatThrownBy(() -> new HostPrograms().run(List.of("porelo-host-missing-test-tool")))
+        assertThatThrownBy(
+                        () ->
+                                new HostPrograms(org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                                        .run(List.of("porelo-host-missing-test-tool")))
                 .as("missing distribution tools fail closed")
                 .isInstanceOf(IOException.class);
     }

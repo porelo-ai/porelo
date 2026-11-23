@@ -1,0 +1,2 @@
+title: "`porelo-host` reads the four time factors from `/etc/porelo-host/host.yml`, the host configuration its role writes, and its time limits are their defaults times those factors; a missing file keeps all four at 1.0, and a file it cannot take stops it, naming the file"
+type: changed

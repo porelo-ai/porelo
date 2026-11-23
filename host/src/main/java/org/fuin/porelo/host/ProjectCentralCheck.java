@@ -21,6 +21,10 @@ import org.fuin.porelo.organization.gittree.HttpForgeAdmin;
 /** Root's full-ref comparison with central before a project can be removed. */
 final class ProjectCentralCheck {
     private final ProjectFiles files;
+
+    /** Reading the forge account's token file. */
+    private static final Duration TOKEN_READ = Duration.ofSeconds(10);
+
     private final ProjectRuntime runtime;
 
     ProjectCentralCheck(ProjectFiles files, ProjectRuntime runtime) {
@@ -100,7 +104,7 @@ final class ProjectCentralCheck {
                                     tokenPath),
                             new byte[0],
                             ProjectRuntime.SAFE_ENV,
-                            Duration.ofSeconds(10));
+                            runtime.limits().machines(TOKEN_READ));
         } catch (IOException ex) {
             throw new HostRefusal(66, tokenPath + " could not be read");
         }

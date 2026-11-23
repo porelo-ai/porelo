@@ -16,6 +16,10 @@ import org.jspecify.annotations.Nullable;
 final class ProjectAdvance {
     private static final String CENTRAL = "refs/porelo/central";
     private static final java.time.Duration CLEANUP = java.time.Duration.ofSeconds(15);
+
+    /** One git command advancing the project's central ref. */
+    private static final java.time.Duration GIT = java.time.Duration.ofSeconds(60);
+
     private final ProjectFiles files;
     private final ProjectRuntime runtime;
     private final String account;
@@ -115,12 +119,16 @@ final class ProjectAdvance {
         final ProjectRuntime own = runtime.unbudgeted();
         final List<Exception> failed = new ArrayList<>();
         try {
-            require(own.exec(account, List.of("rm", "-f", remoteBundle), CLEANUP));
+            require(
+                    own.exec(
+                            account,
+                            List.of("rm", "-f", remoteBundle),
+                            own.limits().machines(CLEANUP)));
         } catch (IOException | RuntimeException ex) {
             failed.add(ex);
         }
         try {
-            require(gitResult(own, CLEANUP, "update-ref", "-d", CENTRAL));
+            require(gitResult(own, own.limits().machines(CLEANUP), "update-ref", "-d", CENTRAL));
         } catch (IOException | RuntimeException ex) {
             failed.add(ex);
         }
@@ -289,7 +297,7 @@ final class ProjectAdvance {
     }
 
     private HostPrograms.Result gitResult(String... arguments) throws IOException {
-        return gitResult(runtime, java.time.Duration.ofSeconds(60), arguments);
+        return gitResult(runtime, runtime.limits().services(GIT), arguments);
     }
 
     private HostPrograms.Result gitResult(

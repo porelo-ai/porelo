@@ -436,6 +436,14 @@ remaining domain/volume, file or dependency failure; 65 sudo invocation.
 69 not root or dependency/read/lock failure; 73 output write failure.
 .SH FILES
 .TP
+.I /etc/porelo\-host/host.yml
+Root's host configuration, written by the role: limits, the limits line whose four factors
+porelo\-host's time limits follow, and certificate_days and lent_token_days, whole numbers
+from 1 to 3650 (7 and 1 when left out), which it reads and checks. Read once per run, never
+from a person's file; a missing file keeps all four factors at 1.0, and a file porelo\-host
+cannot take stops it
+with status 69 naming the file and what is wrong, before it does anything.
+.TP
 .I /etc/porelo-host/store/
 Repository, password and S3 credentials, root-owned 0600 files in a 0700 directory.
 Store operations share the private /etc/porelo-host/store.lock flock.

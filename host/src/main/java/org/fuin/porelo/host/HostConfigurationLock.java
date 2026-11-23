@@ -8,6 +8,7 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
 import java.time.Duration;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 
 /** Linux flock, interoperable with the host's existing readers and writers. */
@@ -25,6 +26,10 @@ final class HostConfigurationLock implements AutoCloseable {
                             ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
     private static final MethodHandle CLOSE =
             downcall("close", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+
+    /** The pause between tries while a timed lock is taken. */
+    static final Duration PAUSE = Duration.ofMillis(20);
+
     private final int descriptor;
 
     private HostConfigurationLock(int descriptor) {
@@ -36,10 +41,26 @@ final class HostConfigurationLock implements AutoCloseable {
     }
 
     static HostConfigurationLock acquire(Path file, boolean shared) throws IOException {
-        return acquire(file, shared, null);
+        return acquire(file, shared, null, PAUSE);
     }
 
-    static HostConfigurationLock acquire(Path file, boolean shared, @Nullable Duration timeout)
+    /**
+     * Takes the lock within a time, looking again after a pause that follows the polling factor.
+     *
+     * @param file The lock file.
+     * @param shared Whether a shared lock suffices.
+     * @param timeout How long to keep trying.
+     * @param limits The factors this run of porelo-host read from its host configuration.
+     * @return The lock, held until closed.
+     * @throws IOException When it cannot be taken in time.
+     */
+    static HostConfigurationLock acquire(
+            Path file, boolean shared, Duration timeout, LimitFactors limits) throws IOException {
+        return acquire(file, shared, timeout, limits.polling(PAUSE));
+    }
+
+    private static HostConfigurationLock acquire(
+            Path file, boolean shared, @Nullable Duration timeout, Duration pause)
             throws IOException {
         final int descriptor = open(file, 0x80000 | 0x20000);
         final HostConfigurationLock lock = new HostConfigurationLock(descriptor);
@@ -49,7 +70,7 @@ final class HostConfigurationLock implements AutoCloseable {
             while ((int) FLOCK.invokeExact(descriptor, operation) != 0) {
                 if (timeout == null || System.nanoTime() >= deadline)
                     throw new IOException("Cannot acquire configuration lock");
-                Thread.sleep(20);
+                Thread.sleep(pause);
             }
             return lock;
         } catch (Throwable ex) {

@@ -25,6 +25,13 @@ import org.jspecify.annotations.Nullable;
 /** Reconciles the host's person admissions and grace period from the accepted organization. */
 final class FollowPeople {
     private static final String GECOS = ",,,,umask=0022";
+
+    /** {@code getent passwd}, for all accounts or one. */
+    private static final Duration LOOKUP = Duration.ofSeconds(10);
+
+    /** One account command: ssh-keygen, loginctl, systemctl or pgrep. */
+    private static final Duration COMMAND = Duration.ofSeconds(60);
+
     private final FollowContext c;
     private final ProjectRecords records;
 
@@ -44,7 +51,11 @@ final class FollowPeople {
     }
 
     Map<String, Long> accounts() throws IOException {
-        final var result = c.run(List.of("getent", "passwd"), new byte[0], Duration.ofSeconds(10));
+        final var result =
+                c.run(
+                        List.of("getent", "passwd"),
+                        new byte[0],
+                        c.runtime.limits().machines(LOOKUP));
         if (result.exitCode() != 0) {
             throw new HostRefusal(69, "the host's accounts could not be read");
         }
@@ -223,7 +234,7 @@ final class FollowPeople {
                     c.run(
                             List.of("ssh-keygen", "-Q", "-f", krl.toString(), file.toString()),
                             new byte[0],
-                            Duration.ofSeconds(60));
+                            c.runtime.limits().machines(COMMAND));
             if (result.exitCode() == 0) {
                 return false;
             }
@@ -624,7 +635,10 @@ final class FollowPeople {
             // The checked parent protects this new, still root-owned directory before chown.
             Files.setAttribute(directory, "unix:mode", 0700);
             final var passwd =
-                    c.run(List.of("getent", "passwd", login), new byte[0], Duration.ofSeconds(10));
+                    c.run(
+                            List.of("getent", "passwd", login),
+                            new byte[0],
+                            c.runtime.limits().machines(LOOKUP));
             final String[] fields = passwd.output().strip().split(":", -1);
             if (passwd.exitCode() != 0 || fields.length != 7 || !fields[3].matches("[0-9]{1,10}")) {
                 throw new HostRefusal(69, "the person's primary group could not be read");
@@ -876,7 +890,7 @@ final class FollowPeople {
                         c.run(
                                 List.of("loginctl", "terminate-user", login),
                                 new byte[0],
-                                Duration.ofSeconds(60));
+                                c.runtime.limits().machines(COMMAND));
                 if (ended.exitCode() != 0 && ended.exitCode() != 1) {
                     throw new HostRefusal(69, "loginctl failed");
                 }
@@ -1100,7 +1114,7 @@ final class FollowPeople {
                                 "--value",
                                 "user@" + uid + ".service"),
                         new byte[0],
-                        Duration.ofSeconds(60));
+                        c.runtime.limits().machines(COMMAND));
         final String pid = shown.output().strip();
         if (shown.exitCode() != 0 || !pid.matches("[1-9][0-9]*")) {
             return;
@@ -1131,7 +1145,7 @@ final class FollowPeople {
                     c.run(
                             List.of("pgrep", "-u", login, "-x", "conmon"),
                             new byte[0],
-                            Duration.ofSeconds(60));
+                            c.runtime.limits().machines(COMMAND));
             if (conmon.exitCode() == 0) {
                 c.err.println(
                         "porelo-host: porelod of "

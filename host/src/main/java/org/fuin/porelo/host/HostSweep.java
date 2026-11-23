@@ -16,7 +16,10 @@ final class HostSweep {
     private final Clock clock;
 
     HostSweep(HostFiles files) {
-        this(files, new ProjectRuntime(files), Clock.systemUTC());
+        this(
+                files,
+                new ProjectRuntime(files, org.fuin.porelo.wire.LimitFactors.DEFAULT),
+                Clock.systemUTC());
     }
 
     HostSweep(HostFiles files, ProjectRuntime runtime, Clock clock) {
@@ -35,7 +38,7 @@ final class HostSweep {
         final TreeMap<String, Set<String>> due = new TreeMap<>();
         // Each due token's name in the swept list: <project>/<task>, or the old layout's <task>.
         final Map<String, String> labels = new java.util.HashMap<>();
-        for (var task : new HostTasks(files).read()) {
+        for (var task : new HostTasks(files, runtime, clock).read()) {
             final var record = records.get(task.login());
             if (!task.end().isAfter(now)
                     && record != null

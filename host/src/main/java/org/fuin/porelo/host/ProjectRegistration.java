@@ -17,6 +17,10 @@ import org.jspecify.annotations.Nullable;
 final class ProjectRegistration {
     private final ProjectFiles files;
     private final ProjectRecords records;
+
+    /** The push helper's {@code project check-central}. */
+    private static final Duration CHECK_CENTRAL = Duration.ofSeconds(600);
+
     private final ProjectRuntime runtime;
     private final ProjectReadKeys keys;
     private final java.util.function.Supplier<ProjectCancellation> cancellations;
@@ -518,7 +522,11 @@ final class ProjectRegistration {
                     new ArrayList<>(List.of(push.toString(), "project", "check-central", project));
             argv.addAll(names);
             final HostPrograms.Result checked =
-                    runtime.run(argv, input, ProjectRuntime.SAFE_ENV, Duration.ofSeconds(600));
+                    runtime.run(
+                            argv,
+                            input,
+                            ProjectRuntime.SAFE_ENV,
+                            runtime.limits().services(CHECK_CENTRAL));
             if (checked.exitCode() != 0) {
                 final int code =
                         switch (checked.exitCode()) {

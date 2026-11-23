@@ -18,13 +18,23 @@ import org.jspecify.annotations.Nullable;
 final class HostFollowNow {
     private static final String UNIT = "porelo-host-follow.service";
     private static final String STATE = "/run/porelo-host/follow-now/";
+
+    /** The wait of {@code org follow-now}. */
+    private static final Duration WAIT = Duration.ofSeconds(650);
+
+    /** The pause between looks at the shared follow pass. */
+    private static final Duration POLL = Duration.ofMillis(50);
+
+    /** One systemd call, capped by what is left of the wait. */
+    private static final Duration CALL = Duration.ofSeconds(10);
+
     private final HostFiles files;
     private final ProjectRuntime runtime;
     private final LongSupplier nanos;
     private final long deadline;
 
     HostFollowNow(HostFiles files, ProjectRuntime runtime) {
-        this(files, runtime, System::nanoTime, Duration.ofSeconds(650));
+        this(files, runtime, System::nanoTime, runtime.limits().machines(WAIT));
     }
 
     HostFollowNow(HostFiles files, ProjectRuntime runtime, LongSupplier nanos, Duration budget) {
@@ -54,7 +64,7 @@ final class HostFollowNow {
     Completion follow(HostPerson person, Entry entry) throws IOException {
         final Path conf = files.path("/etc/porelo-host/forge.conf");
         files.check(conf, 69, true, false, -1);
-        try (var lock = HostConfigurationLock.acquire(conf, true, remaining())) {
+        try (var lock = HostConfigurationLock.acquire(conf, true, remaining(), runtime.limits())) {
             final HostRecords records = new HostRecords(files);
             records.admitted(person.login());
             if (records.revoked(person.login())) {
@@ -73,7 +83,10 @@ final class HostFollowNow {
                 return completion;
             }
             try {
-                Thread.sleep(Math.min(50, Math.max(1, remaining().toMillis())));
+                Thread.sleep(
+                        Math.min(
+                                runtime.limits().polling(POLL).toMillis(),
+                                Math.max(1, remaining().toMillis())));
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 throw unavailable("waiting was interrupted; the shared pass continues");
@@ -197,10 +210,8 @@ final class HostFollowNow {
     }
 
     private String command(List<String> argv) throws IOException {
-        final Duration timeout =
-                remaining().compareTo(Duration.ofSeconds(10)) < 0
-                        ? remaining()
-                        : Duration.ofSeconds(10);
+        final Duration call = runtime.limits().machines(CALL);
+        final Duration timeout = remaining().compareTo(call) < 0 ? remaining() : call;
         final HostPrograms.Result result;
         try {
             result = runtime.run(argv, new byte[0], ProjectRuntime.SAFE_ENV, timeout);
@@ -229,7 +240,7 @@ final class HostFollowNow {
                 files.check(mutex, 73, true, false, 0600);
             }
         }
-        return HostConfigurationLock.acquire(mutex, false, remaining());
+        return HostConfigurationLock.acquire(mutex, false, remaining(), runtime.limits());
     }
 
     private @Nullable String latest() {

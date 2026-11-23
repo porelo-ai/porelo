@@ -47,19 +47,29 @@ record PushRequest(Map<String, String> fields, List<Update> updates) {
 
     static PushRequest parse(byte[] bytes) {
         try {
-            return read(new ByteArrayInputStream(bytes));
+            return read(new ByteArrayInputStream(bytes), System::nanoTime);
         } catch (IOException ex) {
             throw new IllegalStateException("An in-memory request cannot fail to read", ex);
         }
     }
 
-    static PushRequest read(InputStream input) throws IOException {
-        return read(input, System::nanoTime);
+    /** Reading the whole hook request. */
+    static final java.time.Duration WHOLE = java.time.Duration.ofSeconds(30);
+
+    static PushRequest read(InputStream input, org.fuin.porelo.wire.LimitFactors limits)
+            throws IOException {
+        return read(input, System::nanoTime, limits.machines(WHOLE));
     }
 
     static PushRequest read(InputStream input, java.util.function.LongSupplier nanoTime)
             throws IOException {
-        final long deadline = nanoTime.getAsLong() + java.time.Duration.ofSeconds(30).toNanos();
+        return read(input, nanoTime, WHOLE);
+    }
+
+    private static PushRequest read(
+            InputStream input, java.util.function.LongSupplier nanoTime, java.time.Duration limit)
+            throws IOException {
+        final long deadline = nanoTime.getAsLong() + limit.toNanos();
         final ByteArrayOutputStream received = new ByteArrayOutputStream();
         byte[] head;
         int end;

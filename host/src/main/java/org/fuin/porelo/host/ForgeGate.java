@@ -45,9 +45,13 @@ final class ForgeGate {
         this.upstream = upstream;
     }
 
-    static ForgeGate installed(String mode, SocketChannel peer, Path upstream) {
+    static ForgeGate installed(
+            String mode,
+            SocketChannel peer,
+            Path upstream,
+            org.fuin.porelo.wire.LimitFactors limits) {
         final ProjectFiles files = new ProjectFiles();
-        final ProjectRuntime runtime = new ProjectRuntime(files);
+        final ProjectRuntime runtime = new ProjectRuntime(files, limits);
         return installed(mode, peer, upstream, files, runtime);
     }
 

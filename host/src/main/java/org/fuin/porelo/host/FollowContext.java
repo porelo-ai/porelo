@@ -19,6 +19,13 @@ import org.jspecify.annotations.Nullable;
 /** One root invocation's checked files, bounded children and isolated Porelo operations. */
 final class FollowContext {
     static final String ORG = "/etc/porelo-host/organization/";
+
+    /** A host command, or a command as a person's account, run by a follow. */
+    private static final Duration COMMAND = Duration.ofSeconds(60);
+
+    /** The isolated organization fetch, which may use the timer's whole window. */
+    private static final Duration FETCH = Duration.ofSeconds(300);
+
     final HostFiles host;
     final ProjectFiles files;
     final ProjectRuntime runtime;
@@ -138,7 +145,8 @@ final class FollowContext {
     }
 
     String command(List<String> arguments) throws IOException {
-        final HostPrograms.Result result = run(arguments, new byte[0], Duration.ofSeconds(60));
+        final HostPrograms.Result result =
+                run(arguments, new byte[0], runtime.limits().machines(COMMAND));
         if (result.exitCode() != 0) {
             throw new HostRefusal(
                     69,
@@ -160,7 +168,7 @@ final class FollowContext {
         runtime.require(arguments.getFirst());
         final List<String> inner = new ArrayList<>(arguments);
         inner.set(0, runtime.checked(inner.getFirst()).toString());
-        return run(runtime.switched(account, inner), input, Duration.ofSeconds(60));
+        return run(runtime.switched(account, inner), input, runtime.limits().machines(COMMAND));
     }
 
     Path scratch(String prefix) throws IOException {
@@ -238,7 +246,11 @@ final class FollowContext {
                     run(
                             command,
                             input,
-                            Duration.ofSeconds(unit.equals("porelo-host-org-fetch") ? 300 : 60));
+                            runtime.limits()
+                                    .machines(
+                                            unit.equals("porelo-host-org-fetch")
+                                                    ? FETCH
+                                                    : COMMAND));
         } catch (IOException ex) {
             throw new HostRefusal(69, "systemd-run failed to complete (OSError)");
         }

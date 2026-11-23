@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
+import org.fuin.porelo.wire.LimitFactors;
 
 /** The pool's revert state machine; a link is raised only after the host sets the guest's clock. */
 final class HostPool {
@@ -38,6 +39,30 @@ final class HostPool {
         void watch(Runnable started, Consumer<String> lines) throws IOException;
     }
 
+    /** The pause between clock-correction tries of a revert. */
+    private static final Duration CLOCK_PAUSE = Duration.ofMillis(3000);
+
+    /** How often a VM's clock correction is tried. */
+    private static final int CLOCK_TRIES = 20;
+
+    /** One {@code virsh domtime} call. */
+    private static final Duration DOMTIME = Duration.ofSeconds(10);
+
+    /** The wait for the host tools lock of a revert. */
+    private static final Duration TOOLS_LOCK = Duration.ofSeconds(300);
+
+    /** The life of the virsh event watcher. */
+    private static final Duration WATCHER = Duration.ofHours(24);
+
+    /** One pass of {@code virsh event}, given to it in whole seconds. */
+    private static final Duration EVENT_PASS = Duration.ofSeconds(30);
+
+    /** One virsh call, and the systemd-run give-back call. */
+    private static final Duration VIRSH = Duration.ofSeconds(60);
+
+    /** The delay before systemd-run powers a VM off on give-back. */
+    private static final Duration GIVE_BACK_DELAY = Duration.ofSeconds(2);
+
     private final ProjectFiles files;
     private final ProjectRuntime runtime;
     private final Pause pause;
@@ -47,29 +72,32 @@ final class HostPool {
     private final PrintWriter err;
     private final Path directory;
 
-    HostPool(PrintWriter out, PrintWriter err) {
-        this(new ProjectFiles(), out, err);
+    HostPool(PrintWriter out, PrintWriter err, LimitFactors limits) {
+        this(new ProjectFiles(), out, err, limits);
     }
 
-    private HostPool(ProjectFiles files, PrintWriter out, PrintWriter err) {
+    private HostPool(ProjectFiles files, PrintWriter out, PrintWriter err, LimitFactors limits) {
         this(
                 files,
-                new ProjectRuntime(files),
-                () -> Thread.sleep(3000),
+                new ProjectRuntime(files, limits),
+                () -> Thread.sleep(limits.retryPause(CLOCK_PAUSE)),
                 () -> {
                     final Path tools = files.at("/usr/local/libexec/porelo-host");
                     files.directory(tools, false, false);
-                    return HostConfigurationLock.acquire(tools, false, Duration.ofSeconds(300));
+                    return HostConfigurationLock.acquire(
+                            tools, false, limits.machines(TOOLS_LOCK), limits);
                 },
                 (started, lines) ->
-                        new HostPrograms(Duration.ofHours(24), 1024 * 1024)
+                        new HostPrograms(limits.machines(WATCHER), 1024 * 1024)
                                 .watch(
                                         List.of(
                                                 "virsh",
                                                 "event",
                                                 "--loop",
                                                 "--timeout",
-                                                "30",
+                                                Long.toString(
+                                                        HostLimits.seconds(
+                                                                limits.machines(EVENT_PASS))),
                                                 "--event",
                                                 "lifecycle"),
                                         ENVIRONMENT,
@@ -116,7 +144,7 @@ final class HostPool {
     }
 
     private HostPrograms.Result virsh(String... arguments) throws IOException {
-        return virsh(Duration.ofSeconds(60), arguments);
+        return virsh(runtime.limits().machines(VIRSH), arguments);
     }
 
     private boolean yes(String... arguments) throws IOException {
@@ -146,10 +174,11 @@ final class HostPool {
     }
 
     private boolean clock(String name) throws IOException {
-        for (int tries = 0; tries < 20; tries++) {
+        final int most = runtime.limits().tries(CLOCK_TRIES);
+        for (int tries = 0; tries < most; tries++) {
             try {
-                if (virsh(Duration.ofSeconds(10), "domtime", name, "--now").exitCode() == 0)
-                    return true;
+                if (virsh(runtime.limits().machines(DOMTIME), "domtime", name, "--now").exitCode()
+                        == 0) return true;
             } catch (IOException ex) {
                 if (Thread.currentThread().isInterrupted()) throw ex;
                 // A silent agent is a failed clock attempt too, never an unbounded wait.
@@ -360,12 +389,14 @@ final class HostPool {
                                 "--collect",
                                 "--unit",
                                 "porelo-pool-give-back",
-                                "--on-active=2",
+                                "--on-active="
+                                        + HostLimits.span(
+                                                runtime.limits().machines(GIVE_BACK_DELAY)),
                                 "/usr/bin/systemctl",
                                 "poweroff"),
                         new byte[0],
                         ENVIRONMENT,
-                        Duration.ofSeconds(60));
+                        runtime.limits().machines(VIRSH));
         return result.exitCode();
     }
 }

@@ -75,17 +75,28 @@ class HostConfigurationLockTest {
     void aTimedPoolLockStillExcludesReadersAndReleasesAfterAWaitExpires() throws Exception {
         final Path file = Files.writeString(directory.resolve("mutex"), "");
         try (var lock =
-                HostConfigurationLock.acquire(file, false, java.time.Duration.ofSeconds(1))) {
+                HostConfigurationLock.acquire(
+                        file,
+                        false,
+                        java.time.Duration.ofSeconds(1),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
             assertThatThrownBy(
                             () ->
                                     HostConfigurationLock.acquire(
-                                            file, true, java.time.Duration.ofMillis(40)))
+                                            file,
+                                            true,
+                                            java.time.Duration.ofMillis(40),
+                                            org.fuin.porelo.wire.LimitFactors.DEFAULT))
                     .isInstanceOf(IOException.class)
                     .hasMessageContaining("acquire");
             assertThat(tryFlock(file, true)).isEqualTo(1);
         }
         try (var lock =
-                HostConfigurationLock.acquire(file, false, java.time.Duration.ofSeconds(1))) {
+                HostConfigurationLock.acquire(
+                        file,
+                        false,
+                        java.time.Duration.ofSeconds(1),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
             assertThat(tryFlock(file, true)).isEqualTo(1);
         }
         assertThat(tryFlock(file, false)).isZero();

@@ -14,6 +14,10 @@ import org.jspecify.annotations.Nullable;
 /** Two independent readings before a certificate becomes a durable task record. */
 final class HostTaskCheck {
     private final HostFiles files;
+
+    /** A task check program. */
+    private static final Duration CHECK = Duration.ofSeconds(60);
+
     private final ProjectRuntime runtime;
 
     HostTaskCheck(HostFiles files, ProjectRuntime runtime) {
@@ -123,7 +127,8 @@ final class HostTaskCheck {
 
     private HostPrograms.Result run(List<String> argv, byte[] input) {
         try {
-            return runtime.run(argv, input, HostPrograms.ENVIRONMENT, Duration.ofSeconds(60));
+            return runtime.run(
+                    argv, input, HostPrograms.ENVIRONMENT, runtime.limits().machines(CHECK));
         } catch (IOException ex) {
             throw new HostRefusal(
                     69,

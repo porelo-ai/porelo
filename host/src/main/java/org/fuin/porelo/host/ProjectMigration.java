@@ -16,6 +16,10 @@ import org.jspecify.annotations.Nullable;
 /** Migration and taking a repository off preserve deploy-key recovery information. */
 final class ProjectMigration {
     private final ProjectFiles files;
+
+    /** ssh-keygen making or recovering a project's read key. */
+    private static final Duration KEYGEN = Duration.ofSeconds(30);
+
     private final ProjectRuntime runtime;
     private final ProjectReadKeys keys;
     private final Central central;
@@ -174,7 +178,7 @@ final class ProjectMigration {
                                     key.toString()),
                             new byte[0],
                             ProjectRuntime.SAFE_ENV,
-                            Duration.ofSeconds(30));
+                            runtime.limits().machines(KEYGEN));
             if (made.exitCode() != 0) {
                 throw new HostRefusal(69, "the project's read key could not be made");
             }
@@ -194,7 +198,7 @@ final class ProjectMigration {
                             List.of("/usr/bin/ssh-keygen", "-y", "-P", "", "-f", key.toString()),
                             new byte[0],
                             ProjectRuntime.SAFE_ENV,
-                            Duration.ofSeconds(30));
+                            runtime.limits().machines(KEYGEN));
             if (recovered.exitCode() != 0) {
                 throw new HostRefusal(69, "the project's public read key could not be recovered");
             }

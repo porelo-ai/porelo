@@ -6,24 +6,41 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.function.LongSupplier;
+import org.fuin.porelo.wire.LimitFactors;
 
 /** Imports a pool VM from a prepared seed; seed construction remains the build tool's job. */
 final class PoolMachines {
+    /** The pause between looks for a pool VM's IPv4 lease. */
+    private static final Duration LEASE_POLL = Duration.ofSeconds(3);
+
+    /** One virsh or qemu pool command, and one query of the address wait. */
+    private static final Duration VIRSH = Duration.ofMinutes(10);
+
     private final ProjectFiles files;
     private final ProjectRuntime runtime;
     private final LongSupplier ticks;
     private final HostPool.Pause pause;
 
-    PoolMachines() {
-        this(new ProjectFiles());
+    PoolMachines(LimitFactors limits) {
+        this(new ProjectFiles(), limits);
     }
 
-    private PoolMachines(ProjectFiles files) {
-        this(files, new ProjectRuntime(files));
+    private PoolMachines(ProjectFiles files, LimitFactors limits) {
+        this(files, new ProjectRuntime(files, limits));
     }
 
     PoolMachines(ProjectFiles files, ProjectRuntime runtime) {
-        this(files, runtime, System::nanoTime, () -> Thread.sleep(3000));
+        this(files, runtime, System::nanoTime, () -> Thread.sleep(leasePoll(runtime.limits())));
+    }
+
+    /**
+     * Returns the pause between looks for a pool VM's IPv4 lease.
+     *
+     * @param limits The factors this run of porelo-host read from its host configuration.
+     * @return The default pause times the polling factor.
+     */
+    static Duration leasePoll(LimitFactors limits) {
+        return limits.polling(LEASE_POLL);
     }
 
     PoolMachines(
@@ -41,7 +58,10 @@ final class PoolMachines {
 
     private HostPrograms.Result run(String... arguments) throws IOException {
         return runtime.run(
-                List.of(arguments), new byte[0], HostPool.ENVIRONMENT, Duration.ofMinutes(10));
+                List.of(arguments),
+                new byte[0],
+                HostPool.ENVIRONMENT,
+                runtime.limits().machines(VIRSH));
     }
 
     private void require(String... arguments) throws IOException {
@@ -191,9 +211,9 @@ final class PoolMachines {
                 command,
                 new byte[0],
                 HostPool.ENVIRONMENT,
-                remaining.compareTo(Duration.ofMinutes(10)) < 0
+                remaining.compareTo(runtime.limits().machines(VIRSH)) < 0
                         ? remaining
-                        : Duration.ofMinutes(10));
+                        : runtime.limits().machines(VIRSH));
     }
 
     void delete(String name) throws IOException {

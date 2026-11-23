@@ -33,7 +33,10 @@ final class HostTasks {
     private final Clock clock;
 
     HostTasks(HostFiles files) {
-        this(files, new ProjectRuntime(files), Clock.systemUTC());
+        this(
+                files,
+                new ProjectRuntime(files, org.fuin.porelo.wire.LimitFactors.DEFAULT),
+                Clock.systemUTC());
     }
 
     HostTasks(HostFiles files, ProjectRuntime runtime, Clock clock) {

@@ -18,6 +18,28 @@ import org.jspecify.annotations.Nullable;
 /** Read-key manifests and the full-reference checks that precede project destruction. */
 final class ProjectReadKeys {
     private final ProjectFiles files;
+
+    /** A mirror clone or a fetch of main from central. */
+    private static final Duration CENTRAL_TRANSFER = Duration.ofSeconds(120);
+
+    /** {@code git rev-list --all} on the mirror. */
+    private static final Duration INVENTORY = Duration.ofSeconds(120);
+
+    /** The ssh connect to central, given to ssh in whole seconds. */
+    private static final Duration CONNECT = Duration.ofSeconds(10);
+
+    /** {@code git ls-remote} of central's main. */
+    private static final Duration LS_REMOTE = Duration.ofSeconds(30);
+
+    /** A local git step on the scratch mirror: init, rev-parse. */
+    private static final Duration LOCAL_GIT = Duration.ofSeconds(30);
+
+    /** The fetch of the local copy bundle. */
+    private static final Duration BUNDLE_FETCH = Duration.ofSeconds(60);
+
+    /** The bundle of a follow. */
+    private static final Duration BUNDLE = Duration.ofSeconds(60);
+
     private final ProjectRuntime runtime;
 
     ProjectReadKeys(ProjectFiles files, ProjectRuntime runtime) {
@@ -203,12 +225,12 @@ final class ProjectReadKeys {
                             ProjectAddress.parse(address(item)).ssh(),
                             mirror.toString()),
                     Map.of("GIT_SSH_COMMAND", ssh),
-                    Duration.ofSeconds(120));
+                    runtime.limits().services(CENTRAL_TRANSFER));
             return commits(
                     git(
                             List.of("--git-dir=" + mirror, "rev-list", "--all"),
                             Map.of(),
-                            Duration.ofSeconds(120)));
+                            runtime.limits().machines(INVENTORY)));
         } finally {
             files.removeTree(scratch);
         }
@@ -231,7 +253,7 @@ final class ProjectReadKeys {
                         "-o",
                         "IdentitiesOnly=yes",
                         "-o",
-                        "ConnectTimeout=10",
+                        "ConnectTimeout=" + HostLimits.seconds(runtime.limits().services(CONNECT)),
                         "-o",
                         "IdentityAgent=none",
                         "-o",
@@ -298,7 +320,7 @@ final class ProjectReadKeys {
                                 ProjectAddress.parse(address(item)).ssh(),
                                 "refs/heads/main"),
                         Map.of("GIT_SSH_COMMAND", ssh(directory, item)),
-                        Duration.ofSeconds(30));
+                        runtime.limits().services(LS_REMOTE));
         if (text.isBlank()) {
             return null;
         }
@@ -392,7 +414,7 @@ final class ProjectReadKeys {
             git(
                     List.of("init", "-q", "--bare", "--", mirror.toString()),
                     Map.of(),
-                    Duration.ofSeconds(30));
+                    runtime.limits().machines(LOCAL_GIT));
             final String at = "--git-dir=" + mirror;
             Files.createFile(
                     seed,
@@ -419,7 +441,7 @@ final class ProjectReadKeys {
                             seed.toString(),
                             "+refs/heads/main:refs/porelo/copy"),
                     Map.of(),
-                    Duration.ofSeconds(60));
+                    runtime.limits().services(BUNDLE_FETCH));
             git(
                     List.of(
                             "-c",
@@ -433,7 +455,7 @@ final class ProjectReadKeys {
                             ProjectAddress.parse(address(item)).ssh(),
                             "+refs/heads/main:refs/heads/main"),
                     Map.of("GIT_SSH_COMMAND", ssh),
-                    Duration.ofSeconds(120));
+                    runtime.limits().services(CENTRAL_TRANSFER));
             final String target =
                     git(
                                     List.of(
@@ -443,7 +465,7 @@ final class ProjectReadKeys {
                                             "--quiet",
                                             "refs/heads/main^{commit}"),
                                     Map.of(),
-                                    Duration.ofSeconds(30))
+                                    runtime.limits().machines(LOCAL_GIT))
                             .strip();
             if (!target.matches(ProjectRecords.COMMIT)) {
                 throw new HostRefusal(69, "the central forge answered an invalid main");
@@ -459,7 +481,7 @@ final class ProjectReadKeys {
                             "refs/heads/main",
                             "^refs/porelo/copy"),
                     Map.of(),
-                    Duration.ofSeconds(60));
+                    runtime.limits().machines(BUNDLE));
             new ProjectAdvance(files, runtime, account, project, name(item)).follow(target, out);
         } finally {
             files.removeTree(scratch);

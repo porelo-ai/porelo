@@ -9,6 +9,13 @@ import java.util.Map;
 /** The existing central-state reader policy and atomic named-user ACL publication. */
 final class ProjectPublication {
     private final ProjectFiles files;
+
+    /** {@code getent passwd} of a reader login. */
+    private static final java.time.Duration LOOKUP = java.time.Duration.ofSeconds(60);
+
+    /** setfacl on a staged publication. */
+    private static final java.time.Duration SETFACL = java.time.Duration.ofSeconds(60);
+
     private final ProjectRuntime runtime;
     private final java.time.Clock clock;
 
@@ -85,7 +92,7 @@ final class ProjectPublication {
                                         login),
                                 new byte[0],
                                 ProjectRuntime.SAFE_ENV,
-                                java.time.Duration.ofSeconds(60));
+                                runtime.limits().machines(LOOKUP));
                 if (passwd.exitCode() == 2) {
                     continue;
                 }
@@ -156,7 +163,7 @@ final class ProjectPublication {
                                     staged.toString()),
                             new byte[0],
                             ProjectRuntime.SAFE_ENV,
-                            java.time.Duration.ofSeconds(60));
+                            runtime.limits().machines(SETFACL));
             if (set.exitCode() != 0) {
                 throw new HostRefusal(73, "the published answer's readers could not be set");
             }

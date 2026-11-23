@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -40,6 +41,10 @@ final class FollowProjects {
                     "[!-~]{0,1024}[:/](?<repository>[A-Za-z0-9_][A-Za-z0-9_.-]{0,95}?)(?:\\.git)?/?");
     static final String NO_CENTRAL =
             "no central address, so this host cannot take it; name one in the project file for a task here";
+
+    /** All project-file reads of one follow together. */
+    private static final Duration READS = Duration.ofSeconds(60);
+
     private final FollowContext c;
     private final ProjectMigration.Central central;
     private final Supplier<Map<String, @Nullable Object>> progress;
@@ -962,7 +967,7 @@ final class FollowProjects {
             return;
         }
         final var entries = progress.get();
-        final Instant deadline = c.clock.instant().plusSeconds(60);
+        final Instant deadline = c.clock.instant().plus(c.runtime.limits().machines(READS));
         final List<String> errors = new ArrayList<>();
         for (Object value : array(applied.get("projects"))) {
             final var project = object(value);
