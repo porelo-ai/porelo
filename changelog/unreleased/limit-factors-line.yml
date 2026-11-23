@@ -1,0 +1,2 @@
+title: "`porelo-wire` reads and writes the limits line, the four factors every time limit follows (`services`, `machines`, `polling`, `retries`), with its good and refused cases published as `limit-factors-cases.json` for a reader in another language"
+type: added

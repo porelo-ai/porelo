@@ -1,0 +1,33 @@
+{
+  "about": "The limits line's cases. A reader in any language reads each good line to the four factors given and writes it back as 'written'; it refuses each refused line, naming what 'names' says.",
+  "good": [
+    {"line": "", "services": "1", "machines": "1", "polling": "1", "retries": "1", "written": "services=1.0,machines=1.0,polling=1.0,retries=1.0"},
+    {"line": "services=1.0,machines=1.0,polling=1.0,retries=1.0", "services": "1", "machines": "1", "polling": "1", "retries": "1", "written": "services=1.0,machines=1.0,polling=1.0,retries=1.0"},
+    {"line": "retries=3,services=2.5", "services": "2.5", "machines": "1", "polling": "1", "retries": "3", "written": "services=2.5,machines=1.0,polling=1.0,retries=3.0"},
+    {"line": "polling=0.25", "services": "1", "machines": "1", "polling": "0.25", "retries": "1", "written": "services=1.0,machines=1.0,polling=0.25,retries=1.0"},
+    {"line": "machines=0.1", "services": "1", "machines": "0.1", "polling": "1", "retries": "1", "written": "services=1.0,machines=0.1,polling=1.0,retries=1.0"},
+    {"line": "machines=100", "services": "1", "machines": "100", "polling": "1", "retries": "1", "written": "services=1.0,machines=100.0,polling=1.0,retries=1.0"},
+    {"line": "services=100.00", "services": "100", "machines": "1", "polling": "1", "retries": "1", "written": "services=100.0,machines=1.0,polling=1.0,retries=1.0"}
+  ],
+  "refused": [
+    {"line": "timeouts=2.0", "names": "'timeouts' is no limit"},
+    {"line": "services=2.0,services=3.0", "names": "services is given twice"},
+    {"line": "services", "names": "'services' is no name=value"},
+    {"line": "=2.0", "names": "'=2.0' is no name=value"},
+    {"line": "services=2.0,", "names": "'' is no name=value"},
+    {"line": "services=2.0, machines=1.0", "names": "' machines' is no limit"},
+    {"line": "Services=2.0", "names": "'Services' is no limit"},
+    {"line": "services=", "names": "services '' is no decimal"},
+    {"line": "services=2,5", "names": "'5' is no name=value"},
+    {"line": "services=1.234", "names": "services '1.234' is no decimal"},
+    {"line": "services=1e2", "names": "services '1e2' is no decimal"},
+    {"line": "services=-1", "names": "services '-1' is no decimal"},
+    {"line": "services=+1", "names": "services '+1' is no decimal"},
+    {"line": "services=.5", "names": "services '.5' is no decimal"},
+    {"line": "services=01", "names": "services '01' is no decimal"},
+    {"line": "services=0.09", "names": "services 0.09 lies outside 0.1 to 100"},
+    {"line": "services=0", "names": "services 0 lies outside 0.1 to 100"},
+    {"line": "services=100.01", "names": "services 100.01 lies outside 0.1 to 100"},
+    {"line": "services=1000", "names": "services '1000' is no decimal"}
+  ]
+}
