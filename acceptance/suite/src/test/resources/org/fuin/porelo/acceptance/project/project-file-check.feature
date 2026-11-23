@@ -12,7 +12,9 @@ Feature: A draft project file is checked against this machine before a person co
             scheme="checked$$"
             adapter="$transports/porelo-message-transport-$scheme"
             # A transport of the scenario's own: it offers the check and refuses a tls_verify that is not on or off.
+            # Porelo hands every transport its limits line before the verb.
             printf '%s\n' '#!/bin/sh' \
+                '[ "$1" = --limits ] && shift 2' \
                 "[ \"\$1\" = describe ] && { echo '{\"scheme\":\"$scheme\",\"lifecycle\":[\"setup\",\"settings\"]}'; exit 0; }" \
                 '[ "$1" = settings ] || exit 64' \
                 'if grep -q "\"maybe\"" ; then echo "{\"refused\":[\"tls_verify is on or off\"],\"warnings\":[]}";' \
