@@ -11,7 +11,9 @@ What a person writes is not filtered; what an agent sends is. Every task that ha
 agent told how it works: Porelo writes the text below to `/run/porelo/mail/README.md`, and an agent that
 declares how it takes standing instructions gets it at every start, after the part on `/porelo/files` in the guide
 to all of Porelo in the task ([what a task's agent is told](running.md#what-a-tasks-agent-is-told)). Whom the task can reach right now is
-in `/run/porelo/mail/agent-card.json`, kept current by Porelo.
+in `/run/porelo/mail/agent-card.json`, kept current by Porelo; under `you` it also names the task itself by every
+name a message's `metadata.to` reaches it by: its short task name, its room display names (empty while none is set
+yet) and its container name.
 
 How closely messages are watched is set once, in the project file: see `mail.rules` in
 [The project file](project-file.md). A person can still hold a peer's messages; nothing else is decided
@@ -173,6 +175,9 @@ reach them.
 - **A person's words in the project's room reach every task of the project**, you included.
 - **A message meant for you names you** in `metadata.to`: a person writes `@` and your task's
   name, or answers a message of yours. Act on what names you.
+- **`/run/porelo/mail/agent-card.json` names you under `you`**: your short task name (`task`), your room display
+  names (`room`, empty while none is set yet) and your container name (`container`). You
+  are these names, and no other: a message names you when its `metadata.to` holds one of them.
 - **A person's message in the room that names nobody is meant for every agent in the room:
   answer it in the room.** It has `"via": "room"` and an empty `metadata.to`. So is one that
   begins "All agents:", whomever else it names: it has `"all": true` in its `metadata`.

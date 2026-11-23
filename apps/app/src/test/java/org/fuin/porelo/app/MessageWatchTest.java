@@ -59,6 +59,21 @@ class MessageWatchTest {
         assertThat(new MessageWatch(context(dir), Duration.ofSeconds(60)).passOnce()).isZero();
     }
 
+    @Test
+    void a_task_still_being_launched_is_named_by_its_short_name(@TempDir final Path dir)
+            throws IOException {
+        // At its launch a task is reserved, not yet recorded: its first card named it by its
+        // container alone, and an agent reading it took a line to its short name for another's.
+        final PoreloContext context = context(dir);
+        try (var claim = new TaskReservations(context).start("web", "x", "porelo-web-x")) {
+            final MailboxGuide.Self self =
+                    new MessageWatch(context, Duration.ofSeconds(60)).self("porelo-web-x", "web");
+
+            assertThat(self.task()).as("the short name its reservation holds").isEqualTo("x");
+            assertThat(self.container()).as("and its container").isEqualTo("porelo-web-x");
+        }
+    }
+
     /**
      * The reason the mailbox is not in the runtime directory: a stopped task still receives, and
      * finds its post when it comes back.

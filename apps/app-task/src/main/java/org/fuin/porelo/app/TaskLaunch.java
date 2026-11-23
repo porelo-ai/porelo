@@ -7316,9 +7316,10 @@ public final class TaskLaunch {
             return;
         }
         mailbox.create();
+        final MessageWatch watch = new MessageWatch(context, java.time.Duration.ZERO);
         MailboxGuide.write(
                 mailbox,
-                new MessageWatch(context, java.time.Duration.ZERO)
-                        .withSiblings(project, container));
+                watch.withSiblings(project, container),
+                watch.self(container, project.name()));
     }
 }

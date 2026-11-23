@@ -427,7 +427,8 @@ public final class MessageWatch implements AutoCloseable {
                 final Mail reachable = peersOf(container);
                 // Whom it can reach changes as its project's tasks come and go; the guide beside it
                 // does not.
-                MailboxGuide.write(new Mailbox(mailbox), reachable);
+                MailboxGuide.write(
+                        new Mailbox(mailbox), reachable, self(container, projectOf(container)));
                 final MessageSigners keys = keysOf(container);
                 final MessagePass.Report report =
                         prepared.pass()
@@ -1166,6 +1167,44 @@ public final class MessageWatch implements AutoCloseable {
             }
         }
         return MessageSigners.believingNobody(context, container, owner);
+    }
+
+    /**
+     * Returns the names a task is reached by in a message's {@code metadata.to}, as a message is
+     * handed out to it and as it is woken for one.
+     *
+     * @param container The task.
+     * @param project Its project; {@code null} when none is known.
+     * @return Its short task name, room display names and container name.
+     * @throws IOException The task's reservation cannot be read.
+     */
+    MailboxGuide.Self self(final String container, final @Nullable String project)
+            throws IOException {
+        final TaskIdentity identity = TaskRecipients.identity(context, container, project);
+        // At its launch a task is reserved, not yet recorded: its first card names it all the same.
+        final @Nullable String task =
+                identity != null ? identity.task() : reserved(container, project);
+        java.util.List<String> room;
+        try {
+            room =
+                    new TransportLifecycle(
+                                    context, context.paths().messaging().transportDirectory())
+                            .displayNames(project == null ? "" : project, container);
+        } catch (IOException | RuntimeException ex) {
+            // Read again on the next pass; the card must not keep the task's messages from moving.
+            room = java.util.List.of();
+        }
+        return new MailboxGuide.Self(task, room, container);
+    }
+
+    private @Nullable String reserved(final String container, final @Nullable String project)
+            throws IOException {
+        if (project == null
+                || !container.matches(org.fuin.porelo.runtime.ContainerName.NAME_PATTERN)) {
+            return null;
+        }
+        final TaskReservations.Owner pending = new TaskReservations(context).unmade(container);
+        return pending != null && project.equals(pending.project()) ? pending.task() : null;
     }
 
     Mail peersOf(final String container) {

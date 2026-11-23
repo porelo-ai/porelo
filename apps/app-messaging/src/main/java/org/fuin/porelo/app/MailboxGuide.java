@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.project.Mail;
 import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a task's agent is told about its mailbox: how it works, and whom it can reach.
@@ -26,14 +27,31 @@ import org.fuin.porelo.wire.Json;
  *       by its beginning, so a text that changed between two starts of one session would have the
  *       whole conversation read again, uncached (2026-10-04). It says only what the host and the
  *       filter enforce, from their own constants, so it cannot promise what they refuse.
- *   <li>{@link Mailbox#CARD}, whom the task can reach right now: written again at every pass, read
- *       by the agent before it writes. Names only - a task never learns where a peer is.
+ *   <li>{@link Mailbox#CARD}, whom the task can reach right now and the names it is reached by
+ *       itself: written again at every pass, read by the agent before it writes. Names only - a
+ *       task never learns where a peer is.
  * </ul>
  */
 public final class MailboxGuide {
 
     private MailboxGuide() {
         throw new UnsupportedOperationException("Utility class");
+    }
+
+    /**
+     * The names a task carries in a message's {@code metadata.to}, exactly as a message is matched
+     * to it.
+     *
+     * @param task Its short task name; {@code null} while no identity is recorded for it.
+     * @param room Its display names in its project's rooms; empty while none is set yet.
+     * @param container Its container name.
+     */
+    public record Self(@Nullable String task, List<String> room, String container) {
+
+        /** Keeps the room names as they are given, unchangeable. */
+        public Self {
+            room = List.copyOf(room);
+        }
     }
 
     /**
@@ -59,6 +77,9 @@ public final class MailboxGuide {
                 - **A person's words in the project's room reach every task of the project**, you included.
                 - **A message meant for you names you** in `metadata.to`: a person writes `@` and your task's
                   name, or answers a message of yours. Act on what names you.
+                - **`@CARD@` names you under `you`**: your short task name (`task`), your room display
+                  names (`room`, empty while none is set yet) and your container name (`container`). You
+                  are these names, and no other: a message names you when its `metadata.to` holds one of them.
                 - **A person's message in the room that names nobody is meant for every agent in the room:
                   answer it in the room.** It has `"via": "room"` and an empty `metadata.to`. So is one that
                   begins "All agents:", whomever else it names: it has `"all": true` in its `metadata`.
@@ -152,9 +173,11 @@ public final class MailboxGuide {
      *
      * @param mailbox The task's mailbox, made already.
      * @param mail Whom the task can reach: its project's peers, its people and its other tasks.
+     * @param self The task's own names, which its card names it by.
      * @throws IOException Writing failed.
      */
-    public static void write(final Mailbox mailbox, final Mail mail) throws IOException {
+    public static void write(final Mailbox mailbox, final Mail mail, final Self self)
+            throws IOException {
         mailbox.refuseLinks();
         put(mailbox, mailbox.guide(), text());
         final List<Map<String, Object>> peers = new ArrayList<>();
@@ -172,7 +195,17 @@ public final class MailboxGuide {
                                             : "a peer your project names");
             peers.add(each);
         }
-        put(mailbox, mailbox.card(), Json.write(Map.of("peers", peers)) + "\n");
+        // A task told only whom it can reach took another task's lines for its own.
+        final Map<String, Object> you = new LinkedHashMap<>();
+        if (self.task() != null) {
+            you.put("task", self.task());
+        }
+        you.put("room", self.room());
+        you.put("container", self.container());
+        final Map<String, Object> card = new LinkedHashMap<>();
+        card.put("peers", peers);
+        card.put("you", you);
+        put(mailbox, mailbox.card(), Json.write(card) + "\n");
     }
 
     private static void put(final Mailbox mailbox, final Path file, final String text)

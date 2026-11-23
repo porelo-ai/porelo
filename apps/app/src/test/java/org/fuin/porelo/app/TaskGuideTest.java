@@ -330,7 +330,8 @@ class TaskGuideTest {
         final PoreloPaths paths = paths();
         final Mailbox mailbox = new Mailbox(paths.messaging().mailbox(TASK));
         mailbox.create();
-        MailboxGuide.write(mailbox, Mail.none());
+        MailboxGuide.write(
+                mailbox, Mail.none(), new MailboxGuide.Self("t", List.of(), "porelo-p-t"));
 
         assertThat(new TaskGuide(paths, TASK).instructing(CLAUDE, List.of("claude")))
                 .as("its container has no mount for the guide")

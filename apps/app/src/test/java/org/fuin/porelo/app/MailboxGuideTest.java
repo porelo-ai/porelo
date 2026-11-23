@@ -74,7 +74,8 @@ class MailboxGuideTest {
                                 new Mail.Peer("people", "matrix:", Mail.Peer.EXTERNAL),
                                 new Mail.Peer("ops", "mail:ops@example.org", Mail.Peer.EXTERNAL),
                                 new Mail.Peer("api", "matrix:", Mail.Peer.VOUCHED)),
-                        Map.of()));
+                        Map.of()),
+                new MailboxGuide.Self("t", List.of(), "porelo-p-t"));
 
         assertThat(mailbox.guide()).hasContent(MailboxGuide.text());
         assertThat(mailbox.card())
@@ -93,15 +94,83 @@ class MailboxGuideTest {
     }
 
     @Test
+    void aWrittenGuideNamesItsTaskByEveryNameMetadataToCarriesForIt(@TempDir final Path dir)
+            throws IOException {
+        // A task given only another task's lines took itself for that task and answered as it.
+        final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-api"));
+        mailbox.create();
+
+        MailboxGuide.write(
+                mailbox,
+                Mail.none(),
+                new MailboxGuide.Self("api", List.of("Agent Api"), "porelo-p-api"));
+
+        assertThat(mailbox.guide())
+                .content()
+                .contains("a message names you when its `metadata.to` holds one of them");
+        assertThat(mailbox.card())
+                .content()
+                .contains("\"you\"")
+                .contains("\"task\":\"api\"")
+                .contains("\"room\":[\"Agent Api\"]")
+                .contains("\"container\":\"porelo-p-api\"");
+    }
+
+    @Test
+    void aTaskWhoseRoomNameIsNotSetYetIsNamedByWhatItHas(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-api"));
+        mailbox.create();
+
+        MailboxGuide.write(
+                mailbox, Mail.none(), new MailboxGuide.Self("api", List.of(), "porelo-p-api"));
+
+        assertThat(mailbox.card())
+                .content()
+                .contains("\"task\":\"api\"")
+                .contains("\"room\":[]")
+                .contains("\"container\":\"porelo-p-api\"");
+    }
+
+    @Test
+    void aGuideWrittenForAnotherTaskHoldsNoneOfThisTasksNames(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox api = new Mailbox(dir.resolve("porelo-p-api"));
+        api.create();
+        final Mailbox web = new Mailbox(dir.resolve("porelo-p-web"));
+        web.create();
+
+        MailboxGuide.write(
+                api,
+                Mail.none(),
+                new MailboxGuide.Self("api", List.of("Agent Api"), "porelo-p-api"));
+        MailboxGuide.write(
+                web,
+                Mail.none(),
+                new MailboxGuide.Self("web", List.of("Agent Web"), "porelo-p-web"));
+
+        for (final Path file : List.of(web.guide(), web.card())) {
+            assertThat(file)
+                    .content()
+                    .doesNotContain("\"api\"")
+                    .doesNotContain("Agent Api")
+                    .doesNotContain("porelo-p-api");
+        }
+        assertThat(web.card()).content().contains("Agent Web").contains("porelo-p-web");
+    }
+
+    @Test
     void leavesAFileThatDidNotChangeAlone(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
-        MailboxGuide.write(mailbox, Mail.none());
+        MailboxGuide.write(
+                mailbox, Mail.none(), new MailboxGuide.Self("t", List.of(), "porelo-p-t"));
         final var before = Files.getLastModifiedTime(mailbox.card());
         Files.setLastModifiedTime(
                 mailbox.card(), java.nio.file.attribute.FileTime.fromMillis(1000));
 
-        MailboxGuide.write(mailbox, Mail.none());
+        MailboxGuide.write(
+                mailbox, Mail.none(), new MailboxGuide.Self("t", List.of(), "porelo-p-t"));
 
         assertThat(Files.getLastModifiedTime(mailbox.card()).toMillis()).isEqualTo(1000);
         assertThat(before).isNotNull();
@@ -120,7 +189,11 @@ class MailboxGuideTest {
         }
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () -> MailboxGuide.write(mailbox, Mail.none()))
+                        () ->
+                                MailboxGuide.write(
+                                        mailbox,
+                                        Mail.none(),
+                                        new MailboxGuide.Self("t", List.of(), "porelo-p-t")))
                 .as("the guide has nowhere to go")
                 .isInstanceOf(IOException.class);
 
