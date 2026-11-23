@@ -411,16 +411,9 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             // Without one the container stays up with no run to end it.
             throw new VarlinkException(INTERFACE + ".PromptRequired", Map.of());
         }
-        final Object given = parameters.get("minutes");
-        final int minutes;
-        if (given == null) {
-            minutes = TaskLaunch.DEFAULT_MINUTES;
-        } else if (given instanceof Number number) {
-            minutes = org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(number);
-        } else {
-            throw new VarlinkException(
-                    "org.varlink.service.InvalidParameter", Map.of("parameter", "minutes"));
-        }
+        final Integer given =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(parameters, "minutes");
+        final int minutes = given == null ? TaskLaunch.DEFAULT_MINUTES : given;
         if (minutes < 1) {
             // Over before it began, the run would leave its container up.
             throw new VarlinkException(INTERFACE + ".RunTooShort", Map.of("minutes", minutes));

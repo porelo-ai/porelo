@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.fuin.porelo.app.GateSupport;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.ProjectInventory;
@@ -857,9 +858,10 @@ public final class PoreloDaemon {
                 empty(parameters, "agent"),
                 empty(parameters, "provider"),
                 empty(parameters, "credentialType"),
-                parameters.get("tokenHours") instanceof Number hours
-                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(hours)
-                        : 8,
+                Objects.requireNonNullElse(
+                        org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(
+                                parameters, "tokenHours"),
+                        8),
                 address(parameters, "upstream").isEmpty() ? null : address(parameters, "upstream"),
                 flag(parameters, "noGate"),
                 flag(parameters, "dryRun"),
@@ -878,9 +880,7 @@ public final class PoreloDaemon {
                                 : org.fuin.porelo.wire.TaskMode.UNATTENDED),
                 empty(parameters, "prompt"),
                 empty(parameters, "model"),
-                parameters.get("maxTurns") instanceof Number turns
-                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(turns)
-                        : null,
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(parameters, "maxTurns"),
                 minutes(parameters),
                 // Not defaulted here. A project is a unit of work over one or more repositories,
                 // and a client that does not say which one the task is for gets the same refusal

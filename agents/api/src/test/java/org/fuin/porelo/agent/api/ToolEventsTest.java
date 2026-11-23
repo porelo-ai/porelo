@@ -237,6 +237,11 @@ class ToolEventsTest {
                 .containsEntry("phase", "START")
                 .containsEntry("kind", "sub-agent");
         assertThat(ToolEvent.of(full.asMap())).isEqualTo(full);
+        final Map<String, Object> fraction = new java.util.LinkedHashMap<>(bare.asMap());
+        fraction.put("line", 1.5);
+        assertThat(ToolEvent.of(fraction))
+                .as("a plugin's line 1.5 is no event, never read as line 1")
+                .isNull();
         assertThat(ToolEvent.of(bare.asMap())).isEqualTo(bare);
         assertThat(bare.asMap())
                 .as("an absent value is left out")

@@ -1,0 +1,2 @@
+title: "A fraction or a number past its range, sent where a varlink call wants a whole number (`HandIn`'s `bytes` and `offset`, `Tail`'s and `Screen`'s `last`, `Start`'s `maxTurns` and `tokenHours`, `UnlockWithShare`'s `minutes`, a reported `port`, or a plugin's line, status or protocol version), is refused rather than cut to a whole number"
+type: fixed

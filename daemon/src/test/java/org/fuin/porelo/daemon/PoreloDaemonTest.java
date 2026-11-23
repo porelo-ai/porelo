@@ -409,6 +409,37 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void handInRefusesAFractionOfABytesCountRatherThanCuttingIt(@TempDir Path dir)
+            throws Exception {
+        runner.answering("ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        for (final String field : List.of("bytes", "offset")) {
+                            final Map<String, Object> call = new java.util.HashMap<>();
+                            call.put("task", "porelo-uc-shell");
+                            call.put("name", "a.txt");
+                            call.put("bytes", 8);
+                            call.put("sha256", "0".repeat(64));
+                            call.put("offset", 0);
+                            call.put("part", "eA==");
+                            call.put(field, 10.9);
+                            assertThatThrownBy(
+                                            () ->
+                                                    client.call(
+                                                            PoreloDaemon.INTERFACE + ".HandIn",
+                                                            call))
+                                    .as(field + " 10.9 is refused, never read as 10")
+                                    .isInstanceOf(VarlinkException.class)
+                                    .hasMessageContaining("InvalidParameter");
+                        }
+                    }
+                });
+    }
+
+    @Test
     void handInRefusesWhatTheContractNamesUnderItsName(@TempDir Path dir) throws Exception {
         runner.answering("ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
 

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.TaskControl;
 import org.fuin.porelo.app.TaskDone;
@@ -773,10 +774,8 @@ final class TaskMethods {
                     // crossed the socket before an interface could show any of it. Every reply says
                     // where its first line starts, for reading back.
                     long position =
-                            parameters.get("last") instanceof Number last
-                                    ? startOfLast(
-                                            log,
-                                            org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(last))
+                            lastLines(parameters) instanceof Integer last
+                                    ? startOfLast(log, last)
                                     : 0;
                     // Through the task's own agent when a client asks: its formatter reads one line
                     // at a time, so a console showing a log's end gets that end formatted, never
@@ -931,10 +930,7 @@ final class TaskMethods {
                             context.podman()
                                     .screen(
                                             task,
-                                            parameters.get("last") instanceof Number last
-                                                    ? org.fuin.porelo.wire.varlink.VarlinkNumbers
-                                                            .intOf(last)
-                                                    : 20,
+                                            Objects.requireNonNullElse(lastLines(parameters), 20),
                                             Boolean.TRUE.equals(parameters.get("escapes")));
                     replies.last(Map.of("lines", screen.lines(), "live", screen.live()));
                 });
@@ -1557,11 +1553,11 @@ final class TaskMethods {
     }
 
     private static long number(final Map<String, Object> parameters, final String name) {
-        if (parameters.get(name) instanceof Number number) {
-            return number.longValue();
-        }
-        throw new VarlinkException(
-                "org.varlink.service.InvalidParameter", Map.of("parameter", name));
+        return org.fuin.porelo.wire.varlink.VarlinkNumbers.longParameter(parameters, name);
+    }
+
+    private static @Nullable Integer lastLines(final Map<String, Object> parameters) {
+        return org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(parameters, "last");
     }
 
     /** The tasks a start reads the landed work of: none when not given, refused when not names. */

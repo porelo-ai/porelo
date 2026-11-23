@@ -44,18 +44,22 @@ public record AgentEnd(boolean finished, String error, String source, @Nullable 
      * Reads it as it crossed the wire.
      *
      * @param map The fields.
-     * @return The end, or {@code null} when the map holds none.
+     * @return The end, or {@code null} when the map holds none or a status that is no whole number.
      */
     public static @Nullable AgentEnd of(Map<?, ?> map) {
         if (!(map.get("finished") instanceof Boolean finished)) {
+            return null;
+        }
+        final Object given = map.get("status");
+        final java.util.OptionalInt status =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(given);
+        if (given != null && status.isEmpty()) {
             return null;
         }
         return new AgentEnd(
                 finished,
                 map.get("error") instanceof String error ? error : "",
                 map.get("source") instanceof String source ? source : AGENT,
-                map.get("status") instanceof Number status
-                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(status)
-                        : null);
+                status.isPresent() ? Integer.valueOf(status.getAsInt()) : null);
     }
 }

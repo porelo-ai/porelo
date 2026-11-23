@@ -230,10 +230,9 @@ public final class InstalledBuildReader implements AutoCloseable {
             awaitReady(process);
             opened = new VarlinkClient(socket);
             final Map<String, Object> answer = describe(opened);
-            final int version =
-                    answer.get("protocolVersion") instanceof Number number
-                            ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(number)
-                            : -1;
+            final long version =
+                    org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(answer.get("protocolVersion"))
+                            .orElse(-1);
             if (version != BuildProtocol.VERSION) {
                 throw new BuildReaderException(
                         executable

@@ -413,14 +413,21 @@ public class InstalledAgent implements AutoCloseable {
         final Map<String, Object> answer =
                 client.call(AgentProtocol.DESCRIBE, Map.of(), READY_DEADLINE);
 
-        if (!(answer.get("protocolVersion") instanceof Number version)) {
+        final java.util.OptionalLong version =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(answer.get("protocolVersion"));
+        if (version.isEmpty()) {
             throw new AgentException(
                     executable
                             + " reported no agent protocol version, so it is broken rather than"
                             + " old. Reinstall the agent.");
         }
+        // Far newer than an int is newer still, never wrapped round to an old one.
         final String refused =
-                refusal(executable, org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(version));
+                refusal(
+                        executable,
+                        (int)
+                                Math.clamp(
+                                        version.getAsLong(), Integer.MIN_VALUE, Integer.MAX_VALUE));
         if (refused != null) {
             throw new AgentException(refused);
         }

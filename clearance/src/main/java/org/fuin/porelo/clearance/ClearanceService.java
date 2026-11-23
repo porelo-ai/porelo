@@ -66,10 +66,10 @@ public class ClearanceService implements AutoCloseable {
                 (parameters, replies) -> {
                     final String destination = String.valueOf(parameters.get("destination"));
                     final String protocol = String.valueOf(parameters.get("protocol"));
-                    final int port =
-                            parameters.get("port") instanceof Number number
-                                    ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(number)
-                                    : 0;
+                    final Integer given =
+                            org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(
+                                    parameters, "port");
+                    final int port = given == null ? 0 : given;
                     // What was blocked, as read, and nothing its sender added: forwarded as it
                     // came, a report carrying 'verdict' and 'source' read to an interface like an
                     // answer.

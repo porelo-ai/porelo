@@ -246,12 +246,9 @@ public record ToolEvent(
 
     /** A whole number as the wire carries one, or {@code null} for any other value. */
     private static @Nullable Long whole(final Object value) {
-        return value instanceof Long
-                        || value instanceof Integer
-                        || value instanceof Short
-                        || value instanceof Byte
-                ? Long.valueOf(((Number) value).longValue())
-                : null;
+        final java.util.OptionalLong whole =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(value);
+        return whole.isPresent() ? Long.valueOf(whole.getAsLong()) : null;
     }
 
     /** Whether a call starts or ends. */
@@ -380,12 +377,14 @@ public record ToolEvent(
      *     or a duration or token count that is no whole number from 0 up.
      */
     public static @Nullable ToolEvent of(final Map<?, ?> map) {
-        if (!(map.get("line") instanceof Number line)
+        final java.util.OptionalInt line =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(map.get("line"));
+        if (line.isEmpty()
                 || !(map.get("id") instanceof String id)
                 || !(map.get("phase") instanceof String phase)) {
             return null;
         }
-        final int index = org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(line);
+        final int index = line.getAsInt();
         final Phase known = phase(phase);
         if (known == null || index < 0) {
             return null;
