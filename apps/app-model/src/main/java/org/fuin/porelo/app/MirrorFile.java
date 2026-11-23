@@ -66,8 +66,12 @@ final class MirrorFile {
         }
     }
 
-    /** HEAD does not name a branch symbolically. */
-    record Detached() implements DefaultBranch {}
+    /**
+     * HEAD does not name a branch symbolically.
+     *
+     * @param mirror Where the mirror lies on this machine.
+     */
+    record Detached(Path mirror) implements DefaultBranch {}
 
     /**
      * HEAD names work a task pushed, which cannot choose its own image.
@@ -84,7 +88,9 @@ final class MirrorFile {
      * @return The branch, or why none can be read.
      */
     static DefaultBranch defaultBranch(CommandRunner runner, Path mirror) {
-        if (!Files.isDirectory(mirror)) {
+        // A directory holding no repository - empty, or never finished - is no mirror: it is made
+        // anew, as an absent one is, and never read as a detached HEAD the upstream must fix.
+        if (!Files.isDirectory(mirror.resolve("objects"))) {
             return new NoMirror();
         }
         final CommandResult head =
@@ -93,7 +99,7 @@ final class MirrorFile {
                                 "git", "-C", mirror.toString(), "symbolic-ref", "--quiet", "HEAD"));
         final String ref = head.standardOutput().strip();
         if (!head.successful() || !ref.startsWith("refs/heads/")) {
-            return new Detached();
+            return new Detached(mirror);
         }
         if (ref.startsWith(TASK_BRANCHES)) {
             return new TaskBranch(ref);
@@ -163,6 +169,7 @@ final class MirrorFile {
         final String upstream = repository.upstream();
         return "the mirror of "
                 + repository.name()
+                + (branch instanceof Detached detached ? " at " + detached.mirror() : "")
                 + " "
                 + problem
                 + ", so its porelo.yml cannot be read; set the default branch of "

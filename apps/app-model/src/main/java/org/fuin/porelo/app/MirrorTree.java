@@ -60,10 +60,11 @@ final class MirrorTree implements AutoCloseable {
      *
      * @param context This machine.
      * @param repository The repository's name.
-     * @return Whether its mirror's directory exists.
+     * @return Whether its mirror exists: a directory holding no repository is none.
      */
     static boolean exists(final PoreloContext context, final String repository) {
-        return Files.isDirectory(GateSupport.mirror(context, DefaultProject.NAME, repository));
+        return Files.isDirectory(
+                GateSupport.mirror(context, DefaultProject.NAME, repository).resolve("objects"));
     }
 
     /**

@@ -61,6 +61,47 @@ class MirrorFileTest {
     }
 
     @Test
+    void anEmptyDirectoryAtTheMirrorsPlaceIsNoMirrorRatherThanADetachedHead(@TempDir Path root)
+            throws Exception {
+        final Path empty = Files.createDirectories(root.resolve("mirrors").resolve("p.git"));
+
+        assertThat(MirrorFile.defaultBranch(runner, empty))
+                .as("made anew as an absent one, never sent to the forge's default branch")
+                .isEqualTo(new MirrorFile.NoMirror());
+        assertThat(
+                        MirrorFile.refusal(
+                                MirrorFile.defaultBranch(runner, empty),
+                                new org.fuin.porelo.core.project.Repository(
+                                        "p", "git@example.com:o/p.git")))
+                .isNull();
+    }
+
+    @Test
+    void aRealDetachedHeadIsSaidWithTheMirrorsPathFirst(@TempDir Path root) throws Exception {
+        final Path mirror = mirror(root);
+        final String commit =
+                runner.runOrFail(
+                                new Command(
+                                        List.of("git", "rev-parse", "refs/heads/trunk"),
+                                        mirror,
+                                        Map.of("GIT_CONFIG_GLOBAL", "/dev/null"),
+                                        null))
+                        .standardOutput()
+                        .strip();
+        Files.writeString(mirror.resolve("HEAD"), commit + "\n");
+
+        final MirrorFile.DefaultBranch branch = MirrorFile.defaultBranch(runner, mirror);
+        assertThat(branch).isEqualTo(new MirrorFile.Detached(mirror));
+        assertThat(
+                        MirrorFile.refusal(
+                                branch,
+                                new org.fuin.porelo.core.project.Repository(
+                                        "p", "git@example.com:o/p.git")))
+                .as("the place on this machine first, then the upstream")
+                .startsWith("the mirror of p at " + mirror + " has a detached HEAD");
+    }
+
+    @Test
     void readsTheDefaultBranchEvenWhenItIsNotMain(@TempDir Path root) throws Exception {
 
         final Path mirror = mirror(root);

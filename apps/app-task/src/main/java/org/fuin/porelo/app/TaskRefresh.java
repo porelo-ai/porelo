@@ -159,7 +159,7 @@ public final class TaskRefresh {
         } catch (ProjectException ex) {
             return new Result(Outcome.FAILED, Map.of(), String.valueOf(ex.getMessage()), false);
         }
-        if (!Files.isDirectory(gate.mirror())) {
+        if (!Files.isDirectory(gate.mirror().resolve("objects"))) {
             return new Result(
                     Outcome.NOT_GATED,
                     Map.of(),

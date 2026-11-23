@@ -1,0 +1,2 @@
+title: An empty directory where a mirror belongs is taken as no mirror and made anew, instead of being refused as a detached HEAD to fix at the forge; a real detached HEAD names the mirror's path.
+type: fixed
