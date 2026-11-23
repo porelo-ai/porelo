@@ -100,6 +100,23 @@ method Limits() -> (
   retries: float
 )
 
+# The person's own decisions about how long something holds, from the account's config.yml as porelod
+# read it at its start: whole days, each 1 to 3650, never multiplied by a time factor.
+method AccountSettings() -> (
+  # How long the person's certification of a task holds (task.certificate_days, 7).
+  certificateDays: int,
+  # How long a card holds from the day it is made (identity.card_days, 30).
+  cardDays: int,
+  # How many days before its end a card is said to be due (identity.renew_notice_days, 7).
+  renewNoticeDays: int,
+  # How long a token lent to a host is kept (host.lent_token_days, 1).
+  lentTokenDays: int,
+  # How long a sent message is asked about (messages.asked_about_days, 7).
+  askedAboutDays: int,
+  # How long a task's run records are kept (records.kept_days, 30).
+  keptDays: int
+)
+
 # Which methods an MCP client may be offered as tools, as porelo-mcp asks for them. Each name is a
 # method's name without the interface, as a tool is named.
 #

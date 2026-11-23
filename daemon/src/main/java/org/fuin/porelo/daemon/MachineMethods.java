@@ -104,6 +104,20 @@ final class MachineMethods {
                                     "retries", limits.retries().doubleValue()));
                 });
 
+        server.method(
+                "AccountSettings",
+                (parameters, replies) -> {
+                    final org.fuin.porelo.app.AccountConfig account = context.account();
+                    replies.last(
+                            Map.of(
+                                    "certificateDays", account.certificateDays(),
+                                    "cardDays", account.cardDays(),
+                                    "renewNoticeDays", account.renewNoticeDays(),
+                                    "lentTokenDays", account.lentTokenDays(),
+                                    "askedAboutDays", account.askedAboutDays(),
+                                    "keptDays", account.keptDays()));
+                });
+
         registerTighten(server, context);
         McpMethods.register(server, context);
     }

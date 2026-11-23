@@ -226,6 +226,32 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void accountSettingsAnswersTheSixNamedDecisionsAsRead(@TempDir Path dir) throws Exception {
+        servingContext(
+                context(dir)
+                        .withAccount(
+                                org.fuin.porelo.app.AccountConfig.read(
+                                        new java.io.StringReader(
+                                                "task:\n  certificate_days: 14\nrecords:\n  kept_days: 90\n"),
+                                        "config.yml")),
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> answer =
+                                client.call(PoreloDaemon.INTERFACE + ".AccountSettings", Map.of());
+                        assertThat(answer)
+                                .as("as written, the rest at today's values, in whole days")
+                                .containsEntry("certificateDays", 14L)
+                                .containsEntry("keptDays", 90L)
+                                .containsEntry("cardDays", 30L)
+                                .containsEntry("renewNoticeDays", 7L)
+                                .containsEntry("lentTokenDays", 1L)
+                                .containsEntry("askedAboutDays", 7L);
+                    }
+                });
+    }
+
+    @Test
     void thePagingMethodsAreRefusedByNameUntilTheyAreAnswered(@TempDir Path dir) throws Exception {
         serving(
                 dir,

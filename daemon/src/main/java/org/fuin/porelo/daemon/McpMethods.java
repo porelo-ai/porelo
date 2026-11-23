@@ -40,6 +40,7 @@ final class McpMethods {
                     "List",
                     "McpMethods",
                     "Limits",
+                    "AccountSettings",
                     "LogBefore",
                     "ScreenBefore",
                     "Watch",
