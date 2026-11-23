@@ -36,6 +36,10 @@ class GateReviewCutTest {
 
     private final ProcessCommandRunner git = new ProcessCommandRunner();
 
+    /** How many times the gate asked git for a review's patch. */
+    private final java.util.concurrent.atomic.AtomicInteger patches =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private static final int MIB = 1024 * 1024;
 
     /** The largest message a varlink peer accepts, as the wire bounds it. */
@@ -350,6 +354,47 @@ class GateReviewCutTest {
     }
 
     @Test
+    void aReviewPageAfterReviewTakesTheReviewReadRatherThanAskingGitAgain() throws Exception {
+        final Push push = push();
+        push.write("one.txt", "one\n");
+        push.write("two.txt", "two\n");
+        push.commit("two files");
+        push.send();
+        final String base = push.capturedBase();
+        patches.set(0);
+
+        final List<Map<String, Object>> answers =
+                push.calls(
+                        List.of(
+                                Map.entry("Review", Map.of()),
+                                Map.entry(
+                                        "ReviewPage",
+                                        Map.of("part", "diff", "from", 0, "against", base)),
+                                Map.entry(
+                                        "ReviewPage",
+                                        Map.of("part", "files", "from", 0, "against", base))));
+
+        assertThat(patches).as("Review's own read of the patch, and no other").hasValue(1);
+        assertThat(String.valueOf(answers.get(1).get("text")))
+                .as("the page is of the review read")
+                .isEqualTo(String.valueOf(answers.get(0).get("diff")));
+        assertThat(files(answers.get(2)))
+                .extracting(file -> String.valueOf(file.get("path")))
+                .containsExactlyInAnyOrder("one.txt", "two.txt");
+        push.page(
+                Map.of(
+                        "commit",
+                        String.valueOf(answers.get(0).get("commit")),
+                        "part",
+                        "diff",
+                        "from",
+                        0,
+                        "against",
+                        base));
+        assertThat(patches).as("a daemon that keeps no review reads it again").hasValue(2);
+    }
+
+    @Test
     void aReviewThatFitsIsWholeAndSaysNoCut() throws Exception {
         final Push push = push();
         push.write("small.txt", "small\n");
@@ -422,6 +467,48 @@ class GateReviewCutTest {
             asked.putIfAbsent("against", capturedBase());
             asked.putIfAbsent("ignoreLineEndings", false);
             return call("ReviewPage", asked);
+        }
+
+        /** Several calls on one daemon, in order, each with the push's names and the commit. */
+        List<Map<String, Object>> calls(List<Map.Entry<String, Map<String, Object>>> asked)
+                throws Exception {
+            final Path socket = dir.resolve("porelod.sock");
+            final List<Map<String, Object>> answers = new ArrayList<>();
+            try (VarlinkServer server = PoreloDaemon.serving(context, socket)) {
+                final Thread thread = Thread.ofVirtual().start(server);
+                try (VarlinkClient client = new VarlinkClient(socket)) {
+                    String commit = "";
+                    for (final Map.Entry<String, Map<String, Object>> one : asked) {
+                        final Map<String, Object> parameters =
+                                new java.util.LinkedHashMap<>(
+                                        Map.of(
+                                                "project",
+                                                "default",
+                                                "repository",
+                                                "app",
+                                                "name",
+                                                "t"));
+                        if ("ReviewPage".equals(one.getKey())) {
+                            parameters.put("commit", commit);
+                            parameters.put("ignoreLineEndings", false);
+                        }
+                        parameters.putAll(one.getValue());
+                        final Map<String, Object> answer =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + "." + one.getKey(),
+                                        parameters,
+                                        java.time.Duration.ofMinutes(2));
+                        if ("Review".equals(one.getKey())) {
+                            commit = String.valueOf(answer.get("commit"));
+                        }
+                        answers.add(answer);
+                    }
+                } finally {
+                    server.close();
+                    thread.join(java.time.Duration.ofSeconds(5));
+                }
+            }
+            return answers;
         }
 
         Map<String, Object> call(String method, Map<String, Object> more) throws Exception {
@@ -511,8 +598,15 @@ class GateReviewCutTest {
                                 && command.arguments().contains("credential.helper=")
                                 && command.arguments().stream()
                                         .anyMatch(argument -> argument.startsWith(mirrors))
-                        ? git.run(command)
+                        ? counted(command)
                         : runner.run(command);
+    }
+
+    private org.fuin.porelo.core.process.CommandResult counted(Command command) {
+        if (command.arguments().contains("diff") && command.arguments().contains("--patch")) {
+            patches.incrementAndGet();
+        }
+        return git.run(command);
     }
 
     @SuppressWarnings("unchecked")

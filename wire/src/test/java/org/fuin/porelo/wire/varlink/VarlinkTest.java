@@ -507,6 +507,78 @@ class VarlinkTest {
         }
     }
 
+    /**
+     * The message a failed call was answered with, after checking it was this interface's Failed.
+     */
+    private static String failedMessage(final VarlinkClient client, final String method) {
+        try {
+            client.call(INTERFACE + "." + method, Map.of(), java.time.Duration.ofSeconds(20));
+        } catch (VarlinkException ex) {
+            assertThat(ex.getErrorName()).as(method).isEqualTo(INTERFACE + ".Failed");
+            assertThat(ex.getParameters()).as(method).containsKey("message");
+            return String.valueOf(ex.getParameters().get("message"));
+        }
+        throw new AssertionError(method + " was answered, not refused");
+    }
+
+    @Test
+    void aFailureWithoutAnErrorNameOrAMessageStillSaysWhatFailed(@TempDir Path dir)
+            throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.method(
+                    "Unnamed",
+                    (parameters, replies) -> {
+                        throw new VarlinkException("the mirror could not be read");
+                    });
+            server.method(
+                    "Silent",
+                    (parameters, replies) -> {
+                        throw new IllegalStateException();
+                    });
+            server.method(
+                    "Empty",
+                    (parameters, replies) -> {
+                        throw new VarlinkException(INTERFACE + ".Failed", Map.of());
+                    });
+
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(failedMessage(client, "Unnamed"))
+                        .isEqualTo("the mirror could not be read");
+                assertThat(failedMessage(client, "Silent"))
+                        .isEqualTo(IllegalStateException.class.getName());
+                assertThat(failedMessage(client, "Empty")).isNotBlank();
+            }
+        }
+    }
+
+    @Test
+    void anErrorInACallIsLoggedAndAnsweredNamingIt(@TempDir Path dir) throws IOException {
+        final List<String> logged = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        try (VarlinkServer server = server(dir).reportingTo(logged::add)) {
+            server.method(
+                    "Deep",
+                    (parameters, replies) -> {
+                        throw new StackOverflowError();
+                    });
+            server.method(
+                    "Ping", (parameters, replies) -> replies.last(Map.of("pong", Boolean.TRUE)));
+
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(failedMessage(client, "Deep")).contains("StackOverflowError");
+            }
+            assertThat(logged)
+                    .as("the daemon's log names the call and the error")
+                    .anySatisfy(line -> assertThat(line).contains("Deep", "StackOverflowError"));
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(client.call(INTERFACE + ".Ping", Map.of()))
+                        .as("the server still serves a new connection")
+                        .containsEntry("pong", Boolean.TRUE);
+            }
+        }
+    }
+
     @Test
     void answersGetInfoWithoutBeingTold(@TempDir Path dir) throws IOException {
 

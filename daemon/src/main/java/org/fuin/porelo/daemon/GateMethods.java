@@ -95,6 +95,21 @@ final class GateMethods {
         org.fuin.porelo.gate.ReviewRanking.Review ranked(final Map<String, Object> parameters) {
             return gate.rankedReview(head, against, flag(parameters, "ignoreLineEndings"));
         }
+
+        /**
+         * Returns what names this review among the reviews kept for their pages.
+         *
+         * @param parameters The call's parameters, for the line-ending switch.
+         * @return The key.
+         */
+        KeptReviews.Key key(final Map<String, Object> parameters) {
+            return new KeptReviews.Key(
+                    gate.mirror().toString(),
+                    name,
+                    head.commit(),
+                    against == null ? "" : against,
+                    flag(parameters, "ignoreLineEndings"));
+        }
     }
 
     /** A full commit id, as ReviewPage takes its base. */
@@ -331,6 +346,8 @@ final class GateMethods {
             TaskControl control) {
         // Readings too large for one reply, kept for their pages: this daemon's alone.
         final PullRequestPages pullRequestPages = new PullRequestPages(java.time.Instant::now);
+        // Reviews just read, kept for their pages: this daemon's alone.
+        final KeptReviews keptReviews = new KeptReviews(java.time.Instant::now);
         server.method(
                 "PushToCentral",
                 (parameters, replies) ->
@@ -561,10 +578,17 @@ final class GateMethods {
                                                 parameters,
                                                 context,
                                                 reading,
-                                                reading.ranked(parameters));
+                                                keptReviews.review(
+                                                        reading.key(parameters),
+                                                        () -> reading.ranked(parameters)));
                                 case "commits" -> commits(reading);
                                 case "log" -> reading.gate().log(reading.head(), reading.against());
-                                default -> reading.ranked(parameters).patch();
+                                default ->
+                                        keptReviews
+                                                .review(
+                                                        reading.key(parameters),
+                                                        () -> reading.ranked(parameters))
+                                                .patch();
                             };
                     replies.last(ReviewPages.page(part, whole, from));
                 });
@@ -579,6 +603,7 @@ final class GateMethods {
                     final String against = reading.against();
                     final org.fuin.porelo.gate.ReviewRanking.Review review =
                             reading.ranked(parameters);
+                    keptReviews.keep(reading.key(parameters), review);
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("commit", head.commit());
                     reply.put("diff", review.patch());

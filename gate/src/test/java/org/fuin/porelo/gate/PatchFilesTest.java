@@ -46,6 +46,32 @@ class PatchFilesTest {
     }
 
     @Test
+    void aPatchIsPutInTheOrderGivenTheRestAfterInGitsOrder() {
+        final String one = "diff --git a/one.txt b/one.txt\n@@ -1 +1 @@\n-a\n+b\n";
+        final String quoted =
+                "diff --git \"a/two \\\"x\\\".txt\" \"b/two \\\"x\\\".txt\"\ndeleted file mode"
+                        + " 100644\n";
+        final String binary = "diff --git a/bin.dat b/bin.dat\nBinary files differ\n";
+        final String odd = "diff --git something odd\n";
+        final String unnamed = "diff --git a/later.txt b/later.txt\n+x\n";
+
+        final String ordered =
+                PatchFiles.inOrder(
+                        "pre\n" + one + quoted + odd + binary + unnamed,
+                        List.of("bin.dat", "two \"x\".txt", "one.txt"));
+
+        assertThat(ordered)
+                .as("the named files in the order given, every other file after them as git had it")
+                .isEqualTo("pre\n" + binary + quoted + one + odd + unnamed);
+    }
+
+    @Test
+    void aPatchWithoutFilesIsKeptAsItIs() {
+        assertThat(PatchFiles.inOrder("", List.of("one.txt"))).isEmpty();
+        assertThat(PatchFiles.inOrder("odd\n", List.of())).isEqualTo("odd\n");
+    }
+
+    @Test
     void aPatchWithoutAFinalLineBreakKeepsItsLastLine() {
         final String patch = "diff --git a/x b/x\n+last";
 

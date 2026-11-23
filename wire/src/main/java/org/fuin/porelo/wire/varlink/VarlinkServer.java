@@ -110,6 +110,9 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
     private volatile boolean running = true;
 
+    /** Where this server reports what goes wrong beyond a call's answer: its standard error. */
+    private volatile java.util.function.Consumer<String> log = System.err::println;
+
     /**
      * Binds the socket.
      *
@@ -421,6 +424,18 @@ public class VarlinkServer implements AutoCloseable, Runnable {
     }
 
     /**
+     * Sends what this server must report about itself, an error in a call above all, somewhere else
+     * than its standard error, which a daemon's log reads.
+     *
+     * @param log Takes each line.
+     * @return This instance.
+     */
+    public VarlinkServer reportingTo(java.util.function.Consumer<String> log) {
+        this.log = log;
+        return this;
+    }
+
+    /**
      * Registers a method.
      *
      * @param name Method name without the interface prefix.
@@ -487,15 +502,64 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                 if (call == null) {
                     return;
                 }
-                handle(connection, call, peer);
+                if (!handle(connection, call, peer)) {
+                    // An error in a call leaves nothing on this connection to trust.
+                    return;
+                }
             }
         } catch (IOException | RuntimeException ex) {
             // One broken client does not take the service down.
+        } catch (Error ex) {
+            report("serving a connection", ex);
+            throw ex;
         }
     }
 
+    /** Says in the log what went wrong beyond a call's answer. */
+    private void report(final String doing, final Throwable ex) {
+        try {
+            log.accept(interfaceName + ": " + doing + " failed: " + text(ex));
+        } catch (RuntimeException | Error lost) {
+            // The log is where this would have gone; nothing is left to say it with.
+        }
+    }
+
+    /**
+     * What a failure says of itself: its message, or its class's name when it has none, so a Failed
+     * never goes out empty.
+     */
+    static String text(final Throwable ex) {
+        final String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            return ex.getClass().getName();
+        }
+        return ex instanceof Error ? ex.getClass().getName() + ": " + message : message;
+    }
+
+    /**
+     * The parameters of a Failed: those given, with a {@code message} added from the failure when
+     * they hold none.
+     */
+    private static Map<String, Object> failedParameters(
+            final @Nullable Map<String, Object> given, final Throwable ex) {
+        final Map<String, Object> parameters = new LinkedHashMap<>();
+        if (given != null) {
+            parameters.putAll(given);
+        }
+        final Object message = parameters.get("message");
+        if (!(message instanceof String said) || said.isBlank()) {
+            parameters.put("message", text(ex));
+        }
+        return parameters;
+    }
+
+    /**
+     * Answers one call.
+     *
+     * @return Whether the connection serves further calls: not after an error in the call.
+     */
     @SuppressWarnings("unchecked")
-    private void handle(VarlinkConnection connection, Map<String, Object> call, Peer peer)
+    private boolean handle(VarlinkConnection connection, Map<String, Object> call, Peer peer)
             throws IOException {
 
         final Object name = call.get("method");
@@ -504,12 +568,12 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                     connection,
                     "org.varlink.service.InvalidParameter",
                     Map.of("parameter", "method"));
-            return;
+            return true;
         }
         final Method method = methods.get(methodName);
         if (method == null) {
             error(connection, "org.varlink.service.MethodNotFound", Map.of("method", methodName));
-            return;
+            return true;
         }
 
         final Object raw = call.get("parameters");
@@ -556,16 +620,26 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                         }
                     });
         } catch (VarlinkException ex) {
+            final String failed = interfaceName + ".Failed";
+            final String errorName = ex.getErrorName() == null ? failed : ex.getErrorName();
             error(
                     connection,
-                    ex.getErrorName() == null ? interfaceName + ".Failed" : ex.getErrorName(),
-                    ex.getParameters() == null ? Map.of() : ex.getParameters());
+                    errorName,
+                    failed.equals(errorName)
+                            ? failedParameters(ex.getParameters(), ex)
+                            : ex.getParameters() == null ? Map.of() : ex.getParameters());
         } catch (RuntimeException ex) {
-            error(
-                    connection,
-                    interfaceName + ".Failed",
-                    Map.of("message", String.valueOf(ex.getMessage())));
+            error(connection, interfaceName + ".Failed", failedParameters(null, ex));
+        } catch (Error ex) {
+            report("the call " + methodName, ex);
+            try {
+                error(connection, interfaceName + ".Failed", failedParameters(null, ex));
+            } catch (IOException | RuntimeException | Error lost) {
+                // Said in the log; the caller hears the connection end.
+            }
+            return false;
         }
+        return true;
     }
 
     private static void error(

@@ -365,18 +365,4 @@ public final class ReviewRanking {
         final String head = change.head();
         return head != null && GENERATED_MARKS.stream().anyMatch(head::contains);
     }
-
-    /**
-     * Writes the order git should print the patch in: one path per line, escaped for its patterns.
-     *
-     * @param files The ranked files.
-     * @return The order file's content.
-     */
-    static String orderFile(List<File> files) {
-        final StringBuilder order = new StringBuilder();
-        for (final File file : files) {
-            order.append(file.path().replaceAll("([\\\\*?\\[])", "\\\\$1")).append('\n');
-        }
-        return order.toString();
-    }
 }

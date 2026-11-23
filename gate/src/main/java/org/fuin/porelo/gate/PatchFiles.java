@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Splits a patch git printed into its files, so a patch that has to be shortened loses whole files
- * and never part of one.
+ * and never part of one, and a patch is put in a review's order whole file by whole file.
  *
  * <p>A file's part starts at its {@code diff --git} line. Nothing else in a patch can start a line
  * that way: every line of a hunk starts with a space, a {@code +}, a {@code -} or a {@code \}.
@@ -68,6 +68,33 @@ public final class PatchFiles {
             parts.add(new Part(path(line < 0 ? text : text.substring(0, line)), text));
         }
         return new Split(patch.substring(0, starts.getFirst()), List.copyOf(parts));
+    }
+
+    /**
+     * Puts a patch's files in the order given: each named file where its path stands in it, every
+     * file not named after them in the patch's own order. Nothing is added or lost.
+     *
+     * @param patch What {@code git diff --patch} printed.
+     * @param order The paths in the order their parts are wanted.
+     * @return The same parts, reordered, after the patch's preamble.
+     */
+    public static String inOrder(final String patch, final List<String> order) {
+        final Split split = split(patch);
+        final java.util.Map<String, Integer> place = new java.util.HashMap<>();
+        for (int i = 0; i < order.size(); i++) {
+            place.putIfAbsent(order.get(i), i);
+        }
+        final List<Part> parts = new ArrayList<>(split.parts());
+        // Stable: parts of one place, and every part not named, keep the patch's own order.
+        parts.sort(
+                java.util.Comparator.comparingInt(
+                        part -> place.getOrDefault(part.path(), Integer.MAX_VALUE)));
+        final StringBuilder ordered = new StringBuilder(patch.length());
+        ordered.append(split.preamble());
+        for (final Part part : parts) {
+            ordered.append(part.text());
+        }
+        return ordered.toString();
     }
 
     /**

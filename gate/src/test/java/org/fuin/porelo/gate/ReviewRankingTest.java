@@ -148,24 +148,6 @@ class ReviewRankingTest {
     }
 
     @Test
-    void escapesAPathSoGitReadsItAsItselfInTheOrderFile() {
-        final String order =
-                ReviewRanking.orderFile(
-                        List.of(
-                                new ReviewRanking.File(
-                                        "odd[1]*.txt",
-                                        "M",
-                                        1,
-                                        1,
-                                        1,
-                                        1,
-                                        ReviewRanking.Rank.ORDINARY,
-                                        "")));
-
-        assertThat(order).isEqualTo("odd\\[1]\\*.txt\n");
-    }
-
-    @Test
     void aSignerListIsDangerousByKind() {
         // One line added, and it decides whose signatures are believed.
         assertThat(ReviewRanking.dangerByPath("allowed_signers")).contains("signer list");

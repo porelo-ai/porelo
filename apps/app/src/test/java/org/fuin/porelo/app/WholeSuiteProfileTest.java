@@ -206,7 +206,8 @@ class WholeSuiteProfileTest {
                 .containsExactlyInAnyOrder(
                         "GitTreeWritesContractTest.java",
                         "GitTreeWritesTest.java",
-                        "GitTreeStoreTest.java");
+                        "GitTreeStoreTest.java",
+                        "ReviewTimingTest.java");
         assertThat(excluded(surefire, plain))
                 .as("the tags a build without -P%s leaves out", PROFILE)
                 .containsExactlyInAnyOrder(SLOW, SECOND_ACCOUNT);

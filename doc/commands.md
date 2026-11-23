@@ -854,7 +854,9 @@ first page, and `paged` gives each part's whole size, where its next page starts
 the review was read against ("" for the whole history). Tasks1 `ReviewPage`, called with the reviewed
 `commit`, `paged.base` as `against`, the `ignoreLineEndings` Review was asked with, a `part` (`files`,
 `commits`, `log` or `diff`) and that position, answers the next page of exactly that review, each one
-message, until a page has no `next`; a default base that moved since never changes the pages; a push that has moved since is refused as
+message, until a page has no `next`; the daemon keeps the newest four reviews it read for ten minutes, so a
+page of one answers from it without reading the change again, and a page of one no longer kept reads it again;
+a default base that moved since never changes the pages; a push that has moved since is refused as
 `MovedSinceReview`, and a position no page gave as `InvalidParameter`. Only a review whose own fields do not
 fit with every part empty is refused as `ReviewTooLarge`. The gate reads a long history in windows, and the
 patch and the file lists whole from the files git writes them to, however large; a review whose patch and file

@@ -1106,19 +1106,31 @@ public class GitGate {
                                         List.of("--numstat", "-z", "-w", "--ignore-blank-lines"),
                                         "list of changed files"))
                         .keySet();
-        final List<ReviewRanking.Change> changes = new ArrayList<>();
         final String[] raw =
                 reading.read(List.of("--raw", "-z", "--no-abbrev"), "list of changed files")
                         .split("\0");
+        // ":<old mode> <new mode> <old blob> <new blob> <status>" NUL "<path>" NUL - no renames,
+        // so one path each.
+        final List<String[]> entries = new ArrayList<>();
+        final List<String> paths = new ArrayList<>();
         for (int at = 0; at + 1 < raw.length; at += 2) {
-            // ":<old mode> <new mode> <old blob> <new blob> <status>" NUL "<path>" NUL - no
-            // renames, so one path each.
-            final String line = raw[at];
-            if (!line.startsWith(":")) {
-                continue;
+            if (raw[at].startsWith(":")) {
+                entries.add(raw[at].substring(1).split(" "));
+                paths.add(raw[at + 1]);
             }
-            final String[] fields = line.substring(1).split(" ");
-            final String path = raw[at + 1];
+        }
+        // The heads of the first files, one program for all of them.
+        final List<String> blobs = new ArrayList<>();
+        for (int i = 0; i < entries.size() && i < HEADS_READ; i++) {
+            if (!"D".equals(entries.get(i)[4])) {
+                blobs.add(entries.get(i)[3]);
+            }
+        }
+        final Map<String, String> heads = heads(blobs);
+        final List<ReviewRanking.Change> changes = new ArrayList<>();
+        for (int i = 0; i < entries.size(); i++) {
+            final String[] fields = entries.get(i);
+            final String path = paths.get(i);
             final String status = fields[4];
             final int[] count = counts.getOrDefault(path, new int[] {0, 0});
             final int[] ignoringLineEndings =
@@ -1130,8 +1142,7 @@ public class GitGate {
                             && fields[0].equals(fields[1])
                             && (count[0] > 0 || count[1] > 0)
                             && !beyondWhitespace.contains(path);
-            final String head =
-                    "D".equals(status) || changes.size() >= HEADS_READ ? null : head(fields[3]);
+            final String head = "D".equals(status) || i >= HEADS_READ ? null : heads.get(fields[3]);
             changes.add(
                     new ReviewRanking.Change(
                             path,
@@ -1146,28 +1157,17 @@ public class GitGate {
                             head));
         }
         final List<ReviewRanking.File> files = ReviewRanking.rank(changes);
-        final Path order;
-        try {
-            order = Files.createTempFile("porelo-review-order", ".txt");
-            Files.writeString(order, ReviewRanking.orderFile(files), StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new GateException("could not order the review: " + ex.getMessage(), ex);
-        }
-        try {
-            final List<String> options =
-                    ignoreLineEndings
-                            ? List.of("--patch", "-O" + order, "--ignore-space-at-eol")
-                            : List.of("--patch", "-O" + order);
-            final String patch = reading.read(options, "patch");
-            return new ReviewRanking.Review(files, patch);
-        } finally {
-            try {
-                Files.deleteIfExists(order);
-            } catch (IOException ex) {
-                // A leftover order file names paths the operator is about to read anyway; not worth
-                // failing for.
-            }
-        }
+        // Read in git's own order and put in the ranking's here: git's -O matches every path
+        // against every line of an order file, which took seconds for a push of many files.
+        final List<String> options =
+                ignoreLineEndings
+                        ? List.of("--patch", "--ignore-space-at-eol")
+                        : List.of("--patch");
+        final String patch =
+                PatchFiles.inOrder(
+                        reading.read(options, "patch"),
+                        files.stream().map(ReviewRanking.File::path).toList());
+        return new ReviewRanking.Review(files, patch);
     }
 
     /**
@@ -1274,9 +1274,112 @@ public class GitGate {
     /** How many files' heads are read to see whether they say they were generated. */
     private static final int HEADS_READ = 500;
 
-    private String head(String blob) {
-        final String content = gitIn("cat-file", "-p", blob).standardOutput();
-        return content.length() > 2048 ? content.substring(0, 2048) : content;
+    /** The most of a file's start that is read as its head, in characters. */
+    private static final int HEAD_LENGTH = 2048;
+
+    /**
+     * The most bytes of blobs one {@code cat-file --batch} answers, well under what the runner
+     * keeps of a program's output; a larger blob is read alone.
+     */
+    private static final long HEADS_WINDOW = 4L * 1024 * 1024;
+
+    private static final java.security.SecureRandom NONCES = new java.security.SecureRandom();
+
+    /**
+     * Reads the start of each blob, through one {@code cat-file --batch-check} for their sizes and
+     * as few {@code cat-file --batch} as their sizes allow, instead of one program per blob.
+     *
+     * <p>Each blob's answer starts with a header holding a number this call drew at random, so a
+     * blob's content, which an agent wrote, cannot end another's early or forge its head.
+     *
+     * @param blobs The blobs, by full object name.
+     * @return The first {@value #HEAD_LENGTH} characters of each blob read; one missing, not a
+     *     blob, or whose answer came back cut has none.
+     */
+    private Map<String, String> heads(final List<String> blobs) {
+        final Map<String, String> heads = new java.util.HashMap<>();
+        if (blobs.isEmpty()) {
+            return heads;
+        }
+        final List<String> unique = List.copyOf(new java.util.LinkedHashSet<>(blobs));
+        final Map<String, Long> sizes = new java.util.HashMap<>();
+        final String checked =
+                gitWithInput(
+                                GitCredentials.Lease.EMPTY,
+                                String.join("\n", unique) + "\n",
+                                "cat-file",
+                                "--batch-check=%(objectname) %(objecttype) %(objectsize)")
+                        .standardOutput();
+        for (final String line : checked.split("\n")) {
+            final String[] fields = line.split(" ");
+            if (fields.length == 3 && "blob".equals(fields[1]) && fields[2].matches("\\d{1,18}")) {
+                sizes.put(fields[0], Long.parseLong(fields[2]));
+            }
+        }
+        final byte[] random = new byte[16];
+        NONCES.nextBytes(random);
+        final String nonce = java.util.HexFormat.of().formatHex(random);
+        final List<String> group = new ArrayList<>();
+        long held = 0;
+        for (final String blob : unique) {
+            final Long size = sizes.get(blob);
+            if (size == null) {
+                continue;
+            }
+            if (!group.isEmpty() && held + size > HEADS_WINDOW) {
+                readHeads(group, nonce, heads);
+                group.clear();
+                held = 0;
+            }
+            group.add(blob);
+            held += size;
+        }
+        if (!group.isEmpty()) {
+            readHeads(group, nonce, heads);
+        }
+        return heads;
+    }
+
+    /** Reads the heads of one group of blobs with one {@code cat-file --batch}. */
+    private void readHeads(
+            final List<String> group, final String nonce, final Map<String, String> heads) {
+        final List<String> headers = new ArrayList<>(group.size());
+        final StringBuilder input = new StringBuilder();
+        for (int i = 0; i < group.size(); i++) {
+            final String header = group.get(i) + " " + nonce + "/" + i;
+            headers.add(header);
+            input.append(header).append('\n');
+        }
+        final CommandResult result =
+                gitWithInput(
+                        GitCredentials.Lease.EMPTY,
+                        input.toString(),
+                        "cat-file",
+                        "--batch=%(objectname) %(rest)");
+        if (result.standardOutputCut()) {
+            // Its start is lost, and with it the heads: none is guessed from what is left.
+            return;
+        }
+        final String out = result.standardOutput();
+        int at = 0;
+        for (int i = 0; i < group.size(); i++) {
+            final String header = headers.get(i) + "\n";
+            if (!out.startsWith(header, at)) {
+                return;
+            }
+            final int start = at + header.length();
+            final int end;
+            if (i + 1 < group.size()) {
+                end = out.indexOf("\n" + headers.get(i + 1) + "\n", start);
+                if (end < 0) {
+                    return;
+                }
+                at = end + 1;
+            } else {
+                end = out.endsWith("\n") ? Math.max(start, out.length() - 1) : out.length();
+            }
+            heads.put(group.get(i), out.substring(start, Math.min(end, start + HEAD_LENGTH)));
+        }
     }
 
     private static Map<String, int[]> numstat(String output) {
