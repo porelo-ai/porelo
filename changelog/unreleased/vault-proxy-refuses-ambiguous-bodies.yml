@@ -1,0 +1,2 @@
+title: "The credential proxy refuses a request that names its Content-Encoding, Content-Length or Transfer-Encoding on more than one line, reads a gzip body one member at a time and refuses one whose member does not parse or that goes on past its last member, and refuses a coded body that unpacks to more than 1000 times what it carries, so no grant passes in bytes the proxy did not read."
+type: security

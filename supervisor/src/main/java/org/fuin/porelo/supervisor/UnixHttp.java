@@ -36,8 +36,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p><strong>Why its own.</strong> {@link HttpClient} dials hosts and ports only and cannot reach a
  * Unix socket. This is the smallest client the gateway needs: one request per connection, closed
- * after, its body sent with a {@code Content-Length}; an answer framed by {@code Content-Length} or
- * chunked, handed over as it arrives so a stream of events reaches the task event by event.
+ * after, its body sent with a {@code Content-Length}, or in chunks when it is passed on as it
+ * arrives and its length is not known; an answer framed by {@code Content-Length} or chunked,
+ * handed over as it arrives so a stream of events reaches the task event by event.
  *
  * <p><strong>An answer it cannot frame is refused, never guessed at.</strong> A status line that is
  * not HTTP/1.x, an interim answer, a header that is not one, a body that declares neither a length
@@ -134,9 +135,13 @@ final class UnixHttp {
         }
 
         void write(OutputStream out, byte[] bytes) throws IOException {
+            write(out, bytes, bytes.length);
+        }
+
+        void write(OutputStream out, byte[] bytes, int length) throws IOException {
             final ScheduledFuture<?> armed = arm();
             try {
-                out.write(bytes);
+                out.write(bytes, 0, length);
                 out.flush();
             } finally {
                 armed.cancel(false);
@@ -223,8 +228,71 @@ final class UnixHttp {
         }
     }
 
+    /**
+     * Sends a request whose body is read as it is sent, never held whole.
+     *
+     * <p>A body that fails while it is read - because it was refused, or broke - closes the
+     * connection before its end is sent: a body with a length is short of it, a chunked one has no
+     * last chunk, and the destination never has a whole request.
+     *
+     * @param socket The socket.
+     * @param request The request.
+     * @param body The request body, read to its end.
+     * @param length Its length, or {@code -1} to send it in chunks.
+     * @param idle The longest silence between two bytes when the request names no timeout.
+     * @return The answer.
+     * @throws Unframed If the answer's head cannot be framed.
+     * @throws IOException If the socket cannot be reached, the body fails or the exchange fails.
+     */
+    static HttpResponse<InputStream> send(
+            Path socket, HttpRequest request, InputStream body, long length, Duration idle)
+            throws IOException {
+        try {
+            UnixUpstream.linkFree(socket);
+        } catch (UnixUpstream.Refused refused) {
+            throw new IOException(refused.getMessage(), refused);
+        }
+        final SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX);
+        final Watch watch = new Watch(channel, request.timeout().orElse(idle));
+        try {
+            channel.connect(UnixDomainSocketAddress.of(socket));
+            final OutputStream out = Channels.newOutputStream(channel);
+            watch.write(out, head(request, length));
+            final byte[] buffer = new byte[64 * 1024];
+            long sent = 0;
+            int read;
+            while ((read = body.read(buffer)) != -1) {
+                if (length < 0) {
+                    watch.write(
+                            out,
+                            (Integer.toHexString(read) + "\r\n")
+                                    .getBytes(StandardCharsets.US_ASCII));
+                }
+                watch.write(out, buffer, read);
+                if (length < 0) {
+                    watch.write(out, CRLF);
+                }
+                sent += read;
+            }
+            if (length >= 0 && sent != length) {
+                throw new IOException("the body ended after " + sent + " of " + length + " bytes");
+            }
+            if (length < 0) {
+                watch.write(out, "0\r\n\r\n".getBytes(StandardCharsets.US_ASCII));
+            }
+            final InputStream in =
+                    new BufferedInputStream(watch.reading(Channels.newInputStream(channel)));
+            return answer(in, request, channel);
+        } catch (IOException | RuntimeException ex) {
+            channel.close();
+            throw ex;
+        }
+    }
+
+    private static final byte[] CRLF = {'\r', '\n'};
+
     /** The request line and headers. */
-    private static byte[] head(HttpRequest request, int length) throws IOException {
+    private static byte[] head(HttpRequest request, long length) throws IOException {
         final URI uri = request.uri();
         final String path =
                 uri.getRawPath() == null || uri.getRawPath().isEmpty() ? "/" : uri.getRawPath();
@@ -241,7 +309,10 @@ final class UnixHttp {
             }
         }
         // Always, even for no body: a POST without it is a request whose end the server guesses.
-        if (length > 0 || !request.method().equals("GET") && !request.method().equals("HEAD")) {
+        if (length < 0) {
+            head.append("Transfer-Encoding: chunked\r\n");
+        } else if (length > 0
+                || !request.method().equals("GET") && !request.method().equals("HEAD")) {
             head.append("Content-Length: ").append(length).append("\r\n");
         }
         head.append("Connection: close\r\n\r\n");

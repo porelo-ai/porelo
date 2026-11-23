@@ -346,8 +346,10 @@ public final class Reach {
                                                 .toList())
                                 + " grant is refused, in the query and in the whole body decoded -"
                                 + " gzip, deflate or zstd - and a body coded otherwise, coded"
-                                + " twice, beyond the limit or not decoding is refused rather than"
-                                + " forwarded unread",
+                                + " twice, beyond the limit, unpacking to more than a thousand"
+                                + " times what it carries, not decoding or with bytes after its"
+                                + " last whole member is refused rather than forwarded unread, as"
+                                + " is a request that repeats a header framing or coding its body",
                         Kind.CONTROL),
                 new Row(
                         Part.HOLD,
@@ -561,8 +563,14 @@ public final class Reach {
                         "The model provider",
                         "Every task has a working route to its provider, with a request body of up"
                                 + " to **"
-                                + VaultProxy.BODY_LIMIT / (1024 * 1024)
-                                + " MB**. Porelo records request metadata but raises no alert.",
+                                + VaultProxy.BODY_LIMIT / (1024 * 1024 * 1024)
+                                + " GiB**, passed on as it arrives; a model request is read whole,"
+                                + " up to **"
+                                + VaultProxy.WHOLE_LIMIT / (1024 * 1024)
+                                + " MiB**, since the usage counting reads it. Either is read for a"
+                                + " token grant to its last byte before the request is let"
+                                + " complete. Porelo records request metadata but raises no"
+                                + " alert.",
                         Kind.NOT_BOUNDED),
                 new Row(
                         Part.REACH,

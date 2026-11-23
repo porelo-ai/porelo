@@ -47,7 +47,12 @@ class ReachDocumentTest {
 
     @Test
     void statesHowMuchOneRequestToTheProviderCanCarry() throws IOException {
-        assertThat(page()).contains("up to **" + VaultProxy.BODY_LIMIT / (1024 * 1024) + " MB**");
+        assertThat(page())
+                .contains("up to **" + VaultProxy.BODY_LIMIT / (1024 * 1024 * 1024) + " GiB**")
+                .contains(
+                        "a model request is read whole, up to **"
+                                + VaultProxy.WHOLE_LIMIT / (1024 * 1024)
+                                + " MiB**");
     }
 
     @Test

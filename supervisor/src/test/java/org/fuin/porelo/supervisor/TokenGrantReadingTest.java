@@ -78,7 +78,7 @@ class TokenGrantReadingTest {
 
         // A small compressed body can unpack to anything; read in full, it is read up to the limit
         // and no further.
-        final byte[] large = new byte[VaultProxy.BODY_LIMIT + 1024];
+        final byte[] large = new byte[VaultProxy.WHOLE_LIMIT + 1024];
         assertThat(VaultProxy.assess("/v1/messages", gzip(large), "gzip"))
                 .isEqualTo(VaultProxy.Reading.TOO_LARGE);
     }

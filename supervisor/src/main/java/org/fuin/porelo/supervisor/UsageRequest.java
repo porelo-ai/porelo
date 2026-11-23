@@ -22,7 +22,7 @@ record UsageRequest(byte[] body, byte[] plain, boolean asked, boolean rewritten)
                     enabled
                             && method.equals("POST")
                             && "chat_completions".equals(UsageReading.format(target));
-            final int bound = rewrites ? VaultProxy.BODY_LIMIT : UsageReading.LIMIT;
+            final int bound = rewrites ? VaultProxy.WHOLE_LIMIT : UsageReading.LIMIT;
             // As the broker reads the header when it assesses a request.
             final String encoding =
                     coding == null

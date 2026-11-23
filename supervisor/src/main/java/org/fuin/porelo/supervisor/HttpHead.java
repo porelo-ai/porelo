@@ -130,7 +130,14 @@ public record HttpHead(String method, String target, List<String> names, List<St
         return value != null && value.toLowerCase(Locale.ROOT).contains("chunked");
     }
 
-    private static @Nullable String line(InputStream in) throws IOException {
+    /**
+     * Reads one line of a head or of a chunked body's framing, bounded like the head.
+     *
+     * @param in Where to read.
+     * @return The line without its end, or {@code null} at the end of the stream.
+     * @throws IOException On a read failure or a line past the bound.
+     */
+    static @Nullable String line(InputStream in) throws IOException {
         final StringBuilder text = new StringBuilder();
         int read;
         while ((read = in.read()) != -1) {

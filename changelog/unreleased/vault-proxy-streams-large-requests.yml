@@ -1,0 +1,2 @@
+title: "The credential proxy passes a request body of up to 2 GiB on as it arrives, holding at most a fixed buffer, so a task can upload a release asset; every byte is still read for a refused token grant as written, form-decoded and JSON-unescaped, also inside gzip, deflate or zstd and across reads, and a grant found late stops the request before the destination has all of it. A model request stays read whole, up to 32 MiB; a zstd frame naming a window past 8 MiB is refused."
+type: changed

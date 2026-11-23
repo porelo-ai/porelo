@@ -31,7 +31,9 @@ The numbers here are checked against the code by a test.
 **Not bounded:**
 
 - **The model provider.** Every task has a working route to its provider, with a request body of
-  up to **32 MB**. Anything the agent knows can go into a prompt. **This is the largest open path, and it
+  up to **2 GiB**, passed on as it arrives; a model request is read whole, up to **32 MiB**, since the
+  usage counting reads it. Either is read for a token grant to its last byte before the request is let
+  complete. Anything the agent knows can go into a prompt. **This is the largest open path, and it
   is open on purpose**: closing it closes the task. Porelo records request metadata but raises no alert.
 - **Every declared host is a second such channel.** Data fits in a URL to a forge the work clones from.
 - **A DNS query sent past the resolver** still gets an answer, though the connection does not.
@@ -46,7 +48,7 @@ See [the firewall](security.md) and [DNS](security.md) for how this is enforced.
 | The provider credential | Never in the container. The vault holds it; the task gets a phantom token, worthless anywhere else, that dies with the task | control |
 | Credential headers from the task | `authorization`, `private-token`, `proxy-authorization` and `x-api-key` are dropped before anything is forwarded | control |
 | A credential in the provider's answer | The first 8 KB of every answer are examined for `access_token`, `refresh_token` and `id_token` as JSON fields, before any of it is handed over; the rest is examined as it streams, and an answer that carries one later is cut off there. An answer with no type passes only as JSON or as events whose every line is a field and whose every `data:` is JSON, and is withheld or cut off otherwise; a withheld answer is a `400` naming the provider's status, which a client does not retry, or a `502` when the provider itself answered `5xx` or `429` | control |
-| A request for a token of its own | A `refresh_token` or `client_credentials` grant is refused, in the query and in the whole body decoded - gzip, deflate or zstd - and a body coded otherwise, coded twice, beyond the limit or not decoding is refused rather than forwarded unread | control |
+| A request for a token of its own | A `refresh_token` or `client_credentials` grant is refused, in the query and in the whole body decoded - gzip, deflate or zstd - and a body coded otherwise, coded twice, beyond the limit, unpacking to more than a thousand times what it carries, not decoding or with bytes after its last whole member is refused rather than forwarded unread, as is a request that repeats a header framing or coding its body | control |
 | A package repository's credential | Never in the container, nor any token for it: the task's repository broker adds it on the host to each request, and the task reads the repository at `127.0.0.1:9421/<name>/` | control |
 | A request to a package repository | `GET` and `HEAD` only, under the prefix `tool_repositories` declares: a path with a `.` or `..` segment, plain or encoded, a path parameter, an encoded slash, backslash or percent, or an empty segment is refused before the repository; a range is never asked for; a redirect is followed while it stays under the prefix, at most 5 times, and answered `502` otherwise; every request is logged without its headers | control |
 | A package repository's answer | Text, and whatever is typed JSON, YAML or XML, is examined as it streams for the credential, as stored and Base64-encoded, plain, JSON-escaped or percent-encoded, and cut off before it; text the repository compresses, or sends in a charset other than UTF-8, US-ASCII or ISO-8859-1, is withheld. Only the headers a build tool reads come back. A binary answer, such as a jar, passes unread: the prefix the person declares is the bound | control |

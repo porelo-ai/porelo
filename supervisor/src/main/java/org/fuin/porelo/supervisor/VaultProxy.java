@@ -106,9 +106,19 @@ public class VaultProxy implements AutoCloseable, Runnable {
 
     /**
      * Largest request body accepted, in bytes - and so the most one request to the provider can
-     * carry out.
+     * carry out: 2 GiB, the largest asset a GitHub release takes.
+     *
+     * <p>Passed on as it arrives, never held whole; see {@link ScannedBody} for what one request
+     * holds instead, and how every byte is still read for a token grant before the request is let
+     * complete. A request the usage counting reads is the exception, bound by {@link #WHOLE_LIMIT}.
      */
-    public static final int BODY_LIMIT = 32 * 1024 * 1024;
+    public static final long BODY_LIMIT = 2L * 1024 * 1024 * 1024;
+
+    /**
+     * Largest body of a model request, in bytes: one the usage counting reads, and may rewrite, is
+     * read whole before anything of it goes on, and so is held to a bound a daemon can hold.
+     */
+    public static final int WHOLE_LIMIT = 32 * 1024 * 1024;
 
     /** Largest body or SSE event parsed for optional usage metadata, in bytes. */
     public static final int USAGE_LIMIT = 1024 * 1024;
@@ -141,11 +151,6 @@ public class VaultProxy implements AutoCloseable, Runnable {
      */
     public static final List<String> REFUSED_GRANTS =
             List.of("refresh_token", "client_credentials");
-
-    /** The grants above, as a request body names them. */
-    private static final java.util.regex.Pattern MINTING_GRANT =
-            java.util.regex.Pattern.compile(
-                    "grant_type[\"'=:\\s]+(" + String.join("|", REFUSED_GRANTS) + ")");
 
     /**
      * The address a request to a {@code unix:} destination names: never dialed, since {@link
@@ -654,8 +659,25 @@ public class VaultProxy implements AutoCloseable, Runnable {
         if (head == null) {
             return;
         }
+        final String repeated = repeatedFraming(head);
+        if (repeated != null) {
+            // The broker reads one line and the destination may join them all (RFC 9110 5.3): a
+            // body coded by the second 'Content-Encoding' line was scanned as written and decoded
+            // beyond. Refused before anything is read or goes on.
+            final String why = "the request repeats its " + repeated + " header";
+            log.accept(head.method() + " " + Query.redacted(head.target()) + " -> 400 " + why);
+            out.write(
+                    HttpHead.response(
+                            400, "Bad Request", error("invalid_request_error", "porelo: " + why)));
+            out.flush();
+            return;
+        }
 
-        final byte[] body = body(head, in);
+        // A model request is read whole, as the usage counting needs it; every other body is passed
+        // on as it arrives.
+        final boolean whole = UsageReading.format(head.target()) != null;
+        final byte[] body = whole ? body(head, in) : new byte[0];
+        final long length = whole ? body.length : declared(head);
 
         final TokenExchange.Result result = exchange.exchange(presented(head));
         if (result instanceof TokenExchange.Rejected) {
@@ -716,67 +738,59 @@ public class VaultProxy implements AutoCloseable, Runnable {
         final Route route =
                 granted.scope() == null ? own() : routes.getOrDefault(granted.scope(), own());
 
-        final Reading reading = assess(head.target(), body, head.value("content-encoding"));
-        if (reading != Reading.CLEAN && reading != Reading.MINTS) {
-            // Refused, never forwarded unread: a body this cannot read is one it cannot say carries
-            // no grant.
-            final int status =
-                    reading == Reading.TOO_LARGE ? 413 : reading == Reading.UNSUPPORTED ? 415 : 400;
-            final String why =
-                    reading == Reading.TOO_LARGE
-                            ? "the request body unpacks beyond what one request may carry"
-                            : reading == Reading.UNSUPPORTED
-                                    ? "the request body is coded in a way the broker does not read"
-                                    : "the request body says it is coded and does not decode";
-            log.accept(
-                    head.method()
-                            + " "
-                            + Query.redacted(head.target())
-                            + " -> "
-                            + status
-                            + " "
-                            + why);
-            out.write(
-                    HttpHead.response(
-                            status,
-                            status == 413
-                                    ? "Content Too Large"
-                                    : status == 415 ? "Unsupported Media Type" : "Bad Request",
-                            error("invalid_request_error", "porelo: " + why)));
-            out.flush();
+        final Reading reading =
+                whole
+                        ? assess(head.target(), body, head.value("content-encoding"))
+                        : assess(head.target(), length, head.value("content-encoding"));
+        if (reading != Reading.CLEAN) {
+            refuse(out, head, reading);
             return;
         }
-        if (reading == Reading.MINTS) {
-            // Refused here rather than upstream: forwarding it would attach the real credential to
-            // a request whose answer is a new one, and the provider may rotate what Porelo holds as
-            // a side effect of a question nobody wanted asked.
-            log.accept(
-                    head.method()
-                            + " "
-                            + Query.redacted(head.target())
-                            + " -> 403 token grant refused");
-            out.write(
-                    HttpHead.response(
-                            403,
-                            "Forbidden",
-                            "{\"type\":\"error\",\"error\":{\"type\":\"permission_error\","
-                                    + "\"message\":\"porelo: the broker holds this credential and buys or renews its tokens"
-                                    + " itself; it cannot be renewed or exchanged for another from inside the container."
-                                    + " The token the task holds is minted per task and ends with it\"}}"));
-            out.flush();
-            return;
+        ScannedBody streamed = null;
+        byte[] sent = body;
+        if (!whole) {
+            final ScannedBody arriving =
+                    new ScannedBody(
+                            in,
+                            length,
+                            coding(head.value("content-encoding")),
+                            BODY_LIMIT,
+                            ZstdFrames.WINDOW_LIMIT);
+            try {
+                // A short body - every token request - is read and judged whole before anything,
+                // even the credential's header, goes on.
+                arriving.prefetch();
+            } catch (final ScannedBody.Refused refused) {
+                refuse(out, head, refused.reading());
+                return;
+            }
+            if (arriving.ended()) {
+                sent = arriving.whole();
+            } else {
+                streamed = arriving;
+            }
         }
 
         final UsageRequest request =
                 UsageRequest.prepare(
                         head.method(),
                         head.target(),
-                        body,
+                        sent,
                         head.value("content-encoding"),
                         route.streamUsage());
         final HttpRequest outbound;
         try {
-            outbound = reissue(head, request.body(), real, route, request.rewritten());
+            outbound =
+                    reissue(
+                            head,
+                            streamed == null
+                                    ? request.body().length == 0
+                                            ? HttpRequest.BodyPublishers.noBody()
+                                            : HttpRequest.BodyPublishers.ofByteArray(request.body())
+                                    : streaming(streamed, length),
+                            real,
+                            route,
+                            request.rewritten());
         } catch (final IllegalArgumentException ex) {
             // Never the exception's own words, nor the target: either can carry what the request
             // named.
@@ -812,14 +826,24 @@ public class VaultProxy implements AutoCloseable, Runnable {
         final HttpResponse<InputStream> response;
         try {
             // A destination on this host is reached over its socket; HttpClient dials hosts only.
-            response =
-                    UnixUpstream.is(route.upstream())
-                            ? UnixHttp.send(
-                                    UnixUpstream.path(route.upstream()),
-                                    outbound,
-                                    request.body(),
-                                    idle)
-                            : http.send(outbound, HttpResponse.BodyHandlers.ofInputStream());
+            if (!UnixUpstream.is(route.upstream())) {
+                response = http.send(outbound, HttpResponse.BodyHandlers.ofInputStream());
+            } else if (streamed == null) {
+                response =
+                        UnixHttp.send(
+                                UnixUpstream.path(route.upstream()),
+                                outbound,
+                                request.body(),
+                                idle);
+            } else {
+                response =
+                        UnixHttp.send(
+                                UnixUpstream.path(route.upstream()),
+                                outbound,
+                                streamed,
+                                length,
+                                idle);
+            }
         } catch (UnixHttp.Unframed ex) {
             if (observation != null) {
                 observation.start(false, 502);
@@ -846,6 +870,13 @@ public class VaultProxy implements AutoCloseable, Runnable {
             if (ex instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
+            final Reading refused = streamed == null ? null : streamed.verdict();
+            if (refused != null) {
+                // The body was refused partway: the request was stopped before its end, so the
+                // destination never had all of it, and the agent hears why.
+                refuse(out, head, refused);
+                return;
+            }
             out.write(
                     HttpHead.response(
                             502,
@@ -856,6 +887,18 @@ public class VaultProxy implements AutoCloseable, Runnable {
             return;
         }
 
+        final Reading late = streamed == null ? null : streamed.verdict();
+        if (late != null) {
+            // The destination answered before it had the whole body, and the rest was refused:
+            // its answer is not passed on, as the request it answers was not the agent's.
+            response.body().close();
+            if (observation != null) {
+                observation.start(false, 403);
+                observation.finish(false);
+            }
+            refuse(out, head, late);
+            return;
+        }
         log.accept(
                 head.method()
                         + " "
@@ -922,8 +965,11 @@ public class VaultProxy implements AutoCloseable, Runnable {
         /** Its body says it is coded and does not decode: refused. */
         UNREADABLE,
 
-        /** Its body unpacks beyond the body limit: refused. */
-        TOO_LARGE
+        /** Its body, as sent or unpacked, passes the body limit: refused. */
+        TOO_LARGE,
+
+        /** Its body breaks its own framing, or ends before it says it does: refused. */
+        BROKEN
     }
 
     /**
@@ -934,17 +980,61 @@ public class VaultProxy implements AutoCloseable, Runnable {
      * grant past the refusal. Each is closed - a body is decoded in full up to the limit a body
      * has, and what cannot be read is refused rather than forwarded.
      *
+     * <p>For a body read whole, a model request: the same reading a streamed body has, run over the
+     * bytes in hand, bound by {@link #WHOLE_LIMIT}.
+     *
      * @param target The request target, with its query.
      * @param body The request body, as it came.
      * @param coding Its {@code Content-Encoding}, or {@code null}.
      * @return What it is.
      */
     static Reading assess(final String target, final byte[] body, final @Nullable String coding) {
+        final Reading head = assess(target, body.length, coding);
+        if (head != Reading.CLEAN) {
+            return head;
+        }
+        try (ScannedBody read =
+                new ScannedBody(
+                        new java.io.ByteArrayInputStream(body),
+                        body.length,
+                        coding(coding),
+                        WHOLE_LIMIT,
+                        WHOLE_LIMIT)) {
+            read.transferTo(OutputStream.nullOutputStream());
+            return Reading.CLEAN;
+        } catch (final ScannedBody.Refused refused) {
+            return refused.reading();
+        } catch (final IOException ex) {
+            return Reading.UNREADABLE;
+        }
+    }
+
+    /**
+     * Reads what a request says before its body: a grant in its query, a coding the broker does not
+     * read, or a declared length past {@link #BODY_LIMIT}.
+     *
+     * @param target The request target, with its query.
+     * @param length The declared length, or {@code -1} for chunks.
+     * @param coding Its {@code Content-Encoding}, or {@code null}.
+     * @return What it is, so far.
+     */
+    static Reading assess(final String target, final long length, final @Nullable String coding) {
         final int query = target.indexOf('?');
-        if (query >= 0 && names(target.substring(query + 1))) {
+        if (query >= 0 && GrantScan.names(target.substring(query + 1))) {
             return Reading.MINTS;
         }
-        final java.util.List<String> codings = new java.util.ArrayList<>();
+        final List<String> codings = codings(coding);
+        if (codings.size() > 1
+                || codings.size() == 1
+                        && !List.of("gzip", "x-gzip", "deflate", "zstd").contains(codings.get(0))) {
+            return Reading.UNSUPPORTED;
+        }
+        return length > BODY_LIMIT ? Reading.TOO_LARGE : Reading.CLEAN;
+    }
+
+    /** The codings a {@code Content-Encoding} names, lower case, without {@code identity}. */
+    private static List<String> codings(final @Nullable String coding) {
+        final List<String> codings = new java.util.ArrayList<>();
         if (coding != null) {
             for (final String each : coding.split(",")) {
                 final String name = each.strip().toLowerCase(Locale.ROOT);
@@ -953,67 +1043,81 @@ public class VaultProxy implements AutoCloseable, Runnable {
                 }
             }
         }
-        if (codings.size() > 1) {
-            return Reading.UNSUPPORTED;
-        }
-        final byte[] plain;
-        if (codings.isEmpty() || body.length == 0) {
-            plain = body;
-        } else {
-            final String name = codings.get(0);
-            try (InputStream in =
-                    switch (name) {
-                        case "gzip", "x-gzip" ->
-                                new java.util.zip.GZIPInputStream(
-                                        new java.io.ByteArrayInputStream(body));
-                        case "deflate" ->
-                                new java.util.zip.InflaterInputStream(
-                                        new java.io.ByteArrayInputStream(body));
-                        case "zstd" ->
-                                new io.airlift.compress.v3.zstd.ZstdInputStream(
-                                        new java.io.ByteArrayInputStream(body));
-                        default -> null;
-                    }) {
-                if (in == null) {
-                    return Reading.UNSUPPORTED;
-                }
-                plain = in.readNBytes(BODY_LIMIT + 1);
-            } catch (final IOException | RuntimeException ex) {
-                return Reading.UNREADABLE;
-            }
-            if (plain.length > BODY_LIMIT) {
-                return Reading.TOO_LARGE;
-            }
-        }
-        return names(new String(plain, StandardCharsets.UTF_8)) ? Reading.MINTS : Reading.CLEAN;
+        return codings;
     }
 
-    /** Whether a text names a refused grant, as written, form-decoded or JSON-unescaped. */
-    private static boolean names(final String text) {
-        for (final String reading : List.of(text, formDecoded(text), jsonUnescaped(text))) {
-            if (MINTING_GRANT.matcher(reading).find()) {
-                return true;
-            }
-        }
-        return false;
+    /** The one coding a body has, once {@link #assess} let it through, or {@code null}. */
+    private static @Nullable String coding(final @Nullable String coding) {
+        final List<String> codings = codings(coding);
+        return codings.isEmpty() ? null : codings.get(0);
     }
 
-    private static String formDecoded(final String text) {
-        try {
-            return java.net.URLDecoder.decode(text, StandardCharsets.UTF_8);
-        } catch (final IllegalArgumentException ex) {
-            // A stray % is not a form; the other readings still apply.
-            return text;
+    /**
+     * Answers a refused request, saying why.
+     *
+     * @param out The agent's connection.
+     * @param head The request.
+     * @param reading Why it is refused.
+     * @throws IOException If the answer cannot be written.
+     */
+    private void refuse(final OutputStream out, final HttpHead head, final Reading reading)
+            throws IOException {
+        if (reading == Reading.MINTS) {
+            // Refused here rather than upstream: forwarding it would attach the real credential to
+            // a request whose answer is a new one, and the provider may rotate what Porelo holds as
+            // a side effect of a question nobody wanted asked.
+            log.accept(
+                    head.method()
+                            + " "
+                            + Query.redacted(head.target())
+                            + " -> 403 token grant refused");
+            out.write(
+                    HttpHead.response(
+                            403,
+                            "Forbidden",
+                            "{\"type\":\"error\",\"error\":{\"type\":\"permission_error\","
+                                    + "\"message\":\"porelo: the broker holds this credential and buys or renews its tokens"
+                                    + " itself; it cannot be renewed or exchanged for another from inside the container."
+                                    + " The token the task holds is minted per task and ends with it\"}}"));
+            out.flush();
+            return;
         }
-    }
-
-    private static String jsonUnescaped(final String text) {
-        final java.util.regex.Matcher escape =
-                java.util.regex.Pattern.compile("\\\\u([0-9a-fA-F]{4})").matcher(text);
-        return escape.replaceAll(
-                found ->
-                        java.util.regex.Matcher.quoteReplacement(
-                                String.valueOf((char) Integer.parseInt(found.group(1), 16))));
+        // Refused, never forwarded unread: a body this cannot read is one it cannot say carries
+        // no grant.
+        final int status =
+                switch (reading) {
+                    case TOO_LARGE -> 413;
+                    case UNSUPPORTED -> 415;
+                    default -> 400;
+                };
+        final String why =
+                switch (reading) {
+                    case TOO_LARGE ->
+                            "the request body is larger, as sent or unpacked, than one request may"
+                                    + " carry ("
+                                    + BODY_LIMIT
+                                    + " bytes, or "
+                                    + WHOLE_LIMIT
+                                    + " for a model request), or unpacks to more than "
+                                    + ScannedBody.RATIO
+                                    + " times what it carries";
+                    case UNSUPPORTED ->
+                            "the request body is coded in a way the broker does not read";
+                    case BROKEN ->
+                            "the request body breaks its own framing, or ends before it says it"
+                                    + " does";
+                    default -> "the request body says it is coded and does not decode";
+                };
+        log.accept(
+                head.method() + " " + Query.redacted(head.target()) + " -> " + status + " " + why);
+        out.write(
+                HttpHead.response(
+                        status,
+                        status == 413
+                                ? "Content Too Large"
+                                : status == 415 ? "Unsupported Media Type" : "Bad Request",
+                        error("invalid_request_error", "porelo: " + why)));
+        out.flush();
     }
 
     /**
@@ -1061,7 +1165,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
 
     private byte[] body(HttpHead head, InputStream in) throws IOException {
         if (head.chunked()) {
-            return HttpHead.readChunked(in, BODY_LIMIT);
+            return HttpHead.readChunked(in, WHOLE_LIMIT);
         }
         final long length = head.contentLength();
         if (length == HttpHead.MALFORMED) {
@@ -1072,14 +1176,82 @@ public class VaultProxy implements AutoCloseable, Runnable {
         if (length <= 0) {
             return new byte[0];
         }
-        if (length > BODY_LIMIT) {
-            throw new IOException("Request body exceeds " + BODY_LIMIT + " bytes");
+        if (length > WHOLE_LIMIT) {
+            throw new IOException("Request body exceeds " + WHOLE_LIMIT + " bytes");
         }
         return HttpHead.readExactly(in, (int) length);
     }
 
+    /**
+     * Returns the length a streamed body declares: {@code -1} for chunks, {@code 0} for none.
+     *
+     * @param head The request.
+     * @return The length.
+     * @throws IOException If the declared length is not one.
+     */
+    private static long declared(final HttpHead head) throws IOException {
+        if (head.chunked()) {
+            return -1;
+        }
+        final long length = head.contentLength();
+        if (length == HttpHead.MALFORMED) {
+            throw new IOException("The request declares a Content-Length that is not a length");
+        }
+        return Math.max(0, length);
+    }
+
+    /**
+     * Returns the first header that frames or codes the body and stands on more than one line.
+     *
+     * @param head The request.
+     * @return Its name, lower case, or {@code null} when each stands at most once.
+     */
+    static @Nullable String repeatedFraming(final HttpHead head) {
+        for (final String name :
+                List.of("content-encoding", "content-length", "transfer-encoding")) {
+            final long lines =
+                    head.names().stream().filter(each -> each.equalsIgnoreCase(name)).count();
+            if (lines > 1) {
+                return name;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns a body that the client reads as it sends it.
+     *
+     * <p>Handed out once: a client that asked for it again, to retry, would send a body that has
+     * already gone, so a second asking gets one that fails.
+     *
+     * @param body The body.
+     * @param length Its length, or {@code -1} to send it in chunks.
+     * @return What the request carries.
+     */
+    private static HttpRequest.BodyPublisher streaming(final ScannedBody body, final long length) {
+        final java.util.concurrent.atomic.AtomicBoolean given =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        final HttpRequest.BodyPublisher stream =
+                HttpRequest.BodyPublishers.ofInputStream(
+                        () ->
+                                given.getAndSet(true)
+                                        ? new InputStream() {
+                                            @Override
+                                            public int read() throws IOException {
+                                                throw new IOException(
+                                                        "a streamed body is sent once");
+                                            }
+                                        }
+                                        : body);
+        return length < 0 ? stream : HttpRequest.BodyPublishers.fromPublisher(stream, length);
+    }
+
     private HttpRequest reissue(
-            HttpHead head, byte[] body, String real, Route route, boolean rewritten) {
+            HttpHead head,
+            HttpRequest.BodyPublisher body,
+            String real,
+            Route route,
+            boolean rewritten) {
 
         // Every parameter any route carries a key in is taken out, so a phantom in another route's
         // parameter never travels; the real key goes back in only where this route says.
@@ -1113,11 +1285,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
                                                         : Query.replace(
                                                                 sent, route.authQuery(), real))))
                         .timeout(upstreamLimit)
-                        .method(
-                                head.method(),
-                                body.length == 0
-                                        ? HttpRequest.BodyPublishers.noBody()
-                                        : HttpRequest.BodyPublishers.ofByteArray(body));
+                        .method(head.method(), body);
 
         final java.util.Set<String> keyHeaders = new java.util.HashSet<>(CREDENTIAL_HEADERS);
         keyHeaders.add(authHeader.toLowerCase(Locale.ROOT));
