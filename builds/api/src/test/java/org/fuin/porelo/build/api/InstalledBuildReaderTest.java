@@ -202,16 +202,24 @@ class InstalledBuildReaderTest {
                         "--limits services=1.0,machines=1.0,polling=1.0,retries=1.0 serve ");
     }
 
+    // A reader bounds a whole call by 300 s itself and answers why; Porelo must not give up first.
+    @Test
+    void aCallOutlastsTheReadersOwnBoundOfFiveMinutes() {
+        assertThat(InstalledBuildReader.callLimit(org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .as("above the 300 s a reader bounds its own call by, so its answer arrives")
+                .isGreaterThan(Duration.ofSeconds(300));
+    }
+
     @Test
     void itsTimeLimitsFollowTheServicesAndMachinesFactors() {
         final org.fuin.porelo.wire.LimitFactors doubled =
                 org.fuin.porelo.wire.LimitFactors.parse("services=2,machines=2");
         final org.fuin.porelo.wire.LimitFactors plain = org.fuin.porelo.wire.LimitFactors.DEFAULT;
 
-        assertThat(InstalledBuildReader.callLimit(doubled)).isEqualTo(Duration.ofSeconds(240));
+        assertThat(InstalledBuildReader.callLimit(doubled)).isEqualTo(Duration.ofSeconds(660));
         assertThat(InstalledBuildReader.endWait(doubled)).isEqualTo(Duration.ofSeconds(10));
         assertThat(InstalledBuildReader.readyLimit(plain)).isEqualTo(Duration.ofSeconds(10));
-        assertThat(InstalledBuildReader.callLimit(plain)).isEqualTo(Duration.ofSeconds(120));
+        assertThat(InstalledBuildReader.callLimit(plain)).isEqualTo(Duration.ofSeconds(330));
         assertThat(InstalledBuildReader.endWait(plain)).isEqualTo(Duration.ofSeconds(5));
     }
 

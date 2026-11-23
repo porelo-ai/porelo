@@ -40,8 +40,11 @@ public final class InstalledBuildReader implements AutoCloseable {
     /** How long a reader may take to start and to describe itself. */
     static final long READY_SECONDS = 10;
 
-    /** How long one question may take: a failing job's log is downloaded within it. */
-    static final long CALL_SECONDS = 120;
+    /**
+     * How long one question may take: above the 300 s a reader bounds a whole call by itself, so
+     * the reader's own answer, naming why, arrives before Porelo gives up.
+     */
+    static final long CALL_SECONDS = 330;
 
     /** How long a reader asked to end, or killed, has to be gone. */
     static final Duration END_WAIT = Duration.ofSeconds(5);
