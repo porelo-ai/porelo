@@ -1,0 +1,2 @@
+title: "The daemon's `Records`, `PullRequests` and `WatchPullRequests` answer however many records, tool calls and open pull requests a project has, in pages of one message each (`Records` with `from`, `RecordCalls` for a record's further calls, `PullRequestsPage` for the further rows of a reading or a watch's snapshot), where a reply above one message was refused whole or ended the watch"
+type: changed

@@ -1847,16 +1847,52 @@ type TaskRecord (
   # ASKED when its agent read its runs' tool calls, CANNOT_SAY when it could not (never read as no tool having run),
   # DID_NOT_ASK when no unattended run was read: an attended session is not measured.
   toolCallsAsked: Asked,
-  # Every call of all its runs.
+  # Every call of all its runs, in their order; only the first of them when toolCallsNext is present.
   toolCalls: []ToolCall,
+  # Present when the record with all its calls would not fit one message: toolCalls holds its first calls, and
+  # RecordCalls from this position gives the rest. Absent when toolCalls is whole.
+  toolCallsNext: ?int,
   # The unattended runs whose calls the record holds; absent in older records.
   runs: ?int
+)
+
+# Where the next page of Records starts: given by the daemon, passed back whole, never made by a client.
+type RecordsFrom (
+  # When the first page was read, ISO-8601: no later page answers a record started after it.
+  asOf: string,
+  # The startedAt and task of the first record the next page answers, which together name it.
+  startedAt: string,
+  task: string
 )
 
 # Answers a project's task records whose task ended at since or later, or works still, removed tasks' among them,
 # oldest start first. since is ISO-8601: a time with its offset, or a date in the machine's zone. An empty project
 # or a since that is no time answers InvalidParameter. Read as the person, never from a task's socket.
-method Records(project: string, since: string) -> (records: []TaskRecord)
+# A reply fits one message. What does not fit comes in pages: next is present when more records follow, and Records
+# with the same project and since and with from set to that next answers them; the pages together give every
+# record once, in order. A record too large alone for one message comes first in its page, alone, with its first
+# calls and toolCallsNext. Records started after the first page was read (asOf) are left to the next Records
+# without from; a record already answered that changes meanwhile is not answered again. A from whose record is
+# no longer stored answers RecordChanged; a from that is no RecordsFrom the daemon gave answers InvalidParameter
+# naming from.
+method Records(project: string, since: string, from: ?RecordsFrom) -> (records: []TaskRecord, next: ?RecordsFrom)
+
+# The rest of one record's tool calls, page by page, in the record's order, for the record as Records answered it.
+# Each page fits one message; next is absent when this page holds the record's last call.
+method RecordCalls(
+  project: string,
+  # The record's task, startedAt and updatedAt, as Records answered them; updatedAt absent where the record had none.
+  task: string,
+  startedAt: string,
+  updatedAt: ?string,
+  # The record's toolCallsNext, or a page's next. A position at or past the record's last call, or below 0, answers
+  # InvalidParameter naming from.
+  from: int
+) -> (toolCalls: []ToolCall, next: ?int)
+
+# The record a position was given for is no longer stored as it was answered: gone, or written since (its
+# updatedAt differs), so pages from it would skip or repeat calls. The client reads Records again from its start.
+error RecordChanged(task: string)
 
 # A package, a tool or another setting a first start found, and the file it was read from. Where
 # something is set and could not be read without running something, value starts with "unknown: " and

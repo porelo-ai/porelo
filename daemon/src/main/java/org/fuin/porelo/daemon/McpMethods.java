@@ -95,17 +95,20 @@ final class McpMethods {
      * a refused message's text), changes where a credential is sent ({@code WriteDestination},
      * {@code CredentialDeclare}), or signs an agent in on the host's own network ({@code
      * AgentSignInStart}, and {@code AgentSignInWait}, which holds a call while one runs). {@code
-     * PullRequests} and {@code WatchPullRequests} spend the person's forge identity to read reviews
-     * awaiting human judgment, so a task cannot ask them even from the local list. PushToCentral
-     * releases approved work with the person's central credential and is never offered.
+     * PullRequests}, {@code PullRequestsPage} and {@code WatchPullRequests} spend or hand out what
+     * the person's forge identity read of reviews awaiting human judgment, so a task cannot ask
+     * them even from the local list. PushToCentral releases approved work with the person's central
+     * credential and is never offered.
      */
     static final Set<String> NEVER =
             Set.of(
                     // Every task's command lines, a project's whole: the person's planner reads
                     // them.
                     "Records",
+                    "RecordCalls",
                     "PushToCentral",
                     "PullRequests",
+                    "PullRequestsPage",
                     "WatchPullRequests",
                     // A host-credentialed query returns unfiltered server names for the operator.
                     "RoomMembers",

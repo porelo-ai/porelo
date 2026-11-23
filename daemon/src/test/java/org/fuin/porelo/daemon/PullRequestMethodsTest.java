@@ -23,6 +23,8 @@ class PullRequestMethodsTest {
                             .isEqualTo(1);
                     return new HostPullRequestReader.Round(List.of(), List.of());
                 },
+                new PullRequestPages(java.time.Instant::now),
+                "demo",
                 replies,
                 () -> {});
         assertThat(replies.events)
@@ -39,6 +41,8 @@ class PullRequestMethodsTest {
         GateMethods.watchPullRequests(
                 () -> {},
                 previous -> new HostPullRequestReader.Round(List.of(), List.of()),
+                new PullRequestPages(java.time.Instant::now),
+                "demo",
                 replies,
                 () -> {
                     throw new AssertionError("a one-shot call never waits");
@@ -75,6 +79,8 @@ class PullRequestMethodsTest {
                         default -> new HostPullRequestReader.Round(List.of(), List.of());
                     };
                 },
+                new PullRequestPages(java.time.Instant::now),
+                "demo",
                 replies,
                 () -> {});
         assertThat(replies.events.get(1))
@@ -111,6 +117,8 @@ class PullRequestMethodsTest {
                                     List.of(), List.of(), List.of(refusal), List.of(open))
                             : new HostPullRequestReader.Round(List.of(), List.of());
                 },
+                new PullRequestPages(java.time.Instant::now),
+                "demo",
                 replies,
                 () -> {});
         assertThat(reads.get()).as("two rounds").isEqualTo(2);
@@ -145,6 +153,8 @@ class PullRequestMethodsTest {
                                     "open");
                     return new HostPullRequestReader.Round(List.of(row), List.of());
                 },
+                new PullRequestPages(java.time.Instant::now),
+                "demo",
                 replies,
                 () -> {});
         assertThat(reads.get()).isEqualTo(2);
@@ -160,7 +170,9 @@ class PullRequestMethodsTest {
                                 () -> {
                                     assertThat(takes.get()).isEqualTo(1);
                                     return new HostPullRequestReader.Round(List.of(), List.of());
-                                }))
+                                },
+                                new PullRequestPages(java.time.Instant::now),
+                                "demo"))
                 .containsEntry("pullRequests", List.of());
         assertThat(takes.get()).isEqualTo(1);
     }
@@ -214,9 +226,16 @@ class PullRequestMethodsTest {
                                 GateMethods.watchPullRequests(
                                         take,
                                         previous -> read.get(),
+                                        new PullRequestPages(java.time.Instant::now),
+                                        "demo",
                                         new Captured(true, 1),
                                         () -> {});
-                            else GateMethods.pullRequestReply(take, read);
+                            else
+                                GateMethods.pullRequestReply(
+                                        take,
+                                        read,
+                                        new PullRequestPages(java.time.Instant::now),
+                                        "demo");
                         })
                 .isInstanceOfSatisfying(
                         VarlinkException.class,
@@ -266,7 +285,7 @@ class PullRequestMethodsTest {
         // A client must be able to repair a missing token without parsing a diagnostic sentence.
         assertThatThrownBy(
                         () ->
-                                GateMethods.pullRequestReply(
+                                GateMethods.pullRequestRound(
                                         () -> {
                                             throw new HostPullRequestReader.MissingToken(
                                                     "forge.example.person");

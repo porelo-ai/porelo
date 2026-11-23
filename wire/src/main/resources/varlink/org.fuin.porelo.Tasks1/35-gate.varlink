@@ -93,12 +93,48 @@ type HostPullRequestRefusal (
 # Missing mirror heads are fetched from their loopback copies into the reader's own state store.
 # The person token reaches git only in its environment; redirects stay off and the gate mirror is never written.
 # Every page of every carried repository is read, to the forge's first empty page; one HTTP answer may
-# hold 32 MiB and the complete reply one message. A bound is a refusal, never a truncated successful list.
+# hold 32 MiB. A bound is a refusal, never a truncated successful list.
 # HTTP has no proxy or redirects, connects within 10 seconds and answers within 20 seconds.
 # Each git maker query has a 10-second deadline and a 64 KiB output limit.
 # A review fetch is shallow, with 20 seconds per git command and a 32 MiB pack/file limit.
 # refused, present only when a repository was refused, names each; the other repositories still answer.
-method PullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest, refused: ?[]HostPullRequestRefusal)
+# A reply fits one message: when the rows do not, pullRequests and ended hold their first rows, paged says how
+# many there are, and PullRequestsPage gives the rest of this same reading. Absent when every row is here.
+method PullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest, refused: ?[]HostPullRequestRefusal, paged: ?PullRequestsPaged)
+
+# How much of a PullRequests reading or a WatchPullRequests snapshot there is when its reply holds only the
+# first rows.
+type PullRequestsPaged (
+  # Names the reading, which the daemon keeps ten minutes for PullRequestsPage: 32 lowercase hexadecimal digits.
+  reading: string,
+  # How many rows the reading holds in pullRequests and in ended.
+  pullRequests: int,
+  ended: int,
+  # Where the next page starts, as PullRequestsPage.from.
+  next: int
+)
+
+# The rest of a PullRequests reading or a WatchPullRequests snapshot that did not fit its reply, page by page:
+# positions run through pullRequests and then ended, so putting the pages after the first reply gives each list
+# whole, in its order, every row once. Each page fits one message.
+method PullRequestsPage(
+  project: string,
+  # PullRequests.paged.reading or WatchPullRequests.paged.reading.
+  reading: string,
+  # paged.next, or a page's next. A position at or past the reading's last row, or below 0, answers
+  # InvalidParameter naming from.
+  from: int
+) -> (
+  pullRequests: []HostPullRequest,
+  ended: []HostPullRequest,
+  # Where the next page starts; absent when this page ends the reading.
+  next: ?int
+)
+
+# The reading is not kept: ten minutes have passed since PullRequests or a watch answered it, later readings
+# took its place, the daemon started again, or it is no reading of this project. The client asks PullRequests
+# again, or takes the watch's newer snapshot.
+error PullRequestsReadingGone(project: string, reading: string)
 
 # Without more, one snapshot as PullRequests. With more, an initial snapshot (including empty), then
 # changed snapshots, polling five seconds after each completed round; rounds never overlap.
@@ -108,9 +144,15 @@ method PullRequests(project: string) -> (pullRequests: []HostPullRequest, ended:
 # not this watch. Reviews opened and ended entirely between polls need not be observed.
 # Absence alone, HTTP failure, lost access and missing maker objects never mean closed. A refused
 # repository's earlier rows are kept, neither open nor ended, until it answers again; a named error
-# ends the stream, and the client must treat its retained rows as stale and ask again.
-# Neither method is offered to tasks through MCP: each spends the person's forge identity.
-method WatchPullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest, refused: ?[]HostPullRequestRefusal)
+# ends the stream, and the client must treat its retained rows as stale and ask again. The stream ends only
+# on a named error of this method's own; PullRequestsReadingGone is only ever an answer to PullRequestsPage.
+# A snapshot that does not fit one message carries its first rows and paged, as PullRequests does: it is a
+# reading of its own, kept as PullRequests readings are, whose rest PullRequestsPage gives while the watch
+# goes on. A snapshot that fits carries no paged. A newer snapshot's reading may take an older one's place,
+# so a client still paging an older snapshot drops it for the newer.
+# None of PullRequests, PullRequestsPage and this method is offered to tasks through MCP: each spends or
+# hands out what the person's forge identity read.
+method WatchPullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest, refused: ?[]HostPullRequestRefusal, paged: ?PullRequestsPaged)
 
 # No usable person token exists under the exact entry written by the command on this host.
 # storeCommand carries --if-forge, so it does nothing on a host without a forge.

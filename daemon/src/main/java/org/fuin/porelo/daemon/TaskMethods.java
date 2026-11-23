@@ -399,15 +399,56 @@ final class TaskMethods {
                                 "org.varlink.service.InvalidParameter",
                                 Map.of("parameter", project.isEmpty() ? "project" : "since"));
                     }
+                    // A later page pins the reading's start the first one gave.
+                    final RecordPages.From from = RecordPages.from(parameters);
+                    final java.time.Instant asOf =
+                            from == null ? java.time.Instant.now() : from.asOf();
                     try {
                         replies.last(
-                                Map.of(
-                                        "records",
+                                RecordPages.records(
                                         new org.fuin.porelo.app.TaskWorkRecords(context)
-                                                .since(project, since)));
+                                                .since(project, since),
+                                        asOf,
+                                        from,
+                                        org.fuin.porelo.wire.varlink.VarlinkConnection
+                                                .MAX_MESSAGE));
                     } catch (java.io.IOException ex) {
                         throw new java.io.UncheckedIOException(ex);
                     }
+                });
+
+        // The rest of a record too large alone for one reply, for the record as it was answered.
+        server.method(
+                "RecordCalls",
+                (parameters, replies) -> {
+                    final String project = text(parameters, "project");
+                    if (project.isEmpty()) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", "project"));
+                    }
+                    final String task = text(parameters, "task");
+                    final long from =
+                            org.fuin.porelo.wire.varlink.VarlinkNumbers.longParameter(
+                                    parameters, "from");
+                    final Map<String, Object> record;
+                    try {
+                        record =
+                                new org.fuin.porelo.app.TaskWorkRecords(context)
+                                        .record(project, task, text(parameters, "startedAt"))
+                                        .orElseThrow(() -> RecordPages.changed(task));
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                    replies.last(
+                            RecordPages.calls(
+                                    record,
+                                    task,
+                                    parameters.get("updatedAt") instanceof String updatedAt
+                                            ? updatedAt
+                                            : null,
+                                    from,
+                                    org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE));
                 });
 
         server.method(

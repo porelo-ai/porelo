@@ -194,6 +194,16 @@ the local mirror or the head fetched from the host's forge into Porelo's own sto
 fields. They are claims in the commit, not a signature or approval judgment.
 Titles and makers are bounded plain text for display; clients must render them as text.
 
+A reply is one varlink message (4 MiB), and no project is refused for having more open pull requests than one holds.
+When the rows do not fit, `pullRequests` and `ended` hold the first of them and `paged` says how many each list holds
+in all, names the `reading` and gives `next`; `PullRequestsPage(project, reading, from)` with that `next` answers the
+following rows and its own `next`, until a page has none. Positions run through `pullRequests` and then `ended`, so
+appending each page's two lists to the first reply's gives each list whole, every row once, in order. A reading is the
+one forge read the first reply answered, a `PullRequests` reply or a watch's snapshot: the daemon keeps it ten
+minutes, and at most its 16 newest. A reading no longer kept, or one of another project, answers
+`PullRequestsReadingGone`, and the client asks `PullRequests` again; a position the daemon did not give answers
+`InvalidParameter` naming `from`. A reply that fits names no reading and keeps none.
+
 A project carried for this person can be read before its first start places a `project.yml` on the
 machine. Before the first read, both methods take an unplaced project as a question before a start does:
 the host's helper lends a fetch token, the signed project file is verified and placed, and the file names each
@@ -204,7 +214,12 @@ naming the known projects, including carried ones.
 `WatchPullRequests(project)` with varlink's `more` sends an initial snapshot, then changes, polling five seconds
 after each completed round. `pullRequests` is the complete current open list; `ended` contains confirmed `merged`
 or `closed` rows once per observed transition. These events end individual rows; the watch stays open. A review
-opened and ended entirely between polls can go unseen. Without `more`, the watch answers one snapshot.
+opened and ended entirely between polls can go unseen. Without `more`, the watch answers one snapshot. A snapshot
+that does not fit one message is paged as a `PullRequests` reply is: it carries its first rows and `paged`, it is a
+reading of its own, kept the same way, and `PullRequestsPage` gives its rest while the watch goes on; a snapshot that
+fits carries no `paged`. A newer snapshot's reading may take an older one's place, so a client still paging an older
+snapshot drops it for the newer. The stream ends only on a named error of the watch's own; `PullRequestsReadingGone`
+is only ever an answer to `PullRequestsPage`.
 
 Both methods read the vault entry `<name>.person` written by `porelo host forge-token`. The name and port come from
 the same bounded, root-owned plain forge-settings file that command reads. A missing or unusable entry answers
@@ -218,13 +233,13 @@ to read work awaiting human judgment.
 
 HTTP stays on the configured port at `127.0.0.1`, with no proxy or redirects, a ten-second connection timeout and
 a twenty-second request timeout. Each HTTP response is limited to 32 MiB, above the largest legal page of pull
-requests, and each complete daemon reply to one varlink message (4 MiB). Every page of open pull requests is read, to
-the forge's first empty page, since a forge may answer fewer than the 50 asked; a page that repeats a pull request
-already read is refused as an unusable answer. Maker queries allow ten seconds and 64 KiB of output. Review fetches
-are shallow, keep what they receive in one pack whatever its size, and allow twenty seconds per git command; the
-makers query, each fetch command and the 75 seconds a read waits for another read's fetch of the same repository
-follow the account's `machines` factor. Shown fields keep at most 1000 code points, and at most 50 help trailers are
-returned.
+requests, and each daemon reply to one varlink message (4 MiB), the rest in pages as above. Every page of open
+pull requests is read, to the forge's first empty page, since a forge may answer fewer than the 50 asked; a page
+that repeats a pull request already read is refused as an unusable answer. Maker queries allow ten seconds and 64
+KiB of output. Review fetches are shallow, keep what they receive in one pack whatever its size, and allow twenty
+seconds per git command; the makers query, each fetch command and the 75 seconds a read waits for another read's
+fetch of the same repository follow the account's `machines` factor. Shown fields keep at most 1000 code points,
+and at most 50 help trailers are returned.
 A repository the forge answers with an error is refused alone, in the answer's `refused`, with its status, the
 path asked (`/api/v1/repos/<copy>/pulls`, never the host's address or the token) and a reason: `forge-access` for 403
 or 404 (its copy is not made yet or the person is not admitted: an administrator of the host makes it or admits

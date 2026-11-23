@@ -525,6 +525,19 @@ ISO-8601, a time with its offset or a date in the machine's zone; a record whose
 Without `--json` each record is one line, its work each pair as `ISSUE:"PHASE"`, the phase quoted as JSON quotes it,
 joined by commas.
 
+`Records` answers however many records and calls there are, each reply one varlink message (4 MiB). When they do
+not fit one, the reply carries `next`, a `RecordsFrom` (`asOf`, `startedAt`, `task`) that the client passes back
+unchanged as `Records(project, since, from)` for the following page, until a reply has no `next`; the pages
+together give every record once, oldest start first. A record too large alone for one message comes first in its
+page, alone, with its first calls in `toolCalls` and `toolCallsNext`, the position of the next one:
+`RecordCalls(project, task, startedAt, updatedAt, from)`, with the record's own fields and that position, answers
+its following calls and a `next`, until a page has none. The first page pins the reading at `asOf`: later pages
+leave out records started after it, which the next reading without `from` answers, and a record already answered
+is not answered again when it changes meanwhile. A position whose record is no longer stored, or whose record was
+written since (its `updatedAt` differs), answers `RecordChanged(task)`, and the client reads again from the first
+page; a position the daemon did not give answers `InvalidParameter` naming `from`. `porelo task records` reads the
+records directly and answers them whole.
+
 Each tool call is one entry in Porelo's own format, which each agent maps its stream into (`ToolEvents` of the
 [agent protocol](https://github.com/porelo-ai/porelo/blob/main/agents/README.md#when-yaml-is-not-enough)): `task`, `id` (the agent's own
 id of the call), `parent` (the `id` of the sub-agent call it ran under), `run` (the run it came from, counted from 1:

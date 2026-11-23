@@ -299,11 +299,66 @@ public record TaskWorkRecords(PoreloContext context) {
             }
             found.add(record);
         }
+        // Ties broken by the task, so a page's position names one place in one order.
         found.sort(
                 Comparator.comparing(
-                        record -> String.valueOf(record.get("startedAt")),
-                        Comparator.naturalOrder()));
+                                (Map<String, Object> record) ->
+                                        String.valueOf(record.get("startedAt")))
+                        .thenComparing(record -> String.valueOf(record.get("task"))));
         return found;
+    }
+
+    /**
+     * Answers one record of a project, a removed task's among them, as it is stored now.
+     *
+     * @param project The project.
+     * @param task The task's container name.
+     * @param startedAt The record's start, which tells it from a record of an earlier task of that
+     *     name.
+     * @return The record, or empty when none is stored.
+     * @throws IOException If the directory cannot be read.
+     */
+    public java.util.Optional<Map<String, Object>> record(
+            final String project, final String task, final String startedAt) throws IOException {
+        final Path directory = context.paths().tasks().workRecords();
+        if (!TaskUsage.validTask(task)
+                || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            return java.util.Optional.empty();
+        }
+        return locked(
+                () -> {
+                    final List<Path> files;
+                    try (var entries = Files.list(directory)) {
+                        files =
+                                entries.filter(
+                                                file -> {
+                                                    final String name =
+                                                            file.getFileName().toString();
+                                                    return name.equals(task + ".json")
+                                                            || name.startsWith(task + RETAINED)
+                                                                    && name.endsWith(".json");
+                                                })
+                                        .filter(
+                                                file ->
+                                                        Files.isRegularFile(
+                                                                file, LinkOption.NOFOLLOW_LINKS))
+                                        .toList();
+                    }
+                    for (final Path file : files) {
+                        final Map<String, Object> record;
+                        try {
+                            record = read(file);
+                        } catch (java.nio.file.NoSuchFileException gone) {
+                            continue;
+                        }
+                        if (project.equals(record.get("project"))
+                                && task.equals(record.get("task"))
+                                && startedAt.equals(record.get("startedAt"))) {
+                            return java.util.Optional.of(record);
+                        }
+                    }
+                    return java.util.Optional.<Map<String, Object>>empty();
+                });
     }
 
     /**

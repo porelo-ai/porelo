@@ -329,6 +329,8 @@ final class GateMethods {
             PoreloContext context,
             TaskInventory inventory,
             TaskControl control) {
+        // Readings too large for one reply, kept for their pages: this daemon's alone.
+        final PullRequestPages pullRequestPages = new PullRequestPages(java.time.Instant::now);
         server.method(
                 "PushToCentral",
                 (parameters, replies) ->
@@ -360,8 +362,19 @@ final class GateMethods {
                                             () ->
                                                     org.fuin.porelo.app.ProjectTaking.takeToAsk(
                                                             context, project)),
-                                    () -> reader.poll(project, List.of())));
+                                    () -> reader.poll(project, List.of()),
+                                    pullRequestPages,
+                                    project));
                 });
+        server.method(
+                "PullRequestsPage",
+                (parameters, replies) ->
+                        replies.last(
+                                pullRequestPages.page(
+                                        text(parameters, "project"),
+                                        text(parameters, "reading"),
+                                        org.fuin.porelo.wire.varlink.VarlinkNumbers.longParameter(
+                                                parameters, "from"))));
         server.method(
                 "WatchPullRequests",
                 (parameters, replies) -> {
@@ -374,6 +387,8 @@ final class GateMethods {
                                             org.fuin.porelo.app.ProjectTaking.takeToAsk(
                                                     context, project)),
                             previous -> reader.poll(project, previous),
+                            pullRequestPages,
+                            project,
                             replies,
                             () -> sleep(pullRequestPoll(context.limits())));
                 });
@@ -779,7 +794,7 @@ final class GateMethods {
 
     /**
      * Streams observations on the caller's connection, with an injectable wait for deterministic
-     * tests.
+     * tests. A snapshot that does not fit one message is paged as a reading of its own.
      */
     static void watchPullRequests(
             ProjectQuestion take,
@@ -787,23 +802,26 @@ final class GateMethods {
                             List<org.fuin.porelo.app.HostPullRequestReader.Pull>,
                             org.fuin.porelo.app.HostPullRequestReader.Round>
                     scan,
+            PullRequestPages pages,
+            String project,
             VarlinkServer.Replies replies,
             Runnable pause)
             throws java.io.IOException {
         takePullRequestProject(take);
         List<org.fuin.porelo.app.HostPullRequestReader.Pull> previous = List.of();
-        Map<String, Object> last = null;
+        PullRequestPages.Snapshot last = null;
         while (replies.open()) {
             final var before = previous;
             final var round = pullRequestRound(() -> scan.apply(before));
-            final Map<String, Object> answer = round.asMap();
+            final var snapshot = PullRequestPages.Snapshot.of(round);
             if (!replies.streaming()) {
-                replies.last(answer);
+                replies.last(pages.first(project, snapshot));
                 return;
             }
-            if (!answer.equals(last)) {
-                replies.more(answer);
-                last = answer;
+            // Compared by its rows: a paged reply names a new reading each time it is made.
+            if (!snapshot.equals(last)) {
+                replies.more(pages.first(project, snapshot));
+                last = snapshot;
             }
             // Open and kept rows survive a round: each confirmed terminal row is sent once, and a
             // refused repository's rows are confirmed once it answers again.
@@ -857,18 +875,15 @@ final class GateMethods {
 
     static Map<String, Object> pullRequestReply(
             ProjectQuestion take,
-            java.util.function.Supplier<org.fuin.porelo.app.HostPullRequestReader.Round> read) {
+            java.util.function.Supplier<org.fuin.porelo.app.HostPullRequestReader.Round> read,
+            PullRequestPages pages,
+            String project) {
         takePullRequestProject(take);
-        return pullRequestReply(read);
+        return pages.first(project, pullRequestRound(read));
     }
 
     /** Maps the reader's safe named outcomes without letting forge words become wire errors. */
-    static Map<String, Object> pullRequestReply(
-            java.util.function.Supplier<org.fuin.porelo.app.HostPullRequestReader.Round> read) {
-        return pullRequestRound(read).asMap();
-    }
-
-    private static org.fuin.porelo.app.HostPullRequestReader.Round pullRequestRound(
+    static org.fuin.porelo.app.HostPullRequestReader.Round pullRequestRound(
             java.util.function.Supplier<org.fuin.porelo.app.HostPullRequestReader.Round> read) {
         try {
             return read.get();
@@ -881,10 +896,14 @@ final class GateMethods {
                             "storeCommand",
                             List.of("porelo", "host", "forge-token", "--if-forge")));
         } catch (org.fuin.porelo.app.HostPullRequestReader.Refused ex) {
-            throw new VarlinkException(
-                    INTERFACE + ".HostPullRequestsRefused",
-                    Map.of("reason", ex.reason(), "message", String.valueOf(ex.getMessage())));
+            throw refused(ex);
         }
+    }
+
+    private static VarlinkException refused(org.fuin.porelo.app.HostPullRequestReader.Refused ex) {
+        return new VarlinkException(
+                INTERFACE + ".HostPullRequestsRefused",
+                Map.of("reason", ex.reason(), "message", String.valueOf(ex.getMessage())));
     }
 
     /**

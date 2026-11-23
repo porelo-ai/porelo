@@ -131,7 +131,10 @@ public final class HostPullRequestReader {
             this(open, ended, List.of(), List.of());
         }
 
-        /** A bounded Tasks1 reply, fitting below the wire's four MiB message limit. */
+        /**
+         * A watch's snapshot as one Tasks1 reply, refused when it does not fit one message;
+         * PullRequests pages a reading instead.
+         */
         public Map<String, Object> asMap() {
             final Map<String, Object> reply = new LinkedHashMap<>();
             reply.put("pullRequests", open.stream().map(Pull::asMap).toList());
@@ -371,9 +374,8 @@ public final class HostPullRequestReader {
             if (refused.containsKey(name)) ordered.add(refused.remove(name));
         // What remains is no longer carried, in the order its rows were watched.
         ordered.addAll(refused.values());
-        final Round result = new Round(List.copyOf(current.values()), ended, ordered, kept);
-        result.asMap();
-        return result;
+        // Never bounded here: PullRequests pages a large reading, and a watch refuses it.
+        return new Round(List.copyOf(current.values()), ended, ordered, kept);
     }
 
     /**

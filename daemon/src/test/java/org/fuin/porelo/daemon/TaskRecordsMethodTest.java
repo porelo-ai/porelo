@@ -86,7 +86,8 @@ class TaskRecordsMethodTest {
         }
         assertThat(PoreloDaemon.description())
                 .contains(
-                        "method Records(project: string, since: string) -> (records: []TaskRecord)")
+                        "method Records(project: string, since: string, from: ?RecordsFrom)"
+                                + " -> (records: []TaskRecord, next: ?RecordsFrom)")
                 .contains("work: ?[](issue: string, phase: string)");
     }
 }
