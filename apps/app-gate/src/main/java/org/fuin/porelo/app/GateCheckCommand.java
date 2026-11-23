@@ -46,6 +46,10 @@ import picocli.CommandLine.Spec;
         description = "Reads a pre-push hook's input and refuses agent work nobody approved.")
 public class GateCheckCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
+    /** A full commit id, as git names one under SHA-1 or SHA-256. */
+    private static final java.util.regex.Pattern COMMIT =
+            java.util.regex.Pattern.compile("[0-9a-f]{40}|[0-9a-f]{64}");
+
     /** git's own way of saying "there is nothing on the far side yet". */
     static final String ABSENT = "0000000000000000000000000000000000000000";
 
@@ -95,6 +99,8 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
      * @param remoteSha What the far side has, or forty zeros.
      * @param remote The remote's name as git named it, or {@code null} when it is not known.
      * @return Commit ids, newest first.
+     * @throws IllegalStateException When git names a line that is not a commit id: what it stood
+     *     for would go unchecked.
      */
     static List<String> commits(
             CommandRunner runner,
@@ -120,13 +126,17 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
         } else {
             arguments.add(remoteSha + ".." + localSha);
         }
-        var result = runner.run(git(directory, arguments));
+        // Streamed, since the listing grows with the branch's history: a result keeps only the end
+        // of a long output, and the commits a cut loses are the oldest.
+        final List<String> listed = new ArrayList<>();
+        var result = runner.streamOutput(git(directory, arguments), line -> listed.add(id(line)));
         if (!result.successful() && !ABSENT.equals(remoteSha)) {
             // The far side's commit is not here - a force push, or one made without fetching - so
             // the range cannot be counted: what no tracking ref of that remote holds is what is new
             // to it, as for a first push.
+            listed.clear();
             result =
-                    runner.run(
+                    runner.streamOutput(
                             git(
                                     directory,
                                     List.of(
@@ -135,15 +145,21 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
                                             "--not",
                                             remote == null || remote.isBlank()
                                                     ? "--remotes"
-                                                    : "--remotes=" + remote)));
+                                                    : "--remotes=" + remote)),
+                            line -> listed.add(id(line)));
         }
-        return result.successful()
-                ? result.standardOutput()
-                        .lines()
-                        .map(String::strip)
-                        .filter(line -> !line.isEmpty())
-                        .toList()
-                : List.of();
+        return result.successful() ? List.copyOf(listed) : List.of();
+    }
+
+    /** A line of git's listing, which names one commit or is refused, never skipped. */
+    private static String id(final String line) {
+        if (!COMMIT.matcher(line).matches()) {
+            throw new IllegalStateException(
+                    "git listed '"
+                            + (line.length() > 80 ? line.substring(0, 80) + "..." : line)
+                            + "' among the commits of the push, which is not a commit id");
+        }
+        return line;
     }
 
     /**
@@ -242,13 +258,24 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
             return 0;
         }
 
-        final List<Offender> found =
-                offenders(
-                        context.runner(),
-                        null,
-                        hookInput,
-                        agentEmails,
-                        remote.isEmpty() ? null : remote.get(0));
+        final List<Offender> found;
+        try {
+            found =
+                    offenders(
+                            context.runner(),
+                            null,
+                            hookInput,
+                            agentEmails,
+                            remote.isEmpty() ? null : remote.get(0));
+        } catch (RuntimeException ex) {
+            // A push whose commits cannot all be named cannot be said to be free of agent work.
+            err.println(
+                    "porelo: cannot tell which commits this push sends, so it is refused: "
+                            + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
+            err.println("  If you meant this, push again with --no-verify.");
+            err.flush();
+            return 1;
+        }
         if (found.isEmpty()) {
             if (!quiet) {
                 out.println("nothing an agent wrote is in this push");

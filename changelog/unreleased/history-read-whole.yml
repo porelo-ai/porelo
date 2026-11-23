@@ -1,0 +1,2 @@
+title: The pre-push check of `gate protect` reads every commit of a push however long its history, and refuses a push whose listing names something that is no commit; the organization's history is read whole at any length, where past 16 MiB its oldest commits were cut and the check passed them unread or the read was refused
+type: fixed

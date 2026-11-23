@@ -33,18 +33,25 @@ public class ProcessCommandRunner implements CommandRunner {
 
     @Override
     public CommandResult run(Command command) {
-        return running(command, null);
+        return running(command, null, null);
     }
 
     @Override
     public CommandResult run(
             final Command command, final java.util.function.Consumer<String> lines) {
-        return running(command, lines);
+        return running(command, lines, null);
+    }
+
+    @Override
+    public CommandResult streamOutput(
+            final Command command, final java.util.function.Consumer<String> lines) {
+        return running(command, null, lines);
     }
 
     private CommandResult running(
             final Command command,
-            final java.util.function.@org.jspecify.annotations.Nullable Consumer<String> lines) {
+            final java.util.function.@org.jspecify.annotations.Nullable Consumer<String> lines,
+            final java.util.function.@org.jspecify.annotations.Nullable Consumer<String> output) {
 
         final ProcessBuilder builder = new ProcessBuilder(command.arguments());
         if (command.workingDirectory() != null) {
@@ -60,9 +67,11 @@ public class ProcessCommandRunner implements CommandRunner {
 
             final Process process = start(builder);
 
-            final Drain out = new Drain(process.getInputStream(), null);
+            final Streamed streamed =
+                    output == null ? null : new Streamed(output, () -> end(process));
+            final Drain out = new Drain(process.getInputStream(), null, streamed);
             final Handing handing = lines == null ? null : Handing.to(lines);
-            final Drain err = new Drain(process.getErrorStream(), handing);
+            final Drain err = new Drain(process.getErrorStream(), handing, null);
             final Thread outThread = Thread.ofVirtual().start(out);
             final Thread errThread = Thread.ofVirtual().start(err);
 
@@ -81,7 +90,11 @@ public class ProcessCommandRunner implements CommandRunner {
                     throw CommandException.timedOut(command, limit, err.text());
                 }
                 finish(process, outThread, errThread);
-                return new CommandResult(command, process.exitValue(), out.text(), err.text());
+                if (streamed != null) {
+                    return streamedResult(command, process, streamed, err.text());
+                }
+                return new CommandResult(
+                        command, process.exitValue(), out.text(), err.text(), out.cut());
             } catch (InterruptedException ex) {
                 end(process);
                 Thread.currentThread().interrupt();
@@ -91,11 +104,40 @@ public class ProcessCommandRunner implements CommandRunner {
                 if (handing != null) {
                     handing.end();
                 }
+                if (streamed != null) {
+                    streamed.close();
+                }
             }
 
         } catch (IOException ex) {
             throw new CommandException(command, ex);
         }
+    }
+
+    /**
+     * What a run whose standard output was handed over left behind, once every line of it was: one
+     * still held open by a grandchild, cut short by a line too long, or ended by its consumer is
+     * not.
+     */
+    private static CommandResult streamedResult(
+            final Command command,
+            final Process process,
+            final Streamed streamed,
+            final String standardError) {
+        if (!streamed.close()) {
+            throw new CommandException(
+                    command,
+                    new IOException("its standard output did not end with it"),
+                    standardError);
+        }
+        final Exception failure = streamed.failure();
+        if (failure instanceof RuntimeException consumer) {
+            throw consumer;
+        }
+        if (failure != null) {
+            throw new CommandException(command, failure, standardError);
+        }
+        return new CommandResult(command, process.exitValue(), "", standardError);
     }
 
     /** Starts the child; replaceable for tests of pipe shutdown ordering. */
@@ -229,6 +271,96 @@ public class ProcessCommandRunner implements CommandRunner {
         }
     }
 
+    /**
+     * Hands every line of a stream to a consumer on the thread that reads it, in order and whole,
+     * so none waits and none is lost. A line longer than the longest held, or a consumer that
+     * fails, ends the program and is the run's failure; no line is handed once the run has ended.
+     */
+    private static final class Streamed {
+
+        /** The longest line held: a program's output may hold no end at all. */
+        private static final int LONGEST = 1024 * 1024;
+
+        private final java.util.function.Consumer<String> consumer;
+
+        private final Runnable stop;
+
+        private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
+
+        private volatile @org.jspecify.annotations.Nullable Exception failure;
+
+        private boolean ended;
+
+        private boolean closed;
+
+        private Streamed(final java.util.function.Consumer<String> consumer, final Runnable stop) {
+            this.consumer = consumer;
+            this.stop = stop;
+        }
+
+        private void take(final byte[] bytes, final int length) {
+            for (int index = 0; index < length && failure == null; index++) {
+                if (bytes[index] == '\n') {
+                    hand();
+                } else if (line.size() < LONGEST) {
+                    line.write(bytes[index]);
+                } else {
+                    fail(
+                            new IOException(
+                                    "a line of its standard output is longer than "
+                                            + LONGEST
+                                            + " bytes"));
+                }
+            }
+        }
+
+        private void hand() {
+            final String said = line.toString(StandardCharsets.UTF_8).replaceAll("\\r$", "");
+            line.reset();
+            synchronized (this) {
+                if (closed) {
+                    return;
+                }
+                try {
+                    consumer.accept(said);
+                } catch (RuntimeException ex) {
+                    fail(ex);
+                }
+            }
+        }
+
+        private void fail(final Exception why) {
+            if (failure == null) {
+                failure = why;
+                stop.run();
+            }
+        }
+
+        /** The stream has ended: its last line, if it has no end of its own, is handed too. */
+        private void end() {
+            if (failure == null && line.size() > 0) {
+                hand();
+            }
+            synchronized (this) {
+                ended = true;
+            }
+        }
+
+        /**
+         * No line is handed any more.
+         *
+         * @return Whether the stream had ended by then.
+         */
+        private synchronized boolean close() {
+            closed = true;
+            return ended;
+        }
+
+        private @org.jspecify.annotations.Nullable Exception failure() {
+            return failure;
+        }
+    }
+
     /** Reads one stream to the end, keeping whatever it managed to read if the stream breaks. */
     private static final class Drain implements Runnable {
 
@@ -262,9 +394,23 @@ public class ProcessCommandRunner implements CommandRunner {
 
         private boolean tooLong;
 
-        private Drain(InputStream stream, @org.jspecify.annotations.Nullable Handing lines) {
+        /** Takes the stream instead of keeping it, or {@code null} when it is kept. */
+        private final @org.jspecify.annotations.Nullable Streamed streamed;
+
+        private Drain(
+                InputStream stream,
+                @org.jspecify.annotations.Nullable Handing lines,
+                @org.jspecify.annotations.Nullable Streamed streamed) {
             this.stream = stream;
             this.lines = lines;
+            this.streamed = streamed;
+        }
+
+        /** Whether the start of what was read is no longer kept. */
+        private boolean cut() {
+            synchronized (collected) {
+                return cut > 0;
+            }
         }
 
         private void handOver(final byte[] bytes, final int length) {
@@ -298,6 +444,10 @@ public class ProcessCommandRunner implements CommandRunner {
                 final byte[] buffer = new byte[8192];
                 int read;
                 while ((read = stream.read(buffer)) != -1) {
+                    if (streamed != null) {
+                        streamed.take(buffer, read);
+                        continue;
+                    }
                     synchronized (collected) {
                         collected.write(buffer, 0, read);
                         if (collected.size() > 2 * KEPT) {
@@ -320,6 +470,9 @@ public class ProcessCommandRunner implements CommandRunner {
                 // case where the output is worth most. Reading incrementally is what makes the
                 // comment above true.
             } finally {
+                if (streamed != null) {
+                    streamed.end();
+                }
                 if (lines != null && (line.size() > 0 || tooLong)) {
                     endOfLine();
                 }

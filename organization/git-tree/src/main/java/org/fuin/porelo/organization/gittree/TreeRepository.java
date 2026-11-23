@@ -63,8 +63,9 @@ final class TreeRepository implements AutoCloseable {
      */
     private static final String SIGNS_ANEW = "Porelo-Signs-Anew";
 
-    /** What the command runner writes where it dropped the start of an output. */
-    private static final Pattern CUT = Pattern.compile("\\[[0-9]+ bytes cut before this\\]\\n");
+    /** A line of {@code rev-list}: a commit, and with {@code --parents} its parents after it. */
+    private static final Pattern LISTED =
+            Pattern.compile("(?:[0-9a-f]{40}|[0-9a-f]{64})(?: (?:[0-9a-f]{40}|[0-9a-f]{64}))*");
 
     private final Path scratch;
 
@@ -328,9 +329,7 @@ final class TreeRepository implements AutoCloseable {
             return Optional.empty();
         }
         return Optional.of(
-                require("rev-list", "--end-of-options", branch, "^" + other, "--")
-                        .lines()
-                        .toList());
+                requireLines(true, "rev-list", "--end-of-options", branch, "^" + other, "--"));
     }
 
     private Path borrowed() {
@@ -560,7 +559,7 @@ final class TreeRepository implements AutoCloseable {
         }
         arguments.add("--");
         final List<Map.Entry<String, String>> line = new ArrayList<>();
-        for (final String entry : require(arguments.toArray(String[]::new)).lines().toList()) {
+        for (final String entry : requireLines(true, arguments.toArray(String[]::new))) {
             final String[] ancestry = entry.split(" ");
             line.add(Map.entry(ancestry[0], ancestry.length > 1 ? ancestry[1] : ""));
             if (ancestry[0].equals(revision)) {
@@ -763,15 +762,12 @@ final class TreeRepository implements AutoCloseable {
         // A change of two commits carries its id on both: it stands at the newer one.
         String newest = null;
         for (final String row :
-                require(
-                                "log",
-                                "--first-parent",
-                                "--format=%H %(trailers:key="
-                                        + CHANGE_ID
-                                        + ",valueonly,separator=%x00)",
-                                branch)
-                        .lines()
-                        .toList()) {
+                requireLines(
+                        false,
+                        "log",
+                        "--first-parent",
+                        "--format=%H %(trailers:key=" + CHANGE_ID + ",valueonly,separator=%x00)",
+                        branch)) {
             final String[] fields = row.split(" ", 2);
             if (fields.length < 2 || !List.of(fields[1].split("\u0000")).contains(id)) {
                 newest = null;
@@ -811,17 +807,14 @@ final class TreeRepository implements AutoCloseable {
         // it.
         final java.util.Set<String> commits = new java.util.HashSet<>();
         for (final String row :
-                require(
-                                "log",
-                                "--first-parent",
-                                "--format=%H %(trailers:key="
-                                        + SIGNS_ANEW
-                                        + ",valueonly,separator=%x00)",
-                                "--end-of-options",
-                                branch,
-                                "--")
-                        .lines()
-                        .toList()) {
+                requireLines(
+                        false,
+                        "log",
+                        "--first-parent",
+                        "--format=%H %(trailers:key=" + SIGNS_ANEW + ",valueonly,separator=%x00)",
+                        "--end-of-options",
+                        branch,
+                        "--")) {
             final String[] fields = row.split(" ", 2);
             if (fields.length == 2 && List.of(fields[1].split("\u0000")).contains(path)) {
                 commits.add(fields[0]);
@@ -1097,9 +1090,7 @@ final class TreeRepository implements AutoCloseable {
      * @return Whether it is an ancestor.
      */
     boolean hasAncestor(final String commit, final String ancestor) {
-        return require("rev-list", "--end-of-options", commit, "--")
-                .lines()
-                .anyMatch(ancestor::equals);
+        return requireLines(true, "rev-list", "--end-of-options", commit, "--").contains(ancestor);
     }
 
     private static String written(final CommandResult result) {
@@ -1118,8 +1109,7 @@ final class TreeRepository implements AutoCloseable {
                     "cannot read the organization's history: "
                             + RegistryText.printable(result.standardError().strip()));
         }
-        final String output = result.standardOutput();
-        if (CUT.matcher(output).lookingAt()) {
+        if (result.standardOutputCut()) {
             // Past 16 MiB of a command's output its start is gone: paths or commits would go
             // unjudged, and the marker would be read as a commit.
             throw new OrganizationQuestions.Refused(
@@ -1127,7 +1117,39 @@ final class TreeRepository implements AutoCloseable {
                     "the organization's history is too long to read whole",
                     null);
         }
-        return output;
+        return result.standardOutput();
+    }
+
+    /**
+     * Reads an output that grows with the organization's history line by line, as a result keeps
+     * only the end of a long one.
+     *
+     * @param commits Whether each line names commits, as {@code rev-list} writes them; one that
+     *     does not is refused, never read as one.
+     * @param arguments What git is asked.
+     * @return Every line, in git's order.
+     */
+    private List<String> requireLines(final boolean commits, final String... arguments) {
+        final List<String> lines = new ArrayList<>();
+        final CommandResult result =
+                runner.streamOutput(
+                        command(Map.of(), arguments),
+                        line -> {
+                            if (commits && !LISTED.matcher(line).matches()) {
+                                throw new OrganizationQuestions.Refused(
+                                        OrganizationQuestions.Refused.CANNOT_SAY,
+                                        "git listed a line of the organization's history that"
+                                                + " names no commit",
+                                        null);
+                            }
+                            lines.add(line);
+                        });
+        if (!result.successful()) {
+            throw new CardException(
+                    "cannot read the organization's history: "
+                            + RegistryText.printable(result.standardError().strip()));
+        }
+        return lines;
     }
 
     private CommandResult git(final String... arguments) {
@@ -1148,6 +1170,10 @@ final class TreeRepository implements AutoCloseable {
     }
 
     private CommandResult git(final Map<String, String> variables, final String... arguments) {
+        return runner.run(command(variables, arguments));
+    }
+
+    private Command command(final Map<String, String> variables, final String... arguments) {
         final List<String> all =
                 new ArrayList<>(
                         List.of(
@@ -1173,30 +1199,29 @@ final class TreeRepository implements AutoCloseable {
             all.add("--git-dir=" + repository);
         }
         all.addAll(List.of(arguments));
-        return runner.run(
-                Command.of(all)
-                        .in(scratch)
-                        .withEnvironment(variables)
-                        .withChosenEnvironment(
-                                Map.of(
-                                        "PATH",
-                                        System.getenv().getOrDefault("PATH", "/usr/bin:/bin"),
-                                        "LC_ALL",
-                                        "C",
-                                        "GIT_CONFIG_NOSYSTEM",
-                                        "1",
-                                        "GIT_CONFIG_GLOBAL",
-                                        "/dev/null",
-                                        "GIT_ATTR_NOSYSTEM",
-                                        "1",
-                                        "GIT_NO_REPLACE_OBJECTS",
-                                        "1",
-                                        "GIT_NO_LAZY_FETCH",
-                                        "1",
-                                        "GIT_ALLOW_PROTOCOL",
-                                        PROTOCOLS,
-                                        "GIT_TERMINAL_PROMPT",
-                                        "0")));
+        return Command.of(all)
+                .in(scratch)
+                .withEnvironment(variables)
+                .withChosenEnvironment(
+                        Map.of(
+                                "PATH",
+                                System.getenv().getOrDefault("PATH", "/usr/bin:/bin"),
+                                "LC_ALL",
+                                "C",
+                                "GIT_CONFIG_NOSYSTEM",
+                                "1",
+                                "GIT_CONFIG_GLOBAL",
+                                "/dev/null",
+                                "GIT_ATTR_NOSYSTEM",
+                                "1",
+                                "GIT_NO_REPLACE_OBJECTS",
+                                "1",
+                                "GIT_NO_LAZY_FETCH",
+                                "1",
+                                "GIT_ALLOW_PROTOCOL",
+                                PROTOCOLS,
+                                "GIT_TERMINAL_PROMPT",
+                                "0"));
     }
 
     @Override

@@ -489,4 +489,126 @@ class ProcessCommandRunnerTest {
 
         assertThat(lines).containsExactly("one", "two");
     }
+
+    @Test
+    void standardOutputBeyondWhatIsKeptSaysItWasCut() {
+        // The marker alone is a line like any other: a caller that must have the whole output
+        // could not tell it from the program's own.
+        final CommandResult cut =
+                new ProcessCommandRunner(Duration.ofSeconds(30))
+                        .run(Command.of("seq", "1", "3000000"));
+        final CommandResult whole = runner.run(Command.of("seq", "1", "3"));
+
+        assertThat(cut.standardOutputCut()).isTrue();
+        assertThat(whole.standardOutputCut()).isFalse();
+        assertThat(new CommandResult(Command.of("x"), 0, "", "").standardOutputCut()).isFalse();
+    }
+
+    @Test
+    void everyLineOfAnOutputBeyondWhatIsKeptIsHandedOverInOrder() {
+        // Almost 24 MB, past the 16 MiB at which a result's start is cut: its oldest lines are
+        // those
+        // a cut loses.
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+
+        final CommandResult result =
+                new ProcessCommandRunner(Duration.ofSeconds(60))
+                        .streamOutput(
+                                Command.of("sh", "-c", "seq 1 3000000; echo said >&2"), lines::add);
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.standardOutput()).as("none of it is kept").isEmpty();
+        assertThat(result.standardOutputCut()).isFalse();
+        assertThat(result.standardError()).isEqualTo("said\n");
+        assertThat(lines).hasSize(3_000_000);
+        for (int index = 0; index < lines.size(); index++) {
+            if (!lines.get(index).equals(Integer.toString(index + 1))) {
+                throw new AssertionError("line " + (index + 1) + " is " + lines.get(index));
+            }
+        }
+    }
+
+    @Test
+    void theLastLineOfAStreamedOutputArrivesWithoutItsEnd() {
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+
+        runner.streamOutput(Command.of("printf", "one\\r\\ntwo"), lines::add);
+
+        assertThat(lines).containsExactly("one", "two");
+    }
+
+    @Test
+    void aStreamedOutputsConsumerThatFailsEndsTheProgramAndReachesTheCaller() {
+        final java.time.Instant started = java.time.Instant.now();
+
+        assertThatThrownBy(
+                        () ->
+                                new ProcessCommandRunner(Duration.ofSeconds(60))
+                                        .streamOutput(
+                                                Command.of("sh", "-c", "echo one; exec sleep 30"),
+                                                line -> {
+                                                    throw new IllegalStateException(
+                                                            "not an id: " + line);
+                                                }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("not an id: one");
+        assertThat(Duration.between(started, java.time.Instant.now()))
+                .as("the program was ended, not waited for")
+                .isLessThan(Duration.ofSeconds(10));
+    }
+
+    @Test
+    void aStreamedLineTooLongToHoldIsRefusedNotCut() {
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                new ProcessCommandRunner(Duration.ofSeconds(60))
+                                        .streamOutput(
+                                                Command.of(
+                                                        "sh",
+                                                        "-c",
+                                                        "echo first; head -c 3000000 /dev/zero"
+                                                                + " | tr '\\0' x; echo; echo after"),
+                                                lines::add))
+                .isInstanceOf(CommandException.class)
+                .hasMessageContaining("longer than");
+        assertThat(lines).containsExactly("first");
+    }
+
+    @Test
+    void aStreamedOutputAGrandchildStillHoldsIsRefusedAsUnended() {
+        final java.time.Instant started = java.time.Instant.now();
+
+        assertThatThrownBy(
+                        () ->
+                                new ProcessCommandRunner(Duration.ofSeconds(20))
+                                        .streamOutput(
+                                                Command.of("sh", "-c", "echo one; sleep 8 &"),
+                                                line -> {}))
+                .isInstanceOf(CommandException.class)
+                .hasMessageContaining("did not end");
+        assertThat(Duration.between(started, java.time.Instant.now()))
+                .isLessThan(Duration.ofSeconds(6));
+    }
+
+    @Test
+    void aRunnerOfNoLinesOfItsOwnStreamsItsWholeOutputAndRefusesACutOne() {
+        final CommandRunner whole = command -> new CommandResult(command, 3, "a\nb\n", "why");
+        final CommandRunner cut =
+                command ->
+                        new CommandResult(command, 0, "[9 bytes cut before this]\nb\n", "", true);
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+
+        final CommandResult result = whole.streamOutput(Command.of("x"), lines::add);
+
+        assertThat(lines).containsExactly("a", "b");
+        assertThat(result.exitCode()).isEqualTo(3);
+        assertThat(result.standardOutput()).isEmpty();
+        assertThat(result.standardError()).isEqualTo("why");
+        assertThatThrownBy(() -> cut.streamOutput(Command.of("x"), lines::add))
+                .isInstanceOf(CommandException.class)
+                .hasMessageContaining("cut");
+        assertThat(lines).as("nothing of a cut output").containsExactly("a", "b");
+    }
 }
