@@ -31,7 +31,6 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
  * @param certificateDays How long the person's certification of a task holds.
  * @param cardDays How long a card holds from the day it is made.
  * @param renewNoticeDays How many days before its end a card is said to be due.
- * @param lentTokenDays How long a token lent to a host is kept.
  * @param askedAboutDays How long a sent message is asked about.
  * @param keptDays How long a task's run records are kept.
  */
@@ -40,7 +39,6 @@ public record AccountConfig(
         int certificateDays,
         int cardDays,
         int renewNoticeDays,
-        int lentTokenDays,
         int askedAboutDays,
         int keptDays) {
 
@@ -49,7 +47,7 @@ public record AccountConfig(
 
     /** Every setting at its default. */
     public static final AccountConfig DEFAULT =
-            new AccountConfig(LimitFactors.DEFAULT, 7, 30, 7, 1, 7, 30);
+            new AccountConfig(LimitFactors.DEFAULT, 7, 30, 7, 7, 30);
 
     private static final int MOST_DAYS = 3650;
 
@@ -59,7 +57,6 @@ public record AccountConfig(
                     "limits", Set.of("services", "machines", "polling", "retries"),
                     "task", Set.of("certificate_days"),
                     "identity", Set.of("card_days", "renew_notice_days"),
-                    "host", Set.of("lent_token_days"),
                     "messages", Set.of("asked_about_days"),
                     "records", Set.of("kept_days"));
 
@@ -70,7 +67,6 @@ public record AccountConfig(
      * @param certificateDays How long the person's certification of a task holds.
      * @param cardDays How long a card holds from the day it is made.
      * @param renewNoticeDays How many days before its end a card is said to be due.
-     * @param lentTokenDays How long a token lent to a host is kept.
      * @param askedAboutDays How long a sent message is asked about.
      * @param keptDays How long a task's run records are kept.
      * @throws IllegalArgumentException When a number of days lies outside 1 to 3650.
@@ -79,7 +75,6 @@ public record AccountConfig(
         days("task.certificate_days", certificateDays);
         days("identity.card_days", cardDays);
         days("identity.renew_notice_days", renewNoticeDays);
-        days("host.lent_token_days", lentTokenDays);
         days("messages.asked_about_days", askedAboutDays);
         days("records.kept_days", keptDays);
     }
@@ -155,7 +150,6 @@ public record AccountConfig(
                     days(sections, "task", "certificate_days", DEFAULT.certificateDays),
                     days(sections, "identity", "card_days", DEFAULT.cardDays),
                     days(sections, "identity", "renew_notice_days", DEFAULT.renewNoticeDays),
-                    days(sections, "host", "lent_token_days", DEFAULT.lentTokenDays),
                     days(sections, "messages", "asked_about_days", DEFAULT.askedAboutDays),
                     days(sections, "records", "kept_days", DEFAULT.keptDays));
         } catch (IllegalArgumentException ex) {
@@ -213,7 +207,6 @@ public record AccountConfig(
     }
 
     private static String names() {
-        return String.join(
-                ", ", List.of("limits", "task", "identity", "host", "messages", "records"));
+        return String.join(", ", List.of("limits", "task", "identity", "messages", "records"));
     }
 }

@@ -253,7 +253,7 @@ class PoreloDaemonTest {
     }
 
     @Test
-    void accountSettingsAnswersTheSixNamedDecisionsAsRead(@TempDir Path dir) throws Exception {
+    void accountSettingsAnswersThePersonsNamedDecisionsAsRead(@TempDir Path dir) throws Exception {
         servingContext(
                 context(dir)
                         .withAccount(
@@ -272,7 +272,6 @@ class PoreloDaemonTest {
                                 .containsEntry("keptDays", 90L)
                                 .containsEntry("cardDays", 30L)
                                 .containsEntry("renewNoticeDays", 7L)
-                                .containsEntry("lentTokenDays", 1L)
                                 .containsEntry("askedAboutDays", 7L);
                     }
                 });

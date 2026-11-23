@@ -113,7 +113,6 @@ final class MachineMethods {
                                     "certificateDays", account.certificateDays(),
                                     "cardDays", account.cardDays(),
                                     "renewNoticeDays", account.renewNoticeDays(),
-                                    "lentTokenDays", account.lentTokenDays(),
                                     "askedAboutDays", account.askedAboutDays(),
                                     "keptDays", account.keptDays()));
                 });

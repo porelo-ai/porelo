@@ -64,13 +64,19 @@ class AccountConfigTest {
         assertThat(config.keptDays()).isEqualTo(90);
         assertThat(config.cardDays()).as("left out, today's value").isEqualTo(30);
         assertThat(config.renewNoticeDays()).isEqualTo(7);
-        assertThat(config.lentTokenDays()).isEqualTo(1);
         assertThat(config.askedAboutDays()).isEqualTo(7);
     }
 
     @Test
     void aSectionWrittenWithNothingUnderItIsThatSectionsDefaults() {
         assertThat(read("limits:\nrecords:\n")).isEqualTo(AccountConfig.DEFAULT);
+    }
+
+    @Test
+    void theHostsTokenLifeIsNoSettingOfThePersonsFile() {
+        assertThatThrownBy(() -> read("host:\n  lent_token_days: 2\n"))
+                .as("porelo-host keeps lent tokens; its own host.yml sets how long")
+                .hasMessageContaining("'host' is no setting");
     }
 
     @Test

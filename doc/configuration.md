@@ -15,8 +15,6 @@ task:
 identity:
   card_days: 30
   renew_notice_days: 7
-host:
-  lent_token_days: 1
 messages:
   asked_about_days: 7
 records:
@@ -32,10 +30,32 @@ records:
 | `task.certificate_days` | 7 | how long the person's certification of a task holds |
 | `identity.card_days` | 30 | how long a card holds from the day it is made |
 | `identity.renew_notice_days` | 7 | how many days before its end a card is said to be due |
-| `host.lent_token_days` | 1 | how long a token lent to a host is kept |
 | `messages.asked_about_days` | 7 | how long a sent message is asked about |
 | `records.kept_days` | 30 | how long a task's run records are kept |
 
 - **A factor is a decimal from 0.1 to 100** with at most two digits after its dot; [Time limits](limits.md) says
   what each one scales and how it travels to every program and client.
 - **A number of days is whole, from 1 to 3650**, and is the person's decision: no factor multiplies it.
+
+## The host's settings
+
+A host that porelo-host runs on has settings of its own in `/etc/porelo-host/host.yml`, root's and readable by
+everyone, which the host's Ansible collection writes from its inventory on every setup and removes when the host is
+taken down. porelo-host reads it, and so does the host's check of a task certificate; a person's file never reaches
+them.
+
+```yaml
+limits: services=1.0,machines=1.0,polling=1.0,retries=1.0
+certificate_days: 7
+lent_token_days: 1
+```
+
+| Key | Default | What it sets |
+|---|---|---|
+| `limits` | all four 1.0 | the host's four factors, as one [limits line](limits.md#the-limits-line) |
+| `certificate_days` | 7 | the longest a task certificate may hold on this host; a person certifies within it |
+| `lent_token_days` | 1 | how long porelo-host keeps a forge token it lent |
+
+- **A key left out is its default**, and so is a missing file.
+- **A number of days is whole, from 1 to 3650.** Any other value, an unknown key or a file that is no YAML mapping
+  stops porelo-host non-zero, naming the file and the key, before it does anything.

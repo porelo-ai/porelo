@@ -109,8 +109,6 @@ method AccountSettings() -> (
   cardDays: int,
   # How many days before its end a card is said to be due (identity.renew_notice_days, 7).
   renewNoticeDays: int,
-  # How long a token lent to a host is kept (host.lent_token_days, 1).
-  lentTokenDays: int,
   # How long a sent message is asked about (messages.asked_about_days, 7).
   askedAboutDays: int,
   # How long a task's run records are kept (records.kept_days, 30).
