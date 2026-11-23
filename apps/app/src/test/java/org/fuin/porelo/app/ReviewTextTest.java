@@ -18,6 +18,27 @@ import org.junit.jupiter.api.io.TempDir;
 class ReviewTextTest {
 
     @Test
+    void fileNamesCannotHideTheRestOfTheReview() {
+        final String ranked =
+                ReviewText.render(
+                        ReviewText.Instruction.GONE,
+                        List.of(
+                                new ReviewRanking.File(
+                                        "src/hidden\u001b[8m\r\b\u007f\u009b.txt",
+                                        "A",
+                                        1,
+                                        0,
+                                        1,
+                                        0,
+                                        ReviewRanking.Rank.ORDINARY,
+                                        "")));
+
+        assertThat(ranked)
+                .contains("src/hidden\\x1b[8m\\x0d\\x08\\x7f\\x9b.txt")
+                .doesNotContain("\u001b", "\r", "\b", "\u007f", "\u009b");
+    }
+
+    @Test
     void aRescuedPushRetainsItsOriginalInstruction() throws IOException {
         // Rescuing must not hide the instruction the unreviewed work was meant to follow.
         final PoreloPaths paths = paths();

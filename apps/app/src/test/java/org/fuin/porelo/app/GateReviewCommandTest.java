@@ -33,14 +33,6 @@ class GateReviewCommandTest {
     }
 
     @Test
-    void theFullViewADaemonsCutReviewNamesRunsAndPrintsTheWholePatch(@TempDir Path dir)
-            throws Exception {
-        // Review's cut hands out this command for the whole patch; an option it names that the
-        // command did not know made the full view an error.
-        review(dir, false, false, "--against", "HEAD", "--ignore-line-endings", "--");
-    }
-
-    @Test
     void aReviewUsesTheStartingBranchAndLeavesItsEarlierChangesOut(@TempDir Path dir)
             throws Exception {
         review(dir, true, false);

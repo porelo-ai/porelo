@@ -166,9 +166,9 @@ final class CheckoutApproval {
                             "Bring "
                                     + captured.commit()
                                     + " into "
-                                    + top
+                                    + TalkReadCommand.shown(top.toString())
                                     + " as "
-                                    + branch
+                                    + TalkReadCommand.shown(branch)
                                     + "? [y/N]");
             if (answer == null
                     || !List.of("y", "yes")
@@ -194,15 +194,16 @@ final class CheckoutApproval {
                     ex.getMessage() + "; nothing moved, the work still waits at the gate");
         }
         out.println(
-                "brought   "
-                        + chosen.name()
-                        + " into "
-                        + top
-                        + " as "
-                        + branch
-                        + " ("
-                        + captured.commit()
-                        + ")");
+                TalkReadCommand.shown(
+                        "brought   "
+                                + chosen.name()
+                                + " into "
+                                + top
+                                + " as "
+                                + branch
+                                + " ("
+                                + captured.commit()
+                                + ")"));
         out.flush();
         return 0;
     }
@@ -220,6 +221,7 @@ final class CheckoutApproval {
             final Project project = GateSupport.byName(context, DefaultProject.NAME);
             final Repository repository = project.repository(own.name());
             gateProject = project;
+            gateRepository = own.name();
             return repository == null
                     ? null
                     : GateSupport.gate(context, project, repository, null, null);
@@ -277,6 +279,9 @@ final class CheckoutApproval {
 
     /** The project whose gate holds the work, once {@link #gateOf} found it. */
     private @Nullable Project gateProject;
+
+    /** The repository whose gate holds the work. */
+    private @Nullable String gateRepository;
 
     /**
      * Returns the branch a task's work arrives on in the checkout: the one its start recorded, or
@@ -347,7 +352,7 @@ final class CheckoutApproval {
             wanted =
                     asker.ask(
                             "Work of several tasks waits: "
-                                    + String.join(", ", names)
+                                    + TalkReadCommand.shown(String.join(", ", names))
                                     + ". Which one?");
             if (wanted == null) {
                 chosenRefusal = refuse(AMBIGUOUS, "no task named; nothing brought back");
@@ -431,7 +436,15 @@ final class CheckoutApproval {
             out.println(
                     "... "
                             + (diff.size() - SHOWN_LINES)
-                            + " more lines; 'porelo gate review' shows all of it");
+                            + " more lines; "
+                            + TalkReadCommand.shown(
+                                    GateReviewCommand.fullView(
+                                            java.util.Objects.requireNonNull(gateProject).name(),
+                                            java.util.Objects.requireNonNull(gateRepository),
+                                            name,
+                                            captured.commit(),
+                                            base))
+                            + " shows all of it");
         }
         out.flush();
     }
@@ -439,7 +452,7 @@ final class CheckoutApproval {
     /** The command that brings back exactly the captured commit without asking. */
     private static String bound(final String name, final GitGate.Waiting captured) {
         return "porelo approve "
-                + TalkReadCommand.shown(name)
+                + TalkReadCommand.shown(GateApprovalHint.quoted(name))
                 + " --yes --commit "
                 + captured.commit();
     }
@@ -504,7 +517,7 @@ final class CheckoutApproval {
     }
 
     private int refuse(final int code, final String why) {
-        err.println("porelo: " + why);
+        err.println("porelo: " + TalkReadCommand.shown(why));
         err.flush();
         return code;
     }

@@ -102,7 +102,7 @@ public final class ReviewText {
      */
     static String render(Instruction instruction, List<ReviewRanking.File> files) {
         final StringBuilder out = new StringBuilder();
-        out.append("asked: ").append(instruction.describe()).append("\n\n");
+        out.append("asked: ").append(TerminalText.lines(instruction.describe())).append("\n\n");
         section(
                 out,
                 files,
@@ -149,13 +149,13 @@ public final class ReviewText {
         final String counts =
                 file.added() < 0 ? "binary" : "+" + file.added() + " -" + file.removed();
         out.append("  ")
-                .append(file.status())
+                .append(TerminalText.line(file.status()))
                 .append("  ")
-                .append(file.path())
+                .append(TerminalText.line(file.path()))
                 .append("  ")
                 .append(counts);
         if (!file.reason().isEmpty()) {
-            out.append("  ").append(file.reason());
+            out.append("  ").append(TerminalText.line(file.reason()));
         }
         out.append('\n');
     }

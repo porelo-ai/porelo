@@ -28,7 +28,7 @@ record GateApprovalHint(
     static String line(final GitGate gate, final String now, final GateApprovalHint hint) {
         final String refused = gate.forwardRefusal();
         if (refused != null) {
-            return "none from here: " + refused;
+            return "none from here: " + TalkReadCommand.shown(refused);
         }
         if (!now.equals(hint.commit())) {
             return "none for this commit: "
@@ -60,7 +60,7 @@ record GateApprovalHint(
         return arguments.stream().map(GateApprovalHint::quoted).collect(Collectors.joining(" "));
     }
 
-    private static String quoted(String argument) {
+    static String quoted(String argument) {
         return argument.matches("[a-zA-Z0-9_./:@%+=,-]+")
                 ? argument
                 : "'" + argument.replace("'", "'\"'\"'") + "'";

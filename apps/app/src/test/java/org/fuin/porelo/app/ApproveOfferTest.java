@@ -43,46 +43,6 @@ class ApproveOfferTest {
     }
 
     @Test
-    void onlyAnExplicitYesAuthorizesTheCapturedCommit() {
-        for (String answer : new String[] {"", "n", "no", "anything"}) {
-            assertThat(GateApproveCommand.confirm(WAITING, "writer", "main", answering(answer)))
-                    .as("approval defaults to no: '%s'", answer)
-                    .isFalse();
-        }
-        assertThat(GateApproveCommand.confirm(WAITING, "writer", "main", answering("yes")))
-                .as("an explicit yes authorizes the shown revision")
-                .isTrue();
-        assertThat(GateApproveCommand.confirm(WAITING, "writer", "main", Offer.NOBODY))
-                .as("a script cannot grant approval")
-                .isFalse();
-    }
-
-    @Test
-    void terminalControlsCannotHideTheRevisionBeingConfirmed() {
-        final StringBuilder question = new StringBuilder();
-        final Offer offer =
-                new Offer(
-                        prompt -> {
-                            question.append(prompt);
-                            return "n";
-                        },
-                        false,
-                        false,
-                        new PrintWriter(said, true));
-        GateApproveCommand.confirm(
-                new GitGate.Waiting(WAITING.commit(), "erase\u001b[2K"), "writer", "main", offer);
-
-        assertThat(question.toString())
-                .as("the actual commit remains visible")
-                .contains(WAITING.commit(), "[y/N]", "erase\\x1b[2K")
-                .doesNotContain("\u001b");
-        assertThat(said.toString())
-                .as("the affected revision is shown before the question")
-                .contains(WAITING.commit())
-                .doesNotContain("\u001b");
-    }
-
-    @Test
     void theBoundCommandKeepsTheDestinationAndSigningChoice() {
         final String command =
                 new GateApprovalHint(

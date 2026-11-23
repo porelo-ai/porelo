@@ -115,16 +115,6 @@ public class TalkReadCommand implements Callable<Integer>, PoreloFactory.Context
      * @return The same text, with C0 and C1 controls and DEL written as {@code \xNN}; tabs kept.
      */
     static String shown(final String text) {
-        final StringBuilder safe = new StringBuilder(text.length());
-        text.codePoints()
-                .forEach(
-                        point -> {
-                            if (point == '\t' || point >= 0x20 && point < 0x7f || point > 0x9f) {
-                                safe.appendCodePoint(point);
-                            } else {
-                                safe.append(String.format("\\x%02x", point));
-                            }
-                        });
-        return safe.toString();
+        return TerminalText.line(text);
     }
 }

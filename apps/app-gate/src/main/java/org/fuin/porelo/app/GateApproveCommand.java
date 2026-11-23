@@ -58,8 +58,8 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             names = "--commit",
             paramLabel = "<id>",
             description =
-                    "The commit you reviewed, as 'gate pending' or 'gate review' shows it. Refused when the push"
-                            + " has moved since, so what goes is what you read.")
+                    "The commit you reviewed, as 'gate review' shows it; required. Refused when the push has"
+                            + " moved since, so what goes is what you read.")
     private @org.jspecify.annotations.Nullable String commit;
 
     @Option(
@@ -72,8 +72,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
 
     @Option(
             names = "--no-input",
-            description =
-                    "Ask nothing: require --commit and refuse a branch that already holds work.")
+            description = "Ask nothing: refuse a branch that already holds work.")
     private boolean noInput;
 
     /**
@@ -127,7 +126,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                             forgeConf());
             onto = chosen == null ? "main" : chosen;
         } catch (RuntimeException ex) {
-            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();
             return 64;
         }
@@ -141,7 +140,6 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                 // Refused here as the approval would refuse it - a mistyped name, an offline
                 // project, no upstream - so nobody is asked, or handed a command, for nothing.
                 final GitGate.Waiting waiting = gate.approvable(name);
-                bound = waiting.commit();
                 final String command =
                         new GateApprovalHint(
                                         project.name(),
@@ -153,22 +151,27 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                                         onto,
                                         signed)
                                 .command();
-                if (!confirm(waiting, name, onto, offer)) {
-                    err.println(
-                            "porelo: approval requires the reviewed commit; run "
-                                    + TalkReadCommand.shown(command));
-                    err.flush();
-                    return 70;
-                }
+                err.println(
+                        "porelo: waiting "
+                                + TalkReadCommand.shown(name)
+                                + " at "
+                                + waiting.commit()
+                                + " "
+                                + TalkReadCommand.shown(waiting.subject()));
+                err.println(
+                        "porelo: approval requires the reviewed commit; after reviewing it, run "
+                                + TalkReadCommand.shown(command));
+                err.flush();
+                return 70;
             } else {
                 bound = named.strip();
             }
         } catch (GateException ex) {
-            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();
             return 70;
         } catch (RuntimeException ex) {
-            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();
             return 2;
         }
@@ -180,21 +183,6 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             onto = next;
         }
         return exit;
-    }
-
-    /** Asks about exactly the captured revision, with no as the default. */
-    static boolean confirm(GitGate.Waiting waiting, String name, String branch, Offer offer) {
-        return offer != Offer.NOBODY
-                && offer.confirm(
-                        "waiting "
-                                + TalkReadCommand.shown(name)
-                                + " at "
-                                + waiting.commit()
-                                + " "
-                                + TalkReadCommand.shown(waiting.subject()),
-                        "Forward this commit to " + TalkReadCommand.shown(branch) + "?",
-                        waiting.commit(),
-                        true);
     }
 
     /** The exit code of the last try. */
@@ -219,7 +207,9 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             final String pullRequest;
             if (signed) {
                 pullRequest = GateSupport.approveSigned(gate, name, onto, bound);
-                out.println("merged    " + name + " onto " + onto + ", signed, and forwarded");
+                out.println(
+                        TalkReadCommand.shown(
+                                "merged    " + name + " onto " + onto + ", signed, and forwarded"));
                 EventLog.record(
                         context,
                         EventLog.APPROVED,
@@ -228,7 +218,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                         "signed and forwarded onto " + onto + ", reviewed at " + bound);
             } else {
                 pullRequest = gate.approve(name, onto, bound);
-                out.println("forwarded " + name + " to " + onto);
+                out.println(TalkReadCommand.shown("forwarded " + name + " to " + onto));
                 EventLog.record(
                         context,
                         EventLog.APPROVED,
@@ -237,7 +227,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                         "forwarded onto " + onto + ", reviewed at " + bound);
             }
             if (pullRequest != null) {
-                out.println("pull request " + pullRequest);
+                out.println("pull request " + TalkReadCommand.shown(pullRequest));
             }
             out.flush();
             exit = 0;
@@ -255,22 +245,24 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             }
             err.println(
                     "porelo: "
-                            + ex.branch()
+                            + TalkReadCommand.shown(ex.branch())
                             + " already holds "
                             + ex.at()
                             + ", from earlier work; approve onto"
                             + " another branch with --branch"
-                            + (offerable ? " " + next : " the project's branch.pattern accepts"));
+                            + (offerable
+                                    ? " " + TalkReadCommand.shown(next)
+                                    : " the project's branch.pattern accepts"));
             err.flush();
             exit = 70;
             return null;
         } catch (GateException ex) {
-            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();
             exit = 70;
             return null;
         } catch (RuntimeException ex) {
-            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();
             exit = 2;
             return null;
@@ -291,8 +283,9 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             final String branch, final String at, final String next, final Offer offer) {
         return offer != Offer.NOBODY
                         && offer.confirm(
-                                branch + " already holds " + at + ", from earlier work",
-                                "Approve onto " + next + " instead?",
+                                TalkReadCommand.shown(
+                                        branch + " already holds " + at + ", from earlier work"),
+                                TalkReadCommand.shown("Approve onto " + next + " instead?"),
                                 "",
                                 false)
                 ? next

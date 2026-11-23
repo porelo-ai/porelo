@@ -87,44 +87,40 @@ class GateApprovalCommitTest {
         assertThat(gate.waiting("writer").commit()).as("the work still waits").isEqualTo(reviewed);
     }
 
-    @Test
-    void aTerminalYesForwardsExactlyTheRevisionInTheQuestion() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aTerminalYesCannotForwardWithoutNamingTheReviewedCommit(boolean signed) {
+        final List<String> questions = new ArrayList<>();
         final Run approval =
                 approve(
                         question -> {
-                            assertThat(question)
-                                    .as("the person sees the full revision and subject")
-                                    .contains(reviewed, "reviewed", "[y/N]");
+                            questions.add(question);
                             return "y";
-                        });
-        assertThat(approval.code()).as(approval.err()).isZero();
-        assertThat(git(upstream, "rev-parse", "main"))
-                .as("the confirmed commit arrived")
-                .isEqualTo(reviewed);
-        assertThat(gate.waiting("writer")).as("that approval clears the pending ref").isNull();
+                        },
+                        signed ? new String[] {"--signed"} : new String[0]);
+        assertThat(approval.code()).as(approval.err()).isEqualTo(70);
+        assertThat(questions).as("a subject is no review of the patch").isEmpty();
+        assertThat(git(upstream, "rev-parse", "main")).as("nothing left the gate").isEqualTo(base);
+        assertThat(approval.err()).contains("--commit " + reviewed);
+        assertThat(gate.waiting("writer").commit()).as("the work still waits").isEqualTo(reviewed);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void aPushDuringTheQuestionCannotUseTheAnswerForADifferentCommit(boolean signed) {
-        final String[] moved = {null};
+    void aNewPushCannotBeApprovedByAnInteractiveYesWithoutACommit(boolean signed) {
+        assertThat(run("review").out()).contains(reviewed);
+        final String moved = push("unseen after review");
         final Run approval =
-                approve(
-                        question -> {
-                            assertThat(question)
-                                    .as("the question binds the original revision")
-                                    .contains(reviewed);
-                            moved[0] = push("unseen during question");
-                            return "yes";
-                        },
-                        signed ? new String[] {"--signed"} : new String[0]);
+                approve(question -> "yes", signed ? new String[] {"--signed"} : new String[0]);
 
-        assertThat(approval.code()).as("both signing paths refuse a moved commit").isEqualTo(70);
-        assertThat(approval.err()).as("the movement is explained").contains(reviewed, moved[0]);
+        assertThat(approval.code())
+                .as("both signing paths require a reviewed commit")
+                .isEqualTo(70);
+        assertThat(approval.err())
+                .as("the retry names the work to review")
+                .contains("--commit " + moved);
         assertThat(git(upstream, "rev-parse", "main")).as("no unseen work leaves").isEqualTo(base);
-        assertThat(gate.waiting("writer").commit())
-                .as("the newer push remains")
-                .isEqualTo(moved[0]);
+        assertThat(gate.waiting("writer").commit()).as("the newer push remains").isEqualTo(moved);
     }
 
     @Test

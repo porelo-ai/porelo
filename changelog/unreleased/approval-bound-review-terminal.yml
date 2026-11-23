@@ -1,0 +1,2 @@
+title: "Escape file names, subjects and branches in a review and an approval prompt, forward nothing from gate approve without --commit, and bind a cut review's full view to its captured commit and base"
+type: security

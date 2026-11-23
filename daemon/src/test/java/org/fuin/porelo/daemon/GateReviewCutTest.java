@@ -3,6 +3,8 @@ package org.fuin.porelo.daemon;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -38,6 +40,50 @@ class GateReviewCutTest {
 
     /** The largest message a varlink peer accepts, as the wire bounds it. */
     private static final int LIMIT = 4 * MIB;
+
+    @Test
+    void theFullViewADaemonsCutReviewNamesRunsAndPrintsTheWholePatch() throws Exception {
+        final Push push = push();
+        push.write("captured.txt", "captured change\n".repeat(400_000));
+        push.commit("the captured change");
+        push.send();
+        final Map<String, Object> review = push.review(Map.of("ignoreLineEndings", true));
+        final Map<?, ?> cut = (Map<?, ?>) review.get("cut");
+        assertThat(cut).as("the daemon really cut this review").isNotNull();
+        final List<String> command = strings(cut.get("command"));
+        final String captured = String.valueOf(review.get("commit"));
+        final String base = push.capturedBase();
+        final String patch = push.wholePatch();
+
+        push.write("unseen.txt", "unseen after review\n");
+        push.commit("unseen after review");
+        push.send();
+        final String moved = push.gate.pendingWork("t").commit();
+        assertThat(moved).as("a new push really arrived").isNotEqualTo(captured);
+        // Even the default base moves after the cut; the command must keep the captured one.
+        in(push.gate.mirror(), "update-ref", "refs/heads/main", moved);
+        final StringWriter out = new StringWriter();
+        final StringWriter err = new StringWriter();
+        final var cli = org.fuin.porelo.app.PoreloCli.commandLine(push.context);
+        cli.setOut(new PrintWriter(out));
+        cli.setErr(new PrintWriter(err));
+
+        final int code = cli.execute(command.subList(1, command.size()).toArray(String[]::new));
+
+        assertThat(code).as(err.toString()).isEqualTo(70);
+        assertThat(command)
+                .containsSubsequence(
+                        "--against",
+                        base,
+                        "--ignore-line-endings",
+                        "--commit",
+                        captured,
+                        "--",
+                        "t");
+        assertThat(out.toString())
+                .contains(patch, "reviewed  " + captured, "none for this commit", moved)
+                .doesNotContain("unseen.txt", "+unseen after review", "porelo gate approve");
+    }
 
     @Test
     void aPushOfManyFilesIsCutAtAFileBoundaryAndListsEveryFile() throws Exception {

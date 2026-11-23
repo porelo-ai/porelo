@@ -147,13 +147,14 @@ porelo gate approve -p myproject --commit <full-id> backend  # forward the revie
 ```
 
 A review captures one full commit ID for its patch, log and printed approval command. Use that command
-to approve exactly what was displayed. A different pending commit is refused, including a push during a
-terminal confirmation. Without `--commit`, approval asks at a terminal with no as the default; a script or
-`--no-input` refuses with exit 70 and the bound command. Signed approval uses the same commit binding.
+to approve exactly what was displayed. A different pending commit is refused. Without `--commit` nothing is
+forwarded, at a terminal or in a script: approval names the waiting commit and the bound command, and exits
+70. Signed approval uses the same commit binding.
 
 A review shows the whole diff or says where it was cut. One daemon reply holds at most 4 MiB, so a
 larger patch is cut at a file boundary, the files read first kept, and the reply names the files whose
-patch it leaves out and the `porelo gate review` command that prints all of it. Every changed file is
+patch it leaves out and the `porelo gate review` command that prints all of it, bound to the captured
+commit and base. Every changed file is
 still listed and ranked from the whole change: a dangerous file beyond the cut is still named dangerous.
 A review whose file list and log alone are too large is refused by name with the same command, rather
 than sent as if it were complete.

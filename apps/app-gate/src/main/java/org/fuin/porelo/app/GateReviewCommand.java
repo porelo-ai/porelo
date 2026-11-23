@@ -1,7 +1,9 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.GitGate;
@@ -52,7 +54,7 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
     @Option(
             names = "--commit",
             paramLabel = "<id>",
-            description = "Show this full commit id instead of the current waiting revision.")
+            description = "Show this full commit id; refuse approval if it no longer waits.")
     private @Nullable String commit;
 
     @Option(
@@ -116,13 +118,13 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
                                             null,
                                             false)));
             out.flush();
-            return 0;
+            return pending.commit().equals(waiting.commit()) ? 0 : 70;
         } catch (GateException ex) {
-            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();
             return 70;
         } catch (RuntimeException ex) {
-            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();
             return 2;
         }
@@ -140,10 +142,32 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
      * @return The same, safe to print.
      */
     static String shown(final String text) {
-        final StringBuilder safe = new StringBuilder(text.length());
-        text.lines().forEach(line -> safe.append(TalkReadCommand.shown(line)).append('\n'));
-        return text.endsWith("\n") || safe.isEmpty()
-                ? safe.toString()
-                : safe.substring(0, safe.length() - 1);
+        return TerminalText.lines(text);
+    }
+
+    /** The whole captured review, including an explicit empty base for the whole history. */
+    static String fullView(
+            final String project,
+            final String repository,
+            final String name,
+            final String commit,
+            final @Nullable String against) {
+        return List.of(
+                        "porelo",
+                        "gate",
+                        "review",
+                        "--project",
+                        project,
+                        "--repository",
+                        repository,
+                        "--commit",
+                        commit,
+                        "--against",
+                        against == null ? "" : against,
+                        "--",
+                        name)
+                .stream()
+                .map(GateApprovalHint::quoted)
+                .collect(Collectors.joining(" "));
     }
 }

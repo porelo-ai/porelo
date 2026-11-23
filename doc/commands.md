@@ -806,9 +806,9 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | Command | What it does |
 |---|---|
 | `porelo gate pending` | Lists waiting pushes and how long each has waited. |
-| `porelo gate review NAME [--against=REF] [--ignore-line-endings] [--commit=ID]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. Ends with the captured full commit ID and its approval command, or why none is offered: a project that forwards nothing, or a `--commit` the push has moved past. `--commit` selects a captured revision, including the full view of a cut review. An `--against` that names nothing in the gate's mirror is refused, exit 70; without a base the patch and the log cover the whole history to the commit. A mistyped NAME is answered with the names that wait. |
+| `porelo gate review NAME [--against=REF] [--ignore-line-endings] [--commit=ID]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. Ends with the captured full commit ID and its approval command, or why none is offered: a project that forwards nothing, or a `--commit` the push has moved past. `--commit` shows that captured revision, including the full view of a cut review, even after a newer push; when it no longer waits, it offers no approval and exits 70. An `--against` that names nothing in the gate's mirror is refused, exit 70; without a base the patch and the log cover the whole history to the commit. A mistyped NAME is answered with the names that wait. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
-| `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` names the reviewed revision and refuses if the push moved. Without it, a terminal shows the waiting commit and asks, default no; a script or `--no-input` refuses with exit 70 and a bound command. A mistyped NAME, an offline project or one without an upstream is refused before anything is asked or offered. A push that arrives while a signed approval fetches the upstream is refused as moved, naming both commits. `--signed` merges it as a commit signed with your own git key. |
+| `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` names the reviewed revision and refuses if the push moved. Without it nothing is forwarded, at a terminal or in a script, with `--signed` too: it names the waiting commit and the bound command with `--commit` to run after reviewing it, and exits 70. A mistyped NAME, an offline project or one without an upstream is refused before any command is offered. A push that arrives while a signed approval fetches the upstream is refused as moved, naming both commits. `--signed` merges it as a commit signed with your own git key. |
 | `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
 | `porelo gate protect` | Installs a pre-push hook that catches unapproved agent work. |
 | `porelo gate check` | The check that hook runs. |
@@ -821,8 +821,8 @@ All but `protect` and `check` take `-p PROJECT` and `-r REPOSITORY`.
 `gate review` and `gate pending` show each waiting commit by its full id, which is what `gate approve --commit` takes;
 a shortened id is refused, since another commit could be made to share it. Use the command printed at the end of the review, such as
 `porelo gate approve -p PROJECT -r REPOSITORY --commit FULL_ID NAME`. The patch, log and command all use
-the same captured revision, even if another push arrives while they are read. A push during a terminal
-confirmation is refused as moved; the answer cannot approve that newer commit. Running and stopped tasks
+the same captured revision, even if another push arrives while they are read; a newer push is refused as
+moved, never approved in its place. Running and stopped tasks
 follow the same rules, including `--signed`.
 
 Tasks1 `Review.commit` names the revision whose evidence was returned. `Approve.commit` stays optional in
@@ -833,7 +833,8 @@ SARIF verdicts, suppressions, baselines and empty findings never authorize forwa
 A review the daemon sends (Tasks1 `Review`) is one message of at most 4 MiB. When the whole patch does not
 fit, its `diff` ends at a file boundary, never inside a file, and its `cut` says so: how many files' patches
 are shown and omitted, the omitted paths, and the `porelo gate review` command that prints the whole review
-on this machine. The file list, each file's rank and the log stay whole, and the ranking was made from the
+on this machine: it names the project, repository, task, the captured `--commit` and its `--against` base, so
+it shows that commit after a newer push too. `porelo approve` names the same full view when it cuts its diff. The file list, each file's rank and the log stay whole, and the ranking was made from the
 whole change before anything was cut. When even the review without its patch does not fit, the answer is
 the error `ReviewTooLarge`, with its size and the same command, never a shortened file list.
 `porelo gate pending --project default` lists waiting work of every repository in `default`.
