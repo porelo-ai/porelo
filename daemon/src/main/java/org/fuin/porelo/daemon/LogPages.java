@@ -231,8 +231,14 @@ final class LogPages {
         return new Page(List.copyOf(lines), List.of(), offset, page.atStart() && first == 0);
     }
 
-    /** Returns how many bytes a line takes on the wire, its quotes included. */
-    private static int sent(final String line) {
+    /**
+     * Returns how many bytes a text takes on the wire, its quotes included: escaped as JSON, so a
+     * control character counts six.
+     *
+     * @param line The text.
+     * @return Its size as sent.
+     */
+    static int sent(final String line) {
         return Json.write(line).getBytes(StandardCharsets.UTF_8).length;
     }
 

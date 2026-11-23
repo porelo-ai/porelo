@@ -71,6 +71,117 @@ final class GateMethods {
         return List.copyOf(command);
     }
 
+    /**
+     * What a review is read from: the gate, the push's name, its waiting commit and the base, each
+     * resolved once; ReviewPage takes the base Review resolved, so both read the same review.
+     *
+     * @param gate The repository's gate.
+     * @param name The pending push's name.
+     * @param head The commit waiting under it.
+     * @param against The base, or {@code null} for the whole history.
+     */
+    record Reading(
+            GitGate gate,
+            String name,
+            GitGate.Waiting head,
+            @org.jspecify.annotations.Nullable String against) {
+
+        /**
+         * Returns the ranked files and the patch.
+         *
+         * @param parameters The call's parameters, for the line-ending switch.
+         * @return The review.
+         */
+        org.fuin.porelo.gate.ReviewRanking.Review ranked(final Map<String, Object> parameters) {
+            return gate.rankedReview(head, against, flag(parameters, "ignoreLineEndings"));
+        }
+    }
+
+    /** A full commit id, as ReviewPage takes its base. */
+    private static final java.util.regex.Pattern FULL_COMMIT =
+            java.util.regex.Pattern.compile("[0-9a-f]{40}|[0-9a-f]{64}");
+
+    /** Resolves what a Review call reads, its base the default one unless the call names one. */
+    private static Reading reading(
+            final Map<String, Object> parameters, final PoreloContext context) {
+        final GitGate gate = gate(parameters, context);
+        final String name = text(parameters, "name");
+        // A mistyped name is answered with what does wait.
+        final GitGate.Waiting head = gate.pendingWork(name);
+        // A base the client named that names nothing is refused, never taken as none.
+        final String against =
+                text(parameters, "against").isBlank()
+                        ? gate.reviewBase(
+                                org.fuin.porelo.app.TaskBase.reviewAgainst(
+                                        context,
+                                        GateSupport.project(projectFile(parameters, context)),
+                                        name,
+                                        gate))
+                        : gate.namedBase(text(parameters, "against"));
+        return new Reading(gate, name, head, against);
+    }
+
+    /** The commits of a review, newest first, as Review.commits holds them. */
+    private static List<Map<String, Object>> commits(final Reading reading) {
+        return reading.gate().made(reading.head(), reading.against()).stream()
+                .map(
+                        made -> {
+                            final Map<String, Object> row = new LinkedHashMap<>();
+                            row.put("commit", made.commit());
+                            row.put("subject", made.subject());
+                            row.put("author", made.author());
+                            row.put("committer", made.committer());
+                            row.put("trailers", made.trailers());
+                            row.put("message", made.message() == null ? "" : made.message());
+                            return row;
+                        })
+                .toList();
+    }
+
+    /** The files of a review, ranked, as Review.files holds them. */
+    private static List<Map<String, Object>> files(
+            final Map<String, Object> parameters,
+            final PoreloContext context,
+            final Reading reading,
+            final org.fuin.porelo.gate.ReviewRanking.Review review) {
+        // Matched by content against what was handed into the task that pushed.
+        final Map<String, org.fuin.porelo.app.DeliveredOrigins.Origin> origins =
+                org.fuin.porelo.app.DeliveredOrigins.of(
+                        org.fuin.porelo.app.HandIns.of(context)
+                                .deliveredForPush(
+                                        GateSupport.project(projectFile(parameters, context))
+                                                .name(),
+                                        reading.name()),
+                        reading.gate()
+                                .blobs(
+                                        reading.head(),
+                                        review.files().stream()
+                                                .filter(file -> !"D".equals(file.status()))
+                                                .map(file -> file.path())
+                                                .toList()));
+        return review.files().stream()
+                .map(
+                        file -> {
+                            final Map<String, Object> row = new LinkedHashMap<>();
+                            row.put("path", file.path());
+                            row.put("status", file.status());
+                            row.put("added", file.added());
+                            row.put("removed", file.removed());
+                            row.put("addedIgnoringLineEndings", file.addedIgnoringLineEndings());
+                            row.put(
+                                    "removedIgnoringLineEndings",
+                                    file.removedIgnoringLineEndings());
+                            row.put("rank", file.rank().name());
+                            row.put("reason", file.reason());
+                            final var origin = origins.get(file.path());
+                            if (origin != null) {
+                                row.put("origin", origin.asMap());
+                            }
+                            return row;
+                        })
+                .toList();
+    }
+
     static void pushToCentral(GatheredPush push, VarlinkServer.Replies replies)
             throws java.io.IOException {
         try {
@@ -376,103 +487,89 @@ final class GateMethods {
                                     waiting));
                 });
 
-        // Declared for paging a review too large for one message; refused by name until it is
-        // answered,
-        // never with a page that looks like the review's end.
+        // The rest of a review too large for one message, page by page, read as Review read it.
         server.method(
                 "ReviewPage",
                 (parameters, replies) -> {
-                    throw new VarlinkException(
-                            "org.varlink.service.MethodNotImplemented",
-                            Map.of("method", "org.fuin.porelo.Tasks1.ReviewPage"));
+                    final String part = text(parameters, "part");
+                    if (!ReviewPages.PARTS.contains(part)) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", "part"));
+                    }
+                    final Integer from =
+                            org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(
+                                    parameters, "from");
+                    if (from == null) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", "from"));
+                    }
+                    // Required, never a default resolved again: the pages are of the base and
+                    // the switch Review read with, whatever has moved since.
+                    if (!(parameters.get("against") instanceof String base)
+                            || !(base.isEmpty() || FULL_COMMIT.matcher(base).matches())) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", "against"));
+                    }
+                    if (!(parameters.get("ignoreLineEndings") instanceof Boolean)) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", "ignoreLineEndings"));
+                    }
+                    final GitGate gate = gate(parameters, context);
+                    final String name = text(parameters, "name");
+                    final Reading reading =
+                            new Reading(
+                                    gate,
+                                    name,
+                                    gate.pendingWork(name),
+                                    base.isEmpty() ? null : gate.namedBase(base));
+                    final String commit = text(parameters, "commit").strip();
+                    if (!reading.head().commit().equals(commit)) {
+                        // Every page is of the commit Review answered, as Approve forwards only it.
+                        throw new VarlinkException(
+                                INTERFACE + ".MovedSinceReview",
+                                Map.of(
+                                        "name",
+                                        reading.name(),
+                                        "reviewed",
+                                        commit,
+                                        "now",
+                                        reading.head().commit()));
+                    }
+                    final Object whole =
+                            switch (part) {
+                                case "files" ->
+                                        files(
+                                                parameters,
+                                                context,
+                                                reading,
+                                                reading.ranked(parameters));
+                                case "commits" -> commits(reading);
+                                case "log" -> reading.gate().log(reading.head(), reading.against());
+                                default -> reading.ranked(parameters).patch();
+                            };
+                    replies.last(ReviewPages.page(part, whole, from));
                 });
 
         server.method(
                 "Review",
                 (parameters, replies) -> {
-                    final GitGate gate = gate(parameters, context);
-                    final String name = text(parameters, "name");
-                    // A mistyped name is answered with what does wait.
-                    final GitGate.Waiting head = gate.pendingWork(name);
-                    // A base the client named that names nothing is refused, never taken as none.
-                    final String against =
-                            text(parameters, "against").isBlank()
-                                    ? gate.reviewBase(
-                                            org.fuin.porelo.app.TaskBase.reviewAgainst(
-                                                    context,
-                                                    GateSupport.project(
-                                                            projectFile(parameters, context)),
-                                                    name,
-                                                    gate))
-                                    : gate.namedBase(text(parameters, "against"));
+                    final Reading reading = reading(parameters, context);
+                    final GitGate gate = reading.gate();
+                    final String name = reading.name();
+                    final GitGate.Waiting head = reading.head();
+                    final String against = reading.against();
                     final org.fuin.porelo.gate.ReviewRanking.Review review =
-                            gate.rankedReview(head, against, flag(parameters, "ignoreLineEndings"));
-                    // Matched by content against what was handed into the task that pushed.
-                    final Map<String, org.fuin.porelo.app.DeliveredOrigins.Origin> origins =
-                            org.fuin.porelo.app.DeliveredOrigins.of(
-                                    org.fuin.porelo.app.HandIns.of(context)
-                                            .deliveredForPush(
-                                                    GateSupport.project(
-                                                                    projectFile(
-                                                                            parameters, context))
-                                                            .name(),
-                                                    name),
-                                    gate.blobs(
-                                            head,
-                                            review.files().stream()
-                                                    .filter(file -> !"D".equals(file.status()))
-                                                    .map(file -> file.path())
-                                                    .toList()));
+                            reading.ranked(parameters);
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("commit", head.commit());
                     reply.put("diff", review.patch());
                     reply.put("log", gate.log(head, against));
-                    reply.put(
-                            "commits",
-                            gate.made(head, against).stream()
-                                    .map(
-                                            made -> {
-                                                final Map<String, Object> row =
-                                                        new LinkedHashMap<>();
-                                                row.put("commit", made.commit());
-                                                row.put("subject", made.subject());
-                                                row.put("author", made.author());
-                                                row.put("committer", made.committer());
-                                                row.put("trailers", made.trailers());
-                                                row.put(
-                                                        "message",
-                                                        made.message() == null
-                                                                ? ""
-                                                                : made.message());
-                                                return row;
-                                            })
-                                    .toList());
-                    reply.put(
-                            "files",
-                            review.files().stream()
-                                    .map(
-                                            file -> {
-                                                final Map<String, Object> row =
-                                                        new LinkedHashMap<>();
-                                                row.put("path", file.path());
-                                                row.put("status", file.status());
-                                                row.put("added", file.added());
-                                                row.put("removed", file.removed());
-                                                row.put(
-                                                        "addedIgnoringLineEndings",
-                                                        file.addedIgnoringLineEndings());
-                                                row.put(
-                                                        "removedIgnoringLineEndings",
-                                                        file.removedIgnoringLineEndings());
-                                                row.put("rank", file.rank().name());
-                                                row.put("reason", file.reason());
-                                                final var origin = origins.get(file.path());
-                                                if (origin != null) {
-                                                    row.put("origin", origin.asMap());
-                                                }
-                                                return row;
-                                            })
-                                    .toList());
+                    reply.put("commits", commits(reading));
+                    reply.put("files", files(parameters, context, reading, review));
                     final ReviewText.Instruction asked =
                             ReviewText.instruction(
                                     context.paths(),
@@ -494,6 +591,7 @@ final class GateMethods {
                             ReviewCut.fitted(
                                     reply,
                                     name,
+                                    against == null ? "" : against,
                                     reviewCommand(
                                             parameters, context, name, against, head.commit()),
                                     org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE));

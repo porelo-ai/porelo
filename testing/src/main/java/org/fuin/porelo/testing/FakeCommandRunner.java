@@ -103,6 +103,30 @@ public class FakeCommandRunner implements CommandRunner {
     }
 
     /**
+     * Writes an answer where git's {@code --output=<file>} names, as git does, leaving standard
+     * output empty; any other command answers on standard output.
+     *
+     * @param command The command asked.
+     * @param output The answer given for it.
+     * @return What the command prints on standard output.
+     */
+    private static String writtenTo(Command command, String output) {
+        for (final String argument : command.arguments()) {
+            if (argument.startsWith("--output=")) {
+                try {
+                    java.nio.file.Files.writeString(
+                            java.nio.file.Path.of(argument.substring("--output=".length())),
+                            output);
+                } catch (IOException ex) {
+                    throw new java.io.UncheckedIOException(ex);
+                }
+                return "";
+            }
+        }
+        return output;
+    }
+
+    /**
      * Refuses to run the given program, as the real runner does on a machine that has none.
      *
      * @param program The program's name, the command's first word.
@@ -142,7 +166,7 @@ public class FakeCommandRunner implements CommandRunner {
                 return new CommandResult(
                         command,
                         answer.exitCode(),
-                        answer.standardOutput(),
+                        writtenTo(command, answer.standardOutput()),
                         answer.standardError());
             }
         }

@@ -3204,6 +3204,37 @@ class GitGateTest {
     }
 
     @Test
+    @org.junit.jupiter.api.Tag("slow")
+    void aPatchLargerThanTheRunnerKeepsIsReviewedWhole() throws Exception {
+
+        // A data file of 20 MiB: past what the runner keeps of git's standard output, it was
+        // refused as a whole, and a client could not even show the file list.
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        git(root, "init", "--initial-branch=main", work.toString());
+        final StringBuilder data = new StringBuilder("first line\n");
+        int line = 0;
+        while (data.length() < 20 * 1024 * 1024) {
+            data.append("row ").append(line++).append(", a value, another value\n");
+        }
+        data.append("last line\n");
+        makeCommit("data.csv", data.toString());
+        makeCommit("README.md", "readme\n");
+        git(work, "push", mirror.toString(), "HEAD:" + GitGate.INCOMING + "task-1");
+
+        final ReviewRanking.Review review =
+                gate.rankedReview(gate.pendingWork("task-1"), null, false);
+
+        assertThat(review.files())
+                .extracting(ReviewRanking.File::path)
+                .containsExactlyInAnyOrder("data.csv", "README.md");
+        assertThat(review.patch())
+                .as("the whole patch, its start and its end")
+                .contains("+first line\n", "+row 0, a value", "+last line\n", "+readme\n")
+                .doesNotContain("bytes cut before this");
+        assertThat(review.patch().length()).isGreaterThan(data.length());
+    }
+
+    @Test
     void aMistypedNameIsAnsweredWithWhatDoesWait() throws Exception {
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());

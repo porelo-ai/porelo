@@ -227,7 +227,52 @@ class PoreloDaemonTest {
     }
 
     @Test
-    void aReviewPageIsRefusedByNameUntilItIsAnswered(@TempDir Path dir) throws Exception {
+    void aReviewPageNamesItsBaseAndSwitchOrIsRefusedNamingThem(@TempDir Path dir) throws Exception {
+        // Never a default base resolved again: a base that moved since Review would change pages.
+        final Map<String, Object> asked = new java.util.LinkedHashMap<>();
+        asked.put("project", "p");
+        asked.put("name", "t");
+        asked.put("commit", "a".repeat(40));
+        asked.put("part", "files");
+        asked.put("from", 0);
+        final Map<String, Object> noBase = new java.util.LinkedHashMap<>(asked);
+        noBase.put("ignoreLineEndings", false);
+        final Map<String, Object> aBranch = new java.util.LinkedHashMap<>(noBase);
+        aBranch.put("against", "main");
+        final Map<String, Object> noSwitch = new java.util.LinkedHashMap<>(asked);
+        noSwitch.put("against", "");
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        for (final var call :
+                                List.of(
+                                        Map.entry(noBase, "against"),
+                                        Map.entry(aBranch, "against"),
+                                        Map.entry(noSwitch, "ignoreLineEndings"))) {
+                            assertThatThrownBy(
+                                            () ->
+                                                    client.call(
+                                                            PoreloDaemon.INTERFACE + ".ReviewPage",
+                                                            call.getKey()))
+                                    .as("%s", call.getKey())
+                                    .isInstanceOfSatisfying(
+                                            VarlinkException.class,
+                                            ex -> {
+                                                assertThat(ex.getErrorName())
+                                                        .isEqualTo(
+                                                                "org.varlink.service.InvalidParameter");
+                                                assertThat(ex.getParameters())
+                                                        .containsEntry(
+                                                                "parameter", call.getValue());
+                                            });
+                        }
+                    }
+                });
+    }
+
+    @Test
+    void aReviewPageOfAPartThatDoesNotExistIsRefusedNamingPart(@TempDir Path dir) throws Exception {
         serving(
                 dir,
                 socket -> {
@@ -244,11 +289,19 @@ class PoreloDaemonTest {
                                                                 "commit",
                                                                 "a".repeat(40),
                                                                 "part",
-                                                                "files",
+                                                                "patch",
                                                                 "from",
                                                                 0)))
-                                .as("never an empty page that looks like the review's end")
-                                .hasMessageContaining("MethodNotImplemented");
+                                .as("refused before any gate is read")
+                                .isInstanceOfSatisfying(
+                                        VarlinkException.class,
+                                        ex -> {
+                                            assertThat(ex.getErrorName())
+                                                    .isEqualTo(
+                                                            "org.varlink.service.InvalidParameter");
+                                            assertThat(ex.getParameters())
+                                                    .containsEntry("parameter", "part");
+                                        });
                     }
                 });
     }

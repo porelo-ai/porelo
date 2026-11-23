@@ -315,7 +315,9 @@ type ReviewPaged (
   filesNext: ?int,
   commitsNext: ?int,
   logNext: ?int,
-  diffNext: ?int
+  diffNext: ?int,
+  # The full base commit Review resolved and read against, "" for the whole history: ReviewPage.against.
+  base: string
 )
 
 # The rest of a Review that did not fit its reply, page by page, for the commit that Review answered. Pages of
@@ -328,9 +330,12 @@ method ReviewPage(
   name: string,
   # Review.commit; refused as MovedSinceReview when the push has moved since, so every page is of one commit.
   commit: string,
-  # As given to Review, so the pages are of the same review.
-  against: ?string,
-  ignoreLineEndings: ?bool,
+  # Review.paged.base: the pages are of <against>..<commit>, the whole history to commit when "". Never a
+  # default resolved again, so a base that moved since Review cannot change the pages; anything but "" or a
+  # full commit is refused as InvalidParameter naming against.
+  against: string,
+  # As Review was asked with it.
+  ignoreLineEndings: bool,
   # "files", "commits", "log" or "diff"; another is refused as InvalidParameter naming part.
   part: string,
   # Where this page starts: Review.paged's next for the part, or a page's next. A position the daemon did not

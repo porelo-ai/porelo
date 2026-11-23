@@ -156,8 +156,8 @@ larger patch is cut at a file boundary, the files read first kept, and the reply
 patch it leaves out and the `porelo gate review` command that prints all of it, bound to the captured
 commit and base. Every changed file is
 still listed and ranked from the whole change: a dangerous file beyond the cut is still named dangerous.
-A review whose file list and log alone are too large is refused by name with the same command, rather
-than sent as if it were complete.
+A review whose file list, commits or log are too large as well comes in pages: the reply holds the first
+page of each and says where the rest starts, and the window asks for the next page as a person reads on.
 
 **An example: `default` run `online` against a repository on your own machine.** Give the work a
 bare repository of its own to arrive in, and clone your checkout from it. Your own `.porelo.yml`

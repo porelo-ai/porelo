@@ -1,2 +1,0 @@
-title: The daemon's interface declares ReviewPage and Review's paged field, to send a review too large for one message in pages; ReviewPage is refused by name until it is answered.
-type: added

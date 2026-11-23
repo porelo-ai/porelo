@@ -1251,6 +1251,7 @@ class McpTaskSocketsTest {
                         "Egress",
                         "Pending",
                         "Review",
+                        "ReviewPage",
                         "Peers",
                         "MessageMembers");
         final Path socket =

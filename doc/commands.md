@@ -835,8 +835,18 @@ fit, its `diff` ends at a file boundary, never inside a file, and its `cut` says
 are shown and omitted, the omitted paths, and the `porelo gate review` command that prints the whole review
 on this machine: it names the project, repository, task, the captured `--commit` and its `--against` base, so
 it shows that commit after a newer push too. `porelo approve` names the same full view when it cuts its diff. The file list, each file's rank and the log stay whole, and the ranking was made from the
-whole change before anything was cut. When even the review without its patch does not fit, the answer is
-the error `ReviewTooLarge`, with its size and the same command, never a shortened file list.
+whole change before anything was cut; `paged.diffNext` says where the rest of the patch starts. When the
+file list, the commits or the log do not fit either, the review comes in pages: the reply holds each part's
+first page, and `paged` gives each part's whole size, where its next page starts and `base`, the commit
+the review was read against ("" for the whole history). Tasks1 `ReviewPage`, called with the reviewed
+`commit`, `paged.base` as `against`, the `ignoreLineEndings` Review was asked with, a `part` (`files`,
+`commits`, `log` or `diff`) and that position, answers the next page of exactly that review, each one
+message, until a page has no `next`; a default base that moved since never changes the pages; a push that has moved since is refused as
+`MovedSinceReview`, and a position no page gave as `InvalidParameter`. Only a review whose own fields do not
+fit with every part empty is refused as `ReviewTooLarge`. The gate reads a long history in windows, and the
+patch and the file lists whole from the files git writes them to, however large; a review whose patch and file
+lists together hold more than 256 million characters is refused naming the patch's size and how many files
+changed, as is one whose commits and log together hold more than that, naming how many commits it has.
 `porelo gate pending --project default` lists waiting work of every repository in `default`.
 
 Looking at a gate only reads: for a repository this machine holds no mirror of, `gate pending` and the daemon's

@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 /** Test for {@link ReviewCut}: a review fitted to a bound, at file boundaries, or refused. */
 class ReviewCutTest {
 
+    private static final String BASE = "b".repeat(40);
+
     private static final List<String> COMMAND =
             List.of("porelo", "gate", "review", "-p", "p", "-r", "r", "--", "t");
 
@@ -42,11 +44,11 @@ class ReviewCutTest {
     void aReplyThatFitsIsSentAsItIs() {
         final Map<String, Object> reply = reply(part("a.txt", "x", 3));
 
-        assertThat(ReviewCut.fitted(reply, "t", COMMAND, 1_000_000)).isSameAs(reply);
+        assertThat(ReviewCut.fitted(reply, "t", BASE, COMMAND, 1_000_000)).isSameAs(reply);
     }
 
     @Test
-    void everyLimitGetsAReplyWithinItCutAtAFileBoundaryOrARefusal() {
+    void everyLimitGetsAReplyWithinItCutAtAFileBoundaryPagedOrARefusal() {
         // Escapes in the content and in a path: the size is the JSON's, not the text's.
         final String a = part("a.txt", "\u0001\"\\ quoted", 20);
         final String b = part("b é.txt", "plain", 20);
@@ -55,10 +57,12 @@ class ReviewCutTest {
         final Map<String, Object> reply = reply(whole);
         final int full = ReviewCut.bytes(reply);
         int refused = 0;
+        int cut = 0;
+        int paged = 0;
         for (int limit = 100; limit < full; limit += 7) {
             final Map<String, Object> fitted;
             try {
-                fitted = ReviewCut.fitted(reply, "t", COMMAND, limit);
+                fitted = ReviewCut.fitted(reply, "t", BASE, COMMAND, limit);
             } catch (VarlinkException ex) {
                 assertThat(ex.getErrorName()).isEqualTo(PoreloDaemon.INTERFACE + ".ReviewTooLarge");
                 assertThat(ex.getParameters())
@@ -71,26 +75,36 @@ class ReviewCutTest {
             assertThat(ReviewCut.bytes(fitted)).as("within %d", limit).isLessThanOrEqualTo(limit);
             final String diff = String.valueOf(fitted.get("diff"));
             assertThat(List.of("", a, a + b)).as("whole files only").contains(diff);
-            final Map<?, ?> cut = (Map<?, ?>) fitted.get("cut");
-            final int shown = (int) cut.get("shownFiles");
-            assertThat(cut.get("omittedFiles")).isEqualTo(3 - shown);
-            assertThat(cut.get("omitted"))
+            assertThat(fitted).as("what is not whole is paged").containsKey("paged");
+            if (!(fitted.get("cut") instanceof Map<?, ?> said)) {
+                paged++;
+                continue;
+            }
+            cut++;
+            final int shown = (int) said.get("shownFiles");
+            assertThat(said.get("omittedFiles")).isEqualTo(3 - shown);
+            assertThat(said.get("omitted"))
                     .isEqualTo(List.of("a.txt", "b é.txt", "c.txt").subList(shown, 3));
-            assertThat(cut.get("command")).isEqualTo(COMMAND);
+            assertThat(said.get("command")).isEqualTo(COMMAND);
             assertThat(fitted.get("files"))
-                    .as("the list is never shortened")
+                    .as("beside a cut, the list is never shortened")
                     .isEqualTo(reply.get("files"));
             assertThat(fitted.get("log")).isEqualTo(reply.get("log"));
         }
-        assertThat(refused).as("the smallest limits cannot hold the list").isPositive();
-        assertThat(ReviewCut.fitted(reply, "t", COMMAND, full)).doesNotContainKey("cut");
+        assertThat(refused)
+                .as("the smallest limits cannot hold the reply's own fields")
+                .isPositive();
+        assertThat(cut).isPositive();
+        assertThat(paged).isPositive();
+        assertThat(ReviewCut.fitted(reply, "t", BASE, COMMAND, full))
+                .doesNotContainKeys("cut", "paged");
     }
 
     @Test
     void aSingleFileLargerThanTheLimitIsCutWithNoneShown() {
         final Map<String, Object> reply = reply(part("a.txt", "x".repeat(100), 100));
 
-        final Map<String, Object> fitted = ReviewCut.fitted(reply, "t", COMMAND, 2_000);
+        final Map<String, Object> fitted = ReviewCut.fitted(reply, "t", BASE, COMMAND, 2_000);
 
         assertThat(fitted.get("diff")).isEqualTo("");
         assertThat(fitted.get("cut"))
@@ -107,11 +121,22 @@ class ReviewCutTest {
     }
 
     @Test
-    void whatDoesNotFitWithoutAnyPatchIsRefusedByName() {
+    void aLogThatDoesNotFitBesideTheListIsPagedNotRefused() {
         final Map<String, Object> reply = reply(part("a.txt", "x", 3));
-        reply.put("log", "y".repeat(5_000));
+        reply.put("log", "y\n".repeat(2_500));
 
-        assertThatThrownBy(() -> ReviewCut.fitted(reply, "t", COMMAND, 2_000))
+        final Map<String, Object> fitted = ReviewCut.fitted(reply, "t", BASE, COMMAND, 2_000);
+
+        assertThat(ReviewCut.bytes(fitted)).isLessThanOrEqualTo(2_000);
+        assertThat(fitted).containsKey("paged").doesNotContainKey("cut");
+    }
+
+    @Test
+    void whatDoesNotFitWithEveryPartEmptyIsRefusedByName() {
+        final Map<String, Object> reply = reply(part("a.txt", "x", 3));
+        reply.put("asked", "y".repeat(5_000));
+
+        assertThatThrownBy(() -> ReviewCut.fitted(reply, "t", BASE, COMMAND, 2_000))
                 .isInstanceOfSatisfying(
                         VarlinkException.class,
                         ex -> {

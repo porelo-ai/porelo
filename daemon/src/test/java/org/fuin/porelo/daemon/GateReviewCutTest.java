@@ -26,7 +26,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * A review larger than one varlink message, through the daemon: it shows the whole diff or says
  * where it was cut, every changed file stays listed and ranked from the whole change, and what
- * cannot be listed whole is refused by name.
+ * cannot be sent whole comes in pages ReviewPage gives.
  */
 class GateReviewCutTest {
 
@@ -199,10 +199,8 @@ class GateReviewCutTest {
                 .containsSubsequence("--ignore-line-endings", "--", "t");
     }
 
-    @Test
-    void aReviewWhoseListAloneDoesNotFitIsRefusedByName() throws Exception {
-        // Commits whose messages alone are over the limit: a cut patch would still not fit, and a
-        // shortened list would read as the whole one.
+    /** A push of commits whose messages alone are over the limit. */
+    private Push longHistory() throws Exception {
         final Push push = push();
         final String body = "\"".repeat(16_000);
         for (int i = 0; i < 140; i++) {
@@ -210,22 +208,145 @@ class GateReviewCutTest {
             push.commit("commit " + i + "\n\n" + body);
         }
         push.send();
+        return push;
+    }
 
-        assertThatThrownBy(() -> push.review(Map.of()))
+    /** Walks Review's commits through ReviewPage to their end, with the base Review names. */
+    private static List<Object> walkCommits(Push push, Map<String, Object> review)
+            throws Exception {
+        final Map<?, ?> paged = (Map<?, ?>) review.get("paged");
+        assertThat(paged).as("the review says it is paged").isNotNull();
+        final List<Object> commits = new ArrayList<>((List<?>) review.get("commits"));
+        Object next = paged.get("commitsNext");
+        assertThat(next).as("the commits go on").isNotNull();
+        while (next != null) {
+            final Map<String, Object> page =
+                    push.page(
+                            Map.of(
+                                    "commit",
+                                    String.valueOf(review.get("commit")),
+                                    "against",
+                                    String.valueOf(paged.get("base")),
+                                    "ignoreLineEndings",
+                                    false,
+                                    "part",
+                                    "commits",
+                                    "from",
+                                    next));
+            assertThat(bytes(page)).isLessThanOrEqualTo(LIMIT);
+            commits.addAll((List<?>) page.get("commits"));
+            next = page.get("next");
+        }
+        return commits;
+    }
+
+    /** The commits a whole read gives of a review's commit and base, as Review's rows hold them. */
+    private static List<Map<String, Object>> whole(Push push, Map<String, Object> review) {
+        final String base = String.valueOf(((Map<?, ?>) review.get("paged")).get("base"));
+        return push
+                .gate
+                .made(
+                        new org.fuin.porelo.gate.GitGate.Waiting(
+                                String.valueOf(review.get("commit")), ""),
+                        base.isEmpty() ? null : base)
+                .stream()
+                .map(
+                        made -> {
+                            final Map<String, Object> row = new java.util.LinkedHashMap<>();
+                            row.put("commit", made.commit());
+                            row.put("subject", made.subject());
+                            row.put("author", made.author());
+                            row.put("committer", made.committer());
+                            row.put("trailers", made.trailers());
+                            row.put("message", made.message() == null ? "" : made.message());
+                            return row;
+                        })
+                .toList();
+    }
+
+    @Test
+    void aReviewWhoseCommitsAloneDoNotFitComesInPagesWalkedToTheirEnd() throws Exception {
+        // Commits whose messages alone are over the limit: they were refused, and are now paged.
+        final Push push = longHistory();
+
+        final Map<String, Object> review = push.review(Map.of());
+
+        assertThat(bytes(review)).isLessThanOrEqualTo(LIMIT);
+        final List<Object> commits = walkCommits(push, review);
+        assertThat(commits)
+                .as("every commit once, in order, as a whole read gives them")
+                .hasSizeGreaterThanOrEqualTo(140)
+                .isEqualTo(whole(push, review));
+        assertThat(((Number) ((Map<?, ?>) review.get("paged")).get("commits")).longValue())
+                .as("the commits paged say how many the walk gave")
+                .isEqualTo(commits.size());
+    }
+
+    @Test
+    void theDefaultBaseMovingAfterReviewLeavesThePagesThoseOfTheReview() throws Exception {
+        final Push push = longHistory();
+        final Map<String, Object> review = push.review(Map.of());
+        final String base = String.valueOf(((Map<?, ?>) review.get("paged")).get("base"));
+        assertThat(base).as("Review names its base").isEqualTo(push.capturedBase());
+
+        // The default base moves into the push: read again, it would leave out half its commits.
+        in(push.work, "push", "-q", "-f", push.gate.mirror().toString(), "HEAD~70:refs/heads/main");
+        assertThat(push.capturedBase()).as("the default base moved").isNotEqualTo(base);
+
+        assertThat(walkCommits(push, review))
+                .as("the pages are those of the review")
+                .hasSize(((Number) ((Map<?, ?>) review.get("paged")).get("commits")).intValue())
+                .isEqualTo(whole(push, review));
+    }
+
+    @Test
+    void aReviewPageOfAMovedPushIsRefusedAsApproveRefusesIt() throws Exception {
+        final Push push = push();
+        push.write("one.txt", "one\n");
+        push.commit("one");
+        push.send();
+        final String reviewed = String.valueOf(push.review(Map.of()).get("commit"));
+        push.write("two.txt", "two\n");
+        push.commit("two");
+        push.send();
+
+        assertThatThrownBy(() -> push.page(Map.of("commit", reviewed, "part", "files", "from", 0)))
                 .isInstanceOfSatisfying(
                         VarlinkException.class,
                         ex -> {
                             assertThat(ex.getErrorName())
-                                    .isEqualTo(PoreloDaemon.INTERFACE + ".ReviewTooLarge");
+                                    .isEqualTo(PoreloDaemon.INTERFACE + ".MovedSinceReview");
                             assertThat(ex.getParameters())
                                     .containsEntry("name", "t")
-                                    .containsEntry("limit", (long) LIMIT);
-                            assertThat(((Number) ex.getParameters().get("bytes")).longValue())
-                                    .isGreaterThan(LIMIT);
-                            assertThat(strings(ex.getParameters().get("command")))
-                                    .startsWith("porelo", "gate", "review")
-                                    .endsWith("--", "t");
+                                    .containsEntry("reviewed", reviewed);
                         });
+    }
+
+    @Test
+    void aReviewPageFromAPositionNoPageGaveIsRefusedNamingFrom() throws Exception {
+        final Push push = push();
+        push.write("one.txt", "one\n");
+        push.commit("one");
+        push.send();
+        final String commit = String.valueOf(push.review(Map.of()).get("commit"));
+
+        for (final Map<String, Object> asked :
+                List.<Map<String, Object>>of(
+                        Map.of("commit", commit, "part", "files", "from", 5),
+                        Map.of("commit", commit, "part", "log", "from", 3),
+                        Map.of("commit", commit, "part", "diff", "from", 1))) {
+            assertThatThrownBy(() -> push.page(asked))
+                    .as("%s", asked)
+                    .isInstanceOfSatisfying(
+                            VarlinkException.class,
+                            ex ->
+                                    assertThat(ex.getParameters())
+                                            .containsEntry("parameter", "from"));
+        }
+        assertThat(push.page(Map.of("commit", commit, "part", "files", "from", 0)))
+                .as("a position at an entry is answered")
+                .containsKey("files")
+                .doesNotContainKey("next");
     }
 
     @Test
@@ -237,7 +358,7 @@ class GateReviewCutTest {
 
         final Map<String, Object> review = push.review(Map.of());
 
-        assertThat(review).doesNotContainKey("cut");
+        assertThat(review).doesNotContainKeys("cut", "paged");
         assertThat(String.valueOf(review.get("diff"))).isEqualTo(push.wholePatch());
     }
 
@@ -292,6 +413,18 @@ class GateReviewCutTest {
         }
 
         Map<String, Object> review(Map<String, Object> more) throws Exception {
+            return call("Review", more);
+        }
+
+        Map<String, Object> page(Map<String, Object> more) throws Exception {
+            // The base and the switch a small review was read with, unless a call names them.
+            final Map<String, Object> asked = new java.util.LinkedHashMap<>(more);
+            asked.putIfAbsent("against", capturedBase());
+            asked.putIfAbsent("ignoreLineEndings", false);
+            return call("ReviewPage", asked);
+        }
+
+        Map<String, Object> call(String method, Map<String, Object> more) throws Exception {
             final Map<String, Object> parameters =
                     new java.util.LinkedHashMap<>(
                             Map.of("project", "default", "repository", "app", "name", "t"));
@@ -301,7 +434,7 @@ class GateReviewCutTest {
                 final Thread thread = Thread.ofVirtual().start(server);
                 try (VarlinkClient client = new VarlinkClient(socket)) {
                     return client.call(
-                            PoreloDaemon.INTERFACE + ".Review",
+                            PoreloDaemon.INTERFACE + "." + method,
                             parameters,
                             java.time.Duration.ofMinutes(2));
                 } finally {

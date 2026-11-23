@@ -1087,31 +1087,28 @@ public class GitGate {
         final String pinned = waiting.commit();
         final List<String> refs =
                 refs(pinned, against == null || against.isBlank() ? null : namedBase(against));
+        // Each answer is read whole from the file git writes it to, never from its standard output,
+        // which the runner keeps only the end of beyond a bound; together they hold at most what
+        // this gate reads of one review.
+        final DiffReading reading = new DiffReading(verb, refs);
         // Read with -z: without it git quotes a path holding a byte beyond ASCII, a '"' or a tab,
         // and the quoted name matched no dangerous place - a workflow ranked ordinary.
         final Map<String, int[]> counts =
-                numstat(gitIn(join(verb, List.of("--numstat", "-z"), refs)).standardOutput());
+                numstat(reading.read(List.of("--numstat", "-z"), "list of changed files"));
         final Map<String, int[]> countsIgnoringLineEndings =
                 numstat(
-                        gitIn(join(verb, List.of("--numstat", "-z", "--ignore-space-at-eol"), refs))
-                                .standardOutput());
+                        reading.read(
+                                List.of("--numstat", "-z", "--ignore-space-at-eol"),
+                                "list of changed files"));
         final Set<String> beyondWhitespace =
                 numstat(
-                                gitIn(
-                                                join(
-                                                        verb,
-                                                        List.of(
-                                                                "--numstat",
-                                                                "-z",
-                                                                "-w",
-                                                                "--ignore-blank-lines"),
-                                                        refs))
-                                        .standardOutput())
+                                reading.read(
+                                        List.of("--numstat", "-z", "-w", "--ignore-blank-lines"),
+                                        "list of changed files"))
                         .keySet();
         final List<ReviewRanking.Change> changes = new ArrayList<>();
         final String[] raw =
-                gitIn(join(verb, List.of("--raw", "-z", "--no-abbrev"), refs))
-                        .standardOutput()
+                reading.read(List.of("--raw", "-z", "--no-abbrev"), "list of changed files")
                         .split("\0");
         for (int at = 0; at + 1 < raw.length; at += 2) {
             // ":<old mode> <new mode> <old blob> <new blob> <status>" NUL "<path>" NUL - no
@@ -1161,7 +1158,7 @@ public class GitGate {
                     ignoreLineEndings
                             ? List.of("--patch", "-O" + order, "--ignore-space-at-eol")
                             : List.of("--patch", "-O" + order);
-            final String patch = gitIn(join(verb, options, refs)).standardOutput();
+            final String patch = reading.read(options, "patch");
             return new ReviewRanking.Review(files, patch);
         } finally {
             try {
@@ -1171,6 +1168,107 @@ public class GitGate {
                 // failing for.
             }
         }
+    }
+
+    /**
+     * Reads the diffs of one review whole, each through the file {@code git diff --output} writes,
+     * and all of them together up to what this gate reads of one review.
+     *
+     * <p>Not through standard output: the runner keeps a long output's end alone, and a patch past
+     * that - a vendored tree, a generated lock file - was refused for it. The file is read as
+     * written, every byte, so a {@code -z} answer keeps a path's line feed exactly.
+     */
+    private final class DiffReading {
+
+        private final List<String> verb;
+
+        private final List<String> refs;
+
+        private long held;
+
+        private DiffReading(final List<String> verb, final List<String> refs) {
+            this.verb = verb;
+            this.refs = refs;
+        }
+
+        /**
+         * Returns one diff whole.
+         *
+         * @param options The diff's options, without {@code --output}.
+         * @param what What it is, for a refusal.
+         * @return Git's answer, every character.
+         * @throws GateException If it, with what was read before, holds more than the gate reads.
+         */
+        private String read(final List<String> options, final String what) {
+            final Path out;
+            try {
+                out = Files.createTempFile("porelo-review", ".diff");
+            } catch (IOException ex) {
+                throw new GateException("could not read the review: " + ex.getMessage(), ex);
+            }
+            try {
+                final List<String> written = new ArrayList<>(options);
+                written.add("--output=" + out);
+                gitIn(join(verb, written, refs));
+                final String answer = readAtMost(out, readBound - held);
+                if (answer == null) {
+                    throw changeTooLarge(out, what);
+                }
+                held += answer.length();
+                return answer;
+            } finally {
+                try {
+                    Files.deleteIfExists(out);
+                } catch (IOException ex) {
+                    // A leftover file holds what the person is about to read anyway, owner-only.
+                }
+            }
+        }
+
+        /** Refuses a change past the bound, naming the answer's size and how many files changed. */
+        private GateException changeTooLarge(final Path out, final String what) {
+            long size;
+            try {
+                size = Files.size(out);
+            } catch (IOException ex) {
+                size = -1;
+            }
+            final String stat = gitIn(join(verb, List.of("--shortstat"), refs)).trimmedOutput();
+            final java.util.regex.Matcher files =
+                    java.util.regex.Pattern.compile("(\\d+) files? changed").matcher(stat);
+            return new GateException(
+                    "the review is too large to read: its "
+                            + what
+                            + (size < 0 ? "" : " alone is " + size + " bytes")
+                            + ", over "
+                            + (files.find() ? files.group(1) : "an unknown number of")
+                            + " changed files, more than the "
+                            + readBound
+                            + " characters the gate reads of one review; review it against a"
+                            + " nearer base");
+        }
+    }
+
+    /**
+     * Reads a file as UTF-8, malformed bytes replaced as an output's are, or {@code null} once it
+     * holds more than so many characters, without holding more than that.
+     */
+    private static @Nullable String readAtMost(final Path file, final long most) {
+        final StringBuilder text = new StringBuilder();
+        try (java.io.Reader reader =
+                new java.io.InputStreamReader(Files.newInputStream(file), StandardCharsets.UTF_8)) {
+            final char[] buffer = new char[8192];
+            int read;
+            while ((read = reader.read(buffer)) != -1) {
+                if (text.length() + (long) read > most) {
+                    return null;
+                }
+                text.append(buffer, 0, read);
+            }
+        } catch (IOException ex) {
+            throw new GateException("could not read the review: " + ex.getMessage(), ex);
+        }
+        return text.toString();
     }
 
     /** How many files' heads are read to see whether they say they were generated. */
@@ -1232,6 +1330,15 @@ public class GitGate {
         public Made {
             trailers = List.copyOf(trailers);
         }
+
+        /** What it holds, in characters, as a review's bound counts it. */
+        long size() {
+            long size = commit.length() + subject.length() + author.length() + committer.length();
+            for (final String trailer : trailers) {
+                size += trailer.length();
+            }
+            return message == null ? size : size + message.length();
+        }
     }
 
     /** The most code points kept of a subject, a maker or one trailer. */
@@ -1269,8 +1376,92 @@ public class GitGate {
      * @throws GateException If {@code against} names nothing in the mirror.
      */
     public List<Made> made(Waiting waiting, @Nullable String against) {
-        return made(range(waiting, against), -1);
+        final String range = range(waiting, against);
+        final List<Made> made = new ArrayList<>();
+        long held = 0;
+        int window = LOG_WINDOW;
+        while (true) {
+            final List<Made> part = made(range, made.size(), window);
+            if (part == null) {
+                window = smaller(window, range);
+                continue;
+            }
+            made.addAll(part);
+            for (final Made one : part) {
+                held += one.size();
+            }
+            if (held > readBound / 2) {
+                throw tooLarge(range);
+            }
+            if (part.size() < window) {
+                return List.copyOf(made);
+            }
+        }
     }
+
+    /**
+     * How many commits one {@code git log} of a review reads at most. A command's output is kept
+     * only up to a bound, its start cut away beyond it, so a long history is read in windows of
+     * commits that each stay under it, and a window that still comes back cut is read again halved.
+     */
+    static final int LOG_WINDOW = 5_000;
+
+    /**
+     * The most one review reads of its commits and its log together, in characters, and again of
+     * its patch and its lists of changed files together: an agent can push a history or a change of
+     * any size, and the daemon holding it is shared.
+     */
+    static final long READ_BOUND = 256L * 1024 * 1024;
+
+    /**
+     * What this gate's reviews read at most: half for the commits, half for the log, and all of it
+     * for the patch and the file lists.
+     */
+    private long readBound = READ_BOUND;
+
+    /**
+     * Returns this gate with another bound on what one review reads.
+     *
+     * @param bound The most characters of commits and log together, and of the patch and the file
+     *     lists together.
+     * @return This gate.
+     */
+    GitGate readingAtMost(final long bound) {
+        this.readBound = bound;
+        return this;
+    }
+
+    /** Refuses a review that holds more than this gate reads of one, naming how many commits. */
+    private GateException tooLarge(final String range) {
+        final String count = gitIn("rev-list", "--count", range, "--").trimmedOutput();
+        return new GateException(
+                "the review is too large to read: its "
+                        + count
+                        + " commits hold more than the "
+                        + readBound
+                        + " characters the gate reads of one review; review it against a nearer"
+                        + " base");
+    }
+
+    /** Returns half a window that came back cut, refusing when one commit alone did. */
+    private static int smaller(final int window, final String range) {
+        if (window == 1) {
+            throw new GateException(
+                    "git log gave one commit of '" + range + "' larger than the gate reads whole");
+        }
+        return window / 2;
+    }
+
+    /**
+     * Whether git's answer is whole: the runner keeps a long output's end alone and opens what it
+     * kept with a line saying how much it cut, which nothing git prints for a review starts with.
+     */
+    private static boolean cutShort(final String output) {
+        return CUT_BEFORE.matcher(output).lookingAt();
+    }
+
+    private static final java.util.regex.Pattern CUT_BEFORE =
+            java.util.regex.Pattern.compile("\\[\\d+ bytes cut before this]\n");
 
     /**
      * The commits a review lists: those the base lacks, or the whole history to the captured commit
@@ -1305,11 +1496,25 @@ public class GitGate {
     }
 
     private List<Made> made(String range, int most) {
+        final List<Made> made = made(range, 0, most);
+        if (made == null) {
+            throw new GateException("git log gave the makers of '" + range + "' cut short");
+        }
+        return made;
+    }
+
+    /**
+     * Returns the makers of a window of commits, or {@code null} when git's answer came back cut.
+     */
+    private @Nullable List<Made> made(String range, int skip, int most) {
         // No separator byte cuts the agent's bytes apart: an agent can write any of them into its
         // commit. What git guarantees is that an ident and a subject hold no newline, so each
         // commit is exactly four lines, its id first.
         final String output =
-                logged(range, most, false, "%H%n%an <%ae>%n%cn <%ce>%n%s").standardOutput();
+                logged(range, skip, most, false, "%H%n%an <%ae>%n%cn <%ce>%n%s").standardOutput();
+        if (cutShort(output)) {
+            return null;
+        }
         if (!output.isEmpty() && !output.endsWith("\n")) {
             throw new GateException("git log gave the makers of '" + range + "' cut short");
         }
@@ -1331,8 +1536,14 @@ public class GitGate {
         // Trailers from git's own reading of the whole message, in one more call for all commits
         // rather than an interpret-trailers per commit: a long push stays three processes, and the
         // trailers are those of the message, not of the cut copy below.
-        final List<String> messages = byCommit(range, most, "%B", commits);
-        final List<String> trailers = byCommit(range, most, "%(trailers:only,unfold)", commits);
+        final Fields read = byCommit(range, skip, most, "%B", commits);
+        final Fields unfolded = byCommit(range, skip, most, "%(trailers:only,unfold)", commits);
+        if (read.cut() || unfolded.cut()) {
+            // Never messages left empty for an answer that came back cut: a smaller window.
+            return null;
+        }
+        final List<String> messages = read.each();
+        final List<String> trailers = unfolded.each();
         final List<Made> made = new ArrayList<>();
         for (int index = 0; index < commits.size(); index++) {
             made.add(
@@ -1358,9 +1569,24 @@ public class GitGate {
      * are exactly the given commits in order, each led by its own id: a message holds any line, so
      * nothing else shows where one commit's ends.
      */
-    private @Nullable List<String> byCommit(
-            String range, int most, String format, List<String> commits) {
-        final String output = logged(range, most, true, "%H%n" + format).standardOutput();
+    private Fields byCommit(String range, int skip, int most, String format, List<String> commits) {
+        final String output = logged(range, skip, most, true, "%H%n" + format).standardOutput();
+        if (cutShort(output)) {
+            return new Fields(null, true);
+        }
+        return new Fields(byCommit(output, commits), false);
+    }
+
+    /**
+     * One field of each commit.
+     *
+     * @param each The fields, or {@code null} when git's answer could not be matched to the
+     *     commits.
+     * @param cut Whether git's answer came back cut, so a smaller window is read instead.
+     */
+    private record Fields(@Nullable List<String> each, boolean cut) {}
+
+    private static @Nullable List<String> byCommit(String output, List<String> commits) {
         if (!output.isEmpty() && !output.endsWith("\0")) {
             return null;
         }
@@ -1382,8 +1608,11 @@ public class GitGate {
         return fields;
     }
 
-    private CommandResult logged(String range, int most, boolean nulls, String format) {
+    private CommandResult logged(String range, int skip, int most, boolean nulls, String format) {
         final List<String> arguments = new ArrayList<>(List.of("log"));
+        if (skip > 0) {
+            arguments.add("--skip=" + skip);
+        }
         if (most > 0) {
             arguments.add("-" + most);
         }
@@ -1464,8 +1693,27 @@ public class GitGate {
     public String log(Waiting waiting, @Nullable String against) {
         final String range = range(waiting, against);
         // Each commit in full: it is what 'gate approve --commit' takes, and seven characters are
-        // not, since another commit an agent makes can be made to share them.
-        return gitIn("log", "--format=%H %s", range).standardOutput();
+        // not, since another commit an agent makes can be made to share them. One line each, as a
+        // subject holds no newline: read in windows, so no answer comes back cut.
+        final StringBuilder log = new StringBuilder();
+        int read = 0;
+        int window = LOG_WINDOW;
+        while (true) {
+            final String part = logged(range, read, window, false, "%H %s").standardOutput();
+            if (cutShort(part)) {
+                window = smaller(window, range);
+                continue;
+            }
+            if ((long) log.length() + part.length() > readBound / 2) {
+                throw tooLarge(range);
+            }
+            final int lines = (int) part.chars().filter(c -> c == '\n').count();
+            log.append(part);
+            read += lines;
+            if (lines < window) {
+                return log.toString();
+            }
+        }
     }
 
     /**
