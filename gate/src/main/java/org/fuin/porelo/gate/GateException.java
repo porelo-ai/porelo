@@ -25,12 +25,30 @@ public class GateException extends RuntimeException {
     }
 
     /**
-     * The forge did not answer a push the gate passed on within its limit, so the push was ended:
-     * not a refusal, since the forge said nothing.
+     * The forge did not answer a push the gate passed on, or an approval forwarded, within its
+     * limit, so the push was ended: not a refusal, since the forge said nothing.
      */
     public static final class ForgeSilent extends GateException {
 
         private static final long serialVersionUID = 1L;
+
+        /** Who is told to try again, and so what they do: an agent pushes, a person approves. */
+        public enum Again {
+            /** An agent's push the gate passed on. */
+            PUSH(" - push again", " - push again, which sets only this task's branch"),
+            /** A person's approval the gate forwarded. */
+            APPROVE(
+                    " - approve again",
+                    " - approve again, which sends the same reviewed commit to the same branch");
+
+            private final String notHeld;
+            private final String notKnown;
+
+            Again(final String notHeld, final String notKnown) {
+                this.notHeld = notHeld;
+                this.notKnown = notKnown;
+            }
+        }
 
         /**
          * Constructor.
@@ -41,16 +59,17 @@ public class GateException extends RuntimeException {
          * @param limit How long the gate waited.
          * @param notHeld Whether the forge, asked after, did not hold the commit; {@code false}
          *     when that is not known either.
+         * @param again Whose step it was, which the words tell them to take again.
          */
-        public ForgeSilent(final java.time.Duration limit, final boolean notHeld) {
+        public ForgeSilent(
+                final java.time.Duration limit, final boolean notHeld, final Again again) {
             super(
                     "the forge did not answer within "
                             + limit.toSeconds()
                             + " s"
                             + (notHeld
-                                    ? " and did not hold the push when asked after - push again"
-                                    : "; whether it took the push is not known - push again, which"
-                                            + " sets only this task's branch"));
+                                    ? " and did not hold the push when asked after" + again.notHeld
+                                    : "; whether it took the push is not known" + again.notKnown));
         }
     }
 

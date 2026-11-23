@@ -2384,7 +2384,9 @@ public class GitGate {
                     if (Boolean.TRUE.equals(held)) {
                         return null;
                     }
-                    return new GateException.ForgeSilent(waited, held != null).getMessage();
+                    return new GateException.ForgeSilent(
+                                    waited, held != null, GateException.ForgeSilent.Again.PUSH)
+                            .getMessage();
                 }
                 final String help = lease.failure(ex).getMessage();
                 return help == null || help.equals(ex.getMessage())
@@ -2817,7 +2819,8 @@ public class GitGate {
             // It may have landed before the forge stalled: what it holds now decides.
             final Boolean held = holds(lease, branch, commit);
             if (!Boolean.TRUE.equals(held)) {
-                throw new GateException.ForgeSilent(waited, held != null);
+                throw new GateException.ForgeSilent(
+                        waited, held != null, GateException.ForgeSilent.Again.APPROVE);
             }
         }
     }

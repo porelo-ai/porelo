@@ -35,6 +35,9 @@ class ApprovalForwardLimitTest {
     /** Whether the upstream holds the commit when asked after a push that ended at its limit. */
     private boolean heldAfter;
 
+    /** Whether the upstream does not answer when asked after either. */
+    private boolean heldUnknown;
+
     /**
      * A forge that takes the connection and never answers: the runner ends the push at the
      * command's own limit, or at a long limit of its own when the command names none.
@@ -51,6 +54,9 @@ class ApprovalForwardLimitTest {
                 }
                 if (arguments.contains("ls-remote")) {
                     final boolean pushed = asked.stream().anyMatch(each -> each.contains("push"));
+                    if (pushed && heldUnknown) {
+                        throw CommandException.timedOut(command, Duration.ofSeconds(10), "");
+                    }
                     return done(
                             command,
                             pushed && heldAfter ? COMMIT + "\trefs/heads/porelo/task-1\n" : "");
@@ -85,11 +91,24 @@ class ApprovalForwardLimitTest {
                 .isInstanceOf(GateException.ForgeSilent.class)
                 .hasMessage(
                         "the forge did not answer within 10 s and did not hold the push when"
-                                + " asked after - push again");
+                                + " asked after - approve again");
         assertThat(pushLimits).containsExactly(Duration.ofSeconds(10));
         assertThat(asked)
                 .as("nothing is recorded as forwarded or landed")
                 .noneMatch(each -> each.contains("update-ref"));
+    }
+
+    @Test
+    void anApprovalWhoseLandingIsNotKnownTellsThePersonToApproveTheSameCommitAgain() {
+        // The person approving never pushes: the words name what they can do.
+        heldUnknown = true;
+
+        assertThatThrownBy(() -> gate().approve("task-1", "porelo/task-1", COMMIT))
+                .isInstanceOf(GateException.ForgeSilent.class)
+                .hasMessage(
+                        "the forge did not answer within 10 s; whether it took the push is not"
+                                + " known - approve again, which sends the same reviewed commit"
+                                + " to the same branch");
     }
 
     @Test
@@ -116,7 +135,9 @@ class ApprovalForwardLimitTest {
                                                 dir.resolve("merge"),
                                                 COMMIT))
                 .isInstanceOf(GateException.ForgeSilent.class)
-                .hasMessageStartingWith("the forge did not answer within 10 s");
+                .hasMessageStartingWith("the forge did not answer within 10 s")
+                .hasMessageEndingWith("- approve again")
+                .hasMessageNotContaining("push again");
         assertThat(pushLimits).containsExactly(Duration.ofSeconds(10));
     }
 }
