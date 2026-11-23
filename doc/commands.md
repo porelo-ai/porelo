@@ -873,6 +873,10 @@ fit with every part empty is refused as `ReviewTooLarge`. The gate reads a long 
 patch and the file lists whole from the files git writes them to, however large; a review whose patch and file
 lists together hold more than 256 million characters is refused naming the patch's size and how many files
 changed, as is one whose commits and log together hold more than that, naming how many commits it has.
+A `Review` or `ReviewPage` whose caller goes before it is answered stops: when the connection that asked
+ends, the daemon ends the git programs reading that review, keeps nothing of it for its pages, and says in one
+line of its log that the caller went. A caller that ends its half of the connection counts as gone, so a
+script that pipes one of these calls into `porelo daemon connect` hears no answer.
 `porelo gate pending --project default` lists waiting work of every repository in `default`.
 
 Looking at a gate only reads: for a repository this machine holds no mirror of, `gate pending` and the daemon's

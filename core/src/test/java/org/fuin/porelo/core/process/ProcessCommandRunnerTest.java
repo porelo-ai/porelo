@@ -289,6 +289,72 @@ class ProcessCommandRunnerTest {
     }
 
     @Test
+    @org.junit.jupiter.api.Timeout(20)
+    void aRunWhoseThreadIsInterruptedEndsItsProgramAndItsChildrenAsACancellation(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+
+        // A review whose caller went went on reading git to its end, and said so as a failure.
+        final java.nio.file.Path child = dir.resolve("child");
+        final java.nio.file.Path started = dir.resolve("started");
+        final var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        final Thread caller =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    try {
+                                        runner.run(
+                                                Command.of(
+                                                        "sh",
+                                                        "-c",
+                                                        "sleep 30 & echo $! > \"$1\";"
+                                                                + " echo $$ > \"$2\"; wait",
+                                                        "sh",
+                                                        child.toString(),
+                                                        started.toString()));
+                                    } catch (Throwable ex) {
+                                        failure.set(ex);
+                                    }
+                                });
+        final java.time.Instant ready = java.time.Instant.now().plusSeconds(5);
+        while ((!java.nio.file.Files.exists(started) || java.nio.file.Files.size(started) == 0)
+                && java.time.Instant.now().isBefore(ready)) {
+            Thread.sleep(10);
+        }
+        final long program = Long.parseLong(java.nio.file.Files.readString(started).strip());
+        final long grandchild = Long.parseLong(java.nio.file.Files.readString(child).strip());
+
+        caller.interrupt();
+        caller.join(Duration.ofSeconds(2));
+
+        assertThat(caller.isAlive()).as("the run ended within two seconds").isFalse();
+        assertThat(failure.get())
+                .isInstanceOfSatisfying(
+                        CommandException.class,
+                        ex -> {
+                            assertThat(ex.cancelled()).as("said as a cancellation").isTrue();
+                            assertThat(ex.timedOut()).as("not as its limit").isFalse();
+                        });
+        for (final long pid : new long[] {program, grandchild}) {
+            final java.time.Instant until = java.time.Instant.now().plusSeconds(2);
+            while (ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false)
+                    && java.time.Instant.now().isBefore(until)) {
+                Thread.sleep(10);
+            }
+            assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
+                    .as("process %d is gone", pid)
+                    .isFalse();
+        }
+    }
+
+    @Test
+    void aFailureIsNotACancellation() {
+
+        assertThatThrownBy(() -> runner.runOrFail(Command.of("sh", "-c", "exit 3")))
+                .isInstanceOfSatisfying(
+                        CommandException.class, ex -> assertThat(ex.cancelled()).isFalse());
+    }
+
+    @Test
     void aFailureIsNotATimeout() {
 
         assertThatThrownBy(() -> runner.runOrFail(Command.of("sh", "-c", "exit 3")))

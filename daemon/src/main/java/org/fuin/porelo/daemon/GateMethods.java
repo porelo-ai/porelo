@@ -520,7 +520,9 @@ final class GateMethods {
                 });
 
         // The rest of a review too large for one message, page by page, read as Review read it.
-        server.method(
+        // Both end with their caller: git's reads for a review nobody waits for any more stop,
+        // and a reading cut short is never kept.
+        server.methodEndingWithItsCaller(
                 "ReviewPage",
                 (parameters, replies) -> {
                     final String part = text(parameters, "part");
@@ -593,7 +595,7 @@ final class GateMethods {
                     replies.last(ReviewPages.page(part, whole, from));
                 });
 
-        server.method(
+        server.methodEndingWithItsCaller(
                 "Review",
                 (parameters, replies) -> {
                     final Reading reading = reading(parameters, context);

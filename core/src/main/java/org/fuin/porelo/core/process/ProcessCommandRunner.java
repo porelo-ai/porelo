@@ -96,9 +96,11 @@ public class ProcessCommandRunner implements CommandRunner {
                 return new CommandResult(
                         command, process.exitValue(), out.text(), err.text(), out.cut());
             } catch (InterruptedException ex) {
+                // Called off: the program and everything it started end now, and the caller hears
+                // a cancellation, not a failure of the program's own.
                 end(process);
                 Thread.currentThread().interrupt();
-                throw new CommandException(command, ex);
+                throw CommandException.cancelled(command, err.text());
             } finally {
                 joinInput(inputThread);
                 if (handing != null) {

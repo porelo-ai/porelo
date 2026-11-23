@@ -3,8 +3,8 @@ package org.fuin.porelo.core.process;
 import org.jspecify.annotations.Nullable;
 
 /**
- * An external program could not be started, ended with a non-zero exit code, or was ended at its
- * limit.
+ * An external program could not be started, ended with a non-zero exit code, was ended at its
+ * limit, or was ended because its run was called off.
  */
 public class CommandException extends RuntimeException {
 
@@ -105,6 +105,30 @@ public class CommandException extends RuntimeException {
      */
     public boolean timedOut() {
         return limit != null;
+    }
+
+    /**
+     * Creates the failure of a program that was ended because the thread waiting for it was
+     * interrupted: the run was called off, and the program did not fail by itself.
+     *
+     * @param command The command.
+     * @param standardError What it said before it was ended.
+     * @return The failure, which says it was {@link #cancelled()}.
+     */
+    public static CommandException cancelled(Command command, String standardError) {
+        return new CommandException(
+                command, new InterruptedException("Cancelled"), standardError, null);
+    }
+
+    /**
+     * Returns whether the program was ended because its run was called off, its thread interrupted,
+     * rather than failing by itself or reaching its limit, so a caller need not read the message to
+     * tell.
+     *
+     * @return Whether it was.
+     */
+    public boolean cancelled() {
+        return getCause() instanceof InterruptedException;
     }
 
     /**

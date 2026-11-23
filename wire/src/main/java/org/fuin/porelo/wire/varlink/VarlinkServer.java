@@ -21,6 +21,12 @@ import org.jspecify.annotations.Nullable;
  * <p>Implements {@code org.varlink.service.GetInfo} itself, because that is what makes a service
  * introspectable by {@code varlinkctl} and by anything else that speaks the protocol - which in
  * turn is what makes an independent conformance check possible without writing one.
+ *
+ * <p>One connection's calls run one at a time, on the connection's own thread. A method registered
+ * with {@link #methodEndingWithItsCaller(String, Method)} is watched while it runs: when its
+ * caller's side of the connection ends, its thread is interrupted, what it throws then is not sent,
+ * and the connection is closed. A call that has ended is never told, and an answer that finds the
+ * connection closed is dropped, as for every other method.
  */
 public class VarlinkServer implements AutoCloseable, Runnable {
 
@@ -97,6 +103,9 @@ public class VarlinkServer implements AutoCloseable, Runnable {
     private final String interfaceName;
 
     private final Map<String, Method> methods = new ConcurrentHashMap<>();
+
+    /** The methods, fully qualified, that end with their caller. */
+    private final java.util.Set<String> endingWithCaller = ConcurrentHashMap.newKeySet();
 
     /** The IDL this service serves, or {@code null} until one is given. */
     private volatile @Nullable String description;
@@ -443,7 +452,29 @@ public class VarlinkServer implements AutoCloseable, Runnable {
      * @return This instance.
      */
     public VarlinkServer method(String name, Method method) {
+        endingWithCaller.remove(interfaceName + "." + name);
         methods.put(interfaceName + "." + name, method);
+        return this;
+    }
+
+    /**
+     * Registers a method that ends with its caller: while it runs, its connection is watched, and
+     * when the caller's side ends - the client closed, or ended its half - before the method has
+     * returned, the method's thread is interrupted. A program it runs and waits for is ended by
+     * that, and what it throws then is never sent: the caller is not there to read it. One line in
+     * this server's log says the caller went.
+     *
+     * <p>For a long reading nobody waits for once its caller has gone, such as a review. Not for a
+     * method that must run to its end once asked, nor for one a script asks through a bridge that
+     * ends its half when its input ends: to this server that reads as a caller that went.
+     *
+     * @param name Method name without the interface prefix.
+     * @param method What to run.
+     * @return This instance.
+     */
+    public VarlinkServer methodEndingWithItsCaller(String name, Method method) {
+        method(name, method);
+        endingWithCaller.add(interfaceName + "." + name);
         return this;
     }
 
@@ -581,6 +612,51 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                 raw instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
         final boolean more = Boolean.TRUE.equals(call.get("more"));
 
+        if (!endingWithCaller.contains(methodName)) {
+            return answer(connection, methodName, method, parameters, more, null);
+        }
+        final CallerWatch watch = CallerWatch.start(connection);
+        final boolean serves;
+        try {
+            serves = answer(connection, methodName, method, parameters, more, watch);
+        } catch (IOException | RuntimeException ex) {
+            if (!watch.end()) {
+                throw ex;
+            }
+            callerWent(methodName);
+            return false;
+        }
+        if (watch.end()) {
+            callerWent(methodName);
+            return false;
+        }
+        return serves;
+    }
+
+    /** Says in the log, once, that a call ended with its caller, which is no failure. */
+    private void callerWent(final String methodName) {
+        try {
+            log.accept(methodName + ": the caller went, and the call was stopped");
+        } catch (RuntimeException | Error lost) {
+            // The log is where this would have gone; nothing is left to say it with.
+        }
+    }
+
+    /**
+     * Runs one call's method and sends its answer.
+     *
+     * @param watch The watch of its caller, or {@code null} for a method that does not end with it.
+     * @return Whether the connection serves further calls: not after an error in the call, nor
+     *     after its caller went.
+     */
+    private boolean answer(
+            final VarlinkConnection connection,
+            final String methodName,
+            final Method method,
+            final Map<String, Object> parameters,
+            final boolean more,
+            final @Nullable CallerWatch watch)
+            throws IOException {
         try {
             method.call(
                     parameters,
@@ -596,6 +672,11 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
                         @Override
                         public void last(Map<String, Object> values) throws IOException {
+                            // Ended before the answer goes, so a caller that reads it and leaves
+                            // at once is not taken for one that went during the call.
+                            if (watch != null && watch.end()) {
+                                return;
+                            }
                             connection.send(Map.of("parameters", values));
                         }
 
@@ -616,10 +697,15 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                                 asked = true;
                                 return true;
                             }
-                            return !connection.peerGone();
+                            // A watched call's connection is read by its watch alone.
+                            return watch == null ? !connection.peerGone() : !watch.callerGone();
                         }
                     });
         } catch (VarlinkException ex) {
+            if (watch != null && watch.end()) {
+                // Nobody is there to read what it says.
+                return false;
+            }
             final String failed = interfaceName + ".Failed";
             final String errorName = ex.getErrorName() == null ? failed : ex.getErrorName();
             error(
@@ -629,6 +715,9 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                             ? failedParameters(ex.getParameters(), ex)
                             : ex.getParameters() == null ? Map.of() : ex.getParameters());
         } catch (RuntimeException ex) {
+            if (watch != null && watch.end()) {
+                return false;
+            }
             error(connection, interfaceName + ".Failed", failedParameters(null, ex));
         } catch (Error ex) {
             report("the call " + methodName, ex);

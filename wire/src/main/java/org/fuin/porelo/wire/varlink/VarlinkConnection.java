@@ -38,6 +38,22 @@ public class VarlinkConnection implements AutoCloseable {
 
     private final ByteBuffer reading = ByteBuffer.allocate(8192);
 
+    private final Object watchLock = new Object();
+
+    /**
+     * The one thread that reads the peer while a watched call runs, and that may still be in its
+     * last read after the call ended: the channel is read here only once it has ended, and a
+     * watched call that follows takes it on, so no two reads share the channel. Guarded by
+     * watchLock.
+     */
+    private @Nullable Thread watching;
+
+    /** Whether that thread has ended its last read and reads no more. Guarded by watchLock. */
+    private boolean watchDone;
+
+    /** The watch of the call that runs now, which the thread tells. Guarded by watchLock. */
+    private @Nullable CallerWatch listening;
+
     /**
      * Constructor.
      *
@@ -128,6 +144,18 @@ public class VarlinkConnection implements AutoCloseable {
             if (message != null) {
                 return message;
             }
+            final Thread watched = watcher();
+            if (watched != null) {
+                // Its read returns with what the peer sends next, or with the peer's end.
+                try {
+                    watched.join();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new InterruptedIOException("Interrupted while waiting for a call");
+                }
+                joined(watched);
+                continue;
+            }
             reading.clear();
             if (channel.read(reading) < 0) {
                 return null;
@@ -155,6 +183,22 @@ public class VarlinkConnection implements AutoCloseable {
         final Map<String, Object> waiting = buffered();
         if (waiting != null) {
             return waiting;
+        }
+        final Thread watched = watcher();
+        if (watched != null) {
+            try {
+                if (!watched.join(within)) {
+                    throw new SocketTimeoutException("No whole message within " + within);
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new InterruptedIOException("Interrupted while waiting for a reply");
+            }
+            joined(watched);
+            final Map<String, Object> kept = buffered();
+            if (kept != null) {
+                return kept;
+            }
         }
         channel.configureBlocking(false);
         try {
@@ -200,6 +244,14 @@ public class VarlinkConnection implements AutoCloseable {
     /** Takes the next whole message out of what was read, if one is there. */
     @Nullable
     private Map<String, Object> buffered() {
+        // Whole against a watching thread that keeps what it reads meanwhile.
+        synchronized (pending) {
+            return takeBuffered();
+        }
+    }
+
+    @Nullable
+    private Map<String, Object> takeBuffered() {
         final byte[] buffered = pending.toByteArray();
         for (int i = 0; i < buffered.length; i++) {
             if (buffered[i] == 0) {
@@ -242,6 +294,15 @@ public class VarlinkConnection implements AutoCloseable {
      * @return {@code true} once the peer has closed, or the connection cannot be read any more.
      */
     public boolean peerGone() {
+        synchronized (watchLock) {
+            if (watching != null) {
+                if (!watchDone) {
+                    // Its read under way says when the peer goes; until then it is there.
+                    return pending.size() > MAX_MESSAGE;
+                }
+                watching = null;
+            }
+        }
         try {
             channel.configureBlocking(false);
             try {
@@ -260,6 +321,93 @@ public class VarlinkConnection implements AutoCloseable {
             }
         } catch (IOException ex) {
             return true;
+        }
+    }
+
+    /**
+     * Has the peer read on a thread of its own while a call runs on this connection's thread, which
+     * then only writes, and tells the call's watch when the peer ends. The thread of an earlier
+     * call still in its last read is taken on, never joined by a second one.
+     *
+     * @param watch The watch of the call that runs now.
+     */
+    void watchFor(final CallerWatch watch) {
+        synchronized (watchLock) {
+            listening = watch;
+            if (watching == null || watchDone) {
+                watchDone = false;
+                watching = ServingThreads.start("varlink-caller-watch", this::watchPeer);
+            }
+        }
+    }
+
+    /**
+     * Ends the telling of a call's watch: the reading thread ends with its read under way.
+     *
+     * @param watch The watch of the call that ended.
+     */
+    void unwatch(final CallerWatch watch) {
+        synchronized (watchLock) {
+            if (listening == watch) {
+                listening = null;
+            }
+        }
+    }
+
+    private void watchPeer() {
+        try {
+            boolean ended;
+            do {
+                ended = readMore() < 0;
+            } while (readsOn(ended));
+        } catch (IOException | RuntimeException ex) {
+            // A connection that cannot be read any more has no caller left to answer.
+            readsOn(true);
+        }
+    }
+
+    /**
+     * Decides after one read whether the watch reads on: only while a call runs, the peer is there
+     * and less is kept than one message may hold. Past that limit it stops reading rather than keep
+     * more, so calls a peer sends ahead stay kept for later and are never taken for its end.
+     */
+    private boolean readsOn(final boolean ended) {
+        final @Nullable CallerWatch told;
+        synchronized (watchLock) {
+            if (!ended && listening != null && pending.size() <= MAX_MESSAGE) {
+                return true;
+            }
+            watchDone = true;
+            told = ended ? listening : null;
+        }
+        // Outside the lock: a watch's end takes its own lock first, then this one.
+        if (told != null) {
+            told.gone();
+        }
+        return false;
+    }
+
+    private int readMore() throws IOException {
+        // A buffer of its own, so this read never shares one with the connection's thread.
+        final ByteBuffer watched = ByteBuffer.allocate(8192);
+        final int read = channel.read(watched);
+        if (read > 0) {
+            pending.write(watched.array(), 0, read);
+        }
+        return read;
+    }
+
+    private @Nullable Thread watcher() {
+        synchronized (watchLock) {
+            return watching;
+        }
+    }
+
+    private void joined(final Thread watched) {
+        synchronized (watchLock) {
+            if (watching == watched) {
+                watching = null;
+            }
         }
     }
 
