@@ -1412,10 +1412,12 @@ final class TransportLifecycle {
                 person);
     }
 
-    /** The room snapshot is bounded before JSON is parsed, including fields we do not return. */
-    private static final int MEMBERS_ANSWER_BYTES = 1024 * 1024;
-
-    private static final int MOST_MEMBERS = 1024;
+    /**
+     * What the command runner puts before the end of an output too long to keep whole: an answer
+     * that opens with it lost its start and is never read in part.
+     */
+    private static final java.util.regex.Pattern CUT =
+            java.util.regex.Pattern.compile("\\[([0-9]+) bytes cut before this\\]\\n");
 
     private static final int ROOM_ID_LENGTH = 1024;
 
@@ -1479,8 +1481,8 @@ final class TransportLifecycle {
     private RoomMembers judgedMembers(
             Map<?, ?> said, String project, boolean takesLogin, Map<String, String> enrolledAs)
             throws Refused {
-        if (!(said.get("members") instanceof List<?> listed) || listed.size() > MOST_MEMBERS) {
-            throw badMembers("members must be a list of at most " + MOST_MEMBERS);
+        if (!(said.get("members") instanceof List<?> listed)) {
+            throw badMembers("members must be a list");
         }
         final String room =
                 said.containsKey("room") ? memberText(said, "room", ROOM_ID_LENGTH, true) : "";
@@ -2037,11 +2039,17 @@ final class TransportLifecycle {
                     result.exitCode(),
                     StartStep.cleanCause(said));
         }
-        if ("members".equals(verb[0])
-                && (result.standardOutput().length() > MEMBERS_ANSWER_BYTES
-                        || result.standardOutput().getBytes(StandardCharsets.UTF_8).length
-                                > MEMBERS_ANSWER_BYTES)) {
-            throw badMembers("answer larger than " + MEMBERS_ANSWER_BYTES + " bytes");
+        final java.util.regex.Matcher cut = CUT.matcher(result.standardOutput());
+        if (cut.lookingAt()) {
+            throw new Refused(
+                    "the "
+                            + scheme
+                            + " transport answered "
+                            + verb[0]
+                            + " with more than the command runner keeps whole: "
+                            + cut.group(1)
+                            + " bytes were cut before the rest, which is not read in part",
+                    76);
         }
         try {
             if (Json.parse(result.standardOutput()) instanceof Map<?, ?> said) {

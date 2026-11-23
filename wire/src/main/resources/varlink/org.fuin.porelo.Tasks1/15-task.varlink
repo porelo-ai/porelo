@@ -1847,10 +1847,8 @@ type TaskRecord (
   # ASKED when its agent read its runs' tool calls, CANNOT_SAY when it could not (never read as no tool having run),
   # DID_NOT_ASK when no unattended run was read: an attended session is not measured.
   toolCallsAsked: Asked,
-  # At most 10000 over all its runs.
+  # Every call of all its runs.
   toolCalls: []ToolCall,
-  # The tool calls past those 10000, counted and not kept; absent in older records.
-  toolCallsDropped: ?int,
   # The unattended runs whose calls the record holds; absent in older records.
   runs: ?int
 )

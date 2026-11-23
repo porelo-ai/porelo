@@ -154,10 +154,11 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
 - **`"admitted": false`** from `setup`, exiting 0 with its `account` secrets, means a person still has to let this
   machine in; Porelo starts no task of the project until it is true, and absent means true.
 - **`members` is a live read**, never setup, enrollment or an invitation. Exit 75 means the homeserver is
-  unreachable; 78 means settings or secrets are missing. Its answer is at most 1 MiB of UTF-8 and 1,024
-  members; room and member ids are at most 1,024 characters, shown names 256, container names 64 and logins
-  32. Required fields, known states and kinds, and control-free strings are checked; unknown fields are
-  not returned. Duplicate member ids or task containers are refused. A task must be recorded on this machine
+  unreachable; 78 means settings or secrets are missing. Its answer lists every member, however many, and is
+  read whole up to the 16 MiB of standard output any command's run keeps whole; a longer one, which that run
+  cuts to its end, is refused as cut (76), never read in part. Room and member ids are at most 1,024
+  characters, shown names 256, container names 64 and logins 32. Required fields, known states and kinds,
+  and control-free strings are checked; unknown fields are not returned. Duplicate member ids or task containers are refused. A task must be recorded on this machine
   as belonging to this project. A transport that takes `login` must include it on every task member;
   task members with another login are omitted. A supplied credential echoed in an answer is refused.
 - **`--persons`** gives `poll` every admitted person's login from the project's members, comma separated

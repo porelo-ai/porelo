@@ -387,19 +387,55 @@ class TransportRoomMembersTest {
                 Arguments.of(changed("shown", "x".repeat(257)), "shown"),
                 Arguments.of(changed("id", "x".repeat(1025)), "id"),
                 Arguments.of(Map.of("room", "x".repeat(1025), "members", List.of()), "room"),
-                Arguments.of(
-                        Map.of("room", "!p", "members", java.util.Collections.nCopies(1025, task)),
-                        "members"),
                 Arguments.of(Map.of("room", "!p", "members", List.of(task, task)), "duplicate"));
     }
 
-    @Test
-    void anOversizedDocumentIsRefusedBeforeParsing() throws Exception {
-        // Padding and ignored fields still cost memory and cannot escape the answer limit.
-        final PoreloContext context = context();
-        runner.answering(" members ", " ".repeat(1024 * 1024 + 1));
+    /** As many distinct people as asked, each with a shown name of the longest a member has. */
+    private static List<Map<String, Object>> people(final int count) {
+        final List<Map<String, Object>> people = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            final Map<String, Object> person = member("person");
+            person.put("id", "@person-" + i);
+            person.put("shown", "x".repeat(256));
+            people.add(person);
+        }
+        return people;
+    }
 
-        refused(context, "answer", 76);
+    @Test
+    void aRoomOfMoreThan1024MembersIsTakenWhole() throws Exception {
+        // A real organization's room grows past any count picked in advance; a refusal would hide
+        // who can read the room from the person who asks.
+        final PoreloContext context = context();
+        answer(Map.of("room", "!p", "members", people(1025)));
+
+        assertThat(read(context, project()).members()).as("every member of the room").hasSize(1025);
+    }
+
+    @Test
+    void aMembersAnswerAboveOneMebibyteIsTakenWhole() throws Exception {
+        // The answer is bounded by what the command runner keeps whole, not by a smaller cap.
+        final PoreloContext context = context();
+        final String answer = Json.write(Map.of("room", "!p", "members", people(5000)));
+        assertThat(answer.length()).as("the fixture is above 1 MiB").isGreaterThan(1024 * 1024);
+        runner.answering(" members ", answer);
+
+        assertThat(read(context, project()).members())
+                .as("every member of the large answer")
+                .hasSize(5000);
+    }
+
+    @Test
+    void anAnswerTheRunnerCutIsRefusedAsCutNeverReadInPart() throws Exception {
+        // The runner keeps only the end of a very long output and marks the cut: what is left
+        // would name a part of the room as all of it.
+        final PoreloContext context = context();
+        runner.answering(
+                " members ",
+                "[20000000 bytes cut before this]\n"
+                        + Json.write(Map.of("room", "!p", "members", people(2))));
+
+        refused(context, "cut", 76);
     }
 
     @ParameterizedTest

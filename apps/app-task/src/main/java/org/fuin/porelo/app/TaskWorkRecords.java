@@ -119,7 +119,6 @@ public record TaskWorkRecords(PoreloContext context) {
         record.put("totals", totals(container));
         record.put("toolCallsAsked", ToolCalls.DID_NOT_ASK);
         record.put("toolCalls", List.of());
-        record.put("toolCallsDropped", Long.valueOf(0));
         record.put("runs", Long.valueOf(0));
         locked(
                 () -> {
@@ -146,7 +145,7 @@ public record TaskWorkRecords(PoreloContext context) {
     /**
      * Completes a task's record at the end of a run, with the run's tool calls: each names the run
      * it came from, counted from 1, so a call id an agent uses again in a later run is another
-     * call; past {@value ToolCalls#MOST} calls over all runs the rest are counted, never kept.
+     * call; every call of every run is kept.
      *
      * @param container Its container name.
      * @param calls The run's tool calls.
@@ -163,18 +162,12 @@ public record TaskWorkRecords(PoreloContext context) {
                         entries.addAll(earlier);
                     }
                     final long run = count(record.get("runs")) + 1;
-                    long dropped = count(record.get("toolCallsDropped")) + calls.dropped();
                     for (final Map<String, Object> entry : calls.entries()) {
-                        if (entries.size() >= ToolCalls.MOST) {
-                            dropped++;
-                            continue;
-                        }
                         entry.put("run", Long.valueOf(run));
                         entries.add(entry);
                     }
                     record.put("runs", Long.valueOf(run));
                     record.put("toolCalls", entries);
-                    record.put("toolCallsDropped", Long.valueOf(dropped));
                     record.put(
                             "toolCallsAsked", asked(record.get("toolCallsAsked"), calls.asked()));
                     record.put("endedAt", Instant.now().toString());

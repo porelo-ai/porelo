@@ -519,8 +519,8 @@ the order given, a record kept with one pair answered as a list of one), `agent`
 `model`, `modelFrom`, `effort` (null until a start has an effort setting), `startedAt`, `endedAt`, `end` (`done` or
 `failed` by a run's exit code, else `stopped` or `removed`, whichever came first since its last run), `totals` as
 `Usage` answers them, `toolCallsAsked` (`ASKED`, `CANNOT_SAY` for an agent that cannot say, never read as no tool
-having run, `DID_NOT_ASK` where no unattended run was read), `toolCalls` (at most 10 000 over all its runs),
-`toolCallsDropped` (the calls past those, counted, never kept) and `runs` (its unattended runs read). `TIME` is
+having run, `DID_NOT_ASK` where no unattended run was read), `toolCalls` (every call of all its runs) and `runs`
+(its unattended runs read). `TIME` is
 ISO-8601, a time with its offset or a date in the machine's zone; a record whose task ended before it is left out.
 Without `--json` each record is one line, its work each pair as `ISSUE:"PHASE"`, the phase quoted as JSON quotes it,
 joined by commas.

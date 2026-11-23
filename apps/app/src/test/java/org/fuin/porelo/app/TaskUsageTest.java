@@ -546,8 +546,7 @@ class TaskUsageTest {
     }
 
     @Test
-    void aRecordKeepsAtMostItsCapOfCallsOverItsRunsAndCountsTheRest(@TempDir final Path dir)
-            throws Exception {
+    void aRecordKeepsEveryCallOverItsRuns(@TempDir final Path dir) throws Exception {
         final PoreloContext context = context(dir);
         final TaskWorkRecords records = new TaskWorkRecords(context);
         records.started(TASK, "uc", "work", null, "worker-one", null, "start");
@@ -561,11 +560,38 @@ class TaskUsageTest {
 
         final Map<String, Object> record = written(context);
         assertThat((java.util.List<?>) record.get("toolCalls"))
-                .as("at most 10 000 calls a record")
-                .hasSize(10_000);
+                .as("both runs' calls, none left out")
+                .hasSize(12_000);
         assertThat(record)
-                .as("the calls past it counted, never left out in silence")
-                .containsEntry("toolCallsDropped", 2_000L);
+                .as("nothing is counted past a cap")
+                .doesNotContainKey("toolCallsDropped");
+    }
+
+    @Test
+    void aStoredRecordOfMoreThan10000CallsReadsBackWholeAndGrows(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final TaskWorkRecords records = new TaskWorkRecords(context);
+        records.started(TASK, "uc", "work", null, "worker-one", null, "start");
+        final Path file = context.paths().tasks().workRecord(TASK);
+        final Map<String, Object> stored = written(context);
+        final java.util.List<Object> calls = new java.util.ArrayList<>();
+        for (int i = 0; i < 10_001; i++) {
+            calls.add(Map.of("task", TASK, "id", "s" + i, "run", 1L));
+        }
+        stored.put("toolCalls", calls);
+        stored.put("runs", 1L);
+        Files.writeString(file, Json.write(stored));
+
+        records.runEnded(TASK, oneRun("c1"), 0);
+
+        assertThat(records.since("uc", java.time.Instant.EPOCH))
+                .singleElement()
+                .satisfies(
+                        record ->
+                                assertThat((java.util.List<?>) record.get("toolCalls"))
+                                        .as("the stored calls and the new run's, read back whole")
+                                        .hasSize(10_002));
     }
 
     /** A record as a release that kept one issue and phase wrote it. */

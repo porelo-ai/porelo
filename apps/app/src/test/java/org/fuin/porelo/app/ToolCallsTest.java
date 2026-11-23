@@ -800,7 +800,7 @@ class ToolCallsTest {
     }
 
     @Test
-    void aRunKeepsAtMostItsCapOfCalls() {
+    void aRunKeepsEveryCallHoweverManyItMakes() {
         final ToolCalls calls = calls();
         final List<ToolEvent> events = new java.util.ArrayList<>();
         for (int i = 0; i <= 10_000; i++) {
@@ -808,6 +808,10 @@ class ToolCallsTest {
         }
         calls.read(Optional.of(events), ARRIVED);
 
-        assertThat(calls.entries()).as("at most 10 000 calls a run").hasSize(10_000);
+        assertThat(calls.entries())
+                .as("a long run's calls are all kept, its last one too")
+                .hasSize(10_001)
+                .last()
+                .satisfies(entry -> assertThat(entry).containsEntry("id", "c10000"));
     }
 }

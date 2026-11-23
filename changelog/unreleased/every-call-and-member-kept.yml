@@ -1,0 +1,2 @@
+title: "A task's record keeps every tool call of its runs however many there are, and a transport's `members` answer is taken however many members its room has, read whole up to the 16 MiB of output a command's run keeps whole and refused as cut beyond that, never read in part"
+type: changed

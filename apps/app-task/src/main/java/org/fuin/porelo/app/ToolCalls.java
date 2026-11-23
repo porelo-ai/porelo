@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
  * stream is kept. Each entry names the sub-agent call it ran under, when that call was started
  * before it and is still open. A sub-agent named by an issue the task was started for carries that
  * issue, and so does every call under it, followed up through nested sub-agents; a sub-agent's own
- * tokens are those its first end gives.
+ * tokens are those its first end gives. Every call the run starts is kept, however many.
  */
 public final class ToolCalls {
 
@@ -50,9 +50,6 @@ public final class ToolCalls {
     /** The time the line was read. */
     public static final String ARRIVAL = "arrival";
 
-    /** The most calls one run keeps, and one record over all its runs. */
-    public static final int MOST = 10_000;
-
     /** The most characters of a call's id, its parent's and its tool's name. */
     public static final int MOST_ID = 128;
 
@@ -67,7 +64,6 @@ public final class ToolCalls {
     private final Set<String> endedJobs = new HashSet<>();
 
     private String asked = DID_NOT_ASK;
-    private long dropped;
 
     /**
      * Creates the entries of one run.
@@ -121,10 +117,6 @@ public final class ToolCalls {
                 known.end = null;
                 known.endFrom = null;
             }
-            return;
-        }
-        if (calls.size() >= MOST) {
-            dropped++;
             return;
         }
         final Call parent = parent(event);
@@ -259,15 +251,6 @@ public final class ToolCalls {
      */
     public synchronized String asked() {
         return asked;
-    }
-
-    /**
-     * Says how many calls the run started past {@value #MOST}, which no entry holds.
-     *
-     * @return The number.
-     */
-    public synchronized long dropped() {
-        return dropped;
     }
 
     /**
