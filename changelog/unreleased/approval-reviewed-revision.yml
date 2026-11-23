@@ -1,2 +1,2 @@
-title: Gate approval requires the captured reviewed commit and refuses unseen work after a concurrent push.
+title: Gate approval and porelo approve forward only the commit a person saw, and a script names that commit with --commit.
 type: security

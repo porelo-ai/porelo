@@ -478,12 +478,14 @@ class GitGateTest {
         // raw patch in path order put the reformat first.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         final TaskToken token = TaskToken.mint();
+        final String before;
 
         try (GitHttpServer server = serve(token)) {
             git(root, "init", work.toString());
             git(work, "config", "http.extraHeader", "Authorization: " + token.basicAuthorization());
             makeCommit("app.txt", "one\ntwo\n");
             makeCommit("notes.txt", "a\nb\n");
+            before = git(work, "rev-parse", "HEAD").standardOutput().strip();
             Files.writeString(work.resolve("app.txt"), "one  \n\ntwo\n");
             Files.writeString(work.resolve("notes.txt"), "a\nb\nc\n");
             Files.createDirectories(work.resolve(".github/workflows"));
@@ -496,9 +498,10 @@ class GitGateTest {
             git(work, "push", url(server), "HEAD:" + GitGate.INCOMING + "task-1");
         }
 
-        final ReviewRanking.Review review = gate.rankedReview("task-1", null);
+        final ReviewRanking.Review review = gate.rankedReview("task-1", before);
 
         assertThat(review.files())
+                .as("against the commit before the change, the reformat is a reformat")
                 .extracting(ReviewRanking.File::path, ReviewRanking.File::rank)
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple(
@@ -1669,7 +1672,7 @@ class GitGateTest {
                                 .standardOutput())
                 .isEmpty();
 
-        gate.approve("task-1", "main");
+        gate.approve("task-1", "main", gate.pendingWork("task-1").commit());
 
         assertThat(
                         runner.runOrFail(
@@ -1814,13 +1817,17 @@ class GitGateTest {
         gatekeeping.refusingForward("not carried here");
         pendingEnrolment(gatekeeping);
 
-        assertThatThrownBy(() -> gatekeeping.approve("enroll-second", "main", null))
+        final String reviewed = gatekeeping.pendingWork("enroll-second").commit();
+        assertThatThrownBy(() -> gatekeeping.approve("enroll-second", "main", reviewed))
                 .as("approval refused")
                 .isInstanceOf(GateException.class);
         assertThatThrownBy(
                         () ->
                                 gatekeeping.approveSigned(
-                                        "enroll-second", "porelo/signed", root.resolve("merge")))
+                                        "enroll-second",
+                                        "porelo/signed",
+                                        root.resolve("merge"),
+                                        reviewed))
                 .as("signed approval refused")
                 .isInstanceOf(GateException.class);
         assertThat(git(upstream, "rev-parse", "main").standardOutput().strip())
@@ -1865,7 +1872,11 @@ class GitGateTest {
         gate.initialize();
         pendingEnrolment(gate);
 
-        gate.approveSigned("enroll-second", "main", root.resolve("merge"));
+        gate.approveSigned(
+                "enroll-second",
+                "main",
+                root.resolve("merge"),
+                gate.pendingWork("enroll-second").commit());
 
         final String log =
                 runner.runOrFail(
@@ -1918,7 +1929,11 @@ class GitGateTest {
                                         "main"))
                         .standardOutput();
 
-        assertThatThrownBy(() -> gate.approveSigned("enroll-second", "main", root.resolve("merge")))
+        final String reviewed = gate.pendingWork("enroll-second").commit();
+        assertThatThrownBy(
+                        () ->
+                                gate.approveSigned(
+                                        "enroll-second", "main", root.resolve("merge"), reviewed))
                 .isInstanceOf(GateException.class)
                 .hasMessageContaining("user.signingkey");
         assertThat(
@@ -2048,9 +2063,12 @@ class GitGateTest {
 
         final GitGate gate = gate(GateMode.OFFLINE, upstream.toString());
 
-        assertThatThrownBy(() -> gate.approve("task-1", "main"))
+        assertThatThrownBy(() -> gate.approve("task-1", "main", "a".repeat(40)))
                 .isInstanceOf(GateException.class)
                 .hasMessageContaining("nothing is forwarded upstream");
+        assertThat(gate.forwardRefusal())
+                .as("what a review says in place of an approval command")
+                .contains("nothing is forwarded upstream");
     }
 
     @Test
@@ -2061,7 +2079,7 @@ class GitGateTest {
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
 
         // Otherwise a typo would push whatever ref happened to match.
-        assertThatThrownBy(() -> gate.approve("never-pushed", "main"))
+        assertThatThrownBy(() -> gate.approve("never-pushed", "main", "a".repeat(40)))
                 .isInstanceOf(GateException.class)
                 .hasMessageContaining("no pending push");
     }
@@ -2797,7 +2815,8 @@ class GitGateTest {
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
         pushWork("task-1", "new.txt");
 
-        assertThatThrownBy(() -> gate.approve("task-1", "porelo/task-1", null))
+        final String reviewed = gate.pendingWork("task-1").commit();
+        assertThatThrownBy(() -> gate.approve("task-1", "porelo/task-1", reviewed))
                 .isInstanceOfSatisfying(
                         GateException.BranchExists.class,
                         refused -> {
@@ -2819,7 +2838,7 @@ class GitGateTest {
         assertThat(gate.pending()).as("still waiting for another branch").containsExactly("task-1");
 
         assertThat(gate.nextFreeBranch("porelo/task-1")).isEqualTo("porelo/task-1-2");
-        gate.approve("task-1", "porelo/task-1-2", null);
+        gate.approve("task-1", "porelo/task-1-2", reviewed);
         assertThat(gate.pending()).isEmpty();
         assertThat(gate.nextFreeBranch("porelo/task-1"))
                 .as("the next one, once -2 is taken")
@@ -2832,11 +2851,11 @@ class GitGateTest {
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
         pushWork("task-1", "first.txt");
-        gate.approve("task-1", "porelo/task-1", null);
+        gate.approve("task-1", "porelo/task-1", gate.pendingWork("task-1").commit());
         makeCommit("second.txt", "the same task, later");
         git(work, "push", mirror.toString(), "HEAD:" + GitGate.INCOMING + "task-1");
 
-        gate.approve("task-1", "porelo/task-1", null);
+        gate.approve("task-1", "porelo/task-1", gate.pendingWork("task-1").commit());
 
         assertThat(
                         runner.runOrFail(
@@ -3063,6 +3082,149 @@ class GitGateTest {
                     .as("every gate mode can capture a waiting ref")
                     .isEqualTo(git(work, "rev-parse", "HEAD").trimmedOutput());
         }
+    }
+
+    @Test
+    void noPathApprovesWithoutTheReviewedCommit() throws Exception {
+
+        // Taken as "whatever the ref holds now", an approval without a commit forwarded a push the
+        // person never saw.
+        final Path upstream = root.resolve("upstream.git");
+        git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
+        final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
+        pushWork("task-1", "unseen.txt");
+
+        for (final String blank : new String[] {"", "  "}) {
+            assertThatThrownBy(() -> gate.approve("task-1", "main", blank))
+                    .as("an ordinary approval without a commit")
+                    .isInstanceOf(GateException.class)
+                    .hasMessageContaining("--commit");
+            assertThatThrownBy(
+                            () ->
+                                    gate.approveSigned(
+                                            "task-1", "main", root.resolve("merge"), blank))
+                    .as("a signed approval without a commit")
+                    .isInstanceOf(GateException.class)
+                    .hasMessageContaining("--commit");
+        }
+        assertThat(git(upstream, "for-each-ref").standardOutput()).as("nothing went").isEmpty();
+        assertThat(gate.pending()).containsExactly("task-1");
+    }
+
+    @Test
+    void aPushDuringASignedApprovalsFetchIsMovedSinceReviewNamingBothCommits() throws Exception {
+
+        // Checked once more after the upstream was fetched: a plain failure lost both commits, and
+        // a client could not say what moved.
+        final Path upstream = upstreamWithMain();
+        final String[] moved = {null};
+        final CommandRunner racing =
+                command -> {
+                    if (moved[0] == null && command.arguments().contains("ls-remote")) {
+                        try {
+                            makeCommit("unseen.txt", "pushed while the upstream was asked");
+                        } catch (IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                        git(
+                                work,
+                                "push",
+                                mirror.toString(),
+                                "HEAD:" + GitGate.INCOMING + "enroll-second");
+                        moved[0] = git(work, "rev-parse", "HEAD").standardOutput().strip();
+                    }
+                    return runner.run(command);
+                };
+        final GitGate plain = gate(GateMode.GATEKEEPING, upstream.toString());
+        pendingEnrolment(plain);
+        final String reviewed = plain.pendingWork("enroll-second").commit();
+        final GitGate gate = new GitGate(racing, mirror, GateMode.GATEKEEPING, upstream.toString());
+
+        assertThatThrownBy(
+                        () ->
+                                gate.approveSigned(
+                                        "enroll-second", "main", root.resolve("merge"), reviewed))
+                .isInstanceOfSatisfying(
+                        GateException.MovedSinceReview.class,
+                        refused -> {
+                            assertThat(refused.reviewed()).isEqualTo(reviewed);
+                            assertThat(refused.now()).isEqualTo(moved[0]);
+                        });
+        assertThat(moved[0]).as("the push really arrived during the approval").isNotNull();
+        assertThat(git(upstream, "log", "--format=%s", "main").standardOutput())
+                .as("nothing went")
+                .doesNotContain("unseen.txt", "allowed_signers");
+        assertThat(plain.pendingWork("enroll-second").commit()).isEqualTo(moved[0]);
+    }
+
+    @Test
+    void aNamedBaseThatNamesNothingIsRefusedNamingIt() throws Exception {
+
+        // Taken as no base, a mistyped branch showed the last commit alone and still offered the
+        // approval.
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        pushWork("task-1", "one.txt");
+
+        assertThatThrownBy(() -> gate.namedBase("develp"))
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("'develp'");
+        assertThatThrownBy(() -> gate.rankedReview(gate.pendingWork("task-1"), "develp", false))
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("'develp'");
+        assertThatThrownBy(() -> gate.log(gate.pendingWork("task-1"), "develp"))
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("'develp'");
+        assertThat(gate.reviewBase("develp"))
+                .as("a default base the mirror lacks is no base: the whole history")
+                .isNull();
+    }
+
+    @Test
+    void withoutABaseThePatchHoldsEveryCommitTheLogLists() throws Exception {
+
+        // Shown with 'git show', the patch held the last commit alone while the log and the makers
+        // listed the whole history: a workflow added in the first commit was never in the diff.
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        git(root, "init", "--initial-branch=main", work.toString());
+        Files.createDirectories(work.resolve(".github/workflows"));
+        makeCommit(".github/workflows/ci.yml", "on: push\n");
+        makeCommit("README.md", "readme\n");
+        git(work, "push", mirror.toString(), "HEAD:" + GitGate.INCOMING + "task-1");
+        final GitGate.Waiting captured = gate.pendingWork("task-1");
+
+        final ReviewRanking.Review review = gate.rankedReview(captured, null, false);
+
+        assertThat(gate.made(captured, null)).as("the log lists both commits").hasSize(2);
+        assertThat(review.files())
+                .extracting(ReviewRanking.File::path)
+                .as("every file of every listed commit is ranked")
+                .containsExactlyInAnyOrder(".github/workflows/ci.yml", "README.md");
+        assertThat(review.patch()).as("and is in the patch").contains("+on: push", "+readme");
+        assertThat(gate.review("task-1", null)).contains("+on: push", "+readme");
+    }
+
+    @Test
+    void aMistypedNameIsAnsweredWithWhatDoesWait() throws Exception {
+        final Path upstream = root.resolve("upstream.git");
+        git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
+        final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
+        pushWork("writer", "one.txt");
+
+        assertThatThrownBy(() -> gate.approvable("writr"))
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("try: writer");
+        assertThatThrownBy(() -> gate.pendingWork("writr"))
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("try: writer");
+        assertThat(gate.approvable("writer").commit())
+                .isEqualTo(git(work, "rev-parse", "HEAD").standardOutput().strip());
+        assertThatThrownBy(
+                        () ->
+                                new GitGate(runner, mirror, GateMode.GATEKEEPING, null)
+                                        .approvable("writer"))
+                .as("no upstream: no approval to offer")
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("No upstream");
     }
 
     /** A bare mirror whose stale main and whose default, trunk, hold different files. */

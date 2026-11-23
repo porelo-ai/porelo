@@ -4804,6 +4804,57 @@ class PoreloDaemonTest {
                                                     .standardOutput())
                                     .as("no approval branch was forwarded")
                                     .isEmpty();
+                            // A mistyped name is answered with what does wait, never with a
+                            // commit to approve under a name that holds nothing.
+                            assertThatThrownBy(
+                                            () ->
+                                                    client.call(
+                                                            PoreloDaemon.INTERFACE + ".Approve",
+                                                            Map.of(
+                                                                    "project",
+                                                                    "default",
+                                                                    "repository",
+                                                                    "app",
+                                                                    "name",
+                                                                    "tt",
+                                                                    "branch",
+                                                                    "reviewed")))
+                                    .isInstanceOfSatisfying(
+                                            VarlinkException.class,
+                                            failure -> {
+                                                assertThat(failure.getErrorName())
+                                                        .isEqualTo(
+                                                                PoreloDaemon.INTERFACE + ".Failed");
+                                                assertThat(
+                                                                String.valueOf(
+                                                                        failure.getParameters()
+                                                                                .get("message")))
+                                                        .contains("'tt'", "try: t");
+                                            });
+                            // A base the client named that names nothing is refused by name,
+                            // never reviewed as the last commit alone.
+                            assertThatThrownBy(
+                                            () ->
+                                                    client.call(
+                                                            PoreloDaemon.INTERFACE + ".Review",
+                                                            Map.of(
+                                                                    "project",
+                                                                    "default",
+                                                                    "repository",
+                                                                    "app",
+                                                                    "name",
+                                                                    "t",
+                                                                    "against",
+                                                                    "develp")))
+                                    .isInstanceOfSatisfying(
+                                            VarlinkException.class,
+                                            failure ->
+                                                    assertThat(
+                                                                    String.valueOf(
+                                                                            failure.getParameters()
+                                                                                    .get(
+                                                                                            "message")))
+                                                            .contains("'develp'"));
                         }
                         final Map<String, Object> pending =
                                 client.call(

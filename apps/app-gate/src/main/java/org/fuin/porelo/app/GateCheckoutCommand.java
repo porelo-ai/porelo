@@ -87,9 +87,10 @@ public class GateCheckoutCommand implements Callable<Integer>, PoreloFactory.Con
                 into != null ? into : context.paths().gate().reviewCheckout(project.name(), name);
         final String commit;
         final var selected = GateSupport.repository(context, project, repository, name);
+        final org.fuin.porelo.gate.GitGate gate;
         try {
-            commit =
-                    GateSupport.gate(context, project, selected, null, null).checkout(name, target);
+            gate = GateSupport.gate(context, project, selected, null, null);
+            commit = gate.checkout(name, target);
         } catch (GateException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -106,16 +107,17 @@ public class GateCheckoutCommand implements Callable<Integer>, PoreloFactory.Con
         out.println("reviewed  " + commit);
         out.println(
                 "approve   "
-                        + TalkReadCommand.shown(
+                        + GateApprovalHint.line(
+                                gate,
+                                commit,
                                 new GateApprovalHint(
-                                                project.name(),
-                                                selected.name(),
-                                                name,
-                                                commit,
-                                                null,
-                                                null,
-                                                false)
-                                        .command()));
+                                        project.name(),
+                                        selected.name(),
+                                        name,
+                                        commit,
+                                        null,
+                                        null,
+                                        false)));
         out.flush();
         return 0;
     }

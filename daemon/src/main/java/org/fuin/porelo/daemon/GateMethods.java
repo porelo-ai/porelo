@@ -379,21 +379,19 @@ final class GateMethods {
                 (parameters, replies) -> {
                     final GitGate gate = gate(parameters, context);
                     final String name = text(parameters, "name");
-                    final GitGate.Waiting head = gate.waiting(name);
-                    if (head == null) {
-                        throw new org.fuin.porelo.gate.GateException(
-                                "There is no pending push named '" + name + "'");
-                    }
+                    // A mistyped name is answered with what does wait.
+                    final GitGate.Waiting head = gate.pendingWork(name);
+                    // A base the client named that names nothing is refused, never taken as none.
                     final String against =
-                            gate.reviewBase(
-                                    text(parameters, "against").isEmpty()
-                                            ? org.fuin.porelo.app.TaskBase.reviewAgainst(
+                            text(parameters, "against").isBlank()
+                                    ? gate.reviewBase(
+                                            org.fuin.porelo.app.TaskBase.reviewAgainst(
                                                     context,
                                                     GateSupport.project(
                                                             projectFile(parameters, context)),
                                                     name,
-                                                    gate)
-                                            : text(parameters, "against"));
+                                                    gate))
+                                    : gate.namedBase(text(parameters, "against"));
                     final org.fuin.porelo.gate.ReviewRanking.Review review =
                             gate.rankedReview(head, against, flag(parameters, "ignoreLineEndings"));
                     // Matched by content against what was handed into the task that pushed.
@@ -497,14 +495,12 @@ final class GateMethods {
                     final String name = text(parameters, "name");
                     final String commit = text(parameters, "commit").strip();
                     if (commit.isEmpty()) {
-                        final GitGate.Waiting waiting = gate.waiting(name);
+                        // Refused first as the approval would be - a mistyped name, an offline
+                        // project, no upstream - so the commit offered is one that can go.
+                        final GitGate.Waiting waiting = gate.approvable(name);
                         throw new VarlinkException(
                                 INTERFACE + ".CommitNotNamed",
-                                Map.of(
-                                        "name",
-                                        name,
-                                        "waiting",
-                                        waiting == null ? "" : waiting.commit()));
+                                Map.of("name", name, "waiting", waiting.commit()));
                     }
                     final String branch = approvalBranch(parameters, context);
                     if (branch == null) {

@@ -131,16 +131,17 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             err.flush();
             return 64;
         }
+        final String bound;
         try {
             final Project project = GateSupport.byName(context, projectName);
             final GitGate gate = gate(project);
             GateSupport.held(gate);
-            if (commit == null || commit.isBlank()) {
-                final GitGate.Waiting waiting = gate.waiting(name);
-                if (waiting == null) {
-                    throw new GateException("There is no pending push named '" + name + "'");
-                }
-                commit = waiting.commit();
+            final String named = commit;
+            if (named == null || named.isBlank()) {
+                // Refused here as the approval would refuse it - a mistyped name, an offline
+                // project, no upstream - so nobody is asked, or handed a command, for nothing.
+                final GitGate.Waiting waiting = gate.approvable(name);
+                bound = waiting.commit();
                 final String command =
                         new GateApprovalHint(
                                         project.name(),
@@ -160,7 +161,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                     return 70;
                 }
             } else {
-                commit = commit.strip();
+                bound = named.strip();
             }
         } catch (GateException ex) {
             err.println("porelo: " + ex.getMessage());
@@ -172,7 +173,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             return 2;
         }
         for (int tries = 0; tries < 10; tries++) {
-            final String next = approveOnce(out, err, offer);
+            final String next = approveOnce(out, err, offer, bound);
             if (next == null) {
                 return exit;
             }
@@ -196,11 +197,6 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                         true);
     }
 
-    /** The reviewed commit, as the event log names it. */
-    private String reviewed() {
-        return commit == null ? "" : ", reviewed at " + commit;
-    }
-
     /** The exit code of the last try. */
     private int exit;
 
@@ -210,34 +206,35 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
      * @param out Where to report.
      * @param err Where to refuse.
      * @param offer Who is asked to take the next free branch.
+     * @param bound The full id of the commit the person reviewed; nothing else goes.
      * @return The branch to try next when the person took it, or {@code null} when this try is the
      *     last.
      */
     private @org.jspecify.annotations.Nullable String approveOnce(
-            final PrintWriter out, final PrintWriter err, final Offer offer) {
+            final PrintWriter out, final PrintWriter err, final Offer offer, final String bound) {
         try {
             final Project project = GateSupport.byName(context, projectName);
             final GitGate gate = gate(project);
             GateSupport.held(gate);
             final String pullRequest;
             if (signed) {
-                pullRequest = GateSupport.approveSigned(gate, name, onto, commit);
+                pullRequest = GateSupport.approveSigned(gate, name, onto, bound);
                 out.println("merged    " + name + " onto " + onto + ", signed, and forwarded");
                 EventLog.record(
                         context,
                         EventLog.APPROVED,
                         projectName,
                         name,
-                        "signed and forwarded onto " + onto + reviewed());
+                        "signed and forwarded onto " + onto + ", reviewed at " + bound);
             } else {
-                pullRequest = gate.approve(name, onto, commit);
+                pullRequest = gate.approve(name, onto, bound);
                 out.println("forwarded " + name + " to " + onto);
                 EventLog.record(
                         context,
                         EventLog.APPROVED,
                         projectName,
                         name,
-                        "forwarded onto " + onto + reviewed());
+                        "forwarded onto " + onto + ", reviewed at " + bound);
             }
             if (pullRequest != null) {
                 out.println("pull request " + pullRequest);

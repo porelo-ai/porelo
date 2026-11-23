@@ -103,7 +103,7 @@ class FollowCredentialTest {
                         .using(new VaultGitCredentials(context(dir), "test"));
         assertThat(
                         org.assertj.core.api.Assertions.catchThrowable(
-                                () -> gate.approve("work", "main")))
+                                () -> gate.approve("work", "main", "a".repeat(40))))
                 .as("an undeclared forwarding identity fails before git runs")
                 .isInstanceOf(org.fuin.porelo.gate.GateException.class);
     }

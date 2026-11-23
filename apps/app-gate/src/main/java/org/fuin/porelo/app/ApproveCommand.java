@@ -36,8 +36,18 @@ public class ApproveCommand implements Callable<Integer>, PoreloFactory.ContextA
 
     @Option(
             names = {"-y", "--yes"},
-            description = "Brings it back without asking, for a script.")
+            description =
+                    "Brings it back without asking, for a script; only with --commit, so what comes"
+                            + " is what a person saw.")
     private boolean yes;
+
+    @Option(
+            names = "--commit",
+            paramLabel = "<id>",
+            description =
+                    "The full id of the commit to bring back, as an earlier 'porelo approve' showed it."
+                            + " Refused when the work has moved past it, so what comes is what you saw.")
+    private @Nullable String commit;
 
     @Spec private CommandSpec spec;
 
@@ -58,6 +68,7 @@ public class ApproveCommand implements Callable<Integer>, PoreloFactory.ContextA
                 .run(
                         Path.of("."),
                         task,
+                        commit,
                         yes,
                         question -> {
                             out.print(question + " ");

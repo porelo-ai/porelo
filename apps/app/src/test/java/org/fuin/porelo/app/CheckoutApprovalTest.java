@@ -128,7 +128,7 @@ class CheckoutApprovalTest {
 
     @Test
     void twoTasksAreNamedAndOneIsAskedForOrTakenByItsName() throws Exception {
-        agentPushes("writer", "one");
+        final String writer = agentPushes("writer", "one");
         final String review = agentPushes("review", "two");
 
         assertThat(approve(null, true)).as("a script that names none is refused").isNotZero();
@@ -139,8 +139,8 @@ class CheckoutApprovalTest {
         assertThat(approve(null, false)).as(err.toString()).isZero();
         assertThat(git(checkout, "rev-parse", "porelo/review")).isEqualTo(review);
 
-        assertThat(approve("writer", true)).as(err.toString()).isZero();
-        assertThat(git(checkout, "branch", "--list", "porelo/writer")).isNotEmpty();
+        assertThat(approve("writer", writer, true)).as(err.toString()).isZero();
+        assertThat(git(checkout, "rev-parse", "porelo/writer")).isEqualTo(writer);
     }
 
     @Test
@@ -231,7 +231,7 @@ class CheckoutApprovalTest {
         final int code =
                 new CheckoutApproval(
                                 context, new PrintWriter(out, true), new PrintWriter(err, true))
-                        .run(other, null, true, question -> "y");
+                        .run(other, null, null, true, question -> "y");
 
         assertThat(code).isNotZero();
         assertThat(err.toString()).contains("goes to").contains("porelo gate approve");
@@ -275,7 +275,7 @@ class CheckoutApprovalTest {
         final int code =
                 new CheckoutApproval(
                                 withTask, new PrintWriter(out, true), new PrintWriter(err, true))
-                        .run(checkout, null, true, question -> null);
+                        .run(checkout, null, null, true, question -> null);
 
         assertThat(code).isNotZero();
         assertThat(err.toString())
@@ -322,9 +322,88 @@ class CheckoutApprovalTest {
             threadMode = org.junit.jupiter.api.Timeout.ThreadMode.SEPARATE_THREAD)
     void theApproveCommandReadsItsContextsTerminalInput() throws Exception {
         agentPushes("writer", "one");
+        assertThat(cli("y\n", null, "approve", "writer")).as(err.toString()).isZero();
+        assertThat(gate.pending()).isEmpty();
+    }
+
+    @Test
+    void aScriptThatNamesNoCommitBringsNothingBackAndSaysWhichCommitToGive() throws Exception {
+
+        // With --yes alone, what waited when the script ran came back: a push the task made after
+        // the person looked included.
+        final String work = agentPushes("writer", "seen");
+
+        final int code = cli("", null, "approve", "writer", "--yes");
+
+        assertThat(code).as("nothing is brought back without the commit").isNotZero();
+        assertThat(git(checkout, "branch", "--list", "porelo/*")).as("no branch").isEmpty();
+        assertThat(gate.pending()).as("the work still waits").containsExactly("writer");
+        assertThat(err.toString())
+                .as("the command that brings back the commit shown")
+                .contains("porelo approve writer --yes --commit " + work);
+    }
+
+    @Test
+    void aScriptBringsBackOnlyTheCommitItNamesAndRefusesOneTheTaskPushedPast() throws Exception {
+        final String seen = agentPushes("writer", "seen");
+        final String unseen = agentPushesAgain("writer", "unseen");
+
+        assertThat(cli("", null, "approve", "writer", "--yes", "--commit", seen))
+                .as("the work moved past the commit named")
+                .isNotZero();
+        assertThat(err.toString()).contains("moved since it was reviewed", seen, unseen);
+        assertThat(git(checkout, "branch", "--list", "porelo/*")).as("no branch").isEmpty();
+
+        assertThat(cli("", null, "approve", "writer", "--yes", "--commit", unseen))
+                .as(err.toString())
+                .isZero();
+        assertThat(git(checkout, "rev-parse", "porelo/writer")).isEqualTo(unseen);
+    }
+
+    @Test
+    void whatIsShownAndAskedAboutIsOneCommitEvenWhenTheTaskPushesWhileItIsShown() throws Exception {
+
+        // The log and the diff each read the moving ref again: one push's log came with another's
+        // diff, and the question named no commit.
+        final String seen = agentPushes("writer", "seen");
+        final String[] unseen = {null};
+
+        final int code =
+                cli(
+                        "y\n",
+                        () -> unseen[0] = agentPushesAgain("writer", "unseen"),
+                        "approve",
+                        "writer");
+
+        assertThat(unseen[0]).as("the push really arrived while it was shown").isNotNull();
+        assertThat(out.toString())
+                .as("the commit, its log and its diff are the one captured")
+                .contains("commit    " + seen, seen + " seen", "+seen")
+                .doesNotContain("unseen");
+        assertThat(code).as("the yes was for the commit shown, which no longer waits").isNotZero();
+        assertThat(err.toString()).contains("moved since it was reviewed", seen, unseen[0]);
+        assertThat(git(checkout, "branch", "--list", "porelo/*")).as("no branch").isEmpty();
+        assertThat(gate.pending()).as("the newer push waits").containsExactly("writer");
+    }
+
+    /**
+     * Runs {@code porelo} in the checkout, with the given terminal input; {@code beforeShown} runs
+     * once, just before the gate's first log is read.
+     */
+    private int cli(final String input, final Runnable beforeShown, final String... argv) {
+        out.getBuffer().setLength(0);
+        err.getBuffer().setLength(0);
+        final Runnable[] once = {beforeShown};
         final var machine =
                 new PoreloContext(
                                 command -> {
+                                    if (once[0] != null
+                                            && command.arguments().contains("--git-dir")
+                                            && command.arguments().contains("log")) {
+                                        final Runnable action = once[0];
+                                        once[0] = null;
+                                        action.run();
+                                    }
                                     final List<String> arguments =
                                             new java.util.ArrayList<>(command.arguments());
                                     final int directory = arguments.indexOf("-C");
@@ -346,25 +425,27 @@ class CheckoutApprovalTest {
                         .reading(
                                 new StandardInput(
                                         new java.io.ByteArrayInputStream(
-                                                "y\n"
-                                                        .getBytes(
-                                                                java.nio.charset.StandardCharsets
-                                                                        .UTF_8)),
+                                                input.getBytes(
+                                                        java.nio.charset.StandardCharsets.UTF_8)),
                                         true));
         final var cli = PoreloCli.commandLine(machine);
-        cli.setOut(new PrintWriter(out));
-        cli.setErr(new PrintWriter(err));
-        assertThat(cli.execute("approve", "writer")).as(err.toString()).isZero();
-        assertThat(gate.pending()).isEmpty();
+        cli.setOut(new PrintWriter(out, true));
+        cli.setErr(new PrintWriter(err, true));
+        return cli.execute(argv);
     }
 
     private int approve(final String task, final boolean yes) {
+        return approve(task, null, yes);
+    }
+
+    private int approve(final String task, final String commit, final boolean yes) {
         out.getBuffer().setLength(0);
         err.getBuffer().setLength(0);
         return new CheckoutApproval(context, new PrintWriter(out, true), new PrintWriter(err, true))
                 .run(
                         checkout,
                         task,
+                        commit,
                         yes,
                         question -> {
                             asked.add(question);
@@ -381,6 +462,20 @@ class CheckoutApprovalTest {
         git(dir, "clone", "-q", checkout.toString(), work.toString());
         identity(work);
         Files.writeString(work.resolve(task + ".txt"), line + "\n");
+        git(work, "add", ".");
+        git(work, "commit", "-q", "-m", line);
+        git(work, "push", "-q", gate.mirror().toString(), "HEAD:" + GitGate.INCOMING + task);
+        return git(work, "rev-parse", "HEAD");
+    }
+
+    /** What an agent does next: one more commit on its work, pushed to the same ref. */
+    private String agentPushesAgain(final String task, final String line) {
+        final Path work = dir.resolve("work-" + task);
+        try {
+            Files.writeString(work.resolve(task + ".txt"), line + "\n");
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
         git(work, "add", ".");
         git(work, "commit", "-q", "-m", line);
         git(work, "push", "-q", gate.mirror().toString(), "HEAD:" + GitGate.INCOMING + task);

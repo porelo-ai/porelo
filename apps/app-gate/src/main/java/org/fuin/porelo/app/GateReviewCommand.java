@@ -82,18 +82,18 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
             final var selected = GateSupport.repository(context, project, repository, name);
             final GitGate gate = GateSupport.gate(context, project, selected, upstream, null);
             GateSupport.held(gate);
+            // A mistyped name is said with what does wait, as every gate command says it.
+            final GitGate.Waiting pending = gate.pendingWork(name);
             final GitGate.Waiting waiting =
-                    commit == null ? gate.waiting(name) : new GitGate.Waiting(commit.strip(), "");
-            if (waiting == null) {
-                throw new GateException("There is no pending push named '" + name + "'");
-            }
+                    commit == null ? pending : new GitGate.Waiting(commit.strip(), "");
             // What matters before what is merely large: the instruction, the files dangerous by
-            // kind, and the patch in that same order, reformatting and generated files last.
+            // kind, and the patch in that same order, reformatting and generated files last. A
+            // base named here that names nothing is refused, never taken as no base; an empty one
+            // is the whole history, as a daemon's cut review hands it out.
             final String base =
-                    gate.reviewBase(
-                            against == null
-                                    ? TaskBase.reviewAgainst(context, project, name, gate)
-                                    : against);
+                    against == null
+                            ? gate.reviewBase(TaskBase.reviewAgainst(context, project, name, gate))
+                            : against.isBlank() ? null : gate.namedBase(against);
             final ReviewRanking.Review review = gate.rankedReview(waiting, base, ignoreLineEndings);
             out.print(
                     ReviewText.render(
@@ -104,16 +104,17 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
             out.println("reviewed  " + waiting.commit());
             out.println(
                     "approve   "
-                            + TalkReadCommand.shown(
+                            + GateApprovalHint.line(
+                                    gate,
+                                    pending.commit(),
                                     new GateApprovalHint(
-                                                    project.name(),
-                                                    selected.name(),
-                                                    name,
-                                                    waiting.commit(),
-                                                    upstream,
-                                                    null,
-                                                    false)
-                                            .command()));
+                                            project.name(),
+                                            selected.name(),
+                                            name,
+                                            waiting.commit(),
+                                            upstream,
+                                            null,
+                                            false)));
             out.flush();
             return 0;
         } catch (GateException ex) {

@@ -128,10 +128,12 @@ class GateApprovalCommitTest {
     }
 
     @Test
-    void aStoppedTasksMatchingFullIdForwardsAndAMovedIdFails() {
+    void aStaleFullIdForwardsNothingAndTheMatchingFullIdForwardsThatCommit() {
+        // No task runs here: the push waits at the gate alone, as a stopped task's work does.
         final String moved = push("later work");
         final Run stale = run("approve", "--commit", reviewed);
-        assertThat(stale.code()).as("a stopped task still rejects a stale review").isEqualTo(70);
+        assertThat(stale.code()).as("a review of an earlier commit is refused").isEqualTo(70);
+        assertThat(stale.err()).as("both commits are named").contains(reviewed, moved);
         assertThat(git(upstream, "rev-parse", "main"))
                 .as("the old review forwards nothing")
                 .isEqualTo(base);
@@ -140,6 +142,56 @@ class GateApprovalCommitTest {
         assertThat(git(upstream, "rev-parse", "main"))
                 .as("the named revision arrived")
                 .isEqualTo(moved);
+    }
+
+    @Test
+    void aMistypedNameKeepsSayingWhatWaitsAndOffersNoCommand() {
+        final Run approval = approveNamed("writr", question -> "y");
+        assertThat(approval.code()).isEqualTo(70);
+        assertThat(approval.err())
+                .as("the gate's words for a name that holds nothing")
+                .contains("There is no pending push named 'writr'", "try: writer")
+                .doesNotContain("--commit");
+        assertThat(git(upstream, "rev-parse", "main")).as("nothing left").isEqualTo(base);
+    }
+
+    @Test
+    void aHintNeverOffersAnApprovalThatWouldBeRefused() {
+        // Handed 'gate approve --commit', only to be refused for a reason known before.
+        final GateApprovalHint hint =
+                new GateApprovalHint("default", "app", "writer", reviewed, null, null, false);
+        assertThat(GateApprovalHint.line(gate, reviewed, hint))
+                .as("where it can go, the bound command")
+                .contains("--commit " + reviewed);
+        assertThat(
+                        GateApprovalHint.line(
+                                new GitGate(
+                                        runner,
+                                        gate.mirror(),
+                                        org.fuin.porelo.gate.GateMode.OFFLINE,
+                                        upstream.toString()),
+                                reviewed,
+                                hint))
+                .as("an offline project forwards nothing")
+                .contains("offline")
+                .doesNotContain("--commit");
+        assertThat(
+                        GateApprovalHint.line(
+                                new GitGate(
+                                        runner,
+                                        gate.mirror(),
+                                        org.fuin.porelo.gate.GateMode.GATEKEEPING,
+                                        null),
+                                reviewed,
+                                hint))
+                .as("nor does a project without an upstream")
+                .contains("No upstream")
+                .doesNotContain("--commit");
+        final String moved = push("later work");
+        assertThat(GateApprovalHint.line(gate, moved, hint))
+                .as("a commit shown that no longer waits is not offered")
+                .contains(moved)
+                .doesNotContain("--commit");
     }
 
     @Test
@@ -159,19 +211,23 @@ class GateApprovalCommitTest {
     }
 
     private Run approve(Offer.Asker asker, String... extra) {
+        return approveNamed("writer", asker, extra);
+    }
+
+    private Run approveNamed(String name, Offer.Asker asker, String... extra) {
         final GateApproveCommand command = new GateApproveCommand();
         command.setContext(
                 new PoreloContext(
                         runner,
                         context.paths(),
                         args -> 0,
-                        name -> null,
+                        variable -> null,
                         false,
                         VaultPrompt.NOBODY,
                         new StandardInput(java.io.InputStream.nullInputStream(), true)));
         command.asker = asker;
         final picocli.CommandLine cli = new picocli.CommandLine(command);
-        return execute(cli, List.of("-p", "default", "-r", "app"), extra);
+        return execute(cli, name, List.of("-p", "default", "-r", "app"), extra);
     }
 
     private String push(String subject) {
@@ -182,17 +238,18 @@ class GateApprovalCommitTest {
 
     private Run run(String verb, String... extra) {
         final picocli.CommandLine cli = PoreloCli.commandLine(context);
-        return execute(cli, List.of("gate", verb, "-p", "default", "-r", "app"), extra);
+        return execute(cli, "writer", List.of("gate", verb, "-p", "default", "-r", "app"), extra);
     }
 
-    private Run execute(picocli.CommandLine cli, List<String> arguments, String... extra) {
+    private Run execute(
+            picocli.CommandLine cli, String name, List<String> arguments, String... extra) {
         final StringWriter out = new StringWriter();
         final StringWriter err = new StringWriter();
         cli.setOut(new PrintWriter(out));
         cli.setErr(new PrintWriter(err));
         final List<String> args = new ArrayList<>(arguments);
         args.addAll(List.of(extra));
-        args.add("writer");
+        args.add(name);
         return new Run(cli.execute(args.toArray(String[]::new)), out.toString(), err.toString());
     }
 

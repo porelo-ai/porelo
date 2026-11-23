@@ -95,7 +95,7 @@ workspace, which lives in the container; `--rescue` first pushes unpushed work t
 **Bring a task's work back into your checkout.** In the checkout the task was started from,
 `porelo approve` shows what waits at the gate and, after yes, puts it on the branch `porelo/TASK` there -
 never on the branch you have checked out, and never to a remote. With several tasks it asks which, or
-takes `porelo approve TASK`; `--yes` answers for a script.
+takes `porelo approve TASK`. A script answers with `--yes --commit ID`, naming the commit a person saw.
 
 **Review what an agent pushed.** Inside a task, `git push` goes to the gate. Outside:
 `porelo gate pending`, then `porelo gate review`, `porelo gate checkout`, `porelo gate approve` or
@@ -747,18 +747,26 @@ Afterwards `porelo vault init` starts as on a new machine.
 
 ## approve
 
-`porelo approve [TASK] [--yes]`, typed in the checkout a task was started from, brings that task's work
-back into it. Everything else is known there: the checkout is the repository's source, the work goes
-into it, and the branch is `porelo/TASK`.
+`porelo approve [TASK] [--commit ID] [--yes]`, typed in the checkout a task was started from, brings that
+task's work back into it. Everything else is known there: the checkout is the repository's source, the
+work goes into it, and the branch is `porelo/TASK`.
 
-- **It shows what comes** - the commits at the gate and the start of the diff - and asks. After yes the
-  branch holds the work; the checked-out branch and the working copy are left as they are. After no,
-  nothing changes and the work still waits.
+- **It shows what comes** - the full id of the commit waiting, its commits and the start of its diff, all
+  read from that one commit - and asks about that commit. After yes the branch holds exactly it; the
+  checked-out branch and the working copy are left as they are. After no, nothing changes and the work
+  still waits.
+- **What comes is the commit shown, never a later push.** A task that pushes while the person reads is
+  refused as moved since it was reviewed, and nothing moves. `--yes` brings work back only with
+  `--commit ID`, the full id an earlier run showed; `--yes` alone brings nothing back and names the
+  `porelo approve TASK --yes --commit ID` to run. A named commit the work has moved past is refused the
+  same way.
 - **It brings back what is at the gate**, never what is only in the container: the agent commits and
   pushes when its work is done.
 - **What it ends with, for a script:** 0 when the work was brought back; 66 when nothing waits, or nothing
   of the task named - at the command line or typed at "which one?" - with the names that do wait; 64 when
-  several tasks wait and none was named where nobody can be asked (`--yes`).
+  several tasks wait and none was named where nobody can be asked (`--yes`); 70 when no commit was named
+  with `--yes`, or the work moved past the commit shown or named; 1 after no, or when there is no terminal
+  to ask.
 - **A `porelo/TASK` that exists moves only when the work fast-forwards it**; otherwise it says so before
   asking, and nothing moves. The branch checked out is never the target.
 - **Nothing reaches a forge through it.** A repository whose source is a remote - a project of an organization,
@@ -774,9 +782,9 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | Command | What it does |
 |---|---|
 | `porelo gate pending` | Lists waiting pushes and how long each has waited. |
-| `porelo gate review NAME [--against=REF] [--ignore-line-endings] [--commit=ID]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. Ends with the captured full commit ID and its approval command. `--commit` selects a captured revision, including the full view of a cut review. |
+| `porelo gate review NAME [--against=REF] [--ignore-line-endings] [--commit=ID]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. Ends with the captured full commit ID and its approval command, or why none is offered: a project that forwards nothing, or a `--commit` the push has moved past. `--commit` selects a captured revision, including the full view of a cut review. An `--against` that names nothing in the gate's mirror is refused, exit 70; without a base the patch and the log cover the whole history to the commit. A mistyped NAME is answered with the names that wait. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
-| `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` names the reviewed revision and refuses if the push moved. Without it, a terminal shows the waiting commit and asks, default no; a script or `--no-input` refuses with exit 70 and a bound command. `--signed` merges it as a commit signed with your own git key. |
+| `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` names the reviewed revision and refuses if the push moved. Without it, a terminal shows the waiting commit and asks, default no; a script or `--no-input` refuses with exit 70 and a bound command. A mistyped NAME, an offline project or one without an upstream is refused before anything is asked or offered. A push that arrives while a signed approval fetches the upstream is refused as moved, naming both commits. `--signed` merges it as a commit signed with your own git key. |
 | `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
 | `porelo gate protect` | Installs a pre-push hook that catches unapproved agent work. |
 | `porelo gate check` | The check that hook runs. |

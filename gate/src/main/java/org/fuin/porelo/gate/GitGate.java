@@ -918,27 +918,33 @@ public class GitGate {
      *
      * <p>A mirror that was created empty has no branch to compare against, so the first review of
      * every new project would otherwise fail with a git error about an ambiguous argument. When the
-     * base is missing the whole ref is shown instead, which is the right answer: all of it is new.
+     * base is missing the whole history is shown, from nothing to the ref, which is the right
+     * answer: all of it is new, and every commit {@link #log} lists is in it.
      *
      * @param name Incoming ref name, without the namespace prefix.
-     * @param against Ref to compare against, or {@code null} for the whole ref.
+     * @param against Ref to compare against, or {@code null} for the whole history of the ref.
      * @return Unified diff.
      */
     public String review(String name, @Nullable String against) {
-        requirePending(name);
-        if (against == null || against.isBlank() || !resolves(against)) {
-            return gitIn("show", "--patch", INCOMING + name).standardOutput();
-        }
-        return gitIn(join(List.of("diff"), List.of(), compared(against, name))).standardOutput();
+        final Waiting waiting = pendingWork(name);
+        return gitIn(join(List.of("diff"), List.of(), refs(waiting.commit(), reviewBase(against))))
+                .standardOutput();
     }
 
     /**
-     * Returns what a review compares: from where the task's work and the branch last met, so what
-     * the branch gained since - a later task's start brings the mirror up to the upstream - is not
-     * shown as the task removing it. Two histories that never met are compared as they stand.
+     * Returns what a review compares: from where the task's work and the base last met, so what the
+     * base gained since - a later task's start brings the mirror up to the upstream - is not shown
+     * as the task removing it. Two histories that never met are compared as they stand. Without a
+     * base, from the empty tree, so the patch holds every commit of the history the log lists.
      */
-    private List<String> compared(final String against, final String name) {
-        return comparedObjects(against, INCOMING + name);
+    private List<String> refs(final String commit, final @Nullable String base) {
+        return base == null ? List.of(emptyTree(), commit) : comparedObjects(base, commit);
+    }
+
+    /** The tree with nothing in it, in the mirror's object format. */
+    private String emptyTree() {
+        return gitWithInput(GitCredentials.Lease.EMPTY, "", "hash-object", "-t", "tree", "--stdin")
+                .trimmedOutput();
     }
 
     private List<String> comparedObjects(final String against, final String head) {
@@ -957,17 +963,6 @@ public class GitGate {
     }
 
     /**
-     * Returns what an incoming ref would change, ranked by what reading it is worth, and the patch
-     * in that order.
-     *
-     * <p>Over the same range as {@link #review}. Renames are shown as a removal and an addition, so
-     * a file moved into a place that runs - a workflow directory - is ranked by where it arrives.
-     *
-     * @param name Incoming ref name, without the namespace prefix.
-     * @param against Ref to compare against, or {@code null} to show the ref's own last commit.
-     * @return The ranked files and the patch.
-     */
-    /**
      * The blob ids of a pending push's files, and the object format they are in.
      *
      * @param format {@code sha1} or {@code sha256}, as the mirror reports it.
@@ -983,8 +978,7 @@ public class GitGate {
      * @return The ids, by path.
      */
     public Blobs blobs(String name, java.util.Collection<String> paths) {
-        requirePending(name);
-        return blobs(new Waiting(reviewedCommit(name, null), ""), paths);
+        return blobs(pendingWork(name), paths);
     }
 
     /**
@@ -1022,6 +1016,17 @@ public class GitGate {
         return new Blobs(format, byPath);
     }
 
+    /**
+     * Returns what an incoming ref would change, ranked by what reading it is worth, and the patch
+     * in that order.
+     *
+     * <p>Over the same range as {@link #review}. Renames are shown as a removal and an addition, so
+     * a file moved into a place that runs - a workflow directory - is ranked by where it arrives.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @param against Ref to compare against, or {@code null} for the whole history of the ref.
+     * @return The ranked files and the patch.
+     */
     public ReviewRanking.Review rankedReview(String name, @Nullable String against) {
         return rankedReview(name, against, false);
     }
@@ -1030,41 +1035,34 @@ public class GitGate {
      * Returns a ranked review with raw and end-of-line-whitespace-ignoring counts.
      *
      * @param name Incoming ref name, without the namespace prefix.
-     * @param against Ref to compare against, or {@code null} for the ref's own last commit.
+     * @param against Ref to compare against, or {@code null} for the whole history of the ref.
      * @param ignoreLineEndings Whether the patch ignores whitespace at line endings.
      * @return The ranked files and the patch, over the same range as {@link #review}.
      */
     public ReviewRanking.Review rankedReview(
             String name, @Nullable String against, boolean ignoreLineEndings) {
-        requirePending(name);
-        return rankedReview(
-                new Waiting(reviewedCommit(name, null), ""), against, ignoreLineEndings);
+        return rankedReview(pendingWork(name), reviewBase(against), ignoreLineEndings);
     }
 
     /**
      * Returns the ranked patch for one captured revision.
      *
      * @param waiting The captured commit.
-     * @param against The comparison base, or {@code null} for the last commit alone.
+     * @param against The captured base, or {@code null} for the whole history to the commit, as
+     *     {@link #log(Waiting, String)} lists it.
      * @param ignoreLineEndings Whether the patch ignores whitespace at line endings.
      * @return The ranked files and patch from the same objects.
+     * @throws GateException If {@code against} names nothing in the mirror.
      */
     public ReviewRanking.Review rankedReview(
             Waiting waiting, @Nullable String against, boolean ignoreLineEndings) {
-        final boolean compare = against != null && !against.isBlank() && resolves(against);
-        final List<String> verb =
-                compare
-                        ? List.of("diff", "--no-renames")
-                        : List.of("show", "--format=", "--no-renames");
+        final List<String> verb = List.of("diff", "--no-renames");
         // Pinned once: the ranking, the counts and the patch are read from the same objects, so a
         // push that moves meanwhile cannot rank one change and show another, and whatever part of
         // the patch a reply later shows, the ranking was made from the whole change.
         final String pinned = waiting.commit();
         final List<String> refs =
-                compare && against != null
-                        ? comparedObjects(
-                                gitIn("rev-parse", "--verify", against).trimmedOutput(), pinned)
-                        : List.of(pinned);
+                refs(pinned, against == null || against.isBlank() ? null : namedBase(against));
         // Read with -z: without it git quotes a path holding a byte beyond ASCII, a '"' or a tab,
         // and the quoted name matched no dangerous place - a workflow ranked ordinary.
         final Map<String, int[]> counts =
@@ -1235,8 +1233,7 @@ public class GitGate {
      *     list that could miss a commit or name the wrong maker.
      */
     public List<Made> made(String name, @Nullable String against) {
-        requirePending(name);
-        return made(new Waiting(reviewedCommit(name, null), ""), against);
+        return made(pendingWork(name), reviewBase(against));
     }
 
     /**
@@ -1245,13 +1242,20 @@ public class GitGate {
      * @param waiting The captured commit.
      * @param against The captured base, or {@code null} for the whole history.
      * @return Each commit, newest first.
+     * @throws GateException If {@code against} names nothing in the mirror.
      */
     public List<Made> made(Waiting waiting, @Nullable String against) {
-        final String range =
-                against == null || against.isBlank() || !resolves(against)
-                        ? waiting.commit()
-                        : against + ".." + waiting.commit();
-        return made(range, -1);
+        return made(range(waiting, against), -1);
+    }
+
+    /**
+     * The commits a review lists: those the base lacks, or the whole history to the captured commit
+     * without one - the same the patch of {@link #rankedReview(Waiting, String, boolean)} covers.
+     */
+    private String range(final Waiting waiting, final @Nullable String against) {
+        return against == null || against.isBlank()
+                ? waiting.commit()
+                : namedBase(against) + ".." + waiting.commit();
     }
 
     /**
@@ -1386,20 +1390,44 @@ public class GitGate {
      * @return One line per commit.
      */
     public String log(String name, @Nullable String against) {
-        requirePending(name);
-        return log(new Waiting(reviewedCommit(name, null), ""), against);
+        return log(pendingWork(name), reviewBase(against));
     }
 
     /**
-     * Captures a comparison base so every part of a review uses the same objects.
+     * Captures a default comparison base so every part of a review uses the same objects.
+     *
+     * <p>For a base Porelo chose: a mirror made empty has none, and its review is the whole
+     * history. A base a person named goes through {@link #namedBase} instead, which refuses one
+     * that names nothing.
      *
      * @param against Ref to compare against, or {@code null}.
      * @return Its full commit, or {@code null} when no base exists.
      */
     public @Nullable String reviewBase(@Nullable String against) {
-        return against == null || against.isBlank() || !resolves(against)
-                ? null
-                : gitIn("rev-parse", "--verify", against + "^{commit}").trimmedOutput();
+        return against == null || against.isBlank() ? null : commitOf(against);
+    }
+
+    /**
+     * Captures a comparison base a person or a client named, refusing one the mirror does not hold.
+     *
+     * <p>Taken as no base, a mistyped or unfetched branch showed less than the work: the review
+     * fell back to another range and still offered the approval.
+     *
+     * @param against The ref or commit named.
+     * @return Its full commit.
+     * @throws GateException If it names no commit in the mirror.
+     */
+    public String namedBase(String against) {
+        final String commit = commitOf(against);
+        if (commit == null) {
+            throw new GateException(
+                    "'"
+                            + against
+                            + "' names no commit in the gate's mirror, so there is nothing to compare"
+                            + " the work with; name a branch or commit the mirror holds, or leave"
+                            + " --against out");
+        }
+        return commit;
     }
 
     /**
@@ -1410,10 +1438,7 @@ public class GitGate {
      * @return One full commit id and subject per line.
      */
     public String log(Waiting waiting, @Nullable String against) {
-        final String range =
-                against == null || against.isBlank() || !resolves(against)
-                        ? waiting.commit()
-                        : against + ".." + waiting.commit();
+        final String range = range(waiting, against);
         // Each commit in full: it is what 'gate approve --commit' takes, and seven characters are
         // not, since another commit an agent makes can be made to share them.
         return gitIn("log", "--format=%H %s", range).standardOutput();
@@ -1607,64 +1632,37 @@ public class GitGate {
     // on the host. The project file refuses such a value; this is so that no other way in can.
 
     /**
-     * Forwards an incoming ref to the upstream.
-     *
-     * <p>The only method that sends anything off the machine, and it is never called by anything
-     * the agent can reach.
-     *
-     * @param name Incoming ref name, without the namespace prefix.
-     * @param branch Upstream branch to push to.
-     * @return The pull request's address, or {@code null} without a forge review.
-     * @throws GateException If the mode forbids forwarding, or no upstream is configured.
-     */
-    public @Nullable String approve(String name, String branch) {
-        return approve(name, branch, null);
-    }
-
-    /**
      * Forwards the commit a person reviewed to the upstream.
      *
-     * <p>The task's gate stays up while a person reads, so the ref can move under them: forwarding
-     * the ref as it stood at the approval sent a push made after the review, unseen, and deleting
-     * it afterwards destroyed one that landed in between. The commit is pinned first; with {@code
-     * reviewed} it must be the one the person read, and the ref is removed only while it still
-     * points at what went.
+     * <p>The only method besides {@link #approveSigned} that sends anything off the machine, and it
+     * is never called by anything the agent can reach. The task's gate stays up while a person
+     * reads, so the ref can move under them: forwarding the ref as it stood at the approval sent a
+     * push made after the review, unseen, and deleting it afterwards destroyed one that landed in
+     * between. So the commit the person read is named, always, and is the one that goes; the ref is
+     * removed only while it still points at what went.
      *
      * @param name Incoming ref name, without the namespace prefix.
      * @param branch Upstream branch to push to.
-     * @param reviewed The commit the person reviewed, or {@code null} for whatever the ref holds
-     *     now.
+     * @param reviewed The full id of the commit the person reviewed.
      * @return The pull request's address, or {@code null} without a forge review.
-     * @throws GateException If the mode forbids forwarding, no upstream is configured, or the ref
-     *     moved since the review.
+     * @throws GateException If the mode forbids forwarding, no upstream is configured, no commit is
+     *     named, or the ref moved since the review.
      */
-    public @Nullable String approve(
-            String name, String branch, @org.jspecify.annotations.Nullable String reviewed) {
-        if (!mode.canForward()) {
-            throw new GateException(
-                    "This project's security class is offline, so nothing is"
-                            + " forwarded upstream");
-        }
-        if (forwardRefused != null) {
-            throw new GateException(forwardRefused);
-        }
-        if (upstreamUrl == null) {
-            throw new GateException("No upstream is configured for this project");
-        }
-        requirePending(name);
-        final String commit = reviewedCommit(name, reviewed);
+    public @Nullable String approve(String name, String branch, String reviewed) {
+        final String commit = forwardable(name, reviewed);
+        final String upstream = forwardingTo();
         // The one command here that reaches the forge. It ran with nothing: an approved change
         // could not be forwarded to a private upstream unless the account happened to have a key of
         // its own lying about, which is exactly the arrangement the vault exists to replace.
-        try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
-            final String owned = refuseEarlierWork(lease, upstreamUrl, branch, commit, name);
+        try (GitCredentials.Lease lease = lending.forPush(upstream)) {
+            final String owned = refuseEarlierWork(lease, upstream, branch, commit, name);
             final List<String> push = new ArrayList<>(List.of("push"));
             if (owned != null) {
                 // A changed head after the check belongs to another writer, even on this task's
                 // branch.
                 push.add("--force-with-lease=refs/heads/" + branch + ":" + owned);
             }
-            push.addAll(List.of("--end-of-options", upstreamUrl, commit + ":refs/heads/" + branch));
+            push.addAll(List.of("--end-of-options", upstream, commit + ":refs/heads/" + branch));
             gitWith(lease, push.toArray(String[]::new));
         }
         return completeApproval(name, branch, commit, commit);
@@ -2169,20 +2167,101 @@ public class GitGate {
     private static final java.time.Duration ASKING_AFTER = java.time.Duration.ofSeconds(30);
 
     /**
+     * Returns why nothing can be forwarded from this gate at all, before any push is looked at.
+     *
+     * <p>So that no hint offers an approval that will be refused: a review in an offline project,
+     * or one without an upstream, says this instead of the approve command.
+     *
+     * @return Why, or {@code null} when this gate can forward.
+     */
+    public @Nullable String forwardRefusal() {
+        if (!mode.canForward()) {
+            return "This project's security class is offline, so nothing is forwarded upstream";
+        }
+        if (forwardRefused != null) {
+            return forwardRefused;
+        }
+        if (upstreamUrl == null) {
+            return "No upstream is configured for this project";
+        }
+        return null;
+    }
+
+    /**
+     * Captures the work a person may approve under a name: what waits there now, refused as an
+     * approval would refuse it, before anybody is asked or shown a command to run.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @return The work, with its full commit.
+     * @throws GateException If nothing can be forwarded from this gate, or nothing of that name is
+     *     pending.
+     */
+    public Waiting approvable(String name) {
+        final String refused = forwardRefusal();
+        if (refused != null) {
+            throw new GateException(refused);
+        }
+        return pendingWork(name);
+    }
+
+    /**
+     * Captures the work pending under a name, in this gate's sense of pending: in an {@code online}
+     * gate only a rescued push waits.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @return The work, with its full commit.
+     * @throws GateException If nothing of that name is pending, naming what is.
+     */
+    public Waiting pendingWork(String name) {
+        requirePending(name);
+        final Waiting waiting = waiting(name);
+        if (waiting == null) {
+            // Approved or rejected meanwhile: said as any other name that does not wait.
+            throw notPending(name);
+        }
+        return waiting;
+    }
+
+    /** The upstream an approval goes to; refused when there is none. */
+    private String forwardingTo() {
+        final String url = upstreamUrl;
+        if (url == null) {
+            throw new GateException("No upstream is configured for this project");
+        }
+        return url;
+    }
+
+    /** Refuses as {@link #approvable} does, then binds the approval to the named commit. */
+    private String forwardable(final String name, final String reviewed) {
+        final String refused = forwardRefusal();
+        if (refused != null) {
+            throw new GateException(refused);
+        }
+        requirePending(name);
+        return reviewedCommit(name, reviewed);
+    }
+
+    /**
      * Returns the commit an incoming ref holds, refusing when it is not the one a person reviewed.
      *
      * @param name Incoming ref name.
-     * @param reviewed The reviewed commit, or {@code null}.
+     * @param reviewed The reviewed commit, in full.
      * @return The full commit id.
+     * @throws GateException If no commit is named, it is not named in full, or the ref holds
+     *     another.
      */
-    private String reviewedCommit(String name, @org.jspecify.annotations.Nullable String reviewed) {
+    private String reviewedCommit(String name, String reviewed) {
+        if (reviewed.isBlank()) {
+            // Never the ref as it stands now: that is whatever was pushed last, seen or not.
+            throw new GateException(
+                    "name the commit you reviewed with --commit, as 'gate review' and 'gate pending'"
+                            + " show it; nothing is forwarded without it");
+        }
         final String now =
                 gitIn("rev-parse", "--verify", INCOMING + name + "^{commit}")
                         .standardOutput()
                         .strip();
-        if (reviewed != null
-                && !reviewed.isBlank()
-                && !reviewed.strip().matches("[0-9a-f]{40}|[0-9a-f]{64}")) {
+        if (!reviewed.strip().matches("[0-9a-f]{40}|[0-9a-f]{64}")) {
             // In full: the seven characters a listing shows can be met by another commit the agent
             // grinds out.
             throw new GateException(
@@ -2191,7 +2270,7 @@ public class GitGate {
                             + reviewed.strip()
                             + "' is not a full commit id");
         }
-        if (reviewed != null && !reviewed.isBlank() && !now.equals(reviewed.strip())) {
+        if (!now.equals(reviewed.strip())) {
             throw new GateException.MovedSinceReview(name, reviewed.strip(), now);
         }
         return now;
@@ -2210,7 +2289,8 @@ public class GitGate {
     }
 
     /**
-     * Forwards an incoming ref to the upstream as a merge commit signed by the person approving.
+     * Forwards the commit a person reviewed to the upstream as a merge commit signed by the person
+     * approving.
      *
      * <p><strong>For what the project's configuration is made of</strong> - a machine's enrolment,
      * say: every machine accepts a configuration only when its commit is signed with the project's
@@ -2220,48 +2300,23 @@ public class GitGate {
      * up to sign with - an ssh-agent included - and the machine never holds it. A merge that comes
      * out unsigned is not pushed.
      *
-     * @param name Incoming ref name, without the namespace prefix.
-     * @param branch Upstream branch to merge onto and push to.
-     * @param scratch An empty directory to merge in; removed afterwards by the caller.
-     * @return The pull request's address, or {@code null} without a forge review.
-     * @throws GateException If the mode forbids forwarding, no upstream is configured, the merge
-     *     cannot be made or signed, or the push is refused.
-     */
-    public @Nullable String approveSigned(String name, String branch, Path scratch) {
-        return approveSigned(name, branch, scratch, null);
-    }
-
-    /**
-     * Forwards the commit a person reviewed as a merge signed by them; see {@link #approve(String,
-     * String, String)} for why the commit is pinned.
+     * <p>See {@link #approve(String, String, String)} for why the commit is named: the merge is
+     * made of that commit alone, and a push that arrives while the upstream is fetched is {@link
+     * GateException.MovedSinceReview}, as before.
      *
      * @param name Incoming ref name, without the namespace prefix.
      * @param branch Upstream branch to merge onto and push to.
      * @param scratch An empty directory to merge in; removed afterwards by the caller.
-     * @param reviewed The commit the person reviewed, or {@code null} for whatever the ref holds
-     *     now.
-     * @throws GateException As {@link #approveSigned(String, String, Path)}, and when the ref moved
-     *     since the review.
+     * @param reviewed The full id of the commit the person reviewed.
      * @return The pull request's address, or {@code null} without a forge review.
+     * @throws GateException If the mode forbids forwarding, no upstream is configured, no commit is
+     *     named, the ref moved since the review, the merge cannot be made or signed, or the push is
+     *     refused.
      */
     public @Nullable String approveSigned(
-            String name,
-            String branch,
-            Path scratch,
-            @org.jspecify.annotations.Nullable String reviewed) {
-        if (!mode.canForward()) {
-            throw new GateException(
-                    "This project's security class is offline, so nothing is"
-                            + " forwarded upstream");
-        }
-        if (forwardRefused != null) {
-            throw new GateException(forwardRefused);
-        }
-        if (upstreamUrl == null) {
-            throw new GateException("No upstream is configured for this project");
-        }
-        requirePending(name);
-        final String commit = reviewedCommit(name, reviewed);
+            String name, String branch, Path scratch, String reviewed) {
+        final String commit = forwardable(name, reviewed);
+        final String upstream = forwardingTo();
         final String target = scratch.toString();
         git("init", "--quiet", target);
         final Path noHooks = scratch.resolve(".git").resolve("porelo-no-hooks");
@@ -2272,13 +2327,13 @@ public class GitGate {
         }
         gitAt(target, "config", "core.hooksPath", noHooks.toString());
         final String pushed;
-        try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
+        try (GitCredentials.Lease lease = lending.forPush(upstream)) {
             final String listed =
                     gitWith(
                                     lease,
                                     "ls-remote",
                                     "--end-of-options",
-                                    upstreamUrl,
+                                    upstream,
                                     "refs/heads/" + branch)
                             .standardOutput()
                             .strip();
@@ -2288,16 +2343,16 @@ public class GitGate {
                     "fetch",
                     "--quiet",
                     "--end-of-options",
-                    upstreamUrl,
+                    upstream,
                     listed.isEmpty() ? "HEAD" : "refs/heads/" + branch);
             gitAt(target, "checkout", "--quiet", "-B", branch, "FETCH_HEAD");
             gitAt(target, "fetch", "--quiet", mirror.toString(), INCOMING + name);
-            if (!commit.equals(gitAt(target, "rev-parse", "FETCH_HEAD").standardOutput().strip())) {
-                throw new GateException(
-                        "'"
-                                + name
-                                + "' moved while it was being approved; nothing was forwarded."
-                                + " Review it again");
+            final String fetched =
+                    gitAt(target, "rev-parse", "FETCH_HEAD").standardOutput().strip();
+            if (!commit.equals(fetched)) {
+                // Typed, as before the fetch: a client says it in its own words and offers the
+                // review again, naming both commits.
+                throw new GateException.MovedSinceReview(name, commit, fetched);
             }
             final CommandResult merged;
             try {
@@ -2342,7 +2397,7 @@ public class GitGate {
                     target,
                     "push",
                     "--end-of-options",
-                    upstreamUrl,
+                    upstream,
                     "HEAD:refs/heads/" + branch);
             pushed = gitAt(target, "rev-parse", "HEAD").standardOutput().strip();
             gitIn("fetch", "--quiet", "--end-of-options", target, "HEAD");
@@ -2527,14 +2582,19 @@ public class GitGate {
         // Otherwise every mistyped name produces a git error about an ambiguous argument, which
         // says nothing about what the operator actually got wrong.
         if (!pending().contains(name)) {
-            throw new GateException(
-                    "There is no pending push named '"
-                            + name
-                            + "'"
-                            + (pending().isEmpty()
-                                    ? ", nothing is pending"
-                                    : ", try: " + String.join(", ", pending())));
+            throw notPending(name);
         }
+    }
+
+    private GateException notPending(String name) {
+        final List<String> pending = pending();
+        return new GateException(
+                "There is no pending push named '"
+                        + name
+                        + "'"
+                        + (pending.isEmpty()
+                                ? ", nothing is pending"
+                                : ", try: " + String.join(", ", pending)));
     }
 
     private CommandResult git(String... arguments) {

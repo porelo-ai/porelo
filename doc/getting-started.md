@@ -304,8 +304,9 @@ porelo approve                                # bring it into this checkout as p
 
 For a task started from this checkout in `default`, `porelo approve` (or `porelo approve myproject`)
 shows the commits and up to the first 120 diff lines, asks, and brings the work into that checkout
-as branch `porelo/myproject`, never touching your checked-out branch or any remote. `--yes` skips
-the question. Merge or cherry-pick `porelo/myproject` when you are ready.
+as branch `porelo/myproject`, never touching your checked-out branch or any remote. It names the full
+commit it showed; `--yes --commit <that id>` skips the question for exactly that commit, and a push the
+task made since is refused. Merge or cherry-pick `porelo/myproject` when you are ready.
 
 For a `guarded` project whose repository names a remote `central:` in `project.yml`, use
 `porelo gate approve -p <project> [-r <repo>] --commit <full-id> <task>`: it pushes the approved work to that `upstream`

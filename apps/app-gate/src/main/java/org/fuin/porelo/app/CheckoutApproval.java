@@ -44,6 +44,12 @@ final class CheckoutApproval {
     /** Exit: the person said no, or the branch would not fast-forward; nothing moved. */
     static final int NOT_MOVED = 1;
 
+    /**
+     * Exit: nothing named the commit to bring back where nobody saw it, or the work moved past the
+     * one named; nothing moved. The exit {@code porelo gate approve} gives for the same refusal.
+     */
+    static final int UNBOUND = 70;
+
     /** Asks the person a question. */
     @FunctionalInterface
     interface Asker {
@@ -81,13 +87,16 @@ final class CheckoutApproval {
      *
      * @param directory Where the person stands, in the checkout.
      * @param task The task's name, or {@code null} for the one started from this checkout.
-     * @param yes Whether to bring it without asking.
+     * @param commit The full id of the commit to bring back, as an earlier run showed it, or {@code
+     *     null} to bring back the one shown now, after asking.
+     * @param yes Whether to bring it without asking; only with {@code commit}.
      * @param asker How the person is asked.
      * @return 0 when the branch holds the work, otherwise why nothing moved.
      */
     int run(
             final Path directory,
             final @Nullable String task,
+            final @Nullable String commit,
             final boolean yes,
             final Asker asker) {
         final Path top = LocalRepository.topLevel(context.runner(), directory);
@@ -116,21 +125,51 @@ final class CheckoutApproval {
             // question read as ambiguous, under the sentence that no work of that name waits.
             return chosenRefusal;
         }
+        // Captured once: what is shown, asked about and brought back is this one commit, against
+        // this one base, however the task pushes meanwhile.
+        final GitGate.Waiting captured;
+        try {
+            captured = new GitGate.Waiting(chosen.commit(), chosen.subject());
+            if (commit != null && !commit.strip().equals(captured.commit())) {
+                // Named in full, or refused as the gate refuses a short one; then refused as moved.
+                final GitGate.Waiting named = new GitGate.Waiting(commit.strip(), "");
+                throw new GateException.MovedSinceReview(
+                        chosen.name(), named.commit(), captured.commit());
+            }
+        } catch (GateException ex) {
+            return refuse(
+                    UNBOUND, ex.getMessage() + "; nothing moved, the work still waits at the gate");
+        }
         final String branch = branchOf(chosen.name());
-        show(gate, chosen);
-        final String refused = refusal(top, gate.mirror(), branch, chosen.commit());
+        show(gate, chosen.name(), captured);
+        final String refused = refusal(top, gate.mirror(), branch, captured.commit());
         if (refused != null) {
             return refuse(NOT_MOVED, refused);
+        }
+        final String bound = bound(chosen.name(), captured);
+        if (yes && commit == null) {
+            // A script saw nothing: what waits now may be a push made after the person looked.
+            return refuse(
+                    UNBOUND,
+                    "--yes brings back only the commit it names, and none was named; nothing moved."
+                            + " To bring back the commit shown: "
+                            + bound);
         }
         if (!yes && !context.input().canPrompt()) {
             return refuse(
                     NOT_MOVED,
-                    "there is no terminal to confirm; use porelo approve "
-                            + chosen.name()
-                            + " --yes to bring this work back");
+                    "there is no terminal to confirm; to bring back the commit shown: " + bound);
         }
         if (!yes) {
-            final String answer = asker.ask("Bring this into " + top + " as " + branch + "? [y/N]");
+            final String answer =
+                    asker.ask(
+                            "Bring "
+                                    + captured.commit()
+                                    + " into "
+                                    + top
+                                    + " as "
+                                    + branch
+                                    + "? [y/N]");
             if (answer == null
                     || !List.of("y", "yes")
                             .contains(answer.strip().toLowerCase(java.util.Locale.ROOT))) {
@@ -140,13 +179,15 @@ final class CheckoutApproval {
             }
         }
         try {
-            gate.approve(chosen.name(), branch, chosen.commit());
+            gate.approve(chosen.name(), branch, captured.commit());
             EventLog.record(
                     context,
                     EventLog.APPROVED,
                     gateProject == null ? "" : gateProject.name(),
                     chosen.name(),
-                    "brought into " + top + " as " + branch + " at " + chosen.commit());
+                    "brought into " + top + " as " + branch + " at " + captured.commit());
+        } catch (GateException.MovedSinceReview ex) {
+            return refuse(UNBOUND, String.valueOf(ex.getMessage()));
         } catch (GateException ex) {
             return refuse(
                     NOT_MOVED,
@@ -160,7 +201,7 @@ final class CheckoutApproval {
                         + " as "
                         + branch
                         + " ("
-                        + chosen.commit().substring(0, Math.min(12, chosen.commit().length()))
+                        + captured.commit()
                         + ")");
         out.flush();
         return 0;
@@ -227,8 +268,8 @@ final class CheckoutApproval {
                             + choice.project()
                             + "' goes to "
                             + origin
-                            + ", not into this checkout: review it with 'porelo gate review' and send it"
-                            + " there with 'porelo gate approve <task> <branch>'");
+                            + ", not into this checkout: review it with 'porelo gate review', which ends"
+                            + " with the 'porelo gate approve' command for the commit it showed");
         }
         return null;
     }
@@ -298,7 +339,8 @@ final class CheckoutApproval {
                                 AMBIGUOUS,
                                 "work of several tasks waits at the gate: "
                                         + String.join(", ", names)
-                                        + "; name the one to bring back with porelo approve <task> --yes");
+                                        + "; name the one to bring back with porelo approve <task>, which"
+                                        + " shows its commit and the --yes --commit to give");
                 return null;
             }
             wanted =
@@ -366,12 +408,23 @@ final class CheckoutApproval {
         return String.join("; ", held);
     }
 
-    /** The commits and the start of the diff, before anybody is asked. */
-    private void show(final GitGate gate, final PendingPush chosen) {
-        out.println("task      " + chosen.name());
-        out.println(gate.log(chosen.name(), "HEAD").strip());
+    /**
+     * The commit, its log and the start of its diff, before anybody is asked: all read from the
+     * captured commit and one base, so a push meanwhile cannot pair one commit's log with another's
+     * diff.
+     */
+    private void show(final GitGate gate, final String name, final GitGate.Waiting captured) {
+        // The checkout's branch as the mirror follows it; none in a mirror made empty, and then
+        // the whole history, as the log lists it.
+        final String base = gate.reviewBase("HEAD");
+        out.println("task      " + GateReviewCommand.shown(name));
+        out.println("commit    " + captured.commit());
+        out.println(GateReviewCommand.shown(gate.log(captured, base)).strip());
         out.println();
-        final List<String> diff = gate.review(chosen.name(), "HEAD").lines().toList();
+        final List<String> diff =
+                GateReviewCommand.shown(gate.rankedReview(captured, base, false).patch())
+                        .lines()
+                        .toList();
         diff.stream().limit(SHOWN_LINES).forEach(out::println);
         if (diff.size() > SHOWN_LINES) {
             out.println(
@@ -380,6 +433,14 @@ final class CheckoutApproval {
                             + " more lines; 'porelo gate review' shows all of it");
         }
         out.flush();
+    }
+
+    /** The command that brings back exactly the captured commit without asking. */
+    private static String bound(final String name, final GitGate.Waiting captured) {
+        return "porelo approve "
+                + TalkReadCommand.shown(name)
+                + " --yes --commit "
+                + captured.commit();
     }
 
     /**

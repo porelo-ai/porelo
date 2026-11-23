@@ -259,7 +259,9 @@ method Review(
   repository: ?string,
   # Ref name, from PendingPush.name.
   name: string,
-  # What to diff against. Default: the task's recorded starting branch, or the mirror's HEAD for older tasks.
+  # What to diff against. Default: the task's recorded starting branch, or the mirror's HEAD for older tasks;
+  # with none in the mirror, the whole history to the commit. A named ref or commit the mirror does not hold
+  # is refused as Failed, never taken as no base.
   against: ?string,
   # Ignore whitespace at line endings in the diff (git --ignore-space-at-eol). Default: false.
   # Counts, file ranking and log are unchanged by this switch.
@@ -269,7 +271,7 @@ method Review(
   commit: ?string,
   # Unified diff, in the order of files: the dangerous first, reformatting and generated files last.
   diff: string,
-  # Commit log over the same range.
+  # Commit log over the same range: every commit it lists is in diff and files.
   log: string,
   # The same commits, newest first, each with who made it. Absent from a daemon before this field.
   commits: ?[]ReviewCommit,
@@ -436,11 +438,13 @@ method Reject(project: string, upstream: ?string, repository: ?string, name: str
 # Reject was asked to discard a push the upstream already has, and was not given 'force': nothing was discarded.
 error AlreadyUpstream(name: string)
 
-# Approve was given the commit the person reviewed, and the push has moved since: nothing was
-# forwarded. Review it again (now is what it holds) and approve that.
+# Approve was given the commit the person reviewed, and the push has moved since - before the call, or
+# while a signed approval fetched the upstream: nothing was forwarded. Review it again (now is what it
+# holds) and approve that.
 error MovedSinceReview(name: string, reviewed: string, now: string)
 
-# No approval was attempted. waiting is the full current commit, or empty when no work waits.
+# No approval was attempted. waiting is the full commit that waits now and could be forwarded; a name
+# nothing waits under, or a gate that forwards nothing, is refused as Failed instead, with what does wait.
 # Review that revision before making a new authenticated Approve call with its commit.
 # SARIF verdicts, suppressions, baselines and empty findings never authorize forwarding.
 error CommitNotNamed(name: string, waiting: string)

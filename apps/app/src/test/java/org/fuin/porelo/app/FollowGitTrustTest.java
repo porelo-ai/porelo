@@ -168,7 +168,7 @@ class FollowGitTrustTest {
                 .answering("rev-parse", "a".repeat(40));
         new GitGate(runner, dir.resolve("mirror"), GateMode.GATEKEEPING, url)
                 .using(new VaultGitCredentials(context, "test"))
-                .approve("approved", "main");
+                .approve("approved", "main", "a".repeat(40));
         final var push = runner.only(" push ");
         assertThat(push.environment())
                 .as("approved work reaches git with its destination's trust")

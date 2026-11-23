@@ -201,10 +201,14 @@ class SeveralRepositoriesTest {
         // work would land on ANOTHER repository's upstream - approved by somebody who was looking
         // at a different project entirely.
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () -> backend.approve("task-2", "task-2"))
+                        () ->
+                                backend.approve(
+                                        "task-2",
+                                        "task-2",
+                                        frontend.pendingWork("task-2").commit()))
                 .isInstanceOf(GateException.class);
 
-        backend.approve("task-1", "task-1");
+        backend.approve("task-1", "task-1", backend.pendingWork("task-1").commit());
 
         // Approved work reaches ITS repository's upstream...
         assertThat(branchesOf(backendUpstream)).contains("task-1");

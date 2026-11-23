@@ -18,35 +18,17 @@ import org.jspecify.annotations.Nullable;
 public final class GateSupport {
 
     /**
-     * Approves pending work as a merge signed by the person approving, in a scratch clone removed
-     * afterwards.
-     *
-     * @param gate The gate.
-     * @param name The pending push.
-     * @param branch The upstream branch.
-     * @return The pull request's address, or {@code null} without a forge review.
-     */
-    public static @Nullable String approveSigned(
-            org.fuin.porelo.gate.GitGate gate, String name, String branch) {
-        return approveSigned(gate, name, branch, null);
-    }
-
-    /**
      * Merges the commit a person reviewed onto the upstream branch, signed with their own git's
      * key, in a scratch directory removed afterwards.
      *
      * @param gate The gate.
      * @param name The pending push.
      * @param branch The upstream branch.
-     * @param reviewed The commit the person reviewed, or {@code null} for whatever the ref holds
-     *     now.
+     * @param reviewed The full id of the commit the person reviewed.
      * @return The pull request's address, or {@code null} without a forge review.
      */
     public static @Nullable String approveSigned(
-            org.fuin.porelo.gate.GitGate gate,
-            String name,
-            String branch,
-            @org.jspecify.annotations.Nullable String reviewed) {
+            org.fuin.porelo.gate.GitGate gate, String name, String branch, String reviewed) {
         final java.nio.file.Path scratch;
         try {
             scratch = java.nio.file.Files.createTempDirectory("porelo-approve-");

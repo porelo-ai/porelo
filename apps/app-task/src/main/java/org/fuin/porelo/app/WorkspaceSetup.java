@@ -195,7 +195,7 @@ final class WorkspaceSetup {
                         }
                     }
                     // Its work waits for a person, and a new task of the same name would push onto
-                    // it.
+                    // it. An approval is offered only where one can go.
                     refusal =
                             "work of an earlier task called "
                                     + task
@@ -203,15 +203,19 @@ final class WorkspaceSetup {
                                     + earlier.commit()
                                     + " "
                                     + earlier.subject()
-                                    + "): review it, then approve with 'porelo gate approve --project "
-                                    + project.name()
-                                    + " --repository "
-                                    + chosen.name()
-                                    + " --commit "
-                                    + earlier.commit()
-                                    + " "
-                                    + task
-                                    + "' or reject with 'porelo gate reject', or"
+                                    + "): review it, then "
+                                    + (gate.forwardRefusal() == null
+                                            ? "approve with 'porelo gate approve --project "
+                                                    + project.name()
+                                                    + " --repository "
+                                                    + chosen.name()
+                                                    + " --commit "
+                                                    + earlier.commit()
+                                                    + " "
+                                                    + task
+                                                    + "' or "
+                                            : "")
+                                    + "reject with 'porelo gate reject', or"
                                     + " start under another name";
                     return null;
                 }

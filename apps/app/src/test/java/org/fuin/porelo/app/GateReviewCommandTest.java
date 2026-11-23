@@ -58,6 +58,14 @@ class GateReviewCommandTest {
         review(dir, false, false, true);
     }
 
+    @Test
+    void aNamedBaseThatNamesNothingIsRefusedNamingItAndOffersNoApproval(@TempDir Path dir)
+            throws Exception {
+        // Taken as no base, a mistyped branch showed the last commit alone and exited 0 with an
+        // approval command.
+        review(dir, false, false, false, "--against", "develp");
+    }
+
     private void review(Path dir, boolean develop, boolean missing, String... options)
             throws Exception {
         review(dir, develop, missing, false, options);
@@ -130,6 +138,7 @@ class GateReviewCommandTest {
         git(work, "commit", "-q", "-m", "the second change");
         git(work, "push", "-q", gate.mirror().toString(), "HEAD:" + GitGate.INCOMING + "writer");
         final String captured = git(work, "rev-parse", "HEAD");
+        final String first = git(work, "rev-parse", "HEAD~1");
         if (race) {
             during.set(
                     () -> {
@@ -175,9 +184,15 @@ class GateReviewCommandTest {
         arguments.add("writer");
         final int code = cli.execute(arguments.toArray(String[]::new));
 
-        if (missing) {
+        if (missing || List.of(options).contains("develp")) {
             assertThat(code).as("an incomplete review must not invite approval").isNotZero();
-            assertThat(out.toString()).as("no partial patch is offered").doesNotContain("+second");
+            assertThat(out.toString())
+                    .as("no partial patch is offered")
+                    .doesNotContain("+second", "--commit");
+            if (List.of(options).contains("develp")) {
+                assertThat(code).isEqualTo(70);
+                assertThat(err.toString()).as("the base is named").contains("'develp'");
+            }
             return;
         }
         assertThat(code).as(err.toString()).isZero();
@@ -185,6 +200,9 @@ class GateReviewCommandTest {
                 .as("both commits' changes are in the patch")
                 .contains("+first")
                 .contains("+second");
+        assertThat(out.toString())
+                .as("and both commits are in the log, read over the captured range")
+                .contains(first + " the first change", captured + " the second change");
         assertThat(out.toString())
                 .as("the command authorizes the displayed revision")
                 .contains(
