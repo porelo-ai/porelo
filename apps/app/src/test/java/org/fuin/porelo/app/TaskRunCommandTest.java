@@ -2910,6 +2910,30 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aRunningTaskGoneIntoAtATerminalNamesItsOwnTaskInThePrompt(@TempDir Path dir)
+            throws IOException {
+        // Cut out of porelo-uc_shell, the prompt named no task: 'uc/'.
+        final PoreloContext context = context(dir, true);
+        final String id = "a".repeat(64);
+        TaskIdentityFixture.record(context.paths(), "porelo-uc_shell", "uc", "shell", id);
+        new TaskHelpers(List.of()).writeTo(context.paths().tasks().taskRecord("porelo-uc_shell"));
+        runner.answering(
+                "ps", "porelo-uc_shell\tUp 4 minutes\t\t\tuc\tguarded\tuc\t\t" + id + "\tshell\n");
+        runner.answering("{{.Id}}", id);
+        runner.answering("stty -g", "saved-settings\n");
+
+        assertThat(startAt(context, true, "-p", projectFile(dir, MINIMAL)))
+                .as("said: %s", err)
+                .isZero();
+
+        assertThat(execCalls).as("the session it went into").hasSize(1);
+        assertThat(String.join(" ", execCalls.get(0)))
+                .as("the prompt names the project and its task")
+                .contains("porelo-uc_shell")
+                .contains("uc/shell");
+    }
+
+    @Test
     void aStartOnARunningTaskNamesEachOptionThatWouldNoLongerTakeEffect(@TempDir Path dir)
             throws IOException {
         final PoreloContext context = context(dir, true);

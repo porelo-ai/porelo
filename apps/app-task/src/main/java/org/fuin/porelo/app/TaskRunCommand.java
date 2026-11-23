@@ -1294,7 +1294,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         final TaskLaunch.Existing existing = launch.startExisting(out, err, goingIn);
         if (existing != null) {
             if ("RUNNING".equals(existing.action()) && existing.code() == 0) {
-                return intoRunning(existing.container(), out, err);
+                return intoRunning(existing.container(), existing.project(), out, err);
             }
             if (existing.code() != 0) {
                 return existing.code();
@@ -1916,7 +1916,11 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
      * Goes into a running task as {@code attach} does, unless an option was given that it would
      * drop; then names each of them and goes in nowhere.
      */
-    private int intoRunning(final String container, final PrintWriter out, final PrintWriter err) {
+    private int intoRunning(
+            final String container,
+            final String project,
+            final PrintWriter out,
+            final PrintWriter err) {
         final picocli.CommandLine.ParseResult parsed = spec.commandLine().getParseResult();
         final java.util.List<String> given =
                 AT_START_ONLY.stream().filter(parsed::hasMatchedOption).toList();
@@ -1933,7 +1937,15 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.flush();
             return 64;
         }
-        return TaskAttachCommand.goInto(context, container, terminal.getAsBoolean(), out, err);
+        // Named as its record names it, as a stopped task brought back is: the new short container
+        // name holds no task to cut out.
+        return TaskAttachCommand.goInto(
+                context,
+                container,
+                project + "/" + new TaskIdentities(context).taskOf(container, project),
+                terminal.getAsBoolean(),
+                out,
+                err);
     }
 
     /**

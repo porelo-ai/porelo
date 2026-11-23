@@ -223,6 +223,28 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
             final boolean terminal,
             final PrintWriter out,
             final PrintWriter err) {
+        return goInto(context, container, null, terminal, out, err);
+    }
+
+    /**
+     * Goes into a running task, its prompt naming the task where a session has to be made anew.
+     *
+     * @param context The machine.
+     * @param container The running task.
+     * @param label What the prompt of a session made anew names, or {@code null} for the shell's
+     *     own.
+     * @param terminal Whether a person is at a terminal.
+     * @param out Where to report.
+     * @param err Where a terminal restore failure is reported.
+     * @return The session's exit code.
+     */
+    static int goInto(
+            final PoreloContext context,
+            final String container,
+            final @org.jspecify.annotations.Nullable String label,
+            final boolean terminal,
+            final PrintWriter out,
+            final PrintWriter err) {
         final org.fuin.porelo.runtime.Podman podman = context.podman();
         // An agent task whose session is gone starts its agent again, continuing where it can;
         // otherwise the session that is there, or a shell.
@@ -239,10 +261,10 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
             return 64;
         }
         final int left =
-                agent != null
+                agent != null || label != null
                         ? TerminalAttach.run(
                                 context,
-                                context.tasks().attachCommand(container, "/bin/bash", agent, null),
+                                context.tasks().attachCommand(container, "/bin/bash", agent, label),
                                 terminal,
                                 out,
                                 err)
