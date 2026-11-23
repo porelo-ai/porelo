@@ -179,6 +179,8 @@ message into `inbox/cur`, and asks `receipt` about what a task sent, by the reci
 
 With `--persons`, a person's words arrive unsigned as `<time>--<scheme>-person-<id>.json`, holding `sender` (the
 person's account), `body`, `to` (the accounts mentioned), and optionally `eventId`, `direct` and `account`. The
+message Porelo makes of them has the id `person-` followed by a UUID derived from `eventId`, or from the file name
+without one, so a line read twice stays one message and an agent may repeat the id in its answer. The
 sender must be a person the project's members admit, whether they joined manually or the room's maker keeps them in it:
 `account` names that person's host account, only for a sender who is a person's own account on the project's server,
 and Porelo takes the words when it is a person neither locked nor revoked among its members who did not join under another account,

@@ -1,0 +1,2 @@
+title: "A person's message read from a conversation has the id `person-` followed by a UUID derived from its event, the same each time the line is read, so an agent's answer that repeats it is no longer refused by the outbound filter as a possible secret"
+type: fixed

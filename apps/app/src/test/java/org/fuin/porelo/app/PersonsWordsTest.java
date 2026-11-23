@@ -230,11 +230,48 @@ class PersonsWordsTest {
         return (String) message.get("messageId");
     }
 
+    /** A canonical version-8 UUID, the lone shape the outbound filter masks as harmless. */
+    private static final String UUID_V8 =
+            "[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "$ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm-12_",
+                "$h-reserved",
+                "$a/b",
+                "foo",
+                "$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            })
+    void anEventsIdIsAVersion8Uuid(String event, @TempDir Path dir) throws IOException {
+        assertThat(id(dir.resolve("person.json"), event))
+                .as("every event takes the same path to a canonical UUID")
+                .matches("person-" + UUID_V8);
+    }
+
     @Test
-    void aV4EventKeepsItsReadableForm(@TempDir Path dir) throws IOException {
-        assertThat(id(dir.resolve("person.json"), "$ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm-12_"))
-                .as("base64url events stay readable")
-                .isEqualTo("person-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm-12_");
+    void anEventReadTwiceKeepsItsId(@TempDir Path dir) throws IOException {
+        final String event = "$ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm-12_";
+        assertThat(id(dir.resolve("first.json"), event))
+                .as("a line read on a later poll is still one message")
+                .isEqualTo(id(dir.resolve("second.json"), event));
+    }
+
+    @Test
+    void anEventsIdIsFixedByItsBytes(@TempDir Path dir) throws IOException {
+        assertThat(id(dir.resolve("person.json"), "$a/b"))
+                .as("SHA-256 of the fixed prefix and the event, cut to a version-8 UUID")
+                .isEqualTo("person-" + uuidOf("porelo-person-message:$a/b"));
+    }
+
+    @Test
+    void anIdLeavesNoRunTheFilterRefusesOnceItsUuidIsMasked(@TempDir Path dir) throws IOException {
+        final String answered =
+                "Re " + id(dir.resolve("person.json"), "$" + "a".repeat(200)) + ": done";
+        assertThat(answered.replaceAll(UUID_V8, "UUID"))
+                .as("once the lone UUID is masked, no run of hex or base64 is left")
+                .doesNotContainPattern("[0-9A-Fa-f]{32,}")
+                .doesNotContainPattern("[A-Za-z0-9+/_=-]{32,}");
     }
 
     @Test
@@ -251,14 +288,6 @@ class PersonsWordsTest {
                 .isNotEqualTo(id(dir.resolve("person.json"), "foo"));
     }
 
-    @Test
-    void anOversizedEventFitsTheFilter(@TempDir Path dir) throws IOException {
-        assertThat(id(dir.resolve("person.json"), "$" + "a".repeat(200)))
-                .as("bounded filter-safe ID")
-                .matches("person-h-[0-9a-f]{64}")
-                .hasSizeLessThanOrEqualTo(128);
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"", "$"})
     void anEmptyEventUsesTheFileName(String event, @TempDir Path dir) throws IOException {
@@ -270,19 +299,30 @@ class PersonsWordsTest {
                 .isNotEqualTo(id(dir.resolve("other.json"), event));
     }
 
-    @Test
-    void aHashPrefixCannotAliasAReadableEvent(@TempDir Path dir) throws IOException {
-        assertThat(id(dir.resolve("person.json"), "$h-reserved"))
-                .as("hash prefix is reserved")
-                .matches("person-h-[0-9a-f]{64}");
-    }
-
-    @Test
-    void unsafeEventsHashTheFullOriginalValue(@TempDir Path dir) throws IOException {
-        assertThat(id(dir.resolve("person.json"), "$a/b"))
-                .as("SHA-256 includes the original dollar")
-                .isEqualTo(
-                        "person-h-214fdb214905eb080e5c0a19410c9d067946ca7b09b16725c0fb1587590fd5b7");
+    /** The expected UUID, computed apart from the code under test. */
+    private static String uuidOf(String name) {
+        final byte[] hash;
+        try {
+            hash =
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(name.getBytes(StandardCharsets.UTF_8));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
+        final String hex = java.util.HexFormat.of().formatHex(hash, 0, 16);
+        final char version = '8';
+        final char variant = "89ab".charAt(Character.digit(hex.charAt(16), 16) & 0x3);
+        return hex.substring(0, 8)
+                + "-"
+                + hex.substring(8, 12)
+                + "-"
+                + version
+                + hex.substring(13, 16)
+                + "-"
+                + variant
+                + hex.substring(17, 20)
+                + "-"
+                + hex.substring(20, 32);
     }
 
     private static TransportConversations.Member member(

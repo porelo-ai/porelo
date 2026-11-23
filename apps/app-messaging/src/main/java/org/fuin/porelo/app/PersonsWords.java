@@ -224,26 +224,27 @@ record PersonsWords(
     /** Said in a direct chat with the one task. */
     static final String VIA_DIRECT = "direct";
 
+    /** What every event is hashed after, so the id names a person's message and nothing else. */
+    private static final String ID_NAMESPACE = "porelo-person-message:";
+
+    /**
+     * The id of a person's message: {@code person-} and a version-8 UUID from the SHA-256 of the
+     * event, whole and as given, so a line read twice keeps its id and an agent may repeat it: the
+     * outbound filter masks a lone UUID, where it refuses a long run of hex or base64.
+     */
     private static String messageId(final String event) {
-        final String bare = event.startsWith("$") ? event.substring(1) : event;
-        // The filter's default maximum ID length is 128, including the person- prefix.
-        if (event.startsWith("$")
-                && !bare.isEmpty()
-                && bare.matches("[A-Za-z0-9._:-]+")
-                && !bare.startsWith("h-")
-                && "person-".length() + bare.length() <= 128) {
-            return "person-" + bare;
-        }
-        // Unprefixed values hash too, so foo cannot alias the readable Matrix event $foo.
+        final byte[] hash;
         try {
-            return "person-h-"
-                    + java.util.HexFormat.of()
-                            .formatHex(
-                                    java.security.MessageDigest.getInstance("SHA-256")
-                                            .digest(event.getBytes(StandardCharsets.UTF_8)));
+            hash =
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest((ID_NAMESPACE + event).getBytes(StandardCharsets.UTF_8));
         } catch (java.security.NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 is required for person message IDs", ex);
         }
+        hash[6] = (byte) ((hash[6] & 0x0f) | 0x80);
+        hash[8] = (byte) ((hash[8] & 0x3f) | 0x80);
+        final java.nio.ByteBuffer bits = java.nio.ByteBuffer.wrap(hash, 0, 16);
+        return "person-" + new java.util.UUID(bits.getLong(), bits.getLong());
     }
 
     private static PersonsWords refused(final String why) {
