@@ -6,9 +6,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.GitGate;
@@ -62,13 +64,22 @@ final class HostPullRequests implements GitGate.PullRequests {
                     || base.isBlank()) {
                 throw new GateException("the forge returned no default branch");
             }
-            for (int page = 1; page <= 100; page++) {
+            // Every page is read, to the forge's first empty one, as a forge may answer fewer than
+            // asked on every page; a page adding no pull not already read means the forge ignores
+            // the page asked, which would never end.
+            final Set<Long> read = new HashSet<>();
+            for (int page = 1; ; page++) {
                 final Object listed =
                         request(client, token, "/pulls?state=open&limit=50&page=" + page, null);
                 if (!(listed instanceof List<?> pulls)) {
                     throw new GateException("the forge returned no pull request list");
                 }
+                boolean added = false;
                 for (Object pull : pulls) {
+                    if (pull instanceof Map<?, ?> numbered
+                            && numbered.get("number") instanceof Number number) {
+                        added |= read.add(number.longValue());
+                    }
                     if (pull instanceof Map<?, ?> entry
                             && entry.get("head") instanceof Map<?, ?> head
                             && branch.equals(head.get("ref"))
@@ -78,9 +89,9 @@ final class HostPullRequests implements GitGate.PullRequests {
                         return url(entry, token);
                     }
                 }
-                if (pulls.size() < 50) break;
-                if (page == 100)
-                    throw new GateException("the forge returned too many open pull requests");
+                if (pulls.isEmpty()) break;
+                if (!added)
+                    throw new GateException("the forge repeated a page of open pull requests");
             }
             final Object opened =
                     request(
@@ -151,7 +162,8 @@ final class HostPullRequests implements GitGate.PullRequests {
                 client.send(
                         request.build(),
                         HttpResponse.BodyHandlers.limiting(
-                                HttpResponse.BodyHandlers.ofString(), 1024 * 1024));
+                                HttpResponse.BodyHandlers.ofString(),
+                                HostPullRequestReader.MAXIMUM_ANSWER));
         final Object parsed;
         try {
             parsed = Json.parse(response.body());

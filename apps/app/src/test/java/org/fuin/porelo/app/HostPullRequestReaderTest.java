@@ -85,7 +85,7 @@ class HostPullRequestReaderTest {
                 "/",
                 exchange -> {
                     final byte[] bytes =
-                            (" ".repeat(1024 * 1024) + "[]").getBytes(StandardCharsets.UTF_8);
+                            (" ".repeat(32 * 1024 * 1024) + "[]").getBytes(StandardCharsets.UTF_8);
                     exchange.sendResponseHeaders(200, bytes.length);
                     try (var out = exchange.getResponseBody()) {
                         out.write(bytes);
@@ -226,7 +226,22 @@ class HostPullRequestReaderTest {
                 .trimmedOutput();
     }
 
+    /**
+     * A reader of a forge that answers its one list on the first page and an empty second page, as
+     * a real forge ends a list the reader walks to its first empty page.
+     */
     private HostPullRequestReader reader(HostPullRequestReader.Exchange forge) {
+        return pagingReader(
+                (address, token) ->
+                        address.getPath().endsWith("/pulls")
+                                        && address.getQuery() != null
+                                        && !address.getQuery().endsWith("page=1")
+                                ? none()
+                                : forge.get(address, token));
+    }
+
+    /** A reader of a forge that answers each page itself. */
+    private HostPullRequestReader pagingReader(HostPullRequestReader.Exchange forge) {
         return new HostPullRequestReader(
                 context,
                 conf,
@@ -967,7 +982,7 @@ class HostPullRequestReaderTest {
                 reader(
                         (address, token) ->
                                 ok(
-                                        (" ".repeat(1024 * 1024) + "[]")
+                                        (" ".repeat(32 * 1024 * 1024) + "[]")
                                                 .getBytes(StandardCharsets.UTF_8)));
 
         assertThatThrownBy(() -> reader.open(project))
@@ -1333,8 +1348,8 @@ class HostPullRequestReaderTest {
     }
 
     @Test
-    void keptRowsCountAgainstTheBoundOfWhatAWatchCarries() throws Exception {
-        // Rows a watch carries to its next round must stay within the bound it checks on entry.
+    void keptRowsAreCarriedWhateverTheirNumber() throws Exception {
+        // A project's open reviews are all watched, however many a refused repository keeps.
         final Project three = threeRepositories("demo,shop,docs");
         final List<HostPullRequestReader.Pull> earlier =
                 java.util.stream.LongStream.rangeClosed(1, 500)
@@ -1353,11 +1368,109 @@ class HostPullRequestReaderTest {
                                                 ? openList()
                                                 : none());
 
-        assertThatThrownBy(() -> reader.poll(three, earlier))
-                .as("500 kept rows and one open row exceed the 500 a watch may carry")
+        final var round = reader.poll(three, earlier);
+
+        assertThat(round.kept()).as("every kept row").isEqualTo(earlier);
+        assertThat(round.open()).as("the open row besides them").hasSize(1);
+    }
+
+    @Test
+    void aForgeWithMoreThanFiveHundredOpenPullsIsReadWhole() {
+        // Every page is read: a project's open reviews are never cut at a count.
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final var reader =
+                pagingReader(
+                        (address, token) -> {
+                            asked.add(address.getQuery());
+                            return openPage(address, 501, "");
+                        });
+
+        assertThat(reader.open(project))
+                .as("all 501 open pulls")
+                .extracting(HostPullRequestReader.Pull::number)
+                .containsExactlyElementsOf(
+                        java.util.stream.LongStream.rangeClosed(1, 501).boxed().toList());
+        assertThat(asked)
+                .as("eleven pages of pulls, then the empty twelfth that ends the list")
+                .hasSize(12)
+                .last()
+                .isEqualTo("state=open&limit=50&page=12");
+    }
+
+    @Test
+    @org.junit.jupiter.api.Tag("slow")
+    void aReadWalksPastPageOneHundred() {
+        // No page count ends a read: the forge's own last page does.
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final var reader =
+                pagingReader(
+                        (address, token) -> {
+                            asked.add(address.getQuery());
+                            return address.getQuery().endsWith("page=101")
+                                    ? status(503)
+                                    : openPage(address, 100L * 50, "");
+                        });
+
+        assertThat(reader.poll(project, List.of()).refused())
+                .as("the hundred-and-first page was asked and answered")
+                .singleElement()
+                .satisfies(refusal -> assertThat(refusal.status()).as("its status").isEqualTo(503));
+        assertThat(asked).as("past page 100").contains("state=open&limit=50&page=101");
+    }
+
+    @Test
+    void aPageOfAboutTwoMiBIsTaken() {
+        // A legal page of pulls with long multibyte bodies is far above one MiB.
+        final String body = "€".repeat(65_536);
+        final var reader = pagingReader((address, token) -> openPage(address, 11, body));
+        assertThat(openPage(java.net.URI.create("http://x/?page=1"), 11, body).body())
+                .as("the page is about 2 MiB")
+                .hasSizeGreaterThan(2 * 1024 * 1024);
+
+        assertThat(reader.open(project)).as("the whole page is read").hasSize(11);
+    }
+
+    @Test
+    void aForgeRepeatingAFullPageIsRefused() {
+        // A forge that ignores the page asked would otherwise be read forever.
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final var reader =
+                pagingReader(
+                        (address, token) -> {
+                            asked.add(address.getQuery());
+                            return openPage(java.net.URI.create("http://x/?page=1"), 50, "");
+                        });
+
+        assertThatThrownBy(() -> reader.open(project))
+                .as("a page repeating pulls already read is an unusable answer")
                 .isInstanceOfSatisfying(
                         HostPullRequestReader.Refused.class,
-                        ex -> assertThat(ex.reason()).as("the bound's reason").isEqualTo("bounds"));
+                        ex -> assertThat(ex.reason()).as("why").isEqualTo("forge-answer"));
+        assertThat(asked).as("refused at the second page").hasSize(2);
+    }
+
+    private HostPullRequestReader.Answer openPage(java.net.URI address, long total, String body) {
+        final int page = Integer.parseInt(address.getQuery().replaceFirst(".*page=", ""));
+        final List<Object> pulls =
+                java.util.stream.LongStream.rangeClosed((page - 1) * 50L + 1, total)
+                        .limit(50)
+                        .<Object>mapToObj(
+                                n ->
+                                        Map.of(
+                                                "number",
+                                                n,
+                                                "title",
+                                                "Review " + n,
+                                                "body",
+                                                body,
+                                                "head",
+                                                Map.of("sha", head),
+                                                "state",
+                                                "open",
+                                                "merged",
+                                                false))
+                        .toList();
+        return ok(Json.write(pulls).getBytes(StandardCharsets.UTF_8));
     }
 
     @Test

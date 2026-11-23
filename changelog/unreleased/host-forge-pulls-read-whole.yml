@@ -1,0 +1,2 @@
+title: "Reading a host forge's reviews and opening a pull request on it read every page of open pull requests, where more than 500 open rows, 100 pages or 100 repositories were refused, and take a forge answer up to 32 MiB, where one page of long multibyte pull request bodies above one MiB was refused; a forge answering fewer than 50 a page is read to its first empty page, and the daemon's reply of open reviews may fill one message instead of one MiB; a forge that repeats a page is refused instead of being read without end"
+type: fixed

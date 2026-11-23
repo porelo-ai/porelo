@@ -217,11 +217,14 @@ mirror is never written. Neither method is available to a task through MCP: they
 to read work awaiting human judgment.
 
 HTTP stays on the configured port at `127.0.0.1`, with no proxy or redirects, a ten-second connection timeout and
-a twenty-second request timeout. Each HTTP response and complete daemon reply is limited to one MiB; each project
-to 100 repositories and 500 open rows; each repository to 100 pages of 50. Maker queries allow ten seconds and
-64 KiB of output. Review fetches are shallow, keep what they receive in one pack whatever its size, and allow
-twenty seconds per git command; the makers query, each fetch command and the 75 seconds a read waits for another
-read's fetch of the same repository follow the account's `machines` factor. Shown fields keep at most 1000 code points, and at most 50 help trailers are returned.
+a twenty-second request timeout. Each HTTP response is limited to 32 MiB, above the largest legal page of pull
+requests, and each complete daemon reply to one varlink message (4 MiB). Every page of open pull requests is read, to
+the forge's first empty page, since a forge may answer fewer than the 50 asked; a page that repeats a pull request
+already read is refused as an unusable answer. Maker queries allow ten seconds and 64 KiB of output. Review fetches
+are shallow, keep what they receive in one pack whatever its size, and allow twenty seconds per git command; the
+makers query, each fetch command and the 75 seconds a read waits for another read's fetch of the same repository
+follow the account's `machines` factor. Shown fields keep at most 1000 code points, and at most 50 help trailers are
+returned.
 A repository the forge answers with an error is refused alone, in the answer's `refused`, with its status, the
 path asked (`/api/v1/repos/<copy>/pulls`, never the host's address or the token) and a reason: `forge-access` for 403
 or 404 (its copy is not made yet or the person is not admitted: an administrator of the host makes it or admits

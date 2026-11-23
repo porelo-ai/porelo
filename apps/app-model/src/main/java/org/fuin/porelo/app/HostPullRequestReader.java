@@ -24,8 +24,17 @@ import org.fuin.porelo.wire.RootOwnedFile;
 
 /** Reads a person's host forge reviews and confirms the end of previously observed reviews. */
 public final class HostPullRequestReader {
-    private static final int MAXIMUM_RESPONSE = 1024 * 1024;
-    private static final int MAXIMUM_PULLS = 500;
+    /**
+     * The bound on one forge answer: a page asks for 50 pulls, and even 100 pulls with
+     * 65,536-character bodies of four UTF-8 bytes each are 25 MiB, so 32 MiB holds the largest
+     * legal page with each pull's other fields.
+     */
+    static final int MAXIMUM_ANSWER = 32 * 1024 * 1024;
+
+    /** The bound on one daemon reply: one wire message, less room for its envelope. */
+    private static final int MAXIMUM_REPLY =
+            org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE - 64 * 1024;
+
     private final PoreloContext context;
     private final Path conf;
     private final RootOwnedFile.Attributes attributes;
@@ -130,7 +139,7 @@ public final class HostPullRequestReader {
             // Absent when every repository answered, so a reply keeps its earlier shape.
             if (!refused.isEmpty())
                 reply.put("refused", refused.stream().map(Refusal::asMap).toList());
-            if (Json.write(reply).getBytes(StandardCharsets.UTF_8).length > MAXIMUM_RESPONSE) {
+            if (Json.write(reply).getBytes(StandardCharsets.UTF_8).length > MAXIMUM_REPLY) {
                 throw new Refused("bounds", "the review reply exceeds its size bound");
             }
             return reply;
@@ -311,7 +320,7 @@ public final class HostPullRequestReader {
         for (var repository : repositories.entrySet()) {
             final Map<String, Pull> rows = new LinkedHashMap<>();
             try {
-                read(project, repository.getKey(), repository.getValue(), token, rows, current);
+                read(project, repository.getKey(), repository.getValue(), token, rows);
             } catch (RepositoryRefused ex) {
                 refused.put(repository.getKey(), ex.of(repository.getKey()));
                 continue;
@@ -320,7 +329,6 @@ public final class HostPullRequestReader {
         }
         final List<Pull> ended = new ArrayList<>();
         final List<Pull> kept = new ArrayList<>();
-        if (previous.size() > MAXIMUM_PULLS) throw tooMany();
         for (Pull old : previous) {
             if (current.containsKey(key(old))) continue;
             if (refused.containsKey(old.repository())) {
@@ -358,8 +366,6 @@ public final class HostPullRequestReader {
             if (now.state().equals("open")) current.put(key(now), now);
             else ended.add(now);
         }
-        // Kept rows go to the next round too, so they count against the same bound.
-        if (current.size() + kept.size() > MAXIMUM_PULLS) throw tooMany();
         final List<Refusal> ordered = new ArrayList<>();
         for (String name : repositories.keySet())
             if (refused.containsKey(name)) ordered.add(refused.remove(name));
@@ -370,28 +376,26 @@ public final class HostPullRequestReader {
         return result;
     }
 
-    /** Reads one repository's open list into rows, counting those already answered by others. */
+    /**
+     * Reads every page of one repository's open list into rows, up to the forge's first empty page,
+     * since a forge may answer fewer than asked on every page; a page repeating a pull already read
+     * is refused, so a forge ignoring the page asked ends.
+     */
     private void read(
-            String project,
-            String name,
-            URI repository,
-            String token,
-            Map<String, Pull> rows,
-            Map<String, Pull> answered) {
-        for (int page = 1; page <= 100; page++) {
+            String project, String name, URI repository, String token, Map<String, Pull> rows) {
+        for (int page = 1; ; page++) {
             final Object answer =
                     request(
                             URI.create(repository + "/pulls?state=open&limit=50&page=" + page),
                             token);
+            // More pulls than the page asked for is not a forge's answer to it.
             if (!(answer instanceof List<?> pulls) || pulls.size() > 50) throw malformed();
             for (Object object : pulls) {
                 final Pull pull = row(project, name, repository, object, token);
                 if (!pull.state().equals("open") || rows.putIfAbsent(key(pull), pull) != null)
                     throw malformed();
-                if (answered.size() + rows.size() > MAXIMUM_PULLS) throw tooMany();
             }
-            if (pulls.size() < 50) break;
-            if (page == 100) throw tooMany();
+            if (pulls.isEmpty()) break;
         }
     }
 
@@ -430,7 +434,6 @@ public final class HostPullRequestReader {
             final String copy = HostForgeAddress.copyOf(project.name(), central);
             if (copy == null) continue;
             result.put(repository.name(), api(settings, copy));
-            if (result.size() > 100) throw tooMany();
         }
         return result;
     }
@@ -492,7 +495,7 @@ public final class HostPullRequestReader {
             }
         }
         final byte[] bytes = answer.body();
-        if (bytes.length > MAXIMUM_RESPONSE)
+        if (bytes.length > MAXIMUM_ANSWER)
             throw new Refused("bounds", "the forge answer exceeds its size bound");
         try {
             final Object value = Json.parseExact(new String(bytes, StandardCharsets.UTF_8));
@@ -687,7 +690,7 @@ public final class HostPullRequestReader {
                                     .header("Accept", "application/json")
                                     .build(),
                             HttpResponse.BodyHandlers.limiting(
-                                    HttpResponse.BodyHandlers.ofByteArray(), MAXIMUM_RESPONSE));
+                                    HttpResponse.BodyHandlers.ofByteArray(), MAXIMUM_ANSWER));
             return new Answer(response.statusCode(), response.body());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -717,12 +720,6 @@ public final class HostPullRequestReader {
         return new Refused(
                 "forge-answer",
                 "the host forge returned an unusable review answer; repair the forge and ask again");
-    }
-
-    private static Refused tooMany() {
-        return new Refused(
-                "bounds",
-                "the host forge returned too many reviews or repositories; narrow the project before asking again");
     }
 
     private static Refused noMakers() {

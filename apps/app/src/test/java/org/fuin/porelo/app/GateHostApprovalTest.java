@@ -420,7 +420,11 @@ class GateHostApprovalTest {
                 ("token " + TOKEN).equals(exchange.getRequestHeaders().getFirst("Authorization")));
         if (exchange.getRequestURI().getPath().endsWith("/pulls")) {
             if (exchange.getRequestMethod().equals("GET")) {
-                answer(exchange, 200, created.isEmpty() ? List.of() : List.of(pull()));
+                // The forge's list ends at its first empty page, as Forgejo's does.
+                final String query = exchange.getRequestURI().getQuery();
+                final boolean first =
+                        query == null || !query.matches("(.*&)?page=([2-9]|\\d\\d+)(&.*)?");
+                answer(exchange, 200, created.isEmpty() || !first ? List.of() : List.of(pull()));
             } else {
                 if (status != 201) {
                     answer(exchange, status, Map.of("message", "scope denied " + TOKEN));
@@ -441,6 +445,8 @@ class GateHostApprovalTest {
 
     private Map<String, Object> pull() {
         return Map.of(
+                "number",
+                created.size(),
                 "head",
                 Map.of("ref", head),
                 "base",
