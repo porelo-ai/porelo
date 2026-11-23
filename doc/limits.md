@@ -44,6 +44,13 @@ services=1.0,machines=1.0,polling=1.0,retries=1.0
 | the window, the planner and IntelliJ | the Tasks1 call `Limits()`, whose `line` a client passes on unchanged as `--limits` to what it starts |
 | a host that porelo-host brings up | its own host configuration, never a person's file |
 
+- **A program takes `--limits <line>` before its mode or verb**: `<program> --limits <line> serve <socket>`. An
+  agent program, a build reader and an ecosystem adapter are handed the factors by the shared main they run on,
+  through their `withLimits`; one that keeps no time limits of its own needs nothing.
+- **A client reads `Limits()` once per connection.** What it must start before it can ask - a tunnel, a relay,
+  the first call itself - runs with the factors it last read from that machine, or all four at 1.0 for a machine
+  not read yet.
+
 `org.fuin.porelo.wire.LimitFactors` in `porelo-wire` reads, writes and applies the line for every Java
 program. A program in another language keeps to the grammar above; the cases it is held to, each good line
 with its four factors and its written form and each refused line with what its refusal names, are published

@@ -114,4 +114,19 @@ public interface Agent {
     default List<String> headlessCommand(RunRequest request) {
         return HeadlessCommandBuilder.build(definition(), request);
     }
+
+    /**
+     * Returns this agent with the four factors its time limits follow, as Porelo handed them on in
+     * {@code --limits}; called once before the agent serves.
+     *
+     * <p>An agent with time limits of its own - a sign-in it waits for, a probe, a file it reads
+     * again - returns itself configured with them, so every helper it hands out applies them. One
+     * with none keeps this default.
+     *
+     * @param limits The factors; all four 1.0 when Porelo named none.
+     * @return The agent to serve.
+     */
+    default Agent withLimits(org.fuin.porelo.wire.LimitFactors limits) {
+        return this;
+    }
 }

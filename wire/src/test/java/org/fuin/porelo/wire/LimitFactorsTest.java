@@ -73,6 +73,21 @@ class LimitFactorsTest {
     }
 
     @Test
+    void theLineIsTakenFromTheFrontOfAProgramsArgumentsWherePoreloPutsIt() {
+        assertThat(LimitFactors.leading(new String[] {"--limits", "polling=2", "serve", "s"}))
+                .isEqualTo(new LimitFactors.Leading(LimitFactors.parse("polling=2.0"), 2));
+        assertThat(LimitFactors.leading(new String[] {"serve", "s"}))
+                .as("without it, all four at 1.0 and the mode first")
+                .isEqualTo(new LimitFactors.Leading(LimitFactors.DEFAULT, 0));
+        assertThat(LimitFactors.leading(new String[0]).next()).isZero();
+        assertThatThrownBy(() -> LimitFactors.leading(new String[] {"--limits"}))
+                .hasMessage("--limits: needs a limits line");
+        assertThatThrownBy(() -> LimitFactors.leading(new String[] {"--limits", "x=1", "serve"}))
+                .as("what a program prints before it ends with 64")
+                .hasMessageStartingWith("--limits: 'x' is no limit");
+    }
+
+    @Test
     void eachFactorScalesOnlyItsOwnGroup() {
         final LimitFactors factors =
                 LimitFactors.parse("services=2.0,machines=3.0,polling=0.5,retries=1.5");

@@ -59,4 +59,18 @@ public interface BuildReader {
             final Target target, final String branch, final @Nullable String title) {
         throw new UnsupportedOperationException(forge() + " opens no pull request");
     }
+
+    /**
+     * Returns this reader with the four factors its time limits follow, as Porelo handed them on in
+     * {@code --limits}; called once before it serves.
+     *
+     * <p>One with time limits of its own - a request to its service, a call it waits on - returns
+     * itself configured with them. One with none keeps this default.
+     *
+     * @param limits The factors; all four 1.0 when Porelo named none.
+     * @return The reader to serve.
+     */
+    default BuildReader withLimits(final org.fuin.porelo.wire.LimitFactors limits) {
+        return this;
+    }
 }

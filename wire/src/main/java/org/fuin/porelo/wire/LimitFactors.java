@@ -124,6 +124,37 @@ public record LimitFactors(
     }
 
     /**
+     * The factors a program's command line names before its mode, and where the rest begins.
+     *
+     * @param factors The factors named, or all four at 1.0 when none were.
+     * @param next The index of the first argument after them.
+     */
+    public record Leading(LimitFactors factors, int next) {}
+
+    /**
+     * Takes {@value #OPTION} {@code <line>} from the front of a program's arguments, where Porelo
+     * puts it: {@code <program> --limits <line> serve <socket>}.
+     *
+     * @param arguments The program's arguments.
+     * @return The factors and the index of the mode; all four at 1.0 and 0 without the option.
+     * @throws IllegalArgumentException Saying {@code --limits: <what is wrong>}, for a program to
+     *     print and end with exit code 64.
+     */
+    public static Leading leading(String[] arguments) {
+        if (arguments.length == 0 || !OPTION.equals(arguments[0])) {
+            return new Leading(DEFAULT, 0);
+        }
+        if (arguments.length < 2) {
+            throw new IllegalArgumentException(OPTION + ": needs a limits line");
+        }
+        try {
+            return new Leading(parse(arguments[1]), 2);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(OPTION + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
      * Writes the line as {@code porelod} hands it on: all four, in the order services, machines,
      * polling, retries, each with at least one digit after its dot.
      *

@@ -24,6 +24,18 @@ class EcosystemMainTest {
     }
 
     @Test
+    void takesTheLimitsLineBeforeItsModeAndRefusesABadOneWithSixtyFour() {
+        assertThat(run("--limits", "services=2.0", "describe"))
+                .as("the mode after the line runs as without it")
+                .isZero();
+        assertThat(out.toString(StandardCharsets.UTF_8)).contains("\"ecosystem\"");
+
+        assertThat(run("--limits", "services=0", "describe")).isEqualTo(64);
+        assertThat(err.toString(StandardCharsets.UTF_8))
+                .startsWith("--limits: services 0 lies outside 0.1 to 100");
+    }
+
+    @Test
     void describesItselfAsJson() {
         assertThat(run("describe")).isZero();
 
@@ -83,7 +95,8 @@ class EcosystemMainTest {
     @Test
     void refusesAWrongCommandLine() {
         assertThat(run("serve")).isEqualTo(2);
-        assertThat(err.toString(StandardCharsets.UTF_8)).contains("usage: fake serve <socket>");
+        assertThat(err.toString(StandardCharsets.UTF_8))
+                .contains("usage: fake [--limits <line>] serve <socket>");
 
         assertThat(run("build")).isEqualTo(2);
         assertThat(err.toString(StandardCharsets.UTF_8)).contains("unknown mode 'build'");
