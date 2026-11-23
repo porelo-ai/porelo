@@ -283,7 +283,10 @@ method Review(
   # Present when diff is not the whole patch: the reply would not fit one message. diff then ends at a file
   # boundary and never holds part of a file. files, their ranks and log stay whole; the ranking was made
   # from the whole change. Absent when diff is whole, and from a daemon before this field.
-  cut: ?ReviewCut
+  cut: ?ReviewCut,
+  # Present when files, commits, log or diff holds only its first page; ReviewPage gives the rest. Absent
+  # when all of it is here.
+  paged: ?ReviewPaged
 )
 
 # Where a Review's diff was cut to fit one message.
@@ -295,6 +298,48 @@ type ReviewCut (
   omitted: []string,
   # The command that prints the whole review, patch included, on the daemon's machine.
   command: []string
+)
+
+# How much of a Review there is when a part of it holds only its first page; ReviewPage gives the rest.
+type ReviewPaged (
+  # Each part's whole size: entries for files and commits, UTF-8 bytes for log and diff.
+  files: int,
+  commits: int,
+  logBytes: int,
+  diffBytes: int,
+  # Each part's next page, as ReviewPage.from; absent where Review already holds all of that part.
+  filesNext: ?int,
+  commitsNext: ?int,
+  logNext: ?int,
+  diffNext: ?int
+)
+
+# The rest of a Review that did not fit its reply, page by page, for the commit that Review answered. Pages of
+# files and commits are in Review's own order, so putting them together gives the list Review would have given
+# whole. Each page fits one message.
+method ReviewPage(
+  project: string,
+  upstream: ?string,
+  repository: ?string,
+  name: string,
+  # Review.commit; refused as MovedSinceReview when the push has moved since, so every page is of one commit.
+  commit: string,
+  # As given to Review, so the pages are of the same review.
+  against: ?string,
+  ignoreLineEndings: ?bool,
+  # "files", "commits", "log" or "diff"; another is refused as InvalidParameter naming part.
+  part: string,
+  # Where this page starts: Review.paged's next for the part, or a page's next. A position the daemon did not
+  # give - past the part's end, or not at the start of an entry, a line, or for diff a file - is refused as
+  # InvalidParameter naming from.
+  from: int
+) -> (
+  # The one that matches part; the others absent.
+  files: ?[]ReviewFile,
+  commits: ?[]ReviewCommit,
+  text: ?string,
+  # Where this part's next page starts; absent when this page ends it.
+  next: ?int
 )
 
 # Review's file list, commits and log alone do not fit one message: nothing is sent rather than a list a

@@ -362,6 +362,17 @@ final class GateMethods {
                                     waiting));
                 });
 
+        // Declared for paging a review too large for one message; refused by name until it is
+        // answered,
+        // never with a page that looks like the review's end.
+        server.method(
+                "ReviewPage",
+                (parameters, replies) -> {
+                    throw new VarlinkException(
+                            "org.varlink.service.MethodNotImplemented",
+                            Map.of("method", "org.fuin.porelo.Tasks1.ReviewPage"));
+                });
+
         server.method(
                 "Review",
                 (parameters, replies) -> {

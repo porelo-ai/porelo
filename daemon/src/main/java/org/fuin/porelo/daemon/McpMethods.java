@@ -73,6 +73,7 @@ final class McpMethods {
                     "HostVaultShare",
                     "Pending",
                     "Review",
+                    "ReviewPage",
                     "Agents",
                     "AgentSignIns",
                     "Providers",

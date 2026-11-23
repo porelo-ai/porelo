@@ -226,6 +226,33 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aReviewPageIsRefusedByNameUntilItIsAnswered(@TempDir Path dir) throws Exception {
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".ReviewPage",
+                                                        Map.of(
+                                                                "project",
+                                                                "p",
+                                                                "name",
+                                                                "t",
+                                                                "commit",
+                                                                "a".repeat(40),
+                                                                "part",
+                                                                "files",
+                                                                "from",
+                                                                0)))
+                                .as("never an empty page that looks like the review's end")
+                                .hasMessageContaining("MethodNotImplemented");
+                    }
+                });
+    }
+
+    @Test
     void accountSettingsAnswersTheSixNamedDecisionsAsRead(@TempDir Path dir) throws Exception {
         servingContext(
                 context(dir)
