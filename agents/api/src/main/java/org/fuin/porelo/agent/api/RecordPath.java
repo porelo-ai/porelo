@@ -1,5 +1,7 @@
 package org.fuin.porelo.agent.api;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -72,18 +74,70 @@ final class RecordPath {
     }
 
     /**
-     * Whether a record holds every wanted value at its path.
+     * Keeps the values a record match wants as their own type, refusing any that is not one.
+     *
+     * @param wanted Checked paths and the values they must have, as declared.
+     * @param what What the match belongs to, for the refusal.
+     * @return The same paths with each value a {@link String}, a {@link Boolean}, a {@link Long}
+     *     for a whole number or a {@link Double} for any other.
+     * @throws AgentException When a value is not a string, a boolean or a finite number.
+     */
+    static Map<String, Object> scalars(Map<String, ?> wanted, String what) {
+        final Map<String, Object> result = new LinkedHashMap<>();
+        wanted.forEach((field, value) -> result.put(field, scalar(field, value, what)));
+        return Map.copyOf(result);
+    }
+
+    private static Object scalar(String field, @Nullable Object value, String what) {
+        if (value instanceof String || value instanceof Boolean) {
+            return value;
+        }
+        final BigDecimal number = value instanceof Number declared ? exact(declared) : null;
+        if (number == null || Double.isInfinite(number.doubleValue())) {
+            throw new AgentException(
+                    what
+                            + " '"
+                            + field
+                            + "' wants a string, true or false, or a number; quote any other text");
+        }
+        try {
+            return number.longValueExact();
+        } catch (ArithmeticException notWhole) {
+            return number.doubleValue();
+        }
+    }
+
+    private static @Nullable BigDecimal exact(Number number) {
+        try {
+            return new BigDecimal(number.toString());
+        } catch (NumberFormatException notFinite) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a record holds every wanted value at its path: a string only the same string, a
+     * boolean only the same boolean, a number any number of the same value.
      *
      * @param record The record.
-     * @param wanted Checked paths and the values they must have.
+     * @param wanted Checked paths and the values they must have, as {@link #scalars} keeps them.
      * @return true when every one matches
      */
-    static boolean matches(Map<?, ?> record, Map<String, String> wanted) {
-        for (final Map.Entry<String, String> each : wanted.entrySet()) {
-            if (!each.getValue().equals(value(record, each.getKey()))) {
+    static boolean matches(Map<?, ?> record, Map<String, ?> wanted) {
+        for (final Map.Entry<String, ?> each : wanted.entrySet()) {
+            if (!same(each.getValue(), value(record, each.getKey()))) {
                 return false;
             }
         }
         return true;
+    }
+
+    private static boolean same(@Nullable Object wanted, @Nullable Object found) {
+        if (wanted instanceof Number number) {
+            final BigDecimal want = exact(number);
+            final BigDecimal have = found instanceof Number other ? exact(other) : null;
+            return want != null && have != null && want.compareTo(have) == 0;
+        }
+        return wanted != null && wanted.equals(found);
     }
 }

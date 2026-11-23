@@ -137,10 +137,10 @@ public record Waiting(
      * the given values, and the field of it that holds the text.
      *
      * @param record Fields, each a dotted path of at most four segments, and the values they must
-     *     have, at least one.
+     *     have, at least one: a string, a boolean or a number, each matching only its own type.
      * @param text The field holding the message, a dotted path too.
      */
-    public record LastMessage(Map<String, String> record, String text, @Nullable Part part) {
+    public record LastMessage(Map<String, ?> record, String text, @Nullable Part part) {
 
         /**
          * Constructor with validation.
@@ -150,7 +150,7 @@ public record Waiting(
          * @param part Which parts of a list are text, or {@code null} when the field holds text.
          */
         public LastMessage {
-            record = Map.copyOf(record);
+            record = RecordPath.scalars(record, "A last message's field");
             if (record.isEmpty() || record.size() > MOST_RULES) {
                 throw new AgentException(
                         "A last message is found by 1 to "
@@ -173,7 +173,7 @@ public record Waiting(
          * @param record The fields to match.
          * @param text The field holding the text.
          */
-        public LastMessage(Map<String, String> record, String text) {
+        public LastMessage(Map<String, ?> record, String text) {
             this(record, text, null);
         }
 
@@ -223,7 +223,7 @@ public record Waiting(
      * @param record The fields a text part has.
      * @param text The field of a part holding its text.
      */
-    public record Part(Map<String, String> record, String text) {
+    public record Part(Map<String, ?> record, String text) {
 
         /**
          * Constructor with validation.
@@ -232,7 +232,7 @@ public record Waiting(
          * @param text The field holding the text.
          */
         public Part {
-            record = Map.copyOf(record);
+            record = RecordPath.scalars(record, "A text part's field");
             if (record.isEmpty() || record.size() > MOST_RULES) {
                 throw new AgentException(
                         "A message's text part is found by 1 to "

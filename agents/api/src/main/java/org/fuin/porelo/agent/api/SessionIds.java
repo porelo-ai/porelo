@@ -31,11 +31,11 @@ import org.jspecify.annotations.Nullable;
  *     fileRecord}.
  */
 public record SessionIds(
-        Map<String, String> record,
+        Map<String, ?> record,
         @Nullable String key,
         @Nullable String directory,
         @Nullable String suffix,
-        Map<String, String> fileRecord,
+        Map<String, ?> fileRecord,
         @Nullable String fileKey) {
 
     /**
@@ -48,7 +48,7 @@ public record SessionIds(
      * @param suffix Their names' ending.
      */
     public SessionIds(
-            Map<String, String> record,
+            Map<String, ?> record,
             @Nullable String key,
             @Nullable String directory,
             @Nullable String suffix) {
@@ -66,8 +66,8 @@ public record SessionIds(
      * @param fileKey The field of it holding the id.
      */
     public SessionIds {
-        record = Map.copyOf(record);
-        fileRecord = Map.copyOf(fileRecord);
+        record = RecordPath.scalars(record, "A record's field");
+        fileRecord = RecordPath.scalars(fileRecord, "A session file record's field");
         if (record.isEmpty() != (key == null || key.isBlank())) {
             throw new AgentException(
                     "A session id in a run's records needs both the record and its key");
@@ -138,7 +138,7 @@ public record SessionIds(
     }
 
     private static @Nullable String of(
-            java.util.List<?> records, Map<String, String> wanted, @Nullable String field) {
+            java.util.List<?> records, Map<String, ?> wanted, @Nullable String field) {
         if (wanted.isEmpty() || field == null) {
             return null;
         }

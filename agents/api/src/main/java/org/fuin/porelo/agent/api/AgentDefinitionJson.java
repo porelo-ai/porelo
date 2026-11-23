@@ -231,11 +231,11 @@ public final class AgentDefinitionJson {
                 source.get("waiting") instanceof Map<?, ?> waiting ? readWaiting(waiting) : null,
                 source.get("sessionIds") instanceof Map<?, ?> ids
                         ? new SessionIds(
-                                map(ids.get("record")),
+                                fields(ids.get("record")),
                                 optional(ids, "key"),
                                 optional(ids, "directory"),
                                 optional(ids, "suffix"),
-                                map(ids.get("fileRecord")),
+                                fields(ids.get("fileRecord")),
                                 optional(ids, "fileKey"))
                         : null,
                 strings(source.get("instructionArguments")),
@@ -312,13 +312,13 @@ public final class AgentDefinitionJson {
         final Waiting.LastMessage last =
                 source.get("lastMessage") instanceof Map<?, ?> found
                         ? new Waiting.LastMessage(
-                                map(found.get("record")),
+                                fields(found.get("record")),
                                 string(found, "text"),
                                 // Absent from an adapter older than the field: its text is a
                                 // string.
                                 found.get("part") instanceof Map<?, ?> part
                                         ? new Waiting.Part(
-                                                map(part.get("record")), string(part, "text"))
+                                                fields(part.get("record")), string(part, "text"))
                                         : null)
                         : null;
         return new Waiting(
@@ -475,6 +475,16 @@ public final class AgentDefinitionJson {
             }
         }
         return java.util.List.copyOf(trees);
+    }
+
+    /** A record match's fields with their values as the JSON typed them, for the match to check. */
+    private static Map<String, @Nullable Object> fields(@Nullable Object value) {
+        if (!(value instanceof Map<?, ?> source)) {
+            return Map.of();
+        }
+        final Map<String, @Nullable Object> result = new LinkedHashMap<>();
+        source.forEach((key, item) -> result.put(String.valueOf(key), item));
+        return result;
     }
 
     private static Map<String, String> map(@Nullable Object value) {

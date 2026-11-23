@@ -258,7 +258,10 @@ seconds, and a `screen` rule that matches makes the task read as *waiting*. A `n
 that matches - a pager open over the agent - keeps the last reading rather than reporting on the
 pager. For a finished unattended run, `last_message` names the record whose text is shown as what it
 said last. An agent whose message is a list of parts - its thinking, its text, its tool calls - names that list as
-`text` and its text parts with `part`; only those are said, in order. Rules are literals, not expressions, and bounded when the manifest is read: at most 16 per
+`text` and its text parts with `part`; only those are said, in order. A `record` value matches as YAML types it:
+`is_error: false` matches the boolean false, `num_turns: 3` the number 3 (also written `3.0`), and a quoted
+`"false"` only the text; a list, a mapping, a date, `null` or a number past a double is refused. The same holds
+for `part`'s and `session_id`'s records. Rules are literals, not expressions, and bounded when the manifest is read: at most 16 per
 list, 200 characters each, 50 lines of region; a declaration past them is refused. An agent that
 declares nothing is shown as *cannot say*, never as *not waiting*. A declaration read for a day
 without matching once is shown as *unproven*: the wording probably changed with the agent's version.

@@ -358,11 +358,11 @@ public final class AgentDefinitionReader {
                 "session.session_id");
         try {
             return new SessionIds(
-                    map(ids.get("record")),
+                    fields(ids.get("record")),
                     optional(ids, "key"),
                     optional(ids, "directory"),
                     optional(ids, "suffix"),
-                    map(ids.get("file_record")),
+                    fields(ids.get("file_record")),
                     optional(ids, "file_key"));
         } catch (AgentException ex) {
             throw new AgentException(origin + ": " + ex.getMessage(), ex);
@@ -413,11 +413,11 @@ public final class AgentDefinitionReader {
                             "session.waiting.last_message.part");
                     part =
                             new Waiting.Part(
-                                    map(partOf.get("record")), required(partOf, "text", origin));
+                                    fields(partOf.get("record")), required(partOf, "text", origin));
                 }
                 lastMessage =
                         new Waiting.LastMessage(
-                                map(last.get("record")), required(last, "text", origin), part);
+                                fields(last.get("record")), required(last, "text", origin), part);
             }
             return new Waiting(
                     rules(waiting.get("screen"), origin),
@@ -810,6 +810,20 @@ public final class AgentDefinitionReader {
         final List<String> result = new ArrayList<>();
         list.forEach(item -> result.add(String.valueOf(item)));
         return List.copyOf(result);
+    }
+
+    /** A record match's fields with their values as YAML typed them, for the match to check. */
+    private static Map<String, @Nullable Object> fields(@Nullable Object value) {
+        if (value == null) {
+            return Map.of();
+        }
+        if (!(value instanceof Map<?, ?> source)) {
+            throw new AgentException(
+                    "Expected a mapping but found " + value.getClass().getSimpleName());
+        }
+        final Map<String, @Nullable Object> result = new LinkedHashMap<>();
+        source.forEach((key, item) -> result.put(String.valueOf(key), item));
+        return result;
     }
 
     private static Map<String, String> map(@Nullable Object value) {

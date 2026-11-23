@@ -1,0 +1,2 @@
+title: "An agent's record match (`last_message.record`, `session_id.record`) matches a boolean or a number as the record holds it, and a quoted value only text"
+type: fixed

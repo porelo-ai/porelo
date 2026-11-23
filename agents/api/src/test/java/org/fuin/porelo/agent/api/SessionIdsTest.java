@@ -33,6 +33,33 @@ class SessionIdsTest {
     }
 
     @Test
+    void aSessionRecordIsFoundByABooleanItHolds() {
+        final SessionIds ids =
+                new SessionIds(
+                        Map.of("type", "system", "resumed", false), "session_id", null, null);
+
+        assertThat(
+                        ids.of(
+                                List.of(
+                                        Map.of(
+                                                "type",
+                                                "system",
+                                                "resumed",
+                                                "false",
+                                                "session_id",
+                                                "s-1"),
+                                        Map.of(
+                                                "type",
+                                                "system",
+                                                "resumed",
+                                                false,
+                                                "session_id",
+                                                "s-2"))))
+                .as("the record holding the boolean false is the one named, not the text \"false\"")
+                .isEqualTo("s-2");
+    }
+
+    @Test
     void readsBothWaysOfFindingTheIdAndCarriesThemThroughItsDescription() {
         final AgentDefinition definition =
                 read(

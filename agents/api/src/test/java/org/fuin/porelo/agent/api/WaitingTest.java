@@ -7,6 +7,7 @@ import java.io.StringReader;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.Json;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -249,6 +250,134 @@ class WaitingTest {
                                         "not a record",
                                         Map.of("type", "result", "result", 3))))
                 .isNull();
+    }
+
+    @Test
+    void aBooleanOrANumberMatchesTheRecordsOwnValueNotItsText() {
+        final Waiting.LastMessage last =
+                read(MINIMAL
+                                + """
+                        session:
+                          waiting:
+                            last_message:
+                              record: { type: result, is_error: false, num_turns: 3 }
+                              text: result
+                        """)
+                        .waiting()
+                        .lastMessage();
+        // As a run's line is parsed: a JSON number arrives as a Double.
+        final List<Object> records =
+                List.of(
+                        Map.of(
+                                "type",
+                                "result",
+                                "is_error",
+                                false,
+                                "num_turns",
+                                3.0,
+                                "result",
+                                "Done."),
+                        Map.of(
+                                "type",
+                                "result",
+                                "is_error",
+                                "false",
+                                "num_turns",
+                                3.0,
+                                "result",
+                                "a string that reads false"),
+                        Map.of(
+                                "type",
+                                "result",
+                                "is_error",
+                                false,
+                                "num_turns",
+                                "3",
+                                "result",
+                                "a string that reads 3"));
+
+        assertThat(last.of(records))
+                .as("false and 3 written plainly match the record's boolean and number, not text")
+                .isEqualTo("Done.");
+    }
+
+    @Test
+    void aQuotedValueMatchesOnlyAString() {
+        final Waiting.LastMessage last =
+                read(MINIMAL
+                                + """
+                        session:
+                          waiting:
+                            last_message:
+                              record: { type: result, is_error: "false" }
+                              text: result
+                        """)
+                        .waiting()
+                        .lastMessage();
+
+        assertThat(
+                        last.of(
+                                List.of(
+                                        Map.of(
+                                                "type",
+                                                "result",
+                                                "is_error",
+                                                "false",
+                                                "result",
+                                                "text"),
+                                        Map.of(
+                                                "type",
+                                                "result",
+                                                "is_error",
+                                                false,
+                                                "result",
+                                                "boolean"))))
+                .as("a quoted \"false\" stays a string and never matches the boolean")
+                .isEqualTo("text");
+    }
+
+    @Test
+    void aTypedMatchComesBackTheSameThroughTheSocket() {
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
+                session:
+                  waiting:
+                    last_message:
+                      record: { type: result, is_error: false, num_turns: 3, ratio: 0.5 }
+                      text: result
+                """);
+
+        final Object sent = Json.parse(Json.write(AgentDefinitionJson.write(definition)));
+
+        assertThat(AgentDefinitionJson.read((Map<?, ?>) sent).waiting())
+                .as("booleans and numbers keep their type through the description's JSON")
+                .isEqualTo(definition.waiting());
+    }
+
+    @Test
+    void refusesAMatchOnAListOrAnEmptyValue() {
+        for (final String value :
+                List.of(
+                        "[a, b]",
+                        "{ x: y }",
+                        "null",
+                        "2026-11-23",
+                        "1" + "0".repeat(400),
+                        ".inf")) {
+            assertThatThrownBy(
+                            () ->
+                                    read(
+                                            MINIMAL
+                                                    + "session:\n  waiting:\n    last_message:\n"
+                                                    + "      record: { type: "
+                                                    + value
+                                                    + " }\n      text: result\n"))
+                    .as("a record field wants a string, a boolean or a number, not " + value)
+                    .isInstanceOf(AgentException.class)
+                    .hasMessageContaining("'type'");
+        }
     }
 
     @Test
