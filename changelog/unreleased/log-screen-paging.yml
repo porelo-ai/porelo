@@ -1,2 +1,2 @@
-title: The daemon's interface declares LogBefore and ScreenBefore, for a client paging back through a task log or a terminal session's earlier output.
+title: The daemon answers LogBefore and ScreenBefore, so a client pages back through a task log or through the recording each task's root keeps of its terminal session, at most 8 MiB per task, and Screen gives the recording's end.
 type: added

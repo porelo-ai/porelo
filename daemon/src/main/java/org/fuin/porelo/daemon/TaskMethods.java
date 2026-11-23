@@ -756,17 +756,48 @@ final class TaskMethods {
                     replies.last(answer);
                 });
 
-        // Declared for the window's paging; answered once the session recording and the backward
-        // read stand, and refused by name until then rather than answered with less.
-        for (final String paging : java.util.List.of("LogBefore", "ScreenBefore")) {
-            server.method(
-                    paging,
-                    (parameters, replies) -> {
+        server.method(
+                "ScreenBefore",
+                (parameters, replies) -> {
+                    // A page back through the recording the task's root keeps of its session, for
+                    // a client scrolling past what Screen shows. Read from files alone, so a task
+                    // that stopped still has its earlier output.
+                    final String task = text(parameters, "task");
+                    if (!ContainerName.isTask(task)) {
+                        throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
+                    }
+                    final int lines = LogPages.lines(parameters);
+                    final long before = LogPages.before(parameters);
+                    replies.last(
+                            screenBefore(
+                                    context.paths().tasks().containerState(task),
+                                    context.account().keptDays(),
+                                    java.time.Instant.now(),
+                                    before,
+                                    lines,
+                                    Boolean.TRUE.equals(parameters.get("escapes")),
+                                    task));
+                });
+
+        server.method(
+                "LogBefore",
+                (parameters, replies) -> {
+                    // A page back from a position Tail or this gave out, for a client scrolling up
+                    // past what Tail sent: read back in blocks, never the whole log.
+                    final String task = text(parameters, "task");
+                    final String name = text(parameters, "log");
+                    final int lines = LogPages.lines(parameters);
+                    final long before = LogPages.before(parameters);
+                    final Path log = logOf(context, task, name);
+                    if (log == null) {
                         throw new VarlinkException(
-                                "org.varlink.service.MethodNotImplemented",
-                                Map.of("method", "org.fuin.porelo.Tasks1." + paging));
-                    });
-        }
+                                INTERFACE + ".NoSuchLog", Map.of("task", task, "log", name));
+                    }
+                    try (Formatting formatted = Formatting.of(context, parameters, log)) {
+                        replies.last(
+                                logBefore(log, before, lines, formatted.function(), task, name));
+                    }
+                });
 
         server.method(
                 "Tail",
@@ -791,20 +822,10 @@ final class TaskMethods {
                                     : 0;
                     // Through the task's own agent when a client asks: its formatter reads one line
                     // at a time, so a console showing a log's end gets that end formatted, never
-                    // the whole file. One agent for the whole stream.
-                    final String agent =
-                            Boolean.TRUE.equals(parameters.get("formatted"))
-                                            && log.getParent() != null
-                                    ? agentOf(log.getParent())
-                                    : null;
-                    try (org.fuin.porelo.agent.api.InstalledAgents agents =
-                            agent == null ? null : context.agents()) {
-                        final org.fuin.porelo.agent.api.InstalledAgent formatter =
-                                agents == null || agent == null
-                                        ? null
-                                        : agents.find(agent).orElse(null);
+                    // the whole file.
+                    try (Formatting formatted = Formatting.of(context, parameters, log)) {
                         final java.util.function.Function<List<String>, List<@Nullable String>>
-                                formatting = formatter == null ? null : formatter::format;
+                                formatting = formatted.function();
                         if (!replies.streaming()) {
                             final Chunk chunk = read(log, position);
                             replies.last(
@@ -944,7 +965,18 @@ final class TaskMethods {
                                             task,
                                             Objects.requireNonNullElse(lastLines(parameters), 20),
                                             Boolean.TRUE.equals(parameters.get("escapes")));
-                    replies.last(Map.of("lines", screen.lines(), "live", screen.live()));
+                    final Map<String, Object> reply = new LinkedHashMap<>();
+                    reply.put("lines", screen.lines());
+                    reply.put("live", screen.live());
+                    final Long end =
+                            recordingEnd(
+                                    context.paths().tasks().containerState(task),
+                                    context.account().keptDays(),
+                                    java.time.Instant.now());
+                    if (end != null) {
+                        reply.put("end", end);
+                    }
+                    replies.last(reply);
                 });
 
         server.method(
@@ -1538,6 +1570,155 @@ final class TaskMethods {
             }
         }
         return shown;
+    }
+
+    /**
+     * The formatting a call asked for: the task's own agent's, started for the call and ended with
+     * it, or none.
+     *
+     * @param agents The agents started, or {@code null} when none was asked for.
+     * @param function The agent's formatting, or {@code null} for the lines as they are.
+     */
+    private record Formatting(
+            org.fuin.porelo.agent.api.@Nullable InstalledAgents agents,
+            java.util.function.@Nullable Function<List<String>, List<@Nullable String>> function)
+            implements AutoCloseable {
+
+        /**
+         * Through the task's own agent when a call asks: as they are when the task has none here.
+         * One agent for a whole stream.
+         */
+        static Formatting of(
+                final PoreloContext context, final Map<String, Object> parameters, final Path log) {
+            final String agent =
+                    Boolean.TRUE.equals(parameters.get("formatted")) && log.getParent() != null
+                            ? agentOf(log.getParent())
+                            : null;
+            if (agent == null) {
+                return new Formatting(null, null);
+            }
+            final org.fuin.porelo.agent.api.InstalledAgents agents = context.agents();
+            final org.fuin.porelo.agent.api.InstalledAgent formatter =
+                    agents.find(agent).orElse(null);
+            return new Formatting(agents, formatter == null ? null : formatter::format);
+        }
+
+        @Override
+        public void close() {
+            if (agents != null) {
+                agents.close();
+            }
+        }
+    }
+
+    /**
+     * Answers LogBefore for a log that is there: its lines before a position, as the agent shows
+     * them when a formatting is given.
+     *
+     * @param log The log.
+     * @param before A position the caller was given, {@code 0} or larger.
+     * @param lines How many lines at most.
+     * @param formatting The agent's formatting, or {@code null}.
+     * @param task The container name asked for, for NoSuchLog.
+     * @param name The log name asked for, for NoSuchLog.
+     * @return The reply.
+     */
+    static Map<String, Object> logBefore(
+            final Path log,
+            final long before,
+            final int lines,
+            final java.util.function.@Nullable Function<List<String>, List<@Nullable String>>
+                    formatting,
+            final String task,
+            final String name) {
+        final LogPages.Page page =
+                LogPages.ofLog(
+                        log,
+                        before,
+                        lines,
+                        () ->
+                                new VarlinkException(
+                                        INTERFACE + ".NoSuchLog",
+                                        Map.of("task", task, "log", name)));
+        return Map.of(
+                "lines",
+                shown(formatting, page.lines()),
+                "offset",
+                page.offset(),
+                "atStart",
+                page.atStart());
+    }
+
+    /**
+     * Answers ScreenBefore: the lines of a task's session recording before a position.
+     *
+     * @param state The task's state directory.
+     * @param keptDays How many days the recording's files are kept.
+     * @param now What "now" is.
+     * @param before A position the caller was given, {@code 0} or larger.
+     * @param lines How many lines at most.
+     * @param escapes Whether to keep the escapes, for a client that draws them.
+     * @param task The container name asked for, for NoSuchLog.
+     * @return The reply.
+     */
+    static Map<String, Object> screenBefore(
+            final Path state,
+            final int keptDays,
+            final java.time.Instant now,
+            final long before,
+            final int lines,
+            final boolean escapes,
+            final String task) {
+        final java.util.function.Supplier<VarlinkException> gone =
+                () ->
+                        new VarlinkException(
+                                INTERFACE + ".NoSuchLog",
+                                Map.of(
+                                        "task",
+                                        task,
+                                        "log",
+                                        org.fuin.porelo.app.ScreenFile.RECORDING));
+        try (ScreenRecording recording = ScreenRecording.open(state, keptDays, now)) {
+            if (recording == null) {
+                throw gone.get();
+            }
+            final LogPages.Page page = LogPages.before(recording, before, lines, gone);
+            return Map.of(
+                    "lines",
+                    page.lines().stream()
+                            .map(
+                                    line ->
+                                            escapes
+                                                    ? line.endsWith("\r")
+                                                            ? line.substring(0, line.length() - 1)
+                                                            : line
+                                                    : ScreenRecording.plain(line))
+                            .toList(),
+                    "offset",
+                    page.offset(),
+                    "atStart",
+                    page.atStart());
+        } catch (java.nio.file.NoSuchFileException ex) {
+            // The writer began a new recording while this one was opened.
+            throw gone.get();
+        } catch (java.io.IOException ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+        }
+    }
+
+    /**
+     * Returns where the recording of a task's session ends for reading back, or {@code null} when
+     * none is kept or it cannot be read: Screen is a snapshot read every second, and a recording
+     * that fails to read costs a client its paging back, never the screen.
+     */
+    private static @Nullable Long recordingEnd(
+            final Path state, final int keptDays, final java.time.Instant now) {
+        try (ScreenRecording recording = ScreenRecording.open(state, keptDays, now)) {
+            return recording == null ? null : recording.lineEnd();
+        } catch (java.io.IOException ex) {
+            return null;
+        }
     }
 
     /**

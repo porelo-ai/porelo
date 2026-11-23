@@ -448,6 +448,19 @@ public final class Reach {
                         Kind.CONTROL),
                 new Row(
                         Part.SPEND,
+                        "The recording of its terminal session",
+                        "At most "
+                                + ScreenFile.KEPT
+                                + " files of "
+                                + ScreenFile.SEGMENT / (1024 * 1024)
+                                + " MiB in the host's runtime directory, kept by the task's root,"
+                                + " which the agent cannot reach: the oldest goes each second once"
+                                + " there are more, so a session holds "
+                                + ScreenFile.KEPT * ScreenFile.SEGMENT / (1024 * 1024)
+                                + " MiB and what it writes in that second",
+                        Kind.CONTROL),
+                new Row(
+                        Part.SPEND,
                         "Its gate on the host",
                         GitHttpServer.AT_ONCE
                                 + " requests at once, `503` beyond; a push spooled to disk, never"

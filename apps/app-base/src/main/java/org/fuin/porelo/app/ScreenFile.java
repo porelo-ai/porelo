@@ -54,6 +54,25 @@ public final class ScreenFile {
     /** The most of a screen that is read: a terminal's screen is far less. */
     static final int MOST = 64 * 1024;
 
+    /**
+     * The recording of the session's output, in the directory: what the session wrote, as it wrote
+     * it, cut into {@link #SEGMENT}-byte files named by {@link #SUFFIX} lowercase letters that
+     * count from {@code aaaaaaaa}, so a file's name says where its bytes lie in the whole.
+     */
+    public static final String RECORDING = "recording";
+
+    /** How many bytes one file of the recording holds; the newest holds as many or fewer. */
+    public static final int SEGMENT = 1024 * 1024;
+
+    /** How many letters name a file of the recording. */
+    public static final int SUFFIX = 8;
+
+    /**
+     * How many files of the recording are kept: the oldest goes when there are more, so a session
+     * that prints without end holds at most this many {@link #SEGMENT}s of the host's memory.
+     */
+    public static final int KEPT = 8;
+
     private ScreenFile() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -87,8 +106,13 @@ public final class ScreenFile {
      * second, copied when it changed into the directory the host reads, and the sign of life
      * touched. It ends when the directory is not mounted, so a task made before this does nothing.
      *
+     * <p>It also has the server record the session's output into {@link #RECORDING}: tmux's own
+     * pipe, whose command the server runs as root, writes it there, and the oldest file goes once
+     * there are more than {@link #KEPT}. Output from before the writer's first look at a new
+     * session, at most a second, is not recorded.
+     *
      * <p>The root's alone: the server is root's, on a socket the agent cannot reach, so the agent
-     * has no part in what is copied beyond what its screen shows.
+     * has no part in what is copied beyond what its screen shows and its session writes.
      *
      * @return The command and its arguments.
      */
@@ -103,10 +127,36 @@ public final class ScreenFile {
      * @return The script.
      */
     static String writerScript(final String directory) {
+        final String tmux = String.join(" ", org.fuin.porelo.runtime.Podman.tmux());
+        final String session = org.fuin.porelo.runtime.Containerfile.SESSION;
         return "d='"
                 + directory
-                + "'; [ -d \"$d\" ] || exit 0;"
+                + "'; [ -d \"$d\" ] || exit 0; r=\"$d/"
+                + RECORDING
+                + "\";"
                 + " while :; do"
+                // A session's output is recorded from its first look on; a new session, or one
+                // whose recording ended, starts a new recording.
+                + "   if p=$("
+                + tmux
+                + " display-message -p -t "
+                + session
+                + " '#{pane_pipe}' 2>/dev/null) && [ \"$p\" != 1 ]; then"
+                + "     rm -rf \"$r\"; mkdir \"$r\" && "
+                + tmux
+                + " pipe-pane -t "
+                + session
+                + " \"exec split -b "
+                + SEGMENT
+                + " -a "
+                + SUFFIX
+                + " - '$r/'\";"
+                + "   fi;"
+                + "   set -- \"$r\"/"
+                + "?".repeat(SUFFIX)
+                + "; while [ $# -gt "
+                + KEPT
+                + " ]; do rm -f \"$1\"; shift; done;"
                 + "   if "
                 + String.join(" ", org.fuin.porelo.runtime.Podman.tmux("capture-pane", "-p", "-J"))
                 + " -t "

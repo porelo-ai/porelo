@@ -278,31 +278,6 @@ class PoreloDaemonTest {
     }
 
     @Test
-    void thePagingMethodsAreRefusedByNameUntilTheyAreAnswered(@TempDir Path dir) throws Exception {
-        serving(
-                dir,
-                socket -> {
-                    try (VarlinkClient client = new VarlinkClient(socket)) {
-                        assertThatThrownBy(
-                                        () ->
-                                                client.call(
-                                                        PoreloDaemon.INTERFACE + ".LogBefore",
-                                                        Map.of(
-                                                                "task",
-                                                                "porelo-uc-shell",
-                                                                "log",
-                                                                "task.log",
-                                                                "before",
-                                                                10,
-                                                                "lines",
-                                                                5)))
-                                .as("never an empty page that looks like a log's start")
-                                .hasMessageContaining("MethodNotImplemented");
-                    }
-                });
-    }
-
-    @Test
     void certifyingAStartNobodyWaitsForIsItsOwnError(@TempDir Path dir) throws Exception {
         final PoreloContext context = hooked(dir);
         servingContext(

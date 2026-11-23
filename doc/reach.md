@@ -78,6 +78,7 @@ This is observation, with no ceiling on what a task can spend. See [credentials]
 | | Bound | What it is |
 |---|---|---|
 | A task's CPU | **4 CPUs** by default, replaced by `limits.cpus` or removed by `none`; the quota throttles CPU time. `OMP_NUM_THREADS` hints the limit to `nproc`, rounded down to at least one unless the image or project sets it. Image builds pass the same hint as a build argument to their `RUN` steps; `getconf` and `sysconf` still read the host's cores | control |
+| The recording of its terminal session | At most 8 files of 1 MiB in the host's runtime directory, kept by the task's root, which the agent cannot reach: the oldest goes each second once there are more, so a session holds 8 MiB and what it writes in that second | control |
 | Its gate on the host | 4 requests at once, `503` beyond; a push spooled to disk, never held; the gate and its `git` in a scope of 1 GiB memory, 256 tasks and half the default CPU weight | control |
 
 ## Produce: what a task can leave behind

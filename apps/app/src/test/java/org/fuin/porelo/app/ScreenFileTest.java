@@ -94,6 +94,101 @@ class ScreenFileTest {
         }
     }
 
+    /**
+     * A tmux on Porelo's socket with a session whose output is what a file holds: its pipe runs the
+     * command it is given over that output, as the server would, and says it is open from then on
+     * until the test says the session is new.
+     */
+    private Path sessionTmux(final Path output, final Path piped) throws Exception {
+        final Path bin = Files.createDirectories(state.resolve("bin"));
+        Files.writeString(
+                bin.resolve("tmux"),
+                "#!/bin/sh\n[ \"$1 $2\" = '-S /run/porelo-tmux/tmux' ] || exit 1\ncase \"$3\" in\n"
+                        + "  display-message) cat "
+                        + piped
+                        + " 2>/dev/null || echo 0 ;;\n"
+                        + "  pipe-pane) echo 1 > "
+                        + piped
+                        + "; sh -c \"$6\" < "
+                        + output
+                        + " ;;\n"
+                        + "  *) exit 1 ;;\nesac\n");
+        bin.resolve("tmux").toFile().setExecutable(true);
+        return bin;
+    }
+
+    /** The recording's file names, none while the writer makes it anew. */
+    private static java.util.List<String> recorded(final Path recording) {
+        try (java.util.stream.Stream<Path> files = Files.list(recording)) {
+            return files.map(file -> file.getFileName().toString()).sorted().toList();
+        } catch (java.io.IOException ex) {
+            return java.util.List.of();
+        }
+    }
+
+    private static String content(final Path file) {
+        try {
+            return Files.readString(file);
+        } catch (java.io.IOException ex) {
+            return "";
+        }
+    }
+
+    @Test
+    void theSessionsOutputIsRecordedByTheRootAndCutAtItsBound() throws Exception {
+
+        // A session that prints without end held the host's memory without end: the recording
+        // keeps its newest files only, each named for where its bytes lie in the whole.
+        final Path directory = ScreenFile.prepare(state);
+        final Path output = state.resolve("output.bin");
+        final Path piped = state.resolve("piped");
+        final byte[] written = new byte[10 * ScreenFile.SEGMENT + 1000];
+        for (int i = 0; i < written.length; i++) {
+            written[i] = (byte) (i % 61 == 60 ? '\n' : 'a' + i % 26);
+        }
+        Files.write(output, written);
+        final Process writer =
+                start(ScreenFile.writerScript(directory.toString()), sessionTmux(output, piped));
+        try {
+            final Path recording = directory.resolve(ScreenFile.RECORDING);
+            waitFor(
+                    () ->
+                            recorded(recording).size() == ScreenFile.KEPT
+                                    && recorded(recording).getFirst().equals("aaaaaaad"));
+            assertThat(recorded(recording))
+                    .as("the oldest three of eleven are gone")
+                    .containsExactly(
+                            "aaaaaaad",
+                            "aaaaaaae",
+                            "aaaaaaaf",
+                            "aaaaaaag",
+                            "aaaaaaah",
+                            "aaaaaaai",
+                            "aaaaaaaj",
+                            "aaaaaaak");
+            final java.io.ByteArrayOutputStream kept = new java.io.ByteArrayOutputStream();
+            for (final String name : recorded(recording)) {
+                kept.write(Files.readAllBytes(recording.resolve(name)));
+            }
+            assertThat(kept.toByteArray())
+                    .isEqualTo(
+                            java.util.Arrays.copyOfRange(
+                                    written, 3 * ScreenFile.SEGMENT, written.length));
+
+            // A new session's output is a recording of its own, never appended to the old one.
+            Files.writeString(output, "new session\n");
+            Files.writeString(piped, "0");
+            waitFor(
+                    () ->
+                            recorded(recording).equals(java.util.List.of("aaaaaaaa"))
+                                    && content(recording.resolve("aaaaaaaa"))
+                                            .equals("new session\n"));
+        } finally {
+            writer.destroy();
+            writer.waitFor(5, TimeUnit.SECONDS);
+        }
+    }
+
     private static Process start(final String script, final Path bin) throws Exception {
         final ProcessBuilder builder =
                 new ProcessBuilder("sh", "-c", script)
