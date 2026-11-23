@@ -69,6 +69,11 @@ class AccountConfigTest {
     }
 
     @Test
+    void aSectionWrittenWithNothingUnderItIsThatSectionsDefaults() {
+        assertThat(read("limits:\nrecords:\n")).isEqualTo(AccountConfig.DEFAULT);
+    }
+
+    @Test
     void anUnknownOrMisspeltKeyIsRefusedByName() {
         assertThatThrownBy(() -> read("limit:\n  services: 2\n"))
                 .hasMessageContaining("'limit' is no setting");

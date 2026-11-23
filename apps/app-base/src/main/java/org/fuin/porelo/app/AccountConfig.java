@@ -134,6 +134,10 @@ public record AccountConfig(
                 throw new IllegalArgumentException(
                         origin + ": '" + section + "' is no setting; the settings are " + names());
             }
+            if (each.getValue() == null) {
+                // A section written with nothing under it is every default of that section.
+                continue;
+            }
             if (!(each.getValue() instanceof Map<?, ?> values)) {
                 throw new IllegalArgumentException(origin + ": '" + section + "' is no mapping");
             }
