@@ -234,8 +234,12 @@ to read work awaiting human judgment.
 HTTP stays on the configured port at `127.0.0.1`, with no proxy or redirects, a ten-second connection timeout and
 a twenty-second request timeout. Each HTTP response is limited to 32 MiB, above the largest legal page of pull
 requests, and each daemon reply to one varlink message (4 MiB), the rest in pages as above. Every page of open
-pull requests is read, to the forge's first empty page, since a forge may answer fewer than the 50 asked; a page
-that repeats a pull request already read is refused as an unusable answer. Maker queries allow ten seconds and 64
+pull requests is read, as far as the forge says the list goes: a forge may answer fewer than the 50 asked on every
+page, as a Forgejo whose `MAX_RESPONSE_ITEMS` is lower does, so a short page is no end. The list ends where the
+`Link` header names no `rel="next"` page or, without a `Link` header, where `X-Total-Count` pull requests are read;
+a forge that says neither is read to its first empty page. Only the header's word is taken, never its address: the
+next page is asked of the same forge by its number. A page that repeats a pull request already read is refused as an
+unusable answer. Maker queries allow ten seconds and 64
 KiB of output. Review fetches are shallow, keep what they receive in one pack whatever its size, and allow twenty
 seconds per git command; the makers query, each fetch command and the 75 seconds a read waits for another read's
 fetch of the same repository follow the account's `machines` factor. Shown fields keep at most 1000 code points,

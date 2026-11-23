@@ -2,20 +2,15 @@ package org.fuin.porelo.daemon;
 
 import static org.fuin.porelo.daemon.PoreloDaemon.INTERFACE;
 
-import java.security.SecureRandom;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
-import java.util.HexFormat;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.app.HostPullRequestReader;
 import org.fuin.porelo.wire.varlink.VarlinkConnection;
 import org.fuin.porelo.wire.varlink.VarlinkException;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Answers a project's open reviews in replies of one message each: the first rows with the
@@ -35,13 +30,10 @@ final class PullRequestPages {
     /** How many readings are kept at most; a new one takes the oldest one's place. */
     static final int MOST_READINGS = 16;
 
-    private static final SecureRandom RANDOM = new SecureRandom();
-
-    private final InstantSource clock;
-    private final Map<String, Reading> readings = new LinkedHashMap<>();
+    private final KeptReadings<String, Reading> readings;
 
     /** The rows of one forge read, open first, and how many of them are open. */
-    private record Reading(String project, Instant at, List<Map<String, Object>> rows, int open) {}
+    private record Reading(String project, List<Map<String, Object>> rows, int open) {}
 
     /**
      * Creates the readings of one daemon.
@@ -49,7 +41,8 @@ final class PullRequestPages {
      * @param clock When a reading is made and when it is asked.
      */
     PullRequestPages(final InstantSource clock) {
-        this.clock = clock;
+        // No bound in bytes: a forge answer is bounded where it is read.
+        this.readings = new KeptReadings<>(clock, KEPT, MOST_READINGS, Long.MAX_VALUE);
     }
 
     /**
@@ -119,9 +112,7 @@ final class PullRequestPages {
         }
         final List<Map<String, Object>> rows = new ArrayList<>(open);
         rows.addAll(ended);
-        final byte[] random = new byte[16];
-        RANDOM.nextBytes(random);
-        final String name = HexFormat.of().formatHex(random);
+        final String name = KeptReadings.name();
         final Map<String, Object> paged = new LinkedHashMap<>();
         paged.put("reading", name);
         paged.put("pullRequests", open.size());
@@ -144,7 +135,7 @@ final class PullRequestPages {
         }
         paged.put("next", count);
         split(reply, rows, open.size(), 0, count);
-        keep(name, new Reading(project, clock.instant(), List.copyOf(rows), open.size()));
+        readings.keep(name, new Reading(project, List.copyOf(rows), open.size()), 0);
         return MessagePages.checked(reply, limit);
     }
 
@@ -160,7 +151,7 @@ final class PullRequestPages {
      */
     Map<String, Object> page(final String project, final String reading, final long from) {
         final int limit = VarlinkConnection.MAX_MESSAGE;
-        final Reading kept = kept(reading);
+        final Reading kept = readings.get(reading);
         if (kept == null || !kept.project().equals(project)) {
             throw new VarlinkException(
                     INTERFACE + ".PullRequestsReadingGone",
@@ -193,9 +184,8 @@ final class PullRequestPages {
      *
      * @return The count.
      */
-    synchronized int kept() {
-        expire();
-        return readings.size();
+    int kept() {
+        return readings.kept();
     }
 
     /** Puts the rows of a page into the two lists, the open ones first. */
@@ -211,25 +201,5 @@ final class PullRequestPages {
                 new ArrayList<>(rows.subList(Math.min(from, open), Math.min(end, open))));
         reply.put(
                 "ended", new ArrayList<>(rows.subList(Math.max(from, open), Math.max(end, open))));
-    }
-
-    private synchronized void keep(final String name, final Reading reading) {
-        expire();
-        while (readings.size() >= MOST_READINGS) {
-            final Iterator<String> oldest = readings.keySet().iterator();
-            oldest.next();
-            oldest.remove();
-        }
-        readings.put(name, reading);
-    }
-
-    private synchronized @Nullable Reading kept(final String name) {
-        expire();
-        return readings.get(name);
-    }
-
-    private void expire() {
-        final Instant now = clock.instant();
-        readings.values().removeIf(reading -> !now.isBefore(reading.at().plus(KEPT)));
     }
 }

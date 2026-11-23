@@ -16,11 +16,12 @@ import org.jspecify.annotations.Nullable;
  * Fits a project's task records into replies of one message each, and a record's tool calls into
  * pages of their own where the record alone does not fit one.
  *
- * <p>Nothing is kept between pages: a position names the next record by its start and task, and the
- * reading's start, so each page is read from what is stored. A record answered in one page is never
- * answered in another, and a record started after the reading began is left to the next reading. A
- * position whose record is gone, or whose record was written since its calls were paged, is
- * answered by name rather than with calls skipped or repeated.
+ * <p>A position names the next record by its start and task, and the reading's start, so a page can
+ * be answered from what is stored as well as from the records its first page read, which {@link
+ * RecordReadings} keeps a while. A record answered in one page is never answered in another, and a
+ * record started after the reading began is left to the next reading. A position whose record is
+ * gone, or whose record was written since its calls were paged, is answered by name rather than
+ * with calls skipped or repeated.
  */
 final class RecordPages {
 

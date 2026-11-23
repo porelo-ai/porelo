@@ -1449,6 +1449,58 @@ class HostPullRequestReaderTest {
         assertThat(asked).as("refused at the second page").hasSize(2);
     }
 
+    @Test
+    void aForgeThatPagesByTwentyWithALinkHeaderIsReadWhole() {
+        // A Forgejo whose MAX_RESPONSE_ITEMS is 20 answers 20 to every page that asks for 50: its
+        // Link header, not a short page, says whether another follows.
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final var reader =
+                pagingReader(
+                        (address, token) -> {
+                            asked.add(address.getQuery());
+                            final int page =
+                                    Integer.parseInt(
+                                            address.getQuery().replaceFirst(".*page=", ""));
+                            final List<Object> pulls =
+                                    java.util.stream.LongStream.rangeClosed(
+                                                    (page - 1) * 20L + 1, Math.min(page * 20L, 45))
+                                            .<Object>mapToObj(
+                                                    n ->
+                                                            Map.of(
+                                                                    "number",
+                                                                    n,
+                                                                    "title",
+                                                                    "Review " + n,
+                                                                    "head",
+                                                                    Map.of("sha", head),
+                                                                    "state",
+                                                                    "open",
+                                                                    "merged",
+                                                                    false))
+                                            .toList();
+                            final String link =
+                                    page < 3
+                                            ? "<" + address + ">; rel=\"next\""
+                                            : "<" + address + ">; rel=\"prev\"";
+                            return new HostPullRequestReader.Answer(
+                                    200,
+                                    Json.write(pulls).getBytes(StandardCharsets.UTF_8),
+                                    Map.of("Link", List.of(link), "X-Total-Count", List.of("45")));
+                        });
+
+        assertThat(reader.open(project))
+                .as("all 45 open pulls")
+                .extracting(HostPullRequestReader.Pull::number)
+                .containsExactlyElementsOf(
+                        java.util.stream.LongStream.rangeClosed(1, 45).boxed().toList());
+        assertThat(asked)
+                .as("the three pages the forge named, and none after the last")
+                .containsExactly(
+                        "state=open&limit=50&page=1",
+                        "state=open&limit=50&page=2",
+                        "state=open&limit=50&page=3");
+    }
+
     private HostPullRequestReader.Answer openPage(java.net.URI address, long total, String body) {
         final int page = Integer.parseInt(address.getQuery().replaceFirst(".*page=", ""));
         final List<Object> pulls =

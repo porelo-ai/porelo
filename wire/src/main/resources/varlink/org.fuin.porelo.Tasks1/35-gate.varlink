@@ -92,8 +92,10 @@ type HostPullRequestRefusal (
 # Takes an unplaced carried project once before reading, checking its signed project file as a start does.
 # Missing mirror heads are fetched from their loopback copies into the reader's own state store.
 # The person token reaches git only in its environment; redirects stay off and the gate mirror is never written.
-# Every page of every carried repository is read, to the forge's first empty page; one HTTP answer may
-# hold 32 MiB. A bound is a refusal, never a truncated successful list.
+# Every page of every carried repository is read, as far as the forge says the list goes: a page shorter
+# than asked is no end; a Link header without a rel="next" page, or failing that X-Total-Count, is. A forge
+# that says neither is read to its first empty page. One HTTP answer may hold 32 MiB.
+# A bound is a refusal, never a truncated successful list.
 # HTTP has no proxy or redirects, connects within 10 seconds and answers within 20 seconds.
 # Each git maker query has a 10-second deadline and a 64 KiB output limit.
 # A review fetch is shallow, with 20 seconds per git command and a 32 MiB pack/file limit.

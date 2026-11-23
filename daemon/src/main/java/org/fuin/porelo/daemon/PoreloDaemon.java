@@ -564,8 +564,15 @@ public final class PoreloDaemon {
         return Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS) ? file : null;
     }
 
-    /** What one read of a log returned, and where to carry on from. */
-    record Chunk(List<String> lines, long position) {}
+    /**
+     * What one read of a log returned, and where to carry on from.
+     *
+     * @param lines The lines read, without their line ends.
+     * @param starts Where each of them starts.
+     * @param start Where the read began: where it was asked, or 0 for a log that shrank.
+     * @param position Where the next read goes on.
+     */
+    record Chunk(List<String> lines, List<Long> starts, long start, long position) {}
 
     /**
      * Reads what a log has gained since the last read.
@@ -623,7 +630,7 @@ public final class PoreloDaemon {
             final long size = Files.size(log);
             final long start = size < from ? 0 : from;
             if (size == start) {
-                return new Chunk(List.of(), start);
+                return new Chunk(List.of(), List.of(), start, start);
             }
             try (java.io.RandomAccessFile file = new java.io.RandomAccessFile(log.toFile(), "r")) {
                 file.seek(start);
@@ -640,18 +647,28 @@ public final class PoreloDaemon {
                     // A partial last line is left for the next read - unless the whole read was
                     // one, which no later read could pass either: then it goes as it is.
                     if (buffer.length < MAX_CHUNK) {
-                        return new Chunk(List.of(), start);
+                        return new Chunk(List.of(), List.of(), start, start);
                     }
                     return new Chunk(
                             List.of(new String(buffer, java.nio.charset.StandardCharsets.UTF_8)),
+                            List.of(start),
+                            start,
                             start + buffer.length);
+                }
+                final List<Long> starts = new java.util.ArrayList<>();
+                starts.add(start);
+                for (int i = 0; i < end; i++) {
+                    if (buffer[i] == '\n') {
+                        starts.add(start + i + 1);
+                    }
                 }
                 final String text =
                         new String(buffer, 0, end, java.nio.charset.StandardCharsets.UTF_8);
-                return new Chunk(List.of(text.split("\n", -1)), start + end + 1);
+                return new Chunk(
+                        List.of(text.split("\n", -1)), List.copyOf(starts), start, start + end + 1);
             }
         } catch (java.io.IOException ex) {
-            return new Chunk(List.of(), from);
+            return new Chunk(List.of(), List.of(), from, from);
         }
     }
 

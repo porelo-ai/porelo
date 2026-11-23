@@ -32,9 +32,11 @@ final class ScreenRecording implements LogPages.Bytes, AutoCloseable {
     private record Part(long start, long size, FileChannel channel) {}
 
     private final List<Part> parts;
+    private final String of;
 
-    private ScreenRecording(final List<Part> parts) {
+    private ScreenRecording(final List<Part> parts, final String of) {
         this.parts = parts;
+        this.of = of;
     }
 
     /**
@@ -52,6 +54,9 @@ final class ScreenRecording implements LogPages.Bytes, AutoCloseable {
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             return null;
         }
+        // The session's recording, which a new session's takes the place of: looked at before
+        // its files are opened and after, so files of a new one are never named as the old one's.
+        final String of = LogIdentity.of(directory);
         final Instant oldest = now.minus(Duration.ofDays(keptDays));
         final TreeMap<Long, Path> named = new TreeMap<>();
         try (DirectoryStream<Path> files = Files.newDirectoryStream(directory)) {
@@ -89,12 +94,27 @@ final class ScreenRecording implements LogPages.Bytes, AutoCloseable {
                                 LinkOption.NOFOLLOW_LINKS);
                 parts.add(new Part(file.getKey() * ScreenFile.SEGMENT, channel.size(), channel));
             }
+            if (!of.equals(LogIdentity.of(directory))) {
+                throw new java.nio.file.NoSuchFileException(ScreenFile.RECORDING);
+            }
         } catch (IOException | RuntimeException ex) {
             // The writer removed the oldest meanwhile, or began anew: what was opened is closed.
             close(parts);
             throw ex;
         }
-        return parts.isEmpty() ? null : new ScreenRecording(List.copyOf(parts));
+        if (parts.isEmpty()) {
+            return null;
+        }
+        return new ScreenRecording(List.copyOf(parts), of);
+    }
+
+    /**
+     * Returns which recording this is: a new session's has another name.
+     *
+     * @return Its identity, as {@link LogIdentity} names it.
+     */
+    String of() {
+        return of;
     }
 
     /**

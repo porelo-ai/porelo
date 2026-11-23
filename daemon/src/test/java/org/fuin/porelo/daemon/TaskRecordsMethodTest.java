@@ -90,4 +90,61 @@ class TaskRecordsMethodTest {
                                 + " -> (records: []TaskRecord, next: ?RecordsFrom)")
                 .contains("work: ?[](issue: string, phase: string)");
     }
+
+    @Test
+    void aLaterPageOfRecordsReadsNoRecordFileAndAReadingGoneIsReadAgain() throws Exception {
+        // Each page of a project's records read and parsed every record file of it again.
+        final java.util.concurrent.atomic.AtomicReference<Instant> now =
+                new java.util.concurrent.atomic.AtomicReference<>(
+                        Instant.parse("2026-11-20T10:00:00Z"));
+        final java.util.concurrent.atomic.AtomicInteger reads =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.List<Map<String, Object>> stored =
+                java.util.stream.IntStream.range(0, 5)
+                        .<Map<String, Object>>mapToObj(
+                                i ->
+                                        Map.of(
+                                                "task",
+                                                "porelo-uc-work-" + i,
+                                                "startedAt",
+                                                "2026-11-20T09:0" + i + ":00Z",
+                                                "prompt",
+                                                "x".repeat(1_500_000)))
+                        .toList();
+        final RecordReadings readings =
+                new RecordReadings(
+                        now::get,
+                        (project, since) -> {
+                            reads.incrementAndGet();
+                            return stored;
+                        },
+                        task -> true);
+        final Instant since = Instant.parse("2026-11-01T00:00:00Z");
+        final int limit = org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE;
+
+        final java.util.List<Object> answered = new java.util.ArrayList<>();
+        Map<String, Object> page = readings.page("uc", since, null, limit);
+        answered.addAll((java.util.List<?>) page.get("records"));
+        assertThat(reads).as("the first page reads the records").hasValue(1);
+        final Object first = page.get("next");
+        java.util.List<?> second = null;
+        int pages = 1;
+        while (page.get("next") != null) {
+            page =
+                    readings.page(
+                            "uc", since, RecordPages.from(Map.of("from", page.get("next"))), limit);
+            answered.addAll((java.util.List<?>) page.get("records"));
+            second = second == null ? (java.util.List<?>) page.get("records") : second;
+            assertThat(++pages).as("a page that does not move on").isLessThan(20);
+        }
+        assertThat(pages).as("more than one page").isGreaterThan(1);
+        assertThat(reads).as("a later page reads no record file").hasValue(1);
+        assertThat(answered).as("every record once, in order").isEqualTo(stored);
+
+        now.set(now.get().plus(java.time.Duration.ofMinutes(10)).plusSeconds(1));
+        final Map<String, Object> again =
+                readings.page("uc", since, RecordPages.from(Map.of("from", first)), limit);
+        assertThat(reads).as("a reading no longer kept is read again").hasValue(2);
+        assertThat(again.get("records")).as("the same page as before").isEqualTo(second);
+    }
 }

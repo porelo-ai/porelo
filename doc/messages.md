@@ -105,6 +105,14 @@ are `ConversationRefused`, with a diagnostic naming the problem. Reading members
 joins anyone. It requires a transport that takes secrets on stdin, and is unavailable as a task's MCP tool:
 the server's display names are read for the operator's room dialog.
 
+A transport's answer may hold 16 MiB, a daemon reply one varlink message of 4 MiB. When the members do not fit,
+the reply holds as many as fit and `paged`: the reading's name, how many members it holds and where the next page
+starts. `RoomMembersPage(project, reading, from)` gives the rest of that same reading, page by page, each fitting
+one message, with `next` until the last; together the pages give every member once, in order. The daemon keeps a
+reading ten minutes, the 16 newest and at most 64 MiB of them together; one no longer kept, or of another project,
+is `RoomMembersReadingGone`, and the client asks `RoomMembers` again. `RoomMembersPage` is no task's MCP tool
+either.
+
 ## What the host guarantees
 
 - **Every message is signed on the host by its task's own key**, never in the task: a detached OpenSSH

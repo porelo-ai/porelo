@@ -4795,19 +4795,12 @@ public final class TaskLaunch {
         }
         final Path log = context.paths().tasks().containerState(container).resolve("task.log");
         // This run's log alone: a resumed task's last run must not answer for this one, nor stream
-        // as if it were. Emptied in place, so a reader never finds it missing; a link is removed,
+        // as if it were. A new empty file takes the last run's place in one rename, so a reader
+        // never finds it missing, and a client paging the last run's log is told it is gone
+        // rather than shown this run's lines at its positions. A link in its place is replaced,
         // never followed.
         try {
-            if (java.nio.file.Files.isSymbolicLink(log)) {
-                java.nio.file.Files.delete(log);
-            }
-            java.nio.file.Files.newOutputStream(
-                            log,
-                            java.nio.file.StandardOpenOption.CREATE,
-                            java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
-                            java.nio.file.StandardOpenOption.WRITE,
-                            java.nio.file.LinkOption.NOFOLLOW_LINKS)
-                    .close();
+            RunLog.begin(log);
         } catch (java.io.IOException ex) {
             err.println(
                     "porelo: the run's log could not be emptied, so nothing was run: "

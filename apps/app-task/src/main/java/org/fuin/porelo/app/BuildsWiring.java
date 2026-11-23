@@ -167,7 +167,7 @@ final class BuildsWiring {
                                     org.fuin.porelo.core.process.Scope.around(
                                             "porelo " + container + " " + HELPER, command))
                             .redirectErrorStream(true)
-                            .redirectOutput(state.resolve(HELPER + ".log").toFile())
+                            .redirectOutput(RunLog.into(state.resolve(HELPER + ".log")))
                             .start();
             owned.accept(started.toHandle());
             recorder.record(HELPER, command, Map.of(), TaskHelpers.AFTER);

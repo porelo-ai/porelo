@@ -71,14 +71,34 @@ class LogPagingTest {
         void accept(VarlinkClient client) throws Exception;
     }
 
+    /** The log's identity now, as Tail gives it; any name for a log that is not there. */
+    private String of() {
+        try {
+            return LogIdentity.of(
+                    context().paths().tasks().containerState(TASK).resolve("task.log"));
+        } catch (java.io.IOException ex) {
+            return "gone";
+        }
+    }
+
+    private Map<String, Object> before(
+            final VarlinkClient client,
+            final long before,
+            final int lines,
+            final @Nullable Boolean formatted) {
+        return before(client, of(), before, lines, formatted);
+    }
+
     private static Map<String, Object> before(
             final VarlinkClient client,
+            final String of,
             final long before,
             final int lines,
             final @Nullable Boolean formatted) {
         final Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("task", TASK);
         parameters.put("log", "task.log");
+        parameters.put("of", of);
         parameters.put("before", before);
         parameters.put("lines", lines);
         if (formatted != null) {
@@ -222,6 +242,38 @@ class LogPagingTest {
     }
 
     @Test
+    void aLogMadeAnewSinceTailNamedItIsNoSuchLogThoughThePositionStillFits() throws Exception {
+
+        // A new run's log that grew past an old run's position was read from it as if it were the
+        // old one: Tail names the log, and a page asked of another is answered as gone.
+        final Path log = log("one\ntwo\n".getBytes(StandardCharsets.UTF_8));
+
+        serving(
+                client -> {
+                    final Map<String, Object> tail =
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".Tail",
+                                    Map.of("task", TASK, "log", "task.log", "last", 1));
+                    final Object of = tail.get("of");
+                    assertThat(of).as("Tail names the log").isEqualTo(of());
+                    assertThat(lines(before(client, String.valueOf(of), 8, 5, null)))
+                            .as("the same log pages back")
+                            .isEqualTo(List.of("one", "two"));
+                    final Path made = log.resolveSibling("task.log.next");
+                    Files.writeString(made, "abc\ndef\nghi\n");
+                    Files.move(made, log, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    assertThatThrownBy(() -> before(client, String.valueOf(of), 8, 5, null))
+                            .as("a page of the log made anew, asked with the old one's name")
+                            .isInstanceOfSatisfying(
+                                    VarlinkException.class,
+                                    ex ->
+                                            assertThat(ex.getErrorName())
+                                                    .isEqualTo(
+                                                            PoreloDaemon.INTERFACE + ".NoSuchLog"));
+                });
+    }
+
+    @Test
     void aFormattedPageFromATaskWhoseAgentIsNotHereComesAsItIs() throws Exception {
         log("one\ntwo\nthree\n".getBytes(StandardCharsets.UTF_8));
 
@@ -242,6 +294,7 @@ class LogPagingTest {
         final Map<String, Object> page =
                 TaskMethods.logBefore(
                         log,
+                        LogIdentity.of(log),
                         "shown one\nhidden\nshown two\n".length(),
                         5,
                         raw ->
@@ -327,7 +380,8 @@ class LogPagingTest {
         int pages = 0;
         while (position > 0) {
             final Map<String, Object> page =
-                    TaskMethods.logBefore(log, position, 1000, eightfold, TASK, "task.log");
+                    TaskMethods.logBefore(
+                            log, LogIdentity.of(log), position, 1000, eightfold, TASK, "task.log");
             assertThat(encoded(page))
                     .as("the reply as sent")
                     .isLessThanOrEqualTo(
@@ -338,6 +392,48 @@ class LogPagingTest {
             assertThat(++pages).as("a page that does not move on").isLessThan(100);
         }
         assertThat(joined).isEqualTo(written.stream().map(line -> line.repeat(8)).toList());
+    }
+
+    @Test
+    void tailsFirstReplyFitsOneMessageThoughTheAgentLengthensAnEscapeHeavyLog() throws Exception {
+
+        // A control character goes on the wire as six bytes, and the agent's formatter lengthens
+        // a line after it was read: Tail's opening reply was bounded by the bytes read alone, and a
+        // client refused it. Every reply fits, and the replies together give every line once.
+        final List<String> written = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            written.add(i + "\u0001".repeat(3000));
+        }
+        final Path log = log((String.join("\n", written) + "\n").getBytes(StandardCharsets.UTF_8));
+        final java.util.function.Function<List<String>, List<@Nullable String>> sixteenfold =
+                raw -> raw.stream().<@Nullable String>map(line -> line.repeat(16)).toList();
+
+        final List<String> joined = new ArrayList<>();
+        long position = 0;
+        int replies = 0;
+        while (position < Files.size(log)) {
+            final TaskMethods.Tailed tailed = TaskMethods.tail(log, position, sixteenfold);
+            assertThat(
+                            encoded(
+                                    Map.of(
+                                            "lines",
+                                            tailed.lines(),
+                                            "offset",
+                                            tailed.offset(),
+                                            "of",
+                                            "0".repeat(32))))
+                    .as("reply %d as sent", replies)
+                    .isLessThanOrEqualTo(
+                            org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE);
+            assertThat(tailed.offset())
+                    .as("the reply starts where the last one ended")
+                    .isEqualTo(position);
+            joined.addAll(tailed.lines());
+            assertThat(tailed.next()).as("a reply that does not move on").isGreaterThan(position);
+            position = tailed.next();
+            assertThat(++replies).as("replies").isLessThan(2000);
+        }
+        assertThat(joined).isEqualTo(written.stream().map(line -> line.repeat(16)).toList());
     }
 
     @Test

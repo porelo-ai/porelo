@@ -101,10 +101,31 @@ class ScreenPagingTest {
         void accept(VarlinkClient client) throws Exception;
     }
 
-    private static Map<String, Object> before(
+    /** The recording's identity now, as Screen gives it; any name for one that is not there. */
+    private String of() {
+        try {
+            return LogIdentity.of(
+                    ScreenFile.directory(context().paths().tasks().containerState(TASK))
+                            .resolve(ScreenFile.RECORDING));
+        } catch (java.io.IOException ex) {
+            return "gone";
+        }
+    }
+
+    private Map<String, Object> before(
             final VarlinkClient client, final long before, final int lines, final boolean escapes) {
+        return before(client, of(), before, lines, escapes);
+    }
+
+    private static Map<String, Object> before(
+            final VarlinkClient client,
+            final String of,
+            final long before,
+            final int lines,
+            final boolean escapes) {
         final Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("task", TASK);
+        parameters.put("of", of);
         parameters.put("before", before);
         parameters.put("lines", lines);
         parameters.put("escapes", escapes);
@@ -316,6 +337,46 @@ class ScreenPagingTest {
     }
 
     @Test
+    void aRecordingBegunAnewSinceScreenNamedItIsNoSuchLogThoughThePositionStillFits()
+            throws Exception {
+
+        // A new session that wrote past an old session's position was read from it as if it were
+        // the old one: Screen names the recording, and a page asked of another is answered as gone.
+        final Path recording = recorded(0, "one\ntwo\n".getBytes(StandardCharsets.UTF_8));
+        runner.answering("ps", TASK + "\tUp 4 minutes\t1788500000\t0\n")
+                .answering("capture-pane", "two\n");
+
+        serving(
+                client -> {
+                    final Map<String, Object> screen =
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".Screen",
+                                    Map.of("task", TASK, "last", 5));
+                    final Object of = screen.get("of");
+                    assertThat(of).as("Screen names the recording").isEqualTo(of());
+                    assertThat(lines(before(client, String.valueOf(of), 8, 5, false)))
+                            .as("the same recording pages back")
+                            .isEqualTo(List.of("one", "two"));
+                    // As the root's writer begins a new session's recording. The old one is
+                    // moved aside until the new one is made, so the new one cannot take its
+                    // inode within the same clock tick and pass for it.
+                    final Path old = recording.resolveSibling("old-recording");
+                    Files.move(recording, old);
+                    recorded(0, "abc\ndef\nghi\n".getBytes(StandardCharsets.UTF_8));
+                    Files.delete(old.resolve(name(0)));
+                    Files.delete(old);
+                    assertThatThrownBy(() -> before(client, String.valueOf(of), 8, 5, false))
+                            .as("a page of the new recording, asked with the old one's name")
+                            .isInstanceOfSatisfying(
+                                    VarlinkException.class,
+                                    ex ->
+                                            assertThat(ex.getErrorName())
+                                                    .isEqualTo(
+                                                            PoreloDaemon.INTERFACE + ".NoSuchLog"));
+                });
+    }
+
+    @Test
     void screenGivesNoEndWithoutARecording() throws Exception {
         runner.answering("ps", TASK + "\tUp 4 minutes\t1788500000\t0\n")
                 .answering("capture-pane", "a screen\n");
@@ -327,6 +388,7 @@ class ScreenPagingTest {
                                                 PoreloDaemon.INTERFACE + ".Screen",
                                                 Map.of("task", TASK, "last", 5)))
                                 .containsEntry("live", true)
+                                .containsEntry("of", "")
                                 .doesNotContainKey("end"));
     }
 

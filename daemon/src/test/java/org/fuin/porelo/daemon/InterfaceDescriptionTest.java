@@ -245,7 +245,10 @@ class InterfaceDescriptionTest {
         assertThat(description)
                 .as("the live membership signature and its failures")
                 .contains(
-                        "method RoomMembers(project: string) -> (room: string, members: []RoomMember)",
+                        "method RoomMembers(project: string) -> (room: string, members: []RoomMember, paged: ?RoomMembersPaged)",
+                        "type RoomMembersPaged (",
+                        "method RoomMembersPage(",
+                        "error RoomMembersReadingGone(project: string, reading: string)",
                         "error NoTransport(project: string, transport: string)",
                         "error NoRoom(project: string)",
                         "error HomeserverUnreachable(project: string, transport: string, message: string, code: int)");

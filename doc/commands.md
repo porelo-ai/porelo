@@ -533,8 +533,11 @@ page, alone, with its first calls in `toolCalls` and `toolCallsNext`, the positi
 `RecordCalls(project, task, startedAt, updatedAt, from)`, with the record's own fields and that position, answers
 its following calls and a `next`, until a page has none. The first page pins the reading at `asOf`: later pages
 leave out records started after it, which the next reading without `from` answers, and a record already answered
-is not answered again when it changes meanwhile. A position whose record is no longer stored, or whose record was
-written since (its `updatedAt` differs), answers `RecordChanged(task)`, and the client reads again from the first
+is not answered again when it changes meanwhile. A later page is answered from the records the first page read,
+which the daemon keeps five minutes, the 4 newest readings and at most 64 MiB of them together, so a run of pages
+reads the record files once; a page whose reading is no longer kept reads them again and answers the same. A
+position whose record is then no longer stored, or whose record was written since (its `updatedAt` differs),
+answers `RecordChanged(task)`, and the client reads again from the first
 page; a position the daemon did not give answers `InvalidParameter` naming `from`. `porelo task records` reads the
 records directly and answers them whole.
 
@@ -630,27 +633,35 @@ at most 16 KiB of its UTF-8 starting at a whole character, so a last line such a
 screen against rules its package declares, and says when an agent declares none. `since` is when the
 current state began, as an age and an instant.
 
-A client scrolling up in a task log pages back from where `Tail` began: `LogBefore(task, log, before, lines)` takes
-the `offset` that `Tail` or the previous `LogBefore` gave as `before` and answers at most `lines` lines, 1 to 1000,
+Each reply of `Tail` fits one message as it goes out, escaped and formatted: lines that do not fit are the next
+reply's, and one line too long alone comes cut to its first part. Each reply names the log its `offset` is a
+position in as `of`, an opaque name made from the file's key and creation time: a new run puts a new file in the
+log's place, which has another name.
+
+A client scrolling up in a task log pages back from where `Tail` began: `LogBefore(task, log, of, before, lines)`
+takes `Tail`'s `of` and the `offset` that `Tail` or the previous `LogBefore` gave as `before` and answers at most
+`lines` lines, 1 to 1000,
 that end just before it, the `offset` where the first of them starts, the next call's `before`, and `atStart` once that
 is 0. `formatted` works as for `Tail`. The log is read back in blocks, never whole. A page reads whole lines of at most
 a sixth of the 4 MiB one message carries, since a control character goes on the wire as six bytes, and sends the
 newest of them that fit one message as they go out, escaped and formatted; only one line too long for that alone
 comes cut to its first part. Any line start is taken as `before`; a position inside a line or below 0 is refused as
 `InvalidParameter` naming `before`, and one past the log's end, as for a log shortened or gone since, is `NoSuchLog`:
-the client starts again from `Tail`. A log that is a link is no log, and one that cannot be read is `Failed` with a
+the client starts again from `Tail`. So is an `of` that names another log than the one there now, as a new run's,
+though it has grown past the position; a call without `of` is `InvalidParameter` naming `of`. A log that is a link is no log, and one that cannot be read is `Failed` with a
 fixed text that names no path.
 
 Work in a terminal has no log, so the task's root records its session's output: tmux's own pipe writes it, from the
 first second of a session on, into the task's screen directory, which the agent cannot write, in files of 1 MiB. The
 oldest file goes once there are more than 8, so a session keeps at most its last 8 MiB, and a file older than
 `records.kept_days` is no longer read; a new session starts a new recording. `Screen` gives the recording's `end`, where its last
-whole line ends, and has none without a recording. A client scrolling past what `Screen` shows calls
-`ScreenBefore(task, before, lines)` with that `end` and then each `offset`, as `LogBefore` works; `escapes` works as for
+whole line ends, and has none without a recording, and `of`, the recording's opaque name from the session's start,
+`""` without one. A client scrolling past what `Screen` shows calls `ScreenBefore(task, of, before, lines)` with
+that `of`, that `end` and then each `offset`, as `LogBefore` works; `escapes` works as for
 `Screen`, and plain text leaves escapes and control characters out and keeps what a carriage return wrote last.
 Positions keep counting where the recording began, so a position older than what is kept answers `atStart` true with no
-lines, and a position past the recording's end, as after a recording begun anew, is `NoSuchLog`: the client starts
-again from `Screen`.
+lines, and a position past the recording's end, or an `of` that names another recording, as after a recording begun
+anew, is `NoSuchLog`: the client starts again from `Screen`.
 
 ## shield
 

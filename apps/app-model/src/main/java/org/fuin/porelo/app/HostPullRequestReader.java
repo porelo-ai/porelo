@@ -45,8 +45,31 @@ public final class HostPullRequestReader {
         Answer get(URI address, String token);
     }
 
-    /** What the forge answered: its status and its body, which the reader judges. */
-    record Answer(int status, byte[] body) {}
+    /**
+     * What the forge answered: its status, its headers and its body, which the reader judges.
+     *
+     * @param status The HTTP status.
+     * @param body The body.
+     * @param headers The headers, their names in any case; a list's pages say there whether more
+     *     follow.
+     */
+    record Answer(int status, byte[] body, Map<String, List<String>> headers) {
+
+        /** Keeps the forge's headers as they were answered. */
+        Answer {
+            headers = Map.copyOf(headers);
+        }
+
+        /**
+         * An answer without headers.
+         *
+         * @param status The HTTP status.
+         * @param body The body.
+         */
+        Answer(final int status, final byte[] body) {
+            this(status, body, Map.of());
+        }
+    }
 
     /**
      * A repository whose reviews could not be read this round, while the others' were.
@@ -379,25 +402,27 @@ public final class HostPullRequestReader {
     }
 
     /**
-     * Reads every page of one repository's open list into rows, up to the forge's first empty page,
-     * since a forge may answer fewer than asked on every page; a page repeating a pull already read
-     * is refused, so a forge ignoring the page asked ends.
+     * Reads every page of one repository's open list into rows, as far as the forge says the list
+     * goes: a forge may answer fewer than asked on every page, so a short page is no end. A forge
+     * that says nothing either way is read to its first empty page. A page repeating a pull already
+     * read is refused, so a forge ignoring the page asked ends.
      */
     private void read(
             String project, String name, URI repository, String token, Map<String, Pull> rows) {
+        long read = 0;
         for (int page = 1; ; page++) {
-            final Object answer =
-                    request(
-                            URI.create(repository + "/pulls?state=open&limit=50&page=" + page),
-                            token);
+            final URI address = URI.create(repository + "/pulls?state=open&limit=50&page=" + page);
+            final Answer answer = answer(address, token);
             // More pulls than the page asked for is not a forge's answer to it.
-            if (!(answer instanceof List<?> pulls) || pulls.size() > 50) throw malformed();
+            if (!(parsed(answer) instanceof List<?> pulls) || pulls.size() > 50) throw malformed();
             for (Object object : pulls) {
                 final Pull pull = row(project, name, repository, object, token);
                 if (!pull.state().equals("open") || rows.putIfAbsent(key(pull), pull) != null)
                     throw malformed();
             }
-            if (pulls.isEmpty()) break;
+            read += pulls.size();
+            if (pulls.isEmpty() || ForgePages.after(answer.headers(), read) == ForgePages.More.NO)
+                break;
         }
     }
 
@@ -467,6 +492,11 @@ public final class HostPullRequestReader {
     }
 
     private Object request(URI address, String token) {
+        return parsed(answer(address, token));
+    }
+
+    /** Asks the forge, refusing any answer but a success. */
+    private Answer answer(URI address, String token) {
         final Answer answer = exchange.get(address, token);
         if (answer.status() / 100 != 2) {
             // The path is built from the checked copy name alone: no address, port, query or token.
@@ -496,6 +526,11 @@ public final class HostPullRequestReader {
                                                 : "the forge does not answer a review list there; check the host's forge settings"));
             }
         }
+        return answer;
+    }
+
+    /** Returns a successful answer's body as JSON, refusing one too large or malformed. */
+    private static Object parsed(Answer answer) {
         final byte[] bytes = answer.body();
         if (bytes.length > MAXIMUM_ANSWER)
             throw new Refused("bounds", "the forge answer exceeds its size bound");
@@ -693,7 +728,7 @@ public final class HostPullRequestReader {
                                     .build(),
                             HttpResponse.BodyHandlers.limiting(
                                     HttpResponse.BodyHandlers.ofByteArray(), MAXIMUM_ANSWER));
-            return new Answer(response.statusCode(), response.body());
+            return new Answer(response.statusCode(), response.body(), response.headers().map());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new Refused(

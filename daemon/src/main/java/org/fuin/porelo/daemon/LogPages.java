@@ -130,6 +130,20 @@ final class LogPages {
     }
 
     /**
+     * Reads what a position is a position in, as Tail or Screen named it.
+     *
+     * @param parameters The call's parameters.
+     * @return The name.
+     * @throws VarlinkException InvalidParameter naming {@code of} when there is none.
+     */
+    static String of(final Map<String, Object> parameters) {
+        if (!(parameters.get("of") instanceof String of)) {
+            throw invalid("of");
+        }
+        return of;
+    }
+
+    /**
      * Returns the lines before a position.
      *
      * <p>A position past the end belongs to what was there before - a log replaced since, a
@@ -243,7 +257,7 @@ final class LogPages {
     }
 
     /** Returns the first part of a line that fits {@link #MOST_SENT} on the wire. */
-    private static String cut(final String line) {
+    static String cut(final String line) {
         long room = MOST_SENT - 2L;
         int end = 0;
         while (end < line.length()) {

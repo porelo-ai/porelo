@@ -58,20 +58,22 @@ final class HostPullRequests implements GitGate.PullRequests {
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .connectTimeout(limits.services(Duration.ofSeconds(10)))
                         .build()) {
-            final Object details = request(client, token, "", null);
+            final Object details = request(client, token, "", null).body();
             if (!(details instanceof Map<?, ?> fields)
                     || !(fields.get("default_branch") instanceof String base)
                     || base.isBlank()) {
                 throw new GateException("the forge returned no default branch");
             }
-            // Every page is read, to the forge's first empty one, as a forge may answer fewer than
-            // asked on every page; a page adding no pull not already read means the forge ignores
+            // Every page is read, as far as the forge says the list goes, as a forge may answer
+            // fewer than asked on every page: one that says nothing either way is read to its
+            // first empty page. A page adding no pull not already read means the forge ignores
             // the page asked, which would never end.
             final Set<Long> read = new HashSet<>();
+            long counted = 0;
             for (int page = 1; ; page++) {
-                final Object listed =
+                final Answered answered =
                         request(client, token, "/pulls?state=open&limit=50&page=" + page, null);
-                if (!(listed instanceof List<?> pulls)) {
+                if (!(answered.body() instanceof List<?> pulls)) {
                     throw new GateException("the forge returned no pull request list");
                 }
                 boolean added = false;
@@ -92,21 +94,24 @@ final class HostPullRequests implements GitGate.PullRequests {
                 if (pulls.isEmpty()) break;
                 if (!added)
                     throw new GateException("the forge repeated a page of open pull requests");
+                counted += pulls.size();
+                if (ForgePages.after(answered.headers(), counted) == ForgePages.More.NO) break;
             }
             final Object opened =
                     request(
-                            client,
-                            token,
-                            "/pulls",
-                            Map.of(
-                                    "head",
-                                    branch,
-                                    "base",
-                                    base,
-                                    "title",
-                                    subject,
-                                    "body",
-                                    "Reviewed work from Porelo task " + task + "."));
+                                    client,
+                                    token,
+                                    "/pulls",
+                                    Map.of(
+                                            "head",
+                                            branch,
+                                            "base",
+                                            base,
+                                            "title",
+                                            subject,
+                                            "body",
+                                            "Reviewed work from Porelo task " + task + "."))
+                            .body();
             if (!(opened instanceof Map<?, ?> pull)) {
                 throw new GateException("the forge returned no pull request");
             }
@@ -146,7 +151,10 @@ final class HostPullRequests implements GitGate.PullRequests {
         throw new GateException("the forge returned no usable pull request URL");
     }
 
-    private Object request(
+    /** A forge's successful answer: its JSON body and its headers. */
+    private record Answered(Object body, Map<String, List<String>> headers) {}
+
+    private Answered request(
             HttpClient client, String token, String suffix, @Nullable Map<String, String> body)
             throws IOException, InterruptedException {
         final HttpRequest.Builder request =
@@ -180,7 +188,7 @@ final class HostPullRequests implements GitGate.PullRequests {
             throw new GateException("forge HTTP " + response.statusCode() + ": " + message);
         }
         if (parsed == null) throw new GateException("the forge returned an empty response");
-        return parsed;
+        return new Answered(parsed, response.headers().map());
     }
 
     private static String safe(@Nullable String text, String token) {

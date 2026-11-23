@@ -1509,10 +1509,15 @@ method Tail(
   # they are when the task has no agent here, or its agent formats nothing.
   formatted: ?bool
 ) -> (
+  # As they go on the wire, escaped and formatted, the lines of one reply fit one message: the lines
+  # that do not are the next reply's, and one line too long alone comes cut to its first part.
   lines: []string,
   # Byte position in the log where this reply's first line starts, so a client can later ask for
   # what lies before it.
-  offset: int
+  offset: int,
+  # What offset is a position in: an opaque name of this log, from its file key and creation time.
+  # A new run's log, made anew in its place, has another; a client passes it on to LogBefore.
+  of: string
 )
 
 # A task log's lines before a position, for a client scrolling up past what Tail sent. A page, not a
@@ -1523,6 +1528,9 @@ method LogBefore(
   task: string,
   # File name within the task's state directory, ending in .log. Not a path.
   log: string,
+  # Tail's of for the log the position is in. A log made anew since, as a new run's, is NoSuchLog,
+  # though the new one has grown past the position; a call without it is InvalidParameter.
+  of: string,
   # A byte position Tail or this method returned as offset; the lines end just before it. Any line
   # start is taken; one inside a line, or below 0, is InvalidParameter, never a guess, and one past
   # the log's end is NoSuchLog.
@@ -1557,7 +1565,10 @@ method Screen(
   live: bool,
   # Byte position of the end of porelod's recording of the session's output: the first before for
   # ScreenBefore. Absent when porelod keeps no recording of this session.
-  end: ?int
+  end: ?int,
+  # What end is a position in: an opaque name of this recording, from the session's start. A new
+  # session's recording has another; a client passes it on to ScreenBefore. "" without a recording.
+  of: string
 )
 
 # A terminal session's earlier output, from the recording porelod keeps of it, for scrolling past
@@ -1566,6 +1577,10 @@ method Screen(
 method ScreenBefore(
   # Container name.
   task: string,
+  # Screen's of for the recording the position is in. A recording begun anew since, as a new
+  # session's, is NoSuchLog, though the new one has grown past the position; a call without it is
+  # InvalidParameter.
+  of: string,
   # A byte position Screen gave as end or this method gave as offset; the lines end just before it.
   # Any line start is taken; one inside a line, or below 0, is InvalidParameter, one past the
   # recording's end is NoSuchLog, and one older than what is kept answers atStart true.
@@ -1720,8 +1735,8 @@ error MadeWithAnother(task: string, agent: string, model: string)
 error AlreadyStarting(task: string)
 
 # The named log is not a file in that task's state directory.
-# A log or a session recording that is not there, or ends before the position a client holds, as
-# after a new run: the client starts again from Tail or Screen.
+# A log or a session recording that is not there, is not the one a client's of names, or ends before
+# the position a client holds, as after a new run: the client starts again from Tail or Screen.
 error NoSuchLog(task: string, log: string)
 
 # A gate method was called without naming a project file.
@@ -1872,9 +1887,11 @@ type RecordsFrom (
 # with the same project and since and with from set to that next answers them; the pages together give every
 # record once, in order. A record too large alone for one message comes first in its page, alone, with its first
 # calls and toolCallsNext. Records started after the first page was read (asOf) are left to the next Records
-# without from; a record already answered that changes meanwhile is not answered again. A from whose record is
-# no longer stored answers RecordChanged; a from that is no RecordsFrom the daemon gave answers InvalidParameter
-# naming from.
+# without from; a record already answered that changes meanwhile is not answered again. A later page is answered
+# from the records the first page read, which the daemon keeps five minutes (the 4 newest readings, at most 64 MiB
+# of them together), so a run of pages reads the record files once; a page whose reading is no longer kept reads
+# them again. A from whose record is then no longer stored answers RecordChanged; a from that is no RecordsFrom the
+# daemon gave answers InvalidParameter naming from.
 method Records(project: string, since: string, from: ?RecordsFrom) -> (records: []TaskRecord, next: ?RecordsFrom)
 
 # The rest of one record's tool calls, page by page, in the record's order, for the record as Records answered it.

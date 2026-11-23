@@ -20,8 +20,12 @@ final class MessagingMethods {
 
     private MessagingMethods() {}
 
-    /** Reads the project's live room membership. */
-    static Map<String, Object> roomMembers(PoreloContext context, Map<String, Object> parameters) {
+    /**
+     * Reads the project's live room membership: whole when it fits one message, else its first
+     * members and what pages the rest.
+     */
+    static Map<String, Object> roomMembers(
+            PoreloContext context, RoomMemberPages pages, Map<String, Object> parameters) {
         final String name = text(parameters, "project");
         final org.fuin.porelo.core.project.Project project;
         try {
@@ -30,7 +34,14 @@ final class MessagingMethods {
             throw new VarlinkException(INTERFACE + ".NoSuchProject", Map.of("project", name));
         }
         try {
-            return org.fuin.porelo.app.RoomMembers.read(context, project).asMap();
+            final org.fuin.porelo.app.RoomMembers members =
+                    org.fuin.porelo.app.RoomMembers.read(context, project);
+            return pages.first(
+                    name,
+                    members.room(),
+                    members.members().stream()
+                            .map(org.fuin.porelo.app.RoomMembers.Member::asMap)
+                            .toList());
         } catch (org.fuin.porelo.app.RoomMembers.Refused ex) {
             throw switch (ex.failure()) {
                 case NO_TRANSPORT ->
@@ -79,9 +90,21 @@ final class MessagingMethods {
             TaskControl control) {
         server.method("MessageKey", (parameters, replies) -> replies.last(messageKey(context)));
 
+        // One daemon's readings: a page is of the membership its first reply read.
+        final RoomMemberPages roomMemberPages = new RoomMemberPages(java.time.Instant::now);
         server.method(
                 "RoomMembers",
-                (parameters, replies) -> replies.last(roomMembers(context, parameters)));
+                (parameters, replies) ->
+                        replies.last(roomMembers(context, roomMemberPages, parameters)));
+        server.method(
+                "RoomMembersPage",
+                (parameters, replies) ->
+                        replies.last(
+                                roomMemberPages.page(
+                                        text(parameters, "project"),
+                                        text(parameters, "reading"),
+                                        org.fuin.porelo.wire.varlink.VarlinkNumbers.longParameter(
+                                                parameters, "from"))));
 
         // The five message verbs. They are the same objects 'porelo talk' shows, through the same
         // classes, so an interface and a terminal cannot disagree about what a mailbox holds.

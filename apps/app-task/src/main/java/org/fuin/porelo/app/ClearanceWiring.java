@@ -159,7 +159,7 @@ final class ClearanceWiring {
                                     org.fuin.porelo.core.process.Scope.around(
                                             "porelo " + container + " watcher", command))
                             .redirectErrorStream(true)
-                            .redirectOutput(state.resolve("clearance.log").toFile())
+                            .redirectOutput(RunLog.into(state.resolve("clearance.log")))
                             .start();
             // The container pid in here belongs to this run; a resume replaces it with the new one.
             recorder.record("watcher", command, java.util.Map.of(), TaskHelpers.AFTER);

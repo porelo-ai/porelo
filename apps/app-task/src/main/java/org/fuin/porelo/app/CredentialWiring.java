@@ -212,7 +212,7 @@ final class CredentialWiring {
                                             "porelo " + container + " " + REPOSITORY_BROKER,
                                             command))
                             .redirectErrorStream(true)
-                            .redirectOutput(state.resolve(REPOSITORY_BROKER + ".log").toFile())
+                            .redirectOutput(RunLog.into(state.resolve(REPOSITORY_BROKER + ".log")))
                             .start();
             owned.accept(broker.toHandle());
             record(REPOSITORY_BROKER, command, java.util.Map.of(), TaskHelpers.BEFORE);
@@ -343,7 +343,7 @@ final class CredentialWiring {
                                     org.fuin.porelo.core.process.Scope.around(
                                             "porelo " + container + " " + helper, command))
                             .redirectErrorStream(true)
-                            .redirectOutput(state.resolve(helper + ".log").toFile())
+                            .redirectOutput(RunLog.into(state.resolve(helper + ".log")))
                             .start();
             owned.accept(started.toHandle());
             record(helper, command, java.util.Map.of(), TaskHelpers.AFTER);
@@ -702,7 +702,7 @@ final class CredentialWiring {
                                     org.fuin.porelo.core.process.Scope.around(
                                             "porelo " + container + " vault", command))
                             .redirectErrorStream(true)
-                            .redirectOutput(state.resolve("vault.log").toFile())
+                            .redirectOutput(RunLog.into(state.resolve("vault.log")))
                             .start();
             owned.accept(broker.toHandle());
             record("vault", command, java.util.Map.of(), TaskHelpers.BEFORE);

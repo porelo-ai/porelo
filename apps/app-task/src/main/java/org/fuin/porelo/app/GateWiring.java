@@ -510,7 +510,7 @@ final class GateWiring {
                                     org.fuin.porelo.core.process.Scope.around(
                                             "porelo " + container + " gate", command, LIMITS))
                             .redirectErrorStream(true)
-                            .redirectOutput(state.resolve("gate.log").toFile());
+                            .redirectOutput(RunLog.into(state.resolve("gate.log")));
             builder.environment()
                     .put(
                             "PORELO_GATE_TOKEN",

@@ -24,13 +24,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 class RoomMembersTest {
     @TempDir Path dir;
     private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final RoomMemberPages pages = new RoomMemberPages(java.time.Instant::now);
 
     @Test
     void theDaemonAdapterReturnsTheJudgedRoomAndMembers() throws Exception {
         // A locally remembered join list cannot show helpers or current invitations.
         final PoreloContext context = context();
 
-        assertThat(MessagingMethods.roomMembers(context, Map.of("project", "p")))
+        assertThat(MessagingMethods.roomMembers(context, pages, Map.of("project", "p")))
                 .as("the live answer is projected into the reply")
                 .isEqualTo(
                         Map.of(
@@ -79,7 +80,7 @@ class RoomMembersTest {
         final PoreloContext context = context();
         runner.answering(" members ", "{\"room\":\"!p\",\"members\":[]}");
 
-        assertThat(MessagingMethods.roomMembers(context, Map.of("project", "p")))
+        assertThat(MessagingMethods.roomMembers(context, pages, Map.of("project", "p")))
                 .as("the empty room retains its identity")
                 .isEqualTo(Map.of("room", "!p", "members", List.of()));
     }
@@ -91,7 +92,8 @@ class RoomMembersTest {
         final PoreloContext context = context();
         runner.failing(" members ", code, "cannot read room");
 
-        assertThatThrownBy(() -> MessagingMethods.roomMembers(context, Map.of("project", "p")))
+        assertThatThrownBy(
+                        () -> MessagingMethods.roomMembers(context, pages, Map.of("project", "p")))
                 .as("the transport's failure crosses the boundary")
                 .isInstanceOfSatisfying(
                         VarlinkException.class,
@@ -115,7 +117,8 @@ class RoomMembersTest {
         final PoreloContext context = context();
         runner.answering(" members ", "not-json");
 
-        assertThatThrownBy(() -> MessagingMethods.roomMembers(context, Map.of("project", "p")))
+        assertThatThrownBy(
+                        () -> MessagingMethods.roomMembers(context, pages, Map.of("project", "p")))
                 .as("the malformed answer is refused")
                 .isInstanceOfSatisfying(
                         VarlinkException.class,
@@ -149,7 +152,9 @@ class RoomMembersTest {
                                         PoreloDaemon.INTERFACE + ".RoomMembers",
                                         Map.of("project", "p")))
                         .as("the registered method returns the same snapshot as its adapter")
-                        .isEqualTo(MessagingMethods.roomMembers(context, Map.of("project", "p")));
+                        .isEqualTo(
+                                MessagingMethods.roomMembers(
+                                        context, pages, Map.of("project", "p")));
             } finally {
                 server.close();
                 serving.join(java.time.Duration.ofSeconds(5));
@@ -157,8 +162,121 @@ class RoomMembersTest {
         }
     }
 
+    @Test
+    void membersBeyondOneMessageComeInPagesAndAGoneReadingIsRefused() throws Exception {
+        // A transport may answer 16 MiB, a message holds 4: a large room was a reply no client
+        // read.
+        final PoreloContext context = context();
+        final StringBuilder answer = new StringBuilder("{\"room\":\"!p\",\"members\":[");
+        final int count = 40_000;
+        for (int i = 0; i < count; i++) {
+            answer.append(i == 0 ? "" : ",")
+                    .append("{\"id\":\"@m")
+                    .append(i)
+                    .append("\",\"shown\":\"")
+                    .append("x".repeat(180))
+                    .append("\",\"state\":\"join\",\"kind\":\"person\"}");
+        }
+        runner.answering(" members ", answer.append("]}").toString());
+        try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("room.sock"))) {
+            final Thread serving = Thread.ofPlatform().start(server);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final Map<String, Object> first =
+                        client.call(
+                                PoreloDaemon.INTERFACE + ".RoomMembers", Map.of("project", "p"));
+                final List<Object> ids = new java.util.ArrayList<>();
+                ((List<?>) first.get("members"))
+                        .forEach(each -> ids.add(((Map<?, ?>) each).get("id")));
+                final Map<?, ?> paged = (Map<?, ?>) first.get("paged");
+                assertThat(paged).as("the first reply says it is paged").isNotNull();
+                assertThat(((Number) paged.get("members")).intValue())
+                        .as("how many members the reading holds")
+                        .isEqualTo(count);
+                final String reading = String.valueOf(paged.get("reading"));
+                Object next = paged.get("next");
+                int pages = 1;
+                while (next != null) {
+                    final Map<String, Object> page =
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".RoomMembersPage",
+                                    Map.of("project", "p", "reading", reading, "from", next));
+                    ((List<?>) page.get("members"))
+                            .forEach(each -> ids.add(((Map<?, ?>) each).get("id")));
+                    next = page.get("next");
+                    assertThat(++pages).as("a page that does not move on").isLessThan(100);
+                }
+                assertThat(pages).as("more than one page").isGreaterThan(1);
+                assertThat(ids)
+                        .as("every member once, in order")
+                        .isEqualTo(
+                                java.util.stream.IntStream.range(0, count)
+                                        .mapToObj(i -> "@m" + i)
+                                        .toList());
+                assertThatThrownBy(
+                                () ->
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".RoomMembersPage",
+                                                Map.of(
+                                                        "project",
+                                                        "p",
+                                                        "reading",
+                                                        "0".repeat(32),
+                                                        "from",
+                                                        1)))
+                        .as("a reading not kept is refused by name")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex ->
+                                        assertThat(ex.getErrorName())
+                                                .isEqualTo(
+                                                        PoreloDaemon.INTERFACE
+                                                                + ".RoomMembersReadingGone"));
+            } finally {
+                server.close();
+                serving.join(java.time.Duration.ofSeconds(5));
+            }
+        }
+    }
+
+    @Test
+    void aReadingIsGoneAfterTenMinutes() {
+        final java.util.concurrent.atomic.AtomicReference<java.time.Instant> now =
+                new java.util.concurrent.atomic.AtomicReference<>(
+                        java.time.Instant.parse("2026-11-20T10:00:00Z"));
+        final RoomMemberPages pages = new RoomMemberPages(now::get);
+        final List<Map<String, Object>> members =
+                java.util.stream.IntStream.range(0, 30_000)
+                        .<Map<String, Object>>mapToObj(
+                                i ->
+                                        Map.of(
+                                                "id",
+                                                "@m" + i,
+                                                "shown",
+                                                "x".repeat(180),
+                                                "state",
+                                                "join",
+                                                "kind",
+                                                "person"))
+                        .toList();
+        final Map<?, ?> paged = (Map<?, ?>) pages.first("p", "!p", members).get("paged");
+        final String reading = String.valueOf(paged.get("reading"));
+
+        now.set(now.get().plus(RoomMemberPages.KEPT).plusSeconds(1));
+
+        assertThatThrownBy(() -> pages.page("p", reading, 1))
+                .as("ten minutes after its first reply")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex ->
+                                assertThat(ex.getErrorName())
+                                        .isEqualTo(
+                                                PoreloDaemon.INTERFACE
+                                                        + ".RoomMembersReadingGone"));
+    }
+
     private void error(PoreloContext context, String name) {
-        assertThatThrownBy(() -> MessagingMethods.roomMembers(context, Map.of("project", "p")))
+        assertThatThrownBy(
+                        () -> MessagingMethods.roomMembers(context, pages, Map.of("project", "p")))
                 .as("the named failure is " + name)
                 .isInstanceOfSatisfying(
                         VarlinkException.class,

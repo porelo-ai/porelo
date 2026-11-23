@@ -198,7 +198,7 @@ public final class RunningClearance {
                                 org.fuin.porelo.core.process.Scope.around(
                                         "porelo " + container + " watcher", command))
                         .redirectErrorStream(true)
-                        .redirectOutput(state.resolve("clearance.log").toFile())
+                        .redirectOutput(RunLog.into(state.resolve("clearance.log")))
                         .start();
                 rememberWatcher(state, command);
                 out.println("clearance " + mode + ", log at " + state.resolve("clearance.log"));

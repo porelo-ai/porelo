@@ -345,7 +345,42 @@ method MessageMembers(project: string) -> (members: []MessageMember)
 # NoTransport means no installed transport offers members. HomeserverUnreachable is exit 75;
 # missing settings or secrets (78) and malformed answers (76) are ConversationRefused.
 # This operator-facing query is never offered through a task's MCP socket.
-method RoomMembers(project: string) -> (room: string, members: []RoomMember)
+# A transport's answer may hold 16 MiB, a reply one message of 4 MiB: when the members do not fit,
+# members holds the first of them, paged says how many there are, and RoomMembersPage gives the rest of
+# this same reading. Absent when every member is here.
+method RoomMembers(project: string) -> (room: string, members: []RoomMember, paged: ?RoomMembersPaged)
+
+# How much of a RoomMembers reading there is when its reply holds only the first members.
+type RoomMembersPaged (
+  # Names the reading, which the daemon keeps ten minutes for RoomMembersPage: 32 lowercase hexadecimal
+  # digits.
+  reading: string,
+  # How many members the reading holds.
+  members: int,
+  # Where the next page starts, as RoomMembersPage.from.
+  next: int
+)
+
+# The rest of a RoomMembers reading that did not fit its reply, page by page: putting the pages after the
+# first reply gives the members whole, in their order, each once. Each page fits one message. Never
+# offered through a task's MCP socket, as RoomMembers is not.
+method RoomMembersPage(
+  project: string,
+  # RoomMembers.paged.reading.
+  reading: string,
+  # paged.next, or a page's next. A position at or past the reading's last member, or below 0, answers
+  # InvalidParameter naming from.
+  from: int
+) -> (
+  members: []RoomMember,
+  # Where the next page starts; absent when this page ends the reading.
+  next: ?int
+)
+
+# The reading is not kept: ten minutes have passed since RoomMembers answered it, newer readings took its
+# place (the daemon keeps the 16 newest, at most 64 MiB of them together), the daemon started again, or it
+# is no reading of this project. The client asks RoomMembers again.
+error RoomMembersReadingGone(project: string, reading: string)
 
 # Transport claims for display, never authority to deliver a message or act on a task.
 type RoomMember (

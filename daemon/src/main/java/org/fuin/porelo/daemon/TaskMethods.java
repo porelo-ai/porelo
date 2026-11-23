@@ -394,7 +394,18 @@ final class TaskMethods {
                                     new org.fuin.porelo.app.TaskUsage(context).read(task).asMap()));
                 });
 
-        // The same answer as 'porelo task records', from the same code; never the files.
+        // The same answer as 'porelo task records', from the same code; never the files. A run of
+        // pages reads the record files once.
+        final RecordReadings recordReadings =
+                new RecordReadings(
+                        java.time.Instant::now,
+                        (project, since) ->
+                                new org.fuin.porelo.app.TaskWorkRecords(context)
+                                        .since(project, since),
+                        task ->
+                                java.nio.file.Files.exists(
+                                        context.paths().tasks().workRecord(task),
+                                        java.nio.file.LinkOption.NOFOLLOW_LINKS));
         server.method(
                 "Records",
                 (parameters, replies) -> {
@@ -407,16 +418,12 @@ final class TaskMethods {
                                 "org.varlink.service.InvalidParameter",
                                 Map.of("parameter", project.isEmpty() ? "project" : "since"));
                     }
-                    // A later page pins the reading's start the first one gave.
                     final RecordPages.From from = RecordPages.from(parameters);
-                    final java.time.Instant asOf =
-                            from == null ? java.time.Instant.now() : from.asOf();
                     try {
                         replies.last(
-                                RecordPages.records(
-                                        new org.fuin.porelo.app.TaskWorkRecords(context)
-                                                .since(project, since),
-                                        asOf,
+                                recordReadings.page(
+                                        project,
+                                        since,
                                         from,
                                         org.fuin.porelo.wire.varlink.VarlinkConnection
                                                 .MAX_MESSAGE));
@@ -837,11 +844,13 @@ final class TaskMethods {
                     }
                     final int lines = LogPages.lines(parameters);
                     final long before = LogPages.before(parameters);
+                    final String of = LogPages.of(parameters);
                     replies.last(
                             screenBefore(
                                     context.paths().tasks().containerState(task),
                                     context.account().keptDays(),
                                     java.time.Instant.now(),
+                                    of,
                                     before,
                                     lines,
                                     Boolean.TRUE.equals(parameters.get("escapes")),
@@ -857,6 +866,7 @@ final class TaskMethods {
                     final String name = text(parameters, "log");
                     final int lines = LogPages.lines(parameters);
                     final long before = LogPages.before(parameters);
+                    final String of = LogPages.of(parameters);
                     final Path log = logOf(context, task, name);
                     if (log == null) {
                         throw new VarlinkException(
@@ -864,7 +874,8 @@ final class TaskMethods {
                     }
                     try (Formatting formatted = Formatting.of(context, parameters, log)) {
                         replies.last(
-                                logBefore(log, before, lines, formatted.function(), task, name));
+                                logBefore(
+                                        log, of, before, lines, formatted.function(), task, name));
                     }
                 });
 
@@ -896,28 +907,34 @@ final class TaskMethods {
                         final java.util.function.Function<List<String>, List<@Nullable String>>
                                 formatting = formatted.function();
                         if (!replies.streaming()) {
-                            final Chunk chunk = read(log, position);
-                            replies.last(
-                                    Map.of(
-                                            "lines",
-                                            shown(formatting, chunk.lines()),
-                                            "offset",
-                                            position));
+                            Tailed tailed = null;
+                            // A log made anew under the read is read again, a few times.
+                            for (int tries = 0; tailed == null && tries < 3; tries++) {
+                                tailed = tailNamed(log, position, formatting);
+                            }
+                            if (tailed == null) {
+                                throw new VarlinkException(
+                                        INTERFACE + ".NoSuchLog",
+                                        Map.of(
+                                                "task",
+                                                text(parameters, "task"),
+                                                "log",
+                                                text(parameters, "log")));
+                            }
+                            replies.last(tailed.reply());
                             return;
                         }
                         boolean first = true;
                         while (replies.open()) {
-                            final Chunk chunk = read(log, position);
-                            if (!chunk.lines().isEmpty() || first) {
-                                replies.more(
-                                        Map.of(
-                                                "lines",
-                                                shown(formatting, chunk.lines()),
-                                                "offset",
-                                                position));
-                                first = false;
+                            // Unnamed while the log is made anew under the read: asked again.
+                            final Tailed tailed = tailNamed(log, position, formatting);
+                            if (tailed != null) {
+                                if (tailed.next() != position || first) {
+                                    replies.more(tailed.reply());
+                                    first = false;
+                                }
+                                position = tailed.next();
                             }
-                            position = chunk.position();
                             sleep(PoreloDaemon.tailInterval(context.limits()));
                         }
                     }
@@ -1053,14 +1070,16 @@ final class TaskMethods {
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("lines", screen.lines());
                     reply.put("live", screen.live());
-                    final Long end =
+                    final Recorded recorded =
                             recordingEnd(
                                     context.paths().tasks().containerState(task),
                                     context.account().keptDays(),
                                     java.time.Instant.now());
-                    if (end != null) {
-                        reply.put("end", end);
+                    if (recorded != null) {
+                        reply.put("end", recorded.end());
                     }
+                    // What end is a position in, for ScreenBefore; "" without a recording.
+                    reply.put("of", recorded == null ? "" : recorded.of());
                     replies.last(reply);
                 });
 
@@ -1632,25 +1651,6 @@ final class TaskMethods {
     }
 
     /**
-     * Lines as the agent shows them, those it hides left out; as they are without an agent to ask,
-     * or when it fails.
-     */
-    static List<String> shown(
-            java.util.function.@Nullable Function<List<String>, List<@Nullable String>> formatting,
-            List<String> lines) {
-        if (formatting == null || lines.isEmpty()) {
-            return lines;
-        }
-        final List<String> shown = new ArrayList<>();
-        for (final String line : formatted(formatting, lines)) {
-            if (line != null) {
-                shown.add(line);
-            }
-        }
-        return shown;
-    }
-
-    /**
      * Each line as the agent shows it, or {@code null} for one it hides, in the lines' places; as
      * they are without an agent to ask, or when it fails.
      */
@@ -1712,37 +1712,143 @@ final class TaskMethods {
     }
 
     /**
+     * One reply of Tail.
+     *
+     * @param lines The lines sent, as shown.
+     * @param offset Where the first line read starts.
+     * @param next Where the next read goes on: after the last line sent.
+     * @param of What the positions are positions in, as {@link LogIdentity} names it; empty when
+     *     not named.
+     */
+    record Tailed(List<String> lines, long offset, long next, String of) {
+
+        /**
+         * Returns the reply as it goes on the wire.
+         *
+         * @return {@code lines}, {@code offset} and {@code of}.
+         */
+        Map<String, Object> reply() {
+            return Map.of("lines", lines, "offset", offset, "of", of);
+        }
+    }
+
+    /**
+     * Returns the reply of Tail from a position, bounded by what is sent: escaped as JSON and as
+     * the agent shows the lines, they fit one message. The lines that do not fit are the next
+     * reply's; one line too long alone is sent cut to its first part.
+     *
+     * @param log The log.
+     * @param position Where the read goes on.
+     * @param formatting The agent's formatting, or {@code null}.
+     * @return The reply, its {@code of} empty.
+     */
+    static Tailed tail(
+            final Path log,
+            final long position,
+            final java.util.function.@Nullable Function<List<String>, List<@Nullable String>>
+                    formatting) {
+        final Chunk chunk = read(log, position);
+        final List<@Nullable String> shown = formatted(formatting, chunk.lines());
+        final List<String> lines = new ArrayList<>();
+        long room = LogPages.MOST_SENT;
+        int taken = 0;
+        while (taken < shown.size()) {
+            final @Nullable String line = shown.get(taken);
+            // Its quotes and escapes, and the comma before it.
+            final long size = line == null ? 0 : LogPages.sent(line) + 1L;
+            if (size > room) {
+                break;
+            }
+            room -= size;
+            if (line != null) {
+                lines.add(line);
+            }
+            taken++;
+        }
+        if (taken == 0 && !shown.isEmpty()) {
+            lines.add(
+                    LogPages.cut(
+                            java.util.Objects.requireNonNull(
+                                    shown.getFirst(), "a line hidden always fits")));
+            taken = 1;
+        }
+        final long next =
+                taken < chunk.starts().size() ? chunk.starts().get(taken) : chunk.position();
+        return new Tailed(List.copyOf(lines), chunk.start(), next, "");
+    }
+
+    /**
+     * Returns the reply of Tail from a position, naming the log it read: read between two looks at
+     * the log's identity, so a log made anew under the read is never named as the one before.
+     *
+     * @return The reply, or {@code null} when the log is not there or was made anew while read.
+     */
+    private static @Nullable Tailed tailNamed(
+            final Path log,
+            final long position,
+            final java.util.function.@Nullable Function<List<String>, List<@Nullable String>>
+                    formatting) {
+        try {
+            final String before = LogIdentity.of(log);
+            final Tailed tailed = tail(log, position, formatting);
+            if (!before.equals(LogIdentity.of(log))) {
+                return null;
+            }
+            return new Tailed(tailed.lines(), tailed.offset(), tailed.next(), before);
+        } catch (java.io.IOException ex) {
+            return null;
+        }
+    }
+
+    /**
      * Answers LogBefore for a log that is there: its lines before a position, as the agent shows
      * them when a formatting is given.
      *
      * @param log The log.
+     * @param of What the position is a position in, as Tail named it.
      * @param before A position the caller was given, {@code 0} or larger.
      * @param lines How many lines at most.
      * @param formatting The agent's formatting, or {@code null}.
      * @param task The container name asked for, for NoSuchLog.
      * @param name The log name asked for, for NoSuchLog.
      * @return The reply.
+     * @throws VarlinkException NoSuchLog for a log that is not the one {@code of} names, as one
+     *     made anew since.
      */
     static Map<String, Object> logBefore(
             final Path log,
+            final String of,
             final long before,
             final int lines,
             final java.util.function.@Nullable Function<List<String>, List<@Nullable String>>
                     formatting,
             final String task,
             final String name) {
-        final LogPages.Page read =
-                LogPages.ofLog(
-                        log,
-                        before,
-                        lines,
-                        () ->
-                                new VarlinkException(
-                                        INTERFACE + ".NoSuchLog",
-                                        Map.of("task", task, "log", name)));
+        final java.util.function.Supplier<VarlinkException> gone =
+                () ->
+                        new VarlinkException(
+                                INTERFACE + ".NoSuchLog", Map.of("task", task, "log", name));
+        // Looked at before the read and after it: a log made anew in between is not the one named.
+        named(log, of, gone);
+        final LogPages.Page read = LogPages.ofLog(log, before, lines, gone);
+        named(log, of, gone);
         // Bound by what is sent: the agent's formatter lengthens lines after the page was read.
         final LogPages.Page page = LogPages.fit(read, formatted(formatting, read.lines()));
         return Map.of("lines", page.lines(), "offset", page.offset(), "atStart", page.atStart());
+    }
+
+    /** Refuses a log or recording that is not the one a client was given positions in. */
+    private static void named(
+            final Path path,
+            final String of,
+            final java.util.function.Supplier<VarlinkException> gone) {
+        try {
+            if (!of.equals(LogIdentity.of(path))) {
+                throw gone.get();
+            }
+        } catch (java.io.IOException ex) {
+            throw gone.get();
+        }
     }
 
     /**
@@ -1751,16 +1857,20 @@ final class TaskMethods {
      * @param state The task's state directory.
      * @param keptDays How many days the recording's files are kept.
      * @param now What "now" is.
+     * @param of What the position is a position in, as Screen named it.
      * @param before A position the caller was given, {@code 0} or larger.
      * @param lines How many lines at most.
      * @param escapes Whether to keep the escapes, for a client that draws them.
      * @param task The container name asked for, for NoSuchLog.
      * @return The reply.
+     * @throws VarlinkException NoSuchLog for a recording that is not the one {@code of} names, as
+     *     one begun anew since.
      */
     static Map<String, Object> screenBefore(
             final Path state,
             final int keptDays,
             final java.time.Instant now,
+            final String of,
             final long before,
             final int lines,
             final boolean escapes,
@@ -1775,7 +1885,7 @@ final class TaskMethods {
                                         "log",
                                         org.fuin.porelo.app.ScreenFile.RECORDING));
         try (ScreenRecording recording = ScreenRecording.open(state, keptDays, now)) {
-            if (recording == null) {
+            if (recording == null || !recording.of().equals(of)) {
                 throw gone.get();
             }
             final LogPages.Page read = LogPages.read(recording, before, lines, gone, SCREEN_FAILED);
@@ -1807,14 +1917,22 @@ final class TaskMethods {
     static final String SCREEN_FAILED = "The terminal session's recording could not be read";
 
     /**
+     * Where the recording of a task's session ends for reading back, and which recording it is.
+     *
+     * @param end Where its last whole line ends.
+     * @param of Its identity, as {@link LogIdentity} names it.
+     */
+    private record Recorded(long end, String of) {}
+
+    /**
      * Returns where the recording of a task's session ends for reading back, or {@code null} when
      * none is kept or it cannot be read: Screen is a snapshot read every second, and a recording
      * that fails to read costs a client its paging back, never the screen.
      */
-    private static @Nullable Long recordingEnd(
+    private static @Nullable Recorded recordingEnd(
             final Path state, final int keptDays, final java.time.Instant now) {
         try (ScreenRecording recording = ScreenRecording.open(state, keptDays, now)) {
-            return recording == null ? null : recording.lineEnd();
+            return recording == null ? null : new Recorded(recording.lineEnd(), recording.of());
         } catch (java.io.IOException ex) {
             return null;
         }
