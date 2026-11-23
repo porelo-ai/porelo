@@ -124,6 +124,47 @@ class GateCheckCommandListingTest {
     }
 
     @Test
+    void aListingGitCannotGiveRefusesTheCheckInsteadOfCheckingNothing() {
+        // Both listings fail - a repository git cannot read, a commit it does not have: an empty
+        // list would pass the push with none of its commits looked at.
+        final CommandRunner failing =
+                new CommandRunner() {
+                    @Override
+                    public CommandResult run(final Command command) {
+                        return new CommandResult(command, 128, "", "fatal: bad object");
+                    }
+                };
+
+        assertThatThrownBy(
+                        () ->
+                                GateCheckCommand.offenders(
+                                        failing,
+                                        null,
+                                        List.of(hookLine(id(2), id(1))),
+                                        Set.of(AGENT),
+                                        "origin"))
+                .as("a push whose commits git cannot list is refused, never passed")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("fatal: bad object");
+    }
+
+    @Test
+    void anUnanswerableCheckRefusesThePushAndNamesTheWayPast() {
+        // The agents cannot be asked, or the push cannot be read: either way nothing was checked.
+        final var written = new java.io.StringWriter();
+
+        final int exit =
+                GateCheckCommand.refused(
+                        new java.io.PrintWriter(written), "cannot ask which agents are installed");
+
+        assertThat(exit).as("the push is refused").isEqualTo(1);
+        assertThat(written.toString())
+                .as("it says why and how to push anyway")
+                .contains("cannot ask which agents are installed")
+                .contains("--no-verify");
+    }
+
+    @Test
     void aListingLineThatIsNoCommitIdRefusesTheCheck() {
         // The marker a cut leaves, or any other line: taken as a commit it is "not shown" and
         // skipped, and what it stood for goes unchecked.

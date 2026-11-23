@@ -1,0 +1,2 @@
+title: "The pre-push check refuses a push it cannot judge - its machine's agents cannot be asked, the push cannot be read, or git cannot list its commits - instead of letting it through unchecked."
+type: security

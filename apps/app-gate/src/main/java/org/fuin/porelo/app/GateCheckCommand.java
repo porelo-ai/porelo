@@ -99,8 +99,8 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
      * @param remoteSha What the far side has, or forty zeros.
      * @param remote The remote's name as git named it, or {@code null} when it is not known.
      * @return Commit ids, newest first.
-     * @throws IllegalStateException When git names a line that is not a commit id: what it stood
-     *     for would go unchecked.
+     * @throws IllegalStateException When git cannot list the commits, or names a line that is not a
+     *     commit id: what it stood for would go unchecked.
      */
     static List<String> commits(
             CommandRunner runner,
@@ -148,7 +148,27 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
                                                     : "--remotes=" + remote)),
                             line -> listed.add(id(line)));
         }
-        return result.successful() ? List.copyOf(listed) : List.of();
+        if (!result.successful()) {
+            // No listing is not an empty one: the push's commits would go unchecked.
+            throw new IllegalStateException(
+                    "git could not list the commits of the push: "
+                            + result.standardError().strip());
+        }
+        return List.copyOf(listed);
+    }
+
+    /**
+     * Refuses a push the check cannot judge, saying why and how a person pushes anyway.
+     *
+     * @param err Where the refusal goes.
+     * @param why What could not be judged.
+     * @return The hook's exit code, which refuses the push.
+     */
+    static int refused(final PrintWriter err, final String why) {
+        err.println("porelo: this push is refused: " + why);
+        err.println("  If you meant this, push again with --no-verify.");
+        err.flush();
+        return 1;
     }
 
     /** A line of git's listing, which names one commit or is refused, never skipped. */
@@ -231,15 +251,12 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
                 agentEmails.add(agent.definition().gitIdentity().email().toLowerCase(Locale.ROOT));
             }
         } catch (RuntimeException ex) {
-            // A machine whose agents cannot be asked cannot answer this question. Saying so beats
-            // letting a push through silently, which would be a guard that is absent without
-            // anybody noticing - the failure this whole feature is about.
-            err.println(
-                    "porelo: cannot ask which agents are installed, so this push was not"
-                            + " checked: "
-                            + ex.getMessage());
-            err.flush();
-            return 0;
+            // A machine whose agents cannot be asked cannot answer this question, and a push
+            // let through unchecked would be a guard absent without anybody noticing.
+            return refused(
+                    err,
+                    "cannot ask which agents are installed, so this push cannot be checked: "
+                            + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
         }
         if (agentEmails.isEmpty()) {
             return 0;
@@ -253,9 +270,10 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
                 hookInput.add(line);
             }
         } catch (IOException ex) {
-            err.println("porelo: could not read what is being pushed: " + ex.getMessage());
-            err.flush();
-            return 0;
+            return refused(
+                    err,
+                    "could not read what is being pushed, so it cannot be checked: "
+                            + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
         }
 
         final List<Offender> found;
@@ -269,12 +287,10 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
                             remote.isEmpty() ? null : remote.get(0));
         } catch (RuntimeException ex) {
             // A push whose commits cannot all be named cannot be said to be free of agent work.
-            err.println(
-                    "porelo: cannot tell which commits this push sends, so it is refused: "
+            return refused(
+                    err,
+                    "cannot tell which commits this push sends: "
                             + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
-            err.println("  If you meant this, push again with --no-verify.");
-            err.flush();
-            return 1;
         }
         if (found.isEmpty()) {
             if (!quiet) {
