@@ -220,6 +220,9 @@ public final class GateSupport {
                                                 context, project.name() + "-" + repository.name()),
                                         forgeConf))
                         .taskBranches(project.branchScheme(repository.name()))
+                        // An approval's forward waits for the forge as long as a push an online
+                        // task passes on does.
+                        .passingOnWithin(project.limits().passOn())
                         .limitedBy(context.limits());
         if (offHost != null) {
             // A task started before the host stopped carrying it can still be looked at, rejected

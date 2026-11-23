@@ -188,7 +188,8 @@ limits:
   cpus: "4"        # "none" opts out
   hand_in: "64m"   # the largest file 'porelo task give' may hand to a running task
   subagents: 0     # the most subagents a task's agent runs at the same time; 0 for none
-  pass_on: "2m"    # online: how long the gate waits for the forge to take a push, 10s to 1h
+  pass_on: "2m"    # how long the gate waits for the forge to take a push an online task passes on or an
+                   # approval forwards, 10s to 1h
   ideas: 0         # the most ideas one task may propose with ProposeIdea; 0 for none, at most 100
 
 # Optional. Whom the project's tasks may write to. Tasks of one project reach each other by task

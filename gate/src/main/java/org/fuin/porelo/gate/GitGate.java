@@ -187,9 +187,9 @@ public class GitGate {
     private @Nullable String forwardRefused;
 
     /**
-     * Returns this gate ending a push it passes on when the upstream has not taken it within the
-     * limit, which the agent is then told: the agent's own push waits for it, and holds one of the
-     * gate's slots meanwhile.
+     * Returns this gate ending a push it passes on, or an approval forwards, when the upstream has
+     * not taken it within the limit, which the agent or the person approving is then told: the
+     * agent's own push waits for it, and holds one of the gate's slots meanwhile.
      *
      * @param limit The project's {@code limits.pass_on}, two minutes unless it says otherwise.
      * @return This gate.
@@ -2038,7 +2038,9 @@ public class GitGate {
                 push.add("--force-with-lease=refs/heads/" + branch + ":" + owned);
             }
             push.addAll(List.of("--end-of-options", upstream, commit + ":refs/heads/" + branch));
-            gitWith(lease, push.toArray(String[]::new));
+            final List<String> arguments = new ArrayList<>(List.of("--git-dir", mirror.toString()));
+            arguments.addAll(push);
+            forwardWithin(lease, arguments, branch, commit);
         }
         return completeApproval(name, branch, commit, commit);
     }
@@ -2767,17 +2769,57 @@ public class GitGate {
                                 + merged.standardOutput().strip()
                                 + ")");
             }
-            gitAtWith(
-                    lease,
-                    target,
-                    "push",
-                    "--end-of-options",
-                    upstream,
-                    "HEAD:refs/heads/" + branch);
             pushed = gitAt(target, "rev-parse", "HEAD").standardOutput().strip();
+            forwardWithin(
+                    lease,
+                    List.of(
+                            "-C",
+                            target,
+                            "push",
+                            "--end-of-options",
+                            upstream,
+                            "HEAD:refs/heads/" + branch),
+                    branch,
+                    pushed);
             gitIn("fetch", "--quiet", "--end-of-options", target, "HEAD");
         }
         return completeApproval(name, branch, commit, pushed);
+    }
+
+    /**
+     * Runs the push an approval forwards, ended at the gate's pass-on limit as a push an online
+     * task passes on is: a forge that takes the connection and never answers would otherwise hold
+     * the person's approval as long as the runner allows any command.
+     *
+     * @param lease The upstream's credential.
+     * @param arguments What follows {@code git} and the lease's own arguments.
+     * @param branch The upstream branch pushed to.
+     * @param commit The commit the push sets it to.
+     * @throws GateException.ForgeSilent When the forge did not answer within the limit and, asked
+     *     after, does not hold the commit or does not say.
+     */
+    private void forwardWithin(
+            final GitCredentials.Lease lease,
+            final List<String> arguments,
+            final String branch,
+            final String commit) {
+        final List<String> all = new ArrayList<>(List.of("git"));
+        all.addAll(lease.arguments());
+        all.addAll(arguments);
+        try {
+            runner.runOrFail(
+                    Command.of(all).withEnvironment(lease.environment()).withTimeout(passOnLimit));
+        } catch (CommandException ex) {
+            final java.time.Duration waited = ex.limit();
+            if (waited == null) {
+                throw lease.failure(ex);
+            }
+            // It may have landed before the forge stalled: what it holds now decides.
+            final Boolean held = holds(lease, branch, commit);
+            if (!Boolean.TRUE.equals(held)) {
+                throw new GateException.ForgeSilent(waited, held != null);
+            }
+        }
     }
 
     private CommandResult gitAtWith(
