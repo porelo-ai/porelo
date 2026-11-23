@@ -49,9 +49,16 @@ public final class BuildMain {
             return 64;
         }
         final int first = leading.next();
-        final BuildReader reader =
-                java.util.Objects.requireNonNull(
-                        given.withLimits(leading.factors()), "withLimits returns what to serve");
+        final BuildReader reader;
+        try {
+            reader =
+                    java.util.Objects.requireNonNull(
+                            given.withLimits(leading.factors()),
+                            "withLimits returns what to serve");
+        } catch (RuntimeException ex) {
+            err.println(given.forge() + ": " + ex.getMessage());
+            return 70;
+        }
         final String mode = arguments.length > first ? arguments[first] : "describe";
         try {
             switch (mode) {

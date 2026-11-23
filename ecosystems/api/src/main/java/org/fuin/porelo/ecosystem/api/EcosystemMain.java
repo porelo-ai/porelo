@@ -48,9 +48,16 @@ public final class EcosystemMain {
             return 64;
         }
         final int first = leading.next();
-        final Ecosystem ecosystem =
-                java.util.Objects.requireNonNull(
-                        given.withLimits(leading.factors()), "withLimits returns what to serve");
+        final Ecosystem ecosystem;
+        try {
+            ecosystem =
+                    java.util.Objects.requireNonNull(
+                            given.withLimits(leading.factors()),
+                            "withLimits returns what to serve");
+        } catch (RuntimeException ex) {
+            err.println(given.ecosystem() + ": " + ex.getMessage());
+            return 70;
+        }
         final String mode = arguments.length > first ? arguments[first] : "describe";
         try {
             switch (mode) {

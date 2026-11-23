@@ -1,7 +1,7 @@
 # Time limits
 
 Every time limit Porelo keeps is a default times one of four factors, so a slow network or a slow
-machine is met by one setting rather than a new build. Each factor is 1.0 unless the person sets it.
+machine is met by one setting rather than a new build. Each factor is 1.0 by default.
 
 | Factor | What its limits wait for |
 |---|---|
@@ -34,22 +34,12 @@ services=1.0,machines=1.0,polling=1.0,retries=1.0
 - **Refused before anything is done**: an unknown name, a name given twice, a part that is no `name=value`,
   and a value that is no such number or lies outside the range. A program refuses with exit code 64 and
   `--limits: <what is wrong>`.
-- **`porelod` writes all four**, in the order above, each with at least one digit after its dot.
-
-| It reaches | As |
-|---|---|
-| every program `porelod` starts: the gate, the vault proxy and supervisor, the MCP endpoint, build readers, ecosystem adapters and agent programs | the option `--limits <line>`; a program started without it takes all four at 1.0, so it still runs alone |
-| a task's container and the scripts in it | the variable `PORELO_LIMITS` |
-| a task's OCI hooks | a `limits` field in the task's sidecar file, never a container annotation, which any container can carry |
-| the window, the planner and IntelliJ | the Tasks1 call `Limits()`, whose `line` a client passes on unchanged as `--limits` to what it starts |
-| a host that porelo-host brings up | its own host configuration, never a person's file |
+- **The line is written with all four**, in the order above, each with at least one digit after its dot.
 
 - **A program takes `--limits <line>` before its mode or verb**: `<program> --limits <line> serve <socket>`. An
   agent program, a build reader and an ecosystem adapter are handed the factors by the shared main they run on,
-  through their `withLimits`; one that keeps no time limits of its own needs nothing.
-- **A client reads `Limits()` once per connection.** What it must start before it can ask - a tunnel, a relay,
-  the first call itself - runs with the factors it last read from that machine, or all four at 1.0 for a machine
-  not read yet.
+  through their `withLimits`, before they serve; one that keeps no time limits of its own needs nothing. A program
+  started without the option takes all four at 1.0, so it still runs alone.
 
 `org.fuin.porelo.wire.LimitFactors` in `porelo-wire` reads, writes and applies the line for every Java
 program. A program in another language keeps to the grammar above; the cases it is held to, each good line

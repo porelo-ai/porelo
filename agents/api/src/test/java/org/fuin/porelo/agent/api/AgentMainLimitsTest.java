@@ -91,6 +91,32 @@ class AgentMainLimitsTest {
     }
 
     @Test
+    void anAgentThatCannotTakeItsFactorsEndsWithSeventyNamingWhy() {
+        final Agent refusing =
+                new Agent() {
+                    @Override
+                    public AgentDefinition definition() {
+                        return DEFINITION;
+                    }
+
+                    @Override
+                    public Agent withLimits(LimitFactors limits) {
+                        throw new IllegalStateException("no clock here");
+                    }
+                };
+
+        assertThat(
+                        AgentMain.execute(
+                                refusing,
+                                new String[] {"describe"},
+                                new PrintStream(out, true, StandardCharsets.UTF_8),
+                                new PrintStream(err, true, StandardCharsets.UTF_8)))
+                .as("a failure of its own, said as one, never a stack trace")
+                .isEqualTo(70);
+        assertThat(err.toString(StandardCharsets.UTF_8)).contains("example: no clock here");
+    }
+
+    @Test
     void serveAfterTheLineStillWantsItsSocket() {
         assertThat(run("--limits", "polling=0.5", "serve")).isEqualTo(2);
         assertThat(err.toString(StandardCharsets.UTF_8)).contains("serve <socket>");

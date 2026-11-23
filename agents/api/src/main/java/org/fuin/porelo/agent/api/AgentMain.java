@@ -58,9 +58,15 @@ public final class AgentMain {
         }
         final int first = leading.next();
         final org.fuin.porelo.wire.LimitFactors limits = leading.factors();
-        final Agent agent =
-                java.util.Objects.requireNonNull(
-                        given.withLimits(limits), "an agent's withLimits returns an agent");
+        final Agent agent;
+        try {
+            agent =
+                    java.util.Objects.requireNonNull(
+                            given.withLimits(limits), "an agent's withLimits returns an agent");
+        } catch (RuntimeException ex) {
+            err.println(given.name() + ": " + ex.getMessage());
+            return 70;
+        }
         final String mode = arguments.length > first ? arguments[first] : "describe";
 
         try {
