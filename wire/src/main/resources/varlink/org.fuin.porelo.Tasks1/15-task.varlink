@@ -1515,6 +1515,28 @@ method Tail(
   offset: int
 )
 
+# A task log's lines before a position, for a client scrolling up past what Tail sent. A page, not a
+# stream; the client asks again with the offset it got.
+method LogBefore(
+  # Container name.
+  task: string,
+  # File name within the task's state directory, ending in .log. Not a path.
+  log: string,
+  # A byte position Tail or this method returned as offset; the lines end just before it. Any other
+  # position is InvalidParameter, never a guess.
+  before: int,
+  # How many lines at most, 1 to 1000; anything else is InvalidParameter.
+  lines: int,
+  # As for Tail.
+  formatted: ?bool
+) -> (
+  lines: []string,
+  # Byte position where the first returned line starts: the next call's before.
+  offset: int,
+  # True when offset is 0: nothing lies before.
+  atStart: bool
+)
+
 # What a task's terminal session shows, read without attaching: for work in a terminal, which has
 # no log to follow. A snapshot, not a stream; a client asks again.
 method Screen(
@@ -1530,7 +1552,30 @@ method Screen(
   lines: []string,
   # Whether the task has a terminal session: false for unattended work or a session that ended,
   # and then lines is empty.
-  live: bool
+  live: bool,
+  # Byte position of the end of porelod's recording of the session's output: the first before for
+  # ScreenBefore. Absent when porelod keeps no recording of this session.
+  end: ?int
+)
+
+# A terminal session's earlier output, from the recording porelod keeps of it, for scrolling past
+# the lines Screen gives. Output older than the recording's start, which is kept as records.kept_days
+# says, answers atStart true.
+method ScreenBefore(
+  # Container name.
+  task: string,
+  # A byte position Screen gave as end or this method gave as offset; any other is InvalidParameter.
+  before: int,
+  # How many lines at most, 1 to 1000; anything else is InvalidParameter.
+  lines: int,
+  # As for Screen.
+  escapes: ?bool
+) -> (
+  lines: []string,
+  # Byte position where the first returned line starts: the next call's before.
+  offset: int,
+  # True when nothing older is kept.
+  atStart: bool
 )
 
 # ---------------------------------------------------------------------------- files handed to a task
@@ -1671,6 +1716,8 @@ error MadeWithAnother(task: string, agent: string, model: string)
 error AlreadyStarting(task: string)
 
 # The named log is not a file in that task's state directory.
+# A log or a session recording that is not there, or was replaced by a new run since the position a
+# client holds was given: the client starts again from Tail or Screen.
 error NoSuchLog(task: string, log: string)
 
 # A gate method was called without naming a project file.

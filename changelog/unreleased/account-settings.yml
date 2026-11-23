@@ -1,0 +1,2 @@
+title: porelod reads the four time factors and six named settings from the account's config.yml, refuses an unknown key or bad value by name, and answers them through the new Limits call.
+type: added

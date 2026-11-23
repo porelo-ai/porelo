@@ -1442,6 +1442,15 @@ public final class PoreloDaemon {
         final java.time.Duration messages =
                 org.fuin.porelo.app.MessageWatch.interval(System::getenv);
         final PoreloContext context = PoreloContext.real();
+        // Before anything starts: a misspelt or bad setting stops here, named, rather than leaving
+        // a limit at a value the person did not choose.
+        try {
+            context.account();
+        } catch (IllegalArgumentException | java.io.UncheckedIOException ex) {
+            System.err.println("porelod: " + ex.getMessage());
+            System.err.flush();
+            System.exit(78);
+        }
         try (Watches watches = watches(context, every, messages)) {
             final PoreloContext owned = watches.context();
             final Path socket = owned.paths().daemonSocket();

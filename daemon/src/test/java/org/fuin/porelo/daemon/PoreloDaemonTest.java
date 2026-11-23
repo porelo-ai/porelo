@@ -186,6 +186,71 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void limitsAnswersTheFactorsReadFromTheAccountsConfigurationAsALineAndFourNumbers(
+            @TempDir Path dir) throws Exception {
+        final PoreloContext slow =
+                context(dir)
+                        .withAccount(
+                                org.fuin.porelo.app.AccountConfig.read(
+                                        new java.io.StringReader(
+                                                "limits:\n  services: 2\n  polling: 0.5\n"),
+                                        "config.yml"));
+        servingContext(
+                slow,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> answer =
+                                client.call(PoreloDaemon.INTERFACE + ".Limits", Map.of());
+                        assertThat(answer)
+                                .as("the line a client passes on unchanged, all four written")
+                                .containsEntry(
+                                        "line",
+                                        "services=2.0,machines=1.0,polling=0.5,retries=1.0");
+                        assertThat(((Number) answer.get("services")).doubleValue()).isEqualTo(2.0);
+                        assertThat(((Number) answer.get("polling")).doubleValue()).isEqualTo(0.5);
+                        assertThat(((Number) answer.get("machines")).doubleValue()).isEqualTo(1.0);
+                    }
+                });
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        assertThat(client.call(PoreloDaemon.INTERFACE + ".Limits", Map.of()))
+                                .as("a context reading no configuration answers all four at 1.0")
+                                .containsEntry(
+                                        "line",
+                                        "services=1.0,machines=1.0,polling=1.0,retries=1.0");
+                    }
+                });
+    }
+
+    @Test
+    void thePagingMethodsAreRefusedByNameUntilTheyAreAnswered(@TempDir Path dir) throws Exception {
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".LogBefore",
+                                                        Map.of(
+                                                                "task",
+                                                                "porelo-uc-shell",
+                                                                "log",
+                                                                "task.log",
+                                                                "before",
+                                                                10,
+                                                                "lines",
+                                                                5)))
+                                .as("never an empty page that looks like a log's start")
+                                .hasMessageContaining("MethodNotImplemented");
+                    }
+                });
+    }
+
+    @Test
     void certifyingAStartNobodyWaitsForIsItsOwnError(@TempDir Path dir) throws Exception {
         final PoreloContext context = hooked(dir);
         servingContext(

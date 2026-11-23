@@ -94,6 +94,20 @@ type LeftLoose (
 # with '#' starting a comment, less any name in never or reading and any this interface lacks.
 # A client offers reading and writing; it refuses never itself as well, so a fault on one side
 # alone opens nothing. A judgement method is offered only from the list, and the client says so.
+# The four factors this machine's time limits follow, from limits: in the account's config.yml, as
+# porelod read it at its start. A client passes line on unchanged as --limits to a Porelo program it
+# starts, and applies the factors to its own limits; what it starts before it can ask uses the factors
+# it last read from this machine, or all four at 1.0. Read once per connection.
+method Limits() -> (
+  # The limits line, all four in the order services, machines, polling, retries, each with at least
+  # one digit after its dot: services=1.0,machines=1.0,polling=1.0,retries=1.0
+  line: string,
+  services: float,
+  machines: float,
+  polling: float,
+  retries: float
+)
+
 method McpMethods() -> (
   reading: []string,
   writing: []string,

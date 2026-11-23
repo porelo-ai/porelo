@@ -25,6 +25,7 @@ nav:
           - Credentials: credentials.md
     - Running it: running.md
     - Time limits: limits.md
+    - Account settings: configuration.md
     - A host a playbook brings up: hosts.md
     - Who may do what in an organization: roles.md
     - Decisions: decisions.md

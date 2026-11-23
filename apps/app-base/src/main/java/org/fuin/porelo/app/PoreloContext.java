@@ -1,9 +1,11 @@
 package org.fuin.porelo.app;
 
+import java.nio.file.Path;
 import java.util.List;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.runtime.HookInstaller;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything a command needs that touches the machine.
@@ -39,7 +41,8 @@ public record PoreloContext(
         VaultPrompt prompt,
         StandardInput input,
         java.util.function.Supplier<String> machineName,
-        HostVaultAccess hostVault) {
+        HostVaultAccess hostVault,
+        java.util.function.Supplier<AccountConfig> accountSettings) {
 
     /** Creates a context whose host vault is owned by the daemon at its socket. */
     public PoreloContext(
@@ -63,6 +66,82 @@ public record PoreloContext(
                 new HostVaultConnection(paths.daemonSocket(), paths.vault().vaultFile()));
     }
 
+    /**
+     * Creates a context with every account setting at its default.
+     *
+     * @param runner Runs commands.
+     * @param paths Where things are.
+     * @param exec Runs a command in the terminal.
+     * @param environment The environment.
+     * @param recognizesTasks Whether a task is recognized only by its recorded id.
+     * @param prompt Who is asked for the vault passphrase.
+     * @param input Standard input.
+     * @param machineName This machine's name.
+     * @param hostVault The host vault's owner.
+     */
+    public PoreloContext(
+            CommandRunner runner,
+            PoreloPaths paths,
+            java.util.function.ToIntFunction<List<String>> exec,
+            java.util.function.UnaryOperator<String> environment,
+            boolean recognizesTasks,
+            VaultPrompt prompt,
+            StandardInput input,
+            java.util.function.Supplier<String> machineName,
+            HostVaultAccess hostVault) {
+        this(
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                machineName,
+                hostVault,
+                () -> AccountConfig.DEFAULT);
+    }
+
+    /**
+     * The account's settings from {@code config.yml}, read once on first use.
+     *
+     * @return The settings; every default for a context not reading the real account.
+     * @throws IllegalArgumentException Naming the key, when the file holds an unknown key or a bad
+     *     value.
+     */
+    public AccountConfig account() {
+        return accountSettings.get();
+    }
+
+    /**
+     * The four factors every time limit follows, from {@link #account()}.
+     *
+     * @return The factors.
+     */
+    public org.fuin.porelo.wire.LimitFactors limits() {
+        return account().limits();
+    }
+
+    /**
+     * Returns this context with the given account settings.
+     *
+     * @param settings The settings.
+     * @return The context.
+     */
+    public PoreloContext withAccount(final AccountConfig settings) {
+        return new PoreloContext(
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                machineName,
+                hostVault,
+                () -> settings);
+    }
+
     /** Returns this context using the given host vault owner. */
     public PoreloContext withHostVault(HostVaultAccess owner) {
         if (owner instanceof HostVaultOwner local) {
@@ -77,7 +156,8 @@ public record PoreloContext(
                 prompt,
                 input,
                 machineName,
-                owner);
+                owner,
+                accountSettings);
     }
 
     /** Forgets the host share; an unreachable socket is empty only if this uid has no daemon. */
@@ -239,7 +319,16 @@ public record PoreloContext(
      */
     public PoreloContext recognizingTasks() {
         return new PoreloContext(
-                runner, paths, exec, environment, true, prompt, input, machineName, hostVault);
+                runner,
+                paths,
+                exec,
+                environment,
+                true,
+                prompt,
+                input,
+                machineName,
+                hostVault,
+                accountSettings);
     }
 
     /**
@@ -258,7 +347,8 @@ public record PoreloContext(
                 asking,
                 input,
                 machineName,
-                hostVault);
+                hostVault,
+                accountSettings);
     }
 
     /**
@@ -277,7 +367,8 @@ public record PoreloContext(
                 prompt,
                 reading,
                 machineName,
-                hostVault);
+                hostVault,
+                accountSettings);
     }
 
     /**
@@ -296,7 +387,8 @@ public record PoreloContext(
                 prompt,
                 input,
                 naming,
-                hostVault);
+                hostVault,
+                accountSettings);
     }
 
     /**
@@ -373,14 +465,44 @@ public record PoreloContext(
             return refused();
         }
         return new PoreloContext(
-                new ProcessCommandRunner(),
-                PoreloPaths.current(),
-                PoreloContext::runInTerminal,
-                System::getenv,
-                REAL_RECOGNIZES_TASKS,
-                VaultPrompt.terminal(),
-                StandardInput.real(),
-                MachineName::thisAccount);
+                        new ProcessCommandRunner(),
+                        PoreloPaths.current(),
+                        PoreloContext::runInTerminal,
+                        System::getenv,
+                        REAL_RECOGNIZES_TASKS,
+                        VaultPrompt.terminal(),
+                        StandardInput.real(),
+                        MachineName::thisAccount)
+                .readingAccount();
+    }
+
+    // Read once, when first asked, so a command that needs no setting never fails on the file.
+    private PoreloContext readingAccount() {
+        final Path file = paths.xdg().config().resolve(AccountConfig.FILE);
+        final java.util.concurrent.atomic.AtomicReference<@Nullable AccountConfig> read =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        return new PoreloContext(
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                machineName,
+                hostVault,
+                () -> {
+                    final AccountConfig known = read.get();
+                    if (known != null) {
+                        return known;
+                    }
+                    try {
+                        read.compareAndSet(null, AccountConfig.read(file));
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException("Cannot read " + file, ex);
+                    }
+                    return java.util.Objects.requireNonNull(read.get(), "set just above");
+                });
     }
 
     /**

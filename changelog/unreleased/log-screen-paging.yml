@@ -1,0 +1,2 @@
+title: The daemon's interface declares LogBefore and ScreenBefore, for a client paging back through a task log or a terminal session's earlier output.
+type: added

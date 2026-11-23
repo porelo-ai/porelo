@@ -756,6 +756,18 @@ final class TaskMethods {
                     replies.last(answer);
                 });
 
+        // Declared for the window's paging; answered once the session recording and the backward
+        // read stand, and refused by name until then rather than answered with less.
+        for (final String paging : java.util.List.of("LogBefore", "ScreenBefore")) {
+            server.method(
+                    paging,
+                    (parameters, replies) -> {
+                        throw new VarlinkException(
+                                "org.varlink.service.MethodNotImplemented",
+                                Map.of("method", "org.fuin.porelo.Tasks1." + paging));
+                    });
+        }
+
         server.method(
                 "Tail",
                 (parameters, replies) -> {

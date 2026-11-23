@@ -1,7 +1,8 @@
 # Time limits
 
 Every time limit Porelo keeps is a default times one of four factors, so a slow network or a slow
-machine is met by one setting rather than a new build. Each factor is 1.0 by default.
+machine is met by one setting rather than a new build. Each factor is 1.0 unless the person sets it under
+`limits:` in [the account's settings](configuration.md).
 
 | Factor | What its limits wait for |
 |---|---|

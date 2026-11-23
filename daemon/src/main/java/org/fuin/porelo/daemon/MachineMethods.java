@@ -91,6 +91,19 @@ final class MachineMethods {
                                     executable()));
                 });
 
+        server.method(
+                "Limits",
+                (parameters, replies) -> {
+                    final org.fuin.porelo.wire.LimitFactors limits = context.limits();
+                    replies.last(
+                            Map.of(
+                                    "line", limits.line(),
+                                    "services", limits.services().doubleValue(),
+                                    "machines", limits.machines().doubleValue(),
+                                    "polling", limits.polling().doubleValue(),
+                                    "retries", limits.retries().doubleValue()));
+                });
+
         registerTighten(server, context);
         McpMethods.register(server, context);
     }
