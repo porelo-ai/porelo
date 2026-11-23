@@ -1,0 +1,2 @@
+title: "A task is no longer given its repository's issue prefixes in `PORELO_ISSUE_PREFIXES`; the shared rule in each repository's AGENTS.md says how issues are named"
+type: removed

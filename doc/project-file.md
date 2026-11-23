@@ -90,7 +90,7 @@ repositories:
     review: "required"
     description: "The thing that talks to the payment provider"
     # Optional. The issue prefixes this repository owns, each one or more capital letters and named
-    # by no other repository. A task on it is told them in PORELO_ISSUE_PREFIXES ("B,P").
+    # by no other repository.
     issues: ["B", "P"]
     # Optional. The agent this repository is worked with, as 'porelo agents' lists it: a task
     # start without --agent takes it, and refuses when it is not installed here.

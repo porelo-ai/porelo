@@ -10482,10 +10482,10 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void aTaskIsToldTheIssuePrefixesItsRepositoryOwns(@TempDir Path dir) throws IOException {
+    void aTaskIsNotToldTheIssuePrefixesItsRepositoryOwns(@TempDir Path dir) throws IOException {
 
-        // So an agent cites and names its repository's issues the way the repository does, without
-        // a list of its own.
+        // How issues are named is the shared rule in each repository's AGENTS.md; the prefixes stay
+        // in the project file for the index and the checks, never in a task's environment.
         execute(
                 context(dir, true),
                 "task",
@@ -10506,15 +10506,11 @@ class TaskRunCommandTest {
                 "backend");
 
         assertThat(runner.only("create").environment())
-                .as("the value, in the environment podman copies it from")
-                .containsEntry(TaskLaunch.ISSUE_PREFIXES, "B,P");
+                .as("the environment podman copies from")
+                .doesNotContainKey("PORELO_ISSUE_PREFIXES");
         assertThat(runner.lines())
-                .as("the name alone on the command line")
-                .anyMatch(
-                        line ->
-                                line.contains("create")
-                                        && line.contains(
-                                                "--env " + TaskLaunch.ISSUE_PREFIXES + " "));
+                .as("the command line")
+                .noneMatch(line -> line.contains("PORELO_ISSUE_PREFIXES"));
     }
 
     @Test
@@ -10563,24 +10559,6 @@ class TaskRunCommandTest {
 
         assertThat(runner.only("create").environment())
                 .containsEntry(TaskLaunch.READINGS_DIRECTORY, "readings");
-    }
-
-    @Test
-    void aTaskOnARepositoryWithoutIssuesIsToldNone(@TempDir Path dir) throws IOException {
-        execute(
-                context(dir, true),
-                "task",
-                "start",
-                "--attach",
-                "shell",
-                "--detach",
-                "-p",
-                projectFile(dir, TWO_REPOSITORIES),
-                "--repository",
-                "backend");
-
-        assertThat(runner.only("create").environment())
-                .containsEntry(TaskLaunch.ISSUE_PREFIXES, "");
     }
 
     @Test
