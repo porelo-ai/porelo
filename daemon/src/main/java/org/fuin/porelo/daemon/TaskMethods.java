@@ -1556,20 +1556,35 @@ final class TaskMethods {
         if (formatting == null || lines.isEmpty()) {
             return lines;
         }
-        final List<@Nullable String> formatted;
-        try {
-            formatted = formatting.apply(lines);
-        } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
-            // A log is still worth reading unformatted; a failed formatter must not end the stream.
-            return lines;
-        }
         final List<String> shown = new ArrayList<>();
-        for (final String line : formatted) {
+        for (final String line : formatted(formatting, lines)) {
             if (line != null) {
                 shown.add(line);
             }
         }
         return shown;
+    }
+
+    /**
+     * Each line as the agent shows it, or {@code null} for one it hides, in the lines' places; as
+     * they are without an agent to ask, or when it fails.
+     */
+    static List<@Nullable String> formatted(
+            java.util.function.@Nullable Function<List<String>, List<@Nullable String>> formatting,
+            List<String> lines) {
+        if (formatting == null || lines.isEmpty()) {
+            return new ArrayList<@Nullable String>(lines);
+        }
+        final List<@Nullable String> formatted;
+        try {
+            formatted = formatting.apply(lines);
+        } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
+            // A log is still worth reading unformatted; a failed formatter must not end the stream.
+            return new ArrayList<@Nullable String>(lines);
+        }
+        return formatted.size() == lines.size()
+                ? formatted
+                : new ArrayList<@Nullable String>(lines);
     }
 
     /**
@@ -1631,7 +1646,7 @@ final class TaskMethods {
                     formatting,
             final String task,
             final String name) {
-        final LogPages.Page page =
+        final LogPages.Page read =
                 LogPages.ofLog(
                         log,
                         before,
@@ -1640,13 +1655,9 @@ final class TaskMethods {
                                 new VarlinkException(
                                         INTERFACE + ".NoSuchLog",
                                         Map.of("task", task, "log", name)));
-        return Map.of(
-                "lines",
-                shown(formatting, page.lines()),
-                "offset",
-                page.offset(),
-                "atStart",
-                page.atStart());
+        // Bound by what is sent: the agent's formatter lengthens lines after the page was read.
+        final LogPages.Page page = LogPages.fit(read, formatted(formatting, read.lines()));
+        return Map.of("lines", page.lines(), "offset", page.offset(), "atStart", page.atStart());
     }
 
     /**
@@ -1682,30 +1693,33 @@ final class TaskMethods {
             if (recording == null) {
                 throw gone.get();
             }
-            final LogPages.Page page = LogPages.before(recording, before, lines, gone);
+            final LogPages.Page read = LogPages.read(recording, before, lines, gone, SCREEN_FAILED);
+            final LogPages.Page page =
+                    LogPages.fit(
+                            read,
+                            read.lines().stream()
+                                    .<@Nullable String>map(
+                                            line ->
+                                                    escapes
+                                                            ? line.endsWith("\r")
+                                                                    ? line.substring(
+                                                                            0, line.length() - 1)
+                                                                    : line
+                                                            : ScreenRecording.plain(line))
+                                    .toList());
             return Map.of(
-                    "lines",
-                    page.lines().stream()
-                            .map(
-                                    line ->
-                                            escapes
-                                                    ? line.endsWith("\r")
-                                                            ? line.substring(0, line.length() - 1)
-                                                            : line
-                                                    : ScreenRecording.plain(line))
-                            .toList(),
-                    "offset",
-                    page.offset(),
-                    "atStart",
-                    page.atStart());
+                    "lines", page.lines(), "offset", page.offset(), "atStart", page.atStart());
         } catch (java.nio.file.NoSuchFileException ex) {
             // The writer began a new recording while this one was opened.
             throw gone.get();
         } catch (java.io.IOException ex) {
-            throw new VarlinkException(
-                    INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+            // A fixed text: the exception's names the path under the state directory.
+            throw LogPages.failed(SCREEN_FAILED);
         }
     }
+
+    /** What a client is told when a session recording cannot be read. */
+    static final String SCREEN_FAILED = "The terminal session's recording could not be read";
 
     /**
      * Returns where the recording of a task's session ends for reading back, or {@code null} when

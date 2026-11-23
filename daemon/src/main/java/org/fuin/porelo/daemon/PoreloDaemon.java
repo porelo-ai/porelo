@@ -560,7 +560,8 @@ public final class PoreloDaemon {
             return null;
         }
         final Path file = context.paths().tasks().containerState(task).resolve(log);
-        return Files.isRegularFile(file) ? file : null;
+        // Not through a link: one in the state directory would make a file elsewhere a log.
+        return Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS) ? file : null;
     }
 
     /** What one read of a log returned, and where to carry on from. */

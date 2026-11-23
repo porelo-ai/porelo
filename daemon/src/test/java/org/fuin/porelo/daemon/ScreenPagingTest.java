@@ -329,4 +329,64 @@ class ScreenPagingTest {
                                 .containsEntry("live", true)
                                 .doesNotContainKey("end"));
     }
+
+    @Test
+    void pagesOfEscapesEachFitOneMessage() throws Exception {
+
+        // ESC goes on the wire as six bytes: a page of escapes for a client that draws them was a
+        // reply the client refused, so it could never scroll past it.
+        final List<String> session = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            session.add(i + "\u001b[1m".repeat(750));
+        }
+        final byte[] whole =
+                (String.join("\r\n", session) + "\r\n").getBytes(StandardCharsets.UTF_8);
+        recorded(0, whole);
+
+        serving(
+                client -> {
+                    final List<String> joined = new ArrayList<>();
+                    long position = whole.length;
+                    int pages = 0;
+                    while (position > 0) {
+                        final Map<String, Object> page = before(client, position, 1000, true);
+                        assertThat(lines(page)).isNotEmpty();
+                        joined.addAll(0, lines(page));
+                        assertThat(offset(page)).isLessThan(position);
+                        position = offset(page);
+                        assertThat(++pages).as("a page that does not move on").isLessThan(100);
+                    }
+                    assertThat(joined).isEqualTo(session);
+                });
+    }
+
+    @Test
+    void aRecordingThatCannotBeReadIsFailedWithoutItsPath() throws Exception {
+
+        // The answer reaches a client: the path under the state directory is none of its business.
+        final Path recording = recorded(0, "one\ntwo\n".getBytes(StandardCharsets.UTF_8));
+        Files.setPosixFilePermissions(recording, java.util.Set.of());
+        try {
+            serving(
+                    client ->
+                            assertThatThrownBy(() -> before(client, 4, 5, false))
+                                    .isInstanceOfSatisfying(
+                                            VarlinkException.class,
+                                            ex -> {
+                                                assertThat(ex.getErrorName())
+                                                        .isEqualTo(
+                                                                PoreloDaemon.INTERFACE + ".Failed");
+                                                assertThat(
+                                                                String.valueOf(
+                                                                        ex.getParameters()
+                                                                                .get("message")))
+                                                        .isNotBlank()
+                                                        .doesNotContain(dir.toString());
+                                            }));
+        } finally {
+            Files.setPosixFilePermissions(
+                    recording,
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
 }

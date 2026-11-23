@@ -254,4 +254,192 @@ class LogPagingTest {
         assertThat(page.get("lines")).isEqualTo(List.of("> shown one", "> shown two"));
         assertThat(page).containsEntry("offset", 0L).containsEntry("atStart", true);
     }
+
+    /** The size of a reply as it goes on the wire, without the NUL that ends it. */
+    private static int encoded(final Map<String, Object> reply) {
+        return org.fuin.porelo.wire.Json.write(Map.of("parameters", reply))
+                .getBytes(StandardCharsets.UTF_8)
+                .length;
+    }
+
+    @Test
+    void pagesOfLinesThatEscapeSixfoldEachFitOneMessage() throws Exception {
+
+        // A control character goes on the wire as six bytes: a page of 4 MiB of them was a reply
+        // the client refused, so it could never scroll past it.
+        final List<String> written = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            written.add(i + "\u0001".repeat(3000));
+        }
+        final Path log = log((String.join("\n", written) + "\n").getBytes(StandardCharsets.UTF_8));
+
+        serving(
+                client -> {
+                    final List<String> joined = new ArrayList<>();
+                    long position = Files.size(log);
+                    int pages = 0;
+                    while (position > 0) {
+                        final Map<String, Object> page = before(client, position, 1000, null);
+                        assertThat(lines(page)).isNotEmpty();
+                        joined.addAll(0, lines(page));
+                        assertThat(offset(page)).isLessThan(position);
+                        position = offset(page);
+                        assertThat(++pages).as("a page that does not move on").isLessThan(100);
+                    }
+                    assertThat(joined).isEqualTo(written);
+                });
+    }
+
+    @Test
+    void aLineLongerThanAPageComesCutToWhatOneMessageCarries() throws Exception {
+
+        // One line without end, all of it escaped on the wire, still arrives: cut, never refused.
+        final String endless = "\u0001".repeat(5 * 1024 * 1024);
+        log((endless + "\nlast\n").getBytes(StandardCharsets.UTF_8));
+
+        serving(
+                client -> {
+                    final Map<String, Object> page =
+                            before(client, endless.length() + 1L, 1000, null);
+                    assertThat(lines(page)).hasSize(1);
+                    assertThat(lines(page).getFirst()).isNotEmpty();
+                    assertThat(endless).startsWith(lines(page).getFirst());
+                    assertThat(offset(page)).isZero();
+                    assertThat(page).containsEntry("atStart", true);
+                });
+    }
+
+    @Test
+    void aFormattedPageFitsOneMessageThoughTheAgentLengthensItsLines() throws Exception {
+
+        // The agent's formatter lengthens a line after the page was cut: the bound holds for what
+        // is sent, and the next page goes on from the first line sent.
+        final List<String> written = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            written.add("line " + i + " " + "x".repeat(3000));
+        }
+        final Path log = log((String.join("\n", written) + "\n").getBytes(StandardCharsets.UTF_8));
+        final java.util.function.Function<List<String>, List<@Nullable String>> eightfold =
+                raw -> raw.stream().<@Nullable String>map(line -> line.repeat(8)).toList();
+
+        final List<String> joined = new ArrayList<>();
+        long position = Files.size(log);
+        int pages = 0;
+        while (position > 0) {
+            final Map<String, Object> page =
+                    TaskMethods.logBefore(log, position, 1000, eightfold, TASK, "task.log");
+            assertThat(encoded(page))
+                    .as("the reply as sent")
+                    .isLessThanOrEqualTo(
+                            org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE);
+            joined.addAll(0, lines(page));
+            assertThat(offset(page)).isLessThan(position);
+            position = offset(page);
+            assertThat(++pages).as("a page that does not move on").isLessThan(100);
+        }
+        assertThat(joined).isEqualTo(written.stream().map(line -> line.repeat(8)).toList());
+    }
+
+    @Test
+    void aLogThatCannotBeReadIsFailedWithoutItsPath() throws Exception {
+
+        // The answer reaches a client: the path under the state directory is none of its business.
+        final Path log = log("one\ntwo\n".getBytes(StandardCharsets.UTF_8));
+        Files.setPosixFilePermissions(log, java.util.Set.of());
+        try {
+            serving(
+                    client ->
+                            assertThatThrownBy(() -> before(client, 4, 5, null))
+                                    .isInstanceOfSatisfying(
+                                            VarlinkException.class,
+                                            ex -> {
+                                                assertThat(ex.getErrorName())
+                                                        .isEqualTo(
+                                                                PoreloDaemon.INTERFACE + ".Failed");
+                                                assertThat(
+                                                                String.valueOf(
+                                                                        ex.getParameters()
+                                                                                .get("message")))
+                                                        .isNotBlank()
+                                                        .doesNotContain(dir.toString())
+                                                        .doesNotContain("task.log");
+                                            }));
+        } finally {
+            Files.setPosixFilePermissions(
+                    log, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+        }
+    }
+
+    @Test
+    void aLogShortenedUnderTheReadIsNoSuchLogAsOneGone() {
+
+        // The log was cut between its size being read and its bytes: the position belongs to what
+        // was there, as for a log gone.
+        final LogPages.Bytes shortened =
+                new LogPages.Bytes() {
+                    @Override
+                    public long start() {
+                        return 0;
+                    }
+
+                    @Override
+                    public long end() {
+                        return 100;
+                    }
+
+                    @Override
+                    public void read(final long position, final byte[] into, final int length)
+                            throws java.io.IOException {
+                        throw new java.io.EOFException();
+                    }
+                };
+
+        assertThatThrownBy(
+                        () ->
+                                LogPages.read(
+                                        shortened,
+                                        50,
+                                        5,
+                                        () ->
+                                                new VarlinkException(
+                                                        PoreloDaemon.INTERFACE + ".NoSuchLog",
+                                                        Map.of()),
+                                        "The log could not be read"))
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex ->
+                                assertThat(ex.getErrorName())
+                                        .isEqualTo(PoreloDaemon.INTERFACE + ".NoSuchLog"));
+    }
+
+    @Test
+    void aLogThatIsALinkIsNoSuchLog() throws Exception {
+
+        // A link in the state directory would let the daemon read a file elsewhere as the log.
+        final Path elsewhere = Files.writeString(dir.resolve("elsewhere.txt"), "secret\nmore\n");
+        final Path state = Files.createDirectories(context().paths().tasks().containerState(TASK));
+        Files.createSymbolicLink(state.resolve("task.log"), elsewhere);
+
+        serving(
+                client -> {
+                    assertThatThrownBy(() -> before(client, 7, 5, null))
+                            .isInstanceOfSatisfying(
+                                    VarlinkException.class,
+                                    ex ->
+                                            assertThat(ex.getErrorName())
+                                                    .isEqualTo(
+                                                            PoreloDaemon.INTERFACE + ".NoSuchLog"));
+                    assertThatThrownBy(
+                                    () ->
+                                            client.call(
+                                                    PoreloDaemon.INTERFACE + ".Tail",
+                                                    Map.of("task", TASK, "log", "task.log")))
+                            .isInstanceOfSatisfying(
+                                    VarlinkException.class,
+                                    ex ->
+                                            assertThat(ex.getErrorName())
+                                                    .isEqualTo(
+                                                            PoreloDaemon.INTERFACE + ".NoSuchLog"));
+                });
+    }
 }

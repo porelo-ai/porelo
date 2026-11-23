@@ -620,10 +620,13 @@ current state began, as an age and an instant.
 A client scrolling up in a task log pages back from where `Tail` began: `LogBefore(task, log, before, lines)` takes
 the `offset` that `Tail` or the previous `LogBefore` gave as `before` and answers at most `lines` lines, 1 to 1000,
 that end just before it, the `offset` where the first of them starts, the next call's `before`, and `atStart` once that
-is 0. `formatted` works as for `Tail`. The log is read back in blocks, never whole, and a page carries whole lines
-of at most 4 MiB together; only one line longer than that alone comes cut to its first 4 MiB. A position that is no
-line start the daemon gave out is refused as `InvalidParameter` naming `before`, and a log replaced since, shorter
-than the position or gone, is `NoSuchLog`: the client starts again from `Tail`.
+is 0. `formatted` works as for `Tail`. The log is read back in blocks, never whole. A page reads whole lines of at most
+a sixth of the 4 MiB one message carries, since a control character goes on the wire as six bytes, and sends the
+newest of them that fit one message as they go out, escaped and formatted; only one line too long for that alone
+comes cut to its first part. Any line start is taken as `before`; a position inside a line or below 0 is refused as
+`InvalidParameter` naming `before`, and one past the log's end, as for a log shortened or gone since, is `NoSuchLog`:
+the client starts again from `Tail`. A log that is a link is no log, and one that cannot be read is `Failed` with a
+fixed text that names no path.
 
 Work in a terminal has no log, so the task's root records its session's output: tmux's own pipe writes it, from the
 first second of a session on, into the task's screen directory, which the agent cannot write, in files of 1 MiB. The
@@ -633,7 +636,8 @@ whole line ends, and has none without a recording. A client scrolling past what 
 `ScreenBefore(task, before, lines)` with that `end` and then each `offset`, as `LogBefore` works; `escapes` works as for
 `Screen`, and plain text leaves escapes and control characters out and keeps what a carriage return wrote last.
 Positions keep counting where the recording began, so a position older than what is kept answers `atStart` true with no
-lines, and a recording begun anew since is `NoSuchLog`: the client starts again from `Screen`.
+lines, and a position past the recording's end, as after a recording begun anew, is `NoSuchLog`: the client starts
+again from `Screen`.
 
 ## shield
 

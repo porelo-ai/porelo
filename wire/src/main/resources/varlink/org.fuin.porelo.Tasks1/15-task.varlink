@@ -1516,14 +1516,16 @@ method Tail(
 )
 
 # A task log's lines before a position, for a client scrolling up past what Tail sent. A page, not a
-# stream; the client asks again with the offset it got.
+# stream; the client asks again with the offset it got. A page fits one message as sent, escaped and
+# formatted: fewer lines than asked when they are long, and one line too long alone comes cut.
 method LogBefore(
   # Container name.
   task: string,
   # File name within the task's state directory, ending in .log. Not a path.
   log: string,
-  # A byte position Tail or this method returned as offset; the lines end just before it. Any other
-  # position is InvalidParameter, never a guess.
+  # A byte position Tail or this method returned as offset; the lines end just before it. Any line
+  # start is taken; one inside a line, or below 0, is InvalidParameter, never a guess, and one past
+  # the log's end is NoSuchLog.
   before: int,
   # How many lines at most, 1 to 1000; anything else is InvalidParameter.
   lines: int,
@@ -1564,7 +1566,9 @@ method Screen(
 method ScreenBefore(
   # Container name.
   task: string,
-  # A byte position Screen gave as end or this method gave as offset; any other is InvalidParameter.
+  # A byte position Screen gave as end or this method gave as offset; the lines end just before it.
+  # Any line start is taken; one inside a line, or below 0, is InvalidParameter, one past the
+  # recording's end is NoSuchLog, and one older than what is kept answers atStart true.
   before: int,
   # How many lines at most, 1 to 1000; anything else is InvalidParameter.
   lines: int,
@@ -1716,8 +1720,8 @@ error MadeWithAnother(task: string, agent: string, model: string)
 error AlreadyStarting(task: string)
 
 # The named log is not a file in that task's state directory.
-# A log or a session recording that is not there, or was replaced by a new run since the position a
-# client holds was given: the client starts again from Tail or Screen.
+# A log or a session recording that is not there, or ends before the position a client holds, as
+# after a new run: the client starts again from Tail or Screen.
 error NoSuchLog(task: string, log: string)
 
 # A gate method was called without naming a project file.
