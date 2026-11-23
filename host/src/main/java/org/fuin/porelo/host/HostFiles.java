@@ -188,7 +188,7 @@ final class HostFiles {
                         69, "safe removal of the host's scratch directory is unavailable");
             }
             if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
-                removeDirectory(secure, path.getFileName());
+                removeDirectoryAgainWhileFilled(secure, path.getFileName());
             } else {
                 secure.deleteFile(path.getFileName());
             }
@@ -350,11 +350,33 @@ final class HostFiles {
         }
     }
 
+    // A child a time limit ended may still have written one more file while the tree was read.
+    private static final int REMOVALS = 3;
+
+    private static void removeDirectoryAgainWhileFilled(
+            java.nio.file.SecureDirectoryStream<Path> parent, Path name) throws IOException {
+        for (int left = REMOVALS; ; left--) {
+            try {
+                removeDirectory(parent, name);
+                return;
+            } catch (java.nio.file.DirectoryNotEmptyException filled) {
+                if (left <= 1) {
+                    throw filled;
+                }
+            }
+        }
+    }
+
     private static void removeDirectory(java.nio.file.SecureDirectoryStream<Path> parent, Path name)
             throws IOException {
         try (var directory = parent.newDirectoryStream(name, LinkOption.NOFOLLOW_LINKS)) {
+            // Read every name before removing any: a directory read while its entries go may skip
+            // some, and the directory then cannot be removed.
+            final List<Path> entries = new java.util.ArrayList<>();
             for (Path entry : directory) {
-                final Path child = entry.getFileName();
+                entries.add(entry.getFileName());
+            }
+            for (Path child : entries) {
                 final var view =
                         java.util.Objects.requireNonNull(
                                 directory.getFileAttributeView(

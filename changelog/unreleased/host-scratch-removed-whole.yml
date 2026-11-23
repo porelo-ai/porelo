@@ -1,0 +1,2 @@
+title: porelo-host reads a scratch directory whole before removing it, and removes it again when a stopped child wrote into it meanwhile, so no follow of a central repository leaves its scratch behind.
+type: fixed
