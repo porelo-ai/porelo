@@ -149,6 +149,7 @@ class StartProgressReviewTest {
                 adapter,
                 """
                 #!/bin/sh
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"room","lifecycle":["setup","enroll"]}'; exit 0;;
                 esac

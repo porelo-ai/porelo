@@ -36,7 +36,8 @@ class TransportVerbsTest {
                                         new InetAddress[] {
                                             InetAddress.ofLiteral(answers.removeFirst())
                                         },
-                                resolvConf)
+                                resolvConf,
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .reaching(List.of("server.example.org"), false);
 
         verbs.run(Command.of("/transport", "poll"));
@@ -73,15 +74,20 @@ class TransportVerbsTest {
                                 name -> {
                                     throw new AssertionError("setup needs no reach lookup");
                                 },
-                                dir.resolve("absent-resolv.conf"))
+                                dir.resolve("absent-resolv.conf"),
+                                org.fuin.porelo.wire.LimitFactors.parse("services=2"))
                         .reaching(List.of("server.example.org"), false);
 
         verbs.run(Command.of("/transport", "setup"));
 
         assertThat(runner.invocations()).as("setup runs once").hasSize(1);
         assertThat(runner.invocations().getFirst().arguments())
-                .as("the accepted setup exception is executed directly")
-                .containsExactly("/transport", "setup");
+                .as("the accepted setup exception is executed directly, the factors before it")
+                .containsExactly(
+                        "/transport",
+                        "--limits",
+                        "services=2.0,machines=1.0,polling=1.0,retries=1.0",
+                        "setup");
     }
 
     @ParameterizedTest
@@ -93,7 +99,11 @@ class TransportVerbsTest {
     void everyVerbExceptSetupStartsBehindTheFence(final String verb) {
         // Harm: a new or overlooked verb inherits unrestricted host networking.
         final FakeCommandRunner runner = new FakeCommandRunner();
-        final TransportVerbs verbs = new TransportVerbs(runner, name -> Path.of("/usr/bin", name));
+        final TransportVerbs verbs =
+                new TransportVerbs(
+                        runner,
+                        name -> Path.of("/usr/bin", name),
+                        org.fuin.porelo.wire.LimitFactors.parse("retries=4"));
 
         verbs.reaching(List.of("127.0.0.1:8008", "192.0.2.10"), false)
                 .run(Command.of("/transport", verb));
@@ -101,9 +111,13 @@ class TransportVerbsTest {
         final Command command = runner.invocations().getFirst();
         assertThat(command.program()).as("%s must enter pasta", verb).isEqualTo("/usr/bin/pasta");
         assertThat(command.arguments())
-                .as("the verb and its only saved loopback port survive wrapping")
+                .as("the verb, the factors before it and its only saved loopback port survive")
                 .containsSubsequence("-T", "8008")
-                .endsWith("/transport", verb);
+                .endsWith(
+                        "/transport",
+                        "--limits",
+                        "services=1.0,machines=1.0,polling=1.0,retries=4.0",
+                        verb);
         assertThat(command.arguments().get(command.arguments().indexOf("-c") + 1))
                 .as("the saved literal address is the only external allowance")
                 .contains("policy drop;", "ip daddr 192.0.2.10 accept");
@@ -134,7 +148,12 @@ class TransportVerbsTest {
                         List.of("127.0.0.1:8008", "192.0.2.10"),
                         false);
 
-        new TransportSend(runner, transports, (scheme, container) -> acting).send(mailbox, "room");
+        new TransportSend(
+                        runner,
+                        transports,
+                        (scheme, container) -> acting,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                .send(mailbox, "room");
 
         final Command command = runner.only(" send ");
         assertThat(command.program()).as("delivery enters pasta").isEqualTo("/usr/bin/pasta");
@@ -158,7 +177,10 @@ class TransportVerbsTest {
         final Mailbox mailbox = new Mailbox(dir.resolve("mailbox"));
         mailbox.create();
 
-        new TransportPoll(runner, new TransportDirectory(List.of(dir.resolve("adapters"))))
+        new TransportPoll(
+                        runner,
+                        new TransportDirectory(List.of(dir.resolve("adapters"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .poll(mailbox);
 
         final Command command = runner.only(" poll ");
@@ -178,7 +200,11 @@ class TransportVerbsTest {
     void setupIsTheOnlyAcceptedUnfencedVerb() {
         // Harm: an expanding exemption list silently leaves other verbs on the host network.
         final FakeCommandRunner runner = new FakeCommandRunner();
-        final TransportVerbs verbs = new TransportVerbs(runner, name -> Path.of("/usr/bin", name));
+        final TransportVerbs verbs =
+                new TransportVerbs(
+                        runner,
+                        name -> Path.of("/usr/bin", name),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
         final List<String> names = List.of("setup", "setup-extra", "pre-setup", "future-verb");
 
         for (final String name : names) verbs.run(Command.of("/transport", name));
@@ -186,12 +212,49 @@ class TransportVerbsTest {
         assertThat(
                         runner.invocations().stream()
                                 .filter(command -> !"/usr/bin/pasta".equals(command.program()))
-                                .map(command -> command.arguments().get(1)))
+                                .map(command -> command.arguments().get(3)))
                 .as("the sole exception is exact setup, and arbitrary new verbs are fenced")
                 .containsExactly("setup");
         assertThat(runner.invocations())
                 .as("setup retains the chosen environment too")
                 .allSatisfy(command -> assertThat(command.inheritsEnvironment()).isFalse());
+    }
+
+    @Test
+    void aLifecycleVerbIsHandedTheFactorsOfTheAccountThatStartsIt() throws Exception {
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final PoreloContext context =
+                context(runner)
+                        .withAccount(
+                                AccountConfig.read(
+                                        new java.io.StringReader("limits:\n  services: 2.5\n"),
+                                        "t"));
+        final TransportLifecycle lifecycle = lifecycle(context);
+        final String adapter =
+                dir.resolve("adapters").resolve(TransportDirectory.PREFIX + "room").toString();
+        runner.answering("describe", "{\"scheme\":\"room\",\"lifecycle\":[\"join\"]}");
+        runner.answering(" join ", "{}");
+        remember(context, "p", List.of("127.0.0.1:8008"));
+        register(context, "guarded");
+
+        lifecycle.join("room", "p", "alice", false, Map.of("homeserver", "https://192.0.2.30"));
+
+        final String line = "services=2.5,machines=1.0,polling=1.0,retries=1.0";
+        for (final String verb : List.of("describe", "join")) {
+            assertThat(runner.invocations())
+                    .as("%s is handed the account's line before the verb", verb)
+                    .anySatisfy(
+                            command ->
+                                    assertThat(
+                                                    java.util.Collections.indexOfSubList(
+                                                            command.arguments(),
+                                                            List.of(
+                                                                    adapter,
+                                                                    "--limits",
+                                                                    line,
+                                                                    verb)))
+                                            .isNotNegative());
+        }
     }
 
     @Test
@@ -249,7 +312,11 @@ class TransportVerbsTest {
                                 + "image:\n"
                                 + "  from: ubuntu:24.04\n");
         new ProjectRegistry(context.paths().projects().projectRegistry()).remember("p", project);
-        final TransportVerbs verbs = new TransportVerbs(runner, name -> Path.of("/usr/bin", name));
+        final TransportVerbs verbs =
+                new TransportVerbs(
+                        runner,
+                        name -> Path.of("/usr/bin", name),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         verbs.project(context, "room", "p", false).run(Command.of("/transport", "poll"));
 
@@ -272,7 +339,10 @@ class TransportVerbsTest {
         register(context, "offline");
         Files.delete(dir.resolve("project.yml"));
 
-        new TransportVerbs(runner, name -> Path.of("/usr/bin", name))
+        new TransportVerbs(
+                        runner,
+                        name -> Path.of("/usr/bin", name),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .project(context, "room", "p", false)
                 .run(Command.of("/transport", "poll"));
 
@@ -388,7 +458,8 @@ class TransportVerbsTest {
                                 name -> Path.of("/usr/bin", name),
                                 name -> new InetAddress[0],
                                 Files.writeString(
-                                        dir.resolve("resolv.conf"), "nameserver 127.0.0.53\n"))
+                                        dir.resolve("resolv.conf"), "nameserver 127.0.0.53\n"),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .reaching(List.of(reach), false);
 
         assertThatThrownBy(() -> verbs.run(Command.of("/transport", "poll")))

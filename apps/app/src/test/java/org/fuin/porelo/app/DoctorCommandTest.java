@@ -347,14 +347,19 @@ class DoctorCommandTest {
                 new PoreloContext(
                         new TransportTestRunner()
                                 .answering(
-                                        "local describe",
+                                        "local " + TransportTestRunner.HANDED + " describe",
                                         "{\"scheme\":\"local\",\"lifecycle\":[\"setup\"]}")
                                 .answering(
-                                        "room describe",
+                                        "room " + TransportTestRunner.HANDED + " describe",
                                         "{\"scheme\":\"room\",\"lifecycle\":[\"setup\"],"
                                                 + "\"secrets\":\"input\"}")
-                                .answering("plain describe", "{\"scheme\":\"plain\"}")
-                                .failing("broken describe", 3, "no"),
+                                .answering(
+                                        "plain " + TransportTestRunner.HANDED + " describe",
+                                        "{\"scheme\":\"plain\"}")
+                                .failing(
+                                        "broken " + TransportTestRunner.HANDED + " describe",
+                                        3,
+                                        "no"),
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0));
 
@@ -401,10 +406,10 @@ class DoctorCommandTest {
                 new PoreloContext(
                         new TransportTestRunner()
                                 .answering(
-                                        "local describe",
+                                        "local " + TransportTestRunner.HANDED + " describe",
                                         "{\"scheme\":\"local\",\"lifecycle\":[\"setup\"]}")
                                 .answering(
-                                        "room describe",
+                                        "room " + TransportTestRunner.HANDED + " describe",
                                         "{\"scheme\":\"room\",\"lifecycle\":[\"setup\"],"
                                                 + "\"secrets\":\"input\"}"),
                         new PoreloPaths(xdg, dir.resolve("bin")),
@@ -446,8 +451,11 @@ class DoctorCommandTest {
         final FakeCommandRunner runner = new TransportTestRunner();
         final DoctorCommand doctor = new DoctorCommand();
         doctor.setContext(
-                new PoreloContext(
-                        runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0));
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0)
+                        .withAccount(
+                                AccountConfig.read(
+                                        new java.io.StringReader("limits:\n  machines: 3\n"),
+                                        "t")));
 
         doctor.probes();
 
@@ -457,6 +465,13 @@ class DoctorCommandTest {
                 .singleElement()
                 .satisfies(
                         command -> {
+                            assertThat(command.arguments())
+                                    .as("handed the account's factors before the verb")
+                                    .containsExactly(
+                                            adapter.toString(),
+                                            "--limits",
+                                            "services=1.0,machines=3.0,polling=1.0,retries=1.0",
+                                            "describe");
                             assertThat(command.inheritsEnvironment())
                                     .as("nothing of the caller's is inherited")
                                     .isFalse();

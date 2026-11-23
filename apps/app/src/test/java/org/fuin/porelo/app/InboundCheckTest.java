@@ -64,7 +64,7 @@ class InboundCheckTest {
         final FakeCommandRunner runner = new FakeCommandRunner();
 
         final String refused =
-                new InboundCheck(runner, filter, mail)
+                new InboundCheck(runner, filter, mail, org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "reviewer");
 
         assertThat(refused).isEmpty();
@@ -77,7 +77,11 @@ class InboundCheckTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
         final String refused =
-                new InboundCheck(filterThat(mailbox, true), filter, mail)
+                new InboundCheck(
+                                filterThat(mailbox, true),
+                                filter,
+                                mail,
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(refused).isEmpty();
@@ -91,7 +95,11 @@ class InboundCheckTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
         final String refused =
-                new InboundCheck(filterThat(mailbox, false), filter, mail)
+                new InboundCheck(
+                                filterThat(mailbox, false),
+                                filter,
+                                mail,
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(refused).contains("refused it on the way in");
@@ -115,7 +123,8 @@ class InboundCheckTest {
                 new InboundCheck(
                                 filterThat(mailbox, false),
                                 filter,
-                                org.fuin.porelo.core.project.Mail.none())
+                                org.fuin.porelo.core.project.Mail.none(),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "a-stranger");
 
         assertThat(refused).contains("refused it on the way in");
@@ -126,7 +135,7 @@ class InboundCheckTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
         final FakeCommandRunner runner = new FakeCommandRunner();
 
-        new InboundCheck(runner, filter, mail)
+        new InboundCheck(runner, filter, mail, org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(runner.lines())
@@ -137,6 +146,27 @@ class InboundCheckTest {
                                         .contains("--blocking")
                                         .contains("--stabilityDelayMillis 0")
                                         .contains(mailbox.check().toString()));
+    }
+
+    @Test
+    void the_filter_on_the_way_in_is_handed_the_factors_before_any_other_argument(
+            @TempDir final Path dir) throws IOException {
+        final Mailbox mailbox = arrived(dir, "m-1.json");
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        new InboundCheck(runner, filter, mail, org.fuin.porelo.wire.LimitFactors.parse("polling=3"))
+                .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
+
+        assertThat(runner.invocations())
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.arguments().subList(0, 4))
+                                        .containsExactly(
+                                                filter.toString(),
+                                                "--limits",
+                                                "services=1.0,machines=1.0,polling=3.0,retries=1.0",
+                                                "--mail"));
     }
 
     /**
@@ -165,7 +195,7 @@ class InboundCheckTest {
                     return new CommandResult(command, MessageFiltering.SOMETHING_REFUSED, "", "");
                 };
 
-        new InboundCheck(refusing, filter, mail)
+        new InboundCheck(refusing, filter, mail, org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(mailbox.hold().resolve("m-1.json.refusal-1.json")).exists();
@@ -182,7 +212,11 @@ class InboundCheckTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
         final String refused =
-                new InboundCheck(new FakeCommandRunner(), null, mail)
+                new InboundCheck(
+                                new FakeCommandRunner(),
+                                null,
+                                mail,
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(refused).contains("no message filter is installed");
@@ -207,7 +241,11 @@ class InboundCheckTest {
                                 mailbox,
                                 PeerKeys.of("ops", opsKey),
                                 java.util.Set.of(),
-                                new InboundCheck(filterThat(mailbox, false), filter, mail));
+                                new InboundCheck(
+                                        filterThat(mailbox, false),
+                                        filter,
+                                        mail,
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT));
 
         assertThat(outcome.delivered()).isEmpty();
         assertThat(outcome.held())

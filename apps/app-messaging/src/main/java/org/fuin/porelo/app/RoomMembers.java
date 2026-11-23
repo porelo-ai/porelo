@@ -102,7 +102,9 @@ public record RoomMembers(String room, List<Member> members) {
         try {
             if (adapter == null
                     || !TransportDescription.required(
-                                    new TransportVerbs(context.runner(), programs), adapter)
+                                    new TransportVerbs(
+                                            context.runner(), programs, context.limits()),
+                                    adapter)
                             .offers("members")) {
                 throw new Refused(
                         Failure.NO_TRANSPORT,

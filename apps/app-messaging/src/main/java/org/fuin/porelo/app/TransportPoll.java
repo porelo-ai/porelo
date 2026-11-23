@@ -52,9 +52,13 @@ public final class TransportPoll {
      *
      * @param runner How commands are run.
      * @param transports Where the adapters are.
+     * @param limits The factors of the account that polls, which every transport is handed.
      */
-    public TransportPoll(final CommandRunner runner, final TransportDirectory transports) {
-        this.verbs = TransportVerbs.of(runner);
+    public TransportPoll(
+            final CommandRunner runner,
+            final TransportDirectory transports,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        this.verbs = TransportVerbs.of(runner, limits);
         this.transports = transports;
     }
 

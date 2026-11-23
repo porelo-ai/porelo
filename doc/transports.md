@@ -12,6 +12,11 @@ shell and temporary directory, its locale, time zone, XDG directories and user b
 Where the account sets none of `LANG`, `LC_ALL` and `LC_CTYPE`, it gets `LANG=C.UTF-8`, so an argument or a path
 holding non-ASCII characters reaches it whole; a locale the account sets, even `C`, passes unchanged.
 
+**Every verb is handed the limits line before it**: `porelo-message-transport-<name> --limits <line> <verb> ...`, the
+four time factors of the account that starts it, or of the host when `porelo-host` does, as
+[time limits](limits.md) defines the line. A transport refuses a line it cannot read with exit code 64 before anything
+is done.
+
 - **`describe`** reads nothing and prints one JSON object: `scheme`; `poll`; `confirms` (`handover`, `receipt`
   or `read`); `max_bytes`; `credentials` (for example `[{"name":"PORELO_MATRIX_ACCESS_TOKEN","as":"env"}]`);
   `hosts`; `attests`; and, if it keeps a conversation, `lifecycle` (the verbs below it offers) and `takes`

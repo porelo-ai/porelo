@@ -63,7 +63,12 @@ class TransportSendTest {
 
         final Throwable thrown =
                 org.assertj.core.api.Assertions.catchThrowable(
-                        () -> new TransportSend(removing, transports).send(mailbox, "local"));
+                        () ->
+                                new TransportSend(
+                                                removing,
+                                                transports,
+                                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                                        .send(mailbox, "local"));
 
         assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
         assertThat(thrown).isInstanceOf(java.nio.file.NoSuchFileException.class);
@@ -76,7 +81,9 @@ class TransportSendTest {
         runner.answering("send", "{\"delivered\":true}");
 
         final TransportSend.Result result =
-                new TransportSend(runner, withAdapter(dir)).send(mailbox, "local");
+                new TransportSend(
+                                runner, withAdapter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .send(mailbox, "local");
 
         assertThat(result.sent()).containsExactly("m-1.json");
         assertThat(mailbox.sent().resolve("m-1.json")).exists();
@@ -95,7 +102,8 @@ class TransportSendTest {
         runner.failing("send", TransportSend.TEMPORARY, "the mailbox is not writable yet");
 
         final TransportSend.Result first =
-                new TransportSend(runner, transports).send(mailbox, "local");
+                new TransportSend(runner, transports, org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .send(mailbox, "local");
 
         assertThat(first.deferred()).containsExactly("m-1.json");
         assertThat(mailbox.queueDeferred("local").resolve("m-1.json")).exists();
@@ -103,7 +111,8 @@ class TransportSendTest {
         // The next pass finds it again, and this time the far side is there.
         final FakeCommandRunner later = new TransportTestRunner().answering("send", "{}");
         final TransportSend.Result second =
-                new TransportSend(later, transports).send(mailbox, "local");
+                new TransportSend(later, transports, org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .send(mailbox, "local");
 
         assertThat(second.sent()).containsExactly("m-1.json");
         assertThat(mailbox.queueDeferred("local")).isEmptyDirectory();
@@ -115,7 +124,9 @@ class TransportSendTest {
         runner.failing("send", 1, "no such destination");
 
         final TransportSend.Result result =
-                new TransportSend(runner, withAdapter(dir)).send(mailbox, "local");
+                new TransportSend(
+                                runner, withAdapter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .send(mailbox, "local");
 
         assertThat(result.refused())
                 .singleElement()
@@ -136,7 +147,10 @@ class TransportSendTest {
         final Mailbox mailbox = queued(dir);
 
         final TransportSend.Result result =
-                new TransportSend(runner, new TransportDirectory(List.of(dir.resolve("none"))))
+                new TransportSend(
+                                runner,
+                                new TransportDirectory(List.of(dir.resolve("none"))),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .send(mailbox, "local");
 
         assertThat(result.deferred()).containsExactly("m-1.json");
@@ -156,7 +170,8 @@ class TransportSendTest {
         runner.answering("describe", "{\"scheme\":\"local\",\"shown\":true}");
         runner.answering("send", "{}");
 
-        new TransportSend(runner, withAdapter(dir)).send(mailbox, "local");
+        new TransportSend(runner, withAdapter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                .send(mailbox, "local");
 
         assertThat(runner.lines())
                 .filteredOn(line -> line.contains(" send "))
@@ -171,7 +186,11 @@ class TransportSendTest {
                 new TransportTestRunner()
                         .answering("describe", "{\"scheme\":\"local\"}")
                         .answering("send", "{}");
-        new TransportSend(plain, withAdapter(dir.resolve("other"))).send(other, "local");
+        new TransportSend(
+                        plain,
+                        withAdapter(dir.resolve("other")),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                .send(other, "local");
         assertThat(plain.lines())
                 .filteredOn(line -> line.contains(" send "))
                 .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
@@ -220,7 +239,8 @@ class TransportSendTest {
                         withAdapter(dir),
                         (transport, container) ->
                                 new TransportSend.Acting(
-                                        java.util.Map.of("TOKEN", "t"), "!room:localhost"))
+                                        java.util.Map.of("TOKEN", "t"), "!room:localhost"),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .send(mailbox, "local");
 
         final java.util.List<String> sends =
@@ -261,7 +281,8 @@ class TransportSendTest {
                                 new TransportSend.Acting(
                                         java.util.Map.of("TOKEN", "t"),
                                         "!room:localhost",
-                                        java.util.Map.of("review", "@porelo-p-review:localhost")))
+                                        java.util.Map.of("review", "@porelo-p-review:localhost")),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .send(mailbox, "local");
 
         assertThat(runner.only(" send ").arguments())
@@ -293,7 +314,8 @@ class TransportSendTest {
                         withAdapter(dir),
                         (transport, container) ->
                                 new TransportSend.Acting(
-                                        java.util.Map.of("TOKEN", "t"), "!room:localhost"))
+                                        java.util.Map.of("TOKEN", "t"), "!room:localhost"),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .send(mailbox, "local");
 
         assertThat(runner.invocations())
@@ -319,7 +341,8 @@ class TransportSendTest {
                                 new TransportSend.Acting(
                                         java.util.Map.of("TOKEN", "task-secret-1234"),
                                         "!room:localhost",
-                                        java.util.Map.of()))
+                                        java.util.Map.of()),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .send(mailbox, "local");
 
         final org.fuin.porelo.core.process.Command sent = runner.only(" send ");
@@ -360,7 +383,8 @@ class TransportSendTest {
                                                 "porelo-p-t".equals(container)
                                                         ? "gone.example"
                                                         : "matrix.example"),
-                                        false));
+                                        false),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         final TransportSend.Result first = send.send(gone, "local");
         final TransportSend.Result second = send.send(other, "local");
@@ -419,7 +443,8 @@ class TransportSendTest {
                                         null,
                                         java.util.Map.of(),
                                         List.of("matrix.example"),
-                                        false));
+                                        false),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         final TransportSend.Result one = send.send(first, "local");
         final TransportSend.Result two = send.send(second, "local");

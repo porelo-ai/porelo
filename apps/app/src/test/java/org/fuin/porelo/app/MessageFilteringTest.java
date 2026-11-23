@@ -35,7 +35,8 @@ class MessageFilteringTest {
         runner.answering(PoreloPaths.MESSAGE_FILTER, "");
 
         final MessageFiltering.Outcome outcome =
-                new MessageFiltering(runner, filter(dir)).run(mailbox, false);
+                new MessageFiltering(runner, filter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .run(mailbox, false);
 
         assertThat(outcome.ran()).isTrue();
         // Reporting only, a payload in plain text left unless a person happened to hold it, and the
@@ -50,11 +51,34 @@ class MessageFilteringTest {
     }
 
     @Test
+    void the_filter_is_handed_the_factors_before_any_other_argument(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        final Path filter = filter(dir);
+        runner.answering(PoreloPaths.MESSAGE_FILTER, "");
+
+        new MessageFiltering(runner, filter, org.fuin.porelo.wire.LimitFactors.parse("services=2"))
+                .run(mailbox, false);
+
+        assertThat(runner.invocations())
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.arguments().subList(0, 4))
+                                        .containsExactly(
+                                                filter.toString(),
+                                                "--limits",
+                                                "services=2.0,machines=1.0,polling=1.0,retries=1.0",
+                                                "--mail"));
+    }
+
+    @Test
     void a_project_that_says_so_has_it_only_report(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
         runner.answering(PoreloPaths.MESSAGE_FILTER, "");
 
-        new MessageFiltering(runner, filter(dir)).run(mailbox, true);
+        new MessageFiltering(runner, filter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                .run(mailbox, true);
 
         assertThat(runner.lines())
                 .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
@@ -66,7 +90,8 @@ class MessageFilteringTest {
         runner.failing(PoreloPaths.MESSAGE_FILTER, MessageFiltering.SOMETHING_REFUSED, "");
 
         final MessageFiltering.Outcome outcome =
-                new MessageFiltering(runner, filter(dir)).run(mailbox(dir), false);
+                new MessageFiltering(runner, filter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .run(mailbox(dir), false);
 
         assertThat(outcome.ran()).isTrue();
         assertThat(outcome.exitCode()).isEqualTo(1);
@@ -79,7 +104,8 @@ class MessageFilteringTest {
         runner.failing(PoreloPaths.MESSAGE_FILTER, 2, "unknown key 'entropyThreshhold'");
 
         final MessageFiltering.Outcome outcome =
-                new MessageFiltering(runner, filter(dir)).run(mailbox(dir), false);
+                new MessageFiltering(runner, filter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .run(mailbox(dir), false);
 
         assertThat(outcome.ran()).isTrue();
         assertThat(outcome.detail()).contains("stopped with 2").contains("entropyThreshhold");
@@ -93,7 +119,8 @@ class MessageFilteringTest {
     @Test
     void a_machine_without_a_filter_sends_nothing(@TempDir final Path dir) throws IOException {
         final MessageFiltering.Outcome outcome =
-                new MessageFiltering(runner, null).run(mailbox(dir), false);
+                new MessageFiltering(runner, null, org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                        .run(mailbox(dir), false);
 
         assertThat(outcome.ran()).isFalse();
         assertThat(outcome.detail()).contains("nothing is sent");

@@ -164,7 +164,13 @@ class ModerationTest {
 
         assertThat(moderation.whyNotNow("ops")).as("moderation asks nothing now").isEmpty();
         // And the filter is a step no mode reaches: with none installed, still nothing is sent.
-        assertThat(new MessageFiltering(new FakeCommandRunner(), null).run(mailbox, false).ran())
+        assertThat(
+                        new MessageFiltering(
+                                        new FakeCommandRunner(),
+                                        null,
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                                .run(mailbox, false)
+                                .ran())
                 .isFalse();
     }
 

@@ -143,7 +143,8 @@ class MessageMarkTest {
         new MessagePass(
                         new TransportTestRunner(),
                         null,
-                        new TransportDirectory(List.of(dir.resolve("none"))))
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .run(
                         mailbox,
                         new Mail(List.of()),

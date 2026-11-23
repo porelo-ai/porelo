@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Mail;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -55,6 +56,8 @@ public final class MessagePass {
 
     private final TransportDirectory transports;
 
+    private final LimitFactors limits;
+
     private TransportSend.Access acting = (transport, container) -> null;
 
     private TransportSend.Marks marks = container -> "";
@@ -65,14 +68,18 @@ public final class MessagePass {
      * @param runner How commands are run.
      * @param filter The message filter, or {@code null} when none is installed.
      * @param transports Where the adapters are.
+     * @param limits The factors of the account that runs the pass, which the filter and every
+     *     transport it starts are handed.
      */
     public MessagePass(
             final CommandRunner runner,
             final @Nullable Path filter,
-            final TransportDirectory transports) {
+            final TransportDirectory transports,
+            final LimitFactors limits) {
         this.runner = runner;
         this.filter = filter;
         this.transports = transports;
+        this.limits = limits;
     }
 
     /**
@@ -165,7 +172,7 @@ public final class MessagePass {
                     MessageFile.role(mailbox.incoming().resolve(message)));
         }
         final MessageFiltering.Outcome filtered =
-                new MessageFiltering(runner, filter).run(mailbox, mail.outgoingReported());
+                new MessageFiltering(runner, filter, limits).run(mailbox, mail.outgoingReported());
 
         // The sending task's mark on what leaves it, held or sent, so a line read later says it as
         // the room's line did. A verdict an earlier line kept for the message stays on the new
@@ -207,7 +214,7 @@ public final class MessagePass {
                                 "it was not sent: " + stuck.reason(),
                                 false);
             }
-            final TransportSend send = new TransportSend(runner, transports, acting, marks);
+            final TransportSend send = new TransportSend(runner, transports, acting, marks, limits);
             // A project with no peer and no conversation asks no transport anything, whatever a
             // queue left here holds: the project 'default' has none, and talks to nobody.
             final List<String> queued =
@@ -261,7 +268,7 @@ public final class MessagePass {
         // Asked before anything is delivered: a transport that keeps its arrivals elsewhere has to
         // be given the chance to put them here, or the delivery below would walk past them.
         final TransportPoll.Outcome polled =
-                new TransportPoll(runner, transports).poll(mailbox, named(mail));
+                new TransportPoll(runner, transports, limits).poll(mailbox, named(mail));
         for (final Map.Entry<String, String> failure : polled.failures().entrySet()) {
             record.append(
                     MessageRecord.HELD,
@@ -284,7 +291,7 @@ public final class MessagePass {
                                 mailbox,
                                 signers,
                                 seen,
-                                new InboundCheck(runner, filter, mail),
+                                new InboundCheck(runner, filter, mail, limits),
                                 budget,
                                 attestedBy(polled, mail));
         for (final MessageDelivery.Delivered one : delivered.delivered()) {
@@ -342,7 +349,8 @@ public final class MessagePass {
             // contradicting owner file unread beside it.
             final Path adapter = carrier == null ? null : transports.find(carrier);
             final boolean attesting =
-                    adapter != null && TransportDescription.of(runner, adapter).attestsOwner();
+                    adapter != null
+                            && TransportDescription.of(runner, adapter, limits).attestsOwner();
             return OwnerAttestation.refuse(mailbox, message, peer, mail, attesting);
         };
     }

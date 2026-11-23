@@ -76,6 +76,61 @@ class FollowLimitsLineTest {
                 .containsExactly("org", "fetch");
     }
 
+    private FollowContext under(final LimitFactors factors) {
+        return new FollowContext(
+                        f.host,
+                        f.project.files,
+                        f.runtime.limited(factors),
+                        f.clock,
+                        new PrintWriter(new StringWriter(), true))
+                .until(f.now.plusSeconds(300));
+    }
+
+    private void gate() throws Exception {
+        f.write("/etc/systemd/system/porelo-matrix-gate.socket", "fixture gate");
+        f.accounts.put("porelo-matrix", f.accounts.get("alice"));
+    }
+
+    private List<String> started(final String verb) {
+        return f.commands.stream().filter(argv -> argv.contains(verb)).toList().getLast();
+    }
+
+    @Test
+    void theRoomTransportIsHandedTheHostsLineBeforeItsVerb() throws Exception {
+        gate();
+        FollowRooms.room(
+                under(LimitFactors.parse("services=2")), "keep-room", "alpha", List.of("bob"));
+
+        assertThat(
+                        Collections.indexOfSubList(
+                                started("keep-room"),
+                                List.of(
+                                        FollowRooms.TRANSPORT,
+                                        "--limits",
+                                        "services=2.0,machines=1.0,polling=1.0,retries=1.0",
+                                        "keep-room",
+                                        "--project",
+                                        "alpha")))
+                .isNotNegative();
+    }
+
+    @Test
+    void theExpellingTransportIsHandedTheHostsLineBeforeItsVerb() throws Exception {
+        gate();
+        FollowRooms.expel(under(LimitFactors.parse("retries=3")), "bob");
+
+        assertThat(
+                        Collections.indexOfSubList(
+                                started("expel"),
+                                List.of(
+                                        FollowRooms.TRANSPORT,
+                                        "--limits",
+                                        "services=1.0,machines=1.0,polling=1.0,retries=3.0",
+                                        "expel",
+                                        "bob")))
+                .isNotNegative();
+    }
+
     @Test
     void atTheDefaultsTheLineIsStillWrittenWhole() throws Exception {
         final List<String> command = isolatedUnder(LimitFactors.DEFAULT);

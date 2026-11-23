@@ -369,7 +369,8 @@ public final class MessageWatch implements AutoCloseable {
                 new MessagePass(
                         context.runner(),
                         context.paths().messaging().messageFilter(),
-                        context.paths().messaging().transportDirectory());
+                        context.paths().messaging().transportDirectory(),
+                        context.limits());
         pass.marking(marks());
         return pass;
     }
@@ -906,7 +907,7 @@ public final class MessageWatch implements AutoCloseable {
                 continue;
             }
             final TransportDescription described =
-                    TransportDescription.of(context.runner(), adapter);
+                    TransportDescription.of(context.runner(), adapter, context.limits());
             if (!described.takes(TransportConversations.WAITS)
                     || !described.takes(TransportConversations.DIRECT)
                     || !TransportConversations.WAITING.add(key)) {
@@ -963,7 +964,7 @@ public final class MessageWatch implements AutoCloseable {
                 (key, group) -> {
                     final Path adapter = transports.find(group.getFirst().scheme());
                     if (adapter == null
-                            || !TransportDescription.of(context.runner(), adapter)
+                            || !TransportDescription.of(context.runner(), adapter, context.limits())
                                     .takes(TransportConversations.WAITS)
                             || !TransportConversations.WAITING.add(key)) {
                         return;

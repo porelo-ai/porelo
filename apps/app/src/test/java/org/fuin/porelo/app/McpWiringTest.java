@@ -169,9 +169,13 @@ class McpWiringTest {
     }
 
     @Test
-    void theCommandNamesTheTaskItsSocketAndTheDaemonSocketAndNoToken() throws Exception {
+    void theCommandNamesTheTaskItsSocketTheDaemonSocketAndTheLimitsAndNoToken() throws Exception {
         stand(RUNS);
-        final PoreloContext context = context();
+        final PoreloContext context =
+                context()
+                        .withAccount(
+                                AccountConfig.read(
+                                        new java.io.StringReader("limits:\n  services: 2\n"), "t"));
         final McpWiring.Endpoint endpoint = McpWiring.open(context, TASK, PROJECT).orElseThrow();
 
         McpWiring.start(context, endpoint);
@@ -185,7 +189,9 @@ class McpWiringTest {
                         "--socket",
                         context.paths().xdg().runtime().resolve("mcp/" + TASK + ".sock").toString(),
                         "--daemon-socket",
-                        daemonSocket.toString());
+                        daemonSocket.toString(),
+                        "--limits",
+                        "services=2.0,machines=1.0,polling=1.0,retries=1.0");
         assertThat(String.join(" ", arguments)).doesNotContain(endpoint.token());
         assertThat(Files.readString(dir.resolve("env"))).doesNotContain(endpoint.token());
         assertThat(endpoint.toString()).doesNotContain(endpoint.token());

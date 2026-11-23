@@ -44,6 +44,7 @@ class PollingArrivalTest {
         Files.writeString(
                 adapter,
                 "#!/bin/sh\n"
+                        + "if [ \"$1\" = --limits ]; then shift 2; fi\n"
                         + "case \"$1\" in\n"
                         + "  describe) echo '{\"scheme\":\"spool\",\"poll\":true,\"attests\":[\"owner\"]}' ;;\n"
                         + "  poll) shift; cp "
@@ -72,7 +73,8 @@ class PollingArrivalTest {
                         TransportTestRunner.processes(
                                 new ProcessCommandRunner(), dir.resolve("fence-tools")),
                         null,
-                        new TransportDirectory(List.of(transports)));
+                        new TransportDirectory(List.of(transports)),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
         return pass.run(
                 mailbox,
                 mail,
@@ -135,6 +137,7 @@ class PollingArrivalTest {
         Files.writeString(
                 transports.resolve(TransportDirectory.PREFIX + "spool"),
                 "#!/bin/sh\n"
+                        + "if [ \"$1\" = --limits ]; then shift 2; fi\n"
                         + "case \"$1\" in\n"
                         + "  describe) echo '{\"scheme\":\"spool\",\"poll\":true,\"attests\":[\"owner\"]}' ;;\n"
                         + "  poll) echo '{\"received\":0}' ;;\n"
@@ -154,7 +157,8 @@ class PollingArrivalTest {
                                 TransportTestRunner.processes(
                                         new ProcessCommandRunner(), dir.resolve("fence-tools")),
                                 null,
-                                new TransportDirectory(List.of(transports)))
+                                new TransportDirectory(List.of(transports)),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .run(
                                 mailbox,
                                 mail,

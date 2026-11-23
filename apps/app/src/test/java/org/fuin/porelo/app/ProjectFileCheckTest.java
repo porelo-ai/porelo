@@ -99,10 +99,10 @@ class ProjectFileCheckTest {
         final FakeCommandRunner runner = new TransportTestRunner();
         adapter(context(runner), "room");
         runner.answering(
-                        "room describe",
+                        "room " + TransportTestRunner.HANDED + " describe",
                         "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"settings\"]}")
                 .answering(
-                        "room settings",
+                        "room " + TransportTestRunner.HANDED + " settings",
                         "{\"refused\":[\"'tls_verify' is on or off, not 'maybe'\"],"
                                 + "\"warnings\":[\"tls_verify off is for development only\"]}");
 
@@ -121,7 +121,7 @@ class ProjectFileCheckTest {
                 .containsExactly("mail.transports.room: 'tls_verify' is on or off, not 'maybe'");
         assertThat(result.warnings())
                 .contains("mail.transports.room: tls_verify off is for development only");
-        assertThat(runner.only("room settings").input())
+        assertThat(runner.only("room " + TransportTestRunner.HANDED + " settings").input())
                 .as("the section, as the transport's setup gets it")
                 .contains("\"tls_verify\":\"maybe\"");
     }
@@ -130,7 +130,9 @@ class ProjectFileCheckTest {
     void aTransportThatDoesNotOfferTheCheckLeavesItsSectionOpen() throws java.io.IOException {
         final FakeCommandRunner runner = new TransportTestRunner();
         adapter(context(runner), "room");
-        runner.answering("room describe", "{\"scheme\":\"room\",\"lifecycle\":[\"setup\"]}");
+        runner.answering(
+                "room " + TransportTestRunner.HANDED + " describe",
+                "{\"scheme\":\"room\",\"lifecycle\":[\"setup\"]}");
 
         final ProjectFileCheck.Result result =
                 ProjectFileCheck.check(
@@ -138,7 +140,9 @@ class ProjectFileCheckTest {
                         HEAD + "mail:\n  transports:\n    room:\n      anything: 1\n");
 
         assertThat(result.refused()).isEmpty();
-        assertThat(runner.lines()).noneMatch(each -> each.contains("room settings"));
+        assertThat(runner.lines())
+                .noneMatch(
+                        each -> each.contains("room " + TransportTestRunner.HANDED + " settings"));
     }
 
     private static void adapter(PoreloContext context, String scheme) throws java.io.IOException {

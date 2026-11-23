@@ -602,6 +602,7 @@ class TransportLentTest {
                 script,
                 """
                 #!/bin/sh
+                if [ "$1" = --limits ]; then shift 2; fi
                 if [ "$1" = describe ]; then
                   echo '%s'
                   exit 0

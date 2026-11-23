@@ -46,13 +46,41 @@ class MessagePassTest {
         mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         final MessagePass.Report report =
-                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                new MessagePass(
+                                runner,
+                                null,
+                                new TransportDirectory(List.of(dir.resolve("none"))),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .run(mailbox, mail, () -> key, PeerKeys.NONE, undecided(dir));
 
         assertThat(mailbox.root()).as("no mailbox made again").doesNotExist();
         assertThat(report.taken()).isEmpty();
         assertThat(report.delivered().delivered()).isEmpty();
         assertThat(runner.invocations()).isEmpty();
+    }
+
+    @Test
+    void the_pass_hands_its_factors_to_the_filter(@TempDir final Path dir) throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        final Path filter = dir.resolve(PoreloPaths.MESSAGE_FILTER);
+        runner.answering(PoreloPaths.MESSAGE_FILTER, "");
+
+        new MessagePass(
+                        runner,
+                        filter,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.parse("machines=2"))
+                .run(mailbox, mail, () -> key, PeerKeys.NONE, undecided(dir));
+
+        assertThat(runner.invocations())
+                .filteredOn(command -> command.program().equals(filter.toString()))
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.arguments().subList(1, 3))
+                                        .containsExactly(
+                                                "--limits",
+                                                "services=1.0,machines=2.0,polling=1.0,retries=1.0"));
     }
 
     /**
@@ -68,7 +96,11 @@ class MessagePassTest {
                 "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         final MessagePass.Report report =
-                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                new MessagePass(
+                                runner,
+                                null,
+                                new TransportDirectory(List.of(dir.resolve("none"))),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .run(mailbox, mail, () -> key, PeerKeys.NONE, undecided(dir));
 
         assertThat(report.taken()).containsExactly("m-1.json");
@@ -94,7 +126,11 @@ class MessagePassTest {
                         peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessagePass.Report report =
-                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                new MessagePass(
+                                runner,
+                                null,
+                                new TransportDirectory(List.of(dir.resolve("none"))),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .run(
                                 mailbox,
                                 mail,
@@ -115,7 +151,11 @@ class MessagePassTest {
         Files.writeString(mailbox.feedback().resolve("answer.json"), "{\"parts\":[{\"data\":{}}]}");
 
         final MessagePass.Report report =
-                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                new MessagePass(
+                                runner,
+                                null,
+                                new TransportDirectory(List.of(dir.resolve("none"))),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .run(mailbox, mail, () -> key, PeerKeys.NONE, undecided(dir));
 
         assertThat(report.bounced()).containsExactly("answer.json");
@@ -153,7 +193,8 @@ class MessagePassTest {
                 new MessagePass(
                                 runner,
                                 dir.resolve("filter"),
-                                new TransportDirectory(List.of(dir.resolve("none"))))
+                                new TransportDirectory(List.of(dir.resolve("none"))),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .run(mailbox, mail, () -> key, PeerKeys.NONE, moderation);
 
         assertThat(report.filtered().exitCode()).isEqualTo(2);
@@ -204,7 +245,11 @@ class MessagePassTest {
         final Mail oneADay =
                 new Mail(List.of(new Mail.Peer("reviewer", "local:/peer/inbound", "vouched", 1)));
         final MessagePass pass =
-                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))));
+                new MessagePass(
+                        runner,
+                        null,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
         arrive(mailbox, peerKey, "in-1");
         arrive(mailbox, peerKey, "in-2");
         final MessagePass.Report first =

@@ -202,6 +202,9 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                                                 HelperEnvironment.chosen(
                                                         org.fuin.porelo.core.process.Command.of(
                                                                 executable.toString(),
+                                                                org.fuin.porelo.wire.LimitFactors
+                                                                        .OPTION,
+                                                                context.limits().line(),
                                                                 "describe")));
                         if (result.successful()) {
                             answers.add(transport);
@@ -308,7 +311,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
             if (!describes.computeIfAbsent(
                     scheme,
                     any ->
-                            TransportDescription.of(context.runner(), adapter)
+                            TransportDescription.of(context.runner(), adapter, context.limits())
                                     != TransportDescription.UNKNOWN)) {
                 problems.add(project.name() + "'s " + scheme + " did not answer 'describe'");
                 action =

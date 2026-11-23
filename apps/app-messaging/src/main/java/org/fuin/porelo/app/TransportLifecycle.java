@@ -198,7 +198,7 @@ final class TransportLifecycle {
         this.context = context;
         this.transports = transports;
         this.hostFiles = hostFiles;
-        this.verbs = new TransportVerbs(context.runner(), programs);
+        this.verbs = new TransportVerbs(context.runner(), programs, context.limits());
     }
 
     /**

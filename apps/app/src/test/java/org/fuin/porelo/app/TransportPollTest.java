@@ -38,7 +38,8 @@ class TransportPollTest {
                 TransportTestRunner.processes(
                         new org.fuin.porelo.core.process.ProcessCommandRunner(),
                         transports.resolveSibling("namespace-tools")),
-                new TransportDirectory(java.util.List.of(transports)));
+                new TransportDirectory(java.util.List.of(transports)),
+                org.fuin.porelo.wire.LimitFactors.DEFAULT);
     }
 
     @Test
@@ -49,6 +50,7 @@ class TransportPollTest {
                 dir.resolve("transports"),
                 "spool",
                 """
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf '{"messageId":"m-1"}' > "$2/m-1.json"; echo '{"received":1}' ;;
@@ -70,6 +72,7 @@ class TransportPollTest {
                 dir.resolve("transports"),
                 "local",
                 """
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"local","poll":false,"attests":[]}' ;;
                   poll) printf '{"messageId":"never"}' > "$3/never.json" ;;
@@ -102,6 +105,7 @@ class TransportPollTest {
                 dir.resolve("transports"),
                 "spool",
                 """
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) echo 'no drop directory on this machine' >&2; exit 2 ;;
@@ -130,6 +134,7 @@ class TransportPollTest {
                 dir.resolve("transports"),
                 "spool",
                 """
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf '{"messageId":"m-1"}' > "$2/m-1.json"; exit 2 ;;
@@ -154,6 +159,7 @@ class TransportPollTest {
                 transports,
                 "aaa",
                 """
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"aaa","poll":true,"attests":[]}' ;;
                   poll) shift; printf 'x' > "$2/from-aaa.json" ;;
@@ -163,6 +169,7 @@ class TransportPollTest {
                 transports,
                 "bbb",
                 """
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"bbb","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf 'x' > "$2/from-bbb.json" ;;
@@ -189,6 +196,7 @@ class TransportPollTest {
                 dir.resolve("transports"),
                 "spool",
                 """
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf 'sig' > "$2/m-1.json.sig";

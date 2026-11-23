@@ -219,7 +219,11 @@ class SenderMarkWiringTest {
         Files.writeString(
                 mailbox.accepted().resolve("m-2.json" + MessageDispatch.RELEASED_SUFFIX), "");
         final MessagePass pass =
-                new MessagePass(runner, filter, new TransportDirectory(List.of(transports)));
+                new MessagePass(
+                        runner,
+                        filter,
+                        new TransportDirectory(List.of(transports)),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
         pass.marking(container -> TrustMark.UNVERIFIED);
 
         pass.run(
@@ -273,7 +277,10 @@ class SenderMarkWiringTest {
                 mailbox.accepted().resolve("m-1.json" + MessageDispatch.RELEASED_SUFFIX), "");
         final MessagePass pass =
                 new MessagePass(
-                        runner, filter, new TransportDirectory(List.of(dir.resolve("none"))));
+                        runner,
+                        filter,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         pass.run(
                 mailbox,
@@ -302,7 +309,11 @@ class SenderMarkWiringTest {
                 mailbox.outboxNew().resolve("m.json"),
                 "{\"messageId\":\"m\",\"role\":\"ROLE_USER\"}");
 
-        new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+        new MessagePass(
+                        runner,
+                        null,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .run(
                         mailbox,
                         new Mail(List.of()),
@@ -382,7 +393,11 @@ class SenderMarkWiringTest {
                 "{\"messageId\":\"c\",\"role\":\"ROLE_AGENT\"}");
         Files.createDirectories(mailbox.hold().resolve("c.json").resolve("in-the-way"));
         final MessagePass pass =
-                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))));
+                new MessagePass(
+                        runner,
+                        null,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () ->
@@ -413,7 +428,11 @@ class SenderMarkWiringTest {
         Files.writeString(mailbox.outboxNew().resolve(longest), "{\"messageId\":\"b\"}");
         Files.writeString(mailbox.outboxNew().resolve("c.json"), "{\"messageId\":\"c\"}");
 
-        new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+        new MessagePass(
+                        runner,
+                        null,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .run(mailbox, new Mail(List.of()), KEYLESS, PeerKeys.NONE, moderation());
 
         for (final String name : List.of("a.json", longest, "c.json")) {
@@ -432,7 +451,11 @@ class SenderMarkWiringTest {
         executable(filter);
         final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
 
-        new MessagePass(runner, filter, new TransportDirectory(List.of(dir.resolve("none"))))
+        new MessagePass(
+                        runner,
+                        filter,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .run(mailbox, REVIEWER, KEYLESS, PeerKeys.NONE, moderation());
 
         assertThat(lines(mailbox, "m-1.json", MessageRecord.QUEUED))
@@ -455,7 +478,11 @@ class SenderMarkWiringTest {
         runner.answering(" send ", "{}");
         final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
 
-        new MessagePass(runner, filter, new TransportDirectory(List.of(transports)))
+        new MessagePass(
+                        runner,
+                        filter,
+                        new TransportDirectory(List.of(transports)),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .run(mailbox, REVIEWER, KEYLESS, PeerKeys.NONE, moderation());
 
         assertThat(lines(mailbox, "m-1.json", MessageRecord.SENT))
@@ -474,7 +501,11 @@ class SenderMarkWiringTest {
         runner.failing(" send ", 65, "no such peer");
         final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
 
-        new MessagePass(runner, filter, new TransportDirectory(List.of(transports)))
+        new MessagePass(
+                        runner,
+                        filter,
+                        new TransportDirectory(List.of(transports)),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .run(mailbox, REVIEWER, KEYLESS, PeerKeys.NONE, moderation());
 
         final List<Map<String, Object>> held = lines(mailbox, "m-1.json", MessageRecord.HELD);
@@ -489,7 +520,11 @@ class SenderMarkWiringTest {
         Files.writeString(
                 mailbox.outboxNew().resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\"}");
-        new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+        new MessagePass(
+                        runner,
+                        null,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .run(mailbox, new Mail(List.of()), KEYLESS, PeerKeys.NONE, moderation());
 
         new MessageRelease().decide(mailbox, "m-1", true);

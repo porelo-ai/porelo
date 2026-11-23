@@ -250,7 +250,8 @@ class EveryoneReadsTheRoomTest {
                                 new InboundCheck(
                                         refusing,
                                         dir.resolve("filter"),
-                                        org.fuin.porelo.core.project.Mail.none()));
+                                        org.fuin.porelo.core.project.Mail.none(),
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT));
 
         assertThat(outcome.held()).isEmpty();
         assertThat(outcome.delivered())

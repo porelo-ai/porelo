@@ -307,10 +307,14 @@ final class McpWiring {
     /**
      * Returns the command that serves a task's endpoint, which holds no token.
      *
+     * <p>The limits line comes after the other options, as porelo-mcp's {@code doc/binding.md}
+     * orders them, not before the verb.
+     *
      * @param endpoint What it is started with.
+     * @param limits The factors of the account that starts it.
      * @return The command.
      */
-    static List<String> serving(Endpoint endpoint) {
+    static List<String> serving(Endpoint endpoint, org.fuin.porelo.wire.LimitFactors limits) {
         return List.of(
                 endpoint.binary().toString(),
                 "serve",
@@ -319,7 +323,9 @@ final class McpWiring {
                 "--socket",
                 endpoint.socket().toString(),
                 "--daemon-socket",
-                endpoint.daemonSocket().toString());
+                endpoint.daemonSocket().toString(),
+                org.fuin.porelo.wire.LimitFactors.OPTION,
+                limits.line());
     }
 
     /**
@@ -357,7 +363,7 @@ final class McpWiring {
      */
     static List<String> start(PoreloContext context, Endpoint endpoint) {
         final Path state = context.paths().tasks().containerState(endpoint.container());
-        final List<String> command = serving(endpoint);
+        final List<String> command = serving(endpoint, context.limits());
         final Process process;
         try {
             final Path directory =

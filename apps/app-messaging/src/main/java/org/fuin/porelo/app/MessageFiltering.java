@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -39,15 +40,20 @@ public final class MessageFiltering {
 
     private final @Nullable Path filter;
 
+    private final LimitFactors limits;
+
     /**
      * Constructor.
      *
      * @param runner How commands are run.
      * @param filter The filter's executable, or {@code null} when this machine has none.
+     * @param limits The factors of the account that runs the filter, which it is handed.
      */
-    public MessageFiltering(final CommandRunner runner, final @Nullable Path filter) {
+    public MessageFiltering(
+            final CommandRunner runner, final @Nullable Path filter, final LimitFactors limits) {
         this.runner = runner;
         this.filter = filter;
+        this.limits = limits;
     }
 
     /**
@@ -73,6 +79,8 @@ public final class MessageFiltering {
                     new java.util.ArrayList<>(
                             java.util.List.of(
                                     filter.toString(),
+                                    LimitFactors.OPTION,
+                                    limits.line(),
                                     "--mail",
                                     mailbox.root().toString(),
                                     "--stabilityDelayMillis",

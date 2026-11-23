@@ -20,6 +20,18 @@ final class FollowRooms {
 
     private FollowRooms() {}
 
+    /** The transport's command: the host's limits line before the verb, then the rest. */
+    private static List<String> transport(FollowContext c, String... verb) {
+        final List<String> argv =
+                new ArrayList<>(
+                        List.of(
+                                TRANSPORT,
+                                org.fuin.porelo.wire.LimitFactors.OPTION,
+                                c.runtime.limits().line()));
+        argv.addAll(List.of(verb));
+        return argv;
+    }
+
     static boolean installed(FollowContext c) {
         return c.host.exists("/etc/systemd/system/porelo-matrix-gate.socket");
     }
@@ -93,7 +105,7 @@ final class FollowRooms {
             Map<String, String> names)
             throws IOException {
         c.runtime.require("runuser", "env", "cat", TRANSPORT);
-        final List<String> argv = new ArrayList<>(List.of(TRANSPORT, verb, "--project", project));
+        final List<String> argv = transport(c, verb, "--project", project);
         if (verb.equals("keep-room")) {
             argv.addAll(List.of("--persons", String.join(",", persons)));
         }
@@ -150,7 +162,7 @@ final class FollowRooms {
         }
         final byte[] input = secrets(c);
         try {
-            if (c.as("porelo-matrix", List.of(TRANSPORT, "expel", login), input).exitCode() != 0) {
+            if (c.as("porelo-matrix", transport(c, "expel", login), input).exitCode() != 0) {
                 throw new HostRefusal(69, "the transport could not expel the person");
             }
         } finally {

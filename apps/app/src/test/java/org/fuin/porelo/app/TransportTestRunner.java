@@ -15,6 +15,9 @@ import org.fuin.porelo.testing.FakeCommandRunner;
 /** Supplies namespace program paths without consulting or changing the test machine. */
 class TransportTestRunner extends FakeCommandRunner implements TransportVerbs.Programs {
 
+    /** What every transport verb is handed before it at the defaults, for matching a line. */
+    static final String HANDED = "--limits " + org.fuin.porelo.wire.LimitFactors.DEFAULT.line();
+
     @Override
     public Function<String, Path> programs() {
         return name -> Path.of("/usr/bin", name);

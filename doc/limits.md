@@ -53,6 +53,12 @@ services=1.0,machines=1.0,polling=1.0,retries=1.0
   started without the option takes all four at 1.0, so it still runs alone.
 - **Every agent, build reader and ecosystem adapter Porelo starts is handed the line** of the factors the
   Porelo that starts it holds, at 1.0 too.
+- **So is every other program Porelo starts that takes it**, each with the factors of the account that starts it:
+  - a task's `porelo-mcp`, after its other options, as its own binding orders them: `porelo-mcp serve --task
+    <container> --socket <socket> --daemon-socket <daemon socket> --limits <line>`;
+  - the message filter, before any other argument: `porelo-message-sluice-filter --limits <line> --mail <dir> ...`;
+  - every message transport, before its verb: `porelo-message-transport-<name> --limits <line> <verb> ...`.
+    `porelo-host` hands its own factors so to the transport it runs for a room.
 - **`porelo` itself takes a leading `--limits <line>`** in place of the account's factors, every other setting still
   the account's: `porelo-host` hands its own factors so to the `porelo` it runs under a dynamic user, which reads no
   account's settings, and none to a `porelo` it runs as a person, which follows that person's own settings.

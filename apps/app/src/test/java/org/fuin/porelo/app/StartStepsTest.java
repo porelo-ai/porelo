@@ -79,6 +79,7 @@ class StartStepsTest {
                 adapter,
                 """
                 #!/bin/sh
+                if [ "$1" = --limits ]; then shift 2; fi
                 case "$1" in
                   describe) echo '{"scheme":"room","lifecycle":["setup","enroll"],"waitsOn":"the room homeserver"}';;
                   setup) touch '%s'; sleep 1; printf 'first line\n\033[31mhomeserver refused\033[0m\n' >&2; exit 75;;

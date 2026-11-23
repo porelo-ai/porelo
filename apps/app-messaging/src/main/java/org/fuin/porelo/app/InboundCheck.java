@@ -11,6 +11,7 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Mail;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -48,20 +49,25 @@ public final class InboundCheck {
 
     private final Mail mail;
 
+    private final LimitFactors limits;
+
     /**
      * Constructor.
      *
      * @param runner How commands are run.
      * @param filter The filter's executable, or {@code null} when this machine has none.
      * @param mail The project's peers, which is where trust is written down.
+     * @param limits The factors of the account that runs the check, which the filter is handed.
      */
     public InboundCheck(
             final CommandRunner runner,
             final @org.jspecify.annotations.Nullable Path filter,
-            final Mail mail) {
+            final Mail mail,
+            final LimitFactors limits) {
         this.runner = runner;
         this.filter = filter;
         this.mail = mail;
+        this.limits = limits;
     }
 
     /**
@@ -105,6 +111,8 @@ public final class InboundCheck {
                             HelperEnvironment.chosen(
                                     Command.of(
                                             filter.toString(),
+                                            LimitFactors.OPTION,
+                                            limits.line(),
                                             "--mail",
                                             mailbox.check().toString(),
                                             "--blocking",

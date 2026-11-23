@@ -109,23 +109,47 @@ public record TransportDescription(
      *
      * @param runner How commands are run.
      * @param adapter The transport's executable.
+     * @param limits The factors of the account that asks, which the transport is handed.
      * @return What it said, or {@link #UNKNOWN} when it could not be asked or did not answer with
      *     an object. An unreadable description grants no capabilities.
      */
-    public static TransportDescription of(final CommandRunner runner, final Path adapter) {
+    public static TransportDescription of(
+            final CommandRunner runner,
+            final Path adapter,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         try {
-            return required(runner, adapter);
+            return required(runner, adapter, limits);
         } catch (final RuntimeException ex) {
             return UNKNOWN;
         }
     }
 
+    /**
+     * Asks a transport to describe itself through verbs that carry their starter's factors.
+     *
+     * @param verbs How the transport is run.
+     * @param adapter The transport's executable.
+     * @return What it said, or {@link #UNKNOWN}, as {@link #of(CommandRunner, Path,
+     *     org.fuin.porelo.wire.LimitFactors)}.
+     */
+    static TransportDescription of(final TransportVerbs verbs, final Path adapter) {
+        return of(verbs, adapter, verbs.limits());
+    }
+
+    /** As {@link #required(CommandRunner, Path, org.fuin.porelo.wire.LimitFactors)}, by verbs. */
+    static TransportDescription required(final TransportVerbs verbs, final Path adapter) {
+        return required(verbs, adapter, verbs.limits());
+    }
+
     /** Cleanup and live reads must distinguish execution failure from an unsupported verb. */
-    static TransportDescription required(final CommandRunner runner, final Path adapter) {
+    static TransportDescription required(
+            final CommandRunner runner,
+            final Path adapter,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         final CommandResult result;
         try {
             result =
-                    TransportVerbs.of(runner)
+                    TransportVerbs.of(runner, limits)
                             .reaching(List.of(), true)
                             .run(Command.of(adapter.toString(), "describe"));
         } catch (final org.fuin.porelo.core.process.CommandException ex) {

@@ -94,7 +94,8 @@ final class TaskConversations {
             final String waitsOn =
                     adapter == null
                             ? ""
-                            : TransportDescription.of(context.runner(), adapter).waitsOn();
+                            : TransportDescription.of(context.runner(), adapter, context.limits())
+                                    .waitsOn();
             steps.waiting(
                     StartStep.Step.CONVERSATION,
                     waitsOn.isEmpty() ? "the " + scheme + " transport" : waitsOn);

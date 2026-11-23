@@ -12,10 +12,16 @@ import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.SecurityClass;
+import org.fuin.porelo.wire.LimitFactors;
 import org.fuin.porelo.wire.SystemProgram;
 import org.jspecify.annotations.Nullable;
 
-/** The single execution path for transport verbs, including verbs added by later transports. */
+/**
+ * The single execution path for transport verbs, including verbs added by later transports.
+ *
+ * <p>Every verb is handed the limits line of the account that starts it, before the verb: {@code
+ * porelo-message-transport-<name> --limits <line> <verb> ...}.
+ */
 final class TransportVerbs implements CommandRunner {
 
     /** Separates tool resolution from execution for callers that supply infrastructure. */
@@ -40,8 +46,13 @@ final class TransportVerbs implements CommandRunner {
     private final boolean offline;
     private final TransportFence.Resolver resolver;
     private final Path resolvConf;
+    private final LimitFactors limits;
 
-    TransportVerbs(final CommandRunner runner, final Function<String, Path> programs) {
+    /** Hands every verb the factors of the account that starts it. */
+    TransportVerbs(
+            final CommandRunner runner,
+            final Function<String, Path> programs,
+            final LimitFactors limits) {
         this(
                 runner,
                 programs,
@@ -50,7 +61,8 @@ final class TransportVerbs implements CommandRunner {
                         : InetAddress::getAllByName,
                 runner instanceof Programs supplied
                         ? supplied.resolvConf()
-                        : Path.of("/etc/resolv.conf"));
+                        : Path.of("/etc/resolv.conf"),
+                limits);
     }
 
     /** Keeps DNS lookups and the resolver configuration independent of the test machine. */
@@ -58,8 +70,9 @@ final class TransportVerbs implements CommandRunner {
             final CommandRunner runner,
             final Function<String, Path> programs,
             final TransportFence.Resolver resolver,
-            final Path resolvConf) {
-        this(runner, programs, List.of(), false, resolver, resolvConf);
+            final Path resolvConf,
+            final LimitFactors limits) {
+        this(runner, programs, List.of(), false, resolver, resolvConf, limits);
     }
 
     private TransportVerbs(
@@ -68,20 +81,29 @@ final class TransportVerbs implements CommandRunner {
             final List<String> reaches,
             final boolean offline,
             final TransportFence.Resolver resolver,
-            final Path resolvConf) {
+            final Path resolvConf,
+            final LimitFactors limits) {
         this.runner = runner;
         this.programs = programs;
         this.reaches = List.copyOf(reaches);
         this.offline = offline;
         this.resolver = resolver;
         this.resolvConf = resolvConf;
+        this.limits = limits;
     }
 
-    /** Retains a supplied executor's tool resolution, including in descriptions and tests. */
-    static TransportVerbs of(final CommandRunner runner) {
+    /**
+     * Retains a supplied executor's tool resolution, including in descriptions and tests.
+     *
+     * @param runner How commands are run; verbs already made keep the factors they were made with,
+     *     which are their starter's.
+     * @param limits The factors of the account that starts the transport.
+     * @return The verbs.
+     */
+    static TransportVerbs of(final CommandRunner runner, final LimitFactors limits) {
         return runner instanceof TransportVerbs verbs
                 ? verbs
-                : new TransportVerbs(runner, programs(runner));
+                : new TransportVerbs(runner, programs(runner), limits);
     }
 
     /** Uses explicit infrastructure when supplied, otherwise checked distribution programs. */
@@ -89,9 +111,14 @@ final class TransportVerbs implements CommandRunner {
         return runner instanceof Programs supplied ? supplied.programs() : SystemProgram::find;
     }
 
+    /** Returns the factors every verb is handed: those of the account that starts it. */
+    LimitFactors limits() {
+        return limits;
+    }
+
     /** Takes the network allowance from the setup contract, never transport-internal files. */
     TransportVerbs reaching(final List<String> reaches, final boolean offline) {
-        return new TransportVerbs(runner, programs, reaches, offline, resolver, resolvConf);
+        return new TransportVerbs(runner, programs, reaches, offline, resolver, resolvConf, limits);
     }
 
     /** Lifecycle verbs name their project explicitly; no container name is decoded. */
@@ -175,11 +202,32 @@ final class TransportVerbs implements CommandRunner {
 
     private Command command(final Command command) {
         final Command chosen =
-                command.inheritsEnvironment() ? HelperEnvironment.chosen(command) : command;
+                handed(command.inheritsEnvironment() ? HelperEnvironment.chosen(command) : command);
         // Setup's unfenced network is accepted: its first local endpoint is chosen inside the verb.
         if (command.arguments().size() > 1 && "setup".equals(command.arguments().get(1)))
             return chosen;
         return new TransportFence(runner, reaches, offline, programs, resolver, resolvConf)
                 .command(chosen);
+    }
+
+    /** The transport, the limits line, then the verb and the rest, everything else kept. */
+    private Command handed(final Command command) {
+        final List<String> arguments = new ArrayList<>();
+        arguments.add(command.arguments().getFirst());
+        arguments.add(LimitFactors.OPTION);
+        arguments.add(limits.line());
+        arguments.addAll(command.arguments().subList(1, command.arguments().size()));
+        final Command handed =
+                new Command(
+                        arguments,
+                        command.workingDirectory(),
+                        command.environment(),
+                        command.input(),
+                        command.inheritsEnvironment());
+        final byte @Nullable [] binaryInput = command.binaryInput();
+        final Command withInput =
+                binaryInput == null ? handed : handed.withBinaryInput(binaryInput);
+        final java.time.@Nullable Duration timeout = command.timeout();
+        return timeout == null ? withInput : withInput.withTimeout(timeout);
     }
 }
