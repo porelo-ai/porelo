@@ -219,9 +219,9 @@ to read work awaiting human judgment.
 HTTP stays on the configured port at `127.0.0.1`, with no proxy or redirects, a ten-second connection timeout and
 a twenty-second request timeout. Each HTTP response and complete daemon reply is limited to one MiB; each project
 to 100 repositories and 500 open rows; each repository to 100 pages of 50. Maker queries allow ten seconds and
-64 KiB of output. Review fetches are shallow, allow twenty seconds per git command, and use
-`/usr/bin/prlimit` from util-linux to limit each received pack and other written file to 32 MiB; an unavailable
-limiter refuses the makers. Shown fields keep at most 1000 code points, and at most 50 help trailers are returned.
+64 KiB of output. Review fetches are shallow, keep what they receive in one pack whatever its size, and allow
+twenty seconds per git command; the makers query, each fetch command and the 75 seconds a read waits for another
+read's fetch of the same repository follow the account's `machines` factor. Shown fields keep at most 1000 code points, and at most 50 help trailers are returned.
 A repository the forge answers with an error is refused alone, in the answer's `refused`, with its status, the
 path asked (`/api/v1/repos/<copy>/pulls`, never the host's address or the token) and a reason: `forge-access` for 403
 or 404 (its copy is not made yet or the person is not admitted: an administrator of the host makes it or admits
@@ -440,9 +440,18 @@ porelo commit verify --repository <git-dir> --signers signers --certifiers certi
 - **The pushed objects are read through the quarantine git gives the hook**; no other git configuration, hook or
   proxy of the account takes effect.
 - **Exit 0 lets the push in; 65 refuses it**, with one line per refused commit on standard error, `<commit>
-  <reason>`, which the hook may show the pusher. Every commit is judged, so all refusals are named at once. The JSON
-  answer on standard output is every verdict with its signer, for the host to record; its fields are in
-  [Commands](commands.md#commit).
+  <reason>`, which the hook may show the pusher. Every commit is judged, however many the push brings, so all
+  refusals are named at once. The JSON answer on standard output is every verdict with its signer, for the host to
+  record; its fields are in [Commands](commands.md#commit).
+- **The commits are walked in windows of 4096**, each handed on as it is judged, so neither the verifier nor the
+  host keeps a list of the push in memory. Every window walks against the refs as they stood when the walk began,
+  so a ref that lands meanwhile hides no commit of the push; refs that cannot be read whole refuse it. Root stages
+  the verdicts it reads under `/var/lib/porelo-host/push`, on disk, not in `/run`, and removes them once the push
+  is answered; a judgement first removes those a killed porelo-host left, older than its own deadline, and names
+  in its log a folder that cannot be removed.
+- **The pusher sees the first 100 refused commits and how many more are refused.**
+- **The worker may run 270 seconds and the host waits 280** for it, both times the host's `machines` factor from
+  `/etc/porelo-host/host.yml`.
 
 The host's forge itself shows these commits as unverified (`no_gpg_keys_found`): Forgejo counts an SSH signature only
 for a key its account holder verified by signing a token in the forge's web settings, which neither the follow nor a

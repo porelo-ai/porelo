@@ -152,13 +152,6 @@ class PushJudgementTest {
         row.put("signer", extra);
         cases.add(Arguments.of("extra signer key", List.of(row)));
         cases.add(Arguments.of("duplicate commit", List.of(commit(), commit())));
-        final var many = new java.util.ArrayList<Map<String, Object>>();
-        for (int i = 0; i <= 10000; i++) {
-            final var next = new java.util.LinkedHashMap<>(commit());
-            next.put("commit", String.format("%040x", i));
-            many.add(next);
-        }
-        cases.add(Arguments.of("more than 10000 commits", many));
         return cases.stream();
     }
 
@@ -187,6 +180,28 @@ class PushJudgementTest {
         assertThat(answer.entries())
                 .as("a bad worker answer records none of its commits: " + defect)
                 .isEmpty();
+    }
+
+    @Test
+    void aPushOfMoreThanTenThousandCommitsIsJudged() {
+        final var rows = new java.util.ArrayList<Map<String, Object>>();
+        for (int index = 1; index <= 10001; index++) {
+            final var row = new java.util.LinkedHashMap<>(commit());
+            row.put("commit", "%040x".formatted(index));
+            rows.add(row);
+        }
+        final var answer =
+                verified(
+                        result(
+                                Map.of(
+                                        "accepted",
+                                        true,
+                                        "checked_at",
+                                        "2026-10-30T12:00:00Z",
+                                        "commits",
+                                        rows)));
+        assertThat(answer.status()).as("every commit of a large push is judged").isEqualTo(200);
+        assertThat(answer.entries()).hasSize(10001);
     }
 
     @Test
@@ -368,10 +383,10 @@ class PushJudgementTest {
                                 "\u001b[31mcolor\n"
                                         + "b".repeat(513)
                                         + "\n"
-                                        + (safe + "\n").repeat(101)));
+                                        + (safe + "\n").repeat(PushJudgement.REFUSAL_LINES + 1)));
         assertThat(answer.text())
                 .as("terminal controls and oversized diagnostics cannot reach the hook")
-                .isEqualTo(("porelo: " + safe + "\n").repeat(100));
+                .isEqualTo(("porelo: " + safe + "\n").repeat(PushJudgement.REFUSAL_LINES));
     }
 
     @Test

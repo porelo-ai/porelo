@@ -58,11 +58,17 @@ removes the task's token.
 Judge new commits through the installed porelo commit verify in a confined systemd unit
 as the forge account, with the checked signers, certifiers, task certificates and KRL.
 The worker has no network, writable host tree or home, and at most 270 seconds;
-the parent waits at most 280 seconds and the whole request must be read within one
-30-second deadline. Worker stdout is bounded by the largest serialized verdict for
-10,000 commits; stderr is limited to 1 MiB.
+the parent waits at most 280 seconds, both times the machines factor of
+/etc/porelo-host/host.yml, and the whole request must be read within one
+30-second deadline. A push is judged however many commits it brings: the worker
+answers one verdict per line as it judges each, every line at most 128 KiB, and root
+stages the accepted ones on disk under /var/lib/porelo-host/push rather than in memory or
+/run; stderr is limited to 1 MiB, and names at most 100 refused commits, then how many
+more are refused, all of which the pusher is shown. A judgement first removes the staged
+verdicts a killed porelo-host left, older than its own deadline, and a folder that cannot
+be removed is named on standard error.
 Accept only complete worker provenance for refs the request updates, with no duplicate
-commits and at most 10,000 commits. Append accepted arrival verdicts privately before
+commits. Append accepted arrival verdicts privately before
 answering 200. Ledger growth does not impose a total-size limit on pushes or follow.
 Signature or request
 refusals answer 403 with their reasons; host failures answer 500. Only-deletion pushes

@@ -278,9 +278,9 @@ class CommitVerifyCommandTest {
     }
 
     @Test
-    void refuses_a_push_of_more_commits_than_it_judges() throws Exception {
+    void judges_every_commit_of_a_push_larger_than_ten_thousand() throws Exception {
         final StringBuilder stream = new StringBuilder();
-        for (int at = 1; at <= HostArrivals.MAX_COMMITS + 1; at++) {
+        for (int at = 1; at <= 10001; at++) {
             stream.append("commit refs/heads/many\nmark :")
                     .append(at)
                     .append("\ncommitter A <a@example.org> 1700000000 +0000\ndata 0\n");
@@ -295,11 +295,10 @@ class CommitVerifyCommandTest {
         git(forge, "update-ref", "-d", "refs/heads/many");
 
         assertThat(verify(push(base, tip, "refs/heads/main"), "--json")).isEqualTo(65);
-        assertThat(err.toString())
-                .isEqualTo(
-                        "porelo: the push brings more than 10000 new commits; push fewer at"
-                                + " once\n");
-        assertThat(verdicts()).isEmpty();
+        assertThat(verdicts()).hasSize(10001);
+        assertThat(err.toString().lines())
+                .hasSize(10001)
+                .allMatch(line -> line.endsWith(" carries no signature"));
     }
 
     @Test
@@ -1290,9 +1289,6 @@ class CommitVerifyCommandTest {
         final var answer =
                 new HostArrivals.Answer(
                         java.time.Instant.parse("9999-12-31T23:59:59Z"), List.of(verdict), "");
-        assertThat(HostArrivals.MAX_COMMITS)
-                .as("the host budgets this many serialized verdicts")
-                .isEqualTo(10000);
         assertThat(
                         org.fuin.porelo.wire.Json.write(verdict.answer())
                                 .getBytes(java.nio.charset.StandardCharsets.UTF_8)

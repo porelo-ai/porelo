@@ -19,17 +19,42 @@ import org.fuin.porelo.wire.LimitFactors;
 
 /** Fetches a review head into a store owned by the reader, never the gate's mirror. */
 final class HostReviewHeads {
-    private static final int MAXIMUM_PACK = 32 * 1024 * 1024;
     private static final String REF = "refs/porelo/review";
 
+    @FunctionalInterface
+    interface Starter {
+        Process start(ProcessBuilder builder) throws IOException;
+    }
+
     private HostReviewHeads() {}
+
+    /**
+     * Returns how long each git command of a fetch may take.
+     *
+     * @param limits The factors.
+     * @return Twenty seconds under {@code machines}: a local git run against the loopback copy.
+     */
+    static Duration bound(LimitFactors limits) {
+        return limits.machines(Duration.ofSeconds(20));
+    }
 
     /** Runs under the store's lock, including the caller's subsequent maker read. */
     static void fetch(
             Path store, URI repository, long number, String head, String token, LimitFactors limits)
             throws IOException {
-        // Each git call may take 20 s, times the services factor.
-        final Duration bound = limits.services(Duration.ofSeconds(20));
+        fetch(store, repository, number, head, token, limits, ProcessBuilder::start);
+    }
+
+    static void fetch(
+            Path store,
+            URI repository,
+            long number,
+            String head,
+            String token,
+            LimitFactors limits,
+            Starter starter)
+            throws IOException {
+        final Duration bound = bound(limits);
         final String address =
                 "http://127.0.0.1:"
                         + repository.getPort()
@@ -37,12 +62,20 @@ final class HostReviewHeads {
                         + ".git";
         final String format = head.length() == 64 ? "sha256" : "sha1";
         if (Files.exists(store, LinkOption.NOFOLLOW_LINKS)
-                && !format.equals(formatOf(store, bound))) {
+                && !format.equals(formatOf(store, bound, starter))) {
             // A store made for the other hash, or broken, would refuse every later fetch.
             remove(store);
         }
         org.fuin.porelo.wire.Directories.create(store);
-        run(store, bound, Map.of(), "init", "--bare", "--template=", "--object-format=" + format);
+        run(
+                starter,
+                store,
+                bound,
+                Map.of(),
+                "init",
+                "--bare",
+                "--template=",
+                "--object-format=" + format);
         final String header =
                 "Authorization: Basic "
                         + Base64.getEncoder()
@@ -60,6 +93,7 @@ final class HostReviewHeads {
                         "GIT_CONFIG_KEY_1", "http.followRedirects",
                         "GIT_CONFIG_VALUE_1", "false");
         run(
+                starter,
                 store,
                 bound,
                 authorization,
@@ -73,16 +107,18 @@ final class HostReviewHeads {
                 "--",
                 address,
                 "+refs/pull/" + number + "/head:" + REF);
-        if (!run(store, bound, Map.of(), "rev-parse", "--verify", REF + "^{commit}")
+        if (!run(starter, store, bound, Map.of(), "rev-parse", "--verify", REF + "^{commit}")
                 .strip()
                 .equals(head)) {
             throw new IOException("the fetched review ref differs from its row");
         }
     }
 
-    private static @org.jspecify.annotations.Nullable String formatOf(Path store, Duration bound) {
+    private static @org.jspecify.annotations.Nullable String formatOf(
+            Path store, Duration bound, Starter starter) {
         try {
-            return run(store, bound, Map.of(), "rev-parse", "--show-object-format").strip();
+            return run(starter, store, bound, Map.of(), "rev-parse", "--show-object-format")
+                    .strip();
         } catch (IOException ex) {
             return null;
         }
@@ -97,16 +133,16 @@ final class HostReviewHeads {
     }
 
     private static String run(
-            Path store, Duration bound, Map<String, String> variables, String... arguments)
+            Starter starter,
+            Path store,
+            Duration bound,
+            Map<String, String> variables,
+            String... arguments)
             throws IOException {
-        // Force received objects into a pack, then let the kernel bound every file the fetch can
-        // write. A single shallow ref cannot unpack into an unbounded number of loose objects.
+        // Keep a shallow fetch in a pack without imposing a file-size limit on real projects.
         final List<String> command =
                 new ArrayList<>(
                         List.of(
-                                "/usr/bin/prlimit",
-                                "--fsize=" + MAXIMUM_PACK + ":" + MAXIMUM_PACK,
-                                "--",
                                 "git",
                                 "--no-replace-objects",
                                 "--git-dir=" + store,
@@ -149,7 +185,7 @@ final class HostReviewHeads {
                                 "http"));
         builder.environment().putAll(variables);
         builder.redirectError(ProcessBuilder.Redirect.DISCARD);
-        final Process process = builder.start();
+        final Process process = starter.start(builder);
         process.getOutputStream().close();
         try (var readers = Executors.newVirtualThreadPerTaskExecutor()) {
             final long deadline = System.nanoTime() + bound.toNanos();

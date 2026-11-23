@@ -560,10 +560,8 @@ public final class HostPullRequestReader {
         try {
             return FileLocks.holdingWithin(
                             store.resolveSibling(repository + ".lock"),
-                            // Long enough to wait out another read's fetch of three bounded steps,
-                            // which follow services, so the wait does too.
-                            limits.services(Duration.ofSeconds(75)),
-                            context.limits(),
+                            fetchWait(limits),
+                            limits,
                             () -> {
                                 try {
                                     return makers(store, commit, limits);
@@ -588,6 +586,17 @@ public final class HostPullRequestReader {
      */
     static Duration makersBound(final LimitFactors limits) {
         return limits.machines(Duration.ofSeconds(10));
+    }
+
+    /**
+     * Returns how long a read waits for the review store another read holds.
+     *
+     * @param limits The factors.
+     * @return 75 seconds under {@code machines}: long enough to wait out another read's fetch of
+     *     three git commands and its makers read, which all follow {@code machines}.
+     */
+    static Duration fetchWait(final LimitFactors limits) {
+        return limits.machines(Duration.ofSeconds(75));
     }
 
     private static String[] makers(Path mirror, String commit, LimitFactors limits) {

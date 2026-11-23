@@ -97,7 +97,7 @@ final class ProjectRuntime {
     private static HostPrograms.Result command(
             List<String> argv, byte[] input, Map<String, String> environment, Duration timeout)
             throws IOException {
-        return new HostPrograms(timeout, outputLimit(argv)).run(argv, input, environment);
+        return new HostPrograms(timeout, 1024 * 1024).run(argv, input, environment);
     }
 
     private static Path program(String path) {
@@ -154,26 +154,6 @@ final class ProjectRuntime {
     /** One command as a person or in an account's container, and one transfer or bundle. */
     private static final Duration COMMAND = Duration.ofSeconds(60);
 
-    /** The most of a push verifier's answer root reads. */
-    static final int MOST_PUSH_ANSWER = 64 * 1024 * 1024;
-
-    private static int outputLimit(List<String> argv) {
-        return outputLimit(argv, PushJudgement.MAX_COMMITS);
-    }
-
-    static int outputLimit(List<String> argv, int commits) {
-        // The verifier's largest UTF-8 verdict is 100627 bytes; commas, framing and its newline
-        // count too. Root holds the whole answer in memory, so it is also kept to 64 MiB: an
-        // accepted verdict carries no reasons, and a push whose answer would not fit is not judged
-        // (a 500, nothing recorded) rather than read into a gigabyte.
-        return argv.stream().anyMatch(value -> value.startsWith("--unit=porelo-host-verify-"))
-                ? (int)
-                        Math.min(
-                                Math.addExact(Math.multiplyExact((long) commits, 100628L), 79L),
-                                MOST_PUSH_ANSWER)
-                : 1024 * 1024;
-    }
-
     ProjectRuntime(
             HostFiles files, Commands commands, Programs programs, ForgeFactory forgeFactory) {
         this(
@@ -183,6 +163,22 @@ final class ProjectRuntime {
                 files::isSocket,
                 forgeFactory,
                 ProjectRuntime::transfer,
+                files);
+    }
+
+    ProjectRuntime(
+            HostFiles files,
+            Commands commands,
+            Programs programs,
+            ForgeFactory forgeFactory,
+            Transfers transfers) {
+        this(
+                new ProjectFiles(files.path("/"), 0),
+                commands,
+                programs,
+                files::isSocket,
+                forgeFactory,
+                transfers,
                 files);
     }
 
@@ -336,6 +332,16 @@ final class ProjectRuntime {
             List<String> argv, byte[] input, Map<String, String> environment, Duration timeout)
             throws IOException {
         return commands.run(argv, input, environment, timeout);
+    }
+
+    HostPrograms.Result stream(
+            List<String> argv,
+            java.io.InputStream input,
+            java.io.OutputStream output,
+            Map<String, String> environment,
+            Duration timeout)
+            throws IOException {
+        return transfers.run(argv, input, output, environment, timeout);
     }
 
     ProjectFiles files() {

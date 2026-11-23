@@ -31,6 +31,8 @@ public final class IssueTrailers {
 
     private final GitHttpServer.GitProcess git;
 
+    private int window = ArrivalWalk.WINDOW;
+
     /**
      * Constructor.
      *
@@ -46,6 +48,17 @@ public final class IssueTrailers {
         this.mirror = mirror;
         this.issue = issue;
         this.git = git;
+    }
+
+    /**
+     * Returns this judge walking a push in windows of the given size; a test's are small.
+     *
+     * @param size How many commits one window holds.
+     * @return This judge.
+     */
+    IssueTrailers walkingBy(final int size) {
+        this.window = size;
+        return this;
     }
 
     /** Whether a branch, a tag or another task's landed read already holds the commit. */
@@ -128,42 +141,48 @@ public final class IssueTrailers {
                     + (type.isEmpty() ? "missing object" : type)
                     + ", not a commit";
         }
-        final String walked =
-                new String(
-                        git.runOrFail(
-                                List.of(
-                                        "--git-dir",
-                                        mirror.toString(),
-                                        "-c",
-                                        "trailer.separators=:",
-                                        "log",
-                                        "-z",
-                                        "--no-show-signature",
-                                        "--max-count=" + (SignedArrivals.MAX_COMMITS + 1),
-                                        "--format=%H%n%(trailers:only)",
-                                        commit,
-                                        "--not",
-                                        "--branches",
-                                        "--tags",
-                                        "--glob=" + GitGate.LANDED + "*",
-                                        "--"),
-                                new byte[0]),
-                        StandardCharsets.UTF_8);
-        final List<String> records =
-                java.util.Arrays.stream(walked.split("\0"))
-                        .filter(each -> !each.isBlank())
-                        .toList();
-        if (records.size() > SignedArrivals.MAX_COMMITS) {
-            return "the push brings more than "
-                    + SignedArrivals.MAX_COMMITS
-                    + " commits; push fewer at once";
-        }
-        if (records.isEmpty() && !heldElsewhere(commit)) {
-            // git's exit code does not reach here: an empty walk is believed only when the commit
-            // is already on a branch, a tag or a landed read, else a walk that failed would pass.
-            return "commit " + commit + " could not be judged; push again";
-        }
+        final ArrivalWalk walk =
+                ArrivalWalk.excluding(
+                        git, mirror, window, List.of("refs/heads/", "refs/tags/", GitGate.LANDED));
         final String line = line();
+        long skip = 0;
+        while (true) {
+            final List<String> records =
+                    java.util.Arrays.stream(
+                                    new String(
+                                                    walk.window(
+                                                            List.of(
+                                                                    "-c",
+                                                                    "trailer.separators=:",
+                                                                    "log",
+                                                                    "-z",
+                                                                    "--no-show-signature",
+                                                                    "--format=%H%n%(trailers:only)"),
+                                                            null,
+                                                            commit,
+                                                            skip),
+                                                    StandardCharsets.UTF_8)
+                                            .split("\0"))
+                            .filter(each -> !each.isBlank())
+                            .toList();
+            if (skip == 0 && records.isEmpty() && !heldElsewhere(commit)) {
+                // git's exit code does not reach here: an empty walk is believed only when the
+                // commit is already on a branch, a tag or a landed read, else a walk that failed
+                // would pass.
+                return "commit " + commit + " could not be judged; push again";
+            }
+            final String refused = refused(records, line);
+            if (refused != null) {
+                return refused;
+            }
+            if (records.size() < walk.size()) {
+                return null;
+            }
+            skip += records.size();
+        }
+    }
+
+    private @Nullable String refused(final List<String> records, final String line) {
         for (final String record : records) {
             // On '\n' alone, as git splits a message: a '\r' is the agent's, inside a line.
             final List<String> lines =

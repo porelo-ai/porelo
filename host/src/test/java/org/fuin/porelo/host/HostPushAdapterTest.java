@@ -43,6 +43,7 @@ class HostPushAdapterTest {
         boolean aclFails;
         boolean aclError;
         HostPrograms.Result answer = accepted();
+        long verifierSeconds = 280;
         String absent = "";
         final java.io.StringWriter errors = new java.io.StringWriter();
         Runnable inspect = () -> {};
@@ -69,63 +70,62 @@ class HostPushAdapterTest {
                                     + "/.local/share/containers/storage/volumes/forgejo-data/_data/"
                                     + QUARANTINE.substring("/var/lib/gitea/".length()));
             Files.createDirectories(quarantine);
+            final ProjectRuntime.Commands commands =
+                    (argv, input, env, timeout) -> {
+                        assertThat(env)
+                                .as("caller environment never reaches host programs")
+                                .isEqualTo(
+                                        argv.getFirst().equals("/usr/bin/setfacl")
+                                                        || argv.getFirst().equals("/usr/bin/getent")
+                                                                && !argv.getLast().equals("forge")
+                                                ? ProjectRuntime.SAFE_ENV
+                                                : HostPrograms.ENVIRONMENT);
+                        if (argv.getFirst().equals("/usr/bin/getent")) {
+                            if (members.containsKey(argv.getLast()))
+                                return new HostPrograms.Result(
+                                        0,
+                                        argv.getLast()
+                                                + ":x:"
+                                                + members.get(argv.getLast())
+                                                + ":1001::/home/member:/bin/sh\n");
+                            assertThat(argv)
+                                    .as("the service account comes from forge.conf")
+                                    .containsExactly("/usr/bin/getent", "passwd", "forge");
+                            return new HostPrograms.Result(
+                                    0,
+                                    "forge:x:"
+                                            + accountUid
+                                            + ":"
+                                            + accountUid
+                                            + "::"
+                                            + home
+                                            + ":/bin/sh\n");
+                        }
+                        if (argv.getFirst().equals("/usr/bin/setfacl")) {
+                            if (aclError) throw new AssertionError("injected ACL error");
+                            if (aclFails) return new HostPrograms.Result(1, "");
+                            final Path staged = Path.of(argv.getLast());
+                            assertThat((int) Files.getAttribute(staged, "unix:mode") & 0777)
+                                    .as("an unpublished arrival starts private")
+                                    .isEqualTo(0600);
+                            acls.add(List.copyOf(argv));
+                            Files.setAttribute(staged, "unix:mode", 0640);
+                            return new HostPrograms.Result(0, "");
+                        }
+                        calls.add(List.copyOf(argv));
+                        assertThat(timeout)
+                                .as("a verifier must not outlive the hook")
+                                .isEqualTo(Duration.ofSeconds(verifierSeconds));
+                        assertThat(new String(input, StandardCharsets.US_ASCII))
+                                .as("the worker sees only hook refs")
+                                .isEqualTo(line(OLD, NEXT, "refs/heads/main"));
+                        inspect.run();
+                        return answer;
+                    };
             runtime =
                     new ProjectRuntime(
                             tree.files(),
-                            (argv, input, env, timeout) -> {
-                                assertThat(env)
-                                        .as("caller environment never reaches host programs")
-                                        .isEqualTo(
-                                                argv.getFirst().equals("/usr/bin/setfacl")
-                                                                || argv.getFirst()
-                                                                                .equals(
-                                                                                        "/usr/bin/getent")
-                                                                        && !argv.getLast()
-                                                                                .equals("forge")
-                                                        ? ProjectRuntime.SAFE_ENV
-                                                        : HostPrograms.ENVIRONMENT);
-                                if (argv.getFirst().equals("/usr/bin/getent")) {
-                                    if (members.containsKey(argv.getLast()))
-                                        return new HostPrograms.Result(
-                                                0,
-                                                argv.getLast()
-                                                        + ":x:"
-                                                        + members.get(argv.getLast())
-                                                        + ":1001::/home/member:/bin/sh\n");
-                                    assertThat(argv)
-                                            .as("the service account comes from forge.conf")
-                                            .containsExactly("/usr/bin/getent", "passwd", "forge");
-                                    return new HostPrograms.Result(
-                                            0,
-                                            "forge:x:"
-                                                    + accountUid
-                                                    + ":"
-                                                    + accountUid
-                                                    + "::"
-                                                    + home
-                                                    + ":/bin/sh\n");
-                                }
-                                if (argv.getFirst().equals("/usr/bin/setfacl")) {
-                                    if (aclError) throw new AssertionError("injected ACL error");
-                                    if (aclFails) return new HostPrograms.Result(1, "");
-                                    final Path staged = Path.of(argv.getLast());
-                                    assertThat((int) Files.getAttribute(staged, "unix:mode") & 0777)
-                                            .as("an unpublished arrival starts private")
-                                            .isEqualTo(0600);
-                                    acls.add(List.copyOf(argv));
-                                    Files.setAttribute(staged, "unix:mode", 0640);
-                                    return new HostPrograms.Result(0, "");
-                                }
-                                calls.add(List.copyOf(argv));
-                                assertThat(timeout)
-                                        .as("a verifier must not outlive the hook")
-                                        .isEqualTo(Duration.ofSeconds(280));
-                                assertThat(new String(input, StandardCharsets.US_ASCII))
-                                        .as("the worker sees only hook refs")
-                                        .isEqualTo(line(OLD, NEXT, "refs/heads/main"));
-                                inspect.run();
-                                return answer;
-                            },
+                            commands,
                             name -> {
                                 if (name.equals(absent))
                                     throw new HostRefusal(
@@ -134,7 +134,45 @@ class HostPushAdapterTest {
                                         ? Path.of(name)
                                         : Path.of("/usr/bin", name);
                             },
-                            org.fuin.porelo.organization.gittree.HttpForgeAdmin::new);
+                            org.fuin.porelo.organization.gittree.HttpForgeAdmin::new,
+                            (argv, input, output, env, timeout) -> {
+                                final var result =
+                                        commands.run(argv, input.readAllBytes(), env, timeout);
+                                if (result.exitCode() == 0) {
+                                    try {
+                                        final var answer =
+                                                HostJson.object(HostJson.parse(result.output()));
+                                        for (Object row : HostJson.array(answer.get("commits")))
+                                            output.write(
+                                                    (HostJson.write(row) + "\n")
+                                                            .getBytes(StandardCharsets.UTF_8));
+                                        output.write(
+                                                (HostJson.write(
+                                                                        HostJson.fields(
+                                                                                "accepted",
+                                                                                        answer.get(
+                                                                                                "accepted"),
+                                                                                "checked_at",
+                                                                                        answer.get(
+                                                                                                "checked_at"),
+                                                                                "count",
+                                                                                        HostJson
+                                                                                                .array(
+                                                                                                        answer
+                                                                                                                .get(
+                                                                                                                        "commits"))
+                                                                                                .size(),
+                                                                                "reason", ""))
+                                                                + "\n")
+                                                        .getBytes(StandardCharsets.UTF_8));
+                                    } catch (IllegalArgumentException ex) {
+                                        output.write(
+                                                result.output().getBytes(StandardCharsets.UTF_8));
+                                    }
+                                }
+                                return new HostPrograms.Result(
+                                        result.exitCode(), "", result.error());
+                            });
             push =
                     new HostPush(
                             tree.files(), runtime, CLOCK, new java.io.PrintWriter(errors, true));
@@ -150,6 +188,22 @@ class HostPushAdapterTest {
         Path ledger() {
             return tree.path("/var/lib/porelo-host/arrivals/alpha/app.jsonl");
         }
+    }
+
+    @Test
+    void theVerifierAndParentDeadlinesDoubleWithTheHostsMachinesFactor() throws Exception {
+        final var f = new Fixture();
+        f.verifierSeconds = 560;
+        final var scaled =
+                f.runtime.limited(
+                        org.fuin.porelo.wire.LimitFactors.parse("machines=2.0,services=3.0"));
+        final var push = new HostPush(f.tree.files(), scaled, CLOCK);
+        final var output = new ByteArrayOutputStream();
+        push.serve(new ByteArrayInputStream(request(BODY)), output, f.accountUid);
+        assertThat(output.toString(StandardCharsets.UTF_8)).contains("200 OK");
+        assertThat(f.calls)
+                .singleElement()
+                .satisfies(argv -> assertThat(argv).contains("RuntimeMaxSec=540"));
     }
 
     @Test
@@ -533,6 +587,124 @@ class HostPushAdapterTest {
             assertThat(children.toList())
                     .as("no per-push trust files survive the worker")
                     .isEmpty();
+        }
+    }
+
+    @Test
+    void aPushOfMoreThanTenThousandCommitsIsJudgedAndRecorded() throws Exception {
+        final var f = new Fixture();
+        final var rows = new ArrayList<Object>();
+        for (int index = 1; index <= 10001; index++) {
+            final var row = new java.util.LinkedHashMap<String, Object>(commit());
+            row.put("commit", "%040x".formatted(index));
+            rows.add(row);
+        }
+        f.answer =
+                result(
+                        java.util.Map.of(
+                                "accepted",
+                                true,
+                                "checked_at",
+                                "2026-10-30T12:00:00Z",
+                                "commits",
+                                rows));
+        assertThat(f.serve(request(BODY), f.uid))
+                .startsWith("HTTP/1.1 200 OK\r\n")
+                .endsWith("porelo: 10001 new commit(s) judged and recorded\n");
+        assertThat(Files.readAllLines(f.ledger())).hasSize(10001);
+    }
+
+    @Test
+    void aPushsVerdictsAreStagedOnDiskAndNeverInRun() throws Exception {
+        // /run is memory, and the verdicts grow with the number of commits a push brings.
+        final var f = new Fixture();
+        final List<Path> staged = new ArrayList<>();
+        f.inspect =
+                () -> {
+                    try (var runs = Files.walk(f.tree.path("/run/porelo-host/push"))) {
+                        assertThat(runs.map(each -> each.getFileName().toString()))
+                                .as("only the worker's credentials lie in /run")
+                                .doesNotContain("entries", "ids");
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                    try (var disks = Files.list(f.tree.path("/var/lib/porelo-host/push"))) {
+                        staged.addAll(
+                                disks.map(each -> each.resolve("entries"))
+                                        .filter(Files::exists)
+                                        .toList());
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                };
+        assertThat(f.serve(request(BODY), f.uid)).startsWith("HTTP/1.1 200 OK\r\n");
+        assertThat(staged).as("the worker's verdicts are staged on disk").hasSize(1);
+        try (var left = Files.list(f.tree.path("/var/lib/porelo-host/push"))) {
+            assertThat(left.toList()).as("the staged verdicts go with the push").isEmpty();
+        }
+    }
+
+    /**
+     * A killed porelo-host leaves its staged verdicts behind; a later judgement removes what is
+     * older than its own deadline, never a concurrent push's, and says a removal that fails.
+     */
+    @Test
+    void aJudgementSweepsStaleVerdictsOnlyAndSaysAFailedRemoval() throws Exception {
+        final var f = new Fixture();
+        assertThat(f.serve(request(BODY), f.uid)).startsWith("HTTP/1.1 200 OK\r\n");
+        final Path root = f.tree.path("/var/lib/porelo-host/push");
+        final Path stale = Files.createDirectory(root.resolve("verdicts.stale"));
+        Files.writeString(stale.resolve("entries"), "left by a killed host\n");
+        final Path fresh = Files.createDirectory(root.resolve("verdicts.fresh"));
+        final Path stuck = Files.createDirectory(root.resolve("verdicts.stuck"));
+        final Path locked = Files.createDirectory(stuck.resolve("locked"));
+        Files.writeString(locked.resolve("entries"), "cannot go\n");
+        final Path other = Files.createDirectory(root.resolve("other"));
+        final Instant now = CLOCK.instant();
+        for (Path each : List.of(stale, stuck, other))
+            Files.setLastModifiedTime(
+                    each, java.nio.file.attribute.FileTime.from(now.minusSeconds(281)));
+        Files.setLastModifiedTime(
+                fresh, java.nio.file.attribute.FileTime.from(now.minusSeconds(279)));
+        Files.setAttribute(locked, "unix:mode", 0500);
+        try {
+            assertThat(f.serve(request(BODY), f.uid)).startsWith("HTTP/1.1 200 OK\r\n");
+            assertThat(stale).as("older than the judgement's deadline").doesNotExist();
+            assertThat(fresh).as("a concurrent push's, within its deadline").exists();
+            assertThat(other).as("only staged verdicts are swept").exists();
+            assertThat(f.errors.toString())
+                    .as("a removal that fails is said in porelo-host's log")
+                    .contains(stuck.getFileName().toString());
+        } finally {
+            Files.setAttribute(locked, "unix:mode", 0700);
+        }
+    }
+
+    @Test
+    void aStagedVerdictFolderThatCannotBeRemovedIsSaidInTheLog() throws Exception {
+        final var f = new Fixture();
+        final List<Path> locked = new ArrayList<>();
+        f.inspect =
+                () -> {
+                    try (var disks = Files.list(f.tree.path("/var/lib/porelo-host/push"))) {
+                        for (Path each : disks.toList()) {
+                            final Path inner = Files.createDirectory(each.resolve("locked"));
+                            Files.writeString(inner.resolve("file"), "cannot go\n");
+                            Files.setAttribute(inner, "unix:mode", 0500);
+                            locked.add(inner);
+                        }
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                };
+        try {
+            assertThat(f.serve(request(BODY), f.uid)).startsWith("HTTP/1.1 200 OK\r\n");
+            assertThat(locked).hasSize(1);
+            assertThat(f.errors.toString())
+                    .as("the push's own staged verdicts that stay are said")
+                    .contains(locked.getFirst().getParent().getFileName().toString());
+        } finally {
+            for (Path each : locked) Files.setAttribute(each, "unix:mode", 0700);
         }
     }
 

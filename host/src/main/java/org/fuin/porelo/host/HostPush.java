@@ -132,7 +132,7 @@ final class HostPush {
         registration(project);
         final var tasks = new HostTasks(files, runtime, clock);
         final var answer =
-                PushJudgement.judge(
+                PushJudgement.judgeAnswer(
                         request.updates(),
                         request.field("pusher"),
                         login -> new HostRecords(files).read().containsKey(login),
@@ -141,8 +141,7 @@ final class HostPush {
                                         .filter(task -> task.of(project))
                                         .map(HostTasks.Task::name)
                                         .collect(java.util.stream.Collectors.toSet()),
-                        updates -> verify(project, request, account, entry));
-        record(project, name, answer.entries());
+                        updates -> verify(project, name, request, account, entry));
         return answer;
     }
 
@@ -227,8 +226,12 @@ final class HostPush {
         return Map.copyOf(values);
     }
 
-    private HostPrograms.Result verify(
-            String project, PushRequest request, String account, ProjectRuntime.Account entry)
+    private PushJudgement.Answer verify(
+            String project,
+            String repository,
+            PushRequest request,
+            String account,
+            ProjectRuntime.Account entry)
             throws IOException {
         final var host = paths(request.fields(), account, entry);
         runtime.require("systemd-run", "porelo");
@@ -301,7 +304,9 @@ final class HostPush {
                             "ProtectHome=tmpfs",
                             "ProtectSystem=strict",
                             "NoNewPrivileges=yes",
-                            "RuntimeMaxSec=270",
+                            "RuntimeMaxSec="
+                                    + HostLimits.span(
+                                            runtime.limits().machines(Duration.ofSeconds(270))),
                             "BindReadOnlyPaths=" + host.get("repository"),
                             "Environment=HOME=/tmp",
                             "Environment=GIT_QUARANTINE_PATH=" + host.get("quarantine"),
@@ -326,14 +331,33 @@ final class HostPush {
                             credentials + "revoked.krl",
                             "--certificates",
                             credentials + "certificates",
-                            "--json"));
+                            "--json-lines"));
             // The hook's refs are the only stdin the verifier receives.
             try {
-                return runtime.run(
-                        argv,
-                        request.lines().getBytes(StandardCharsets.US_ASCII),
-                        HostPrograms.ENVIRONMENT,
-                        runtime.limits().machines(COMMIT_CHECK));
+                final Duration timeout = runtime.limits().machines(COMMIT_CHECK);
+                // The verdicts grow with the push, so they are staged on disk, never in /run.
+                final Path staged = stagingDirectory(timeout);
+                try (var verdicts =
+                        new PushVerdicts(staged, PushJudgement.refs(request.updates()), timeout)) {
+                    final var result =
+                            runtime.stream(
+                                    argv,
+                                    new java.io.ByteArrayInputStream(
+                                            request.lines().getBytes(StandardCharsets.US_ASCII)),
+                                    verdicts,
+                                    HostPrograms.ENVIRONMENT,
+                                    timeout);
+                    // Its deadline starts anew for recording, so that a concurrent judgement's
+                    // sweep leaves it alone while it is read.
+                    Files.setLastModifiedTime(
+                            staged, java.nio.file.attribute.FileTime.from(clock.instant()));
+                    final var answer = verdicts.finish(result);
+                    if (answer.status() == 200 && Files.size(verdicts.entries()) > 0)
+                        record(project, repository, verdicts.entries(), verdicts.checkedAt());
+                    return answer;
+                } finally {
+                    removeStaged(staged);
+                }
             } catch (IOException ex) {
                 throw new HostRefusal(69, "porelo commit verify could not run");
             }
@@ -344,6 +368,50 @@ final class HostPush {
                 // The predecessor's cleanup is best effort; these private files contain only public
                 // trust material.
             }
+        }
+    }
+
+    /**
+     * Makes a private folder for one judgement's verdicts, first removing every one a killed
+     * porelo-host left: older than a judgement's deadline, so a concurrent judgement's stays.
+     */
+    private Path stagingDirectory(Duration deadline) throws IOException {
+        final Path root = files.path("/var/lib/porelo-host/push");
+        files.directories(root);
+        files.check(root, 73, true, true, 0700);
+        final Instant stale = clock.instant().minus(deadline);
+        for (Path each : files.list(root, 73, 0700)) {
+            if (!each.getFileName().toString().startsWith("verdicts.")) continue;
+            final Instant changed;
+            try {
+                changed = Files.getLastModifiedTime(each, LinkOption.NOFOLLOW_LINKS).toInstant();
+            } catch (IOException ex) {
+                // Gone meanwhile: its own judgement removed it.
+                continue;
+            }
+            if (changed.isBefore(stale)) removeStaged(each);
+        }
+        try {
+            return Files.createTempDirectory(
+                    root,
+                    "verdicts.",
+                    PosixFilePermissions.asFileAttribute(
+                            PosixFilePermissions.fromString("rwx------")));
+        } catch (IOException ex) {
+            throw new HostRefusal(
+                    73,
+                    "cannot create a private verdict directory under /var/lib/porelo-host/push");
+        }
+    }
+
+    /** Removes staged verdicts, saying in porelo-host's log a folder that stays. */
+    private void removeStaged(Path staged) {
+        try {
+            files.removeTree(staged);
+        } catch (IOException | HostRefusal ex) {
+            errors.println(
+                    "porelo-host: the staged verdicts " + staged + " stay: " + ex.getMessage());
+            errors.flush();
         }
     }
 
@@ -398,6 +466,48 @@ final class HostPush {
             boolean publish)
             throws IOException {
         if (entries.isEmpty()) return;
+        append(
+                project,
+                repository,
+                publish,
+                sink -> {
+                    for (var row : entries) {
+                        final ByteBuffer bytes =
+                                StandardCharsets.UTF_8.encode(
+                                        ProjectRecords.pythonJson(row, true) + "\n");
+                        while (bytes.hasRemaining()) sink.write(bytes);
+                    }
+                });
+    }
+
+    private void record(String project, String repository, Path entries, String checked)
+            throws IOException {
+        append(
+                project,
+                repository,
+                true,
+                sink -> {
+                    try (var input = Files.newBufferedReader(entries)) {
+                        String line;
+                        while ((line = input.readLine()) != null) {
+                            final var row = object(parse(line));
+                            row.put("arrived", checked);
+                            final ByteBuffer bytes =
+                                    StandardCharsets.UTF_8.encode(
+                                            ProjectRecords.pythonJson(row, true) + "\n");
+                            while (bytes.hasRemaining()) sink.write(bytes);
+                        }
+                    }
+                });
+    }
+
+    @FunctionalInterface
+    private interface Append {
+        void write(FileChannel sink) throws IOException;
+    }
+
+    private void append(String project, String repository, boolean publish, Append entries)
+            throws IOException {
         final Path directory = files.path("/var/lib/porelo-host/arrivals/" + project);
         files.directories(directory);
         final Path path = directory.resolve(repository + ".jsonl");
@@ -433,14 +543,9 @@ final class HostPush {
                 }
                 final long previous = sink.size();
                 final var publication = new ProjectArrivals(files.projects(), runtime, clock);
-                final ByteBuffer bytes =
-                        StandardCharsets.UTF_8.encode(
-                                entries.stream()
-                                        .map(row -> ProjectRecords.pythonJson(row, true) + "\n")
-                                        .collect(java.util.stream.Collectors.joining()));
                 try {
                     if (publish) publication.remove(project, repository);
-                    while (bytes.hasRemaining()) sink.write(bytes);
+                    entries.write(sink);
                     sink.force(true);
                     if (publish) publication.publish(project, repository, path);
                 } catch (IOException | RuntimeException | Error ex) {

@@ -14,8 +14,15 @@ import org.jspecify.annotations.Nullable;
 
 /** Pure task-account policy and validation of the confined commit verifier's answer. */
 final class PushJudgement {
-    static final int MAX_COMMITS = 10000;
     private static final int MAX_TEXT = 16 * 1024;
+
+    /**
+     * The most lines of the verifier's refusal the pusher is shown: the 100 refused commits {@code
+     * porelo commit verify --json-lines} names, the line that says how many more are refused, and
+     * the reason a push is refused as a whole.
+     */
+    static final int REFUSAL_LINES = 100 + 2;
+
     private static final Set<String> SIGNER_KEYS =
             Set.of("kind", "fingerprint", "principal", "certificate", "signed_by");
     private static final java.util.regex.Pattern TIME =
@@ -72,6 +79,33 @@ final class PushJudgement {
             Tasks tasks,
             Verifier verifier)
             throws IOException {
+        return judgeAnswer(
+                updates,
+                pusher,
+                people,
+                tasks,
+                given -> verified(verifier.judge(given), refs(given)));
+    }
+
+    @FunctionalInterface
+    interface Judgement {
+        Answer judge(List<PushRequest.Update> updates) throws IOException;
+    }
+
+    static Set<String> refs(List<PushRequest.Update> updates) {
+        return updates.stream()
+                .filter(update -> !update.deletion())
+                .map(PushRequest.Update::ref)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    static Answer judgeAnswer(
+            List<PushRequest.Update> updates,
+            String pusher,
+            People people,
+            Tasks tasks,
+            Judgement verifier)
+            throws IOException {
         if (!pusher.matches("[A-Za-z0-9._-]{0,64}"))
             throw new HostRefusal(64, "the hook names no valid pusher");
         final String login = pusher.startsWith("porelo-") ? pusher.substring(7) : pusher;
@@ -98,13 +132,7 @@ final class PushJudgement {
         }
         if (updates.stream().allMatch(PushRequest.Update::deletion))
             return new Answer(200, "porelo: the push brings no new commit\n");
-        return verified(
-                verifier.judge(updates),
-                updates.stream()
-                        // A deleted ref brings no commit, so no verdict entry may name it.
-                        .filter(update -> !update.deletion())
-                        .map(PushRequest.Update::ref)
-                        .collect(java.util.stream.Collectors.toSet()));
+        return verifier.judge(updates);
     }
 
     static Answer refusal(HostRefusal error) {
@@ -120,7 +148,7 @@ final class PushJudgement {
                             .lines()
                             .map(line -> line.startsWith("porelo: ") ? line.substring(8) : line)
                             .filter(line -> line.matches("[ -~]{1,512}"))
-                            .limit(100)
+                            .limit(REFUSAL_LINES)
                             .map(line -> "porelo: " + line + "\n")
                             .collect(java.util.stream.Collectors.joining());
             return new Answer(403, words.isEmpty() ? "porelo: the push is refused\n" : words);
@@ -132,43 +160,12 @@ final class PushJudgement {
             final String checked = string(verdict.get("checked_at"));
             if (!checkedAt(checked)) return failed();
             final var commits = array(verdict.get("commits"));
-            if (commits.size() > MAX_COMMITS) return failed();
             final Set<String> seen = new HashSet<>();
             final List<Map<String, @Nullable Object>> entries = new ArrayList<>();
             for (Object value : commits) {
-                final var item = object(value);
-                final var signer = object(item.get("signer"));
-                if (!"accepted".equals(item.get("verdict"))
-                        || !string(item.get("commit")).matches(HostRecords.COMMIT)
-                        // Git's null object name, a deletion's new side, is no commit that arrived.
-                        || string(item.get("commit")).chars().allMatch(digit -> digit == '0')
-                        || !seen.add(string(item.get("commit")))
-                        || !refs.contains(string(item.get("ref")))
-                        || !signer.keySet().equals(SIGNER_KEYS)
-                        || !Set.of("person", "task").contains(string(signer.get("kind")))
-                        || !nullableText(signer.get("principal"))
-                        || !nullableText(signer.get("certificate"))
-                        || !nullableText(signer.get("signed_by"))
-                        || signer.get("certificate") != null
-                                && !Set.of("certificate", "recorded")
-                                        .contains(signer.get("certificate"))
-                        || signer.get("signed_by") != null
-                                && !string(signer.get("signed_by"))
-                                        .matches("SHA256:[A-Za-z0-9+/]{43}")
-                        || !string(signer.get("fingerprint")).matches("SHA256:[A-Za-z0-9+/]{43}"))
-                    return failed();
-                entries.add(
-                        fields(
-                                "commit",
-                                item.get("commit"),
-                                "ref",
-                                item.get("ref"),
-                                "verdict",
-                                "accepted",
-                                "arrived",
-                                checked,
-                                "signer",
-                                signer));
+                final var entry = entry(value, refs, checked);
+                if (!seen.add(string(entry.get("commit")))) return failed();
+                entries.add(entry);
             }
             return new Answer(
                     200,
@@ -179,15 +176,47 @@ final class PushJudgement {
         }
     }
 
+    static Map<String, @Nullable Object> entry(Object value, Set<String> refs, String checked) {
+        final var item = object(value);
+        final var signer = object(item.get("signer"));
+        if (!"accepted".equals(item.get("verdict"))
+                || !string(item.get("commit")).matches(HostRecords.COMMIT)
+                // Git's null object name, a deletion's new side, is no commit that arrived.
+                || string(item.get("commit")).chars().allMatch(digit -> digit == '0')
+                || !refs.contains(string(item.get("ref")))
+                || !signer.keySet().equals(SIGNER_KEYS)
+                || !Set.of("person", "task").contains(string(signer.get("kind")))
+                || !nullableText(signer.get("principal"))
+                || !nullableText(signer.get("certificate"))
+                || !nullableText(signer.get("signed_by"))
+                || signer.get("certificate") != null
+                        && !Set.of("certificate", "recorded").contains(signer.get("certificate"))
+                || signer.get("signed_by") != null
+                        && !string(signer.get("signed_by")).matches("SHA256:[A-Za-z0-9+/]{43}")
+                || !string(signer.get("fingerprint")).matches("SHA256:[A-Za-z0-9+/]{43}"))
+            throw new IllegalArgumentException("Invalid commit provenance");
+        return fields(
+                "commit",
+                item.get("commit"),
+                "ref",
+                item.get("ref"),
+                "verdict",
+                "accepted",
+                "arrived",
+                checked,
+                "signer",
+                signer);
+    }
+
     private static boolean nullableText(@Nullable Object value) {
         return value == null || value instanceof String text && text.length() <= MAX_TEXT;
     }
 
-    private static Answer failed() {
+    static Answer failed() {
         return new Answer(500, "porelo: the host could not judge this push\n");
     }
 
-    private static boolean checkedAt(String value) {
+    static boolean checkedAt(String value) {
         final var match = TIME.matcher(value);
         if (!match.matches()) return false;
         try {

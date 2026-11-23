@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
@@ -30,9 +29,6 @@ public final class SignedArrivals {
     private static final DateTimeFormatter VERIFY_TIME =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.UTC);
 
-    /** The most commits one push is judged for; more is refused rather than walked. */
-    static final int MAX_COMMITS = 10_000;
-
     private final Path mirror;
 
     private final String principal;
@@ -49,6 +45,19 @@ public final class SignedArrivals {
     static final java.time.Duration CHECK = java.time.Duration.ofSeconds(60);
 
     private java.time.Duration check = CHECK;
+
+    private int window = ArrivalWalk.WINDOW;
+
+    /**
+     * Returns these arrivals walking a push in windows of the given size; a test's are small.
+     *
+     * @param size How many commits one window holds.
+     * @return These arrivals.
+     */
+    SignedArrivals walkingBy(final int size) {
+        this.window = size;
+        return this;
+    }
 
     /**
      * Returns these arrivals with their own time limit under the account's factors.
@@ -115,35 +124,32 @@ public final class SignedArrivals {
      */
     public @Nullable String judge(String old, String commit) throws IOException {
         final String arrived = VERIFY_TIME.format(clock.instant());
-        final List<String> walk =
-                new ArrayList<>(
-                        List.of(
-                                "--git-dir",
-                                mirror.toString(),
-                                "rev-list",
-                                "--max-count=" + (MAX_COMMITS + 1),
-                                commit,
-                                "--not",
-                                "--branches",
-                                "--tags"));
-        if (!ZERO.equals(old)) {
-            walk.add(old);
-        }
-        final List<String> commits =
-                new String(git.run(walk, new byte[0]), StandardCharsets.US_ASCII)
-                        .lines()
-                        .filter(line -> !line.isBlank())
-                        .toList();
-        if (commits.size() > MAX_COMMITS) {
-            return "the push brings more than " + MAX_COMMITS + " commits; push fewer at once";
-        }
-        for (final String each : commits) {
-            final String refused = judgeOne(each, arrived);
-            if (refused != null) {
-                return refused;
+        final ArrivalWalk walk =
+                ArrivalWalk.excluding(git, mirror, window, List.of("refs/heads/", "refs/tags/"));
+        long skip = 0;
+        while (true) {
+            final List<String> commits =
+                    new String(
+                                    walk.window(
+                                            List.of("rev-list"),
+                                            ZERO.equals(old) ? null : old,
+                                            commit,
+                                            skip),
+                                    StandardCharsets.US_ASCII)
+                            .lines()
+                            .filter(line -> !line.isBlank())
+                            .toList();
+            for (final String each : commits) {
+                final String refused = judgeOne(each, arrived);
+                if (refused != null) {
+                    return refused;
+                }
             }
+            if (commits.size() < walk.size()) {
+                return null;
+            }
+            skip += commits.size();
         }
-        return null;
     }
 
     private @Nullable String judgeOne(String commit, String arrived) throws IOException {

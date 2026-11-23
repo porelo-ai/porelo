@@ -16,4 +16,12 @@ class HostPullRequestReaderLimitsTest {
         assertThat(HostPullRequestReader.makersBound(LimitFactors.parse("machines=2")))
                 .isEqualTo(Duration.ofSeconds(20));
     }
+
+    @Test
+    void waitingForAnotherReadsFetchFollowsTheMachinesFactor() {
+        assertThat(HostPullRequestReader.fetchWait(LimitFactors.parse("services=2")))
+                .isEqualTo(Duration.ofSeconds(75));
+        assertThat(HostPullRequestReader.fetchWait(LimitFactors.parse("machines=2")))
+                .isEqualTo(Duration.ofSeconds(150));
+    }
 }

@@ -52,8 +52,23 @@ import org.jspecify.annotations.Nullable;
  */
 final class HostArrivals {
 
-    /** The most commits one push is judged for; more is refused rather than walked. */
-    static final int MAX_COMMITS = 10_000;
+    /** A walk's output fits below the command runner's retained tail for either object format. */
+    private static final int WALK_WINDOW = 4096;
+
+    /**
+     * What a judgement streamed comes to.
+     *
+     * @param checkedAt The arrival.
+     * @param commits How many commits were judged.
+     * @param accepted How many of them were accepted.
+     * @param reason Why the push was refused as a whole, or empty.
+     */
+    record Summary(Instant checkedAt, long commits, long accepted, String reason) {
+        /** Whether every commit was accepted and the push was not refused as a whole. */
+        boolean successful() {
+            return reason.isEmpty() && commits == accepted;
+        }
+    }
 
     /** The most the hook's input may hold. */
     static final int MAX_INPUT = 1024 * 1024;
@@ -314,9 +329,26 @@ final class HostArrivals {
      * @throws UncheckedIOException If a scratch file cannot be written or removed.
      */
     Answer judge(byte[] input) throws IOException {
+        final List<Verdict> verdicts = new ArrayList<>();
+        final Summary summary = judge(input, verdicts::add);
+        return new Answer(summary.checkedAt(), verdicts, summary.reason());
+    }
+
+    /**
+     * Judges the hook's input, handing each verdict over as soon as it is reached, so that no list
+     * of the push's commits is kept: git is asked for them in windows small enough for the runner
+     * to hand back whole, and a ref's commits that an earlier ref of the push brings are left out.
+     *
+     * @param input The hook's {@code <old> <new> <ref>} lines.
+     * @param verdicts Takes each new commit's verdict.
+     * @return How many commits were judged and accepted, or why the push is refused as a whole.
+     * @throws IOException If the revocation list cannot be asked.
+     * @throws UncheckedIOException If a scratch file cannot be written or removed.
+     */
+    Summary judge(byte[] input, java.util.function.Consumer<Verdict> verdicts) throws IOException {
         final Instant now = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         if (input.length > MAX_INPUT) {
-            return new Answer(now, List.of(), "the hook's input is longer than 1 MiB");
+            return new Summary(now, 0, 0, "the hook's input is longer than 1 MiB");
         }
         final String text;
         try {
@@ -328,7 +360,7 @@ final class HostArrivals {
                             .decode(ByteBuffer.wrap(input))
                             .toString();
         } catch (CharacterCodingException ex) {
-            return new Answer(now, List.of(), "the hook's input is not '<old> <new> <ref>' lines");
+            return new Summary(now, 0, 0, "the hook's input is not '<old> <new> <ref>' lines");
         }
         final List<String[]> updates = new ArrayList<>();
         int number = 0;
@@ -342,55 +374,35 @@ final class HostArrivals {
                     || !ID.matcher(fields[0]).matches()
                     || !ID.matcher(fields[1]).matches()
                     || !REF.matcher(fields[2]).matches()) {
-                return new Answer(
+                return new Summary(
                         now,
-                        List.of(),
+                        0,
+                        0,
                         "line " + number + " of the hook's input is not '<old> <new> <ref>'");
             }
             updates.add(fields);
         }
-        final Map<String, String> arrived = new LinkedHashMap<>();
-        final List<Verdict> verdicts = new ArrayList<>();
-        for (final String[] update : updates) {
-            final String commit = update[1];
-            final String ref = update[2];
-            if (commit.chars().allMatch(c -> c == '0')) {
-                // A deleted ref brings nothing.
-                continue;
-            }
-            // Checked as hex above, and after --end-of-options: never an option to git.
-            final CommandResult walked =
-                    git(
-                            "rev-list",
-                            "--max-count=" + (MAX_COMMITS + 1),
-                            "--not",
-                            "--all",
-                            "--not",
-                            "--end-of-options",
-                            commit);
-            if (!walked.successful()) {
-                verdicts.add(
-                        refused(
-                                commit,
-                                ref,
-                                null,
-                                "git cannot walk it: " + walked.standardError().strip()));
-                continue;
-            }
-            for (final String each : walked.standardOutput().lines().toList()) {
-                if (!each.isBlank()) {
-                    arrived.putIfAbsent(each.strip(), ref);
-                }
-            }
-            if (arrived.size() > MAX_COMMITS) {
-                return new Answer(
-                        now,
-                        List.of(),
-                        "the push brings more than "
-                                + MAX_COMMITS
-                                + " new commits; push fewer at once");
-            }
+        // The refs are read once, and every window walks against what they held then: a ref
+        // that landed between two windows - the task's own earlier push, accepted meanwhile -
+        // would shift the later windows over commits of this push that are then never judged.
+        final CommandResult listed = git("for-each-ref", "--format=%(objectname)");
+        if (!listed.successful()) {
+            return new Summary(
+                    now,
+                    0,
+                    0,
+                    "git cannot list the repository's refs: " + listed.standardError().strip());
         }
+        final StringBuilder known = new StringBuilder();
+        for (final String each : listed.standardOutput().lines().toList()) {
+            if (each.isEmpty()) continue;
+            // A cut answer starts with the runner's marker, which names no object.
+            if (!ID.matcher(each).matches()) {
+                return new Summary(now, 0, 0, "the repository's refs cannot be read whole");
+            }
+            known.append('^').append(each).append('\n');
+        }
+        final String excluded = known.toString();
         final Path scratch = scratchDirectory(scratchRoot);
         try {
             final List<AllowedSigner> inForce =
@@ -401,13 +413,78 @@ final class HostArrivals {
                             "certifiers-",
                             String.join("", inForce.stream().map(e -> line(e) + "\n").toList()));
             final Round round = new Round(now, scratch, inForce, file);
-            for (final Map.Entry<String, String> each : arrived.entrySet()) {
-                verdicts.add(judgeOne(each.getKey(), each.getValue(), round));
+            final List<String> previous = new ArrayList<>();
+            long count = 0;
+            long accepted = 0;
+            for (final String[] update : updates) {
+                final String commit = update[1];
+                final String ref = update[2];
+                if (commit.chars().allMatch(c -> c == '0')) continue;
+                long skip = 0;
+                while (true) {
+                    // On standard input, which holds any number of refs where the command line
+                    // would not. Excluding earlier tips makes git deduplicate overlapping ref
+                    // updates; no set of every arrived commit is retained by this process. Each
+                    // id was checked as hex, so none is an option to git.
+                    final StringBuilder revisions = new StringBuilder(excluded);
+                    for (final String each : previous)
+                        revisions.append('^').append(each).append('\n');
+                    revisions.append(commit).append('\n');
+                    final CommandResult walked =
+                            gitWithInput(
+                                    revisions.toString(),
+                                    "rev-list",
+                                    "--max-count=" + WALK_WINDOW,
+                                    "--skip=" + skip,
+                                    "--stdin");
+                    if (!walked.successful()) {
+                        verdicts.accept(
+                                refused(
+                                        commit,
+                                        ref,
+                                        null,
+                                        "git cannot walk it: " + walked.standardError().strip()));
+                        count++;
+                        break;
+                    }
+                    final List<String> window =
+                            walked.standardOutput()
+                                    .lines()
+                                    .filter(line -> !line.isBlank())
+                                    .toList();
+                    for (String each : window) {
+                        // Each commit's scratch files go with it, so a push of any size leaves
+                        // no more of them than one commit writes.
+                        final Path own = scratchDirectory(scratch);
+                        final Verdict verdict;
+                        try {
+                            verdict =
+                                    judgeOne(
+                                            each.strip(),
+                                            ref,
+                                            new Round(
+                                                    round.now(),
+                                                    own,
+                                                    round.certifiers(),
+                                                    round.certifiersFile()));
+                        } finally {
+                            remove(own);
+                        }
+                        verdicts.accept(verdict);
+                        count++;
+                        if (verdict.accepted()) accepted++;
+                    }
+                    if (window.size() < WALK_WINDOW) {
+                        previous.add(commit);
+                        break;
+                    }
+                    skip = Math.addExact(skip, window.size());
+                }
             }
+            return new Summary(now, count, accepted, "");
         } finally {
             remove(scratch);
         }
-        return new Answer(now, verdicts, "");
     }
 
     private Verdict judgeOne(String commit, String ref, Round round) throws IOException {
@@ -821,6 +898,11 @@ final class HostArrivals {
      * configuration, no replacements, no prompt.
      */
     private CommandResult git(String... arguments) {
+        return gitWithInput(null, arguments);
+    }
+
+    /** Runs git as {@link #git(String...)} does, writing the given text to its standard input. */
+    private CommandResult gitWithInput(@Nullable String input, String... arguments) {
         final List<String> all =
                 new ArrayList<>(
                         List.of(
@@ -843,7 +925,8 @@ final class HostArrivals {
                 chosen.put(each, value);
             }
         }
-        return runner.run(Command.of(all).withChosenEnvironment(chosen));
+        final Command command = Command.of(all).withChosenEnvironment(chosen);
+        return runner.run(input == null ? command : command.withInput(input));
     }
 
     private static Map<String, String> base(UnaryOperator<String> environment) {
@@ -891,8 +974,8 @@ final class HostArrivals {
     }
 
     private static void remove(Path scratch) {
-        try (var files = Files.list(scratch)) {
-            for (final Path file : files.toList()) {
+        try (var files = Files.newDirectoryStream(scratch)) {
+            for (final Path file : files) {
                 Files.deleteIfExists(file);
             }
             Files.deleteIfExists(scratch);

@@ -408,15 +408,59 @@ class HostPullRequestReaderTest {
         }
     }
 
-    @Test
-    void aFetchedHeadIsKeptInOnePackAndNeverFetchedAgain() throws Exception {
-        // Loose objects escape the per-file size bound, and a fetch every round of a watch grows
-        // the store and asks the forge without end.
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 33})
+    void aFetchedHeadIsKeptInOnePackAndNeverFetchedAgain(int mebibytes) throws Exception {
+        // A fetch every round of a watch would grow the store and ask the forge without end.
         carriedFor(System.getProperty("user.name"));
         takeForReview();
         final Path mirror = GateSupport.mirror(context, project);
         final Path forge = mirror.resolveSibling("forge.git");
         Files.move(mirror, forge);
+        if (mebibytes > 0) {
+            final byte[] content = new byte[mebibytes * 1024 * 1024];
+            new java.util.Random(17).nextBytes(content);
+            final var env =
+                    Map.of(
+                            "GIT_CONFIG_GLOBAL",
+                            "/dev/null",
+                            "GIT_CONFIG_NOSYSTEM",
+                            "1",
+                            "GIT_AUTHOR_NAME",
+                            "Writer",
+                            "GIT_AUTHOR_EMAIL",
+                            "writer@example.org",
+                            "GIT_COMMITTER_NAME",
+                            "Signer",
+                            "GIT_COMMITTER_EMAIL",
+                            "signer@example.org");
+            final String blob =
+                    context.runner()
+                            .runOrFail(
+                                    Command.of(
+                                                    "git",
+                                                    "--git-dir=" + forge,
+                                                    "hash-object",
+                                                    "-w",
+                                                    "--stdin")
+                                            .withBinaryInput(content)
+                                            .withChosenEnvironment(env))
+                            .trimmedOutput();
+            final String tree =
+                    context.runner()
+                            .runOrFail(
+                                    Command.of("git", "--git-dir=" + forge, "mktree")
+                                            .withInput("100644 blob " + blob + "\tlarge.bin\n")
+                                            .withChosenEnvironment(env))
+                            .trimmedOutput();
+            head =
+                    context.runner()
+                            .runOrFail(
+                                    Command.of("git", "--git-dir=" + forge, "commit-tree", tree)
+                                            .withInput("A large review head\n")
+                                            .withChosenEnvironment(env))
+                            .trimmedOutput();
+        }
         git(forge, "update-ref", "refs/pull/7/head", head);
         try (var server = new ReviewForge(forge)) {
             final var reader =
@@ -437,11 +481,14 @@ class HostPullRequestReaderTest {
                                         .map(each -> store.resolve("objects").relativize(each))
                                         .filter(each -> !each.startsWith("pack"))
                                         .toList())
-                        .as("no loose object, so the pack's bound holds the whole fetch")
+                        .as("the shallow head stays packed")
                         .isEmpty();
             }
             try (var packs = Files.list(store.resolve("objects/pack"))) {
-                assertThat(packs.filter(each -> each.toString().endsWith(".pack"))).hasSize(1);
+                final var files = packs.filter(each -> each.toString().endsWith(".pack")).toList();
+                assertThat(files).hasSize(1);
+                if (mebibytes > 0)
+                    assertThat(Files.size(files.getFirst())).isGreaterThan(32L * 1024 * 1024);
             }
         }
     }

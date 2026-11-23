@@ -52,83 +52,80 @@ class HostPushIntegrationTest {
                                     attributes.put("mode", 040755);
                                 return attributes;
                             });
+            final ProjectRuntime.Commands commands =
+                    (argv, input, environment, timeout) -> {
+                        if (argv.equals(List.of("/usr/bin/getent", "passwd", "alice")))
+                            return new HostPrograms.Result(
+                                    0, "alice:x:1001:1001::/home/alice:/bin/sh\n");
+                        if (argv.getFirst().equals("/usr/bin/setfacl")) {
+                            assertThat(argv.subList(0, 3))
+                                    .as("only the applied member gets a read ACL")
+                                    .containsExactly(
+                                            "/usr/bin/setfacl", "--modify", "user:1001:r--");
+                            Files.setAttribute(Path.of(argv.getLast()), "unix:mode", 0640);
+                            return new HostPrograms.Result(0, "");
+                        }
+                        if (argv.equals(List.of("/usr/bin/getent", "passwd", "forge")))
+                            return new HostPrograms.Result(
+                                    0, "forge:x:" + uid + ":" + uid + "::/home/forge:/bin/sh\n");
+                        if (!argv.getFirst().equals("/usr/bin/systemd-run"))
+                            throw new AssertionError("Only the confined verifier can be launched");
+                        final Map<String, String> credentials = new HashMap<>();
+                        final Map<String, String> env = new HashMap<>(HostPrograms.ENVIRONMENT);
+                        env.put("HOME", root.resolve("scratch").toString());
+                        env.put("TMPDIR", root.resolve("scratch").toString());
+                        for (String item : argv) {
+                            if (item.startsWith("LoadCredential=")) {
+                                final String[] parts = item.substring(15).split(":", 2);
+                                credentials.put(parts[0], parts[1]);
+                            }
+                            if (item.startsWith("Environment=GIT_")) {
+                                final String[] parts = item.substring(12).split("=", 2);
+                                env.put(parts[0], parts[1]);
+                            }
+                        }
+                        final int porelo = argv.indexOf("/usr/bin/porelo");
+                        final var command =
+                                new ArrayList<>(
+                                        List.of(
+                                                Path.of(
+                                                                System.getProperty("java.home"),
+                                                                "bin",
+                                                                "java")
+                                                        .toString(),
+                                                "-XX:-UsePerfData",
+                                                "-Djava.io.tmpdir=" + root.resolve("scratch"),
+                                                "-Duser.home=" + root.resolve("no-home"),
+                                                "--enable-native-access=ALL-UNNAMED",
+                                                "-cp",
+                                                System.getProperty("java.class.path"),
+                                                PoreloCli.class.getName()));
+                        for (String argument : argv.subList(porelo + 1, argv.size()))
+                            command.add(
+                                    argument.startsWith("/run/credentials/")
+                                            ? credentials.get(
+                                                    Path.of(argument).getFileName().toString())
+                                            : argument);
+                        return new HostPrograms(timeout, 1024 * 1024, Path::of)
+                                .run(command, input, env);
+                    };
             final var runtime =
                     new ProjectRuntime(
                             files,
-                            (argv, input, environment, timeout) -> {
-                                if (argv.equals(List.of("/usr/bin/getent", "passwd", "alice")))
-                                    return new HostPrograms.Result(
-                                            0, "alice:x:1001:1001::/home/alice:/bin/sh\n");
-                                if (argv.getFirst().equals("/usr/bin/setfacl")) {
-                                    assertThat(argv.subList(0, 3))
-                                            .as("only the applied member gets a read ACL")
-                                            .containsExactly(
-                                                    "/usr/bin/setfacl",
-                                                    "--modify",
-                                                    "user:1001:r--");
-                                    Files.setAttribute(Path.of(argv.getLast()), "unix:mode", 0640);
-                                    return new HostPrograms.Result(0, "");
-                                }
-                                if (argv.equals(List.of("/usr/bin/getent", "passwd", "forge")))
-                                    return new HostPrograms.Result(
-                                            0,
-                                            "forge:x:"
-                                                    + uid
-                                                    + ":"
-                                                    + uid
-                                                    + "::/home/forge:/bin/sh\n");
-                                if (!argv.getFirst().equals("/usr/bin/systemd-run"))
-                                    throw new AssertionError(
-                                            "Only the confined verifier can be launched");
-                                final Map<String, String> credentials = new HashMap<>();
-                                final Map<String, String> env =
-                                        new HashMap<>(HostPrograms.ENVIRONMENT);
-                                env.put("HOME", root.resolve("scratch").toString());
-                                env.put("TMPDIR", root.resolve("scratch").toString());
-                                for (String item : argv) {
-                                    if (item.startsWith("LoadCredential=")) {
-                                        final String[] parts = item.substring(15).split(":", 2);
-                                        credentials.put(parts[0], parts[1]);
-                                    }
-                                    if (item.startsWith("Environment=GIT_")) {
-                                        final String[] parts = item.substring(12).split("=", 2);
-                                        env.put(parts[0], parts[1]);
-                                    }
-                                }
-                                final int porelo = argv.indexOf("/usr/bin/porelo");
-                                final var command =
-                                        new ArrayList<>(
-                                                List.of(
-                                                        Path.of(
-                                                                        System.getProperty(
-                                                                                "java.home"),
-                                                                        "bin",
-                                                                        "java")
-                                                                .toString(),
-                                                        "-XX:-UsePerfData",
-                                                        "-Djava.io.tmpdir="
-                                                                + root.resolve("scratch"),
-                                                        "-Duser.home=" + root.resolve("no-home"),
-                                                        "--enable-native-access=ALL-UNNAMED",
-                                                        "-cp",
-                                                        System.getProperty("java.class.path"),
-                                                        PoreloCli.class.getName()));
-                                for (String argument : argv.subList(porelo + 1, argv.size()))
-                                    command.add(
-                                            argument.startsWith("/run/credentials/")
-                                                    ? credentials.get(
-                                                            Path.of(argument)
-                                                                    .getFileName()
-                                                                    .toString())
-                                                    : argument);
-                                return new HostPrograms(timeout, 1024 * 1024, Path::of)
-                                        .run(command, input, env);
-                            },
+                            commands,
                             name ->
                                     Path.of(name).isAbsolute()
                                             ? Path.of(name)
                                             : Path.of("/usr/bin", name),
-                            org.fuin.porelo.organization.gittree.HttpForgeAdmin::new);
+                            org.fuin.porelo.organization.gittree.HttpForgeAdmin::new,
+                            (argv, input, output, environment, timeout) -> {
+                                final var result =
+                                        commands.run(
+                                                argv, input.readAllBytes(), environment, timeout);
+                                output.write(result.output().getBytes(StandardCharsets.UTF_8));
+                                return new HostPrograms.Result(
+                                        result.exitCode(), "", result.error());
+                            });
             final int code =
                     PoreloHost.run(
                             new String[] {"judge-push"},
