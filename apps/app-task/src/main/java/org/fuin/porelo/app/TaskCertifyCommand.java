@@ -116,7 +116,7 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                 return 69;
             }
             try (RemoteStart.Connection connection = RemoteStart.connection(context, host, pin)) {
-                return new RemoteStart(connection.command(), agent, pin)
+                return new RemoteStart(connection.command(), agent, pin, context.limits())
                         .run(
                                 List.of(
                                         "task",
@@ -202,7 +202,10 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                             certifiers);
         } else {
             final @Nullable Path agent = RemoteStart.agent(context);
-            final String key = agent == null ? null : TaskCertifying.agentHolds(agent, certifiers);
+            final String key =
+                    agent == null
+                            ? null
+                            : TaskCertifying.agentHolds(agent, certifiers, context.limits());
             if (key == null) {
                 err.println(
                         "porelo: your agent holds no key that may certify "
@@ -211,7 +214,9 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                 err.flush();
                 return 65;
             }
-            certifier = new AgentCertifier(key, java.util.Objects.requireNonNull(agent));
+            certifier =
+                    new AgentCertifier(
+                            key, java.util.Objects.requireNonNull(agent), context.limits());
         }
         final String login = System.getProperty("user.name", "");
         try {
@@ -225,7 +230,8 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                                     "porelo task " + name),
                             certifier,
                             certifiers,
-                            Clock.systemUTC());
+                            Clock.systemUTC(),
+                            context.limits());
             final String unkept =
                     secrets.keepSigning(
                             owner,

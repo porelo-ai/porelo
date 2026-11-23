@@ -23,7 +23,10 @@ class BuildWaitTest {
         final int[] looks = {0};
 
         TaskWatchBuildsCommand.waitFor(
-                BuildWatch.REFUSED, () -> ++looks[0] >= 3 ? "changed" : "as before", slept::add);
+                BuildWatch.REFUSED,
+                TaskWatchBuildsCommand.STEP,
+                () -> ++looks[0] >= 3 ? "changed" : "as before",
+                slept::add);
 
         assertThat(slept)
                 .as("two steps, then the vault had changed")
@@ -35,7 +38,8 @@ class BuildWaitTest {
     void aWaitWithNothingChangedTakesItsWholeTime() throws InterruptedException {
         final List<Duration> slept = new ArrayList<>();
 
-        TaskWatchBuildsCommand.waitFor(Duration.ofSeconds(12), () -> "as before", slept::add);
+        TaskWatchBuildsCommand.waitFor(
+                Duration.ofSeconds(12), TaskWatchBuildsCommand.STEP, () -> "as before", slept::add);
 
         assertThat(slept.stream().mapToLong(Duration::toMillis).sum()).isEqualTo(12_000);
     }

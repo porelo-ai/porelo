@@ -996,7 +996,11 @@ public final class FirstStart {
         // A lookup made through one proxy is never handed to a caller asking through another.
         final Asked asked = new Asked(plugin.name(), here, home, detected, Map.copyOf(proxies));
         final Kept before = kept.get(asked);
-        if (before != null && System.nanoTime() - before.at() < KEPT_NANOS) {
+        if (before != null
+                && System.nanoTime() - before.at()
+                        < context.limits()
+                                .polling(java.time.Duration.ofNanos(KEPT_NANOS))
+                                .toNanos()) {
             return before.looked();
         }
         final EcosystemLookup.Looked looked =

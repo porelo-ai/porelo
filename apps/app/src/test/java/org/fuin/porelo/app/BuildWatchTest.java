@@ -789,6 +789,29 @@ class BuildWatchTest {
     }
 
     @Test
+    void howOftenTheForgeIsAskedFollowsThePollingFactor() {
+        assertThat(watch().round()).as("at 1.0").isEqualTo(BuildWatch.POLL);
+        assertThat(watch().withLimits(factors("polling: 2")).round())
+                .as("at polling 2")
+                .isEqualTo(BuildWatch.POLL.multipliedBy(2));
+    }
+
+    @Test
+    void theWaitAfterARefusalAPersonMustFixFollowsTheServicesFactor() {
+        refusal = new BuildRefused(BuildRefused.Reason.CREDENTIAL_REFUSED, "401");
+
+        assertThat(watch().round()).as("at 1.0").isEqualTo(BuildWatch.REFUSED);
+        assertThat(watch().withLimits(factors("services: 2")).round())
+                .as("at services 2")
+                .isEqualTo(BuildWatch.REFUSED.multipliedBy(2));
+    }
+
+    private static org.fuin.porelo.wire.LimitFactors factors(final String line) {
+        return AccountConfig.read(new java.io.StringReader("limits:\n  " + line + "\n"), "t")
+                .limits();
+    }
+
+    @Test
     void aRefusalBeforeTheFirstPushIsSaidWhereAPersonLooksAndClearedOnceTheForgeAnswers() {
 
         // Nothing was pushed yet, so no commit was followed, and every refusal went to the commits

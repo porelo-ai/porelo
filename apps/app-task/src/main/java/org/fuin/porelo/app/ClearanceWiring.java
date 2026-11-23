@@ -168,14 +168,21 @@ final class ClearanceWiring {
             // watcher's start began to go through the user manager and took a round trip longer.
             // Its pid as the gate's and the relay's, from its start: it records it once it
             // listens, and one that never does is found by nothing that cleans up by the pid files.
+            final org.fuin.porelo.wire.LimitFactors limits = context.limits();
             final long recorded =
-                    org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
-            if (!listening(state.resolve("clearance.sock"), WATCHER_PATIENCE, watcher::isAlive)
+                    org.fuin.porelo.wire.HelperPid.deadline(
+                            limits.machines(GateWiring.HELPER_PATIENCE));
+            if (!listening(
+                            state.resolve("clearance.sock"),
+                            limits.machines(WATCHER_PATIENCE),
+                            limits.polling(LOOK),
+                            watcher::isAlive)
                     || org.fuin.porelo.wire.HelperPid.await(state.resolve("watcher.pid"), recorded)
                             .isEmpty()) {
                 // Ended here, by its own handle, and the start fails: a watcher that never
                 // listened left the task with nobody to ask about a blocked connection, and ran on.
-                org.fuin.porelo.wire.HelperPid.end(watcher.toHandle(), GateWiring.HELPER_GRACE);
+                org.fuin.porelo.wire.HelperPid.end(
+                        watcher.toHandle(), limits.machines(GateWiring.HELPER_GRACE));
                 err.println(
                         "porelo: the clearance watcher did not come up; see "
                                 + state.resolve("clearance.log"));
@@ -197,18 +204,23 @@ final class ClearanceWiring {
     /** How long a start waits for its watcher to listen. */
     static final java.time.Duration WATCHER_PATIENCE = java.time.Duration.ofSeconds(10);
 
+    /** How often that wait looks for the socket. */
+    static final java.time.Duration LOOK = java.time.Duration.ofMillis(50);
+
     /**
      * Waits until a socket is there, the process that would make it has exited, or the patience
      * runs out.
      *
      * @param socket The socket.
      * @param patience How long to wait.
+     * @param look How often to look.
      * @param alive Whether the process that makes it still runs.
      * @return {@code true} once it exists.
      */
     static boolean listening(
             java.nio.file.Path socket,
             java.time.Duration patience,
+            java.time.Duration look,
             java.util.function.BooleanSupplier alive) {
         final long until = System.nanoTime() + patience.toNanos();
         while (!java.nio.file.Files.exists(socket)) {
@@ -216,7 +228,7 @@ final class ClearanceWiring {
                 return false;
             }
             try {
-                Thread.sleep(50);
+                Thread.sleep(look);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return false;

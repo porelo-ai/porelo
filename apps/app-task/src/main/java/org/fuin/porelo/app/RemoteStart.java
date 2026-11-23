@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -184,6 +183,8 @@ final class RemoteStart {
 
     private final OrganizationHostPin.@Nullable Pin pin;
 
+    private final org.fuin.porelo.wire.LimitFactors limits;
+
     /**
      * Constructor.
      *
@@ -191,7 +192,7 @@ final class RemoteStart {
      * @param agent The person's agent.
      */
     RemoteStart(List<String> connection, Path agent) {
-        this(connection, agent, null);
+        this(connection, agent, null, org.fuin.porelo.wire.LimitFactors.DEFAULT);
     }
 
     /**
@@ -201,11 +202,17 @@ final class RemoteStart {
      * @param agent The person's agent.
      * @param pin The organization's pin of the host, or {@code null}: a verification failure on a
      *     pinned connection is the host showing another key.
+     * @param limits The account's time factors.
      */
-    RemoteStart(List<String> connection, Path agent, OrganizationHostPin.@Nullable Pin pin) {
+    RemoteStart(
+            List<String> connection,
+            Path agent,
+            OrganizationHostPin.@Nullable Pin pin,
+            org.fuin.porelo.wire.LimitFactors limits) {
         this.connection = List.copyOf(connection);
         this.agent = agent;
         this.pin = pin;
+        this.limits = limits;
     }
 
     /**
@@ -387,7 +394,9 @@ final class RemoteStart {
             throw new TaskCertification.Refused("the host asked for an end already past");
         }
         if (before.isAfter(
-                Instant.now().plus(TaskCertification.VALIDITY).plus(Duration.ofMinutes(5)))) {
+                Instant.now()
+                        .plus(TaskCertification.VALIDITY)
+                        .plus(limits.machines(TaskCertification.SLACK)))) {
             throw new TaskCertification.Refused(
                     "the host asked for a certificate longer than "
                             + TaskCertification.VALIDITY.toDays()
@@ -414,12 +423,13 @@ final class RemoteStart {
                     "the host named no key of the project's members to certify with");
         }
         final String held =
-                TaskCertifying.agentHolds(agent, certifiers.isEmpty() ? null : certifiers);
+                TaskCertifying.agentHolds(agent, certifiers.isEmpty() ? null : certifiers, limits);
         if (held == null) {
             throw new TaskCertification.Refused(
                     "your agent holds no key the project's members may certify with (ssh-add it)");
         }
-        return new AgentCertifier(held, agent).certify(key, principal, printable(keyId), before);
+        return new AgentCertifier(held, agent, limits)
+                .certify(key, principal, printable(keyId), before);
     }
 
     /**

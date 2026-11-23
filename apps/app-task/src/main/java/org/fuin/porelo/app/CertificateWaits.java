@@ -60,21 +60,33 @@ public final class CertificateWaits {
 
     private final Duration limit;
 
+    private final Duration poll;
+
     private final Clock clock;
 
-    /** Creates the waits of a daemon. */
-    public CertificateWaits() {
-        this(LIMIT, Clock.systemUTC());
+    /**
+     * Creates the waits of a daemon.
+     *
+     * @param limits The account's time factors: {@link #LIMIT} follows {@code services}, how often
+     *     a wait looks {@code polling}.
+     */
+    public CertificateWaits(final org.fuin.porelo.wire.LimitFactors limits) {
+        this(
+                limits.services(LIMIT),
+                limits.polling(Duration.ofMillis(POLL_MILLIS)),
+                Clock.systemUTC());
     }
 
     /**
      * Constructor.
      *
      * @param limit How long a start waits.
+     * @param poll How often a wait looks whether whoever asked is still there.
      * @param clock The time.
      */
-    CertificateWaits(final Duration limit, final Clock clock) {
+    CertificateWaits(final Duration limit, final Duration poll, final Clock clock) {
         this.limit = limit;
+        this.poll = poll;
         this.clock = clock;
     }
 
@@ -196,7 +208,7 @@ public final class CertificateWaits {
         try {
             while (true) {
                 try {
-                    return wait.get(POLL_MILLIS, TimeUnit.MILLISECONDS);
+                    return wait.get(poll.toMillis(), TimeUnit.MILLISECONDS);
                 } catch (TimeoutException ex) {
                     if (!asker.open()) {
                         throw new TaskCertification.Refused(

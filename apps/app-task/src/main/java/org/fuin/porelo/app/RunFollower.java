@@ -54,6 +54,7 @@ public final class RunFollower implements AutoCloseable {
     private final Function<List<String>, List<@Nullable String>> formatting;
     private final Consumer<String> send;
     private final Duration poll;
+    private final Duration lastWait;
     private final BlockingQueue<String> waiting = new ArrayBlockingQueue<>(MOST_WAITING);
     private final AtomicLong dropped = new AtomicLong();
     // Lines queued and not yet sent or dropped: the one the sender holds counts until it is sent.
@@ -72,11 +73,13 @@ public final class RunFollower implements AutoCloseable {
             final Path log,
             final Function<List<String>, List<@Nullable String>> formatting,
             final Consumer<String> send,
-            final Duration poll) {
+            final Duration poll,
+            final Duration lastWait) {
         this.log = log;
         this.formatting = formatting;
         this.send = send;
         this.poll = poll;
+        this.lastWait = lastWait;
         this.sender = Thread.ofVirtual().name("run-lines-send").unstarted(this::sending);
         this.reader = Thread.ofVirtual().name("run-lines-read").unstarted(this::following);
     }
@@ -88,14 +91,17 @@ public final class RunFollower implements AutoCloseable {
      * @param formatting How the agent shows its lines, {@code null} for a line it hides.
      * @param send Where each line goes; may block.
      * @param poll How often the log is looked at.
+     * @param lastWait How long the end waits for the waiting lines, {@link #LAST_WAIT} under the
+     *     account's {@code machines} factor.
      * @return The follower, to close when the run ended.
      */
     public static RunFollower start(
             final Path log,
             final Function<List<String>, List<@Nullable String>> formatting,
             final Consumer<String> send,
-            final Duration poll) {
-        final RunFollower follower = new RunFollower(log, formatting, send, poll);
+            final Duration poll,
+            final Duration lastWait) {
+        final RunFollower follower = new RunFollower(log, formatting, send, poll, lastWait);
         follower.sender.start();
         follower.reader.start();
         return follower;
@@ -287,8 +293,8 @@ public final class RunFollower implements AutoCloseable {
     }
 
     /**
-     * Reads what the run wrote last, sends what waits within {@link #LAST_WAIT}, drops the rest,
-     * and returns once neither thread runs any more.
+     * Reads what the run wrote last, sends what waits within its last wait, drops the rest, and
+     * returns once neither thread runs any more.
      *
      * <p>The sender may still be in one write to a caller that does not read; that write is waited
      * for, since the start's own final reply would wait for the same caller, and the two must not
@@ -299,7 +305,7 @@ public final class RunFollower implements AutoCloseable {
         ending = true;
         try {
             reader.join();
-            final long until = System.nanoTime() + LAST_WAIT.toNanos();
+            final long until = System.nanoTime() + lastWait.toNanos();
             // Not only the queue: a line the sender has taken is waited for until it is sent.
             while (unsent.get() > 0 && sender.isAlive() && System.nanoTime() < until) {
                 TimeUnit.MILLISECONDS.sleep(10);

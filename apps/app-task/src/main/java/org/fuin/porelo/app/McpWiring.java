@@ -66,6 +66,12 @@ final class McpWiring {
     /** How long a start waits for {@code ready}. */
     static final Duration READY = Duration.ofSeconds(20);
 
+    /** How often a start looks whether it is ready. */
+    static final Duration LOOK = Duration.ofMillis(50);
+
+    /** How long a stop waits for it to end. */
+    static final Duration STOP_PATIENCE = Duration.ofSeconds(10);
+
     private static final SecureRandom RANDOM = new SecureRandom();
 
     /** Why a task's start with an endpoint was refused, as a value an interface renders. */
@@ -384,7 +390,7 @@ final class McpWiring {
         } catch (IOException ex) {
             // One that ended before it read its token says why by its exit, read below.
         }
-        awaitReady(process, state, endpoint.socket());
+        awaitReady(process, state, endpoint.socket(), context.limits());
         try {
             HelperPid.record(state.resolve(HELPER + ".pid"), process.toHandle());
         } catch (IOException ex) {
@@ -416,8 +422,10 @@ final class McpWiring {
         return command;
     }
 
-    private static void awaitReady(Process process, Path state, Path socket) {
-        final long deadline = System.nanoTime() + READY.toNanos();
+    private static void awaitReady(
+            Process process, Path state, Path socket, org.fuin.porelo.wire.LimitFactors limits) {
+        final long deadline = System.nanoTime() + limits.services(READY).toNanos();
+        final Duration look = limits.polling(LOOK);
         while (System.nanoTime() < deadline) {
             if (ready(state)) {
                 return;
@@ -431,7 +439,7 @@ final class McpWiring {
                 throw refusedFor(code, state);
             }
             try {
-                Thread.sleep(50);
+                Thread.sleep(look);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 break;
@@ -538,7 +546,7 @@ final class McpWiring {
      */
     static void stop(PoreloContext context, String container) {
         final Path state = context.paths().tasks().containerState(container);
-        endProcess(state);
+        endProcess(state, context.limits());
         McpDaemonSockets.current().close(container);
         final Path socket = socket(context, container);
         try {
@@ -602,7 +610,7 @@ final class McpWiring {
     private static String ended(PoreloContext context, String container, String why) {
         final Path state = context.paths().tasks().containerState(container);
         final Path socket = socket(context, container);
-        endProcess(state);
+        endProcess(state, context.limits());
         try {
             Files.deleteIfExists(socket);
         } catch (IOException ex) {
@@ -613,14 +621,17 @@ final class McpWiring {
     }
 
     /** Stops a task's porelo-mcp, when its pid file still names it, and removes that file. */
-    private static void endProcess(Path state) {
+    private static void endProcess(Path state, org.fuin.porelo.wire.LimitFactors limits) {
         final Path pidFile = state.resolve(HELPER + ".pid");
         final Optional<ProcessHandle> process = HelperPid.verified(pidFile);
         process.ifPresent(HelperPid::stop);
         process.ifPresent(
                 handle -> {
                     try {
-                        handle.onExit().get(10, java.util.concurrent.TimeUnit.SECONDS);
+                        handle.onExit()
+                                .get(
+                                        limits.machines(STOP_PATIENCE).toMillis(),
+                                        java.util.concurrent.TimeUnit.MILLISECONDS);
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     } catch (java.util.concurrent.ExecutionException

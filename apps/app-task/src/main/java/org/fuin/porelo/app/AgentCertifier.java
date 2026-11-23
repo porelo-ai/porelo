@@ -24,14 +24,23 @@ final class AgentCertifier implements TaskCertification.Certifier {
 
     private final String program;
 
+    private final org.fuin.porelo.wire.LimitFactors limits;
+
+    /** How far back a certificate starts, for a clock a little behind on the side that checks. */
+    static final java.time.Duration BACKDATE = java.time.Duration.ofSeconds(60);
+
+    /** How long the agent may take to certify. */
+    static final java.time.Duration PATIENCE = java.time.Duration.ofSeconds(60);
+
     /**
      * Constructor.
      *
      * @param personKey The person's public key, {@code ssh-ed25519 AAAA...}, which the agent holds.
      * @param agent The agent's socket.
+     * @param limits The account's time factors.
      */
-    AgentCertifier(String personKey, Path agent) {
-        this(personKey, agent, "ssh-keygen");
+    AgentCertifier(String personKey, Path agent, org.fuin.porelo.wire.LimitFactors limits) {
+        this(personKey, agent, "ssh-keygen", limits);
     }
 
     /**
@@ -40,11 +49,17 @@ final class AgentCertifier implements TaskCertification.Certifier {
      * @param personKey The person's public key, which certifies.
      * @param agent The agent's socket, which holds its private half.
      * @param program What signs, as {@code ssh-keygen} does.
+     * @param limits The account's time factors.
      */
-    AgentCertifier(String personKey, Path agent, String program) {
+    AgentCertifier(
+            String personKey,
+            Path agent,
+            String program,
+            org.fuin.porelo.wire.LimitFactors limits) {
         this.personKey = personKey;
         this.agent = agent;
         this.program = program;
+        this.limits = limits;
     }
 
     @Override
@@ -61,10 +76,12 @@ final class AgentCertifier implements TaskCertification.Certifier {
             final Path task = dir.resolve("task.pub");
             Files.writeString(ca, personKey + "\n", StandardCharsets.US_ASCII);
             Files.writeString(task, key + "\n", StandardCharsets.US_ASCII);
-            // A minute back, for a clock that is a little behind on the side that checks.
+            // Back a while, for a clock that is a little behind on the side that checks.
             // Both in UTC by the environment: a time ending in Z is refused before OpenSSH 9.1.
             final String window =
-                    WHEN.format(Instant.now().minusSeconds(60)) + ":" + WHEN.format(validBefore);
+                    WHEN.format(Instant.now().minus(limits.machines(BACKDATE)))
+                            + ":"
+                            + WHEN.format(validBefore);
             final ProcessBuilder builder =
                     new ProcessBuilder(
                                     program,
@@ -85,7 +102,7 @@ final class AgentCertifier implements TaskCertification.Certifier {
             final Process process = builder.start();
             final String said =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            if (!process.waitFor(60, TimeUnit.SECONDS)) {
+            if (!process.waitFor(limits.machines(PATIENCE).toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
                 throw new TaskCertification.Refused(
                         "the agent did not certify the task's key in time");

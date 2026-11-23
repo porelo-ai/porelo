@@ -268,8 +268,10 @@ class TaskWorkspaceTest {
         assertThat(said)
                 .as("and said why, for the launch to report")
                 .contains(TaskWorkspace.FETCH_FAILED + " 124");
-        assertThat(TaskWorkspace.fetchProblem(said)).contains("did not answer within");
-        assertThat(TaskWorkspace.fetchProblem("nothing of the kind\n")).isNull();
+        assertThat(TaskWorkspace.fetchProblem(said, TaskWorkspace.FETCH_SECONDS))
+                .contains("did not answer within");
+        assertThat(TaskWorkspace.fetchProblem("nothing of the kind\n", TaskWorkspace.FETCH_SECONDS))
+                .isNull();
     }
 
     /**

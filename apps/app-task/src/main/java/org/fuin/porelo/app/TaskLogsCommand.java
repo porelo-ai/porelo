@@ -218,7 +218,8 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         long position = print(file, 0, out);
         while (follow) {
             try {
-                Thread.sleep(FOLLOW_INTERVAL);
+                Thread.sleep(
+                        context.limits().polling(java.time.Duration.ofMillis(FOLLOW_INTERVAL)));
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return 0;

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 
 /** Tests for a start waiting for its certificate from a person's own computer. */
@@ -49,7 +50,7 @@ class CertificateWaitsTest {
 
     @Test
     void aStartAsksWhatATerminalsStartAsksAndTakesTheAnswer() throws Exception {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
         final Asked asked = new Asked();
 
         final CompletableFuture<String> line =
@@ -68,7 +69,7 @@ class CertificateWaitsTest {
 
     @Test
     void anIdNobodyWaitsByChangesNothing() throws Exception {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
         final Asked asked = new Asked();
         final CompletableFuture<String> line =
                 CompletableFuture.supplyAsync(() -> certifying(waits, asked));
@@ -84,7 +85,7 @@ class CertificateWaitsTest {
 
     @Test
     void anAnsweredIdIsSpent() throws Exception {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
         final Asked asked = new Asked();
         final CompletableFuture<String> line =
                 CompletableFuture.supplyAsync(() -> certifying(waits, asked));
@@ -97,7 +98,7 @@ class CertificateWaitsTest {
 
     @Test
     void refusingEndsTheStartWithThosePersonsWordsOnOneBoundedLine() throws Exception {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
         final Asked asked = new Asked();
         final CompletableFuture<String> line =
                 CompletableFuture.supplyAsync(() -> certifying(waits, asked));
@@ -132,7 +133,7 @@ class CertificateWaitsTest {
 
     @Test
     void anEmptyRefusalStillEndsTheStart() throws Exception {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
         final Asked asked = new Asked();
         final CompletableFuture<String> line =
                 CompletableFuture.supplyAsync(() -> certifying(waits, asked));
@@ -147,7 +148,7 @@ class CertificateWaitsTest {
 
     @Test
     void anAnswerIsOneOfTheTwo() {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
 
         assertThatThrownBy(() -> waits.answer("any", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -157,7 +158,7 @@ class CertificateWaitsTest {
 
     @Test
     void aLineLongerThanACertificateEndsTheStart() throws Exception {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
         final Asked asked = new Asked();
         final CompletableFuture<String> line =
                 CompletableFuture.supplyAsync(() -> certifying(waits, asked));
@@ -171,7 +172,8 @@ class CertificateWaitsTest {
 
     @Test
     void aWaitEndsAtItsLimitAndLeavesNothing() {
-        final CertificateWaits waits = new CertificateWaits(Duration.ZERO, Clock.systemUTC());
+        final CertificateWaits waits =
+                new CertificateWaits(Duration.ZERO, Duration.ofMillis(200), Clock.systemUTC());
 
         assertThatThrownBy(() -> certifying(waits, new Asked()))
                 .isInstanceOf(TaskCertification.Refused.class)
@@ -181,7 +183,7 @@ class CertificateWaitsTest {
 
     @Test
     void aWaitEndsWhenItsStreamCloses() throws Exception {
-        final CertificateWaits waits = new CertificateWaits();
+        final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
         final Asked asked = new Asked();
         final CompletableFuture<String> line =
                 CompletableFuture.supplyAsync(() -> certifying(waits, asked));

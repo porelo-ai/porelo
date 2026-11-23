@@ -595,7 +595,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
         try (RemoteStart.Connection connection =
                 RemoteStart.connection(context, destination, pin)) {
-            return new RemoteStart(connection.command(), agent, pin)
+            return new RemoteStart(connection.command(), agent, pin, context.limits())
                     .run(arguments, java.util.Objects.requireNonNull(projectName), task, out, err);
         } catch (java.io.IOException ex) {
             err.println("porelo: could not reach " + host + ": " + ex.getMessage());
@@ -653,12 +653,28 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
     @Override
     public Integer call() {
-        // A refusal the person answered with another way to start - another name, or a shell -
-        // starts again with it, at most a few times, so answers that each lead to another refusal
-        // end rather than loop.
-        int code = startOnce();
-        for (int tries = 0; code == TaskLaunch.RETRY && tries < 3; tries++) {
-            code = startOnce();
+        return started(this::startOnce, context.limits());
+    }
+
+    /** How often a start begins again after the person chose another way, at factor 1.0. */
+    static final int REPEATS = 3;
+
+    /**
+     * Starts, and starts again while the person answered a refusal with another way to start -
+     * another name, or a shell - at most {@link #REPEATS} times under the account's {@code retries}
+     * factor, so answers that each lead to another refusal end rather than loop.
+     *
+     * @param start One start, answering {@link TaskLaunch#RETRY} for another.
+     * @param limits The account's time factors.
+     * @return What the last start answered; 69 when it still asked for another.
+     */
+    static int started(
+            final java.util.function.IntSupplier start,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        final int repeats = limits.tries(REPEATS);
+        int code = start.getAsInt();
+        for (int tries = 0; code == TaskLaunch.RETRY && tries < repeats; tries++) {
+            code = start.getAsInt();
         }
         return code == TaskLaunch.RETRY ? 69 : code;
     }

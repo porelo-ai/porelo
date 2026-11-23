@@ -43,7 +43,11 @@ class RunFollowerTest {
 
         try (RunFollower follower =
                 RunFollower.start(
-                        log, RunFollowerTest::formatted, sent::add, Duration.ofMillis(20))) {
+                        log,
+                        RunFollowerTest::formatted,
+                        sent::add,
+                        Duration.ofMillis(20),
+                        RunFollower.LAST_WAIT)) {
             append(log, "one\nhidden\n");
             Thread.sleep(200);
             assertThat(sent).as("sent while the run lasts").containsExactly("> one");
@@ -75,7 +79,8 @@ class RunFollowerTest {
                                 }
                             }
                         },
-                        Duration.ofMillis(10));
+                        Duration.ofMillis(10),
+                        RunFollower.LAST_WAIT);
         final StringBuilder many = new StringBuilder();
         for (int i = 0; i < RunFollower.MOST_WAITING * 3; i++) {
             many.append("line ").append(i).append('\n');
@@ -100,7 +105,11 @@ class RunFollowerTest {
 
         try (RunFollower follower =
                 RunFollower.start(
-                        log, lines -> new ArrayList<>(lines), sent::add, Duration.ofMillis(10))) {
+                        log,
+                        lines -> new ArrayList<>(lines),
+                        sent::add,
+                        Duration.ofMillis(10),
+                        RunFollower.LAST_WAIT)) {
             append(log, "y".repeat(RunFollower.MOST_LINE * 3) + "\nend\n");
         }
 
@@ -120,7 +129,11 @@ class RunFollowerTest {
 
         try (RunFollower follower =
                 RunFollower.start(
-                        log, RunFollowerTest::formatted, sent::add, Duration.ofMillis(10))) {
+                        log,
+                        RunFollowerTest::formatted,
+                        sent::add,
+                        Duration.ofMillis(10),
+                        RunFollower.LAST_WAIT)) {
             Thread.sleep(100);
         }
 
@@ -151,7 +164,8 @@ class RunFollowerTest {
                             }
                             sent.add(line);
                         },
-                        Duration.ofMillis(200));
+                        Duration.ofMillis(200),
+                        RunFollower.LAST_WAIT);
         Thread.sleep(50);
         // Written while the reader sleeps, so only the read after the end finds it.
         append(log, "last\n");
@@ -183,7 +197,8 @@ class RunFollowerTest {
                             }
                             sent.add(line);
                         },
-                        Duration.ofMillis(10));
+                        Duration.ofMillis(10),
+                        RunFollower.LAST_WAIT);
         follower.close();
         final int atClose = sent.size();
         Thread.sleep(200);
@@ -199,7 +214,12 @@ class RunFollowerTest {
         final Path log = dir.resolve("task.log");
         final List<String> sent = new CopyOnWriteArrayList<>();
         final RunFollower follower =
-                RunFollower.start(log, ArrayList::new, sent::add, Duration.ofMillis(10));
+                RunFollower.start(
+                        log,
+                        ArrayList::new,
+                        sent::add,
+                        Duration.ofMillis(10),
+                        RunFollower.LAST_WAIT);
         follower.taken = () -> pause(100);
         append(log, "last\n");
         follower.close();
@@ -219,7 +239,12 @@ class RunFollowerTest {
         // The reader looks every 50 ms; the line comes after its first look, so it reads it only
         // at the end, while the sender, finding nothing, waits longer than that.
         final RunFollower follower =
-                RunFollower.start(log, ArrayList::new, sent::add, Duration.ofMillis(50));
+                RunFollower.start(
+                        log,
+                        ArrayList::new,
+                        sent::add,
+                        Duration.ofMillis(50),
+                        RunFollower.LAST_WAIT);
         follower.idle =
                 () -> {
                     if (ending.get()) pause(300);
@@ -246,7 +271,12 @@ class RunFollowerTest {
         final List<String> sent = new CopyOnWriteArrayList<>();
 
         try (RunFollower follower =
-                RunFollower.start(log, ArrayList::new, sent::add, Duration.ofMillis(10))) {
+                RunFollower.start(
+                        log,
+                        ArrayList::new,
+                        sent::add,
+                        Duration.ofMillis(10),
+                        RunFollower.LAST_WAIT)) {
             // The three bytes of the last character straddle the bound.
             append(log, "a".repeat(RunFollower.MOST_LINE - 1) + "語b\n");
         }

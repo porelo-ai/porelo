@@ -23,7 +23,7 @@ final class TaskCertification {
     static final Duration VALIDITY = Duration.ofDays(7);
 
     /** What a clock on the certifier's side may differ by. */
-    private static final Duration SLACK = Duration.ofMinutes(5);
+    static final Duration SLACK = Duration.ofMinutes(5);
 
     /** The project of a task that has none. */
     static final String NO_PROJECT = MessageSigners.NO_PROJECT;
@@ -75,17 +75,20 @@ final class TaskCertification {
     /**
      * Checks a task certificate's validity as a start does: valid now or within {@link #SLACK} of
      * now, for a certifier's clock a little ahead, and for no longer than {@link #VALIDITY} from
-     * now, the same slack allowed.
+     * now, the same slack allowed; the slack follows the account's {@code machines} factor.
      *
      * @param certificate The certificate.
      * @param now The time of the side that checks.
+     * @param limits The account's time factors.
      * @throws Refused If it is not valid now, or valid too long.
      */
-    static void checkValidity(SshCertificate certificate, Instant now) {
-        if (!certificate.validAt(now.plus(SLACK)) && !certificate.validAt(now)) {
+    static void checkValidity(
+            SshCertificate certificate, Instant now, org.fuin.porelo.wire.LimitFactors limits) {
+        final Duration slack = limits.machines(SLACK);
+        if (!certificate.validAt(now.plus(slack)) && !certificate.validAt(now)) {
             throw new Refused("the certificate is not valid now");
         }
-        if (certificate.validBefore().isAfter(now.plus(VALIDITY).plus(SLACK))) {
+        if (certificate.validBefore().isAfter(now.plus(VALIDITY).plus(slack))) {
             throw new Refused(
                     "the certificate is valid longer than " + VALIDITY.toDays() + " days");
         }
@@ -101,6 +104,7 @@ final class TaskCertification {
      * @param certifiers The keys allowed to certify the project's tasks; empty for a task with no
      *     project, which its certifier's own key certifies.
      * @param clock The time.
+     * @param limits The account's time factors.
      * @return The key, its certificate and the gate's lines.
      * @throws Refused If what came back is not accepted.
      */
@@ -110,7 +114,8 @@ final class TaskCertification {
             String login,
             Certifier certifier,
             List<String> certifiers,
-            Clock clock) {
+            Clock clock,
+            org.fuin.porelo.wire.LimitFactors limits) {
         return certify(
                 project,
                 task,
@@ -118,7 +123,8 @@ final class TaskCertification {
                 SigningKey.generate("porelo task " + task + " by " + login),
                 certifier,
                 certifiers,
-                clock);
+                clock,
+                limits);
     }
 
     /**
@@ -131,6 +137,7 @@ final class TaskCertification {
      * @param certifier The person's side.
      * @param certifiers The keys allowed to certify the project's tasks.
      * @param clock The time.
+     * @param limits The account's time factors.
      * @return The same key, its new certificate and the gate's lines.
      * @throws Refused If what came back is not accepted.
      */
@@ -141,7 +148,8 @@ final class TaskCertification {
             SigningKey key,
             Certifier certifier,
             List<String> certifiers,
-            Clock clock) {
+            Clock clock,
+            org.fuin.porelo.wire.LimitFactors limits) {
         // None named is no leave to take whichever key signed it: only a task without a project
         // is certified by its starting person alone.
         if (certifiers.isEmpty() && !NO_PROJECT.equals(project)) {
@@ -165,7 +173,7 @@ final class TaskCertification {
         if (!certificate.principals().equals(List.of(principal))) {
             throw new Refused("the certificate must name exactly " + principal);
         }
-        checkValidity(certificate, now);
+        checkValidity(certificate, now, limits);
         if (!certifiers.isEmpty() && !certifiers.contains(certificate.signer())) {
             throw new Refused(
                     "the certificate is signed by "

@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.runtime.ContainerSummary;
@@ -671,13 +670,13 @@ public final class TaskControl {
         // processes that are already on their way out.
         final List<ProcessHandle> signalled = new ArrayList<>(started);
         signalled.addAll(helpers);
-        awaitEnd(signalled);
+        awaitEnd(signalled, context.limits());
         if (force) {
             // What ignored SIGTERM gets SIGKILL, which it cannot ignore.
             final List<ProcessHandle> stubborn =
                     signalled.stream().filter(TaskLifecycle::living).toList();
             stubborn.forEach(ProcessHandle::destroyForcibly);
-            awaitEnd(stubborn);
+            awaitEnd(stubborn, context.limits());
         }
         final List<String> surviving = new ArrayList<>();
         signalled.stream()
@@ -886,6 +885,15 @@ public final class TaskControl {
     /** How long a removal waits for its container to go before it names it a survivor. */
     static final java.time.Duration REMOVAL_WAIT = java.time.Duration.ofSeconds(3);
 
+    /** How long a stop waits for the processes it signalled to end. */
+    static final java.time.Duration END_WAIT = java.time.Duration.ofSeconds(2);
+
+    /** How often a removal or a stop looks whether what it waits for is gone. */
+    static final java.time.Duration LOOK = java.time.Duration.ofMillis(100);
+
+    /** How often a stop looks whether the processes it signalled ended. */
+    static final java.time.Duration END_LOOK = java.time.Duration.ofMillis(50);
+
     /**
      * What became of a container a removal asked the runtime to remove.
      *
@@ -902,7 +910,8 @@ public final class TaskControl {
      * refused is asked once more when the container stands stopped, its cleanup over.
      */
     private Removal awaitRemoval(String id, @Nullable String refused) {
-        final long deadline = System.nanoTime() + REMOVAL_WAIT.toNanos();
+        final long deadline = System.nanoTime() + context.limits().machines(REMOVAL_WAIT).toNanos();
+        final java.time.Duration look = context.limits().polling(LOOK);
         @Nullable String reason = refused;
         boolean retried = false;
         while (true) {
@@ -919,7 +928,7 @@ public final class TaskControl {
                 return new Removal(state, reason);
             }
             try {
-                Thread.sleep(100);
+                Thread.sleep(look);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return new Removal(state, reason);
@@ -927,12 +936,17 @@ public final class TaskControl {
         }
     }
 
-    /** Waits up to 2 s until none of the processes is living. A zombie counts as ended. */
-    private static void awaitEnd(List<ProcessHandle> processes) {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+    /**
+     * Waits up to {@link #END_WAIT}, under the account's factors, until none of the processes is
+     * living. A zombie counts as ended.
+     */
+    private static void awaitEnd(
+            List<ProcessHandle> processes, org.fuin.porelo.wire.LimitFactors limits) {
+        final long deadline = System.nanoTime() + limits.machines(END_WAIT).toNanos();
+        final java.time.Duration look = limits.polling(END_LOOK);
         while (processes.stream().anyMatch(TaskLifecycle::living) && System.nanoTime() < deadline) {
             try {
-                Thread.sleep(50);
+                Thread.sleep(look);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return;
@@ -1460,7 +1474,9 @@ public final class TaskControl {
             final List<ProcessHandle> own,
             final boolean containerStarted,
             final List<String> problems) {
-        boolean clean = TaskLifecycle.endHelpers(state, own, GateWiring.HELPER_GRACE);
+        boolean clean =
+                TaskLifecycle.endHelpers(
+                        state, own, context.limits().machines(GateWiring.HELPER_GRACE));
         if (!clean) {
             problems.add("a helper of " + container + " could not be ended and may still run");
         }
@@ -1682,7 +1698,9 @@ public final class TaskControl {
         // Counted once each recorded its pid: a helper that was started and never came up left the
         // resume answering success for a task with no gate, and nothing that cleans up found it.
         // Before the container too, whose mount takes whatever is at the socket's path then.
-        final long deadline = org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
+        final long deadline =
+                org.fuin.porelo.wire.HelperPid.deadline(
+                        context.limits().machines(GateWiring.HELPER_PATIENCE));
         for (final java.util.Map.Entry<String, Process> each : coming) {
             final String name = each.getKey();
             if (org.fuin.porelo.wire.HelperPid.await(state.resolve(name + ".pid"), deadline)
@@ -1693,7 +1711,8 @@ public final class TaskControl {
                 // Signalled is not yet gone: the resume answers once it no longer runs, killed
                 // when it did not go when asked.
                 org.fuin.porelo.wire.HelperPid.end(
-                        each.getValue().toHandle(), GateWiring.HELPER_GRACE);
+                        each.getValue().toHandle(),
+                        context.limits().machines(GateWiring.HELPER_GRACE));
                 problems.add(
                         "the " + name + " did not come up; see " + state.resolve(name + ".log"));
             }

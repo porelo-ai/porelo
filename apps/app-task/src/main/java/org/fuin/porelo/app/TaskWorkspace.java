@@ -264,14 +264,28 @@ public class TaskWorkspace {
      * must not be reset to what the mirror holds. An empty mirror leaves {@code HEAD} unborn and
      * the workspace empty, which is right - that is a project with no history yet.
      *
+     * @param limits The account's time factors, which the fetch's time follows.
      * @return Command and arguments.
      */
-    public java.util.List<String> cloneCommand() {
-        return java.util.List.of("sh", "-c", cloneScript());
+    public java.util.List<String> cloneCommand(final org.fuin.porelo.wire.LimitFactors limits) {
+        return java.util.List.of("sh", "-c", cloneScript(fetchSeconds(limits)));
     }
 
     /**
-     * Returns the script {@link #cloneCommand()} runs.
+     * Returns how long the workspace's first fetch may take, {@link #FETCH_SECONDS} under the
+     * account's {@code services} factor.
+     *
+     * @param limits The account's time factors.
+     * @return Whole seconds, rounded up.
+     */
+    static int fetchSeconds(final org.fuin.porelo.wire.LimitFactors limits) {
+        return Math.toIntExact(
+                (limits.services(java.time.Duration.ofSeconds(FETCH_SECONDS)).toMillis() + 999)
+                        / 1000);
+    }
+
+    /**
+     * Returns the script {@link #cloneCommand} runs.
      *
      * <p>Separate and static so a test can run it against a mirror on this machine with real git,
      * rather than asserting that a string contains the words it hopes for. What this script does to
@@ -291,10 +305,11 @@ public class TaskWorkspace {
      * Returns why the workspace's fetch failed, from what its script printed.
      *
      * @param said The script's output.
+     * @param fetchSeconds How long the fetch was given.
      * @return A sentence for the person starting the task, or {@code null} when the fetch did not
      *     fail.
      */
-    static @Nullable String fetchProblem(final String said) {
+    static @Nullable String fetchProblem(final String said, final int fetchSeconds) {
         final java.util.regex.Matcher failed =
                 java.util.regex.Pattern.compile(FETCH_FAILED + " (\\d+)").matcher(said);
         if (!failed.find()) {
@@ -302,7 +317,7 @@ public class TaskWorkspace {
         }
         return "124".equals(failed.group(1))
                 ? "its remote did not answer within "
-                        + FETCH_SECONDS
+                        + fetchSeconds
                         + " seconds - is it reachable from the task, on"
                         + " the port its address names?"
                 : "fetching from its remote failed (exit " + failed.group(1) + ")";

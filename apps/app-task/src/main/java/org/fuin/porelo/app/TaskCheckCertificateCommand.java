@@ -207,7 +207,7 @@ public class TaskCheckCertificateCommand implements Callable<Integer>, PoreloFac
         if (!certificate.keyId().equals(keyId)) {
             throw new TaskCertification.Refused("the certificate's key id is not '" + keyId + "'");
         }
-        TaskCertification.checkValidity(certificate, Instant.now());
+        TaskCertification.checkValidity(certificate, Instant.now(), context.limits());
         if (!certificate.extensions().equals(EXTENSIONS)) {
             throw new TaskCertification.Refused(
                     "the certificate's extensions are not exactly "

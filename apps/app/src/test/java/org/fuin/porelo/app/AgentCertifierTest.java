@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
@@ -52,7 +53,11 @@ class AgentCertifierTest {
         assertThat(older.toFile().setExecutable(true)).as("the stand-in can run").isTrue();
 
         final String certificate =
-                new AgentCertifier(person, dir.resolve("agent.sock"), older.toString())
+                new AgentCertifier(
+                                person,
+                                dir.resolve("agent.sock"),
+                                older.toString(),
+                                LimitFactors.DEFAULT)
                         .certify(
                                 person,
                                 "task:demo:fix",
@@ -99,9 +104,10 @@ class AgentCertifierTest {
                             "demo",
                             "fix",
                             "alice",
-                            new AgentCertifier(person, socket),
+                            new AgentCertifier(person, socket, LimitFactors.DEFAULT),
                             List.of(person),
-                            Clock.systemUTC());
+                            Clock.systemUTC(),
+                            LimitFactors.DEFAULT);
 
             assertThat(issued.certificate().signer()).isEqualTo(person);
             assertThat(issued.certificate().principals()).containsExactly("task:demo:fix");
@@ -112,9 +118,13 @@ class AgentCertifierTest {
                                             "demo",
                                             "fix",
                                             "alice",
-                                            new AgentCertifier(person, dir.resolve("none.sock")),
+                                            new AgentCertifier(
+                                                    person,
+                                                    dir.resolve("none.sock"),
+                                                    LimitFactors.DEFAULT),
                                             List.of(person),
-                                            Clock.systemUTC()))
+                                            Clock.systemUTC(),
+                                            LimitFactors.DEFAULT))
                     .isInstanceOf(TaskCertification.Refused.class)
                     .hasMessageContaining("agent");
         } finally {

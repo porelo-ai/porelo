@@ -100,6 +100,21 @@ public final class BuildWatch {
 
     private boolean opensPullRequests = true;
 
+    /** {@link #POLL} under the account's factors. */
+    private Duration poll = POLL;
+
+    /** {@link #DEADLINE} under the account's factors. */
+    private Duration deadline = DEADLINE;
+
+    /** {@link #SETTLED} under the account's factors. */
+    private Duration settledPoll = SETTLED;
+
+    /** {@link #GRACE} under the account's factors. */
+    private Duration grace = GRACE;
+
+    /** {@link #REFUSED} under the account's factors. */
+    private Duration refusedWait = REFUSED;
+
     /** When a pull request the forge would not open may be asked for again. */
     private @Nullable Instant pullRequestAgain;
 
@@ -281,6 +296,22 @@ public final class BuildWatch {
     }
 
     /**
+     * Puts the watch's waits under the account's time factors: how often it asks under {@code
+     * polling}, how long it waits for a forge under {@code services}.
+     *
+     * @param limits The factors.
+     * @return This watch.
+     */
+    public BuildWatch withLimits(final org.fuin.porelo.wire.LimitFactors limits) {
+        poll = limits.polling(POLL);
+        settledPoll = limits.polling(SETTLED);
+        deadline = limits.services(DEADLINE);
+        grace = limits.services(GRACE);
+        refusedWait = limits.services(REFUSED);
+        return this;
+    }
+
+    /**
      * Leaves pull requests to the guarded task's gate and delivers builds alone.
      *
      * @return This watch.
@@ -317,19 +348,19 @@ public final class BuildWatch {
                 build(each.getKey(), each.getValue());
             }
             troubled("");
-            return POLL;
+            return poll;
         } catch (BuildRefused ex) {
             return refused(ex);
         } catch (NotNow ex) {
             troubled(String.valueOf(ex.getMessage()));
             tellAll(Build.unknown(String.valueOf(ex.getMessage())));
-            return POLL;
+            return poll;
         } catch (BuildReaderException ex) {
             // The installation, not the forge: every commit waiting says so, and the watch tries
             // again later.
             troubled("Porelo cannot read builds: " + ex.getMessage());
             tellAll(Build.unknown("Porelo cannot read builds: " + ex.getMessage()));
-            return REFUSED;
+            return refusedWait;
         }
     }
 
@@ -444,7 +475,7 @@ public final class BuildWatch {
             builds.pullRequest(container, opened.url(), "");
         } catch (BuildRefused | BuildReaderException ex) {
             pullRequestSettled = false;
-            pullRequestAgain = now.plus(REFUSED);
+            pullRequestAgain = now.plus(refusedWait);
             final String why =
                     ex instanceof BuildRefused refused ? refused.detail() : ex.getMessage();
             try {
@@ -457,7 +488,7 @@ public final class BuildWatch {
             // Its own credential missing is the pull request's trouble alone: the builds are still
             // told, and it is asked again later.
             pullRequestSettled = false;
-            pullRequestAgain = now.plus(REFUSED);
+            pullRequestAgain = now.plus(refusedWait);
             try {
                 builds.pullRequest(
                         container, "", "the pull request is not opened: " + ex.getMessage());
@@ -474,16 +505,16 @@ public final class BuildWatch {
     private void build(final String commit, final Watched each) {
         final Instant now = clock.instant();
         if (each.settled != null) {
-            if (now.isAfter(each.changed.plus(DEADLINE))) {
+            if (now.isAfter(each.changed.plus(deadline))) {
                 watched.remove(commit);
                 return;
             }
-            if (now.isBefore(each.settled.plus(SETTLED))) {
+            if (now.isBefore(each.settled.plus(settledPoll))) {
                 return;
             }
         }
         final Build build = forge.build(commit);
-        if (Build.UNKNOWN.equals(build.verdict()) && now.isBefore(each.pushed.plus(GRACE))) {
+        if (Build.UNKNOWN.equals(build.verdict()) && now.isBefore(each.pushed.plus(grace))) {
             return;
         }
         if (Build.UNKNOWN.equals(build.verdict()) && each.settled != null) {
@@ -499,14 +530,14 @@ public final class BuildWatch {
             // A workflow started after the verdict was final: followed like a new push.
             each.opened = now;
         }
-        if (pending && now.isAfter(each.opened.plus(DEADLINE))) {
+        if (pending && now.isAfter(each.opened.plus(deadline))) {
             if (!build.finished()) {
                 tell(
                         commit,
                         each,
                         Build.unknown(
                                 "no verdict within "
-                                        + DEADLINE.toHours()
+                                        + deadline.toHours()
                                         + " hours; Porelo stopped"
                                         + " waiting for this build (last: "
                                         + build.verdict()
@@ -548,9 +579,9 @@ public final class BuildWatch {
         tellAll(Build.unknown(why + ex.detail()));
         return switch (ex.reason()) {
             case RATE_LIMITED ->
-                    Duration.ofSeconds(Math.max(POLL.toSeconds(), ex.retryAfterSeconds()));
-            case CREDENTIAL_REFUSED, NO_SUCH_REPOSITORY -> REFUSED;
-            case UNREACHABLE -> POLL;
+                    Duration.ofSeconds(Math.max(poll.toSeconds(), ex.retryAfterSeconds()));
+            case CREDENTIAL_REFUSED, NO_SUCH_REPOSITORY -> refusedWait;
+            case UNREACHABLE -> poll;
         };
     }
 

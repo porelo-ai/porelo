@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,7 +32,8 @@ class TaskCertificationTest {
                         "alice",
                         certifier("person", null),
                         List.of(person),
-                        clock);
+                        clock,
+                        LimitFactors.DEFAULT);
 
         assertThat(issued.certificate().principals()).containsExactly("task:demo:fix-1a2b");
         assertThat(issued.key().authorizedKeysLine()).startsWith(issued.certificate().key() + " ");
@@ -54,7 +56,8 @@ class TaskCertificationTest {
                         "alice",
                         certifier("person", null),
                         List.of(),
-                        clock);
+                        clock,
+                        LimitFactors.DEFAULT);
 
         assertThat(issued.principal()).isEqualTo("task:default:shell-9f00");
         assertThat(issued.signers())
@@ -79,7 +82,8 @@ class TaskCertificationTest {
                                             return certifier.certify(key, principal, keyId, before);
                                         },
                                         List.of(),
-                                        clock))
+                                        clock,
+                                        LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
                 .hasMessageContaining("no key of project demo's members may certify it");
         assertThat(asked).isFalse();
@@ -90,7 +94,13 @@ class TaskCertificationTest {
         final String person = keygen("person");
         final TaskCertification.Issued first =
                 TaskCertification.certify(
-                        "demo", "fix", "alice", certifier("person", null), List.of(person), clock);
+                        "demo",
+                        "fix",
+                        "alice",
+                        certifier("person", null),
+                        List.of(person),
+                        clock,
+                        LimitFactors.DEFAULT);
 
         final TaskCertification.Issued renewed =
                 TaskCertification.certify(
@@ -100,7 +110,8 @@ class TaskCertificationTest {
                         first.key(),
                         certifier("person", null),
                         List.of(person),
-                        clock);
+                        clock,
+                        LimitFactors.DEFAULT);
 
         assertThat(renewed.certificate().key()).isEqualTo(first.certificate().key());
         assertThat(renewed.certificate().line()).isNotEqualTo(first.certificate().line());
@@ -119,7 +130,8 @@ class TaskCertificationTest {
                                         "alice",
                                         certifier("stranger", null),
                                         List.of(person),
-                                        clock))
+                                        clock,
+                                        LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
                 .hasMessageContaining("not a certifier");
         assertThatThrownBy(
@@ -130,7 +142,8 @@ class TaskCertificationTest {
                                         "alice",
                                         certifier("person", "task:demo:other"),
                                         List.of(person),
-                                        clock))
+                                        clock,
+                                        LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
                 .hasMessageContaining("task:demo:fix");
         assertThatThrownBy(
@@ -141,7 +154,8 @@ class TaskCertificationTest {
                                         "alice",
                                         (key, principal, id, before) -> certifyOther(principal),
                                         List.of(person),
-                                        clock))
+                                        clock,
+                                        LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
                 .hasMessageContaining("another key");
         assertThatThrownBy(
@@ -153,7 +167,8 @@ class TaskCertificationTest {
                                         (key, principal, id, before) ->
                                                 sign("person", key, principal, "+30d", id),
                                         List.of(person),
-                                        clock))
+                                        clock,
+                                        LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
                 .hasMessageContaining("longer");
         assertThatThrownBy(
@@ -164,8 +179,48 @@ class TaskCertificationTest {
                                         "alice",
                                         (key, principal, id, before) -> "not a certificate",
                                         List.of(person),
-                                        clock))
+                                        clock,
+                                        LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class);
+    }
+
+    @Test
+    void theClockSlackOnACertificatesEndFollowsTheMachinesFactor() throws Exception {
+        // Valid eight minutes past the seven days: more than the 5 minutes of slack at 1.0,
+        // within the 10 minutes of machines 2.
+        final String person = keygen("person");
+        final TaskCertification.Certifier longer =
+                (key, principal, id, before) -> sign("person", key, principal, "+10088m", id);
+
+        assertThatThrownBy(
+                        () ->
+                                TaskCertification.certify(
+                                        "demo",
+                                        "fix",
+                                        "alice",
+                                        longer,
+                                        List.of(person),
+                                        clock,
+                                        LimitFactors.DEFAULT))
+                .as("at 1.0")
+                .isInstanceOf(TaskCertification.Refused.class)
+                .hasMessageContaining("longer");
+        assertThat(
+                        TaskCertification.certify(
+                                        "demo",
+                                        "fix",
+                                        "alice",
+                                        longer,
+                                        List.of(person),
+                                        clock,
+                                        AccountConfig.read(
+                                                        new java.io.StringReader(
+                                                                "limits:\n  machines: 2\n"),
+                                                        "t")
+                                                .limits())
+                                .principal())
+                .as("at machines 2")
+                .isEqualTo("task:demo:fix");
     }
 
     private TaskCertification.Certifier certifier(String ca, String principalOverride) {

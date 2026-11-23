@@ -537,9 +537,9 @@ final class WorkspaceSetup {
                 runner.execute(
                         container,
                         environment,
-                        workspace.cloneCommand(),
+                        workspace.cloneCommand(context.limits()),
                         log,
-                        java.time.Duration.ofMinutes(5));
+                        context.limits().services(java.time.Duration.ofMinutes(5)));
         String problem = null;
         String said = "";
         try {
@@ -547,7 +547,8 @@ final class WorkspaceSetup {
                     java.nio.file.Files.isRegularFile(log)
                             ? java.nio.file.Files.readString(log)
                             : "";
-            problem = TaskWorkspace.fetchProblem(said);
+            problem =
+                    TaskWorkspace.fetchProblem(said, TaskWorkspace.fetchSeconds(context.limits()));
         } catch (java.io.IOException ex) {
             // Unread, nothing is said about the fetch; the outcome below still is.
         }

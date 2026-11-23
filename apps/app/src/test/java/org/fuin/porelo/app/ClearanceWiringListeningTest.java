@@ -15,7 +15,10 @@ class ClearanceWiringListeningTest {
     void returnsOnceTheWatchersSocketIsThere(@TempDir Path dir) throws IOException {
         final Path socket = Files.createFile(dir.resolve("clearance.sock"));
 
-        assertThat(ClearanceWiring.listening(socket, Duration.ofSeconds(5), () -> true)).isTrue();
+        assertThat(
+                        ClearanceWiring.listening(
+                                socket, Duration.ofSeconds(5), ClearanceWiring.LOOK, () -> true))
+                .isTrue();
     }
 
     @Test
@@ -26,7 +29,10 @@ class ClearanceWiringListeningTest {
 
         assertThat(
                         ClearanceWiring.listening(
-                                dir.resolve("clearance.sock"), Duration.ofMillis(200), () -> true))
+                                dir.resolve("clearance.sock"),
+                                Duration.ofMillis(200),
+                                ClearanceWiring.LOOK,
+                                () -> true))
                 .isFalse();
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(5));
     }
@@ -38,7 +44,10 @@ class ClearanceWiringListeningTest {
 
         assertThat(
                         ClearanceWiring.listening(
-                                dir.resolve("clearance.sock"), Duration.ofSeconds(30), () -> false))
+                                dir.resolve("clearance.sock"),
+                                Duration.ofSeconds(30),
+                                ClearanceWiring.LOOK,
+                                () -> false))
                 .isFalse();
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(5));
     }

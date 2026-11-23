@@ -179,6 +179,7 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
                                 new AgentWake(context).announceFiles(container);
                                 waitFor(
                                         duration,
+                                        context.limits().polling(STEP),
                                         () -> vaultStamp(),
                                         step -> Thread.sleep(step.toMillis()));
                             },
@@ -190,6 +191,7 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
                                 err.flush();
                                 said(paths, why);
                             });
+            watch.withLimits(context.limits());
             if (buildsOnly) {
                 watch.withoutPullRequests();
             }
@@ -215,19 +217,21 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
      * refused it is then asked with at once, not after the wait for a person to fix it.
      *
      * @param total How long to wait at most.
+     * @param every How often it looks whether the vault changed.
      * @param stamp What the vault looks like now; any change ends the wait.
      * @param sleep How a step is waited.
      * @throws InterruptedException When the watch is to end.
      */
     static void waitFor(
             final Duration total,
+            final Duration every,
             final java.util.function.Supplier<Object> stamp,
             final BuildWatch.Sleeper sleep)
             throws InterruptedException {
         final Object before = stamp.get();
         Duration left = total;
         while (!left.isZero() && !left.isNegative()) {
-            final Duration step = left.compareTo(STEP) < 0 ? left : STEP;
+            final Duration step = left.compareTo(every) < 0 ? left : every;
             sleep.sleep(step);
             left = left.minus(step);
             if (!java.util.Objects.equals(before, stamp.get())) {

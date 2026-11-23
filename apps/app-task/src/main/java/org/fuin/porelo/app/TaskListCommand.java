@@ -169,6 +169,7 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
                         .daemon()
                         .name("porelo-watch-prompts")
                         .start(() -> followPrompts(socket, view, prompts, ended, clock));
+        final Duration agesEvery = context.limits().polling(AGES);
         final Thread ages =
                 Thread.ofPlatform()
                         .daemon()
@@ -177,7 +178,7 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
                                 () -> {
                                     try {
                                         while (!ended.get()) {
-                                            Thread.sleep(AGES);
+                                            Thread.sleep(agesEvery);
                                             view.tick(clock.instant());
                                         }
                                     } catch (InterruptedException ex) {

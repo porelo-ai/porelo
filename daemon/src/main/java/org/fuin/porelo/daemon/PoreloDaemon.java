@@ -1511,7 +1511,7 @@ public final class PoreloDaemon {
                 // on it is ended as its own wait would have ended it.
                 new org.fuin.porelo.app.RunLimitWatch(
                                 owned,
-                                org.fuin.porelo.app.RunLimitWatch.INTERVAL,
+                                owned.limits().polling(org.fuin.porelo.app.RunLimitWatch.INTERVAL),
                                 line -> {
                                     System.out.println("porelod: " + line);
                                     System.out.flush();

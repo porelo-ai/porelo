@@ -11,6 +11,7 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SshCertificate;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -30,7 +31,8 @@ class TaskCertificateRecordsTest {
                         "alice",
                         new AgentlessCertifier(dir.resolve("person")),
                         List.of(person),
-                        Clock.systemUTC());
+                        Clock.systemUTC(),
+                        LimitFactors.DEFAULT);
         final TaskCertificateRecords records = new TaskCertificateRecords(context);
 
         records.keep("fix", "alice", issued.certificate());

@@ -108,7 +108,8 @@ final class TaskCertifying {
             String project,
             List<String> certifiers,
             TaskCertification.@Nullable Certifier remote,
-            @Nullable Path agent) {
+            @Nullable Path agent,
+            org.fuin.porelo.wire.LimitFactors limits) {
         if (certifiers.isEmpty() && !TaskCertification.NO_PROJECT.equals(project)) {
             return false;
         }
@@ -118,7 +119,8 @@ final class TaskCertifying {
         return agent != null
                 && agentHolds(
                                 agent,
-                                TaskCertification.NO_PROJECT.equals(project) ? null : certifiers)
+                                TaskCertification.NO_PROJECT.equals(project) ? null : certifiers,
+                                limits)
                         != null;
     }
 
@@ -132,6 +134,7 @@ final class TaskCertifying {
      * @param remote The starting person's machine, or {@code null} for a start on this one.
      * @param agent This machine's agent socket, or {@code null}.
      * @param clock The time.
+     * @param limits The account's time factors.
      * @return The certified key, or {@code null} for an uncertified task.
      * @throws TaskCertification.Refused If a certificate came back that is not accepted.
      */
@@ -142,33 +145,46 @@ final class TaskCertifying {
             List<String> certifiers,
             TaskCertification.@Nullable Certifier remote,
             @Nullable Path agent,
-            Clock clock) {
+            Clock clock,
+            org.fuin.porelo.wire.LimitFactors limits) {
         // A project naming no certifier starts its tasks uncertified, wherever they are asked for.
         if (certifiers.isEmpty() && !TaskCertification.NO_PROJECT.equals(project)) {
             return null;
         }
         if (remote != null) {
-            return TaskCertification.certify(project, task, login, remote, certifiers, clock);
+            return TaskCertification.certify(
+                    project, task, login, remote, certifiers, clock, limits);
         }
         if (agent == null) {
             return null;
         }
         final String held =
                 TaskCertification.NO_PROJECT.equals(project)
-                        ? agentHolds(agent, null)
-                        : certifiers.isEmpty() ? null : agentHolds(agent, certifiers);
+                        ? agentHolds(agent, null, limits)
+                        : certifiers.isEmpty() ? null : agentHolds(agent, certifiers, limits);
         if (held == null) {
             return null;
         }
         return TaskCertification.certify(
-                project, task, login, new AgentCertifier(held, agent), certifiers, clock);
+                project,
+                task,
+                login,
+                new AgentCertifier(held, agent, limits),
+                certifiers,
+                clock,
+                limits);
     }
+
+    /** How long the agent may take to list its keys. */
+    static final java.time.Duration LISTING = java.time.Duration.ofSeconds(10);
 
     /**
      * The first of the keys that the agent holds, or with {@code null} its first Ed25519 key;
-     * {@code null} when it holds none.
+     * {@code null} when it holds none. The agent's answer is waited for {@link #LISTING} under the
+     * account's {@code machines} factor.
      */
-    static @Nullable String agentHolds(Path agent, @Nullable List<String> keys) {
+    static @Nullable String agentHolds(
+            Path agent, @Nullable List<String> keys, org.fuin.porelo.wire.LimitFactors limits) {
         try {
             final ProcessBuilder builder =
                     new ProcessBuilder("ssh-add", "-L").redirectErrorStream(false);
@@ -177,7 +193,8 @@ final class TaskCertifying {
             final Process process = builder.start();
             final String listed =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.US_ASCII);
-            if (!process.waitFor(10, TimeUnit.SECONDS) || process.exitValue() != 0) {
+            if (!process.waitFor(limits.machines(LISTING).toMillis(), TimeUnit.MILLISECONDS)
+                    || process.exitValue() != 0) {
                 process.destroyForcibly();
                 return null;
             }

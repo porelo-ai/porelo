@@ -224,16 +224,19 @@ final class CredentialWiring {
             throw new BrokerDown("could not start the repository broker");
         }
         // From its start, as the credential broker's patience runs from its own.
-        final long deadline = org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
+        final long deadline =
+                org.fuin.porelo.wire.HelperPid.deadline(
+                        context.limits().machines(GateWiring.HELPER_PATIENCE));
         // Its pid as well as its socket: one that never records it is a broker nothing that cleans
         // up by the pid files finds, and the start that went on left it running.
-        if (!awaitSocket(socket, deadline)
+        if (!awaitSocket(socket, deadline, context.limits().polling(LOOK))
                 || org.fuin.porelo.wire.HelperPid.await(
                                 state.resolve(REPOSITORY_BROKER + ".pid"), deadline)
                         .isEmpty()) {
             // Ended here, by its own handle: it may never have recorded its pid, and the pid files
             // of the name are every start's.
-            org.fuin.porelo.wire.HelperPid.end(broker.toHandle(), GateWiring.HELPER_GRACE);
+            org.fuin.porelo.wire.HelperPid.end(
+                    broker.toHandle(), context.limits().machines(GateWiring.HELPER_GRACE));
             err.println(
                     "porelo: the repository broker did not come up, see "
                             + state.resolve(REPOSITORY_BROKER + ".log"));
@@ -343,11 +346,13 @@ final class CredentialWiring {
             // Without its pid nothing that cleans up finds it, and the task has no endpoint.
             if (org.fuin.porelo.wire.HelperPid.await(
                             state.resolve(helper + ".pid"),
-                            org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE))
+                            org.fuin.porelo.wire.HelperPid.deadline(
+                                    context.limits().machines(GateWiring.HELPER_PATIENCE)))
                     .isEmpty()) {
                 // Signalled is not yet gone: the start answers once it no longer runs, killed
                 // when it did not go when asked.
-                org.fuin.porelo.wire.HelperPid.end(started.toHandle(), GateWiring.HELPER_GRACE);
+                org.fuin.porelo.wire.HelperPid.end(
+                        started.toHandle(), context.limits().machines(GateWiring.HELPER_GRACE));
                 err.println(
                         "porelo: the endpoint relay did not come up; see "
                                 + state.resolve(helper + ".log"));
@@ -369,13 +374,20 @@ final class CredentialWiring {
         }
     }
 
-    private static boolean awaitSocket(java.nio.file.Path socket, long deadline) {
+    /** How often a start looks for a helper's socket or token file. */
+    static final java.time.Duration LOOK = java.time.Duration.ofMillis(100);
+
+    /** How long a start waits for the credential proxy's token file. */
+    static final java.time.Duration TOKEN_PATIENCE = java.time.Duration.ofSeconds(20);
+
+    private static boolean awaitSocket(
+            java.nio.file.Path socket, long deadline, java.time.Duration look) {
         while (System.nanoTime() - deadline < 0) {
             if (java.nio.file.Files.exists(socket)) {
                 return true;
             }
             try {
-                Thread.sleep(100);
+                Thread.sleep(look);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return false;
@@ -696,8 +708,10 @@ final class CredentialWiring {
         }
 
         // From its start, as the gate's and the relay's patience runs from theirs.
-        final long recorded = org.fuin.porelo.wire.HelperPid.deadline(GateWiring.HELPER_PATIENCE);
-        final String token = awaitToken(socket, tokenFile);
+        final long recorded =
+                org.fuin.porelo.wire.HelperPid.deadline(
+                        context.limits().machines(GateWiring.HELPER_PATIENCE));
+        final String token = awaitToken(socket, tokenFile, context.limits());
         // Recorded before its token is published; a broker whose pid is not there is one nothing
         // that cleans up by the pid files finds, and the start that went on left it running.
         if (token == null
@@ -705,7 +719,8 @@ final class CredentialWiring {
                         .isEmpty()) {
             // Ended here, by its own handle: it may never have recorded its pid, and then nothing
             // that cleans up by the pid files finds it.
-            org.fuin.porelo.wire.HelperPid.end(broker.toHandle(), GateWiring.HELPER_GRACE);
+            org.fuin.porelo.wire.HelperPid.end(
+                    broker.toHandle(), context.limits().machines(GateWiring.HELPER_GRACE));
             err.println(
                     "porelo: the credential proxy did not come up, see "
                             + state.resolve("vault.log"));
@@ -730,7 +745,8 @@ final class CredentialWiring {
             final String minted =
                     name.equals(primaryName) && own == null
                             ? token
-                            : awaitToken(null, routeTokens.resolve(name + ".token"));
+                            : awaitToken(
+                                    null, routeTokens.resolve(name + ".token"), context.limits());
             if (minted == null) {
                 err.println(
                         "porelo: the credential proxy wrote no token for "
@@ -923,12 +939,15 @@ final class CredentialWiring {
      *
      * @param socket Socket the proxy binds.
      * @param tokenFile File the proxy writes its token to.
+     * @param limits The account's time factors.
      * @return The token, or {@code null} if it did not appear in time.
      */
     private static @Nullable String awaitToken(
             java.nio.file.@org.jspecify.annotations.Nullable Path socket,
-            java.nio.file.Path tokenFile) {
-        final long deadline = System.nanoTime() + java.time.Duration.ofSeconds(20).toNanos();
+            java.nio.file.Path tokenFile,
+            org.fuin.porelo.wire.LimitFactors limits) {
+        final long deadline = System.nanoTime() + limits.services(TOKEN_PATIENCE).toNanos();
+        final java.time.Duration look = limits.polling(LOOK);
         while (System.nanoTime() < deadline) {
             try {
                 // A proxy that bound a port leaves no socket file to wait for; the token file is
@@ -941,7 +960,7 @@ final class CredentialWiring {
                         return token;
                     }
                 }
-                Thread.sleep(100);
+                Thread.sleep(look);
             } catch (java.io.IOException ex) {
                 return null;
             } catch (InterruptedException ex) {

@@ -468,6 +468,9 @@ final class GateWiring {
     /** How long a helper given up on has to go when asked, before it is killed. */
     static final java.time.Duration HELPER_GRACE = java.time.Duration.ofSeconds(5);
 
+    /** How long the gate's reachability check in the container may take. */
+    static final java.time.Duration REACHABILITY_PATIENCE = java.time.Duration.ofSeconds(20);
+
     /**
      * Starts the task's gate and waits until it has recorded its pid.
      *
@@ -533,11 +536,13 @@ final class GateWiring {
             // serves has no gate: a start that went on answered success without one.
             if (org.fuin.porelo.wire.HelperPid.await(
                             state.resolve("gate.pid"),
-                            org.fuin.porelo.wire.HelperPid.deadline(HELPER_PATIENCE))
+                            org.fuin.porelo.wire.HelperPid.deadline(
+                                    context.limits().machines(HELPER_PATIENCE)))
                     .isEmpty()) {
                 // Signalled is not yet gone: the start answers once it no longer runs, killed
                 // when it did not go when asked.
-                org.fuin.porelo.wire.HelperPid.end(started.toHandle(), HELPER_GRACE);
+                org.fuin.porelo.wire.HelperPid.end(
+                        started.toHandle(), context.limits().machines(HELPER_GRACE));
                 err.println(
                         "porelo: the git gate did not come up; see " + state.resolve("gate.log"));
                 err.flush();
@@ -653,7 +658,7 @@ final class GateWiring {
                                 java.util.Map.of(),
                                 java.util.List.of("cat", "/etc/hosts"),
                                 out,
-                                java.time.Duration.ofSeconds(20));
+                                context.limits().machines(REACHABILITY_PATIENCE));
                 if (code != 0) {
                     return null;
                 }

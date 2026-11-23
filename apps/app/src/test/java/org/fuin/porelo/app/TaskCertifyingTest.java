@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,22 +30,38 @@ class TaskCertifyingTest {
                     throw new AssertionError("a preflight must not ask for a signature");
                 };
 
-        assertThat(TaskCertifying.canCertify("demo", List.of(other, person), null, socket))
+        assertThat(
+                        TaskCertifying.canCertify(
+                                "demo", List.of(other, person), null, socket, LimitFactors.DEFAULT))
                 .as("any certifier's key held by the local agent can certify")
                 .isTrue();
-        assertThat(TaskCertifying.canCertify("demo", List.of(other), null, socket))
+        assertThat(
+                        TaskCertifying.canCertify(
+                                "demo", List.of(other), null, socket, LimitFactors.DEFAULT))
                 .as("an unrelated agent key cannot certify the project's task")
                 .isFalse();
-        assertThat(TaskCertifying.canCertify("demo", List.of(person), null, null))
+        assertThat(
+                        TaskCertifying.canCertify(
+                                "demo", List.of(person), null, null, LimitFactors.DEFAULT))
                 .as("no remote certifier and no agent cannot certify")
                 .isFalse();
-        assertThat(TaskCertifying.canCertify("demo", List.of(person), remote, null))
+        assertThat(
+                        TaskCertifying.canCertify(
+                                "demo", List.of(person), remote, null, LimitFactors.DEFAULT))
                 .as("the person's computer can certify without an agent on the host")
                 .isTrue();
-        assertThat(TaskCertifying.canCertify("demo", List.of(), remote, socket))
+        assertThat(
+                        TaskCertifying.canCertify(
+                                "demo", List.of(), remote, socket, LimitFactors.DEFAULT))
                 .as("a project naming no certifiers stays uncertified even with a remote")
                 .isFalse();
-        assertThat(TaskCertifying.canCertify(TaskCertification.NO_PROJECT, List.of(), null, socket))
+        assertThat(
+                        TaskCertifying.canCertify(
+                                TaskCertification.NO_PROJECT,
+                                List.of(),
+                                null,
+                                socket,
+                                LimitFactors.DEFAULT))
                 .as("a task with no project can use the agent's first Ed25519 key")
                 .isTrue();
     }
@@ -75,7 +92,8 @@ class TaskCertifyingTest {
                                     List.of(other, person),
                                     null,
                                     socket,
-                                    Clock.systemUTC()))
+                                    Clock.systemUTC(),
+                                    LimitFactors.DEFAULT))
                     .as("the agent holds a certifier's key")
                     .isNotNull()
                     .satisfies(
@@ -103,7 +121,8 @@ class TaskCertifyingTest {
                                     List.of(other),
                                     null,
                                     socket,
-                                    Clock.systemUTC()))
+                                    Clock.systemUTC(),
+                                    LimitFactors.DEFAULT))
                     .as("it holds none of them: uncertified")
                     .isNull();
             assertThat(
@@ -114,7 +133,8 @@ class TaskCertifyingTest {
                                     List.of(),
                                     null,
                                     socket,
-                                    Clock.systemUTC()))
+                                    Clock.systemUTC(),
+                                    LimitFactors.DEFAULT))
                     .as("no certifiers, no machine of the person: uncertified")
                     .isNull();
             assertThat(
@@ -125,7 +145,8 @@ class TaskCertifyingTest {
                                     List.of(person),
                                     null,
                                     null,
-                                    Clock.systemUTC()))
+                                    Clock.systemUTC(),
+                                    LimitFactors.DEFAULT))
                     .as("no agent")
                     .isNull();
             assertThat(
@@ -134,9 +155,10 @@ class TaskCertifyingTest {
                                     "shell",
                                     "alice",
                                     List.of(),
-                                    new AgentCertifier(person, socket),
+                                    new AgentCertifier(person, socket, LimitFactors.DEFAULT),
                                     null,
-                                    Clock.systemUTC()))
+                                    Clock.systemUTC(),
+                                    LimitFactors.DEFAULT))
                     .as("from the person's machine, a task with no project")
                     .isNotNull();
             assertThat(
@@ -145,9 +167,10 @@ class TaskCertifyingTest {
                                     "fix",
                                     "alice",
                                     List.of(),
-                                    new AgentCertifier(person, socket),
+                                    new AgentCertifier(person, socket, LimitFactors.DEFAULT),
                                     null,
-                                    Clock.systemUTC()))
+                                    Clock.systemUTC(),
+                                    LimitFactors.DEFAULT))
                     .as("from the person's machine, a project naming no certifier: uncertified")
                     .isNull();
             assertThat(
@@ -158,7 +181,8 @@ class TaskCertifyingTest {
                                     List.of(),
                                     null,
                                     socket,
-                                    Clock.systemUTC()))
+                                    Clock.systemUTC(),
+                                    LimitFactors.DEFAULT))
                     .as("a task with no project, by the key in the starter's own agent")
                     .isNotNull()
                     .satisfies(
@@ -233,7 +257,7 @@ class TaskCertifyingTest {
                 final java.util.Map<?, ?> asked = (java.util.Map<?, ?>) reply.get("certify");
                 waits.certificate(
                         String.valueOf(asked.get("start")),
-                        new AgentCertifier(person, socket)
+                        new AgentCertifier(person, socket, LimitFactors.DEFAULT)
                                 .certify(
                                         String.valueOf(asked.get("key")),
                                         signedPrincipal,
@@ -269,7 +293,7 @@ class TaskCertifyingTest {
         final Path socket = dir.resolve("waited.sock");
         agentHolding(socket);
         try {
-            final CertificateWaits waits = new CertificateWaits();
+            final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
 
             final TaskCertification.Issued issued =
                     TaskCertifying.atStart(
@@ -281,7 +305,8 @@ class TaskCertifyingTest {
                                     answering(waits, person, socket, "task:demo:fix"),
                                     List.of(person)),
                             null,
-                            Clock.systemUTC());
+                            Clock.systemUTC(),
+                            LimitFactors.DEFAULT);
 
             assertThat(issued).isNotNull();
             assertThat(issued.certificate().signer()).isEqualTo(person);
@@ -297,7 +322,7 @@ class TaskCertifyingTest {
         final Path socket = dir.resolve("waited.sock");
         agentHolding(socket);
         try {
-            final CertificateWaits waits = new CertificateWaits();
+            final CertificateWaits waits = new CertificateWaits(LimitFactors.DEFAULT);
 
             org.assertj.core.api.Assertions.assertThatThrownBy(
                             () ->
@@ -314,7 +339,8 @@ class TaskCertifyingTest {
                                                             "task:demo:other"),
                                                     List.of(person)),
                                             null,
-                                            Clock.systemUTC()))
+                                            Clock.systemUTC(),
+                                            LimitFactors.DEFAULT))
                     .isInstanceOf(TaskCertification.Refused.class)
                     .hasMessageContaining("must name exactly task:demo:fix");
         } finally {
