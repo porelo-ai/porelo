@@ -242,7 +242,8 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             return 0;
         }
         final String refused =
-                ServiceRegistration.delete(registration, VaultAuthorizeCommand.http(context));
+                ServiceRegistration.delete(
+                        registration, VaultAuthorizeCommand.http(context), context.limits());
         if (refused == null) {
             out.println("deleted   the client registered for " + name + " at the service");
         } else if (withoutRevoking) {
@@ -314,7 +315,8 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
                                     context.limits().services(java.time.Duration.ofSeconds(30)))
                             .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                             .build(),
-                    refreshToken);
+                    refreshToken,
+                    context.limits());
             return null;
         } catch (TokenPurchase.Refused | IllegalArgumentException ex) {
             return ex.getMessage();

@@ -60,6 +60,30 @@ public class GitHttpServer implements AutoCloseable {
     /** The longest a push waits for another of the same task to be judged and passed on. */
     static final java.time.Duration PUSH_WAIT = java.time.Duration.ofMinutes(5);
 
+    /** {@link #PUSH_WAIT} under the account's factors. */
+    private volatile java.time.Duration pushWait = PUSH_WAIT;
+
+    /**
+     * Returns this server with its own time limits under the account's factors.
+     *
+     * @param limits The factors.
+     * @return This server.
+     */
+    public GitHttpServer limitedBy(final org.fuin.porelo.wire.LimitFactors limits) {
+        this.pushWait = pushWait(limits);
+        return this;
+    }
+
+    /**
+     * Returns the longest a push waits for another of the same task.
+     *
+     * @param limits The factors.
+     * @return {@link #PUSH_WAIT} under {@code machines}.
+     */
+    static java.time.Duration pushWait(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(PUSH_WAIT);
+    }
+
     private volatile @org.jspecify.annotations.Nullable Signer signer;
 
     private volatile @org.jspecify.annotations.Nullable Taken taken;
@@ -538,7 +562,7 @@ public class GitHttpServer implements AutoCloseable {
             try {
                 held =
                         pushing.tryLock(
-                                PUSH_WAIT.toSeconds(), java.util.concurrent.TimeUnit.SECONDS);
+                                pushWait.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 throw new IOException("interrupted while waiting for another push", ex);
@@ -552,8 +576,8 @@ public class GitHttpServer implements AutoCloseable {
                         refusal(
                                 updated,
                                 "another push of this task was judged or passed on for longer than "
-                                        + PUSH_WAIT.toMinutes()
-                                        + " minutes; nothing was taken - push again",
+                                        + pushWait.toSeconds()
+                                        + " seconds; nothing was taken - push again",
                                 capabilities(request)));
                 return;
             }

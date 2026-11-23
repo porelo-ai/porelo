@@ -240,6 +240,45 @@ public final class AgentLogin {
             final java.util.Set<String> kept,
             final Path directory,
             final java.net.http.HttpClient http) {
+        return keepFrom(
+                vault,
+                way,
+                key,
+                found,
+                tokenUrl,
+                kept,
+                directory,
+                http,
+                org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Keeps a sign-in as {@link #keepFrom(org.fuin.porelo.vault.VaultFile,
+     * org.fuin.porelo.vault.VaultFile.Opener, String, java.util.Optional, String, java.util.Set,
+     * Path, java.net.http.HttpClient)} does, picking its client within the time limits the
+     * account's factors make.
+     *
+     * @param vault The vault.
+     * @param way How it is opened.
+     * @param key The entry's name.
+     * @param found What the agent left.
+     * @param tokenUrl A stand-in's token endpoint replacing the agent's, or {@code null}.
+     * @param kept The attributes the provider sends beside the token.
+     * @param directory Where it was read, for the refusal.
+     * @param http How the token endpoint is asked.
+     * @param limits The factors.
+     * @return What happened.
+     */
+    static Result keepFrom(
+            final org.fuin.porelo.vault.VaultFile vault,
+            final org.fuin.porelo.vault.VaultFile.Opener way,
+            final String key,
+            final java.util.Optional<Credential> found,
+            final @Nullable String tokenUrl,
+            final java.util.Set<String> kept,
+            final Path directory,
+            final java.net.http.HttpClient http,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         if (found.isEmpty()) {
             return failed(
                     Outcome.NOTHING_TO_COLLECT,
@@ -263,7 +302,7 @@ public final class AgentLogin {
         }
         final Credential value;
         try {
-            value = ClientPick.pick(pointed, http, java.time.Clock.systemUTC());
+            value = ClientPick.pick(pointed, http, java.time.Clock.systemUTC(), limits);
         } catch (final ClientPick.NoPair ex) {
             return failed(Outcome.FAILED, ex.getMessage() + " - nothing was kept");
         }
@@ -343,7 +382,8 @@ public final class AgentLogin {
                     tokenUrl,
                     LoginCredentials.kept(selection),
                     directory,
-                    tokenHttp(context));
+                    tokenHttp(context),
+                    context.limits());
         } catch (RuntimeException ex) {
             return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
         }
@@ -1182,7 +1222,10 @@ public final class AgentLogin {
             try {
                 value =
                         ClientPick.pick(
-                                credential.get(), tokenHttp(context), java.time.Clock.systemUTC());
+                                credential.get(),
+                                tokenHttp(context),
+                                java.time.Clock.systemUTC(),
+                                context.limits());
             } catch (final ClientPick.NoPair ex) {
                 return failed(Outcome.FAILED, "logged in, but " + ex.getMessage());
             }

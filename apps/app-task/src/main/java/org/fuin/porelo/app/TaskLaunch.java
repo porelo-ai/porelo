@@ -3568,7 +3568,11 @@ public final class TaskLaunch {
         // Asked before anything of the task is made: a build that cannot reach the repositories
         // the project declares would ask the tool's default hosts, which the egress refuses.
         final ToolSettings.Answer toolSettings =
-                ToolSettings.ask(project, context.paths().ecosystemDirectories(), adapters);
+                ToolSettings.ask(
+                        project,
+                        context.paths().ecosystemDirectories(),
+                        adapters,
+                        context.limits());
         if (toolSettings instanceof ToolSettings.Answer.Refused refused) {
             err.println("porelo: " + refused.reason());
             err.println("porelo: nothing was created");
@@ -6948,7 +6952,9 @@ public final class TaskLaunch {
             return cleanUpRecorded(runner, container, code, keep, out, err);
         } finally {
             if (!org.fuin.porelo.wire.HelperPid.endAll(
-                    helpers, context.limits().machines(GateWiring.HELPER_GRACE))) {
+                    helpers,
+                    context.limits().machines(GateWiring.HELPER_GRACE),
+                    context.limits())) {
                 err.println("porelo: still running: a helper of " + container);
                 err.flush();
             }
@@ -6980,9 +6986,12 @@ public final class TaskLaunch {
                         ? TaskLifecycle.endHelpers(
                                 context.paths().tasks().containerState(container),
                                 ownHelpers,
-                                context.limits().machines(GateWiring.HELPER_GRACE))
+                                context.limits().machines(GateWiring.HELPER_GRACE),
+                                context.limits())
                         : org.fuin.porelo.wire.HelperPid.endAll(
-                                ownHelpers, context.limits().machines(GateWiring.HELPER_GRACE));
+                                ownHelpers,
+                                context.limits().machines(GateWiring.HELPER_GRACE),
+                                context.limits());
         context.podman().remove(made);
         if (context.podman().stateOf(made)
                 != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT) {
@@ -7036,7 +7045,9 @@ public final class TaskLaunch {
             // pid files in the name's directory may name the other start's helpers by now.
             for (final ProcessHandle helper : ownHelpers) {
                 org.fuin.porelo.wire.HelperPid.end(
-                        helper, context.limits().machines(GateWiring.HELPER_GRACE));
+                        helper,
+                        context.limits().machines(GateWiring.HELPER_GRACE),
+                        context.limits());
             }
             return code;
         }

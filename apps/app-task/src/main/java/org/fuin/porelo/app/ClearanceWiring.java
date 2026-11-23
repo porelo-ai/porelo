@@ -177,12 +177,13 @@ final class ClearanceWiring {
                             limits.machines(WATCHER_PATIENCE),
                             limits.polling(LOOK),
                             watcher::isAlive)
-                    || org.fuin.porelo.wire.HelperPid.await(state.resolve("watcher.pid"), recorded)
+                    || org.fuin.porelo.wire.HelperPid.await(
+                                    state.resolve("watcher.pid"), recorded, limits)
                             .isEmpty()) {
                 // Ended here, by its own handle, and the start fails: a watcher that never
                 // listened left the task with nobody to ask about a blocked connection, and ran on.
                 org.fuin.porelo.wire.HelperPid.end(
-                        watcher.toHandle(), limits.machines(GateWiring.HELPER_GRACE));
+                        watcher.toHandle(), limits.machines(GateWiring.HELPER_GRACE), limits);
                 err.println(
                         "porelo: the clearance watcher did not come up; see "
                                 + state.resolve("clearance.log"));

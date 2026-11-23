@@ -45,6 +45,32 @@ public final class SignedArrivals {
 
     private final String keygen;
 
+    /** How long {@code ssh-keygen} may take to check one signature. */
+    static final java.time.Duration CHECK = java.time.Duration.ofSeconds(60);
+
+    private java.time.Duration check = CHECK;
+
+    /**
+     * Returns these arrivals with their own time limit under the account's factors.
+     *
+     * @param limits The factors.
+     * @return These arrivals.
+     */
+    public SignedArrivals limitedBy(final org.fuin.porelo.wire.LimitFactors limits) {
+        this.check = check(limits);
+        return this;
+    }
+
+    /**
+     * Returns how long {@code ssh-keygen} may take to check one signature.
+     *
+     * @param limits The factors.
+     * @return {@link #CHECK} under {@code machines}.
+     */
+    static java.time.Duration check(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(CHECK);
+    }
+
     /**
      * Constructor.
      *
@@ -157,7 +183,7 @@ public final class SignedArrivals {
             final String said =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             try {
-                if (!process.waitFor(60, TimeUnit.SECONDS)) {
+                if (!process.waitFor(check.toMillis(), TimeUnit.MILLISECONDS)) {
                     process.destroyForcibly();
                     return "commit " + commit + " could not be judged in time";
                 }

@@ -84,6 +84,56 @@ public final class PoreloDaemon {
     /** How often a tail looks for new lines. */
     static final java.time.Duration TAIL_INTERVAL = java.time.Duration.ofMillis(200);
 
+    /**
+     * Returns how often a watch looks for a change.
+     *
+     * @param limits The factors.
+     * @return {@link #WATCH_INTERVAL} under {@code polling}.
+     */
+    static java.time.Duration watchInterval(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(WATCH_INTERVAL);
+    }
+
+    /**
+     * Returns how often a project scan is repeated.
+     *
+     * @param limits The factors.
+     * @return {@link #PROJECT_WATCH_INTERVAL} under {@code polling}.
+     */
+    static java.time.Duration projectWatchInterval(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(PROJECT_WATCH_INTERVAL);
+    }
+
+    /**
+     * Returns how long a prompt stream waits before looking for newly started tasks.
+     *
+     * @param limits The factors.
+     * @return {@link #PROMPT_INTERVAL} under {@code polling}.
+     */
+    static java.time.Duration promptInterval(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(PROMPT_INTERVAL);
+    }
+
+    /**
+     * Returns how often a tail looks for new lines.
+     *
+     * @param limits The factors.
+     * @return {@link #TAIL_INTERVAL} under {@code polling}.
+     */
+    static java.time.Duration tailInterval(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(TAIL_INTERVAL);
+    }
+
+    /**
+     * Returns how often the talk stream looks for new record lines.
+     *
+     * @param limits The factors.
+     * @return {@link #TALK_INTERVAL} under {@code polling}.
+     */
+    static java.time.Duration talkInterval(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(TALK_INTERVAL);
+    }
+
     /** Most bytes one tail reply carries, so a huge log cannot become one huge message. */
     static final long MAX_CHUNK = 64 * 1024;
 
@@ -390,7 +440,8 @@ public final class PoreloDaemon {
                     Thread.ofVirtual()
                             .start(
                                     () -> {
-                                        try (VarlinkClient client = new VarlinkClient(socket)) {
+                                        try (VarlinkClient client =
+                                                new VarlinkClient(socket, context.limits())) {
                                             client.callMore(
                                                     ClearanceService.INTERFACE + ".Subscribe",
                                                     Map.of(),
@@ -1524,7 +1575,7 @@ public final class PoreloDaemon {
                 final boolean noticing = mail.startNotices();
                 // An update replaces this binary and starts nothing: this notices, and has the
                 // account's own manager restart the daemon on the new one.
-                SelfReplacement.ofThisProcess(owned.runner()).start();
+                SelfReplacement.ofThisProcess(owned.runner(), owned.limits()).start();
                 System.out.println("porelod listening on " + socket);
                 System.out.println(
                         messages.isZero() || messages.isNegative()

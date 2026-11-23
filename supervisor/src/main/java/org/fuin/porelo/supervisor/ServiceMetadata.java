@@ -62,13 +62,29 @@ public final class ServiceMetadata {
      */
     public static Endpoints discover(HttpClient http, String resource)
             throws TokenPurchase.Refused {
+        return discover(http, resource, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Finds the endpoints as {@link #discover(HttpClient, String)} does, each request's time limit
+     * under the account's factors.
+     *
+     * @param http How the service is reached.
+     * @param resource The protected resource's URL.
+     * @param limits The factors.
+     * @return The endpoints.
+     * @throws TokenPurchase.Refused As {@link #discover(HttpClient, String)}.
+     */
+    public static Endpoints discover(
+            HttpClient http, String resource, org.fuin.porelo.wire.LimitFactors limits)
+            throws TokenPurchase.Refused {
         if (!Grants.secure(resource)) {
             throw new TokenPurchase.Refused(
                     "the resource URL must be https, or http on loopback, not '"
                             + Grants.shown(resource)
                             + "'");
         }
-        final Map<?, ?> described = resourceDocument(http, resource);
+        final Map<?, ?> described = resourceDocument(http, resource, limits);
         if (!(described.get("authorization_servers") instanceof List<?> servers)
                 || servers.isEmpty()
                 || !(servers.getFirst() instanceof String issuer)) {
@@ -78,7 +94,7 @@ public final class ServiceMetadata {
                             + " names no authorization server in its metadata");
         }
         final String issuerUrl = secure(issuer, "authorization server");
-        final Map<?, ?> server = fetch(http, wellKnown(issuerUrl, SERVER_SUFFIX));
+        final Map<?, ?> server = fetch(http, wellKnown(issuerUrl, SERVER_SUFFIX), limits);
         if (server == null) {
             throw new TokenPurchase.Refused(
                     "the authorization server at "
@@ -112,16 +128,17 @@ public final class ServiceMetadata {
      * Reads the resource's own document: at its path first, then at its host's root, as a resource
      * served below a path may publish it either way.
      */
-    private static Map<?, ?> resourceDocument(HttpClient http, String resource)
+    private static Map<?, ?> resourceDocument(
+            HttpClient http, String resource, org.fuin.porelo.wire.LimitFactors limits)
             throws TokenPurchase.Refused {
         final String atPath = wellKnown(resource, RESOURCE_SUFFIX);
-        Map<?, ?> described = fetch(http, atPath);
+        Map<?, ?> described = fetch(http, atPath, limits);
         String identifier = resource;
         if (described == null) {
             final URI uri = URI.create(resource);
             identifier = uri.getScheme() + "://" + uri.getRawAuthority();
             final String atRoot = identifier + RESOURCE_SUFFIX;
-            described = atRoot.equals(atPath) ? null : fetch(http, atRoot);
+            described = atRoot.equals(atPath) ? null : fetch(http, atRoot, limits);
         }
         if (described == null) {
             throw new TokenPurchase.Refused(
@@ -191,14 +208,28 @@ public final class ServiceMetadata {
      *
      * @return The document, or {@code null} where the service has none there (404).
      */
-    private static @Nullable Map<?, ?> fetch(HttpClient http, String url)
+    /** How long one metadata document may take to come. */
+    static final Duration REQUEST = Duration.ofSeconds(30);
+
+    /**
+     * Returns how long one metadata document may take to come.
+     *
+     * @param limits The factors.
+     * @return {@link #REQUEST} under {@code services}.
+     */
+    static Duration requestLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(REQUEST);
+    }
+
+    private static @Nullable Map<?, ?> fetch(
+            HttpClient http, String url, org.fuin.porelo.wire.LimitFactors limits)
             throws TokenPurchase.Refused {
         final HttpResponse<String> answer;
         try {
             answer =
                     http.send(
                             HttpRequest.newBuilder(URI.create(url))
-                                    .timeout(Duration.ofSeconds(30))
+                                    .timeout(requestLimit(limits))
                                     .header("Accept", "application/json")
                                     .GET()
                                     .build(),

@@ -52,7 +52,8 @@ class GrantsTest {
                                 Grants.send(
                                         HttpClient.newHttpClient(),
                                         "http://127.0.0.1:" + port + "/token",
-                                        Map.of("a", "b")))
+                                        Map.of("a", "b"),
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
                 .isInstanceOf(TokenPurchase.Refused.class)
                 .hasMessageEndingWith("could not be reached: the connection was refused")
                 .hasMessageNotContaining("null");
@@ -65,7 +66,8 @@ class GrantsTest {
                                 Grants.send(
                                         HttpClient.newHttpClient(),
                                         "https://auth.invalid/token",
-                                        Map.of("a", "b")))
+                                        Map.of("a", "b"),
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
                 .isInstanceOf(TokenPurchase.Refused.class)
                 .hasMessageEndingWith("could not be reached: no such host");
     }

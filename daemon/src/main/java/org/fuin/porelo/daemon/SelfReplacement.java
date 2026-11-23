@@ -34,6 +34,19 @@ final class SelfReplacement {
     /** How often to look. */
     static final Duration INTERVAL = Duration.ofSeconds(5);
 
+    /**
+     * Returns how often to look.
+     *
+     * @param limits The factors.
+     * @return {@link #INTERVAL} under {@code polling}.
+     */
+    static Duration interval(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(INTERVAL);
+    }
+
+    /** {@link #INTERVAL} under the account's factors. */
+    private Duration every = INTERVAL;
+
     private static final String DELETED = " (deleted)";
 
     private final CommandRunner runner;
@@ -76,15 +89,24 @@ final class SelfReplacement {
      * Creates the watch for this process.
      *
      * @param runner Runs {@code systemctl}.
+     * @param limits The factors how often it looks follows.
      * @return The watch.
      */
-    static SelfReplacement ofThisProcess(CommandRunner runner) {
-        return new SelfReplacement(
-                runner,
-                System.out,
-                () -> read(() -> Files.readSymbolicLink(Path.of("/proc/self/exe")).toString()),
-                Files::isRegularFile,
-                () -> read(() -> Files.readString(Path.of("/proc/self/cgroup"))));
+    static SelfReplacement ofThisProcess(
+            CommandRunner runner, org.fuin.porelo.wire.LimitFactors limits) {
+        final SelfReplacement watch =
+                new SelfReplacement(
+                        runner,
+                        System.out,
+                        () ->
+                                read(
+                                        () ->
+                                                Files.readSymbolicLink(Path.of("/proc/self/exe"))
+                                                        .toString()),
+                        Files::isRegularFile,
+                        () -> read(() -> Files.readString(Path.of("/proc/self/cgroup"))));
+        watch.every = interval(limits);
+        return watch;
     }
 
     /**
@@ -177,7 +199,8 @@ final class SelfReplacement {
     }
 
     /**
-     * Looks every {@link #INTERVAL} until a restart was asked for, on a platform thread of its own.
+     * Looks every {@link #INTERVAL}, under the account's factors, until a restart was asked for, on
+     * a platform thread of its own.
      *
      * @return The thread.
      */
@@ -189,7 +212,7 @@ final class SelfReplacement {
                         () -> {
                             while (!Thread.currentThread().isInterrupted()) {
                                 try {
-                                    Thread.sleep(INTERVAL);
+                                    Thread.sleep(every);
                                     if (check()) {
                                         return;
                                     }

@@ -190,6 +190,18 @@ public final class Containerfile {
      * @return Sixteen hex characters - enough to tell two recipes apart, short enough to read.
      */
     public static String fingerprint(Project project) {
+        return fingerprint(project, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Returns the recipe's fingerprint as {@link #fingerprint(Project)} does, for an image built
+     * under the account's factors, which its apt settings follow.
+     *
+     * @param project The project.
+     * @param limits The factors.
+     * @return Sixteen hex characters.
+     */
+    public static String fingerprint(Project project, org.fuin.porelo.wire.LimitFactors limits) {
         // Porelo's own half of the recipe is in here too, and it was not always: the digest used to
         // cover the project's answers alone, so a Porelo release that changed what every image
         // contains produced no drift anywhere and existing images silently kept the old recipe.
@@ -203,7 +215,7 @@ public final class Containerfile {
                         + "\u0000"
                         + (project.imageSnippet() == null ? "" : project.imageSnippet())
                         + "\u0000"
-                        + body(project, ImageLayers.none());
+                        + body(project, ImageLayers.none(), limits);
         try {
             final byte[] digest =
                     java.security.MessageDigest.getInstance("SHA-256")
@@ -230,8 +242,22 @@ public final class Containerfile {
      * @return File content, ending in a line separator.
      */
     public static String render(Project project, ImageLayers layers) {
+        return render(project, layers, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
 
-        final List<String> lines = new ArrayList<>(List.of(body(project, layers).split("\n", -1)));
+    /**
+     * Renders the Containerfile for a project, its apt settings under the account's factors.
+     *
+     * @param project The project.
+     * @param layers What the agent and the project contribute.
+     * @param limits The factors.
+     * @return File content, ending in a line separator.
+     */
+    public static String render(
+            Project project, ImageLayers layers, org.fuin.porelo.wire.LimitFactors limits) {
+
+        final List<String> lines =
+                new ArrayList<>(List.of(body(project, layers, limits).split("\n", -1)));
         // Trailing empty element from the split; the labels follow immediately.
         lines.removeLast();
 
@@ -240,7 +266,7 @@ public final class Containerfile {
         // What this image was built from, so an image built before the project file changed can be
         // told from one that is simply absent. Without it "prepared" says only that something
         // exists, and "this will not be what you expect" is discoverable only by starting work.
-        lines.add("LABEL org.fuin.porelo.recipe=\"" + fingerprint(project) + "\"");
+        lines.add("LABEL org.fuin.porelo.recipe=\"" + fingerprint(project, limits) + "\"");
         lines.add(
                 "LABEL org.fuin.porelo.security-class=\""
                         + project.securityClass().name().toLowerCase()
@@ -388,7 +414,36 @@ public final class Containerfile {
         return lines;
     }
 
-    private static String body(Project project, ImageLayers layers) {
+    /** How long apt waits for a download before it gives up on it. */
+    static final java.time.Duration APT_TIMEOUT = java.time.Duration.ofSeconds(20);
+
+    /** How often apt tries a failed download again. */
+    static final int APT_RETRIES = 2;
+
+    /**
+     * Returns how long apt waits for a download, in the whole seconds its setting takes, rounded
+     * up.
+     *
+     * @param limits The factors.
+     * @return {@link #APT_TIMEOUT} under {@code services}.
+     */
+    static long aptTimeout(final org.fuin.porelo.wire.LimitFactors limits) {
+        return (limits.services(APT_TIMEOUT).toMillis() + 999) / 1000;
+    }
+
+    /**
+     * Returns how often apt tries a failed download again: its tries, the first and {@link
+     * #APT_RETRIES} more, under {@code retries}, less the first.
+     *
+     * @param limits The factors.
+     * @return The retries.
+     */
+    static int aptRetries(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.tries(APT_RETRIES + 1) - 1;
+    }
+
+    private static String body(
+            Project project, ImageLayers layers, org.fuin.porelo.wire.LimitFactors limits) {
 
         // One URI a line: the first source that serves a stanza's archive, the rest kept in reserve
         // for an update that fails. Applied last to first, so the first one is what stays.
@@ -441,8 +496,14 @@ public final class Containerfile {
                                 "# the signed Release file rather than from the transport.",
                                 "RUN set -eux; \\",
                                 "    if command -v apt-get >/dev/null 2>&1; then \\",
-                                "        printf '%s\\n' 'Acquire::http::Timeout \"20\";' \\",
-                                "            'Acquire::https::Timeout \"20\";' 'Acquire::Retries \"2\";' \\",
+                                "        printf '%s\\n' 'Acquire::http::Timeout \""
+                                        + aptTimeout(limits)
+                                        + "\";' \\",
+                                "            'Acquire::https::Timeout \""
+                                        + aptTimeout(limits)
+                                        + "\";' 'Acquire::Retries \""
+                                        + aptRetries(limits)
+                                        + "\";' \\",
                                 "            > /etc/apt/apt.conf.d/99-porelo-timeouts; \\",
                                 "        printf '%s\\n' 'Binary::apt::APT::Keep-Downloaded-Packages \"true\";' \\",
                                 "            > /etc/apt/apt.conf.d/99-porelo-keep-packages; \\",

@@ -27,7 +27,45 @@ import picocli.CommandLine.Option;
 public class OrgRefreshCommand extends OrgReading {
     private static final Duration RETRY = Duration.ofSeconds(10);
 
-    Duration limit = Duration.ofMinutes(2);
+    /** How long one display refresh may take. */
+    static final Duration LIMIT = Duration.ofMinutes(2);
+
+    /** How long a cancelled refresh's worker has to end. */
+    static final Duration WORKER_END = Duration.ofSeconds(10);
+
+    Duration limit = LIMIT;
+
+    /**
+     * Returns the least time before a display refresh is tried again.
+     *
+     * @param limits The factors.
+     * @return {@code RETRY} under {@code retries}.
+     */
+    static Duration retry(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.retryPause(RETRY);
+    }
+
+    /**
+     * Returns how long one display refresh may take.
+     *
+     * @param limits The factors.
+     * @param limit Its default, {@link #LIMIT} unless a test sets another.
+     * @return The default under {@code machines}.
+     */
+    static Duration refreshLimit(
+            final org.fuin.porelo.wire.LimitFactors limits, final Duration limit) {
+        return limits.machines(limit);
+    }
+
+    /**
+     * Returns how long a cancelled refresh's worker has to end.
+     *
+     * @param limits The factors.
+     * @return {@link #WORKER_END} under {@code machines}.
+     */
+    static Duration workerEnd(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(WORKER_END);
+    }
 
     @Option(names = "--repository", required = true)
     private String repository = "";
@@ -42,7 +80,8 @@ public class OrgRefreshCommand extends OrgReading {
                         Thread.ofPlatform().daemon(true).name("organization-refresh").factory());
         final var future = worker.submit(() -> refresh(machine));
         try {
-            return future.get(limit.toMillis(), TimeUnit.MILLISECONDS);
+            return future.get(
+                    refreshLimit(machine.limits(), limit).toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw failed();
@@ -55,7 +94,7 @@ public class OrgRefreshCommand extends OrgReading {
             future.cancel(true);
             worker.shutdownNow();
             boolean interrupted = Thread.interrupted();
-            final long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            final long until = System.nanoTime() + workerEnd(machine.limits()).toNanos();
             try {
                 while (!worker.isTerminated() && System.nanoTime() < until) {
                     try {
@@ -92,7 +131,7 @@ public class OrgRefreshCommand extends OrgReading {
                                 return outcome("refreshed");
                             }
                             final Path receipt = state.resolve(OrgAccess.REFRESH_RECEIPT);
-                            if (recent(receipt)) return outcome("joined");
+                            if (recent(receipt, retry(machine.limits()))) return outcome("joined");
                             try {
                                 final Optional<OrganizationQuestions> refreshed =
                                         opened.store()
@@ -126,7 +165,7 @@ public class OrgRefreshCommand extends OrgReading {
                 .orElseGet(() -> outcome("joined"));
     }
 
-    private boolean recent(Path receipt) throws IOException {
+    private boolean recent(Path receipt, Duration retry) throws IOException {
         if (!Files.isRegularFile(receipt, LinkOption.NOFOLLOW_LINKS) || Files.size(receipt) > 16384)
             return false;
         try {
@@ -135,7 +174,7 @@ public class OrgRefreshCommand extends OrgReading {
                     && repository.equals(held.get("repository"))
                     && after.equals(held.get("after"))
                     && held.get("attempted_at") instanceof String when
-                    && Duration.between(Instant.parse(when), Instant.now()).compareTo(RETRY) < 0;
+                    && Duration.between(Instant.parse(when), Instant.now()).compareTo(retry) < 0;
         } catch (RuntimeException ex) {
             return false;
         }

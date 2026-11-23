@@ -47,6 +47,49 @@ public final class TokenPurchase implements TokenSource {
     /** How long a refusal is answered from memory before the server is asked again. */
     static final Duration REFUSAL_HELD = Duration.ofSeconds(5);
 
+    /** How long one purchase may take. */
+    static final Duration REQUEST = Duration.ofSeconds(30);
+
+    /**
+     * Returns how long before its expiry a token is bought again.
+     *
+     * @param limits The factors.
+     * @return {@link #MARGIN} under {@code polling}.
+     */
+    public static Duration margin(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(MARGIN);
+    }
+
+    /**
+     * Returns how long a token lasts when the server says nothing about it.
+     *
+     * @param limits The factors.
+     * @return {@link #UNSTATED} under {@code services}.
+     */
+    static Duration unstated(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(UNSTATED);
+    }
+
+    /**
+     * Returns how long a refusal is answered from memory.
+     *
+     * @param limits The factors.
+     * @return {@link #REFUSAL_HELD} under {@code polling}.
+     */
+    static Duration refusalHeld(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(REFUSAL_HELD);
+    }
+
+    /**
+     * Returns how long one purchase may take.
+     *
+     * @param limits The factors.
+     * @return {@link #REQUEST} under {@code services}.
+     */
+    static Duration requestLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(REQUEST);
+    }
+
     /** The longest expiry taken as stated; beyond it, the answer is treated as naming none. */
     static final Duration LONGEST = Duration.ofDays(366);
 
@@ -184,6 +227,8 @@ public final class TokenPurchase implements TokenSource {
 
     private final Clock clock;
 
+    private org.fuin.porelo.wire.LimitFactors limits = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+
     private @Nullable String token;
 
     private Instant good = Instant.MIN;
@@ -234,6 +279,17 @@ public final class TokenPurchase implements TokenSource {
     }
 
     /**
+     * Returns this purchase with its time limits under the account's factors.
+     *
+     * @param factors The factors.
+     * @return This purchase.
+     */
+    public synchronized TokenPurchase limitedBy(final org.fuin.porelo.wire.LimitFactors factors) {
+        this.limits = factors;
+        return this;
+    }
+
+    /**
      * Returns a valid access token, buying one when there is none or it is about to lapse.
      *
      * <p>Synchronized, which is the single flight: whoever finds no valid token buys one while the
@@ -259,7 +315,7 @@ public final class TokenPurchase implements TokenSource {
             return buy();
         } catch (final Refused ex) {
             failed = ex;
-            failedUntil = clock.instant().plus(REFUSAL_HELD);
+            failedUntil = clock.instant().plus(refusalHeld(limits));
             throw ex;
         }
     }
@@ -316,7 +372,7 @@ public final class TokenPurchase implements TokenSource {
             answer =
                     http.send(
                             HttpRequest.newBuilder(URI.create(client.tokenUrl()))
-                                    .timeout(Duration.ofSeconds(30))
+                                    .timeout(requestLimit(limits))
                                     .header("Content-Type", "application/x-www-form-urlencoded")
                                     .header("Accept", "application/json")
                                     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -388,7 +444,7 @@ public final class TokenPurchase implements TokenSource {
                                 && seconds.longValue() > 0
                                 && seconds.longValue() <= LONGEST.toSeconds()
                         ? Duration.ofSeconds(seconds.longValue())
-                        : UNSTATED;
+                        : unstated(limits);
         if (refresh != null
                 && document.get("refresh_token") instanceof String next
                 && !next.isBlank()
@@ -402,8 +458,8 @@ public final class TokenPurchase implements TokenSource {
         good =
                 clock.instant()
                         .plus(
-                                lasts.compareTo(MARGIN.multipliedBy(2)) > 0
-                                        ? lasts.minus(MARGIN)
+                                lasts.compareTo(margin(limits).multipliedBy(2)) > 0
+                                        ? lasts.minus(margin(limits))
                                         : lasts.dividedBy(2));
         bought++;
         return access;

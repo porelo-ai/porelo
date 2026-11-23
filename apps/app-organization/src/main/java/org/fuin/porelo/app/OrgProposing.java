@@ -53,7 +53,8 @@ abstract class OrgProposing extends OrgReading {
                         OrgProposalAccess.lent(machine, address),
                         OrgAccess.real(machine, repository).identities(),
                         CommitSigning.agent(socket == null ? "" : socket),
-                        new ForgeCardProposals(address, token, OrganizationAccess.http(machine)),
+                        new ForgeCardProposals(address, token, OrganizationAccess.http(machine))
+                                .limitedBy(machine.limits()),
                         Clock.systemUTC())
                 .standingAt(trusted);
     }

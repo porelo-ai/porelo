@@ -144,6 +144,11 @@ public final class DeviceGrant {
 
     private final HttpClient http;
 
+    private org.fuin.porelo.wire.LimitFactors limits = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+
+    /** A device grant's life when the service states none. */
+    static final Duration UNSTATED = Duration.ofMinutes(10);
+
     /**
      * Constructor.
      *
@@ -153,6 +158,27 @@ public final class DeviceGrant {
     public DeviceGrant(Client client, HttpClient http) {
         this.client = client;
         this.http = http;
+    }
+
+    /**
+     * Returns this grant with its time limits under the account's factors.
+     *
+     * @param factors The factors.
+     * @return This grant.
+     */
+    public DeviceGrant limitedBy(final org.fuin.porelo.wire.LimitFactors factors) {
+        this.limits = factors;
+        return this;
+    }
+
+    /**
+     * Returns a device grant's life when the service states none.
+     *
+     * @param limits The factors.
+     * @return {@link #UNSTATED} under {@code services}.
+     */
+    static Duration unstated(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(UNSTATED);
     }
 
     /**
@@ -182,7 +208,7 @@ public final class DeviceGrant {
                 device,
                 user,
                 complete != null ? complete : java.util.Objects.requireNonNull(plain),
-                seconds(answer, "expires_in", Duration.ofMinutes(10)),
+                seconds(answer, "expires_in", unstated(limits)),
                 seconds(answer, "interval", Duration.ofSeconds(5)));
     }
 
@@ -261,7 +287,7 @@ public final class DeviceGrant {
 
     private Map<?, ?> post(String url, Map<String, String> form, boolean mustSucceed)
             throws TokenPurchase.Refused {
-        final HttpResponse<String> answer = Grants.send(http, url, form);
+        final HttpResponse<String> answer = Grants.send(http, url, form, limits);
         final Object parsed;
         try {
             parsed = Json.parse(answer.body());

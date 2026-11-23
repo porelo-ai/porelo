@@ -118,7 +118,7 @@ public final class DefaultProposal {
      */
     public DefaultProposal(final PoreloContext context, final EcosystemDetector detector) {
         this.context = context;
-        this.detector = detector;
+        this.detector = detector.limitedBy(context.limits());
     }
 
     /**

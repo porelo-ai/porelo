@@ -66,6 +66,25 @@ final class ClientPick {
      * @throws NoPair If no pair is answered with a token, naming the counts and error codes only.
      */
     static Credential pick(final Credential value, final HttpClient http, final Clock clock) {
+        return pick(value, http, clock, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Returns the credential as {@link #pick(Credential, HttpClient, Clock)} does, each purchase's
+     * time limits under the account's factors.
+     *
+     * @param value What the agent's sign-in left.
+     * @param http How the authorization server is reached.
+     * @param clock What time it is.
+     * @param limits The factors.
+     * @return The credential to keep.
+     * @throws NoPair If no pair is answered with a token.
+     */
+    static Credential pick(
+            final Credential value,
+            final HttpClient http,
+            final Clock clock,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         final String ids = value.attributes().get(Credential.CLIENT_ID_CANDIDATES);
         final String secrets = value.attributes().get(Credential.CLIENT_SECRET_CANDIDATES);
         if (ids == null && secrets == null) {
@@ -95,10 +114,15 @@ final class ClientPick {
                 final String[] rotated = {refresh};
                 final TokenPurchase purchase =
                         new TokenPurchase(
-                                new TokenPurchase.Refresh(
-                                        url, id, secret, refresh, next -> rotated[0] = next),
-                                http,
-                                clock);
+                                        new TokenPurchase.Refresh(
+                                                url,
+                                                id,
+                                                secret,
+                                                refresh,
+                                                next -> rotated[0] = next),
+                                        http,
+                                        clock)
+                                .limitedBy(limits);
                 final String token;
                 try {
                     token = purchase.current();
@@ -132,7 +156,9 @@ final class ClientPick {
                 attributes.put(
                         Credential.EXPIRES_AT,
                         Long.toString(
-                                purchase.goodUntil().plus(TokenPurchase.MARGIN).toEpochMilli()));
+                                purchase.goodUntil()
+                                        .plus(TokenPurchase.margin(limits))
+                                        .toEpochMilli()));
                 return new Credential(value.type(), token, attributes);
             }
         }

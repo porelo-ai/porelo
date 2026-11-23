@@ -149,7 +149,7 @@ public class BuildStatusCommand implements Callable<Integer>, PoreloFactory.Cont
             throw new BuildStatus.Refused(
                     BuildStatus.Reason.READER_UNAVAILABLE, String.valueOf(ex.getMessage()));
         }
-        return new Installed(new InstalledBuildReader(executable, forge, socket));
+        return new Installed(new InstalledBuildReader(executable, forge, socket, context.limits()));
     }
 
     private record Installed(InstalledBuildReader reader) implements Reader {

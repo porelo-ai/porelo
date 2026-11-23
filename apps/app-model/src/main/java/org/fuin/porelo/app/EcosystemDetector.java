@@ -18,42 +18,77 @@ import org.fuin.porelo.ecosystem.api.Repository;
 @FunctionalInterface
 public interface EcosystemDetector {
 
-    /** Starts the plugin itself and asks it over its socket. */
-    EcosystemDetector INSTALLED =
-            new EcosystemDetector() {
-                @Override
-                public Detection detect(
-                        final InstalledEcosystems.Description plugin,
-                        final Path checkout,
-                        final Path home)
-                        throws IOException {
-                    final Path temporary = Files.createTempDirectory("porelo-detect-");
-                    try (var installed = new InstalledEcosystem(plugin.executable(), temporary)) {
-                        return installed.detect(checkout, home);
-                    } finally {
-                        Files.deleteIfExists(temporary);
-                    }
-                }
+    /** Starts the plugin itself and asks it over its socket, every time limit at its default. */
+    EcosystemDetector INSTALLED = new Installed(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
-                @Override
-                public Optional<List<Finding>> resolve(
-                        final InstalledEcosystems.Description plugin,
-                        final Path checkout,
-                        final Path home,
-                        final List<Finding> detected,
-                        final Map<String, String> proxies)
-                        throws IOException {
-                    // A process of its own: the one Detect asked never holds a proxy setting.
-                    final Path temporary = Files.createTempDirectory("porelo-resolve-");
-                    try (var installed =
-                            InstalledEcosystem.forResolve(
-                                    plugin.executable(), temporary, proxies)) {
-                        return installed.resolve(checkout, home, detected);
-                    } finally {
-                        Files.deleteIfExists(temporary);
-                    }
-                }
-            };
+    /**
+     * Returns this detector with the time limits of the plugins it starts under the account's
+     * factors; one that starts none stays as it is.
+     *
+     * @param limits The factors.
+     * @return The detector.
+     */
+    default EcosystemDetector limitedBy(final org.fuin.porelo.wire.LimitFactors limits) {
+        return this;
+    }
+
+    /**
+     * Starts the plugin itself and asks it over its socket.
+     *
+     * @param limits The factors the plugins' time limits follow.
+     */
+    record Installed(org.fuin.porelo.wire.LimitFactors limits) implements EcosystemDetector {
+
+        @Override
+        public EcosystemDetector limitedBy(final org.fuin.porelo.wire.LimitFactors factors) {
+            return new Installed(factors);
+        }
+
+        @Override
+        public Detection detect(
+                final InstalledEcosystems.Description plugin, final Path checkout, final Path home)
+                throws IOException {
+            final Path temporary = Files.createTempDirectory("porelo-detect-");
+            try (var installed = new InstalledEcosystem(plugin.executable(), temporary, limits)) {
+                return installed.detect(checkout, home);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        }
+
+        @Override
+        public Optional<List<Finding>> resolve(
+                final InstalledEcosystems.Description plugin,
+                final Path checkout,
+                final Path home,
+                final List<Finding> detected,
+                final Map<String, String> proxies)
+                throws IOException {
+            // A process of its own: the one Detect asked never holds a proxy setting.
+            final Path temporary = Files.createTempDirectory("porelo-resolve-");
+            try (var installed =
+                    InstalledEcosystem.forResolve(
+                            plugin.executable(), temporary, proxies, limits)) {
+                return installed.resolve(checkout, home, detected);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        }
+
+        @Override
+        public List<File> configure(
+                final InstalledEcosystems.Description plugin,
+                final List<Repository> repositories,
+                final Extension extension)
+                throws IOException {
+            final Path temporary = Files.createTempDirectory("porelo-configure-");
+            try (var installed = new InstalledEcosystem(plugin.executable(), temporary, limits)) {
+                return installed.configure(repositories, extension);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        }
+    }
 
     /**
      * Asks one plugin about a directory.

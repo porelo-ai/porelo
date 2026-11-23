@@ -33,6 +33,58 @@ final class ForgeCardProposals implements CardProposals.Forge {
     private final boolean github;
     private final String repository;
 
+    /** How often a new fork is looked for before joining gives up. */
+    static final int FORK_TRIES = 30;
+
+    /** The pause between two looks for a new fork. */
+    static final Duration FORK_PAUSE = Duration.ofMillis(250);
+
+    /** How long one request to the forge may take. */
+    static final Duration REQUEST = Duration.ofSeconds(10);
+
+    private org.fuin.porelo.wire.LimitFactors limits = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+
+    /**
+     * Returns these proposals with their time limits under the account's factors.
+     *
+     * @param factors The factors.
+     * @return These proposals.
+     */
+    ForgeCardProposals limitedBy(final org.fuin.porelo.wire.LimitFactors factors) {
+        this.limits = factors;
+        return this;
+    }
+
+    /**
+     * Returns how often a new fork is looked for.
+     *
+     * @param limits The factors.
+     * @return {@link #FORK_TRIES} under {@code retries}.
+     */
+    static int forkTries(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.tries(FORK_TRIES);
+    }
+
+    /**
+     * Returns the pause between two looks for a new fork.
+     *
+     * @param limits The factors.
+     * @return {@link #FORK_PAUSE} under {@code retries}.
+     */
+    static Duration forkPause(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.retryPause(FORK_PAUSE);
+    }
+
+    /**
+     * Returns how long one request to the forge may take.
+     *
+     * @param limits The factors.
+     * @return {@link #REQUEST} under {@code services}.
+     */
+    static Duration requestLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(REQUEST);
+    }
+
     ForgeCardProposals(ForgeAddress address, String token, HttpClient client) {
         this(
                 address,
@@ -167,14 +219,16 @@ final class ForgeCardProposals implements CardProposals.Forge {
         if (!PersonCard.isLogin(login))
             throw new Refused(Refused.USAGE, "expected a forge login", null);
         request("POST", repository + "/forks", Map.of(), 200, 201, 202, 409, 422);
-        for (int attempt = 0; attempt < 30; attempt++) {
+        final int tries = forkTries(limits);
+        final Duration pause = forkPause(limits);
+        for (int attempt = 0; attempt < tries; attempt++) {
             final Reply reply =
                     request("GET", "repos/" + login + "/" + address.repository(), null, 200, 404);
             if (reply.status() == 200) {
                 return forkUrl(address.url(), address.organization(), login);
             }
             try {
-                Thread.sleep(250);
+                Thread.sleep(pause);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 throw failed("fork waiting was interrupted; run porelo org join again");
@@ -295,7 +349,7 @@ final class ForgeCardProposals implements CardProposals.Forge {
         try {
             HttpRequest.Builder request =
                     HttpRequest.newBuilder(api.resolve(path))
-                            .timeout(Duration.ofSeconds(10))
+                            .timeout(requestLimit(limits))
                             .header("Authorization", "token " + token)
                             .header("Accept", "application/json")
                             .header("Content-Type", "application/json");

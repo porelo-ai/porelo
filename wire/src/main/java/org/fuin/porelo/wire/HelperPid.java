@@ -113,10 +113,12 @@ public final class HelperPid {
      *
      * @param helper The helper.
      * @param grace How long it has to go once asked.
+     * @param limits The factors its look again and a killed helper's wait follow.
      * @return Whether it and everything it started are gone.
      */
-    public static boolean end(final ProcessHandle helper, final java.time.Duration grace) {
-        return endAll(java.util.List.of(helper), grace);
+    public static boolean end(
+            final ProcessHandle helper, final java.time.Duration grace, final LimitFactors limits) {
+        return endAll(java.util.List.of(helper), grace, limits);
     }
 
     /**
@@ -128,17 +130,20 @@ public final class HelperPid {
      *
      * @param helpers The helpers.
      * @param grace How long they have to go once asked.
+     * @param limits The factors its look again and a killed helper's wait follow.
      * @return Whether they and everything they started are gone.
      */
     public static boolean endAll(
-            final java.util.Collection<ProcessHandle> helpers, final java.time.Duration grace) {
+            final java.util.Collection<ProcessHandle> helpers,
+            final java.time.Duration grace,
+            final LimitFactors limits) {
         final java.util.Set<ProcessHandle> started = new java.util.LinkedHashSet<>();
         census(helpers, started).forEach(ProcessHandle::destroy);
         helpers.forEach(ProcessHandle::destroy);
         final long until = System.nanoTime() + grace.toNanos();
         while (anyAlive(helpers, started)) {
-            if (System.nanoTime() - until >= 0 || !pause()) {
-                return kill(helpers, started);
+            if (System.nanoTime() - until >= 0 || !pause(poll(limits))) {
+                return kill(helpers, started, killed(limits));
             }
             census(helpers, started).forEach(ProcessHandle::destroy);
         }
@@ -148,8 +153,9 @@ public final class HelperPid {
     /** Kills what still runs: what they started until a count finds nothing new, then them. */
     private static boolean kill(
             final java.util.Collection<ProcessHandle> helpers,
-            final java.util.Set<ProcessHandle> started) {
-        final long until = System.nanoTime() + KILLED.toNanos();
+            final java.util.Set<ProcessHandle> started,
+            final java.time.Duration killed) {
+        final long until = System.nanoTime() + killed.toNanos();
         java.util.List<ProcessHandle> fresh;
         do {
             fresh = census(helpers, started);
@@ -158,7 +164,7 @@ public final class HelperPid {
         helpers.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
         final java.util.List<ProcessHandle> all = new java.util.ArrayList<>(started);
         all.addAll(helpers);
-        return gone(all, KILLED);
+        return gone(all, killed);
     }
 
     /**
@@ -191,9 +197,9 @@ public final class HelperPid {
     }
 
     /** Waits one poll; {@code false} when interrupted. */
-    private static boolean pause() {
+    private static boolean pause(final java.time.Duration poll) {
         try {
-            Thread.sleep(POLL);
+            Thread.sleep(poll);
             return true;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -206,6 +212,39 @@ public final class HelperPid {
 
     /** How long a killed helper has to be gone; the kernel does not refuse a kill. */
     private static final java.time.Duration KILLED = java.time.Duration.ofSeconds(2);
+
+    /** How often a helper's record is looked for while it starts. */
+    private static final java.time.Duration RECORD_POLL = java.time.Duration.ofMillis(50);
+
+    /**
+     * Returns how often what is being ended is looked at again.
+     *
+     * @param limits The factors.
+     * @return {@link #POLL} under {@code polling}.
+     */
+    static java.time.Duration poll(final LimitFactors limits) {
+        return limits.polling(POLL);
+    }
+
+    /**
+     * Returns how long a killed helper has to be gone.
+     *
+     * @param limits The factors.
+     * @return {@link #KILLED} under {@code machines}.
+     */
+    static java.time.Duration killed(final LimitFactors limits) {
+        return limits.machines(KILLED);
+    }
+
+    /**
+     * Returns how often a starting helper's record is looked for.
+     *
+     * @param limits The factors.
+     * @return {@link #RECORD_POLL} under {@code polling}.
+     */
+    static java.time.Duration recordPoll(final LimitFactors limits) {
+        return limits.polling(RECORD_POLL);
+    }
 
     private static boolean gone(
             final java.util.List<ProcessHandle> processes, final java.time.Duration within) {
@@ -237,16 +276,19 @@ public final class HelperPid {
      *
      * @param file The record the helper writes.
      * @param deadline When to give up, as {@link System#nanoTime} reads it.
+     * @param limits The factors how often the record is looked for follows.
      * @return The helper, or empty when it did not record itself in time, or is gone again.
      */
-    public static Optional<ProcessHandle> await(Path file, long deadline) {
+    public static Optional<ProcessHandle> await(
+            final Path file, final long deadline, final LimitFactors limits) {
+        final java.time.Duration poll = recordPoll(limits);
         while (true) {
             final Optional<ProcessHandle> found = verified(file);
             if (found.isPresent() || System.nanoTime() - deadline >= 0) {
                 return found;
             }
             try {
-                Thread.sleep(50);
+                Thread.sleep(poll);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return verified(file);

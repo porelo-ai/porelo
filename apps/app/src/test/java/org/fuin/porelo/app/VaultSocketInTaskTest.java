@@ -82,7 +82,8 @@ class VaultSocketInTaskTest {
                                 org.fuin.porelo.wire.HelperPid.await(
                                         pidFile,
                                         org.fuin.porelo.wire.HelperPid.deadline(
-                                                Duration.ofSeconds(30))))
+                                                Duration.ofSeconds(30)),
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
                         .as("the relay came up: %s", log(dir))
                         .isPresent();
 

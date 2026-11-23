@@ -233,7 +233,8 @@ public class VaultRepositoriesCommand implements Callable<Integer>, PoreloFactor
                                     out.flush();
                                 },
                                 org.fuin.porelo.core.net.TrustedCertificates.file(
-                                        context.paths().xdg()));
+                                        context.paths().xdg()),
+                                context.limits());
                 // Closed by a signal too: a socket left behind reads as a live broker.
                 Teardown closing = Teardown.arm(proxy::close)) {
             org.fuin.porelo.wire.HelperPid.record(pidFile);

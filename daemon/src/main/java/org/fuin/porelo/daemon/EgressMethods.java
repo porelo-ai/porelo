@@ -285,7 +285,10 @@ final class EgressMethods {
                         while (replies.open()) {
                             subscribe(context, inventory, events, watching);
                             final Map<String, Object> event =
-                                    events.poll(PROMPT_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
+                                    events.poll(
+                                            PoreloDaemon.promptInterval(context.limits())
+                                                    .toMillis(),
+                                            TimeUnit.MILLISECONDS);
                             if (event != null) {
                                 replies.more(event);
                             }
@@ -312,7 +315,7 @@ final class EgressMethods {
                         throw new VarlinkException(
                                 INTERFACE + ".NoClearance", Map.of("task", task));
                     }
-                    try (VarlinkClient client = new VarlinkClient(clearance)) {
+                    try (VarlinkClient client = new VarlinkClient(clearance, context.limits())) {
                         final Map<String, Object> answer =
                                 client.call(
                                         ClearanceService.INTERFACE + ".Verdict",

@@ -43,6 +43,70 @@ public final class InstalledEcosystem implements AutoCloseable {
     /** How long one question may take. */
     static final long CALL_SECONDS = 120;
 
+    /** How long a plugin asked to end, or killed, has to be gone. */
+    static final Duration END_WAIT = Duration.ofSeconds(5);
+
+    /**
+     * Returns how long a plugin may take to start and to describe itself.
+     *
+     * @param limits The factors.
+     * @return {@link #READY_SECONDS} under {@code services}.
+     */
+    static Duration readyLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(Duration.ofSeconds(READY_SECONDS));
+    }
+
+    /**
+     * Returns how long one question may take.
+     *
+     * @param limits The factors.
+     * @return {@link #CALL_SECONDS} under {@code services}.
+     */
+    static Duration callLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(Duration.ofSeconds(CALL_SECONDS));
+    }
+
+    /**
+     * Returns how long Porelo waits for a whole {@code Resolve}.
+     *
+     * @param limits The factors.
+     * @return {@link EcosystemProtocol#RESOLVE_CALL_SECONDS} under {@code services}.
+     */
+    static Duration resolveLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(Duration.ofSeconds(EcosystemProtocol.RESOLVE_CALL_SECONDS));
+    }
+
+    /**
+     * Returns how long a plugin asked to end, or killed, has to be gone.
+     *
+     * @param limits The factors.
+     * @return {@link #END_WAIT} under {@code machines}.
+     */
+    static Duration endWait(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(END_WAIT);
+    }
+
+    /**
+     * Writes a limit in seconds, as a refusal names it.
+     *
+     * @param limit The limit.
+     * @return Its seconds, with a fraction only when it has one.
+     */
+    static String seconds(final Duration limit) {
+        return java.math.BigDecimal.valueOf(limit.toMillis(), 3)
+                        .stripTrailingZeros()
+                        .toPlainString()
+                + " seconds";
+    }
+
+    private final org.fuin.porelo.wire.LimitFactors limits;
+
+    private final Duration readyLimit;
+
+    private final Duration callLimit;
+
+    private final Duration endWait;
+
     /** The longest diagnostic that holds a plugin's words. */
     static final int MESSAGE = 2048;
 
@@ -96,7 +160,22 @@ public final class InstalledEcosystem implements AutoCloseable {
      *     another ecosystem.
      */
     public InstalledEcosystem(final Path executable, final Path directory) {
-        this(executable, directory, Map.of());
+        this(executable, directory, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Starts a plugin and completes its handshake, its time limits under the given factors.
+     *
+     * @param executable The plugin; its file's name is the ecosystem it must call itself.
+     * @param directory A directory of the caller's, as for {@link #InstalledEcosystem(Path, Path)}.
+     * @param limits The factors its time limits follow.
+     * @throws EcosystemException As {@link #InstalledEcosystem(Path, Path)}.
+     */
+    public InstalledEcosystem(
+            final Path executable,
+            final Path directory,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        this(executable, directory, Map.of(), limits);
     }
 
     /**
@@ -112,6 +191,26 @@ public final class InstalledEcosystem implements AutoCloseable {
      */
     public static InstalledEcosystem forResolve(
             final Path executable, final Path directory, final Map<String, String> proxies) {
+        return forResolve(
+                executable, directory, proxies, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Starts a plugin for {@link #resolve} alone, as {@link #forResolve(Path, Path, Map)} does, its
+     * time limits under the given factors.
+     *
+     * @param executable The plugin.
+     * @param directory A directory of the caller's.
+     * @param proxies The caller's values.
+     * @param limits The factors its time limits follow.
+     * @return The started plugin.
+     * @throws EcosystemException As {@link #InstalledEcosystem(Path, Path)}.
+     */
+    public static InstalledEcosystem forResolve(
+            final Path executable,
+            final Path directory,
+            final Map<String, String> proxies,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         final Map<String, String> taken = new LinkedHashMap<>();
         for (final String name : EcosystemProtocol.PROXY_VARIABLES) {
             final String value = proxies.get(name);
@@ -119,11 +218,18 @@ public final class InstalledEcosystem implements AutoCloseable {
                 taken.put(name, value);
             }
         }
-        return new InstalledEcosystem(executable, directory, taken);
+        return new InstalledEcosystem(executable, directory, taken, limits);
     }
 
     private InstalledEcosystem(
-            final Path executable, final Path directory, final Map<String, String> environment) {
+            final Path executable,
+            final Path directory,
+            final Map<String, String> environment,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        this.limits = limits;
+        this.readyLimit = readyLimit(limits);
+        this.callLimit = callLimit(limits);
+        this.endWait = endWait(limits);
         this.executable = executable;
         this.environment = Map.copyOf(environment);
         this.ecosystem = String.valueOf(executable.getFileName());
@@ -219,7 +325,7 @@ public final class InstalledEcosystem implements AutoCloseable {
 
     /**
      * Asks the plugin to look up what its own {@link #detect} read, within {@link
-     * EcosystemProtocol#RESOLVE_CALL_SECONDS}.
+     * EcosystemProtocol#RESOLVE_CALL_SECONDS} under the {@code services} factor.
      *
      * @param directory The directory it read.
      * @param home The home it read.
@@ -231,7 +337,7 @@ public final class InstalledEcosystem implements AutoCloseable {
      */
     public Optional<List<Finding>> resolve(
             final Path directory, final Path home, final List<Finding> findings) {
-        return resolve(directory, home, findings, EcosystemProtocol.RESOLVE_CALL_SECONDS);
+        return resolve(directory, home, findings, resolveLimit(limits));
     }
 
     /** As {@link #resolve(Path, Path, List)}, within a bound a test can wait out. */
@@ -239,14 +345,14 @@ public final class InstalledEcosystem implements AutoCloseable {
             final Path directory,
             final Path home,
             final List<Finding> findings,
-            final long seconds) {
+            final Duration limit) {
         final Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("directory", directory.toString());
         parameters.put("home", home.toString());
         parameters.put("findings", findings.stream().map(Finding::asMap).toList());
         final Map<String, Object> answer;
         try {
-            answer = ask(EcosystemProtocol.RESOLVE, parameters, seconds);
+            answer = ask(EcosystemProtocol.RESOLVE, parameters, limit);
         } catch (VarlinkException ex) {
             if (METHOD_NOT_FOUND.equals(ex.getErrorName())) {
                 return Optional.empty();
@@ -308,7 +414,7 @@ public final class InstalledEcosystem implements AutoCloseable {
      */
     public Answer optional(final String method, final Map<String, Object> parameters) {
         try {
-            return new Answer.Answered(ask(method, parameters, CALL_SECONDS));
+            return new Answer.Answered(ask(method, parameters, callLimit));
         } catch (VarlinkException ex) {
             if (METHOD_NOT_FOUND.equals(ex.getErrorName())) {
                 return new Answer.CannotSay(method);
@@ -323,7 +429,7 @@ public final class InstalledEcosystem implements AutoCloseable {
         closeQuietly(running.client());
         process.destroy();
         try {
-            if (!process.waitFor(5, TimeUnit.SECONDS)) {
+            if (!process.waitFor(endWait.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
             }
         } catch (InterruptedException ex) {
@@ -365,14 +471,14 @@ public final class InstalledEcosystem implements AutoCloseable {
                     bounded(
                             process,
                             () -> {
-                                final VarlinkClient connected = new VarlinkClient(socket);
+                                final VarlinkClient connected = new VarlinkClient(socket, limits);
                                 opened.set(connected);
                                 return connected;
                             },
-                            READY_SECONDS);
+                            readyLimit);
             handshake(
                     executable,
-                    answered(process, client, EcosystemProtocol.DESCRIBE, Map.of(), READY_SECONDS));
+                    answered(process, client, EcosystemProtocol.DESCRIBE, Map.of(), readyLimit));
             return new Running(process, client);
         } catch (RuntimeException ex) {
             ended(process);
@@ -441,21 +547,21 @@ public final class InstalledEcosystem implements AutoCloseable {
 
     private Map<String, Object> call(final String method, final Map<String, Object> parameters) {
         try {
-            return ask(method, parameters, CALL_SECONDS);
+            return ask(method, parameters, callLimit);
         } catch (VarlinkException ex) {
             throw heard(ex);
         }
     }
 
     private Map<String, Object> ask(
-            final String method, final Map<String, Object> parameters, final long seconds) {
+            final String method, final Map<String, Object> parameters, final Duration limit) {
         if (!running.process().isAlive()) {
             closeQuietly(running.client());
             running = start();
         }
         final Running asked = running;
         try {
-            return answered(asked.process(), asked.client(), method, parameters, seconds);
+            return answered(asked.process(), asked.client(), method, parameters, limit);
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
                 // The connection failed, not the question. The process is ended and waited for
@@ -475,12 +581,12 @@ public final class InstalledEcosystem implements AutoCloseable {
             final VarlinkClient client,
             final String method,
             final Map<String, Object> parameters,
-            final long seconds) {
+            final Duration limit) {
         try {
-            return client.call(method, parameters, Duration.ofSeconds(seconds));
+            return client.call(method, parameters, limit);
         } catch (VarlinkTimeoutException ex) {
             process.destroyForcibly();
-            throw fault(executable + " did not answer within " + seconds + " seconds");
+            throw fault(executable + " did not answer within " + seconds(limit));
         }
     }
 
@@ -506,7 +612,7 @@ public final class InstalledEcosystem implements AutoCloseable {
      */
     private void awaitReady(final Process process) {
         final InputStream output = process.getInputStream();
-        final String said = bounded(process, () -> saidBeforeReady(output), READY_SECONDS);
+        final String said = bounded(process, () -> saidBeforeReady(output), readyLimit);
         if (said != null) {
             throw fault(
                     executable
@@ -566,7 +672,7 @@ public final class InstalledEcosystem implements AutoCloseable {
     /**
      * Runs a step that is no varlink call within a limit: a ready line and a connect wait without.
      */
-    private <T> T bounded(final Process process, final Supplier<T> step, final long seconds) {
+    private <T> T bounded(final Process process, final Supplier<T> step, final Duration limit) {
         final ExecutorService runner =
                 Executors.newSingleThreadExecutor(
                         task -> {
@@ -575,10 +681,10 @@ public final class InstalledEcosystem implements AutoCloseable {
                             return thread;
                         });
         try {
-            return runner.submit(step::get).get(seconds, TimeUnit.SECONDS);
+            return runner.submit(step::get).get(limit.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException ex) {
             process.destroyForcibly();
-            throw fault(executable + " did not answer within " + seconds + " seconds");
+            throw fault(executable + " did not answer within " + seconds(limit));
         } catch (ExecutionException ex) {
             if (ex.getCause() instanceof RuntimeException runtime) {
                 throw runtime;
@@ -593,10 +699,10 @@ public final class InstalledEcosystem implements AutoCloseable {
     }
 
     /** Ends a plugin's process and waits for it, so that it reads as ended at once. */
-    private static void ended(final Process process) {
+    private void ended(final Process process) {
         process.destroyForcibly();
         try {
-            process.waitFor(5, TimeUnit.SECONDS);
+            process.waitFor(endWait.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }

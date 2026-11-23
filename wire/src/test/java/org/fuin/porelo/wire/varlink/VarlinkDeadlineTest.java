@@ -109,6 +109,39 @@ class VarlinkDeadlineTest {
     }
 
     @Test
+    void theDefaultDeadlineFollowsTheServicesFactor() {
+        assertThat(VarlinkClient.deadline(org.fuin.porelo.wire.LimitFactors.parse("services=2")))
+                .isEqualTo(Duration.ofSeconds(60));
+        assertThat(VarlinkClient.deadline(org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .isEqualTo(VarlinkClient.DEFAULT_DEADLINE);
+    }
+
+    @Test
+    @Timeout(10)
+    void aCallNamingNoDeadlineEndsAtTheDefaultUnderTheServicesFactor(@TempDir Path dir)
+            throws Exception {
+
+        // A peer that never answers: at 0.1 the call gives up after 3 s, not the 30 s a client
+        // connected without the factors waits.
+        final CountDownLatch released = new CountDownLatch(1);
+        try (var service = peer(dir.resolve("mute.sock"), client -> released.await());
+                VarlinkClient client =
+                        new VarlinkClient(
+                                dir.resolve("mute.sock"),
+                                org.fuin.porelo.wire.LimitFactors.parse("services=0.1"))) {
+            final long started = System.nanoTime();
+
+            assertThatThrownBy(() -> client.call(INTERFACE + ".Mute", Map.of()))
+                    .isInstanceOf(VarlinkTimeoutException.class);
+            assertThat(Duration.ofNanos(System.nanoTime() - started))
+                    .isGreaterThanOrEqualTo(Duration.ofMillis(2900))
+                    .isLessThan(Duration.ofSeconds(8));
+        } finally {
+            released.countDown();
+        }
+    }
+
+    @Test
     @Timeout(20)
     void aFrameOfFourMebibytesAndOneByteEndingInTheLastReadIsRefused(@TempDir Path dir)
             throws Exception {

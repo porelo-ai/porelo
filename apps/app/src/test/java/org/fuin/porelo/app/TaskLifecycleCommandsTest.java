@@ -1581,7 +1581,11 @@ class TaskLifecycleCommandsTest {
         try {
             final long deadline =
                     org.fuin.porelo.wire.HelperPid.deadline(java.time.Duration.ofSeconds(10));
-            assertThat(org.fuin.porelo.wire.HelperPid.await(state.resolve("watcher.pid"), deadline))
+            assertThat(
+                            org.fuin.porelo.wire.HelperPid.await(
+                                    state.resolve("watcher.pid"),
+                                    deadline,
+                                    org.fuin.porelo.wire.LimitFactors.DEFAULT))
                     .as("the watcher is up before the resume")
                     .isPresent();
             new TaskHelpers(

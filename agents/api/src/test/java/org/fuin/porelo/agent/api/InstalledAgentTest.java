@@ -93,6 +93,40 @@ class InstalledAgentTest {
                 .isLessThan(java.time.Duration.ofSeconds(InstalledAgent.READY_TIMEOUT_SECONDS + 5));
     }
 
+    @Test
+    void itsTimeLimitsFollowTheServicesAndMachinesFactors() {
+        final org.fuin.porelo.wire.LimitFactors doubled =
+                org.fuin.porelo.wire.LimitFactors.parse("services=2,machines=2");
+        final org.fuin.porelo.wire.LimitFactors plain = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+
+        assertThat(InstalledAgent.readyDeadline(doubled))
+                .isEqualTo(java.time.Duration.ofSeconds(20));
+        assertThat(InstalledAgent.slowDeadline(doubled))
+                .isEqualTo(java.time.Duration.ofSeconds(240));
+        assertThat(InstalledAgent.endGrace(doubled)).isEqualTo(java.time.Duration.ofSeconds(4));
+        assertThat(InstalledAgent.readyDeadline(plain)).isEqualTo(java.time.Duration.ofSeconds(10));
+        assertThat(InstalledAgent.slowDeadline(plain)).isEqualTo(java.time.Duration.ofSeconds(120));
+        assertThat(InstalledAgent.endGrace(plain)).isEqualTo(java.time.Duration.ofSeconds(2));
+    }
+
+    @org.junit.jupiter.api.Test
+    void anAdapterThatNeverSaysItIsReadyIsGivenUpOnAtTheLimitUnderTheServicesFactor(
+            @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        final Path executable = adapter(dir, "silent", "sleep 600");
+        final java.time.Instant started = java.time.Instant.now();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                new InstalledAgent(
+                                        executable,
+                                        dir.resolve("run"),
+                                        org.fuin.porelo.wire.LimitFactors.parse("services=0.1")))
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("did not become ready within 1 seconds");
+        assertThat(java.time.Duration.between(started, java.time.Instant.now()))
+                .isLessThan(java.time.Duration.ofSeconds(6));
+    }
+
     @org.junit.jupiter.api.Test
     void anAdapterThatFailsAfterSayingItIsReadyIsOneFailureAmongTheOthers(
             @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {

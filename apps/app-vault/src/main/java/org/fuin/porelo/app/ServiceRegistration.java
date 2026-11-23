@@ -75,7 +75,9 @@ final class ServiceRegistration {
         final boolean device = DeviceGrant.KIND.equals(named.type());
         final ServiceMetadata.Endpoints endpoints =
                 ServiceMetadata.discover(
-                        http, Objects.requireNonNull(named.settings().get(RESOURCE)));
+                        http,
+                        Objects.requireNonNull(named.settings().get(RESOURCE)),
+                        context.limits());
         final String grantUrl = device ? endpoints.deviceUrl() : endpoints.authorizationUrl();
         if (grantUrl == null) {
             throw new TokenPurchase.Refused(
@@ -105,7 +107,12 @@ final class ServiceRegistration {
                                 String value = current.value();
                                 if (!settings.containsKey("client_id")) {
                                     final ClientRegistration.Registered registered =
-                                            register(endpoints, device, settings, http);
+                                            register(
+                                                    endpoints,
+                                                    device,
+                                                    settings,
+                                                    http,
+                                                    context.limits());
                                     settings.put("client_id", registered.clientId());
                                     final String secret = registered.clientSecret();
                                     value = secret == null ? GrantEntry.NO_SECRET : secret;
@@ -149,7 +156,8 @@ final class ServiceRegistration {
             final ServiceMetadata.Endpoints endpoints,
             final boolean device,
             final Map<String, String> settings,
-            final HttpClient http) {
+            final HttpClient http,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         final String url = endpoints.registrationUrl();
         try {
             if (url == null) {
@@ -167,7 +175,8 @@ final class ServiceRegistration {
                             device
                                     ? null
                                     : CodeGrant.Client.redirectUri(CodeGrant.Client.port(settings)),
-                            settings.getOrDefault("scopes", "")));
+                            settings.getOrDefault("scopes", "")),
+                    limits);
         } catch (TokenPurchase.Refused ex) {
             throw new Unregistered(ex);
         }
@@ -195,15 +204,19 @@ final class ServiceRegistration {
      *
      * @param registration The hidden entry holding it.
      * @param http How the service is reached.
+     * @param limits The factors the request's time limit follows.
      * @return {@code null} when the service deleted it, else why it could not be told.
      */
-    static @Nullable String delete(final VaultEntry registration, final HttpClient http) {
+    static @Nullable String delete(
+            final VaultEntry registration,
+            final HttpClient http,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         final String uri = registration.settings().get(CLIENT_URI);
         if (uri == null) {
             return "the registration's URL is not kept, so the service cannot be told";
         }
         try {
-            ClientRegistration.delete(http, uri, registration.value());
+            ClientRegistration.delete(http, uri, registration.value(), limits);
             return null;
         } catch (TokenPurchase.Refused ex) {
             return ex.getMessage();

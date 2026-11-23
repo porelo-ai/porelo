@@ -205,6 +205,25 @@ public final class Grants {
      */
     public static void revoke(Service service, HttpClient http, String refreshToken)
             throws TokenPurchase.Refused {
+        revoke(service, http, refreshToken, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Revokes a grant as {@link #revoke(Service, HttpClient, String)} does, its request's time
+     * limit under the account's factors.
+     *
+     * @param service Where to revoke it.
+     * @param http How the service is reached.
+     * @param refreshToken The refresh token in force.
+     * @param limits The factors.
+     * @throws TokenPurchase.Refused As {@link #revoke(Service, HttpClient, String)}.
+     */
+    public static void revoke(
+            Service service,
+            HttpClient http,
+            String refreshToken,
+            org.fuin.porelo.wire.LimitFactors limits)
+            throws TokenPurchase.Refused {
         final String url = service.revocationUrl();
         if (url == null) {
             throw new TokenPurchase.Refused(
@@ -218,7 +237,7 @@ public final class Grants {
         if (service.clientSecret() != null) {
             form.put("client_secret", service.clientSecret());
         }
-        final HttpResponse<String> answer = send(http, url, form);
+        final HttpResponse<String> answer = send(http, url, form, limits);
         if (answer.statusCode() / 100 != 2) {
             throw new TokenPurchase.Refused(
                     "the service at "
@@ -237,10 +256,15 @@ public final class Grants {
      * @param http How the service is reached.
      * @param url Where.
      * @param form What.
+     * @param limits The factors its time limit follows.
      * @return The answer, whatever its status.
      * @throws TokenPurchase.Refused If the service cannot be reached.
      */
-    static HttpResponse<String> send(HttpClient http, String url, Map<String, String> form)
+    static HttpResponse<String> send(
+            HttpClient http,
+            String url,
+            Map<String, String> form,
+            org.fuin.porelo.wire.LimitFactors limits)
             throws TokenPurchase.Refused {
         final String body =
                 form.entrySet().stream()
@@ -254,7 +278,7 @@ public final class Grants {
         try {
             return http.send(
                     HttpRequest.newBuilder(URI.create(url))
-                            .timeout(Duration.ofSeconds(30))
+                            .timeout(requestLimit(limits))
                             .header("Content-Type", "application/x-www-form-urlencoded")
                             .header("Accept", "application/json")
                             .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -276,6 +300,19 @@ public final class Grants {
      * @param url The address, read or not.
      * @return It without those.
      */
+    /** How long one form posted to an OAuth endpoint may take. */
+    static final Duration REQUEST = Duration.ofSeconds(30);
+
+    /**
+     * Returns how long one form posted to an OAuth endpoint may take.
+     *
+     * @param limits The factors.
+     * @return {@link #REQUEST} under {@code services}.
+     */
+    static Duration requestLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(REQUEST);
+    }
+
     static String shown(final String url) {
         final String whole = url.split("[?#]", 2)[0];
         final int scheme = whole.indexOf("://");

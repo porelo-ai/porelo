@@ -381,18 +381,24 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                         purchases.put(
                                 name,
                                 new org.fuin.porelo.supervisor.TokenPurchase(
-                                        org.fuin.porelo.supervisor.TokenPurchase.Client.of(
-                                                entry.value(), entry.settings()),
-                                        org.fuin.porelo.core.net.TrustedCertificates.builder(
-                                                        org.fuin.porelo.core.net.TrustedCertificates
-                                                                .file(context.paths().xdg()))
-                                                .connectTimeout(
-                                                        context.limits()
-                                                                .services(Duration.ofSeconds(30)))
-                                                .followRedirects(
-                                                        java.net.http.HttpClient.Redirect.NEVER)
-                                                .build(),
-                                        java.time.Clock.systemUTC()));
+                                                org.fuin.porelo.supervisor.TokenPurchase.Client.of(
+                                                        entry.value(), entry.settings()),
+                                                org.fuin.porelo.core.net.TrustedCertificates
+                                                        .builder(
+                                                                org.fuin.porelo.core.net
+                                                                        .TrustedCertificates.file(
+                                                                        context.paths().xdg()))
+                                                        .connectTimeout(
+                                                                context.limits()
+                                                                        .services(
+                                                                                Duration.ofSeconds(
+                                                                                        30)))
+                                                        .followRedirects(
+                                                                java.net.http.HttpClient.Redirect
+                                                                        .NEVER)
+                                                        .build(),
+                                                java.time.Clock.systemUTC())
+                                        .limitedBy(context.limits()));
                     } catch (IllegalArgumentException ex) {
                         err.println("porelo: credential '" + name + "': " + ex.getMessage());
                         err.flush();
@@ -466,7 +472,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                                 agent,
                                                 providerName,
                                                 credential,
-                                                streamUsage(providerName)));
+                                                streamUsage(providerName)),
+                                context.limits());
                 // Closed by a signal too, not only on return: the proxy's close removes its
                 // socket, and a socket left behind reads as a live broker.
                 Teardown closing = Teardown.arm(proxy::close)) {

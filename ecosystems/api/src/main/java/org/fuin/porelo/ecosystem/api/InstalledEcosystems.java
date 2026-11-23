@@ -70,13 +70,28 @@ public final class InstalledEcosystems {
      * @throws EcosystemException When a directory cannot be listed.
      */
     public static List<Description> all(final List<Path> directories) {
+        return all(directories, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Lists plugins as {@link #all(List)} does, each given the time to describe itself the factors
+     * make of its default.
+     *
+     * @param directories Locations, the account's own first, then the packaged location.
+     * @param limits The factors.
+     * @return One description per name, with each failed plugin named in its refusal.
+     * @throws EcosystemException When a directory cannot be listed.
+     */
+    public static List<Description> all(
+            final List<Path> directories, final org.fuin.porelo.wire.LimitFactors limits) {
+        final java.time.Duration ready = InstalledEcosystem.readyLimit(limits);
         final Set<String> seen = new HashSet<>();
         final List<Description> descriptions = new ArrayList<>();
         for (final Path directory : directories) {
             for (final Path executable : candidates(directory)) {
                 final String name = executable.getFileName().toString();
                 if (seen.add(name)) {
-                    descriptions.add(describe(executable));
+                    descriptions.add(describe(executable, ready));
                 }
             }
         }
@@ -98,7 +113,7 @@ public final class InstalledEcosystems {
         }
     }
 
-    private static Description describe(final Path executable) {
+    private static Description describe(final Path executable, final java.time.Duration ready) {
         final String name = executable.getFileName().toString();
         try {
             final ProcessBuilder builder = new ProcessBuilder(executable.toString(), "describe");
@@ -129,7 +144,7 @@ public final class InstalledEcosystems {
                                                         new String(bytes, StandardCharsets.UTF_8));
                                             }
                                         })
-                                .get(InstalledEcosystem.READY_SECONDS, TimeUnit.SECONDS);
+                                .get(ready.toMillis(), TimeUnit.MILLISECONDS);
                 if (!(answer instanceof Map<?, ?> map)) {
                     throw new EcosystemException("description is not an object");
                 }
@@ -154,8 +169,7 @@ public final class InstalledEcosystems {
                     executable,
                     executable
                             + " did not describe itself within "
-                            + InstalledEcosystem.READY_SECONDS
-                            + " seconds");
+                            + InstalledEcosystem.seconds(ready));
         } catch (IOException | ExecutionException | RuntimeException ex) {
             return new Description(
                     name,

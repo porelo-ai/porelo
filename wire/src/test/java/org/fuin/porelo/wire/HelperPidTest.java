@@ -77,7 +77,11 @@ class HelperPidTest {
                                     }
                                 });
 
-        assertThat(HelperPid.await(file, HelperPid.deadline(java.time.Duration.ofSeconds(20))))
+        assertThat(
+                        HelperPid.await(
+                                file,
+                                HelperPid.deadline(java.time.Duration.ofSeconds(20)),
+                                LimitFactors.DEFAULT))
                 .as("a record written while it waits is the helper")
                 .get()
                 .extracting(ProcessHandle::pid)
@@ -92,7 +96,11 @@ class HelperPidTest {
                 file, String.valueOf(ProcessHandle.current().pid()), StandardCharsets.UTF_8);
         final long before = System.nanoTime();
 
-        assertThat(HelperPid.await(file, HelperPid.deadline(java.time.Duration.ofMillis(400))))
+        assertThat(
+                        HelperPid.await(
+                                file,
+                                HelperPid.deadline(java.time.Duration.ofMillis(400)),
+                                LimitFactors.DEFAULT))
                 .as("a bare number names no helper that came up")
                 .isEmpty();
         assertThat(java.time.Duration.ofNanos(System.nanoTime() - before))
@@ -113,7 +121,11 @@ class HelperPidTest {
             Thread.sleep(300);
             final ProcessHandle child = stubborn.toHandle().children().findFirst().orElseThrow();
 
-            assertThat(HelperPid.end(stubborn.toHandle(), java.time.Duration.ofMillis(300)))
+            assertThat(
+                            HelperPid.end(
+                                    stubborn.toHandle(),
+                                    java.time.Duration.ofMillis(300),
+                                    LimitFactors.DEFAULT))
                     .as("ended, if only by a kill")
                     .isTrue();
             assertThat(stubborn.isAlive()).as("the helper").isFalse();
@@ -137,7 +149,7 @@ class HelperPidTest {
 
             assertThat(HelperPid.descendants(stale)).as("nothing is the stale helper's").isEmpty();
             HelperPid.stop(stale);
-            assertThat(HelperPid.end(stale, java.time.Duration.ofMillis(300)))
+            assertThat(HelperPid.end(stale, java.time.Duration.ofMillis(300), LimitFactors.DEFAULT))
                     .as("a helper that is gone is ended")
                     .isTrue();
             assertThat(child.isAlive()).as("and the new holder's child runs on").isTrue();
@@ -175,7 +187,11 @@ class HelperPidTest {
             assertThat(ready).as("the helper set its handler").exists();
             Thread.sleep(300);
 
-            assertThat(HelperPid.end(helper.toHandle(), java.time.Duration.ofMillis(500)))
+            assertThat(
+                            HelperPid.end(
+                                    helper.toHandle(),
+                                    java.time.Duration.ofMillis(500),
+                                    LimitFactors.DEFAULT))
                     .as("ended, with what it started on the way out")
                     .isTrue();
             assertThat(helper.isAlive()).as("the helper").isFalse();
@@ -256,6 +272,20 @@ class HelperPidTest {
         public int compareTo(final ProcessHandle other) {
             return Long.compare(pid(), other.pid());
         }
+    }
+
+    @Test
+    void itsWaitsFollowTheMachinesAndPollingFactors() {
+        final LimitFactors doubled = LimitFactors.parse("machines=2,polling=2");
+
+        assertThat(HelperPid.killed(doubled)).isEqualTo(java.time.Duration.ofSeconds(4));
+        assertThat(HelperPid.poll(doubled)).isEqualTo(java.time.Duration.ofMillis(100));
+        assertThat(HelperPid.recordPoll(doubled)).isEqualTo(java.time.Duration.ofMillis(100));
+        assertThat(HelperPid.killed(LimitFactors.DEFAULT))
+                .isEqualTo(java.time.Duration.ofSeconds(2));
+        assertThat(HelperPid.poll(LimitFactors.DEFAULT)).isEqualTo(java.time.Duration.ofMillis(50));
+        assertThat(HelperPid.recordPoll(LimitFactors.DEFAULT))
+                .isEqualTo(java.time.Duration.ofMillis(50));
     }
 
     @Test

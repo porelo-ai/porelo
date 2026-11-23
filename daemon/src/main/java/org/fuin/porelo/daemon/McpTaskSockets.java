@@ -268,6 +268,19 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         return Optional.of(socket);
     }
 
+    /** How long closing a task's socket waits for its thread to end. */
+    static final java.time.Duration THREAD_END = java.time.Duration.ofSeconds(5);
+
+    /**
+     * Returns how long closing a task's socket waits for its thread to end.
+     *
+     * @param limits The factors.
+     * @return {@link #THREAD_END} under {@code machines}.
+     */
+    static java.time.Duration threadEnd(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(THREAD_END);
+    }
+
     @Override
     public synchronized void close(final String task) {
         final Served served = open.remove(task);
@@ -276,7 +289,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         }
         served.server().close();
         try {
-            served.thread().join(java.time.Duration.ofSeconds(5));
+            served.thread().join(threadEnd(context.limits()));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }

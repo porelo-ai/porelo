@@ -88,6 +88,30 @@ public class GitGate {
     /** How long a push passed on to the upstream may wait for it. */
     private java.time.Duration passOnLimit = org.fuin.porelo.core.project.Limits.DEFAULT_PASS_ON;
 
+    /** How long the gate asks after a push the forge did not answer, at most. */
+    private java.time.Duration askingAfter = ASKING_AFTER;
+
+    /**
+     * Returns this gate with its own time limits under the account's factors.
+     *
+     * @param limits The factors.
+     * @return This gate.
+     */
+    public GitGate limitedBy(final org.fuin.porelo.wire.LimitFactors limits) {
+        this.askingAfter = askingAfter(limits);
+        return this;
+    }
+
+    /**
+     * Returns how long the gate asks after a push the forge did not answer, at most.
+     *
+     * @param limits The factors.
+     * @return {@link #ASKING_AFTER} under {@code services}.
+     */
+    static java.time.Duration askingAfter(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(ASKING_AFTER);
+    }
+
     /** Opens or reuses the review of a successfully pushed branch. */
     @FunctionalInterface
     public interface PullRequests {
@@ -2150,9 +2174,9 @@ public class GitGate {
                                     Command.of(all)
                                             .withEnvironment(lease.environment())
                                             .withTimeout(
-                                                    passOnLimit.compareTo(ASKING_AFTER) < 0
+                                                    passOnLimit.compareTo(askingAfter) < 0
                                                             ? passOnLimit
-                                                            : ASKING_AFTER))
+                                                            : askingAfter))
                             .standardOutput();
             return said.lines().anyMatch(line -> line.equals(commit + "\trefs/heads/" + branch));
         } catch (CommandException ex) {

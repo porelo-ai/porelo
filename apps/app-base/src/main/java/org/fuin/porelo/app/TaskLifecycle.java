@@ -127,15 +127,17 @@ final class TaskLifecycle {
      * @param stateDirectory The task's state directory.
      * @param also Helpers held by handle, whether or not a pid file names them.
      * @param grace How long they have to go once asked.
+     * @param limits The factors the end's own waits follow.
      * @return Whether they and everything they started are gone.
      */
     static boolean endHelpers(
             Path stateDirectory,
             java.util.Collection<ProcessHandle> also,
-            java.time.Duration grace) {
+            java.time.Duration grace,
+            org.fuin.porelo.wire.LimitFactors limits) {
         final java.util.Set<ProcessHandle> helpers = new java.util.LinkedHashSet<>(also);
         helpers.addAll(running(stateDirectory));
-        final boolean ended = org.fuin.porelo.wire.HelperPid.endAll(helpers, grace);
+        final boolean ended = org.fuin.porelo.wire.HelperPid.endAll(helpers, grace, limits);
         // Forgets the files; what they name is gone, or was asked once more.
         stopHelpers(stateDirectory);
         return ended;

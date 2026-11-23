@@ -595,7 +595,7 @@ final class TaskMethods {
                             replies.more(Map.of("tasks", rows, "unrecognized", unrecognized));
                             previous = settled;
                         }
-                        sleep(WATCH_INTERVAL);
+                        sleep(PoreloDaemon.watchInterval(context.limits()));
                     }
                 });
 
@@ -849,7 +849,7 @@ final class TaskMethods {
                                 first = false;
                             }
                             position = chunk.position();
-                            sleep(TAIL_INTERVAL);
+                            sleep(PoreloDaemon.tailInterval(context.limits()));
                         }
                     }
                 });

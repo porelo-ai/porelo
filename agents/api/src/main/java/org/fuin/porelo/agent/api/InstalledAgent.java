@@ -42,6 +42,59 @@ public class InstalledAgent implements AutoCloseable {
      */
     static final java.time.Duration SLOW_DEADLINE = java.time.Duration.ofSeconds(120);
 
+    /** How long an agent asked to end has before it is killed. */
+    static final java.time.Duration END_GRACE = java.time.Duration.ofSeconds(2);
+
+    /**
+     * Returns how long a started agent may take to say it is ready, to describe itself, or to say
+     * what it finds.
+     *
+     * @param limits The factors.
+     * @return {@link #READY_DEADLINE} under {@code services}.
+     */
+    static java.time.Duration readyDeadline(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(READY_DEADLINE);
+    }
+
+    /**
+     * Returns how long an agent may take for a method whose answer can rightly be slow.
+     *
+     * @param limits The factors.
+     * @return {@link #SLOW_DEADLINE} under {@code services}.
+     */
+    static java.time.Duration slowDeadline(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(SLOW_DEADLINE);
+    }
+
+    /**
+     * Returns how long an agent asked to end has before it is killed.
+     *
+     * @param limits The factors.
+     * @return {@link #END_GRACE} under {@code machines}.
+     */
+    static java.time.Duration endGrace(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(END_GRACE);
+    }
+
+    /**
+     * Writes a limit in seconds, as a refusal names it.
+     *
+     * @param limit The limit.
+     * @return Its seconds, with a fraction only when it has one.
+     */
+    static String seconds(final java.time.Duration limit) {
+        return java.math.BigDecimal.valueOf(limit.toMillis(), 3)
+                        .stripTrailingZeros()
+                        .toPlainString()
+                + " seconds";
+    }
+
+    private final java.time.Duration readyDeadline;
+
+    private final java.time.Duration slowDeadline;
+
+    private final java.time.Duration endGrace;
+
     private final Path executable;
 
     private final Path socket;
@@ -106,7 +159,7 @@ public class InstalledAgent implements AutoCloseable {
                             + "[^/]+-([1-9][0-9]{0,17})-[1-9][0-9]{0,17}\\.sock");
 
     /**
-     * Starts an agent binary and completes its handshake.
+     * Starts an agent binary and completes its handshake, every time limit at its default.
      *
      * @param executable The agent binary.
      * @param socketDirectory Directory to create the socket in.
@@ -114,7 +167,24 @@ public class InstalledAgent implements AutoCloseable {
      *     not understand.
      */
     public InstalledAgent(Path executable, Path socketDirectory) {
+        this(executable, socketDirectory, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
 
+    /**
+     * Starts an agent binary and completes its handshake.
+     *
+     * @param executable The agent binary.
+     * @param socketDirectory Directory to create the socket in.
+     * @param limits The factors its time limits follow.
+     * @throws AgentException If the agent cannot be started, or speaks a protocol this Porelo does
+     *     not understand.
+     */
+    public InstalledAgent(
+            Path executable, Path socketDirectory, org.fuin.porelo.wire.LimitFactors limits) {
+
+        this.readyDeadline = readyDeadline(limits);
+        this.slowDeadline = slowDeadline(limits);
+        this.endGrace = endGrace(limits);
         this.executable = executable;
         this.socket = socketFor(executable, socketDirectory);
 
@@ -132,9 +202,11 @@ public class InstalledAgent implements AutoCloseable {
         VarlinkClient opened = null;
         try {
             awaitReady();
-            opened = new VarlinkClient(socket);
+            opened = new VarlinkClient(socket, limits);
             this.client = opened;
-            this.definition = described(() -> handshake(client, executable), "describe itself");
+            this.definition =
+                    described(
+                            () -> handshake(client, executable, readyDeadline), "describe itself");
         } catch (RuntimeException ex) {
             // Everything it left goes, and the failure is the agent's: as a VarlinkException it
             // escaped the list, which threw the whole lookup away and left the agents started
@@ -201,8 +273,7 @@ public class InstalledAgent implements AutoCloseable {
                         new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
         boolean draining = false;
         try {
-            final long deadline =
-                    System.nanoTime() + TimeUnit.SECONDS.toNanos(READY_TIMEOUT_SECONDS);
+            final long deadline = System.nanoTime() + readyDeadline.toNanos();
             // Character by character, only what is there: a whole line was read once anything was
             // ready, and an adapter that printed a word with no line end and hung held every task
             // start for ever.
@@ -272,7 +343,7 @@ public class InstalledAgent implements AutoCloseable {
                             + (said.isEmpty() ? "" : ", saying: " + said));
         }
         throw new AgentException(
-                executable + " did not become ready within " + READY_TIMEOUT_SECONDS + " seconds");
+                executable + " did not become ready within " + seconds(readyDeadline));
     }
 
     /**
@@ -288,8 +359,7 @@ public class InstalledAgent implements AutoCloseable {
                             + " did not "
                             + asked
                             + " within "
-                            + READY_TIMEOUT_SECONDS
-                            + " seconds"
+                            + seconds(readyDeadline)
                             + diagnosis(process.isAlive(), afterReady.toString()),
                     ex);
         }
@@ -361,7 +431,15 @@ public class InstalledAgent implements AutoCloseable {
      */
     static Answer optional(
             final VarlinkClient client, final String method, final Map<String, Object> parameters) {
-        return optional(client, method, parameters, VarlinkClient.DEFAULT_DEADLINE);
+        try {
+            // Within the deadline the client was connected with.
+            return new Answer.Answered(client.call(method, parameters));
+        } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
+            if (METHOD_NOT_FOUND.equals(ex.getErrorName())) {
+                return new Answer.CannotSay(method);
+            }
+            throw ex;
+        }
     }
 
     /**
@@ -409,9 +487,22 @@ public class InstalledAgent implements AutoCloseable {
      * @throws AgentException When it is refused.
      */
     static AgentDefinition handshake(final VarlinkClient client, final Path executable) {
+        return handshake(client, executable, READY_DEADLINE);
+    }
 
-        final Map<String, Object> answer =
-                client.call(AgentProtocol.DESCRIBE, Map.of(), READY_DEADLINE);
+    /**
+     * Asks an agent what it is within a deadline, and refuses one this Porelo cannot work with.
+     *
+     * @param client The connection to the agent.
+     * @param executable The agent binary, named in a refusal.
+     * @param deadline How long the answer may take.
+     * @return Its definition.
+     * @throws AgentException When it is refused.
+     */
+    static AgentDefinition handshake(
+            final VarlinkClient client, final Path executable, final java.time.Duration deadline) {
+
+        final Map<String, Object> answer = client.call(AgentProtocol.DESCRIBE, Map.of(), deadline);
 
         final java.util.OptionalLong version =
                 org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(answer.get("protocolVersion"));
@@ -534,12 +625,12 @@ public class InstalledAgent implements AutoCloseable {
     public List<Finding> find(final Path configDirectory) {
         return described(
                 () -> {
-                    try (VarlinkClient own = new VarlinkClient(socket, READY_DEADLINE)) {
+                    try (VarlinkClient own = new VarlinkClient(socket, readyDeadline)) {
                         return switch (optional(
                                 own,
                                 AgentProtocol.FIND,
                                 Map.of("configDirectory", configDirectory.toString()),
-                                READY_DEADLINE)) {
+                                readyDeadline)) {
                             case Answer.Answered answered -> findings(answered.reply());
                             case Answer.CannotSay cannotSay -> List.of(Finding.cannotSay());
                         };
@@ -595,7 +686,7 @@ public class InstalledAgent implements AutoCloseable {
      * @return Files to write, possibly empty.
      */
     public List<ContainerFile> containerSetup(SetupContext context) {
-        return containerSetup(client, context);
+        return containerSetup(client, context, slowDeadline);
     }
 
     /**
@@ -713,12 +804,19 @@ public class InstalledAgent implements AutoCloseable {
      *     they are from an agent that does not format them.
      */
     public List<@Nullable String> format(List<String> lines) {
-        return format(client, lines);
+        return format(client, lines, slowDeadline);
     }
 
     static List<@Nullable String> format(final VarlinkClient client, final List<String> lines) {
+        return format(client, lines, SLOW_DEADLINE);
+    }
+
+    static List<@Nullable String> format(
+            final VarlinkClient client,
+            final List<String> lines,
+            final java.time.Duration deadline) {
         // An agent built before the method shows its lines as they are.
-        if (optional(client, AgentProtocol.FORMAT, Map.of("lines", lines), SLOW_DEADLINE)
+        if (optional(client, AgentProtocol.FORMAT, Map.of("lines", lines), deadline)
                         instanceof Answer.Answered(Map<String, Object> reply)
                 && reply.get("lines") instanceof List<?> shown
                 && shown.size() == lines.size()) {
@@ -796,7 +894,7 @@ public class InstalledAgent implements AutoCloseable {
         }
         process.destroy();
         try {
-            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+            if (!process.waitFor(endGrace.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
             }
         } catch (InterruptedException ex) {

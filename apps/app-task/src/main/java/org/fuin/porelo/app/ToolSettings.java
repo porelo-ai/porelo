@@ -60,6 +60,25 @@ final class ToolSettings {
      */
     static Answer ask(
             final Project project, final List<Path> directories, final EcosystemDetector adapters) {
+        return ask(project, directories, adapters, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Asks as {@link #ask(Project, List, EcosystemDetector)} does, every adapter's time limits
+     * under the account's factors.
+     *
+     * @param project The project, read.
+     * @param directories Where adapters are installed, the account's own first.
+     * @param given Who asks an installed adapter.
+     * @param limits The factors.
+     * @return The files, or why the task must not start.
+     */
+    static Answer ask(
+            final Project project,
+            final List<Path> directories,
+            final EcosystemDetector given,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        final EcosystemDetector adapters = given.limitedBy(limits);
         if (project.toolRepositories().isEmpty()) {
             return new Answer.Files(List.of());
         }
@@ -78,7 +97,7 @@ final class ToolSettings {
         }
         final List<InstalledEcosystems.Description> installed;
         try {
-            installed = InstalledEcosystems.all(directories);
+            installed = InstalledEcosystems.all(directories, limits);
         } catch (RuntimeException ex) {
             return new Answer.Refused(
                     "the ecosystem adapters could not be listed, so the build tools' settings"

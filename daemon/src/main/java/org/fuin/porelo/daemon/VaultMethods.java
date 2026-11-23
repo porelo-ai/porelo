@@ -764,7 +764,7 @@ final class VaultMethods {
                                 }
                             }
                             previous = now;
-                            Thread.sleep(PROMPT_INTERVAL.toMillis());
+                            Thread.sleep(PoreloDaemon.promptInterval(context.limits()));
                         }
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();

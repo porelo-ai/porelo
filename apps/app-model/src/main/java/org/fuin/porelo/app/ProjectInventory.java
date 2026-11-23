@@ -1196,7 +1196,10 @@ public final class ProjectInventory {
         try {
             final org.fuin.porelo.core.project.Project project =
                     org.fuin.porelo.core.project.ProjectReader.read(file);
-            return recorded.get().equals(org.fuin.porelo.runtime.Containerfile.fingerprint(project))
+            return recorded.get()
+                            .equals(
+                                    org.fuin.porelo.runtime.Containerfile.fingerprint(
+                                            project, context.limits()))
                     ? Readiness.READY
                     : Readiness.STALE;
         } catch (RuntimeException ex) {

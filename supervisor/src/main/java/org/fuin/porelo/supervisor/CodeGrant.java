@@ -200,6 +200,19 @@ public final class CodeGrant {
         this.http = http;
     }
 
+    private org.fuin.porelo.wire.LimitFactors limits = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+
+    /**
+     * Returns this grant with its time limits under the account's factors.
+     *
+     * @param factors The factors.
+     * @return This grant.
+     */
+    public CodeGrant limitedBy(final org.fuin.porelo.wire.LimitFactors factors) {
+        this.limits = factors;
+        return this;
+    }
+
     /**
      * Starts listening for the redirect and returns the link the person opens.
      *
@@ -291,7 +304,7 @@ public final class CodeGrant {
         if (client.clientSecret() != null) {
             form.put("client_secret", client.clientSecret());
         }
-        final HttpResponse<String> exchanged = Grants.send(http, client.tokenUrl(), form);
+        final HttpResponse<String> exchanged = Grants.send(http, client.tokenUrl(), form, limits);
         if (exchanged.statusCode() / 100 != 2) {
             throw new TokenPurchase.Refused(
                     "the service at "

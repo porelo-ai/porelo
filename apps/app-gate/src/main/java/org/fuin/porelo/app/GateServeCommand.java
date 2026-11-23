@@ -420,10 +420,11 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                             new InetSocketAddress(InetAddress.getByName(address), port),
                             gate.mirror(),
                             token,
-                            new GitSubprocess(),
+                            new GitSubprocess(context.limits()),
                             ref,
                             through,
                             GitHttpServer.PACE)) {
+                server.limitedBy(context.limits());
 
                 if (ref != null && ref.startsWith(GitGate.INCOMING)) {
                     // A task's commit is signed here, never in its container. Read at each
@@ -458,7 +459,9 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                         issue == null || ref == null
                                 ? null
                                 : new IssueTrailers(
-                                                gate.mirror(), issue, GitSubprocess.withoutConfig())
+                                                gate.mirror(),
+                                                issue,
+                                                GitSubprocess.withoutConfig(context.limits()))
                                         ::judge;
                 if (principal != null && signers != null && ref != null) {
                     server.judging(
@@ -466,11 +469,13 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                     ArrivalRecords.inOrder(
                                             byIssue,
                                             new SignedArrivals(
-                                                            gate.mirror(),
-                                                            principal,
-                                                            signers,
-                                                            new GitSubprocess(),
-                                                            java.time.Clock.systemUTC())
+                                                                    gate.mirror(),
+                                                                    principal,
+                                                                    signers,
+                                                                    new GitSubprocess(
+                                                                            context.limits()),
+                                                                    java.time.Clock.systemUTC())
+                                                            .limitedBy(context.limits())
                                                     ::judge),
                                     projectName,
                                     ref.substring(ref.lastIndexOf('/') + 1),

@@ -178,7 +178,7 @@ final class ProjectMethods {
                             replies.more(Map.of("projects", projects));
                             previous = projects;
                         }
-                        sleep(PROJECT_WATCH_INTERVAL);
+                        sleep(PoreloDaemon.projectWatchInterval(context.limits()));
                     }
                 });
 

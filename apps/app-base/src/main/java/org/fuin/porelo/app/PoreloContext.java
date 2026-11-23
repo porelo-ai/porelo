@@ -989,7 +989,7 @@ public record PoreloContext(
      */
     public org.fuin.porelo.agent.api.InstalledAgents agents() {
         return new org.fuin.porelo.agent.api.InstalledAgents(
-                paths().agents().agentDirectory(), paths().xdg().runtime());
+                paths().agents().agentDirectory(), paths().xdg().runtime(), limits());
     }
 
     /**
@@ -1019,7 +1019,8 @@ public record PoreloContext(
                                 "podman",
                                 paths().egress().networkConfiguration(),
                                 environment)
-                        .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile());
+                        .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile())
+                        .limitedBy(limits());
         return recognizesTasks ? podman.recognizing(this::recordedId) : podman;
     }
 

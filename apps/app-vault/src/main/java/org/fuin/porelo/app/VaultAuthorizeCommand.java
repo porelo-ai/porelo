@@ -319,7 +319,8 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
         final VaultEntry entry = context.credentials().get(name);
         if (entry != null && DeviceGrant.KIND.equals(entry.type())) {
             final DeviceGrant grant =
-                    new DeviceGrant(DeviceGrant.Client.of(entry.value(), entry.settings()), http);
+                    new DeviceGrant(DeviceGrant.Client.of(entry.value(), entry.settings()), http)
+                            .limitedBy(context.limits());
             return new Flow() {
 
                 private DeviceGrant.@org.jspecify.annotations.Nullable Started started;
@@ -342,7 +343,8 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
         }
         if (entry != null && CodeGrant.KIND.equals(entry.type())) {
             final CodeGrant grant =
-                    new CodeGrant(CodeGrant.Client.of(entry.value(), entry.settings()), http);
+                    new CodeGrant(CodeGrant.Client.of(entry.value(), entry.settings()), http)
+                            .limitedBy(context.limits());
             return new Flow() {
 
                 private CodeGrant.@org.jspecify.annotations.Nullable Started started;

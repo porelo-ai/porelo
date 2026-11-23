@@ -202,6 +202,39 @@ class InstalledEcosystemTest {
     }
 
     @Test
+    void itsTimeLimitsFollowTheServicesAndMachinesFactors() {
+        final org.fuin.porelo.wire.LimitFactors doubled =
+                org.fuin.porelo.wire.LimitFactors.parse("services=2,machines=2");
+        final org.fuin.porelo.wire.LimitFactors plain = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+
+        assertThat(InstalledEcosystem.readyLimit(doubled)).isEqualTo(Duration.ofSeconds(20));
+        assertThat(InstalledEcosystem.callLimit(doubled)).isEqualTo(Duration.ofSeconds(240));
+        assertThat(InstalledEcosystem.resolveLimit(doubled)).isEqualTo(Duration.ofSeconds(40));
+        assertThat(InstalledEcosystem.endWait(doubled)).isEqualTo(Duration.ofSeconds(10));
+        assertThat(InstalledEcosystem.readyLimit(plain)).isEqualTo(Duration.ofSeconds(10));
+        assertThat(InstalledEcosystem.callLimit(plain)).isEqualTo(Duration.ofSeconds(120));
+        assertThat(InstalledEcosystem.resolveLimit(plain)).isEqualTo(Duration.ofSeconds(20));
+        assertThat(InstalledEcosystem.endWait(plain)).isEqualTo(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void aPluginThatNeverSaysItIsReadyIsGivenUpOnAtTheLimitUnderTheServicesFactor()
+            throws IOException {
+        final Path executable = executable(directory.resolve("fake"), "sleep 600");
+        final long started = System.nanoTime();
+
+        assertThatThrownBy(
+                        () ->
+                                new InstalledEcosystem(
+                                        executable,
+                                        run(),
+                                        org.fuin.porelo.wire.LimitFactors.parse("services=0.1")))
+                .isInstanceOf(EcosystemException.class)
+                .hasMessageContaining("did not answer within 1 seconds");
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(6));
+    }
+
+    @Test
     void saysWhatAPluginSaidThatEndedWithoutBecomingReady() throws IOException {
         final Path executable = executable(directory.resolve("fake"), "echo 'no idea'; exit 3");
         assertThatThrownBy(() -> new InstalledEcosystem(executable, run()))
@@ -317,7 +350,13 @@ class InstalledEcosystemTest {
         try (InstalledEcosystem plugin = InstalledEcosystem.forResolve(fake(), run(), Map.of())) {
             final long started = System.nanoTime();
 
-            assertThatThrownBy(() -> plugin.resolve(Path.of("/work/slow"), HOME, List.of(), 1))
+            assertThatThrownBy(
+                            () ->
+                                    plugin.resolve(
+                                            Path.of("/work/slow"),
+                                            HOME,
+                                            List.of(),
+                                            java.time.Duration.ofSeconds(1)))
                     .isInstanceOf(EcosystemException.class)
                     .hasMessageContaining("did not answer within 1 seconds");
             assertThat(Duration.ofNanos(System.nanoTime() - started))

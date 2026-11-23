@@ -27,6 +27,9 @@ public class VarlinkClient implements AutoCloseable {
 
     private final VarlinkConnection connection;
 
+    /** How long a call answered once waits for its reply unless its caller says otherwise. */
+    private final Duration deadline;
+
     /**
      * Connects to a varlink service.
      *
@@ -34,7 +37,30 @@ public class VarlinkClient implements AutoCloseable {
      * @throws VarlinkException If the socket cannot be reached.
      */
     public VarlinkClient(Path socket) {
-        this(socket, channel -> {}, DEFAULT_DEADLINE);
+        this(socket, channel -> {}, DEFAULT_DEADLINE, DEFAULT_DEADLINE);
+    }
+
+    /**
+     * Connects to a varlink service, waiting for the connection and for a reply as long as {@link
+     * #DEFAULT_DEADLINE} under the {@code services} factor.
+     *
+     * @param socket Path of the socket.
+     * @param limits The factors.
+     * @throws VarlinkException If the socket cannot be reached, or not in time.
+     */
+    public VarlinkClient(Path socket, org.fuin.porelo.wire.LimitFactors limits) {
+        this(socket, channel -> {}, deadline(limits), deadline(limits));
+    }
+
+    /**
+     * Returns how long a call waits for its reply, and a connect for its peer, unless the caller
+     * says otherwise.
+     *
+     * @param limits The factors.
+     * @return {@link #DEFAULT_DEADLINE} under {@code services}.
+     */
+    public static Duration deadline(org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(DEFAULT_DEADLINE);
     }
 
     /**
@@ -46,18 +72,20 @@ public class VarlinkClient implements AutoCloseable {
      * @throws VarlinkException If the socket cannot be reached, or not in time.
      */
     public VarlinkClient(Path socket, Duration connectWithin) {
-        this(socket, channel -> {}, connectWithin);
+        this(socket, channel -> {}, connectWithin, DEFAULT_DEADLINE);
     }
 
     /** Connects and verifies the kernel peer before any request bytes can be sent. */
     public VarlinkClient(Path socket, java.util.function.Consumer<SocketChannel> verify) {
-        this(socket, verify, DEFAULT_DEADLINE);
+        this(socket, verify, DEFAULT_DEADLINE, DEFAULT_DEADLINE);
     }
 
     private VarlinkClient(
             Path socket,
             java.util.function.Consumer<SocketChannel> verify,
-            Duration connectWithin) {
+            Duration connectWithin,
+            Duration deadline) {
+        this.deadline = deadline;
         try {
             final SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX);
             try {
@@ -74,7 +102,8 @@ public class VarlinkClient implements AutoCloseable {
     }
 
     /**
-     * Calls a method once and returns the reply, waiting at most {@link #DEFAULT_DEADLINE}.
+     * Calls a method once and returns the reply, waiting at most {@link #DEFAULT_DEADLINE}, or what
+     * the factors this client was connected with make of it.
      *
      * @param method Fully qualified method name.
      * @param parameters Call parameters.
@@ -83,7 +112,7 @@ public class VarlinkClient implements AutoCloseable {
      * @throws VarlinkException If the peer returns an error or closes early.
      */
     public Map<String, Object> call(String method, Map<String, Object> parameters) {
-        return call(method, parameters, DEFAULT_DEADLINE);
+        return call(method, parameters, deadline);
     }
 
     /**

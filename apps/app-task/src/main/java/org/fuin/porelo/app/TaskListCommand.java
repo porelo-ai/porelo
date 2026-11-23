@@ -142,7 +142,7 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
         final Path socket = context.paths().daemonSocket();
         final VarlinkClient tasks;
         try {
-            tasks = new VarlinkClient(socket);
+            tasks = new VarlinkClient(socket, context.limits());
         } catch (VarlinkException ex) {
             return once(context, project, out, err, "porelod does not answer at " + socket);
         }
@@ -168,7 +168,15 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
                 Thread.ofPlatform()
                         .daemon()
                         .name("porelo-watch-prompts")
-                        .start(() -> followPrompts(socket, view, prompts, ended, clock));
+                        .start(
+                                () ->
+                                        followPrompts(
+                                                socket,
+                                                context.limits(),
+                                                view,
+                                                prompts,
+                                                ended,
+                                                clock));
         final Duration agesEvery = context.limits().polling(AGES);
         final Thread ages =
                 Thread.ofPlatform()
@@ -237,11 +245,12 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
     /** Follows the open clearance questions until the view ends; a failure is said on the view. */
     private static void followPrompts(
             final Path socket,
+            final org.fuin.porelo.wire.LimitFactors limits,
             final TaskWatch view,
             final AtomicReference<@Nullable VarlinkClient> held,
             final AtomicBoolean ended,
             final Clock clock) {
-        try (VarlinkClient client = new VarlinkClient(socket)) {
+        try (VarlinkClient client = new VarlinkClient(socket, limits)) {
             held.set(client);
             client.callMore(
                     TasksContract.INTERFACE + ".Prompts",

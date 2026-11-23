@@ -219,7 +219,8 @@ public final class GateSupport {
                                         new VaultGitCredentials(
                                                 context, project.name() + "-" + repository.name()),
                                         forgeConf))
-                        .taskBranches(project.branchScheme(repository.name()));
+                        .taskBranches(project.branchScheme(repository.name()))
+                        .limitedBy(context.limits());
         if (offHost != null) {
             // A task started before the host stopped carrying it can still be looked at, rejected
             // and removed; only its forwarding is refused.

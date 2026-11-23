@@ -359,7 +359,7 @@ public final class FirstStart {
      */
     public FirstStart(final PoreloContext context, final EcosystemDetector detector) {
         this.context = context;
-        this.detector = detector;
+        this.detector = detector.limitedBy(context.limits());
     }
 
     /**
@@ -454,7 +454,7 @@ public final class FirstStart {
 
     /** The plugins a first start finds: the account's own first, then the packaged ones. */
     private List<InstalledEcosystems.Description> installed() {
-        return InstalledEcosystems.all(context.paths().ecosystemDirectories());
+        return InstalledEcosystems.all(context.paths().ecosystemDirectories(), context.limits());
     }
 
     /**

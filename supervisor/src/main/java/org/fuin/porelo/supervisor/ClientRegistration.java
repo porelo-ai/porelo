@@ -112,6 +112,26 @@ public final class ClientRegistration {
     public static Registered register(
             HttpClient http, String registrationUrl, Map<String, Object> metadata)
             throws TokenPurchase.Refused {
+        return register(http, registrationUrl, metadata, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Registers a client as {@link #register(HttpClient, String, Map)} does, its request's time
+     * limit under the account's factors.
+     *
+     * @param http How the service is reached.
+     * @param registrationUrl The registration endpoint.
+     * @param metadata What to register.
+     * @param limits The factors.
+     * @return What the service registered.
+     * @throws TokenPurchase.Refused As {@link #register(HttpClient, String, Map)}.
+     */
+    public static Registered register(
+            HttpClient http,
+            String registrationUrl,
+            Map<String, Object> metadata,
+            org.fuin.porelo.wire.LimitFactors limits)
+            throws TokenPurchase.Refused {
         if (!Grants.secure(registrationUrl)) {
             throw new TokenPurchase.Refused(
                     "the registration endpoint must be https, or http on loopback, not '"
@@ -124,7 +144,8 @@ public final class ClientRegistration {
                         HttpRequest.newBuilder(URI.create(registrationUrl))
                                 .header("Content-Type", "application/json")
                                 .POST(HttpRequest.BodyPublishers.ofString(Json.write(metadata))),
-                        registrationUrl);
+                        registrationUrl,
+                        limits);
         if (answer.statusCode() / 100 != 2) {
             throw new TokenPurchase.Refused(
                     "the service at "
@@ -179,6 +200,25 @@ public final class ClientRegistration {
      */
     public static void delete(HttpClient http, String clientUri, String accessToken)
             throws TokenPurchase.Refused {
+        delete(http, clientUri, accessToken, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Deletes a registration as {@link #delete(HttpClient, String, String)} does, its request's
+     * time limit under the account's factors.
+     *
+     * @param http How the service is reached.
+     * @param clientUri The registration's own URL.
+     * @param accessToken The registration access token.
+     * @param limits The factors.
+     * @throws TokenPurchase.Refused As {@link #delete(HttpClient, String, String)}.
+     */
+    public static void delete(
+            HttpClient http,
+            String clientUri,
+            String accessToken,
+            org.fuin.porelo.wire.LimitFactors limits)
+            throws TokenPurchase.Refused {
         if (!Grants.secure(clientUri)) {
             throw new TokenPurchase.Refused(
                     "the registration URL is not https, nor http on loopback, so its token is not sent"
@@ -190,7 +230,8 @@ public final class ClientRegistration {
                         HttpRequest.newBuilder(URI.create(clientUri))
                                 .header("Authorization", "Bearer " + accessToken)
                                 .DELETE(),
-                        clientUri);
+                        clientUri,
+                        limits);
         final int status = answer.statusCode();
         if (status / 100 != 2 && status != 404 && status != 410) {
             throw new TokenPurchase.Refused(
@@ -204,11 +245,28 @@ public final class ClientRegistration {
         }
     }
 
+    /** How long one request to the registration endpoint may take. */
+    static final Duration REQUEST = Duration.ofSeconds(30);
+
+    /**
+     * Returns how long one request to the registration endpoint may take.
+     *
+     * @param limits The factors.
+     * @return {@link #REQUEST} under {@code services}.
+     */
+    static Duration requestLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(REQUEST);
+    }
+
     private static HttpResponse<String> send(
-            HttpClient http, HttpRequest.Builder request, String url) throws TokenPurchase.Refused {
+            HttpClient http,
+            HttpRequest.Builder request,
+            String url,
+            org.fuin.porelo.wire.LimitFactors limits)
+            throws TokenPurchase.Refused {
         try {
             return http.send(
-                    request.timeout(Duration.ofSeconds(30))
+                    request.timeout(requestLimit(limits))
                             .header("Accept", "application/json")
                             .build(),
                     HttpResponse.BodyHandlers.ofString());

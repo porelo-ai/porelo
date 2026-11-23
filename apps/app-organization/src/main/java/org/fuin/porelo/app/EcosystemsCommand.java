@@ -17,7 +17,8 @@ public class EcosystemsCommand extends OrgReading {
     Map<String, @Nullable Object> answer(PoreloContext machine) {
         return Map.of(
                 "ecosystems",
-                InstalledEcosystems.all(machine.paths().ecosystemDirectories()).stream()
+                InstalledEcosystems.all(machine.paths().ecosystemDirectories(), machine.limits())
+                        .stream()
                         .map(
                                 each -> {
                                     final Map<String, @Nullable Object> row = new LinkedHashMap<>();

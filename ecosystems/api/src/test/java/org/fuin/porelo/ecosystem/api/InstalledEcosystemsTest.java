@@ -197,6 +197,24 @@ class InstalledEcosystemsTest {
                 });
     }
 
+    @Test
+    void aPluginThatNeverDescribesItselfIsGivenUpOnAtTheLimitUnderTheServicesFactor()
+            throws IOException {
+        plugin("user", "silent", "silent");
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(6),
+                () ->
+                        assertThat(
+                                        InstalledEcosystems.all(
+                                                        locations(),
+                                                        org.fuin.porelo.wire.LimitFactors.parse(
+                                                                "services=0.1"))
+                                                .getFirst()
+                                                .refusal())
+                                .contains("silent", "within 1 seconds"));
+    }
+
     private List<Path> locations() {
         return List.of(
                 directory.resolve("user"),

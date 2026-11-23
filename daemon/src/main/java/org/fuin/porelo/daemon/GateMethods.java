@@ -200,6 +200,19 @@ final class GateMethods {
      * @param control The daemon's one task control.
      */
     @SuppressWarnings("unused")
+    /** How long WatchPullRequests waits before it reads the forge again. */
+    static final java.time.Duration PULL_REQUEST_POLL = java.time.Duration.ofSeconds(5);
+
+    /**
+     * Returns how long WatchPullRequests waits before it reads the forge again.
+     *
+     * @param limits The factors.
+     * @return {@link #PULL_REQUEST_POLL} under {@code polling}.
+     */
+    static java.time.Duration pullRequestPoll(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.polling(PULL_REQUEST_POLL);
+    }
+
     static void register(
             VarlinkServer server,
             PoreloContext context,
@@ -251,7 +264,7 @@ final class GateMethods {
                                                     context, project)),
                             previous -> reader.poll(project, previous),
                             replies,
-                            () -> sleep(java.time.Duration.ofSeconds(5)));
+                            () -> sleep(pullRequestPoll(context.limits())));
                 });
         server.method(
                 "CredentialTryPush",

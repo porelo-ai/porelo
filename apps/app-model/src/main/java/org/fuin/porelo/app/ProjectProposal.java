@@ -195,9 +195,10 @@ final class ProjectProposal {
         // A draft is made: each plugin looks up what it read, through this person's proxy.
         final Map<String, String> proxies = EcosystemLookup.proxies(machine.environment());
         final java.nio.file.Path home = machine.paths().xdg().home();
+        final EcosystemDetector asking = detector.limitedBy(machine.limits());
         for (var description :
                 org.fuin.porelo.ecosystem.api.InstalledEcosystems.all(
-                        machine.paths().ecosystemDirectories())) {
+                        machine.paths().ecosystemDirectories(), machine.limits())) {
             final String refusal = description.refusal();
             if (refusal != null) {
                 done.accept(new AdapterDone(description.name(), AdapterDone.REFUSED, refusal));
@@ -205,11 +206,11 @@ final class ProjectProposal {
             }
             AdapterDone answered;
             try {
-                final Detection detected = detector.detect(description, checkout, home);
+                final Detection detected = asking.detect(description, checkout, home);
                 final EcosystemLookup.Looked looked =
                         lookUp
                                 ? EcosystemLookup.resolve(
-                                        detector, description, checkout, home, detected, proxies)
+                                        asking, description, checkout, home, detected, proxies)
                                 : new EcosystemLookup.Looked(detected, null);
                 if (looked.note() != null) {
                     notes.add(looked.note());

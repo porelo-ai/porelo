@@ -43,6 +43,54 @@ public final class InstalledBuildReader implements AutoCloseable {
     /** How long one question may take: a failing job's log is downloaded within it. */
     static final long CALL_SECONDS = 120;
 
+    /** How long a reader asked to end, or killed, has to be gone. */
+    static final Duration END_WAIT = Duration.ofSeconds(5);
+
+    /**
+     * Returns how long a reader may take to start and to describe itself.
+     *
+     * @param limits The factors.
+     * @return {@link #READY_SECONDS} under {@code services}.
+     */
+    static Duration readyLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(Duration.ofSeconds(READY_SECONDS));
+    }
+
+    /**
+     * Returns how long one question may take.
+     *
+     * @param limits The factors.
+     * @return {@link #CALL_SECONDS} under {@code services}.
+     */
+    static Duration callLimit(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(Duration.ofSeconds(CALL_SECONDS));
+    }
+
+    /**
+     * Returns how long a reader asked to end, or killed, has to be gone.
+     *
+     * @param limits The factors.
+     * @return {@link #END_WAIT} under {@code machines}.
+     */
+    static Duration endWait(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(END_WAIT);
+    }
+
+    private static String seconds(final Duration limit) {
+        return java.math.BigDecimal.valueOf(limit.toMillis(), 3)
+                        .stripTrailingZeros()
+                        .toPlainString()
+                + " seconds";
+    }
+
+    private final Duration readyLimit;
+
+    private final Duration callLimit;
+
+    private final Duration endWait;
+
+    private final org.fuin.porelo.wire.LimitFactors limits;
+
     private final Path executable;
 
     private final Path socket;
@@ -81,7 +129,7 @@ public final class InstalledBuildReader implements AutoCloseable {
     }
 
     /**
-     * Starts a reader and completes its handshake.
+     * Starts a reader and completes its handshake, every time limit at its default.
      *
      * @param executable The reader.
      * @param forge The forge it must read.
@@ -90,6 +138,28 @@ public final class InstalledBuildReader implements AutoCloseable {
      *     another forge.
      */
     public InstalledBuildReader(final Path executable, final String forge, final Path socket) {
+        this(executable, forge, socket, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Starts a reader and completes its handshake.
+     *
+     * @param executable The reader.
+     * @param forge The forge it must read.
+     * @param socket Where it creates its socket; owner-only, since every call carries the token.
+     * @param limits The factors its time limits follow.
+     * @throws BuildReaderException When it does not start, speaks another protocol, or reads
+     *     another forge.
+     */
+    public InstalledBuildReader(
+            final Path executable,
+            final String forge,
+            final Path socket,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        this.limits = limits;
+        this.readyLimit = readyLimit(limits);
+        this.callLimit = callLimit(limits);
+        this.endWait = endWait(limits);
         this.executable = executable;
         this.socket = socket;
         this.forge = forge;
@@ -190,7 +260,7 @@ public final class InstalledBuildReader implements AutoCloseable {
         closeQuietly(running.client());
         process.destroy();
         try {
-            if (!process.waitFor(5, TimeUnit.SECONDS)) {
+            if (!process.waitFor(endWait.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
             }
         } catch (InterruptedException ex) {
@@ -228,7 +298,7 @@ public final class InstalledBuildReader implements AutoCloseable {
         VarlinkClient opened = null;
         try {
             awaitReady(process);
-            opened = new VarlinkClient(socket);
+            opened = new VarlinkClient(socket, limits);
             final Map<String, Object> answer = describe(opened);
             final long version =
                     org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(answer.get("protocolVersion"))
@@ -267,19 +337,16 @@ public final class InstalledBuildReader implements AutoCloseable {
 
     private Map<String, Object> describe(final VarlinkClient client) {
         try {
-            return client.call(BuildProtocol.DESCRIBE, Map.of(), Duration.ofSeconds(READY_SECONDS));
+            return client.call(BuildProtocol.DESCRIBE, Map.of(), readyLimit);
         } catch (VarlinkTimeoutException ex) {
             throw new BuildReaderException(
-                    executable + " did not answer within " + READY_SECONDS + " seconds", ex);
+                    executable + " did not answer within " + seconds(readyLimit), ex);
         } catch (VarlinkException ex) {
             if (!"org.varlink.service.MethodNotFound".equals(ex.getErrorName())) {
                 throw ex;
             }
             final Object interfaces =
-                    client.call(
-                                    "org.varlink.service.GetInfo",
-                                    Map.of(),
-                                    Duration.ofSeconds(READY_SECONDS))
+                    client.call("org.varlink.service.GetInfo", Map.of(), readyLimit)
                             .get("interfaces");
             final List<String> builds =
                     interfaces instanceof List<?> listed
@@ -308,12 +375,12 @@ public final class InstalledBuildReader implements AutoCloseable {
         }
         final Running asked = running;
         try {
-            return asked.client().call(method, parameters, Duration.ofSeconds(CALL_SECONDS));
+            return asked.client().call(method, parameters, callLimit);
         } catch (VarlinkTimeoutException ex) {
             // Killed, so the next question starts it again rather than reading this answer late.
             ended(asked.process());
             throw new BuildReaderException(
-                    executable + " did not answer within " + CALL_SECONDS + " seconds", ex);
+                    executable + " did not answer within " + seconds(callLimit), ex);
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
                 // The connection failed, not the question: the reader is gone or going. Its process
@@ -366,7 +433,7 @@ public final class InstalledBuildReader implements AutoCloseable {
                             }
                             return lines.toString();
                         },
-                        READY_SECONDS);
+                        readyLimit);
         if (said != null) {
             throw new BuildReaderException(
                     executable
@@ -396,7 +463,7 @@ public final class InstalledBuildReader implements AutoCloseable {
     }
 
     /** Runs a step that is no varlink call within a limit: reading the ready line waits without. */
-    private <T> T bounded(final Process process, final Supplier<T> step, final long seconds) {
+    private <T> T bounded(final Process process, final Supplier<T> step, final Duration limit) {
         final ExecutorService runner =
                 Executors.newSingleThreadExecutor(
                         task -> {
@@ -405,11 +472,11 @@ public final class InstalledBuildReader implements AutoCloseable {
                             return thread;
                         });
         try {
-            return runner.submit(step::get).get(seconds, TimeUnit.SECONDS);
+            return runner.submit(step::get).get(limit.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException ex) {
             process.destroyForcibly();
             throw new BuildReaderException(
-                    executable + " did not answer within " + seconds + " seconds", ex);
+                    executable + " did not answer within " + seconds(limit), ex);
         } catch (ExecutionException ex) {
             if (ex.getCause() instanceof RuntimeException runtime) {
                 throw runtime;
@@ -424,10 +491,10 @@ public final class InstalledBuildReader implements AutoCloseable {
     }
 
     /** Ends a reader's process and waits for it, so that it reads as ended at once. */
-    private static void ended(final Process process) {
+    private void ended(final Process process) {
         process.destroyForcibly();
         try {
-            process.waitFor(5, TimeUnit.SECONDS);
+            process.waitFor(endWait.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }

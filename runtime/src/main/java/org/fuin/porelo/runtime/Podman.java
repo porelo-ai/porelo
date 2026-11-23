@@ -120,7 +120,14 @@ public class Podman {
             String executable,
             @Nullable Path networkConfiguration,
             java.util.function.UnaryOperator<String> environment) {
-        this(runner, executable, networkConfiguration, environment, null, null);
+        this(
+                runner,
+                executable,
+                networkConfiguration,
+                environment,
+                null,
+                null,
+                () -> org.fuin.porelo.wire.LimitFactors.DEFAULT);
     }
 
     private Podman(
@@ -129,7 +136,9 @@ public class Podman {
             @Nullable Path networkConfiguration,
             java.util.function.UnaryOperator<String> environment,
             java.util.function.@Nullable Function<String, @Nullable String> recorded,
-            @Nullable String taskProfile) {
+            @Nullable String taskProfile,
+            java.util.function.Supplier<org.fuin.porelo.wire.LimitFactors> limits) {
+        this.limits = limits;
         this.runner = runner;
         this.executable = executable;
         this.networkConfiguration = networkConfiguration;
@@ -143,6 +152,55 @@ public class Podman {
      * absent, nothing is checked.
      */
     private final java.util.function.@Nullable Function<String, @Nullable String> recorded;
+
+    /**
+     * The factors this runtime's own time limits, and a task image's, follow; asked for only when a
+     * limit is used, so a runtime made for something else never reads the account's settings.
+     */
+    private final java.util.function.Supplier<org.fuin.porelo.wire.LimitFactors> limits;
+
+    /** How long a container asked to stop has before podman kills it. */
+    static final java.time.Duration STOP_GRACE = java.time.Duration.ofSeconds(5);
+
+    /**
+     * Returns this runtime with its time limits, and those a task image is built with, under the
+     * account's factors.
+     *
+     * @param factors The factors.
+     * @return The runtime.
+     */
+    public Podman limitedBy(final org.fuin.porelo.wire.LimitFactors factors) {
+        return limitedBy(() -> factors);
+    }
+
+    /**
+     * Returns this runtime with its time limits under factors asked for when a limit is used.
+     *
+     * @param factors Gives the factors.
+     * @return The runtime.
+     */
+    public Podman limitedBy(
+            final java.util.function.Supplier<org.fuin.porelo.wire.LimitFactors> factors) {
+        return new Podman(
+                runner,
+                executable,
+                networkConfiguration,
+                environment,
+                recorded,
+                taskProfile,
+                factors);
+    }
+
+    /**
+     * Returns how long a container asked to stop has before podman kills it, in the whole seconds
+     * {@code podman stop --time} takes, rounded up.
+     *
+     * @param limits The factors.
+     * @return {@link #STOP_GRACE} under {@code machines}.
+     */
+    static long stopGrace(final org.fuin.porelo.wire.LimitFactors limits) {
+        return (limits.machines(STOP_GRACE).toMillis() + 999) / 1000;
+    }
 
     /**
      * Returns this runtime acting only on the tasks Porelo recorded, each by the container id it
@@ -159,7 +217,13 @@ public class Podman {
      */
     public Podman recognizing(java.util.function.Function<String, @Nullable String> records) {
         return new Podman(
-                runner, executable, networkConfiguration, environment, records, taskProfile);
+                runner,
+                executable,
+                networkConfiguration,
+                environment,
+                records,
+                taskProfile,
+                limits);
     }
 
     /**
@@ -281,7 +345,8 @@ public class Podman {
      * @return The runtime that puts the agent there.
      */
     public Podman confining(@Nullable String profile) {
-        return new Podman(runner, executable, networkConfiguration, environment, recorded, profile);
+        return new Podman(
+                runner, executable, networkConfiguration, environment, recorded, profile, limits);
     }
 
     /**
@@ -584,7 +649,9 @@ public class Podman {
         try {
             Directories.create(contextDirectory);
             Files.writeString(
-                    containerfile, Containerfile.render(project, layers), StandardCharsets.UTF_8);
+                    containerfile,
+                    Containerfile.render(project, layers, limits.get()),
+                    StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new ContainerException("Cannot write " + containerfile, ex);
         }
@@ -651,7 +718,9 @@ public class Podman {
         try {
             Directories.create(contextDirectory);
             Files.writeString(
-                    containerfile, Containerfile.render(project, layers), StandardCharsets.UTF_8);
+                    containerfile,
+                    Containerfile.render(project, layers, limits.get()),
+                    StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new ContainerException("Cannot write " + containerfile, ex);
         }
@@ -929,7 +998,13 @@ public class Podman {
      * @return Whether podman said it stopped; a stop it refused leaves the container as it was.
      */
     public boolean stop(String container) {
-        return runner.run(podman("stop", "--time", "5", target(container))).successful();
+        return runner.run(
+                        podman(
+                                "stop",
+                                "--time",
+                                String.valueOf(stopGrace(limits.get())),
+                                target(container)))
+                .successful();
     }
 
     /**
@@ -942,7 +1017,7 @@ public class Podman {
      */
     public @Nullable String remove(String container) {
         final String id = target(container);
-        runner.run(podman("stop", "--time", "5", id));
+        runner.run(podman("stop", "--time", String.valueOf(stopGrace(limits.get())), id));
         return forceRemove(id);
     }
 

@@ -16,6 +16,8 @@ machine is met by one setting rather than a new build. Each factor is 1.0 unless
 - **`polling`**: each interval is its default times the factor; 2.0 looks half as often.
 - **`retries`**: the number of tries is the default times the factor, rounded up and never less than one;
   each pause is the default pause times the factor.
+- **A task image's apt download timeout and retries follow `services` and `retries`**, so an image built
+  under other factors reads as stale.
 - **A setting that is a person's decision is never multiplied**: an agent's run limit, how long a card or a
   token holds, how long records are kept.
 - **Sizes, counts and protocol values are not limits of time** and follow no factor.

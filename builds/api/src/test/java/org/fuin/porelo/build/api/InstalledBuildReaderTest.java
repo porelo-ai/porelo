@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.wire.varlink.VarlinkException;
@@ -179,6 +180,38 @@ class InstalledBuildReaderTest {
                 .isInstanceOf(BuildReaderException.class)
                 .hasMessageContaining("exited without becoming ready")
                 .hasMessageContaining("no config here");
+    }
+
+    @Test
+    void itsTimeLimitsFollowTheServicesAndMachinesFactors() {
+        final org.fuin.porelo.wire.LimitFactors doubled =
+                org.fuin.porelo.wire.LimitFactors.parse("services=2,machines=2");
+        final org.fuin.porelo.wire.LimitFactors plain = org.fuin.porelo.wire.LimitFactors.DEFAULT;
+
+        assertThat(InstalledBuildReader.readyLimit(doubled)).isEqualTo(Duration.ofSeconds(20));
+        assertThat(InstalledBuildReader.callLimit(doubled)).isEqualTo(Duration.ofSeconds(240));
+        assertThat(InstalledBuildReader.endWait(doubled)).isEqualTo(Duration.ofSeconds(10));
+        assertThat(InstalledBuildReader.readyLimit(plain)).isEqualTo(Duration.ofSeconds(10));
+        assertThat(InstalledBuildReader.callLimit(plain)).isEqualTo(Duration.ofSeconds(120));
+        assertThat(InstalledBuildReader.endWait(plain)).isEqualTo(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void aReaderThatNeverSaysItIsReadyIsGivenUpOnAtTheLimitUnderTheServicesFactor()
+            throws IOException {
+        final Path silent = script("sleep 600");
+        final long started = System.nanoTime();
+
+        assertThatThrownBy(
+                        () ->
+                                new InstalledBuildReader(
+                                        silent,
+                                        "fake",
+                                        socket(),
+                                        org.fuin.porelo.wire.LimitFactors.parse("services=0.1")))
+                .isInstanceOf(BuildReaderException.class)
+                .hasMessageContaining("did not answer within 1 seconds");
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(6));
     }
 
     @Test

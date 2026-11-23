@@ -143,7 +143,8 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
         // Closed by a signal too, not only on return: the reader's close ends its process and
         // removes its socket, which a signal to this helper alone would leave behind.
         try (InstalledBuildReader reader =
-                        new InstalledBuildReader(executable, forge, state.resolve("builds.sock"));
+                        new InstalledBuildReader(
+                                executable, forge, state.resolve("builds.sock"), context.limits());
                 Teardown closing = Teardown.arm(reader::close)) {
             final BuildWatch.Forge asked =
                     new BuildWatch.Forge() {

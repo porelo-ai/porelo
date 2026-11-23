@@ -141,6 +141,38 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
             List<Repository> repositories,
             java.util.function.Consumer<String> log,
             Path authorities) {
+        this(socket, repositories, log, authorities, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /** How long the broker's connect to a repository's host may take. */
+    static final Duration CONNECT = Duration.ofSeconds(30);
+
+    /**
+     * Returns how long the broker's connect to a repository's host may take.
+     *
+     * @param limits The factors.
+     * @return {@link #CONNECT} under {@code machines}.
+     */
+    static Duration connect(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(CONNECT);
+    }
+
+    /**
+     * Binds the socket, its time limits under the account's factors. Nothing is served until {@link
+     * #run()} is called.
+     *
+     * @param socket Path to bind.
+     * @param repositories What the task reads, by name.
+     * @param log Receives one line per request, and one per answer cut off.
+     * @param authorities The account's added certificate authorities.
+     * @param limits The factors.
+     */
+    public RepositoryProxy(
+            Path socket,
+            List<Repository> repositories,
+            java.util.function.Consumer<String> log,
+            Path authorities,
+            org.fuin.porelo.wire.LimitFactors limits) {
         final Map<String, Repository> byName = new LinkedHashMap<>();
         repositories.forEach(repository -> byName.put(repository.name(), repository));
         this.repositories = Map.copyOf(byName);
@@ -148,7 +180,7 @@ public final class RepositoryProxy implements AutoCloseable, Runnable {
         this.socket = socket;
         this.http =
                 org.fuin.porelo.core.net.TrustedCertificates.builder(authorities)
-                        .connectTimeout(Duration.ofSeconds(30))
+                        .connectTimeout(connect(limits))
                         // Followed here, and only while under the prefix.
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .build();

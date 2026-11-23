@@ -55,6 +55,9 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
 
     private Instant failedUntil = Instant.MIN;
 
+    /** The factors its purchases' time limits follow. */
+    private final org.fuin.porelo.wire.LimitFactors limits;
+
     /**
      * Constructor, starting from what the vault holds.
      *
@@ -65,7 +68,8 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
      * @param http How the service is reached.
      * @param clock The time.
      * @param err The broker's standard error, where a completed renewal is reported.
-     * @param limits The factors how long a failed renewal is answered from memory follows.
+     * @param limits The factors its purchases' time limits, and how long a failed renewal is
+     *     answered from memory, follow.
      */
     LoginRenewal(
             final String name,
@@ -82,6 +86,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
         this.http = http;
         this.clock = clock;
         this.err = err;
+        this.limits = limits;
         this.failureHeld = limits.polling(FAILURE_HELD);
         this.token = org.fuin.porelo.supervisor.Grants.isGrant(entry.type()) ? null : entry.value();
         this.good = goodUntil(entry);
@@ -178,14 +183,15 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                     final String[] rotated = {refresh.value()};
                     final TokenPurchase purchase =
                             new TokenPurchase(
-                                    new TokenPurchase.Refresh(
-                                            client.tokenUrl(),
-                                            client.clientId(),
-                                            client.clientSecret(),
-                                            refresh.value(),
-                                            next -> rotated[0] = next),
-                                    http,
-                                    clock);
+                                            new TokenPurchase.Refresh(
+                                                    client.tokenUrl(),
+                                                    client.clientId(),
+                                                    client.clientSecret(),
+                                                    refresh.value(),
+                                                    next -> rotated[0] = next),
+                                            http,
+                                            clock)
+                                    .limitedBy(limits);
                     final String renewed;
                     try {
                         renewed = purchase.current();
@@ -203,7 +209,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                         return entries;
                     }
                     final Map<String, String> settings = new LinkedHashMap<>(entry.settings());
-                    final Instant ends = purchase.goodUntil().plus(TokenPurchase.MARGIN);
+                    final Instant ends = purchase.goodUntil().plus(TokenPurchase.margin(limits));
                     settings.put(LoginCredentials.EXPIRES_AT, ends.toString());
                     if (!serviceGrant) {
                         entries.put(name, new VaultEntry(renewed, entry.type(), settings));
@@ -236,7 +242,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
             return Instant.MIN;
         }
         try {
-            return Instant.parse(ends).minus(TokenPurchase.MARGIN);
+            return Instant.parse(ends).minus(TokenPurchase.margin(limits));
         } catch (final java.time.format.DateTimeParseException ex) {
             return Instant.MIN;
         }

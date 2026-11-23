@@ -537,12 +537,15 @@ final class GateWiring {
             if (org.fuin.porelo.wire.HelperPid.await(
                             state.resolve("gate.pid"),
                             org.fuin.porelo.wire.HelperPid.deadline(
-                                    context.limits().machines(HELPER_PATIENCE)))
+                                    context.limits().machines(HELPER_PATIENCE)),
+                            context.limits())
                     .isEmpty()) {
                 // Signalled is not yet gone: the start answers once it no longer runs, killed
                 // when it did not go when asked.
                 org.fuin.porelo.wire.HelperPid.end(
-                        started.toHandle(), context.limits().machines(HELPER_GRACE));
+                        started.toHandle(),
+                        context.limits().machines(HELPER_GRACE),
+                        context.limits());
                 err.println(
                         "porelo: the git gate did not come up; see " + state.resolve("gate.log"));
                 err.flush();

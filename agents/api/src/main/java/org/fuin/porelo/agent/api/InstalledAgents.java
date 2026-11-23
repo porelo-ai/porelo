@@ -28,15 +28,30 @@ public class InstalledAgents implements AutoCloseable {
     private final Map<Path, Path> ignored = new LinkedHashMap<>();
 
     /**
-     * Starts every agent found in a directory.
+     * Starts every agent found in a directory, every time limit at its default.
      *
      * @param directory Where to look.
      * @param socketDirectory Where to create sockets.
      */
     public InstalledAgents(AgentDirectory directory, Path socketDirectory) {
+        this(directory, socketDirectory, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Starts every agent found in a directory.
+     *
+     * @param directory Where to look.
+     * @param socketDirectory Where to create sockets.
+     * @param limits The factors their time limits follow.
+     */
+    public InstalledAgents(
+            AgentDirectory directory,
+            Path socketDirectory,
+            org.fuin.porelo.wire.LimitFactors limits) {
         for (final Path executable : directory.executables()) {
             try {
-                final InstalledAgent agent = new InstalledAgent(executable, socketDirectory);
+                final InstalledAgent agent =
+                        new InstalledAgent(executable, socketDirectory, limits);
                 final InstalledAgent running = agents.putIfAbsent(agent.name(), agent);
                 if (running != null) {
                     // The FIRST one found wins, not the last. It used to be the last, which

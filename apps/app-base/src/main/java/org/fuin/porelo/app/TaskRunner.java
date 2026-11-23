@@ -127,7 +127,8 @@ public class TaskRunner {
         // The agent's starts go into the AppArmor task profile where it holds.
         this.podman =
                 new Podman(runner, "podman", paths.egress().networkConfiguration(), environment)
-                        .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile());
+                        .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile())
+                        .limitedBy(limits);
         this.paths = paths;
         this.commands = runner;
         this.factors = limits;

@@ -154,7 +154,7 @@ final class MessagingMethods {
                                 seen.put(task, lines.size());
                             }
                             first = false;
-                            Thread.sleep(TALK_INTERVAL.toMillis());
+                            Thread.sleep(PoreloDaemon.talkInterval(context.limits()));
                         }
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();

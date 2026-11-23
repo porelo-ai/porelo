@@ -99,7 +99,8 @@ public class AgentsCommand implements Callable<Integer>, PoreloFactory.ContextAw
         final java.util.Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers =
                 org.fuin.porelo.agent.api.ProviderDirectory.standard(xdg.data()).all();
 
-        try (InstalledAgents agents = new InstalledAgents(locations, xdg.runtime())) {
+        try (InstalledAgents agents =
+                new InstalledAgents(locations, xdg.runtime(), context.limits())) {
 
             if (json) {
                 out.println(org.fuin.porelo.wire.Json.write(signIns(agents, locations, providers)));

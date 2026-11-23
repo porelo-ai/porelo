@@ -81,6 +81,16 @@ final class UnixHttp {
      */
     static final Duration IDLE = Duration.ofMinutes(10);
 
+    /**
+     * Returns the longest silence between two bytes when the request names no timeout.
+     *
+     * @param limits The factors.
+     * @return {@link #IDLE} under {@code services}.
+     */
+    static Duration idle(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(IDLE);
+    }
+
     /** Closes a connection that stayed silent; its thread is a daemon and idle when nothing is. */
     private static final ScheduledThreadPoolExecutor WATCHDOG = watchdog();
 
@@ -173,6 +183,23 @@ final class UnixHttp {
      */
     static HttpResponse<InputStream> send(Path socket, HttpRequest request, byte[] body)
             throws IOException {
+        return send(socket, request, body, IDLE);
+    }
+
+    /**
+     * Sends a request as {@link #send(Path, HttpRequest, byte[])} does, with the silence allowed
+     * when the request names no timeout.
+     *
+     * @param socket The socket.
+     * @param request The request.
+     * @param body The request body.
+     * @param idle The longest silence between two bytes when the request names no timeout.
+     * @return The answer.
+     * @throws Unframed If the answer's head cannot be framed.
+     * @throws IOException If the socket cannot be reached or the exchange fails.
+     */
+    static HttpResponse<InputStream> send(
+            Path socket, HttpRequest request, byte[] body, Duration idle) throws IOException {
         // Asked again here and not only when the destination was taken: a directory can be swapped
         // for a link in between.
         try {
@@ -181,7 +208,7 @@ final class UnixHttp {
             throw new IOException(refused.getMessage(), refused);
         }
         final SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX);
-        final Watch watch = new Watch(channel, request.timeout().orElse(IDLE));
+        final Watch watch = new Watch(channel, request.timeout().orElse(idle));
         try {
             channel.connect(UnixDomainSocketAddress.of(socket));
             final OutputStream out = Channels.newOutputStream(channel);

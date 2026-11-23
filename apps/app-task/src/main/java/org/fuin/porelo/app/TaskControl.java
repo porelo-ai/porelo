@@ -1478,7 +1478,10 @@ public final class TaskControl {
             final List<String> problems) {
         boolean clean =
                 TaskLifecycle.endHelpers(
-                        state, own, context.limits().machines(GateWiring.HELPER_GRACE));
+                        state,
+                        own,
+                        context.limits().machines(GateWiring.HELPER_GRACE),
+                        context.limits());
         if (!clean) {
             problems.add("a helper of " + container + " could not be ended and may still run");
         }
@@ -1705,7 +1708,8 @@ public final class TaskControl {
                         context.limits().machines(GateWiring.HELPER_PATIENCE));
         for (final java.util.Map.Entry<String, Process> each : coming) {
             final String name = each.getKey();
-            if (org.fuin.porelo.wire.HelperPid.await(state.resolve(name + ".pid"), deadline)
+            if (org.fuin.porelo.wire.HelperPid.await(
+                            state.resolve(name + ".pid"), deadline, context.limits())
                     .isPresent()) {
                 started++;
                 own.add(each.getValue().toHandle());
@@ -1714,7 +1718,8 @@ public final class TaskControl {
                 // when it did not go when asked.
                 org.fuin.porelo.wire.HelperPid.end(
                         each.getValue().toHandle(),
-                        context.limits().machines(GateWiring.HELPER_GRACE));
+                        context.limits().machines(GateWiring.HELPER_GRACE),
+                        context.limits());
                 problems.add(
                         "the " + name + " did not come up; see " + state.resolve(name + ".log"));
             }

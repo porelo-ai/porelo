@@ -231,12 +231,16 @@ final class CredentialWiring {
         // up by the pid files finds, and the start that went on left it running.
         if (!awaitSocket(socket, deadline, context.limits().polling(LOOK))
                 || org.fuin.porelo.wire.HelperPid.await(
-                                state.resolve(REPOSITORY_BROKER + ".pid"), deadline)
+                                state.resolve(REPOSITORY_BROKER + ".pid"),
+                                deadline,
+                                context.limits())
                         .isEmpty()) {
             // Ended here, by its own handle: it may never have recorded its pid, and the pid files
             // of the name are every start's.
             org.fuin.porelo.wire.HelperPid.end(
-                    broker.toHandle(), context.limits().machines(GateWiring.HELPER_GRACE));
+                    broker.toHandle(),
+                    context.limits().machines(GateWiring.HELPER_GRACE),
+                    context.limits());
             err.println(
                     "porelo: the repository broker did not come up, see "
                             + state.resolve(REPOSITORY_BROKER + ".log"));
@@ -347,12 +351,15 @@ final class CredentialWiring {
             if (org.fuin.porelo.wire.HelperPid.await(
                             state.resolve(helper + ".pid"),
                             org.fuin.porelo.wire.HelperPid.deadline(
-                                    context.limits().machines(GateWiring.HELPER_PATIENCE)))
+                                    context.limits().machines(GateWiring.HELPER_PATIENCE)),
+                            context.limits())
                     .isEmpty()) {
                 // Signalled is not yet gone: the start answers once it no longer runs, killed
                 // when it did not go when asked.
                 org.fuin.porelo.wire.HelperPid.end(
-                        started.toHandle(), context.limits().machines(GateWiring.HELPER_GRACE));
+                        started.toHandle(),
+                        context.limits().machines(GateWiring.HELPER_GRACE),
+                        context.limits());
                 err.println(
                         "porelo: the endpoint relay did not come up; see "
                                 + state.resolve(helper + ".log"));
@@ -715,12 +722,15 @@ final class CredentialWiring {
         // Recorded before its token is published; a broker whose pid is not there is one nothing
         // that cleans up by the pid files finds, and the start that went on left it running.
         if (token == null
-                || org.fuin.porelo.wire.HelperPid.await(state.resolve("vault.pid"), recorded)
+                || org.fuin.porelo.wire.HelperPid.await(
+                                state.resolve("vault.pid"), recorded, context.limits())
                         .isEmpty()) {
             // Ended here, by its own handle: it may never have recorded its pid, and then nothing
             // that cleans up by the pid files finds it.
             org.fuin.porelo.wire.HelperPid.end(
-                    broker.toHandle(), context.limits().machines(GateWiring.HELPER_GRACE));
+                    broker.toHandle(),
+                    context.limits().machines(GateWiring.HELPER_GRACE),
+                    context.limits());
             err.println(
                     "porelo: the credential proxy did not come up, see "
                             + state.resolve("vault.log"));

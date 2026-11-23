@@ -449,6 +449,101 @@ public class VaultProxy implements AutoCloseable, Runnable {
             java.util.function.Consumer<String> log,
             Path authorities,
             @Nullable Usage usage) {
+        this(
+                socket,
+                upstream,
+                exchange,
+                authHeader,
+                authPrefix,
+                authQuery,
+                headers,
+                routes,
+                log,
+                authorities,
+                usage,
+                org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /** How long a connect to an upstream may take. */
+    static final Duration CONNECT = Duration.ofSeconds(30);
+
+    /** How long one request passed on to an upstream may take. */
+    static final Duration UPSTREAM = Duration.ofMinutes(10);
+
+    /** How long closing waits for the usage observers' last records. */
+    static final Duration CLOSING = Duration.ofSeconds(2);
+
+    /**
+     * Returns how long a connect to an upstream may take.
+     *
+     * @param limits The factors.
+     * @return {@link #CONNECT} under {@code services}.
+     */
+    static Duration connect(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(CONNECT);
+    }
+
+    /**
+     * Returns how long one request passed on to an upstream may take.
+     *
+     * @param limits The factors.
+     * @return {@link #UPSTREAM} under {@code services}.
+     */
+    static Duration upstream(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.services(UPSTREAM);
+    }
+
+    /**
+     * Returns how long closing waits for the usage observers' last records.
+     *
+     * @param limits The factors.
+     * @return {@link #CLOSING} under {@code machines}.
+     */
+    static Duration closing(final org.fuin.porelo.wire.LimitFactors limits) {
+        return limits.machines(CLOSING);
+    }
+
+    /** {@link #UPSTREAM} under the account's factors. */
+    private final Duration upstreamLimit;
+
+    /** {@link #CLOSING} under the account's factors. */
+    private final Duration closingLimit;
+
+    /** {@link UnixHttp#IDLE} under the account's factors. */
+    private final Duration idle;
+
+    /**
+     * Creates a broker as the constructor above does, its time limits under the account's factors.
+     *
+     * @param socket Path to bind.
+     * @param upstream The agent's own destination.
+     * @param exchange Turns a presented token into a credential and the scope it stands for.
+     * @param authHeader The agent's own header.
+     * @param authPrefix The agent's own prefix.
+     * @param authQuery The agent's own URL parameter, or {@code null}.
+     * @param headers Headers set on the agent's own requests beside its key, by name.
+     * @param routes The other credentials' routes, by the credential a token is scoped to.
+     * @param log Receives one line per request.
+     * @param authorities The file of authorities the account adds, which need not exist.
+     * @param usage The task's usage observation, or {@code null}.
+     * @param limits The factors.
+     */
+    public VaultProxy(
+            Path socket,
+            String upstream,
+            TokenExchange exchange,
+            String authHeader,
+            String authPrefix,
+            @Nullable String authQuery,
+            Map<String, String> headers,
+            Map<String, Route> routes,
+            java.util.function.Consumer<String> log,
+            Path authorities,
+            @Nullable Usage usage,
+            org.fuin.porelo.wire.LimitFactors limits) {
+        this.upstreamLimit = upstream(limits);
+        this.closingLimit = closing(limits);
+        this.idle = UnixHttp.idle(limits);
         this.usage = usage;
         this.ownHeaders = Map.copyOf(headers);
         this.routes = Map.copyOf(routes);
@@ -463,7 +558,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
         // The authorities the account adds to the built-in ones, as every other client here.
         this.http =
                 org.fuin.porelo.core.net.TrustedCertificates.builder(authorities)
-                        .connectTimeout(Duration.ofSeconds(30))
+                        .connectTimeout(connect(limits))
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .build();
 
@@ -720,7 +815,10 @@ public class VaultProxy implements AutoCloseable, Runnable {
             response =
                     UnixUpstream.is(route.upstream())
                             ? UnixHttp.send(
-                                    UnixUpstream.path(route.upstream()), outbound, request.body())
+                                    UnixUpstream.path(route.upstream()),
+                                    outbound,
+                                    request.body(),
+                                    idle)
                             : http.send(outbound, HttpResponse.BodyHandlers.ofInputStream());
         } catch (UnixHttp.Unframed ex) {
             if (observation != null) {
@@ -1014,7 +1112,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
                                                         ? sent
                                                         : Query.replace(
                                                                 sent, route.authQuery(), real))))
-                        .timeout(Duration.ofMinutes(10))
+                        .timeout(upstreamLimit)
                         .method(
                                 head.method(),
                                 body.length == 0
@@ -1510,7 +1608,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
             // Nothing useful to do while shutting down.
         }
         http.shutdownNow();
-        final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+        final long deadline = System.nanoTime() + closingLimit.toNanos();
         final List<UsageObservation> finishing = List.copyOf(observations);
         finishing.forEach(observation -> observation.finish(false));
         finishing.forEach(observation -> observation.awaitUntil(deadline));

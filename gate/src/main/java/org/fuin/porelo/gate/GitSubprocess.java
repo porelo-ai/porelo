@@ -16,6 +16,9 @@ import java.util.concurrent.TimeUnit;
  */
 public class GitSubprocess implements GitHttpServer.GitProcess {
 
+    /** How long one git request may take. */
+    static final java.time.Duration TIMEOUT = java.time.Duration.ofMinutes(5);
+
     private final String executable;
 
     private final long timeoutSeconds;
@@ -25,7 +28,27 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
 
     /** Constructor using the {@code git} on the path and a five-minute timeout. */
     public GitSubprocess() {
-        this("git", 300);
+        this(org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Constructor using the {@code git} on the path and {@link #TIMEOUT} under the account's
+     * factors.
+     *
+     * @param limits The factors.
+     */
+    public GitSubprocess(final org.fuin.porelo.wire.LimitFactors limits) {
+        this("git", timeout(limits), false);
+    }
+
+    /**
+     * Returns how long one git request may take, in whole seconds, rounded up.
+     *
+     * @param limits The factors.
+     * @return {@link #TIMEOUT} under {@code machines}.
+     */
+    static long timeout(final org.fuin.porelo.wire.LimitFactors limits) {
+        return (limits.machines(TIMEOUT).toMillis() + 999) / 1000;
     }
 
     /**
@@ -51,7 +74,18 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
      * @return The runner, with a five-minute timeout.
      */
     public static GitSubprocess withoutConfig() {
-        return new GitSubprocess("git", 300, true);
+        return withoutConfig(org.fuin.porelo.wire.LimitFactors.DEFAULT);
+    }
+
+    /**
+     * Returns a runner as {@link #withoutConfig()} does, with {@link #TIMEOUT} under the account's
+     * factors.
+     *
+     * @param limits The factors.
+     * @return The runner.
+     */
+    public static GitSubprocess withoutConfig(final org.fuin.porelo.wire.LimitFactors limits) {
+        return new GitSubprocess("git", timeout(limits), true);
     }
 
     private ProcessBuilder configured(final ProcessBuilder builder) {
