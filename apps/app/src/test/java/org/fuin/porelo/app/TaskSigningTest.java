@@ -46,7 +46,7 @@ class TaskSigningTest {
         stub(bin, "git", "echo 'Authorization: Basic abc'");
         stub(bin, "ssh-keygen", "printf 'real %s\\n' \"$*\" > \"$LOG\"");
         final Path shim = dir.resolve("sign");
-        Files.writeString(shim, TaskSigning.SHIM);
+        Files.writeString(shim, SigningShim.text(org.fuin.porelo.wire.LimitFactors.DEFAULT));
         Files.writeString(dir.resolve("payload"), "tree 1\n");
 
         assertThat(

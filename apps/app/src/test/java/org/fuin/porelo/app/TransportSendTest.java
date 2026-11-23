@@ -49,7 +49,7 @@ class TransportSendTest {
                             final org.fuin.porelo.core.process.Command command) {
                         if (command.arguments().contains("send")) {
                             try {
-                                mailbox.delete();
+                                mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
                             } catch (final IOException ex) {
                                 throw new java.io.UncheckedIOException(ex);
                             }

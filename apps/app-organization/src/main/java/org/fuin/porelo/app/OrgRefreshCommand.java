@@ -78,6 +78,7 @@ public class OrgRefreshCommand extends OrgReading {
         final Path state = machine.paths().xdg().state().resolve("organization");
         return FileLocks.holdingIfFree(
                         state.resolve("refresh.lock"),
+                        machine.limits(),
                         () -> {
                             if (!repository.equals(OrgAccess.repository(machine).orElse(null)))
                                 return outcome("superseded");

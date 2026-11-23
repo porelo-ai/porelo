@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -36,16 +37,40 @@ class ScreenFileTest {
         Files.writeString(
                 ScreenFile.directory(state).resolve(ScreenFile.SCREEN),
                 "Trust this folder? [y/N]\n");
-        assertThat(ScreenFile.read(state, clock)).isEqualTo("Trust this folder? [y/N]\n");
+        assertThat(ScreenFile.read(state, clock, LimitFactors.DEFAULT))
+                .isEqualTo("Trust this folder? [y/N]\n");
 
         Files.delete(ScreenFile.directory(state).resolve(ScreenFile.SCREEN));
-        assertThat(ScreenFile.read(state, clock)).as("no session drawn").isEmpty();
+        assertThat(ScreenFile.read(state, clock, LimitFactors.DEFAULT))
+                .as("no session drawn")
+                .isEmpty();
 
         alive(NOW.minus(ScreenFile.FRESH).minusSeconds(1));
-        assertThat(ScreenFile.read(state, clock))
+        assertThat(ScreenFile.read(state, clock, LimitFactors.DEFAULT))
                 .as("a writer that stopped: ask the task")
                 .isNull();
-        assertThat(ScreenFile.read(state.resolve("never-made"), clock)).isNull();
+        assertThat(ScreenFile.read(state.resolve("never-made"), clock, LimitFactors.DEFAULT))
+                .isNull();
+    }
+
+    @Test
+    void aWriterLookingHalfAsOftenCountsAsStoppedOnlyAfterTwiceTheAge() throws Exception {
+        // Seven seconds since its last look: past the five seconds at 1.0, within the ten at 2.0.
+        alive(NOW.minusSeconds(7));
+        Files.writeString(ScreenFile.directory(state).resolve(ScreenFile.SCREEN), "at work\n");
+
+        assertThat(ScreenFile.read(state, clock, LimitFactors.DEFAULT))
+                .as("stopped at the factor 1.0")
+                .isNull();
+        assertThat(ScreenFile.read(state, clock, LimitFactors.parse("polling=2")))
+                .as("still looking at 2.0")
+                .isEqualTo("at work\n");
+        assertThat(ScreenFile.writer(LimitFactors.parse("polling=2")).getLast())
+                .as("the writer it is judged by looks every two seconds")
+                .contains("sleep 2;");
+        assertThat(ScreenFile.writer(LimitFactors.DEFAULT).getLast())
+                .as("and every second at 1.0")
+                .contains("sleep 1;");
     }
 
     @Test
@@ -55,7 +80,7 @@ class ScreenFileTest {
                 Files.writeString(state.resolve("elsewhere.txt"), "a file of the host's\n");
         Files.createSymbolicLink(ScreenFile.directory(state).resolve(ScreenFile.SCREEN), elsewhere);
 
-        assertThat(ScreenFile.read(state, clock)).isEmpty();
+        assertThat(ScreenFile.read(state, clock, LimitFactors.DEFAULT)).isEmpty();
     }
 
     @Test
@@ -76,7 +101,8 @@ class ScreenFileTest {
                         + "\n");
         bin.resolve("tmux").toFile().setExecutable(true);
         Files.writeString(drawn, "stub: at work, nothing asked\n");
-        final Process writer = start(ScreenFile.writerScript(directory.toString()), bin);
+        final Process writer =
+                start(ScreenFile.writerScript(directory.toString(), ScreenFile.LOOK), bin);
         try {
             final Path screen = directory.resolve(ScreenFile.SCREEN);
             waitFor(() -> Files.isRegularFile(screen));
@@ -148,7 +174,9 @@ class ScreenFileTest {
         }
         Files.write(output, written);
         final Process writer =
-                start(ScreenFile.writerScript(directory.toString()), sessionTmux(output, piped));
+                start(
+                        ScreenFile.writerScript(directory.toString(), ScreenFile.LOOK),
+                        sessionTmux(output, piped));
         try {
             final Path recording = directory.resolve(ScreenFile.RECORDING);
             waitFor(

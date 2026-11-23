@@ -560,6 +560,7 @@ public final class HostPullRequestReader {
                             store.resolveSibling(repository + ".lock"),
                             // Long enough to wait out another read's fetch of three bounded steps.
                             Duration.ofSeconds(75),
+                            context.limits(),
                             () -> {
                                 try {
                                     return makers(store, commit);

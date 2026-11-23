@@ -43,7 +43,7 @@ class MessagePassTest {
         // The daemon passes over the mailboxes it found: one removed since got its root back as
         // the pass's lock, and the task's retired name stayed taken.
         final Mailbox mailbox = mailbox(dir);
-        mailbox.delete();
+        mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         final MessagePass.Report report =
                 new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))

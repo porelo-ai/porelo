@@ -479,7 +479,7 @@ public final class Prune {
                             new TaskState(context).forget(container);
                             new TaskSession(context).forget(container);
                             deleteTree(context.paths().tasks().containerState(container));
-                            mailbox.delete();
+                            mailbox.delete(context.limits());
                             new TaskGuide(context.paths(), container).delete();
                             new TaskRepositories(context.paths(), container).delete();
                             new TaskGiven(context.paths()).forget(container);

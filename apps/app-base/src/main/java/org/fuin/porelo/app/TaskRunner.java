@@ -79,6 +79,8 @@ public class TaskRunner {
 
     private final CommandRunner commands;
 
+    private final java.util.function.Supplier<org.fuin.porelo.wire.LimitFactors> factors;
+
     private TaskReservations.@Nullable Lease reservation;
 
     /** Uses the start's already published claim when recording podman's id. */
@@ -106,7 +108,7 @@ public class TaskRunner {
      * @param paths Where files go.
      */
     public TaskRunner(CommandRunner runner, PoreloPaths paths) {
-        this(runner, paths, name -> null);
+        this(runner, paths, name -> null, () -> org.fuin.porelo.wire.LimitFactors.DEFAULT);
     }
 
     /**
@@ -115,17 +117,20 @@ public class TaskRunner {
      * @param runner Runs commands.
      * @param paths Where files go.
      * @param environment Reads an environment variable.
+     * @param limits The account's factors, asked for when a task needs them.
      */
     public TaskRunner(
             CommandRunner runner,
             PoreloPaths paths,
-            java.util.function.UnaryOperator<String> environment) {
+            java.util.function.UnaryOperator<String> environment,
+            java.util.function.Supplier<org.fuin.porelo.wire.LimitFactors> limits) {
         // The agent's starts go into the AppArmor task profile where it holds.
         this.podman =
                 new Podman(runner, "podman", paths.egress().networkConfiguration(), environment)
                         .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile());
         this.paths = paths;
         this.commands = runner;
+        this.factors = limits;
     }
 
     /**
@@ -527,7 +532,8 @@ public class TaskRunner {
         if (environment.containsValue(SigningShim.MOUNT)) {
             // A certified task's git signs through its gate with this, read-only: its key is on
             // the host, and the program that asks for a signature is not the agent's to change.
-            specification.volumeReadOnly(SigningShim.prepare(state), SigningShim.MOUNT);
+            specification.volumeReadOnly(
+                    SigningShim.prepare(state, factors.get()), SigningShim.MOUNT);
         }
         final TaskGuide guide = new TaskGuide(paths, container);
         if (guide.exists()) {
@@ -642,7 +648,7 @@ public class TaskRunner {
     public void startScreenWriter(final String container) {
         try {
             runOrFail(
-                    podman.asRootDetachedArguments(container, ScreenFile.writer()),
+                    podman.asRootDetachedArguments(container, ScreenFile.writer(factors.get())),
                     null,
                     "the screen writer did not start");
         } catch (IOException ex) {

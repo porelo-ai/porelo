@@ -133,7 +133,7 @@ class MessageRecordTest {
         // The daemon's read pass wrote a line into a removed task's record: the mailbox came back
         // as its record, and the task's retired name stayed taken.
         final Mailbox mailbox = mailbox(dir);
-        mailbox.delete();
+        mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () ->
@@ -167,7 +167,8 @@ class MessageRecordTest {
                                         () -> {
                                             holding.countDown();
                                             Races.waitsAtTheLock(appender);
-                                            mailbox.delete();
+                                            mailbox.delete(
+                                                    org.fuin.porelo.wire.LimitFactors.DEFAULT);
                                             return Boolean.TRUE;
                                         });
                             } catch (final IOException ex) {

@@ -40,7 +40,8 @@ class HostGatherFilesTest {
     @Test
     void readsTheCheckedPersonFile() throws Exception {
         // A valid private config must remain usable without privilege or another person's home.
-        assertThat(files.read(home, uid, "acme")).isEqualTo("fixture configuration\n");
+        assertThat(files.read(home, uid, "acme", org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .isEqualTo("fixture configuration\n");
     }
 
     @ParameterizedTest
@@ -88,7 +89,13 @@ class HostGatherFilesTest {
         } else if (defect.equals("oversized")) Files.writeString(conf, " ".repeat(65537));
         else if (defect.equals("nul")) Files.writeString(conf, "configuration\0hidden");
         final long expected = defect.equals("foreign") ? uid + 1 : uid;
-        assertThatThrownBy(() -> files.read(home, expected, "acme"))
+        assertThatThrownBy(
+                        () ->
+                                files.read(
+                                        home,
+                                        expected,
+                                        "acme",
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
                 .isInstanceOfSatisfying(
                         HostGatherRefusal.class,
                         refusal -> assertThat(refusal.code()).isEqualTo(66));
@@ -109,7 +116,13 @@ class HostGatherFilesTest {
                     }
                     return actual;
                 };
-        assertThatThrownBy(() -> files.read(home, uid, "acme"))
+        assertThatThrownBy(
+                        () ->
+                                files.read(
+                                        home,
+                                        uid,
+                                        "acme",
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
                 .isInstanceOf(HostGatherRefusal.class);
     }
 
@@ -123,7 +136,13 @@ class HostGatherFilesTest {
         org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
                 java.time.Duration.ofSeconds(2),
                 () ->
-                        assertThatThrownBy(() -> files.read(home, uid, "acme"))
+                        assertThatThrownBy(
+                                        () ->
+                                                files.read(
+                                                        home,
+                                                        uid,
+                                                        "acme",
+                                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
                                 .isInstanceOf(HostGatherRefusal.class));
     }
 
@@ -143,7 +162,13 @@ class HostGatherFilesTest {
                     }
                     return original.read(path);
                 };
-        assertThatThrownBy(() -> files.read(home, uid, "acme"))
+        assertThatThrownBy(
+                        () ->
+                                files.read(
+                                        home,
+                                        uid,
+                                        "acme",
+                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
                 .isInstanceOf(HostGatherRefusal.class);
     }
 
@@ -160,7 +185,8 @@ class HostGatherFilesTest {
                     }
                     return attrs;
                 };
-        assertThat(files.read(home, uid, "acme")).isEqualTo("fixture configuration\n");
+        assertThat(files.read(home, uid, "acme", org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .isEqualTo("fixture configuration\n");
     }
 
     @Test
@@ -173,6 +199,7 @@ class HostGatherFilesTest {
                     attrs.put("uid", (int) 4000000000L);
                     return attrs;
                 };
-        assertThat(files.read(home, 4000000000L, "acme")).isEqualTo("fixture configuration\n");
+        assertThat(files.read(home, 4000000000L, "acme", org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .isEqualTo("fixture configuration\n");
     }
 }

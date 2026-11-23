@@ -26,6 +26,7 @@ import org.fuin.porelo.supervisor.TokenPurchase;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultFile;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -114,7 +115,8 @@ class LoginRenewalTest {
                 () -> VaultFile.Opener.passphrase(PASSPHRASE),
                 HttpClient.newHttpClient(),
                 Clock.fixed(at, ZoneOffset.UTC),
-                new PrintWriter(err));
+                new PrintWriter(err),
+                LimitFactors.DEFAULT);
     }
 
     @Test
@@ -278,10 +280,41 @@ class LoginRenewalTest {
         // Every request of the task asks for the token: after a refusal each one opened the vault
         // and spent the dead refresh token at the service again, one after another behind the lock.
         // Asked again after a moment, so a sign-in made anew reaches a running broker.
+        final Instant[] now = {NOW};
+        final LoginRenewal renewal = refusing(dir, now, LimitFactors.DEFAULT);
+
+        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
+        assertThatThrownBy(renewal::current)
+                .as("the same answer, a moment later")
+                .isInstanceOf(TokenPurchase.Ended.class)
+                .hasMessageContaining("sign in again");
+        assertThat(bodies).as("the service is asked once for both").hasSize(1);
+
+        now[0] = NOW.plusSeconds(6);
+        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
+        assertThat(bodies).as("asked again once the moment has passed").hasSize(2);
+    }
+
+    @Test
+    void aFailedRenewalIsAnsweredFromMemoryTwiceAsLongAtThePollingFactorTwo(@TempDir Path dir) {
+        final Instant[] now = {NOW};
+        final LoginRenewal renewal = refusing(dir, now, LimitFactors.parse("polling=2"));
+
+        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
+        now[0] = NOW.plusSeconds(6);
+        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
+        assertThat(bodies).as("still answered from memory after six seconds").hasSize(1);
+
+        now[0] = NOW.plusSeconds(11);
+        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
+        assertThat(bodies).as("asked again after ten").hasSize(2);
+    }
+
+    /** A renewal the service refuses, on a clock the test moves. */
+    private LoginRenewal refusing(final Path dir, final Instant[] now, final LimitFactors limits) {
         status.set(400);
         answer.set("{\"error\":\"invalid_grant\"}");
         final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(30)), true);
-        final Instant[] now = {NOW};
         final Clock clock =
                 new Clock() {
                     @Override
@@ -299,26 +332,15 @@ class LoginRenewalTest {
                         return now[0];
                     }
                 };
-        final LoginRenewal renewal =
-                new LoginRenewal(
-                        "anthropic",
-                        vault.read(PASSPHRASE).get("anthropic"),
-                        vault,
-                        () -> VaultFile.Opener.passphrase(PASSPHRASE),
-                        HttpClient.newHttpClient(),
-                        clock,
-                        new PrintWriter(err));
-
-        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
-        assertThatThrownBy(renewal::current)
-                .as("the same answer, a moment later")
-                .isInstanceOf(TokenPurchase.Ended.class)
-                .hasMessageContaining("sign in again");
-        assertThat(bodies).as("the service is asked once for both").hasSize(1);
-
-        now[0] = NOW.plusSeconds(6);
-        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
-        assertThat(bodies).as("asked again once the moment has passed").hasSize(2);
+        return new LoginRenewal(
+                "anthropic",
+                vault.read(PASSPHRASE).get("anthropic"),
+                vault,
+                () -> VaultFile.Opener.passphrase(PASSPHRASE),
+                HttpClient.newHttpClient(),
+                clock,
+                new PrintWriter(err),
+                limits);
     }
 
     @Test

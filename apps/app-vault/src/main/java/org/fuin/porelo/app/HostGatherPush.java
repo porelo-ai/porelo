@@ -123,7 +123,7 @@ public final class HostGatherPush {
             HostGatherConfig config =
                     HostGatherConfig.parse(
                             source,
-                            files.read(home, caller, project),
+                            files.read(home, caller, project, context.limits()),
                             project,
                             "http://127.0.0.1:" + settings.port());
             config.select(repositories);
@@ -161,6 +161,7 @@ public final class HostGatherPush {
             final char[] centralToken = central;
             return FileLocks.holdingIfFree(
                             lock(context),
+                            context.limits(),
                             () -> {
                                 if (!open.getAsBoolean()) throw cancelled();
                                 try (HostGatherToken received = new HostGatherToken()) {
@@ -205,15 +206,18 @@ public final class HostGatherPush {
                                                                     org.fuin.porelo.core.process
                                                                             .ProcessCommandRunner
                                                             ? (asking
-                                                                    ? new HostGatherRunner()
+                                                                    ? new HostGatherRunner(
+                                                                            context.limits())
                                                                     : new HostGatherRunner(
                                                                             java.time.Duration
                                                                                     .ofMinutes(10),
-                                                                            open))
+                                                                            open,
+                                                                            context.limits()))
                                                             : context.runner(),
                                                     git,
                                                     curl,
-                                                    Path.of(System.getProperty("java.io.tmpdir")))
+                                                    Path.of(System.getProperty("java.io.tmpdir")),
+                                                    context.limits())
                                             .transfer(
                                                     pull,
                                                     selected,
@@ -339,7 +343,7 @@ public final class HostGatherPush {
         try {
             result =
                     HostGatherRunner.system(
-                            context.runner(),
+                            context,
                             Command.of(
                                             program("getent").toString(),
                                             "passwd",

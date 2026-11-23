@@ -85,6 +85,30 @@ class HostVaultConnectionTest {
     }
 
     @Test
+    void theDaemonHasFiveSecondsTimesTheServicesFactorToAnswer(@TempDir Path dir) {
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        args -> 0);
+
+        assertThat(((HostVaultConnection) context.hostVault()).timeout())
+                .as("at the factor 1.0")
+                .isEqualTo(Duration.ofSeconds(5));
+        assertThat(
+                        ((HostVaultConnection)
+                                        context.withAccount(
+                                                        AccountConfig.read(
+                                                                new java.io.StringReader(
+                                                                        "limits:\n  services: 2\n"),
+                                                                "t"))
+                                                .hostVault())
+                                .timeout())
+                .as("at 2.0, from the account's settings")
+                .isEqualTo(Duration.ofSeconds(10));
+    }
+
+    @Test
     void theDefaultPredicateRefusesWhenKernelCredentialsCannotBeRead(@TempDir Path dir)
             throws Exception {
         final var connection =

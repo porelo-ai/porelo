@@ -170,7 +170,7 @@ public final class AgentLogin {
     private static java.net.http.HttpClient tokenHttp(final PoreloContext context) {
         return org.fuin.porelo.core.net.TrustedCertificates.builder(
                         org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg()))
-                .connectTimeout(java.time.Duration.ofSeconds(30))
+                .connectTimeout(context.limits().services(java.time.Duration.ofSeconds(30)))
                 .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                 .build();
     }
@@ -468,7 +468,9 @@ public final class AgentLogin {
                                     command,
                                     directory,
                                     opener,
-                                    new Detached(started, AgentSignInRuns.LIMIT),
+                                    new Detached(
+                                            started,
+                                            context.limits().services(AgentSignInRuns.LIMIT)),
                                     out));
         } catch (RuntimeException ex) {
             return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
@@ -674,6 +676,7 @@ public final class AgentLogin {
             held =
                     FileLocks.holdingIfFree(
                             lockFile(context, agent),
+                            context.limits(),
                             () ->
                                     locked(
                                             context,
@@ -984,7 +987,7 @@ public final class AgentLogin {
                             "--mount",
                             inMemory(configDirectory),
                             image));
-            arguments.addAll(holding(command));
+            arguments.addAll(holding(command, context.limits()));
             if (detached == null) {
                 out.println();
                 out.println(
@@ -1080,7 +1083,7 @@ public final class AgentLogin {
             // ... ExtractCredential failed", the suite, 2026-10-04), and a watch that found it a
             // moment late is a login stored all the same.
             ended.set(true);
-            settle(watcher);
+            settle(watcher, context.limits());
             // The login's own exit, as the holding process recorded it: 'podman run' ends with
             // the stop that followed.
             final int code = exited.get() != null ? exited.get() : ran;
@@ -1194,7 +1197,7 @@ public final class AgentLogin {
             // nothing in after.
             ended.set(true);
             if (watcher != null) {
-                settle(watcher);
+                settle(watcher, context.limits());
             }
             deleteTree(copies);
             try {
@@ -1307,9 +1310,11 @@ public final class AgentLogin {
      * stop after the login ended ends the wait at once.
      *
      * @param command The login.
+     * @param limits The factors how long it holds follows.
      * @return The container's command.
      */
-    static List<String> holding(final List<String> command) {
+    static List<String> holding(
+            final List<String> command, final org.fuin.porelo.wire.LimitFactors limits) {
         final List<String> wrapped = new ArrayList<>();
         wrapped.add("/bin/sh");
         wrapped.add("-c");
@@ -1317,7 +1322,7 @@ public final class AgentLogin {
                 "\"$@\"; code=$?; printf '%s\\n' \"$code\" > "
                         + EXIT_MARKER
                         + "; trap 'exit 0' TERM; sleep "
-                        + HOLDING.toSeconds()
+                        + ShellSeconds.decimal(limits.machines(HOLDING))
                         + " & wait");
         wrapped.add("porelo-login");
         wrapped.addAll(command);
@@ -1437,7 +1442,7 @@ public final class AgentLogin {
         // the agent's lock and a container on the host's network.
         podman.stop(container);
         try {
-            if (!waiting.join(java.time.Duration.ofSeconds(15))) {
+            if (!waiting.join(context.limits().machines(java.time.Duration.ofSeconds(15)))) {
                 waiting.interrupt();
             }
         } catch (InterruptedException ex) {
@@ -1595,9 +1600,10 @@ public final class AgentLogin {
             org.fuin.porelo.vault.VaultFile.Opener opener,
             java.nio.file.Path marker,
             java.util.concurrent.atomic.AtomicReference<Integer> exited) {
+        final java.time.Duration look = context.limits().polling(java.time.Duration.ofSeconds(2));
         while (!ended.get() && !Thread.currentThread().isInterrupted()) {
             try {
-                Thread.sleep(java.time.Duration.ofSeconds(2));
+                Thread.sleep(look);
             } catch (final InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return;
@@ -1698,12 +1704,14 @@ public final class AgentLogin {
      * cannot keep the login open.
      *
      * @param watcher The watch.
+     * @param limits The factors the waits for its end follow.
      */
-    private static void settle(final Thread watcher) {
+    private static void settle(
+            final Thread watcher, final org.fuin.porelo.wire.LimitFactors limits) {
         try {
-            if (!watcher.join(java.time.Duration.ofSeconds(15))) {
+            if (!watcher.join(limits.machines(java.time.Duration.ofSeconds(15)))) {
                 watcher.interrupt();
-                watcher.join(java.time.Duration.ofSeconds(5));
+                watcher.join(limits.machines(java.time.Duration.ofSeconds(5)));
             }
         } catch (final InterruptedException ex) {
             Thread.currentThread().interrupt();

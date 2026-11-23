@@ -30,6 +30,12 @@ import org.fuin.porelo.wire.Directories;
  */
 public final class NodeIdentity {
 
+    /** How often a file another process is writing is read before it counts as never written. */
+    private static final int READS = 100;
+
+    /** The pause between those reads. */
+    private static final java.time.Duration READ_PAUSE = java.time.Duration.ofMillis(2);
+
     private NodeIdentity() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -48,10 +54,11 @@ public final class NodeIdentity {
      * nothing, and whoever loses the race reads a file that was complete before it appeared.
      *
      * @param file Where the identity lives.
+     * @param limits The factors the wait for another process's write follows.
      * @return The identity, stable across restarts.
      * @throws java.io.UncheckedIOException If it can neither be read nor created.
      */
-    public static String of(Path file) {
+    public static String of(Path file, org.fuin.porelo.wire.LimitFactors limits) {
         try {
             final String existing = readIfPresent(file);
             if (existing != null) {
@@ -67,7 +74,7 @@ public final class NodeIdentity {
                     Files.createLink(file, temp);
                     return minted;
                 } catch (FileAlreadyExistsException raced) {
-                    return required(file);
+                    return required(file, limits);
                 } catch (UnsupportedOperationException noLinks) {
                     // A filesystem without hard links. Fall back to creating the name directly,
                     // which reopens the gap above - so the read below tolerates a file that is
@@ -82,7 +89,7 @@ public final class NodeIdentity {
                         ownerOnly(file);
                         return minted;
                     } catch (FileAlreadyExistsException raced) {
-                        return required(file);
+                        return required(file, limits);
                     }
                 }
             } finally {
@@ -123,17 +130,21 @@ public final class NodeIdentity {
      * and short: this is a race between two processes over one write of thirty-six bytes.
      *
      * @param file The identity file.
+     * @param limits The factors the reads and the pause between them follow.
      * @return The identity.
      * @throws IOException If nothing readable appears.
      */
-    private static String required(Path file) throws IOException {
-        for (int attempt = 0; attempt < 100; attempt++) {
+    private static String required(Path file, org.fuin.porelo.wire.LimitFactors limits)
+            throws IOException {
+        final int reads = limits.tries(READS);
+        final java.time.Duration pause = limits.retryPause(READ_PAUSE);
+        for (int attempt = 0; attempt < reads; attempt++) {
             final String found = readIfPresent(file);
             if (found != null) {
                 return found;
             }
             try {
-                Thread.sleep(2);
+                Thread.sleep(pause);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 break;

@@ -138,8 +138,17 @@ public record PoreloContext(
                 prompt,
                 input,
                 machineName,
-                hostVault,
+                following(hostVault, settings::limits),
                 () -> settings);
+    }
+
+    /** The daemon's connection waiting as the account's factors say; any other owner as it is. */
+    private static HostVaultAccess following(
+            final HostVaultAccess owner,
+            final java.util.function.Supplier<org.fuin.porelo.wire.LimitFactors> limits) {
+        return owner instanceof HostVaultConnection connection
+                ? connection.following(limits)
+                : owner;
     }
 
     /** Returns this context using the given host vault owner. */
@@ -481,16 +490,7 @@ public record PoreloContext(
         final Path file = paths.xdg().config().resolve(AccountConfig.FILE);
         final java.util.concurrent.atomic.AtomicReference<@Nullable AccountConfig> read =
                 new java.util.concurrent.atomic.AtomicReference<>();
-        return new PoreloContext(
-                runner,
-                paths,
-                exec,
-                environment,
-                recognizesTasks,
-                prompt,
-                input,
-                machineName,
-                hostVault,
+        final java.util.function.Supplier<AccountConfig> settings =
                 () -> {
                     final AccountConfig known = read.get();
                     if (known != null) {
@@ -502,7 +502,18 @@ public record PoreloContext(
                         throw new java.io.UncheckedIOException("Cannot read " + file, ex);
                     }
                     return java.util.Objects.requireNonNull(read.get(), "set just above");
-                });
+                };
+        return new PoreloContext(
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                machineName,
+                following(hostVault, () -> settings.get().limits()),
+                settings);
     }
 
     /**
@@ -740,7 +751,7 @@ public record PoreloContext(
      *
      * <p>Without a terminal it asks nobody and returns what {@link #opener()} does, so a script,
      * the daemon and the watchers refuse as before. A wrong passphrase is asked again, {@value
-     * #TRIES} times in all.
+     * #TRIES} times in all, times the retries factor.
      *
      * @param unlock Whether the answer unlocks the vault as {@code porelo vault unlock} does, for
      *     the same time, because a task needs it after this command: a task's start, run and
@@ -766,7 +777,8 @@ public record PoreloContext(
                 unlock
                         ? "Vault passphrase (unlocks it as 'porelo vault unlock' does): "
                         : "Vault passphrase (for this command only): ";
-        for (int tried = 0; tried < TRIES; tried++) {
+        final int tries = limits().tries(TRIES);
+        for (int tried = 0; tried < tries; tried++) {
             final char[] answer = prompt.ask(shown);
             if (answer == null) {
                 return java.util.Optional.empty();
@@ -1017,6 +1029,6 @@ public record PoreloContext(
      * @return Runner.
      */
     public TaskRunner tasks() {
-        return new TaskRunner(runner, paths(), environment);
+        return new TaskRunner(runner, paths(), environment, this::limits);
     }
 }

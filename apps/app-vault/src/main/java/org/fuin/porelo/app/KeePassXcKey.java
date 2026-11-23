@@ -235,8 +235,11 @@ record KeePassXcKey(
                 kept != null
                         ? kept.fingerprint()
                         : handOver(context, file.toString(), path, login, action, change);
-        final Duration grace = patience.compareTo(GRACE) < 0 ? patience : GRACE;
-        if (served(socket, fingerprint, grace)) {
+        final Duration waited = context.limits().machines(patience);
+        final Duration graced = context.limits().machines(GRACE);
+        final Duration grace = waited.compareTo(graced) < 0 ? waited : graced;
+        final Duration poll = context.limits().polling(POLL);
+        if (served(socket, fingerprint, grace, poll)) {
             forget(context, change);
             return new Made(path, fingerprint);
         }
@@ -255,9 +258,9 @@ record KeePassXcKey(
                         + " unlock "
                         + AnswerText.printable(file.toString())
                         + " in KeePassXC's window; Porelo waits up to "
-                        + patience.toSeconds()
+                        + waited.toSeconds()
                         + " s.\n");
-        if (served(socket, fingerprint, patience)) {
+        if (served(socket, fingerprint, waited, poll)) {
             forget(context, change);
             return new Made(path, fingerprint);
         }
@@ -452,7 +455,7 @@ record KeePassXcKey(
                     64,
                     "no-password",
                     "the master password was not typed within "
-                            + typing.toSeconds()
+                            + context.limits().services(typing).toSeconds()
                             + " s; nothing was kept");
         }
         final String added = ended.getOrDefault("add", "127");
@@ -514,7 +517,8 @@ record KeePassXcKey(
                                                     "porelo-keepassxc",
                                                     terminalIn.toString(),
                                                     terminalOut.toString(),
-                                                    String.valueOf(typing.toSeconds()),
+                                                    ShellSeconds.decimal(
+                                                            context.limits().services(typing)),
                                                     program,
                                                     database,
                                                     entry,
@@ -535,9 +539,12 @@ record KeePassXcKey(
         return ended;
     }
 
-    /** Asks the agent until it serves the key, at most {@code within}. */
+    /** Asks the agent until it serves the key, at most {@code within}, every {@code poll}. */
     private static boolean served(
-            final String socket, final String fingerprint, final Duration within) {
+            final String socket,
+            final String fingerprint,
+            final Duration within,
+            final Duration poll) {
         final long deadline = System.nanoTime() + within.toNanos();
         while (true) {
             for (final AgentKey each : served(socket)) {
@@ -550,7 +557,7 @@ record KeePassXcKey(
                 return false;
             }
             try {
-                Thread.sleep(Duration.ofNanos(Math.min(left, POLL.toNanos())));
+                Thread.sleep(Duration.ofNanos(Math.min(left, poll.toNanos())));
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return false;

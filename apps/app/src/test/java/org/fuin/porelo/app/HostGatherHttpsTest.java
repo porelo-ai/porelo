@@ -80,7 +80,10 @@ class HostGatherHttpsTest {
             server.start();
             final String origin = "https://127.0.0.1:" + server.getAddress().getPort();
             try (var processes =
-                    new HostGatherRunner(java.time.Duration.ofSeconds(20), () -> true)) {
+                    new HostGatherRunner(
+                            java.time.Duration.ofSeconds(20),
+                            () -> true,
+                            org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
                 final var anonymous =
                         processes.run(
                                 Command.of(
@@ -170,7 +173,11 @@ class HostGatherHttpsTest {
                     });
             server.start();
             final String origin = "https://127.0.0.1:" + server.getAddress().getPort();
-            try (var runner = new HostGatherRunner(java.time.Duration.ofSeconds(20), () -> true)) {
+            try (var runner =
+                    new HostGatherRunner(
+                            java.time.Duration.ofSeconds(20),
+                            () -> true,
+                            org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
                 final int code =
                         new HostGatherFlow(runner, Path.of("/usr/bin/git"), dir)
                                 .run(

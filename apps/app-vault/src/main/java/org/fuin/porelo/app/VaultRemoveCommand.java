@@ -310,7 +310,8 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
                     org.fuin.porelo.core.net.TrustedCertificates.builder(
                                     org.fuin.porelo.core.net.TrustedCertificates.file(
                                             context.paths().xdg()))
-                            .connectTimeout(java.time.Duration.ofSeconds(30))
+                            .connectTimeout(
+                                    context.limits().services(java.time.Duration.ofSeconds(30)))
                             .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                             .build(),
                     refreshToken);

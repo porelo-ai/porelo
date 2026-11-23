@@ -6866,7 +6866,7 @@ public final class TaskLaunch {
         }
         new TaskConversations(context).retire(enrolled, container, err);
         try {
-            new Mailbox(context.paths().messaging().mailbox(container)).delete();
+            new Mailbox(context.paths().messaging().mailbox(container)).delete(context.limits());
             new TaskGuide(context.paths(), container).delete();
             new TaskResult(context.paths()).forget(container);
             new TaskGiven(context.paths()).forget(container);

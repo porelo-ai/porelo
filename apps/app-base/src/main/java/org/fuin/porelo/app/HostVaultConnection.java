@@ -15,12 +15,15 @@ final class HostVaultConnection implements HostVaultAccess {
 
     private final String vault;
 
-    private final java.time.Duration timeout;
+    /** How long the daemon has to answer one call, at the services factor 1.0. */
+    static final java.time.Duration TIMEOUT = java.time.Duration.ofSeconds(5);
+
+    private final java.util.function.Supplier<java.time.Duration> timeout;
 
     private final java.util.function.Predicate<java.nio.channels.SocketChannel> ownUid;
 
     HostVaultConnection(Path socket, Path vault) {
-        this(socket, vault, java.time.Duration.ofSeconds(5));
+        this(socket, vault, TIMEOUT);
     }
 
     HostVaultConnection(Path socket, Path vault, java.time.Duration timeout) {
@@ -36,10 +39,39 @@ final class HostVaultConnection implements HostVaultAccess {
             Path vault,
             java.time.Duration timeout,
             java.util.function.Predicate<java.nio.channels.SocketChannel> ownUid) {
+        this(socket, vault.toAbsolutePath().normalize().toString(), () -> timeout, ownUid);
+    }
+
+    private HostVaultConnection(
+            Path socket,
+            String vault,
+            java.util.function.Supplier<java.time.Duration> timeout,
+            java.util.function.Predicate<java.nio.channels.SocketChannel> ownUid) {
         this.socket = socket;
-        this.vault = vault.toAbsolutePath().normalize().toString();
+        this.vault = vault;
         this.timeout = timeout;
         this.ownUid = ownUid;
+    }
+
+    /**
+     * Returns this connection waiting {@link #TIMEOUT} times the services factor for each answer.
+     *
+     * @param limits The account's factors, asked for at the first call, so a command that never
+     *     calls the daemon never reads them.
+     * @return The connection.
+     */
+    HostVaultConnection following(
+            final java.util.function.Supplier<org.fuin.porelo.wire.LimitFactors> limits) {
+        return new HostVaultConnection(socket, vault, () -> limits.get().services(TIMEOUT), ownUid);
+    }
+
+    /**
+     * Returns how long the daemon has to answer one call.
+     *
+     * @return The wait.
+     */
+    java.time.Duration timeout() {
+        return timeout.get();
     }
 
     @Override
@@ -83,7 +115,7 @@ final class HostVaultConnection implements HostVaultAccess {
     }
 
     private Map<String, Object> call(String method, Map<String, Object> parameters) {
-        return within(() -> exchange(method, parameters), timeout);
+        return within(() -> exchange(method, parameters), timeout());
     }
 
     static <T> T within(java.util.function.Supplier<T> exchange, java.time.Duration timeout) {
@@ -152,7 +184,7 @@ final class HostVaultConnection implements HostVaultAccess {
                         })) {
             final Map<String, Object> scoped = new java.util.LinkedHashMap<>(parameters);
             scoped.put("vault", vault);
-            return client.call("org.fuin.porelo.Tasks1." + method, scoped, timeout);
+            return client.call("org.fuin.porelo.Tasks1." + method, scoped, timeout());
         } catch (org.fuin.porelo.wire.varlink.VarlinkTimeoutException ex) {
             // A daemon that accepted and did not answer is there: never read as unreachable.
             throw new VaultException(

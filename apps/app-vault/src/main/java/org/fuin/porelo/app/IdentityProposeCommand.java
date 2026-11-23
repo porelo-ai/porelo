@@ -272,11 +272,27 @@ public class IdentityProposeCommand implements Callable<Integer>, PoreloFactory.
         }
     }
 
+    /** How long the ssh login probe runs at most, at the machines factor 1.0. */
+    private static final java.time.Duration SSH_PROBE = java.time.Duration.ofSeconds(12);
+
+    /** How long that probe's ssh has to connect, at the machines factor 1.0. */
+    private static final java.time.Duration SSH_CONNECT = java.time.Duration.ofSeconds(5);
+
     private static @Nullable String sshLogin(
             final PoreloContext machine, final HostKeys.Address address, final List<String> notes) {
-        final var arguments = new ArrayList<>(List.of("timeout", "12s", "ssh"));
+        final var arguments =
+                new ArrayList<>(
+                        List.of(
+                                "timeout",
+                                ShellSeconds.decimal(machine.limits().machines(SSH_PROBE)) + "s",
+                                "ssh"));
         arguments.addAll(PinnedHostSsh.options(FollowCredential.knownHostsFile(machine)));
-        arguments.addAll(List.of("-T", "-o", "ConnectTimeout=5"));
+        arguments.addAll(
+                List.of(
+                        "-T",
+                        "-o",
+                        "ConnectTimeout="
+                                + ShellSeconds.whole(machine.limits().machines(SSH_CONNECT))));
         if (address.port() != HostKeys.Address.SSH) {
             arguments.addAll(List.of("-p", Integer.toString(address.port())));
         }

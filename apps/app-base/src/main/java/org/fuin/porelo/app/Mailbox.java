@@ -601,20 +601,25 @@ public final class Mailbox {
      * <p>Called when the task is removed and never before: stopping a task, starting it again and
      * restarting the machine all leave the conversation where it was.
      *
+     * @param limits The factors how often a delete walks it again, and after what pause, follow.
      * @throws IOException Deleting failed.
      */
-    public void delete() throws IOException {
-        delete(() -> {});
+    public void delete(final org.fuin.porelo.wire.LimitFactors limits) throws IOException {
+        delete(limits, () -> {});
     }
 
     /**
-     * Deletes the mailbox as {@link #delete()} does, running {@code walked} after each walk of it
-     * and before anything of that walk is deleted.
+     * Deletes the mailbox as {@link #delete(org.fuin.porelo.wire.LimitFactors)} does, running
+     * {@code walked} after each walk of it and before anything of that walk is deleted.
      *
+     * @param limits The factors how often it is walked again, and after what pause, follow.
      * @param walked What happens between a walk and its deletes, as a writer's late file would.
      * @throws IOException Deleting failed.
      */
-    void delete(final Runnable walked) throws IOException {
+    void delete(final org.fuin.porelo.wire.LimitFactors limits, final Runnable walked)
+            throws IOException {
+        final int tries = limits.tries(DELETE_TRIES);
+        final java.time.Duration pause = limits.retryPause(DELETE_PAUSE);
         for (int tried = 1; ; tried++) {
             try {
                 deleteOnce(walked);
@@ -622,10 +627,10 @@ public final class Mailbox {
             } catch (final DirectoryNotEmptyException | NoSuchFileException ex) {
                 // A writer's file landed after the walk, or one it moved went during it: walked
                 // again, a few times only, so a writer that never stops fails the delete.
-                if (tried == DELETE_TRIES) {
+                if (tried >= tries) {
                     throw ex;
                 }
-                pause(ex);
+                pause(pause, ex);
             }
         }
     }
@@ -646,9 +651,10 @@ public final class Mailbox {
         }
     }
 
-    private static void pause(final IOException failed) throws IOException {
+    private static void pause(final java.time.Duration pause, final IOException failed)
+            throws IOException {
         try {
-            Thread.sleep(DELETE_PAUSE);
+            Thread.sleep(pause);
         } catch (final InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw failed;

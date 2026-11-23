@@ -11,7 +11,11 @@ class HostGatherDeadlineTest {
     @Test
     void disconnectedWindowStopsTheOwnedProcess() {
         // A disconnected caller must not leave an owned process running in the daemon indefinitely.
-        try (var runner = new HostGatherRunner(Duration.ofSeconds(2), () -> false)) {
+        try (var runner =
+                new HostGatherRunner(
+                        Duration.ofSeconds(2),
+                        () -> false,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
             final var error =
                     assertThrows(
                             HostGatherRefusal.class,
@@ -26,7 +30,11 @@ class HostGatherDeadlineTest {
     @Test
     void deadlineStopsAProcessThatNeverAnswers() {
         // A silent remote endpoint must not hold a daemon connection and its credentials forever.
-        try (var runner = new HostGatherRunner(Duration.ofMillis(50), () -> true)) {
+        try (var runner =
+                new HostGatherRunner(
+                        Duration.ofMillis(50),
+                        () -> true,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
             assertThrows(
                     HostGatherRefusal.class,
                     () ->

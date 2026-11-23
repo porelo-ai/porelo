@@ -184,7 +184,7 @@ public class HostForgeTokenCommand implements Callable<Integer>, PoreloFactory.C
         try {
             issued =
                     HostGatherRunner.system(
-                            context.runner(),
+                            context,
                             org.fuin.porelo.core.process.Command.of(
                                             sudo.toString(),
                                             "-n",

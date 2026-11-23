@@ -49,6 +49,8 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
      */
     static final java.time.Duration FAILURE_HELD = java.time.Duration.ofSeconds(5);
 
+    private final java.time.Duration failureHeld;
+
     private TokenPurchase.@Nullable Refused failed;
 
     private Instant failedUntil = Instant.MIN;
@@ -63,6 +65,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
      * @param http How the service is reached.
      * @param clock The time.
      * @param err The broker's standard error, where a completed renewal is reported.
+     * @param limits The factors how long a failed renewal is answered from memory follows.
      */
     LoginRenewal(
             final String name,
@@ -71,13 +74,15 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
             final java.util.function.Supplier<VaultFile.Opener> opener,
             final java.net.http.HttpClient http,
             final Clock clock,
-            final PrintWriter err) {
+            final PrintWriter err,
+            final org.fuin.porelo.wire.LimitFactors limits) {
         this.name = name;
         this.vault = vault;
         this.opener = opener;
         this.http = http;
         this.clock = clock;
         this.err = err;
+        this.failureHeld = limits.polling(FAILURE_HELD);
         this.token = org.fuin.porelo.supervisor.Grants.isGrant(entry.type()) ? null : entry.value();
         this.good = goodUntil(entry);
     }
@@ -112,7 +117,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
         }
         if (refused[0] != null) {
             failed = refused[0];
-            failedUntil = clock.instant().plus(FAILURE_HELD);
+            failedUntil = clock.instant().plus(failureHeld);
             throw refused[0];
         }
         failed = null;

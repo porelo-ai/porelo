@@ -290,7 +290,7 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
     static java.net.http.HttpClient http(PoreloContext context) {
         return org.fuin.porelo.core.net.TrustedCertificates.builder(
                         org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg()))
-                .connectTimeout(java.time.Duration.ofSeconds(30))
+                .connectTimeout(context.limits().services(java.time.Duration.ofSeconds(30)))
                 .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                 .build();
     }
@@ -349,7 +349,8 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
 
                 @Override
                 public Shown start() throws TokenPurchase.Refused {
-                    final CodeGrant.Started now = grant.start(REDIRECT_WAIT);
+                    final CodeGrant.Started now =
+                            grant.start(context.limits().services(REDIRECT_WAIT));
                     started = now;
                     return new Shown(now.link(), "", now.port(), now.expiresIn());
                 }

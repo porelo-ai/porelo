@@ -315,7 +315,8 @@ class MessageWatchLoopsTest {
         watch.passOnce();
         assertThat(loops("porelo-direct-porelo-p-gone")).hasSize(1);
 
-        new Mailbox(context.paths().messaging().mailbox("porelo-p-gone")).delete();
+        new Mailbox(context.paths().messaging().mailbox("porelo-p-gone"))
+                .delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
         watch.passOnce();
 
         assertThat(ended("porelo-direct-porelo-p-gone")).as("its direct chats' loop").isTrue();

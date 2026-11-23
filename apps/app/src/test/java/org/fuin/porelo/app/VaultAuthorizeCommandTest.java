@@ -21,6 +21,30 @@ class VaultAuthorizeCommandTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
 
+    @Test
+    void aServiceHasThirtySecondsTimesTheServicesFactorToTakeTheConnection(
+            @TempDir final Path dir) {
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        arguments -> 0);
+
+        assertThat(VaultAuthorizeCommand.http(context).connectTimeout())
+                .as("at the factor 1.0")
+                .contains(Duration.ofSeconds(30));
+        assertThat(
+                        VaultAuthorizeCommand.http(
+                                        context.withAccount(
+                                                AccountConfig.read(
+                                                        new java.io.StringReader(
+                                                                "limits:\n  services: 2\n"),
+                                                        "t")))
+                                .connectTimeout())
+                .as("at 2.0, from the account's settings")
+                .contains(Duration.ofSeconds(60));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"refresh", "lasting", "refused"})
     void authorizationReportsTheUseOnlyAfterKeepingAGrant(

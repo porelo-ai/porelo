@@ -91,14 +91,21 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
                                 : KernelKeyring.Forgotten.NOTHING_CACHED);
     }
 
+    /** How often the keyring is asked to forget, at the retries factor 1.0. */
+    private static final int FORGET_TRIES = 3;
+
+    /** The pause before it is asked again, at the retries factor 1.0. */
+    private static final java.time.Duration FORGET_PAUSE = java.time.Duration.ofMillis(200);
+
     static KernelKeyring.Forgotten forget(
             PoreloContext context,
             java.util.function.Supplier<KernelKeyring.Forgotten> passphraseForget,
             java.util.function.Supplier<KernelKeyring.Forgotten> shareForget) {
         boolean hostShare = false;
         org.fuin.porelo.vault.VaultException unavailable = null;
-        final KernelKeyring.Forgotten passphrase = forgetRetried(passphraseForget);
-        final KernelKeyring.Forgotten share = forgetRetried(shareForget);
+        final KernelKeyring.Forgotten passphrase =
+                forgetRetried(passphraseForget, context.limits());
+        final KernelKeyring.Forgotten share = forgetRetried(shareForget, context.limits());
         try {
             hostShare = context.forgetHostVault();
         } catch (org.fuin.porelo.vault.VaultException ex) {
@@ -145,17 +152,21 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
 
     /**
      * Forgets through the keyring, asking again when it did not answer: three tries, a moment
-     * apart.
+     * apart, times the retries factor.
      *
      * @param forget One try.
-     * @return The first answer that is not {@code UNKNOWN}, or {@code UNKNOWN} after three.
+     * @param limits The factors the tries and the pause between them follow.
+     * @return The first answer that is not {@code UNKNOWN}, or {@code UNKNOWN} after the last try.
      */
     static KernelKeyring.Forgotten forgetRetried(
-            final java.util.function.Supplier<KernelKeyring.Forgotten> forget) {
+            final java.util.function.Supplier<KernelKeyring.Forgotten> forget,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        final int most = limits.tries(FORGET_TRIES);
+        final java.time.Duration pause = limits.retryPause(FORGET_PAUSE);
         KernelKeyring.Forgotten answer = forget.get();
-        for (int tries = 1; answer == KernelKeyring.Forgotten.UNKNOWN && tries < 3; tries++) {
+        for (int tries = 1; answer == KernelKeyring.Forgotten.UNKNOWN && tries < most; tries++) {
             try {
-                Thread.sleep(200);
+                Thread.sleep(pause);
             } catch (final InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return answer;

@@ -263,7 +263,11 @@ class HostGatherPreflightTest {
     @Test
     void runnerDeliversPrivateProbeInputWithoutPuttingItInArguments() {
         // Discarding the probe's authorization could accept an anonymous answer as authenticated.
-        try (var runner = new HostGatherRunner(java.time.Duration.ofSeconds(2), () -> true)) {
+        try (var runner =
+                new HostGatherRunner(
+                        java.time.Duration.ofSeconds(2),
+                        () -> true,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
             final var answer =
                     runner.run(
                             Command.of("/usr/bin/cat")

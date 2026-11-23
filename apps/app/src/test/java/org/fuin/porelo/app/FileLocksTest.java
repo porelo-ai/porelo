@@ -49,6 +49,7 @@ class FileLocksTest {
                 final java.util.Optional<Boolean> kept =
                         FileLocks.holdingIfFree(
                                 lock,
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT,
                                 () -> {
                                     Thread.onSpinWait();
                                     return heldHere(lock);
@@ -66,6 +67,58 @@ class FileLocksTest {
         }
         assertThat(holds).as("the lock was taken beside the probes").isPositive();
         assertThat(dropped).as("holds whose lock the kernel no longer had").isZero();
+    }
+
+    @Test
+    void aHeldLockIsWaitedForItsProbeTimesTheMachinesFactor(@TempDir Path dir) throws Exception {
+        final Path lock = dir.resolve("logins").resolve("held.lock");
+        final java.util.concurrent.CountDownLatch taken =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch release =
+                new java.util.concurrent.CountDownLatch(1);
+        final Thread holder =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    try {
+                                        FileLocks.holding(
+                                                lock,
+                                                () -> {
+                                                    taken.countDown();
+                                                    try {
+                                                        release.await();
+                                                    } catch (InterruptedException ex) {
+                                                        Thread.currentThread().interrupt();
+                                                    }
+                                                    return null;
+                                                });
+                                    } catch (IOException ex) {
+                                        throw new IllegalStateException(ex);
+                                    }
+                                });
+        try {
+            assertThat(taken.await(10, TimeUnit.SECONDS)).isTrue();
+
+            assertThat(waitedFor(lock, org.fuin.porelo.wire.LimitFactors.parse("machines=2")))
+                    .as("two seconds at 2.0")
+                    .isGreaterThanOrEqualTo(Duration.ofSeconds(2));
+            assertThat(waitedFor(lock, org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                    .as("one second at 1.0")
+                    .isGreaterThanOrEqualTo(Duration.ofSeconds(1))
+                    .isLessThan(Duration.ofSeconds(2));
+        } finally {
+            release.countDown();
+            holder.join();
+        }
+    }
+
+    private static Duration waitedFor(
+            final Path lock, final org.fuin.porelo.wire.LimitFactors limits) throws IOException {
+        final long start = System.nanoTime();
+        assertThat(FileLocks.holdingIfFree(lock, limits, () -> true))
+                .as("held by another thread throughout")
+                .isEmpty();
+        return Duration.ofNanos(System.nanoTime() - start);
     }
 
     @Test

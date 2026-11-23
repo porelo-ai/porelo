@@ -513,7 +513,7 @@ public final class AgentWaiting {
     /** Reads the screen: what the task wrote, or else a capture in the container, given a limit. */
     private Shown shown(final String container, final Path state) {
         // What the task wrote, when its writer answers: a file, not a process in the container.
-        final String written = ScreenFile.read(state, clock);
+        final String written = ScreenFile.read(state, clock, context.limits());
         if (written != null) {
             return new Shown(written.isEmpty() ? null : written, false);
         }

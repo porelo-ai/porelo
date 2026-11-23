@@ -206,8 +206,8 @@ public final class AgentSignInRuns {
                         }
                     }
                 },
-                LIMIT,
-                POLL);
+                context.limits().services(LIMIT),
+                context.limits().polling(POLL));
     }
 
     /**

@@ -753,7 +753,8 @@ class AgentWakeTest {
                                         () -> {
                                             holding.countDown();
                                             Races.waitsAtTheLock(waking);
-                                            mailbox.delete();
+                                            mailbox.delete(
+                                                    org.fuin.porelo.wire.LimitFactors.DEFAULT);
                                             return Boolean.TRUE;
                                         });
                             } catch (final IOException ex) {

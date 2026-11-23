@@ -75,7 +75,7 @@ final class MachineMethods {
                             Map.of(
                                     "id",
                                     org.fuin.porelo.app.NodeIdentity.of(
-                                            context.paths().nodeIdFile())));
+                                            context.paths().nodeIdFile(), context.limits())));
                 });
 
         server.method(

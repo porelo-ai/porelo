@@ -26,7 +26,7 @@ class MessageReleaseTest {
             throws IOException {
         // Its lock beside the pass's made the root of a removed task's mailbox again.
         final Mailbox mailbox = held(dir, "m-9.json", "{\"messageId\":\"m-9\"}");
-        mailbox.delete();
+        mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         final MessageRelease.Result result = release.decide(mailbox, "m-9", false);
 

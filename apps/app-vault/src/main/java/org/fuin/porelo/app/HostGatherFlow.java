@@ -24,16 +24,34 @@ final class HostGatherFlow {
     private final Path git;
     private final Path curl;
     private final Path temporary;
+    private final org.fuin.porelo.wire.LimitFactors limits;
+
+    /** How long curl has to connect to the central forge, at the services factor 1.0. */
+    private static final java.time.Duration CONNECT = java.time.Duration.ofSeconds(5);
+
+    /** How long one curl call to the central forge takes at most, at the services factor 1.0. */
+    private static final java.time.Duration CALL = java.time.Duration.ofSeconds(15);
 
     HostGatherFlow(CommandRunner runner, Path git, Path temporary) {
-        this(runner, git, Path.of("/usr/bin/curl"), temporary);
+        this(
+                runner,
+                git,
+                Path.of("/usr/bin/curl"),
+                temporary,
+                org.fuin.porelo.wire.LimitFactors.DEFAULT);
     }
 
-    HostGatherFlow(CommandRunner runner, Path git, Path curl, Path temporary) {
+    HostGatherFlow(
+            CommandRunner runner,
+            Path git,
+            Path curl,
+            Path temporary,
+            org.fuin.porelo.wire.LimitFactors limits) {
         this.runner = runner;
         this.git = git;
         this.curl = curl;
         this.temporary = temporary;
+        this.limits = limits;
     }
 
     int run(
@@ -332,9 +350,9 @@ final class HostGatherFlow {
                                             "--noproxy",
                                             "*",
                                             "--connect-timeout",
-                                            "5",
+                                            ShellSeconds.decimal(limits.services(CONNECT)),
                                             "--max-time",
-                                            "15",
+                                            ShellSeconds.decimal(limits.services(CALL)),
                                             "--max-filesize",
                                             "16777216",
                                             "--cacert",

@@ -38,7 +38,7 @@ class MessageSayTest {
         // as the person's directory, and the task's retired name stayed taken.
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
-        mailbox.delete();
+        mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () -> new MessageSay().write(mailbox, "b", "question", null, "hello"))

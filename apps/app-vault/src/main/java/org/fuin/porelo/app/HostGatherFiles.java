@@ -13,16 +13,21 @@ import org.fuin.porelo.wire.RootOwnedFile;
 /** Pins each component of the person's push configuration before reading its bytes. */
 final class HostGatherFiles {
     private static final int MAXIMUM_BYTES = 65536;
+
+    /** How long the read may take at the machines factor 1.0. */
     java.time.Duration timeout = java.time.Duration.ofSeconds(10);
+
     RootOwnedFile.Attributes openedAttributes =
             path -> java.nio.file.Files.readAttributes(path, "unix:uid,mode");
 
-    String read(Path home, long uid, String project) throws IOException {
+    String read(Path home, long uid, String project, org.fuin.porelo.wire.LimitFactors limits)
+            throws IOException {
         final var task =
                 new java.util.concurrent.FutureTask<String>(() -> readNow(home, uid, project));
         final Thread reader = Thread.ofVirtual().name("porelo-gather-config").start(task);
         try {
-            return task.get(timeout.toNanos(), java.util.concurrent.TimeUnit.NANOSECONDS);
+            return task.get(
+                    limits.machines(timeout).toNanos(), java.util.concurrent.TimeUnit.NANOSECONDS);
         } catch (java.util.concurrent.ExecutionException ex) {
             if (ex.getCause() instanceof HostGatherRefusal refusal) throw refusal;
             throw refused(

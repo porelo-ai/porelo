@@ -13,6 +13,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.fuin.porelo.wire.Directories;
+import org.fuin.porelo.wire.LimitFactors;
 
 /**
  * Holds a file's lock across threads and processes: the daemon's pass and a command at the terminal
@@ -133,15 +134,16 @@ final class FileLocks {
      *
      * @param <T> What it answers.
      * @param lock The lock file.
+     * @param limits The factors the wait for a probe and the looks at the lock follow.
      * @param locked What runs.
      * @return Its answer, or empty when the lock is held - by another process, another thread, or
      *     this thread already.
      * @throws IOException Locking, reading or writing failed.
      */
-    static <T> java.util.Optional<T> holdingIfFree(final Path lock, final Locked<T> locked)
-            throws IOException {
+    static <T> java.util.Optional<T> holdingIfFree(
+            final Path lock, final LimitFactors limits, final Locked<T> locked) throws IOException {
         // A probe holds it for a moment; a sign-in for minutes.
-        return holdingWithin(lock, PROBE, locked);
+        return holdingWithin(lock, limits.machines(PROBE), limits, locked);
     }
 
     /**
@@ -152,15 +154,20 @@ final class FileLocks {
      * @param <T> What it answers.
      * @param lock The lock file.
      * @param wait How long it may take to come free, in this process and in others together.
+     * @param limits The factors how often the lock is looked at follows.
      * @param locked What runs.
      * @return Its answer, or empty when the lock did not come free within the wait - or this thread
      *     holds it already.
      * @throws IOException Locking, reading or writing failed.
      */
     static <T> java.util.Optional<T> holdingWithin(
-            final Path lock, final java.time.Duration wait, final Locked<T> locked)
+            final Path lock,
+            final java.time.Duration wait,
+            final LimitFactors limits,
+            final Locked<T> locked)
             throws IOException {
         final long until = System.nanoTime() + wait.toNanos();
+        final java.time.Duration look = limits.polling(LOOK);
         final ReentrantLock here =
                 HELD.computeIfAbsent(
                         lock.toAbsolutePath().normalize(), path -> new ReentrantLock());
@@ -200,7 +207,7 @@ final class FileLocks {
                 try (channel) {
                     final FileLock held;
                     try {
-                        held = tryLockUntil(channel, until);
+                        held = tryLockUntil(channel, until, look);
                     } catch (java.nio.channels.OverlappingFileLockException ex) {
                         return java.util.Optional.empty();
                     }
@@ -228,19 +235,23 @@ final class FileLocks {
     /** How long a lock held by another process's probe may take to come free. */
     private static final java.time.Duration PROBE = java.time.Duration.ofSeconds(1);
 
+    /** How often a file lock another process holds is tried again while it is waited for. */
+    private static final java.time.Duration LOOK = java.time.Duration.ofMillis(20);
+
     /**
      * Takes a file lock, trying again until the deadline: another process's probe holds it briefly,
      * and another push for as long as its forge takes.
      */
     private static @org.jspecify.annotations.Nullable FileLock tryLockUntil(
-            final FileChannel channel, final long until) throws IOException {
+            final FileChannel channel, final long until, final java.time.Duration look)
+            throws IOException {
         while (true) {
             final FileLock taken = channel.tryLock();
             if (taken != null || System.nanoTime() - until > 0) {
                 return taken;
             }
             try {
-                Thread.sleep(20);
+                Thread.sleep(look);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 return null;

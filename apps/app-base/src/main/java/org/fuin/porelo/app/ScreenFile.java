@@ -45,9 +45,12 @@ public final class ScreenFile {
      */
     static final String ALIVE = "alive";
 
+    /** How often the writer looks at the screen, at the polling factor 1.0. */
+    static final Duration LOOK = Duration.ofSeconds(1);
+
     /**
      * Older than this, the writer is taken to have stopped, and the screen is asked of the task as
-     * before.
+     * before; at the polling factor 1.0, as the writer's own looks are.
      */
     static final Duration FRESH = Duration.ofSeconds(5);
 
@@ -114,19 +117,21 @@ public final class ScreenFile {
      * <p>The root's alone: the server is root's, on a socket the agent cannot reach, so the agent
      * has no part in what is copied beyond what its screen shows and its session writes.
      *
+     * @param limits The factors how often it looks follows.
      * @return The command and its arguments.
      */
-    public static List<String> writer() {
-        return List.of("sh", "-c", writerScript(MOUNT));
+    public static List<String> writer(final org.fuin.porelo.wire.LimitFactors limits) {
+        return List.of("sh", "-c", writerScript(MOUNT, limits.polling(LOOK)));
     }
 
     /**
      * Returns the root's script.
      *
      * @param directory Where it writes.
+     * @param look How often it looks.
      * @return The script.
      */
-    static String writerScript(final String directory) {
+    static String writerScript(final String directory, final Duration look) {
         final String tmux = String.join(" ", org.fuin.porelo.runtime.Podman.tmux());
         final String session = org.fuin.porelo.runtime.Containerfile.SESSION;
         return "d='"
@@ -164,7 +169,9 @@ public final class ScreenFile {
                 + " > \"$d/.next\" 2>/dev/null && [ -s \"$d/.next\" ]; then"
                 + "     cmp -s \"$d/.next\" \"$d/screen\" || mv -f \"$d/.next\" \"$d/screen\";"
                 + "   else rm -f \"$d/screen\" \"$d/.next\"; fi;"
-                + "   : > \"$d/alive\"; sleep 1;"
+                + "   : > \"$d/alive\"; sleep "
+                + ShellSeconds.decimal(look)
+                + ";"
                 + " done";
     }
 
@@ -174,16 +181,19 @@ public final class ScreenFile {
      *
      * @param state The task's state directory.
      * @param clock What "now" is.
+     * @param limits The factors the writer's looks, and so the age it counts as stopped at, follow.
      * @return The screen's text, "" for no session, or {@code null}.
      */
-    public static @Nullable String read(final Path state, final Clock clock) {
+    public static @Nullable String read(
+            final Path state, final Clock clock, final org.fuin.porelo.wire.LimitFactors limits) {
         final Path directory = directory(state);
+        final Duration fresh = limits.polling(FRESH);
         try {
             final Path alive = directory.resolve(ALIVE);
             if (!Files.isRegularFile(alive, LinkOption.NOFOLLOW_LINKS)
                     || Files.getLastModifiedTime(alive, LinkOption.NOFOLLOW_LINKS)
                             .toInstant()
-                            .plus(FRESH)
+                            .plus(fresh)
                             .isBefore(clock.instant())) {
                 return null;
             }

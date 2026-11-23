@@ -28,8 +28,8 @@ class NodeIdentityTest {
 
         final Path file = dir.resolve("data").resolve("node-id");
 
-        final String first = NodeIdentity.of(file);
-        final String second = NodeIdentity.of(file);
+        final String first = NodeIdentity.of(file, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+        final String second = NodeIdentity.of(file, org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         assertThat(first).isNotBlank().isEqualTo(second);
     }
@@ -40,10 +40,11 @@ class NodeIdentityTest {
         // The whole point. Minting a fresh one at every start would make a node unrecognisable
         // after a reboot, which is the failure this is meant to prevent, arriving by another door.
         final Path file = dir.resolve("node-id");
-        final String minted = NodeIdentity.of(file);
+        final String minted = NodeIdentity.of(file, org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         assertThat(Files.readString(file, StandardCharsets.UTF_8)).contains(minted);
-        assertThat(NodeIdentity.of(file)).isEqualTo(minted);
+        assertThat(NodeIdentity.of(file, org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .isEqualTo(minted);
     }
 
     @Test
@@ -57,7 +58,13 @@ class NodeIdentityTest {
         try {
             final var tasks =
                     IntStream.range(0, 8)
-                            .<Callable<String>>mapToObj(i -> () -> NodeIdentity.of(file))
+                            .<Callable<String>>mapToObj(
+                                    i ->
+                                            () ->
+                                                    NodeIdentity.of(
+                                                            file,
+                                                            org.fuin.porelo.wire.LimitFactors
+                                                                    .DEFAULT))
                             .toList();
             final Set<String> answers =
                     pool.invokeAll(tasks).stream()
@@ -84,8 +91,14 @@ class NodeIdentityTest {
         // directory - which is already per user. Deriving this from the machine instead would give
         // two accounts on one host the same answer, which is precisely the case a hostname already
         // gets wrong.
-        assertThat(NodeIdentity.of(dir.resolve("alice").resolve("node-id")))
-                .isNotEqualTo(NodeIdentity.of(dir.resolve("bob").resolve("node-id")));
+        assertThat(
+                        NodeIdentity.of(
+                                dir.resolve("alice").resolve("node-id"),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .isNotEqualTo(
+                        NodeIdentity.of(
+                                dir.resolve("bob").resolve("node-id"),
+                                org.fuin.porelo.wire.LimitFactors.DEFAULT));
     }
 
     @Test
@@ -98,17 +111,18 @@ class NodeIdentityTest {
         Files.createDirectories(dir);
         Files.writeString(file, "   \n");
 
-        final String repaired = NodeIdentity.of(file);
+        final String repaired = NodeIdentity.of(file, org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         assertThat(repaired).isNotBlank();
-        assertThat(NodeIdentity.of(file)).isEqualTo(repaired);
+        assertThat(NodeIdentity.of(file, org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .isEqualTo(repaired);
     }
 
     @Test
     void isReadableOnlyByItsOwner(@TempDir Path dir) throws Exception {
 
         final Path file = dir.resolve("node-id");
-        NodeIdentity.of(file);
+        NodeIdentity.of(file, org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         assertThat(Files.getPosixFilePermissions(file))
                 .containsExactlyInAnyOrderElementsOf(

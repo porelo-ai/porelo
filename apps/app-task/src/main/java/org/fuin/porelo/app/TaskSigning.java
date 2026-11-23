@@ -20,9 +20,6 @@ final class TaskSigning {
     /** Where the program is in the container. */
     static final String SHIM_MOUNT = SigningShim.MOUNT;
 
-    /** The program. */
-    static final String SHIM = SigningShim.TEXT;
-
     private TaskSigning() {}
 
     /**

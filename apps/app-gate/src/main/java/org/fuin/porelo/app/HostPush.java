@@ -157,6 +157,7 @@ final class HostPush {
                     FileLocks.holdingWithin(
                             record.resolveSibling("." + task + ".lock"),
                             limit,
+                            context.limits(),
                             () ->
                                     Optional.ofNullable(
                                             pushHeld(commit, secret, base, branch, record, until)));

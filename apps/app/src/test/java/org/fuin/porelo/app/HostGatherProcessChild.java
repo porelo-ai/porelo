@@ -71,7 +71,7 @@ public final class HostGatherProcessChild {
         } else if (args[0].equals("idle")) Thread.sleep(60000);
         else {
             final var runner =
-                    new HostGatherRunner() {
+                    new HostGatherRunner(org.fuin.porelo.wire.LimitFactors.DEFAULT) {
                         @Override
                         protected Process start(ProcessBuilder builder) throws java.io.IOException {
                             builder.command(

@@ -1757,7 +1757,7 @@ class TransportConversationsTest {
         final Mailbox review = mailbox("porelo-p-review");
         final Path inbound = Files.createDirectories(dir.resolve("inbound"));
         message(inbound, "$a.json", "review");
-        review.delete();
+        review.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
         final Map<String, String> handed = new LinkedHashMap<>();
         final List<String> said = new java.util.ArrayList<>();
 

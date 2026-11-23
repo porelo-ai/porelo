@@ -41,7 +41,7 @@ public final class HostFollowCommand implements Callable<Integer>, PoreloFactory
             final Path host = SystemProgram.at(Path.of("/usr/sbin/porelo-host"));
             final Path sudo = SystemProgram.find("sudo");
             return HostGatherRunner.system(
-                            context.runner(),
+                            context,
                             Command.of(sudo.toString(), "-n", host.toString(), "org", "follow-now")
                                     .in(Path.of("/"))
                                     .withChosenEnvironment(
@@ -73,8 +73,7 @@ public final class HostFollowCommand implements Callable<Integer>, PoreloFactory
                             .in(Path.of("/"))
                             .withChosenEnvironment(
                                     Map.of("PATH", "/usr/sbin:/usr/bin", "LC_ALL", "C"));
-            final var answer =
-                    HostGatherRunner.system(context.runner(), command, Duration.ofMinutes(12));
+            final var answer = HostGatherRunner.system(context, command, Duration.ofMinutes(12));
             if (answer.exitCode() == 64) {
                 err.println(
                         "porelo: host follow is unavailable; update the host program to one supporting org follow-now");

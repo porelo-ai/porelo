@@ -170,7 +170,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                     org.fuin.porelo.core.net.TrustedCertificates.builder(
                                     org.fuin.porelo.core.net.TrustedCertificates.file(
                                             context.paths().xdg()))
-                            .connectTimeout(Duration.ofSeconds(30))
+                            .connectTimeout(context.limits().services(Duration.ofSeconds(30)))
                             .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                             .build();
 
@@ -363,12 +363,15 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                         org.fuin.porelo.core.net.TrustedCertificates.builder(
                                                         org.fuin.porelo.core.net.TrustedCertificates
                                                                 .file(context.paths().xdg()))
-                                                .connectTimeout(Duration.ofSeconds(30))
+                                                .connectTimeout(
+                                                        context.limits()
+                                                                .services(Duration.ofSeconds(30)))
                                                 .followRedirects(
                                                         java.net.http.HttpClient.Redirect.NEVER)
                                                 .build(),
                                         java.time.Clock.systemUTC(),
-                                        err));
+                                        err,
+                                        context.limits()));
                     }
                     continue;
                 }
@@ -383,7 +386,9 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                         org.fuin.porelo.core.net.TrustedCertificates.builder(
                                                         org.fuin.porelo.core.net.TrustedCertificates
                                                                 .file(context.paths().xdg()))
-                                                .connectTimeout(Duration.ofSeconds(30))
+                                                .connectTimeout(
+                                                        context.limits()
+                                                                .services(Duration.ofSeconds(30)))
                                                 .followRedirects(
                                                         java.net.http.HttpClient.Redirect.NEVER)
                                                 .build(),
@@ -611,7 +616,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                 context::requireOpener,
                 tokenHttp.get(),
                 java.time.Clock.systemUTC(),
-                err);
+                err,
+                context.limits());
     }
 
     private boolean streamUsage(@Nullable String name) {

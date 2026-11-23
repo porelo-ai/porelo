@@ -139,7 +139,8 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
                         VaultLockCommand.forgetRetried(
                                 () ->
                                         new KernelKeyring(context.paths().vault().vaultKeyringKey())
-                                                .forget());
+                                                .forget(),
+                                context.limits());
                 if (forgotten == KernelKeyring.Forgotten.CLEARED) {
                     // Kept where the old one was: the person just typed it twice, and 'vault
                     // unlock' would only ask it a third time.

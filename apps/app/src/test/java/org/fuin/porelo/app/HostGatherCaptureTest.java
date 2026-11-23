@@ -18,7 +18,7 @@ class HostGatherCaptureTest {
     void outputLimitsCannotTurnACredentialIntoAnUnredactableFragment(String form) {
         // Cutting a diagnostic through a credential must never reveal its surviving fragment.
         final var runner =
-                new HostGatherRunner() {
+                new HostGatherRunner(org.fuin.porelo.wire.LimitFactors.DEFAULT) {
                     @Override
                     protected Process start(ProcessBuilder builder) throws java.io.IOException {
                         builder.command(
@@ -70,7 +70,7 @@ class HostGatherCaptureTest {
         // An orphaned pipe must not hang a transfer while its credentials remain in memory.
         final Path marker = dir.resolve("children");
         final var runner =
-                new HostGatherRunner() {
+                new HostGatherRunner(org.fuin.porelo.wire.LimitFactors.DEFAULT) {
                     @Override
                     protected Process start(ProcessBuilder builder) throws java.io.IOException {
                         builder.command(
@@ -133,7 +133,7 @@ class HostGatherCaptureTest {
         // Teardown must not report an intentional stop as a failed remote transfer.
         final Path marker = dir.resolve("running");
         final var runner =
-                new HostGatherRunner() {
+                new HostGatherRunner(org.fuin.porelo.wire.LimitFactors.DEFAULT) {
                     @Override
                     protected Process start(ProcessBuilder builder) throws java.io.IOException {
                         builder.command(

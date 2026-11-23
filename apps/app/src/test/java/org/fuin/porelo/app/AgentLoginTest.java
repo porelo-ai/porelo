@@ -1391,4 +1391,17 @@ class AgentLoginTest {
         // And the plain form is still what names the directory itself, for anything that wants it.
         assertThat(AgentLogin.inContainer("~/.claude")).isEqualTo("/home/agent/.claude");
     }
+
+    @Test
+    void aFinishedLoginsContainerHoldsFiveMinutesTimesTheMachinesFactor() {
+        assertThat(AgentLogin.holding(List.of("login"), org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                .as("at the factor 1.0")
+                .anySatisfy(argument -> assertThat(argument).contains("sleep 300 & wait"));
+        assertThat(
+                        AgentLogin.holding(
+                                List.of("login"),
+                                org.fuin.porelo.wire.LimitFactors.parse("machines=2")))
+                .as("at 2.0")
+                .anySatisfy(argument -> assertThat(argument).contains("sleep 600 & wait"));
+    }
 }

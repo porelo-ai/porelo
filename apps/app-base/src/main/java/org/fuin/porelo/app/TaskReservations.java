@@ -352,7 +352,8 @@ public final class TaskReservations {
                 // Still under the name lock: no new task may inherit the removed task's mail,
                 // and no other start may claim the name between this delete and publication.
                 try {
-                    new Mailbox(context.paths().messaging().mailbox(container)).delete();
+                    new Mailbox(context.paths().messaging().mailbox(container))
+                            .delete(context.limits());
                 } catch (final IOException ex) {
                     throw new MailboxNotDeleted(ex);
                 }

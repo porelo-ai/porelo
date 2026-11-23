@@ -20,8 +20,14 @@ public final class SigningShim {
     /** Its file in the task's runtime state, written by the launch of a certified task. */
     public static final String FILE = "sign";
 
-    /** The program, a POSIX shell script: every image has a shell, curl and git. */
-    public static final String TEXT =
+    /** How long the gate has to sign, at the services factor 1.0. */
+    static final java.time.Duration SIGNING = java.time.Duration.ofSeconds(60);
+
+    /**
+     * The program, a POSIX shell script: every image has a shell, curl and git. {@code %s} is where
+     * the time the gate has to sign goes.
+     */
+    private static final String TEXT =
             """
             #!/bin/sh
             # Porelo: signs this task's commit at its gate; the task's key never enters the container.
@@ -44,23 +50,36 @@ public final class SigningShim {
               exit 1
             fi
             header=$(git config --get "http.${PORELO_GATE_URL}.extraHeader") || exit 1
-            exec curl --silent --show-error --fail --max-time 60 -H "$header" \\
+            exec curl --silent --show-error --fail --max-time %s -H "$header" \\
               --data-binary "@$file" -o "$file.sig" "${PORELO_GATE_URL}porelo/sign"
             """;
 
     private SigningShim() {}
 
     /**
+     * Returns the program.
+     *
+     * @param limits The factors the time the gate has to sign follows.
+     * @return The script.
+     */
+    public static String text(final org.fuin.porelo.wire.LimitFactors limits) {
+        // Only the number is put in: the rest of the script has no '%'.
+        return TEXT.replace("%s", ShellSeconds.decimal(limits.services(SIGNING)));
+    }
+
+    /**
      * Writes the program into a task's runtime state, readable and runnable, not writable.
      *
      * @param state The task's runtime state.
+     * @param limits The factors the time the gate has to sign follows.
      * @return The file.
      * @throws IOException If it cannot be written.
      */
-    public static Path prepare(final Path state) throws IOException {
+    public static Path prepare(final Path state, final org.fuin.porelo.wire.LimitFactors limits)
+            throws IOException {
         final Path file = state.resolve(FILE);
         Files.deleteIfExists(file);
-        Files.writeString(file, TEXT, StandardCharsets.UTF_8);
+        Files.writeString(file, text(limits), StandardCharsets.UTF_8);
         Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("r-xr-xr-x"));
         return file;
     }

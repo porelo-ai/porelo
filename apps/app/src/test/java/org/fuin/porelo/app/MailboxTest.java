@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -186,7 +187,7 @@ class MailboxTest {
         mailbox.create();
         Files.writeString(mailbox.rejected().resolve("secret.json"), "{}");
 
-        mailbox.delete();
+        mailbox.delete(LimitFactors.DEFAULT);
 
         assertThat(mailbox.exists()).isFalse();
         assertThat(mailbox.root()).doesNotExist();
@@ -194,7 +195,7 @@ class MailboxTest {
 
     @Test
     void deleting_a_mailbox_that_was_never_made_is_not_an_error() throws IOException {
-        new Mailbox(temp.resolve("never")).delete();
+        new Mailbox(temp.resolve("never")).delete(LimitFactors.DEFAULT);
     }
 
     @Test
@@ -207,6 +208,7 @@ class MailboxTest {
                 new java.util.concurrent.atomic.AtomicInteger();
 
         mailbox.delete(
+                LimitFactors.DEFAULT,
                 () -> {
                     if (walks.incrementAndGet() == 1) {
                         late(mailbox.root().resolve(".guide1.tmp"));
@@ -217,9 +219,20 @@ class MailboxTest {
     }
 
     @Test
-    void a_writer_that_never_stops_fails_the_delete_after_a_few_tries() throws IOException {
+    void a_writer_that_never_stops_fails_the_delete_after_its_tries_times_the_retries_factor()
+            throws IOException {
         // Bounded: a removal is never held by a writer that keeps writing.
-        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        assertThat(walksOfANeverEmptyingDelete("porelo-p-t", LimitFactors.DEFAULT))
+                .as("five walks at the factor 1.0")
+                .isEqualTo(5);
+        assertThat(walksOfANeverEmptyingDelete("porelo-p-u", LimitFactors.parse("retries=2")))
+                .as("twice as many at 2.0")
+                .isEqualTo(10);
+    }
+
+    private int walksOfANeverEmptyingDelete(final String name, final LimitFactors limits)
+            throws IOException {
+        final Mailbox mailbox = new Mailbox(temp.resolve(name));
         mailbox.create();
         final java.util.concurrent.atomic.AtomicInteger walks =
                 new java.util.concurrent.atomic.AtomicInteger();
@@ -227,6 +240,7 @@ class MailboxTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () ->
                                 mailbox.delete(
+                                        limits,
                                         () ->
                                                 late(
                                                         mailbox.root()
@@ -237,7 +251,7 @@ class MailboxTest {
                                                                                 + ".tmp"))))
                 .as("a mailbox that does not empty is a failed delete")
                 .isInstanceOf(java.nio.file.DirectoryNotEmptyException.class);
-        assertThat(walks.get()).as("walked again, a bounded number of times").isBetween(2, 10);
+        return walks.get();
     }
 
     @Test
@@ -357,7 +371,7 @@ class MailboxTest {
         // A writer late for a removed task made its mailbox again, and its name stayed taken.
         final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
         mailbox.create();
-        mailbox.delete();
+        mailbox.delete(LimitFactors.DEFAULT);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> mailbox.ensure(mailbox.record()))
                 .isInstanceOf(java.nio.file.NoSuchFileException.class);

@@ -28,30 +28,46 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
     private boolean closed;
     private final Duration executionLimit;
     private final java.util.function.BooleanSupplier open;
+    private final org.fuin.porelo.wire.LimitFactors limits;
 
-    HostGatherRunner() {
-        this(Duration.ZERO);
+    /** How long a command of the host's runs at most, at the machines factor 1.0. */
+    private static final Duration SYSTEM_LIMIT = Duration.ofMinutes(10);
+
+    /** How long the output is read after the process ended, at the machines factor 1.0. */
+    private static final Duration READ_END = Duration.ofSeconds(2);
+
+    /** How long a closed transfer's processes have to end before they are killed, at 1.0. */
+    private static final Duration END = Duration.ofSeconds(3);
+
+    HostGatherRunner(org.fuin.porelo.wire.LimitFactors limits) {
+        this(Duration.ZERO, () -> true, limits);
     }
 
-    private HostGatherRunner(Duration executionLimit) {
-        this(executionLimit, () -> true);
-    }
-
-    HostGatherRunner(Duration executionLimit, java.util.function.BooleanSupplier open) {
-        this.executionLimit = executionLimit;
+    /**
+     * Constructor.
+     *
+     * @param executionLimit How long one command may run at the machines factor 1.0; zero for no
+     *     limit.
+     * @param open Whether the transfer is still wanted.
+     * @param limits The factors every wait of the runner follows.
+     */
+    HostGatherRunner(
+            Duration executionLimit,
+            java.util.function.BooleanSupplier open,
+            org.fuin.porelo.wire.LimitFactors limits) {
+        this.executionLimit = limits.machines(executionLimit);
         this.open = open;
+        this.limits = limits;
     }
 
-    static CommandResult system(
-            org.fuin.porelo.core.process.CommandRunner runner, Command command) {
-        return system(runner, command, Duration.ofMinutes(10));
+    static CommandResult system(PoreloContext context, Command command) {
+        return system(context, command, SYSTEM_LIMIT);
     }
 
-    static CommandResult system(
-            org.fuin.porelo.core.process.CommandRunner runner, Command command, Duration limit) {
-        if (!(runner instanceof org.fuin.porelo.core.process.ProcessCommandRunner))
-            return runner.run(command);
-        try (HostGatherRunner bounded = new HostGatherRunner(limit)) {
+    static CommandResult system(PoreloContext context, Command command, Duration limit) {
+        if (!(context.runner() instanceof org.fuin.porelo.core.process.ProcessCommandRunner))
+            return context.runner().run(command);
+        try (HostGatherRunner bounded = new HostGatherRunner(limit, () -> true, context.limits())) {
             return bounded.run(command);
         }
     }
@@ -112,7 +128,7 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
                 process.waitFor(10, TimeUnit.MILLISECONDS);
             }
             if (closing()) throw new HostGatherRefusal(130, "");
-            final long readEnd = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            final long readEnd = System.nanoTime() + limits.machines(READ_END).toNanos();
             input.get(Math.max(1, readEnd - System.nanoTime()), TimeUnit.NANOSECONDS);
             final String stdout =
                     output.get(Math.max(1, readEnd - System.nanoTime()), TimeUnit.NANOSECONDS);
@@ -191,7 +207,7 @@ class HostGatherRunner implements CommandRunner, AutoCloseable {
             process.descendants().forEach(observed::add);
             children = new ArrayList<>(observed).reversed();
         }
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        final long deadline = System.nanoTime() + limits.machines(END).toNanos();
         try {
             // Descendants end first so their parents can reap them before they end too.
             for (ProcessHandle child : children) {

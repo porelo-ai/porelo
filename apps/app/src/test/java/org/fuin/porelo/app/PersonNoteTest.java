@@ -19,7 +19,7 @@ class PersonNoteTest {
         // between got the mailbox back as its inbox, and the task's retired name stayed taken.
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
-        mailbox.delete();
+        mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () -> new PersonNote().moved(mailbox, Map.of("main", "abc123")))
