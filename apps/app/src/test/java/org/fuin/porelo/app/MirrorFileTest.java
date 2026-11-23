@@ -77,6 +77,26 @@ class MirrorFileTest {
     }
 
     @Test
+    void aDirectoryHoldingFilesButNoRepositoryIsSaidWithItsPathAndKept(@TempDir Path root)
+            throws Exception {
+        final Path place = Files.createDirectories(root.resolve("mirrors").resolve("p.git"));
+        Files.writeString(place.resolve("notes.txt"), "someone's\n");
+
+        final MirrorFile.DefaultBranch branch = MirrorFile.defaultBranch(runner, place);
+        assertThat(branch).isEqualTo(new MirrorFile.NotARepository(place));
+        assertThat(
+                        MirrorFile.refusal(
+                                branch,
+                                new org.fuin.porelo.core.project.Repository(
+                                        "p", "git@example.com:o/p.git")))
+                .as("this machine's to move aside, never the forge's default branch to change")
+                .contains(place.toString())
+                .contains("move it aside")
+                .doesNotContain("default branch of");
+        assertThat(place.resolve("notes.txt")).as("nothing in it is deleted").exists();
+    }
+
+    @Test
     void aRealDetachedHeadIsSaidWithTheMirrorsPathFirst(@TempDir Path root) throws Exception {
         final Path mirror = mirror(root);
         final String commit =

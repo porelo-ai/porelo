@@ -960,7 +960,7 @@ public final class ProjectInventory {
                             repository.name(),
                             repository.name().equals(project.name()),
                             repository.upstream() == null ? "" : repository.upstream(),
-                            Files.isDirectory(mirror) ? mirror.toString() : "",
+                            MirrorFile.present(mirror) ? mirror.toString() : "",
                             pendingInMirror(mirror),
                             upstream.get(UpstreamRecords.key(project.name(), repository.name())),
                             grantsOf(project, repository),
@@ -1077,7 +1077,7 @@ public final class ProjectInventory {
      * @return How many pushes are waiting, zero when it cannot be asked.
      */
     private int pendingInMirror(Path mirror) {
-        if (!Files.isDirectory(mirror)) {
+        if (!MirrorFile.present(mirror)) {
             return 0;
         }
         try {

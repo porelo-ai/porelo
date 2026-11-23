@@ -29,7 +29,8 @@ final class MirrorFile {
     }
 
     /** The states that determine whether reviewed files can be read from a mirror. */
-    sealed interface DefaultBranch permits Found, NoMirror, Empty, Missing, Detached, TaskBranch {}
+    sealed interface DefaultBranch
+            permits Found, NoMirror, Empty, Missing, Detached, TaskBranch, NotARepository {}
 
     /**
      * A default branch holding reviewed commits.
@@ -67,6 +68,23 @@ final class MirrorFile {
     }
 
     /**
+     * The mirror's place holds files but no repository: something to move aside, never to delete.
+     *
+     * @param mirror Where the mirror belongs on this machine.
+     */
+    record NotARepository(Path mirror) implements DefaultBranch {}
+
+    /**
+     * Returns whether a mirror is there: a directory holding a git object store.
+     *
+     * @param mirror Where the mirror belongs.
+     * @return Whether it holds a repository.
+     */
+    static boolean present(Path mirror) {
+        return Files.isDirectory(mirror.resolve("objects"));
+    }
+
+    /**
      * HEAD does not name a branch symbolically.
      *
      * @param mirror Where the mirror lies on this machine.
@@ -90,8 +108,8 @@ final class MirrorFile {
     static DefaultBranch defaultBranch(CommandRunner runner, Path mirror) {
         // A directory holding no repository - empty, or never finished - is no mirror: it is made
         // anew, as an absent one is, and never read as a detached HEAD the upstream must fix.
-        if (!Files.isDirectory(mirror.resolve("objects"))) {
-            return new NoMirror();
+        if (!present(mirror)) {
+            return empty(mirror) ? new NoMirror() : new NotARepository(mirror);
         }
         final CommandResult head =
                 runner.run(
@@ -158,6 +176,10 @@ final class MirrorFile {
                                     + " as its default branch, which does not exist "
                                     + branchSummary(missing.branches());
                     case Detached _ -> "has a detached HEAD instead of a default branch";
+                    case NotARepository other ->
+                            "has its place at "
+                                    + other.mirror()
+                                    + " taken by a directory that holds no git repository";
                     case TaskBranch task ->
                             "names "
                                     + task.ref()
@@ -165,6 +187,14 @@ final class MirrorFile {
                 };
         if (problem == null) {
             return null;
+        }
+        if (branch instanceof NotARepository) {
+            // Not the forge's to fix: the place is this machine's, and what lies there is kept.
+            return "the mirror of "
+                    + repository.name()
+                    + " "
+                    + problem
+                    + "; move it aside, and the next start makes the mirror anew";
         }
         final String upstream = repository.upstream();
         return "the mirror of "
@@ -197,7 +227,8 @@ final class MirrorFile {
     static Optional<String> read(CommandRunner runner, Path mirror, String path) {
         return switch (defaultBranch(runner, mirror)) {
             case Found found -> read(runner, mirror, found.ref(), path);
-            case NoMirror _, Empty _, Missing _, Detached _, TaskBranch _ -> Optional.empty();
+            case NoMirror _, Empty _, Missing _, Detached _, TaskBranch _, NotARepository _ ->
+                    Optional.empty();
         };
     }
 
@@ -254,5 +285,17 @@ final class MirrorFile {
                     "Cannot read " + path + " in " + mirror + ": " + shown.standardError().strip());
         }
         return Optional.of(shown.standardOutput());
+    }
+
+    // An empty directory is what a start can replace whole; anything in it is someone's.
+    private static boolean empty(Path mirror) {
+        if (!Files.isDirectory(mirror)) {
+            return true;
+        }
+        try (java.util.stream.Stream<Path> inside = Files.list(mirror)) {
+            return inside.findAny().isEmpty();
+        } catch (java.io.IOException ex) {
+            throw new ProjectException("Cannot read " + mirror + ": " + ex.getMessage(), ex);
+        }
     }
 }
