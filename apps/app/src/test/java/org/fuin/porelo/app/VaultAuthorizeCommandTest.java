@@ -45,6 +45,66 @@ class VaultAuthorizeCommandTest {
                 .contains(Duration.ofSeconds(60));
     }
 
+    @Test
+    void aPersonHasTenMinutesToAnswerARedirectAtAnyFactor(@TempDir final Path dir)
+            throws Exception {
+        final int port;
+        try (java.net.ServerSocket free = new java.net.ServerSocket(0)) {
+            port = free.getLocalPort();
+        }
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(prompt -> PASSPHRASE.clone());
+        context.vault()
+                .write(
+                        Map.of(
+                                "service",
+                                new org.fuin.porelo.vault.VaultEntry(
+                                        "-",
+                                        org.fuin.porelo.supervisor.CodeGrant.KIND,
+                                        Map.of(
+                                                "client_id", "test-client",
+                                                "authorization_url", "http://127.0.0.1:1/auth",
+                                                "token_url", "http://127.0.0.1:1/token",
+                                                "redirect_port", String.valueOf(port)))),
+                        PASSPHRASE);
+        context.requireOpener();
+        final PoreloContext factored =
+                context.withAccount(
+                        AccountConfig.read(
+                                new java.io.StringReader(
+                                        "limits:\n  services: 10\n  machines: 10\n"
+                                                + "  polling: 10\n  retries: 10\n"),
+                                "t"));
+
+        final VaultAuthorizeCommand.Flow flow = VaultAuthorizeCommand.flowFor(factored, "service");
+        final VaultAuthorizeCommand.Shown shown = flow.start();
+        try {
+            assertThat(shown.expiresIn()).isEqualTo(Duration.ofMinutes(10));
+        } finally {
+            // Answers the redirect itself, so the listener the flow opened is closed.
+            final String state =
+                    java.util.Arrays.stream(shown.link().split("[?&]"))
+                            .filter(part -> part.startsWith("state="))
+                            .findFirst()
+                            .orElseThrow();
+            java.net.http.HttpClient.newHttpClient()
+                    .send(
+                            java.net.http.HttpRequest.newBuilder(
+                                            java.net.URI.create(
+                                                    "http://127.0.0.1:"
+                                                            + port
+                                                            + "/callback?error=access_denied&"
+                                                            + state))
+                                    .build(),
+                            java.net.http.HttpResponse.BodyHandlers.discarding());
+            flow.await();
+        }
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"refresh", "lasting", "refused"})
     void authorizationReportsTheUseOnlyAfterKeepingAGrant(

@@ -198,7 +198,7 @@ class InstalledEcosystemsTest {
     }
 
     @Test
-    void aPluginThatNeverDescribesItselfIsGivenUpOnAtTheLimitUnderTheServicesFactor()
+    void aPluginThatNeverDescribesItselfIsGivenUpOnAtTheLimitUnderTheMachinesFactor()
             throws IOException {
         plugin("user", "silent", "silent");
 
@@ -209,7 +209,7 @@ class InstalledEcosystemsTest {
                                         InstalledEcosystems.all(
                                                         locations(),
                                                         org.fuin.porelo.wire.LimitFactors.parse(
-                                                                "services=0.1"))
+                                                                "machines=0.1"))
                                                 .getFirst()
                                                 .refusal())
                                 .contains("silent", "within 1 seconds"));

@@ -46,6 +46,15 @@ class DeviceGrantTest {
                  "verification_uri_complete":"https://example.com/device?user_code=WDJB-MJHT","expires_in":900,"interval":5}
                 """));
         server.createContext(
+                "/device-unstated",
+                exchange ->
+                        answer(
+                                exchange,
+                                200,
+                                """
+                {"device_code":"dc-1","user_code":"WDJB-MJHT","verification_uri":"https://example.com/device"}
+                """));
+        server.createContext(
                 "/token",
                 exchange -> {
                     tokenBodies.add(
@@ -135,6 +144,26 @@ class DeviceGrantTest {
         assertThatThrownBy(grant::start)
                 .hasMessageNotContaining("the-client-secret-sent")
                 .hasMessageContaining("does not define");
+    }
+
+    @Test
+    void aLifeTheServiceDoesNotStateIsAssumedAtNoFactor() throws Exception {
+        final String base = "http://127.0.0.1:" + server.getAddress().getPort();
+        final DeviceGrant grant =
+                new DeviceGrant(
+                                new DeviceGrant.Client(
+                                        base + "/device-unstated",
+                                        base + "/token",
+                                        "porelo-client",
+                                        null,
+                                        "repo",
+                                        base + "/revoke"),
+                                HttpClient.newHttpClient())
+                        .limitedBy(
+                                org.fuin.porelo.wire.LimitFactors.parse(
+                                        "services=10,machines=10,polling=10,retries=10"));
+
+        assertThat(grant.start().expiresIn()).isEqualTo(Duration.ofMinutes(10));
     }
 
     @Test

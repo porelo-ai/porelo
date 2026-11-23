@@ -37,11 +37,14 @@ public final class TokenPurchase implements TokenSource {
 
     /**
      * How long before its expiry a token is bought again, so no request is sent with one about to
-     * lapse.
+     * lapse. A validity, not a wait: it follows no factor.
      */
     public static final Duration MARGIN = Duration.ofSeconds(60);
 
-    /** Assumed when the authorization server says nothing about how long its token lasts. */
+    /**
+     * Assumed when the authorization server says nothing about how long its token lasts; a
+     * validity, not a wait, so it follows no factor.
+     */
     static final Duration UNSTATED = Duration.ofMinutes(5);
 
     /** How long a refusal is answered from memory before the server is asked again. */
@@ -49,26 +52,6 @@ public final class TokenPurchase implements TokenSource {
 
     /** How long one purchase may take. */
     static final Duration REQUEST = Duration.ofSeconds(30);
-
-    /**
-     * Returns how long before its expiry a token is bought again.
-     *
-     * @param limits The factors.
-     * @return {@link #MARGIN} under {@code polling}.
-     */
-    public static Duration margin(final org.fuin.porelo.wire.LimitFactors limits) {
-        return limits.polling(MARGIN);
-    }
-
-    /**
-     * Returns how long a token lasts when the server says nothing about it.
-     *
-     * @param limits The factors.
-     * @return {@link #UNSTATED} under {@code services}.
-     */
-    static Duration unstated(final org.fuin.porelo.wire.LimitFactors limits) {
-        return limits.services(UNSTATED);
-    }
 
     /**
      * Returns how long a refusal is answered from memory.
@@ -444,7 +427,7 @@ public final class TokenPurchase implements TokenSource {
                                 && seconds.longValue() > 0
                                 && seconds.longValue() <= LONGEST.toSeconds()
                         ? Duration.ofSeconds(seconds.longValue())
-                        : unstated(limits);
+                        : UNSTATED;
         if (refresh != null
                 && document.get("refresh_token") instanceof String next
                 && !next.isBlank()
@@ -458,8 +441,8 @@ public final class TokenPurchase implements TokenSource {
         good =
                 clock.instant()
                         .plus(
-                                lasts.compareTo(margin(limits).multipliedBy(2)) > 0
-                                        ? lasts.minus(margin(limits))
+                                lasts.compareTo(MARGIN.multipliedBy(2)) > 0
+                                        ? lasts.minus(MARGIN)
                                         : lasts.dividedBy(2));
         bought++;
         return access;

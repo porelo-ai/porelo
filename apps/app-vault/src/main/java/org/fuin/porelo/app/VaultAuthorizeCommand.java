@@ -295,7 +295,10 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
                 .build();
     }
 
-    /** How long a person has to answer a redirect, where no service says. */
+    /**
+     * How long a person has to answer a redirect, where no service says; a person's own time, so it
+     * follows no factor.
+     */
     static final java.time.Duration REDIRECT_WAIT = java.time.Duration.ofMinutes(10);
 
     /**
@@ -351,8 +354,7 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
 
                 @Override
                 public Shown start() throws TokenPurchase.Refused {
-                    final CodeGrant.Started now =
-                            grant.start(context.limits().services(REDIRECT_WAIT));
+                    final CodeGrant.Started now = grant.start(REDIRECT_WAIT);
                     started = now;
                     return new Shown(now.link(), "", now.port(), now.expiresIn());
                 }

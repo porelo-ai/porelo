@@ -19,7 +19,11 @@ machine is met by one setting rather than a new build. Each factor is 1.0 unless
 - **A task image's apt download timeout and retries follow `services` and `retries`**, so an image built
   under other factors reads as stale.
 - **A setting that is a person's decision is never multiplied**: an agent's run limit, how long a card or a
-  token holds, how long records are kept.
+  token holds, how long records are kept. So are a person's own time (how long they have to type a
+  password or to answer a redirect), how often a person may type a wrong passphrase, and how long a token is
+  assumed to last when its service names no end, with the margin before that end at which it is renewed.
+- **A local program becoming ready is `machines`**, not `services`: an agent, a build reader, an ecosystem
+  adapter, the task's MCP program, and the `git log` a review's makers are read with.
 - **Sizes, counts and protocol values are not limits of time** and follow no factor.
 
 ## The limits line

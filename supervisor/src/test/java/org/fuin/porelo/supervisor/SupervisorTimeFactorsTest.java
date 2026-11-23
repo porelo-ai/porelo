@@ -17,8 +17,6 @@ class SupervisorTimeFactorsTest {
         assertThat(Grants.requestLimit(doubled)).isEqualTo(Duration.ofSeconds(60));
         assertThat(ServiceMetadata.requestLimit(doubled)).isEqualTo(Duration.ofSeconds(60));
         assertThat(TokenPurchase.requestLimit(doubled)).isEqualTo(Duration.ofSeconds(60));
-        assertThat(TokenPurchase.unstated(doubled)).isEqualTo(Duration.ofMinutes(10));
-        assertThat(DeviceGrant.unstated(doubled)).isEqualTo(Duration.ofMinutes(20));
         assertThat(UnixHttp.idle(doubled)).isEqualTo(Duration.ofMinutes(20));
         assertThat(VaultProxy.connect(doubled)).isEqualTo(Duration.ofSeconds(60));
         assertThat(VaultProxy.upstream(doubled)).isEqualTo(Duration.ofMinutes(20));
@@ -28,8 +26,6 @@ class SupervisorTimeFactorsTest {
         assertThat(Grants.requestLimit(plain)).isEqualTo(Duration.ofSeconds(30));
         assertThat(ServiceMetadata.requestLimit(plain)).isEqualTo(Duration.ofSeconds(30));
         assertThat(TokenPurchase.requestLimit(plain)).isEqualTo(Duration.ofSeconds(30));
-        assertThat(TokenPurchase.unstated(plain)).isEqualTo(Duration.ofMinutes(5));
-        assertThat(DeviceGrant.unstated(plain)).isEqualTo(Duration.ofMinutes(10));
         assertThat(UnixHttp.idle(plain)).isEqualTo(Duration.ofMinutes(10));
         assertThat(VaultProxy.connect(plain)).isEqualTo(Duration.ofSeconds(30));
         assertThat(VaultProxy.upstream(plain)).isEqualTo(Duration.ofMinutes(10));
@@ -46,12 +42,10 @@ class SupervisorTimeFactorsTest {
     }
 
     @Test
-    void whenATokenIsBoughtAgainAndARefusalIsKeptFollowThePollingFactor() {
+    void howLongARefusalIsKeptFollowsThePollingFactor() {
         final LimitFactors doubled = LimitFactors.parse("polling=2");
 
-        assertThat(TokenPurchase.margin(doubled)).isEqualTo(Duration.ofSeconds(120));
         assertThat(TokenPurchase.refusalHeld(doubled)).isEqualTo(Duration.ofSeconds(10));
-        assertThat(TokenPurchase.margin(LimitFactors.DEFAULT)).isEqualTo(Duration.ofSeconds(60));
         assertThat(TokenPurchase.refusalHeld(LimitFactors.DEFAULT))
                 .isEqualTo(Duration.ofSeconds(5));
     }

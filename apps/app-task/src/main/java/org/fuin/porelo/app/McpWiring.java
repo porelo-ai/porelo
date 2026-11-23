@@ -424,7 +424,7 @@ final class McpWiring {
 
     private static void awaitReady(
             Process process, Path state, Path socket, org.fuin.porelo.wire.LimitFactors limits) {
-        final long deadline = System.nanoTime() + limits.services(READY).toNanos();
+        final long deadline = System.nanoTime() + limits.machines(READY).toNanos();
         final Duration look = limits.polling(LOOK);
         while (System.nanoTime() < deadline) {
             if (ready(state)) {

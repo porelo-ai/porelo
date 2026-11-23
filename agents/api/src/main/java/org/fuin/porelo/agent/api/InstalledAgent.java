@@ -50,10 +50,10 @@ public class InstalledAgent implements AutoCloseable {
      * what it finds.
      *
      * @param limits The factors.
-     * @return {@link #READY_DEADLINE} under {@code services}.
+     * @return {@link #READY_DEADLINE} under {@code machines}.
      */
     static java.time.Duration readyDeadline(final org.fuin.porelo.wire.LimitFactors limits) {
-        return limits.services(READY_DEADLINE);
+        return limits.machines(READY_DEADLINE);
     }
 
     /**

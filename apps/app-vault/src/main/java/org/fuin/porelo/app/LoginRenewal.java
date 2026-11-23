@@ -209,7 +209,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                         return entries;
                     }
                     final Map<String, String> settings = new LinkedHashMap<>(entry.settings());
-                    final Instant ends = purchase.goodUntil().plus(TokenPurchase.margin(limits));
+                    final Instant ends = purchase.goodUntil().plus(TokenPurchase.MARGIN);
                     settings.put(LoginCredentials.EXPIRES_AT, ends.toString());
                     if (!serviceGrant) {
                         entries.put(name, new VaultEntry(renewed, entry.type(), settings));
@@ -242,7 +242,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
             return Instant.MIN;
         }
         try {
-            return Instant.parse(ends).minus(TokenPurchase.margin(limits));
+            return Instant.parse(ends).minus(TokenPurchase.MARGIN);
         } catch (final java.time.format.DateTimeParseException ex) {
             return Instant.MIN;
         }

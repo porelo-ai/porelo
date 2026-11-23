@@ -803,6 +803,33 @@ class IdentityKeePassXcTest {
                 .doesNotExist();
     }
 
+    /** A person's own time to type is theirs, whatever factor the account sets for services. */
+    @Test
+    void a_persons_time_to_type_follows_no_factor() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.NEVER_TYPED);
+        final Path silent = dir.resolve("silent");
+        registry.runner.runOrFail(
+                org.fuin.porelo.core.process.Command.of("mkfifo", silent.toString()));
+        registry.account =
+                AccountConfig.read(
+                        new java.io.StringReader("limits:\n  services: 0.1\n  machines: 0.1\n"),
+                        "t");
+
+        try (java.io.RandomAccessFile held = new java.io.RandomAccessFile(silent.toFile(), "rw")) {
+            assertThat(
+                            create(
+                                    keepass.typing(silent, Duration.ofSeconds(1)),
+                                    "--keepassxc",
+                                    keepass.database.toString(),
+                                    "--id",
+                                    "c1",
+                                    "--json"))
+                    .isEqualTo(64);
+        }
+
+        assertThat(registry.out.toString()).contains("within 1 s");
+    }
+
     /** keepassxc-cli asks for the master password itself; without a terminal nobody can type. */
     @Test
     void without_a_terminal_it_is_refused_64_and_keepassxc_is_never_asked() throws Exception {

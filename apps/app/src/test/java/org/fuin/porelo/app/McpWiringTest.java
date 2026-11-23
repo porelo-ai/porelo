@@ -229,6 +229,28 @@ class McpWiringTest {
     }
 
     @Test
+    void aProgramThatNeverSaysReadyIsGivenUpOnAtTheLimitUnderTheMachinesFactor() throws Exception {
+        stand("sleep 30");
+        final PoreloContext context =
+                context()
+                        .withAccount(
+                                AccountConfig.read(
+                                        new java.io.StringReader("limits:\n  machines: 0.1\n"),
+                                        "t"));
+        final McpWiring.Endpoint endpoint = McpWiring.open(context, TASK, PROJECT).orElseThrow();
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(10),
+                () ->
+                        assertThatThrownBy(() -> McpWiring.start(context, endpoint))
+                                .isInstanceOfSatisfying(
+                                        McpWiring.Refused.class,
+                                        refused ->
+                                                assertThat(refused.refusal())
+                                                        .isEqualTo(McpWiring.Refusal.NOT_READY)));
+    }
+
+    @Test
     void anExitTwoBeforeReadyIsRefusedAsRefusedAtStart() throws Exception {
         stand("exit 2");
         final PoreloContext context = context();

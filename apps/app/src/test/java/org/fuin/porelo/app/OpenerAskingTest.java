@@ -103,6 +103,39 @@ class OpenerAskingTest {
     }
 
     @Test
+    void aPersonsTriesAreNotMultipliedByTheRetriesFactor() throws Exception {
+        final PoreloContext context =
+                context(answering("1", "2", "3", "4", "5", "6", "correct horse"))
+                        .withAccount(
+                                AccountConfig.read(
+                                        new java.io.StringReader(
+                                                "limits:\n  retries: 10\n  services: 10\n"
+                                                        + "  machines: 10\n  polling: 10\n"),
+                                        "t"));
+
+        assertThat(context.openerAsking(false, new PrintWriter(said))).isEmpty();
+        assertThat(shown).as("three tries however high the factors").hasSize(3);
+    }
+
+    @Test
+    void buildingTheContainerRuntimeReadsNoSettingYet() throws Exception {
+        final XdgPaths xdg = XdgPaths.of(name -> null, dir);
+        java.nio.file.Files.createDirectories(xdg.config());
+        java.nio.file.Files.writeString(xdg.config().resolve(AccountConfig.FILE), "nonsense: 1\n");
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(xdg, dir.resolve("bin")),
+                                arguments -> 0)
+                        .readingAccount();
+
+        // A command that needs no limit never fails on a bad file; only the first limit used does.
+        assertThat(context.podman()).isNotNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(context::limits)
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void unlocksItAsVaultUnlockDoesWhenATaskNeedsItAfterwards() {
         Assumptions.assumeTrue(KernelKeyring.available(), "no kernel keyring here");
         final PoreloContext context = context(answering("correct horse"));

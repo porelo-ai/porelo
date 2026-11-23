@@ -50,10 +50,10 @@ public final class InstalledBuildReader implements AutoCloseable {
      * Returns how long a reader may take to start and to describe itself.
      *
      * @param limits The factors.
-     * @return {@link #READY_SECONDS} under {@code services}.
+     * @return {@link #READY_SECONDS} under {@code machines}.
      */
     static Duration readyLimit(final org.fuin.porelo.wire.LimitFactors limits) {
-        return limits.services(Duration.ofSeconds(READY_SECONDS));
+        return limits.machines(Duration.ofSeconds(READY_SECONDS));
     }
 
     /**

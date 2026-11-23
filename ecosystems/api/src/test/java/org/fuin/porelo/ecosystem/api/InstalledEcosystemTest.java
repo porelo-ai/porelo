@@ -207,7 +207,6 @@ class InstalledEcosystemTest {
                 org.fuin.porelo.wire.LimitFactors.parse("services=2,machines=2");
         final org.fuin.porelo.wire.LimitFactors plain = org.fuin.porelo.wire.LimitFactors.DEFAULT;
 
-        assertThat(InstalledEcosystem.readyLimit(doubled)).isEqualTo(Duration.ofSeconds(20));
         assertThat(InstalledEcosystem.callLimit(doubled)).isEqualTo(Duration.ofSeconds(240));
         assertThat(InstalledEcosystem.resolveLimit(doubled)).isEqualTo(Duration.ofSeconds(40));
         assertThat(InstalledEcosystem.endWait(doubled)).isEqualTo(Duration.ofSeconds(10));
@@ -218,7 +217,19 @@ class InstalledEcosystemTest {
     }
 
     @Test
-    void aPluginThatNeverSaysItIsReadyIsGivenUpOnAtTheLimitUnderTheServicesFactor()
+    void aPluginBecomingReadyFollowsTheMachinesFactorAndNotTheServicesOne() {
+        assertThat(
+                        InstalledEcosystem.readyLimit(
+                                org.fuin.porelo.wire.LimitFactors.parse("services=2")))
+                .isEqualTo(Duration.ofSeconds(10));
+        assertThat(
+                        InstalledEcosystem.readyLimit(
+                                org.fuin.porelo.wire.LimitFactors.parse("machines=2")))
+                .isEqualTo(Duration.ofSeconds(20));
+    }
+
+    @Test
+    void aPluginThatNeverSaysItIsReadyIsGivenUpOnAtTheLimitUnderTheMachinesFactor()
             throws IOException {
         final Path executable = executable(directory.resolve("fake"), "sleep 600");
         final long started = System.nanoTime();
@@ -228,7 +239,7 @@ class InstalledEcosystemTest {
                                 new InstalledEcosystem(
                                         executable,
                                         run(),
-                                        org.fuin.porelo.wire.LimitFactors.parse("services=0.1")))
+                                        org.fuin.porelo.wire.LimitFactors.parse("machines=0.1")))
                 .isInstanceOf(EcosystemException.class)
                 .hasMessageContaining("did not answer within 1 seconds");
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(6));

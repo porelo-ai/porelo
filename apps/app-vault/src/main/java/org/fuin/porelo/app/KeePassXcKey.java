@@ -39,7 +39,7 @@ import org.jspecify.annotations.Nullable;
  * @param terminalIn What {@code keepassxc-cli} reads the password from: this process's own input.
  * @param terminalOut Where {@code keepassxc-cli} prompts and talks: this process's own error
  *     output, so the answer on standard output stays the verb's alone.
- * @param typing How long a person has for one prompt.
+ * @param typing How long a person has for one prompt; a person's own time, so it follows no factor.
  * @param judging Whether the two are looked at before anything runs; a test's are files.
  * @param running Whether KeePassXC runs; a test says, and a real one looks.
  */
@@ -455,7 +455,7 @@ record KeePassXcKey(
                     64,
                     "no-password",
                     "the master password was not typed within "
-                            + context.limits().services(typing).toSeconds()
+                            + typing.toSeconds()
                             + " s; nothing was kept");
         }
         final String added = ended.getOrDefault("add", "127");
@@ -517,8 +517,7 @@ record KeePassXcKey(
                                                     "porelo-keepassxc",
                                                     terminalIn.toString(),
                                                     terminalOut.toString(),
-                                                    ShellSeconds.decimal(
-                                                            context.limits().services(typing)),
+                                                    ShellSeconds.decimal(typing),
                                                     program,
                                                     database,
                                                     entry,

@@ -156,9 +156,7 @@ final class ClientPick {
                 attributes.put(
                         Credential.EXPIRES_AT,
                         Long.toString(
-                                purchase.goodUntil()
-                                        .plus(TokenPurchase.margin(limits))
-                                        .toEpochMilli()));
+                                purchase.goodUntil().plus(TokenPurchase.MARGIN).toEpochMilli()));
                 return new Credential(value.type(), token, attributes);
             }
         }

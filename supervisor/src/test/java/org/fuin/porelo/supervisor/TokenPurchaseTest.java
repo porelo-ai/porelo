@@ -209,6 +209,23 @@ class TokenPurchaseTest {
     }
 
     @Test
+    void aTokensAssumedLifeAndItsMarginFollowNoFactor() throws Exception {
+        final Instant start = Instant.parse("2026-09-29T12:00:00Z");
+        answer.set("{\"access_token\":\"at-1\"}");
+        final TokenPurchase purchase =
+                purchase(Clock.fixed(start, ZoneOffset.UTC))
+                        .limitedBy(
+                                org.fuin.porelo.wire.LimitFactors.parse(
+                                        "services=10,machines=10,polling=10,retries=10"));
+
+        purchase.current();
+
+        assertThat(purchase.goodUntil())
+                .as("five minutes assumed, less the minute's margin, at any factor")
+                .isEqualTo(start.plus(Duration.ofMinutes(4)));
+    }
+
+    @Test
     void aRefusalIsReportedAsTheAuthorizationServersAndNeverEchoesTheSecret() {
         status.set(401);
         answer.set(

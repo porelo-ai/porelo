@@ -580,6 +580,16 @@ public final class HostPullRequestReader {
         }
     }
 
+    /**
+     * Returns how long reading a commit's makers from a mirror may take.
+     *
+     * @param limits The factors.
+     * @return Ten seconds under {@code machines}: a local {@code git log}, as {@code MirrorTree}'s.
+     */
+    static Duration makersBound(final LimitFactors limits) {
+        return limits.machines(Duration.ofSeconds(10));
+    }
+
     private static String[] makers(Path mirror, String commit, LimitFactors limits) {
         final Process process;
         try {
@@ -624,7 +634,7 @@ public final class HostPullRequestReader {
         // Reading and waiting share a deadline: neither a full pipe nor a stuck git may hold the
         // daemon.
         try (var readers = Executors.newVirtualThreadPerTaskExecutor()) {
-            final Duration bound = limits.services(Duration.ofSeconds(10));
+            final Duration bound = makersBound(limits);
             final long deadline = System.nanoTime() + bound.toNanos();
             try {
                 final var read =

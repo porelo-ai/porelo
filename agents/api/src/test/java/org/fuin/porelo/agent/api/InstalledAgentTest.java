@@ -99,8 +99,6 @@ class InstalledAgentTest {
                 org.fuin.porelo.wire.LimitFactors.parse("services=2,machines=2");
         final org.fuin.porelo.wire.LimitFactors plain = org.fuin.porelo.wire.LimitFactors.DEFAULT;
 
-        assertThat(InstalledAgent.readyDeadline(doubled))
-                .isEqualTo(java.time.Duration.ofSeconds(20));
         assertThat(InstalledAgent.slowDeadline(doubled))
                 .isEqualTo(java.time.Duration.ofSeconds(240));
         assertThat(InstalledAgent.endGrace(doubled)).isEqualTo(java.time.Duration.ofSeconds(4));
@@ -109,8 +107,21 @@ class InstalledAgentTest {
         assertThat(InstalledAgent.endGrace(plain)).isEqualTo(java.time.Duration.ofSeconds(2));
     }
 
+    @Test
+    void aProgramBecomingReadyFollowsTheMachinesFactorAndNotTheServicesOne() {
+        final org.fuin.porelo.wire.LimitFactors services =
+                org.fuin.porelo.wire.LimitFactors.parse("services=2");
+        final org.fuin.porelo.wire.LimitFactors machines =
+                org.fuin.porelo.wire.LimitFactors.parse("machines=2");
+
+        assertThat(InstalledAgent.readyDeadline(services))
+                .isEqualTo(java.time.Duration.ofSeconds(10));
+        assertThat(InstalledAgent.readyDeadline(machines))
+                .isEqualTo(java.time.Duration.ofSeconds(20));
+    }
+
     @org.junit.jupiter.api.Test
-    void anAdapterThatNeverSaysItIsReadyIsGivenUpOnAtTheLimitUnderTheServicesFactor(
+    void anAdapterThatNeverSaysItIsReadyIsGivenUpOnAtTheLimitUnderTheMachinesFactor(
             @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
         final Path executable = adapter(dir, "silent", "sleep 600");
         final java.time.Instant started = java.time.Instant.now();
@@ -120,7 +131,7 @@ class InstalledAgentTest {
                                 new InstalledAgent(
                                         executable,
                                         dir.resolve("run"),
-                                        org.fuin.porelo.wire.LimitFactors.parse("services=0.1")))
+                                        org.fuin.porelo.wire.LimitFactors.parse("machines=0.1")))
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("did not become ready within 1 seconds");
         assertThat(java.time.Duration.between(started, java.time.Instant.now()))

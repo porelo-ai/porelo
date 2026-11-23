@@ -257,7 +257,7 @@ public record PoreloContext(
 
     /**
      * How often a wrong passphrase is asked again before the command refuses as it would without a
-     * terminal.
+     * terminal. A bound on a person's guesses, so it follows no factor.
      */
     private static final int TRIES = 3;
 
@@ -486,7 +486,7 @@ public record PoreloContext(
     }
 
     // Read once, when first asked, so a command that needs no setting never fails on the file.
-    private PoreloContext readingAccount() {
+    PoreloContext readingAccount() {
         final Path file = paths.xdg().config().resolve(AccountConfig.FILE);
         final java.util.concurrent.atomic.AtomicReference<@Nullable AccountConfig> read =
                 new java.util.concurrent.atomic.AtomicReference<>();
@@ -751,7 +751,7 @@ public record PoreloContext(
      *
      * <p>Without a terminal it asks nobody and returns what {@link #opener()} does, so a script,
      * the daemon and the watchers refuse as before. A wrong passphrase is asked again, {@value
-     * #TRIES} times in all, times the retries factor.
+     * #TRIES} times in all, whatever the retries factor.
      *
      * @param unlock Whether the answer unlocks the vault as {@code porelo vault unlock} does, for
      *     the same time, because a task needs it after this command: a task's start, run and
@@ -777,8 +777,7 @@ public record PoreloContext(
                 unlock
                         ? "Vault passphrase (unlocks it as 'porelo vault unlock' does): "
                         : "Vault passphrase (for this command only): ";
-        final int tries = limits().tries(TRIES);
-        for (int tried = 0; tried < tries; tried++) {
+        for (int tried = 0; tried < TRIES; tried++) {
             final char[] answer = prompt.ask(shown);
             if (answer == null) {
                 return java.util.Optional.empty();
@@ -1020,7 +1019,7 @@ public record PoreloContext(
                                 paths().egress().networkConfiguration(),
                                 environment)
                         .confining(org.fuin.porelo.wire.AppArmorProfile.real().taskProfile())
-                        .limitedBy(limits());
+                        .limitedBy(this::limits);
         return recognizesTasks ? podman.recognizing(this::recordedId) : podman;
     }
 

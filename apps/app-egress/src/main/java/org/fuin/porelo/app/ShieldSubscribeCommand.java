@@ -23,7 +23,15 @@ import picocli.CommandLine.Spec;
         name = "subscribe",
         mixinStandardHelpOptions = true,
         description = "Follows the blocked connections a running watcher reports.")
-public class ShieldSubscribeCommand implements Callable<Integer> {
+public class ShieldSubscribeCommand implements Callable<Integer>, PoreloFactory.ContextAware {
+
+    /** The machine, whose account's factors the connection to the watcher follows. */
+    private PoreloContext context = PoreloContext.real();
+
+    @Override
+    public void setContext(final PoreloContext context) {
+        this.context = context;
+    }
 
     @Option(
             names = "--socket",
@@ -46,7 +54,7 @@ public class ShieldSubscribeCommand implements Callable<Integer> {
         final PrintWriter out = spec.commandLine().getOut();
         final int[] seen = {0};
 
-        try (VarlinkClient client = new VarlinkClient(socket)) {
+        try (VarlinkClient client = new VarlinkClient(socket, context.limits())) {
             client.callMore(
                     ClearanceService.INTERFACE + ".Subscribe",
                     Map.of(),
