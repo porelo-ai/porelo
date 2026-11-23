@@ -26,6 +26,9 @@ final class HostGatherFlow {
     private final Path temporary;
     private final org.fuin.porelo.wire.LimitFactors limits;
 
+    /** How many of the commits central holds and local main lacks a refusal lists, newest first. */
+    static final int SHOWN = 20;
+
     /** How long curl has to connect to the central forge, at the services factor 1.0. */
     private static final java.time.Duration CONNECT = java.time.Duration.ofSeconds(5);
 
@@ -231,10 +234,21 @@ final class HostGatherFlow {
                                 config.ca()),
                         local,
                         central);
+                // Counted, and only the newest listed: central may hold hundreds of thousands.
+                final String count =
+                        output(
+                                repo,
+                                List.of("rev-list", "--count", "main..FETCH_HEAD"),
+                                local,
+                                central);
                 final String missing =
                         output(
                                 repo,
-                                List.of("log", "--oneline", "main..FETCH_HEAD"),
+                                List.of(
+                                        "log",
+                                        "--oneline",
+                                        "--max-count=" + SHOWN,
+                                        "main..FETCH_HEAD"),
                                 local,
                                 central);
                 require(
@@ -255,7 +269,8 @@ final class HostGatherFlow {
                         central);
                 err.println(
                         target.name()
-                                + ": refused, since the central forge holds commits local main lacks:\n"
+                                + ": refused, since the central forge holds "
+                                + lacking(count)
                                 + missing);
                 err.println(
                         target.name()
@@ -660,5 +675,22 @@ final class HostGatherFlow {
                 }
             }
         }
+    }
+
+    /** Says how many commits central holds beyond local main, and whether all are listed. */
+    static String lacking(final String count) {
+        final long counted;
+        try {
+            counted = Long.parseLong(count);
+        } catch (NumberFormatException ex) {
+            return "commits local main lacks (git counted '"
+                    + count
+                    + "'); the newest "
+                    + SHOWN
+                    + ":\n";
+        }
+        return (counted == 1 ? "1 commit" : counted + " commits")
+                + " local main lacks"
+                + (counted <= SHOWN ? ":\n" : "; the newest " + SHOWN + ":\n");
     }
 }

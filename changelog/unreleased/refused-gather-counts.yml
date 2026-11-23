@@ -1,0 +1,2 @@
+title: A gather central refuses says how many commits central holds that local main lacks and lists the newest 20, instead of failing past 16 MiB of git output when they are hundreds of thousands.
+type: fixed

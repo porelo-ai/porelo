@@ -26,6 +26,7 @@ class HostGatherFlowTest {
     private String fail = "";
     private String failureWords = "transport refused";
     private String relation = "ahead";
+    private String counted = "2\n";
     private boolean secretInUrl;
 
     private HostGatherConfig config() {
@@ -55,7 +56,7 @@ class HostGatherFlowTest {
                     args.contains("FETCH_HEAD")
                             ? relation.equals("equal") ? "local\n" : "central\n"
                             : "local\n";
-        if (args.contains("rev-list")) output = "2\n";
+        if (args.contains("rev-list")) output = counted;
         if (args.contains("log")) output = "abc123 central commit\n";
         if (args.contains("merge-base"))
             code =
@@ -150,6 +151,37 @@ class HostGatherFlowTest {
                 .filteredOn(c -> c.program().endsWith("/git"))
                 .noneMatch(c -> c.arguments().stream().anyMatch(a -> a.contains("second.git")));
         assertThat(err.toString()).contains("merge it in a task", "second");
+    }
+
+    @Test
+    void aRefusalNamesHowManyCommitsCentralHoldsAndShowsOnlyTheNewest() {
+        // Central may hold hundreds of thousands of commits local main lacks: say how many, show a
+        // few.
+        fail = "central-push";
+        failureWords = "[rejected] main -> main (fetch first)";
+        counted = "300000\n";
+        assertThat(transfer(false)).isEqualTo(1);
+        assertThat(err.toString())
+                .as("the count, and that only the newest are listed")
+                .contains("300000 commits local main lacks", "the newest " + HostGatherFlow.SHOWN);
+        assertThat(commands)
+                .filteredOn(c -> c.arguments().contains("log"))
+                .as("the log is bounded, never the whole difference")
+                .isNotEmpty()
+                .allSatisfy(
+                        c ->
+                                assertThat(c.arguments())
+                                        .contains("--max-count=" + HostGatherFlow.SHOWN));
+    }
+
+    @Test
+    void aFewMissingCommitsAreAllListedAndOneIsSaidAsOne() {
+        // Up to the shown count nothing is said to be left out.
+        assertThat(HostGatherFlow.lacking("1")).isEqualTo("1 commit local main lacks:\n");
+        assertThat(HostGatherFlow.lacking(String.valueOf(HostGatherFlow.SHOWN)))
+                .as("all of them listed")
+                .doesNotContain("newest");
+        assertThat(HostGatherFlow.lacking("21")).contains("21 commits", "the newest 20");
     }
 
     @ParameterizedTest
